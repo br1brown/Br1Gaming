@@ -1,0 +1,56 @@
+# Visual Studio / .NET
+.vs/
+[Bb]in/
+[Oo]bj/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.slnLaunch
+
+# Rider
+.idea/
+*.sln.iml
+
+# Local launch/debug config
+.vscode/
+frontend/.vscode/
+
+# Node.js / Angular
+node_modules/
+dist/
+**/.angular/cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+*.tmp
+
+# File .env locale (eventuali override/segreti). La configurazione del template
+# vive in global-settings.json, non in un .env: questa riga è solo una rete di
+# sicurezza per non committare per sbaglio un .env aggiunto a livello di progetto.
+.env
+
+# Override locale con i SEGRETI REALI di produzione (SecretKey, ApiKeys, ...).
+# deploy.sh/public-test.sh lo fondono su global-settings.json; senza questo file lo
+# stack parte comunque (br1-config.sh genera un ApiKey effimero), così il template gira
+# subito ma i segreti veri restano fuori dal repo. Vedi global-settings.local.example.json.
+global-settings.local.json
+# File di config effettivo generato dal merge (montato nei container).
+.br1-settings.effective.json
+# Backup dei volumi dati prodotti da backup.sh
+/backups/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+frontend/public/
+frontend/src/environments/environment.ts
+.claude
+frontend/lh-report.json
+frontend/ssr-server*.log
