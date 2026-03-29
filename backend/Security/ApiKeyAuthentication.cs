@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
-namespace Br1WebEngine.Security;
+namespace Backend.Security;
 
 /// <summary>
 /// Definisce i nomi condivisi dallo schema di autenticazione API key del template.

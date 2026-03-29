@@ -1,6 +1,6 @@
-using Br1WebEngine.Models.Legal;
+using Backend.Models.Legal;
 
-namespace Br1WebEngine.Infrastructure;
+namespace Backend.Infrastructure;
 
 /// <summary>
 /// Definisce il contratto di accesso ai contenuti persistenti del sito.

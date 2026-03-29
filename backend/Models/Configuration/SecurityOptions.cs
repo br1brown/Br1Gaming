@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
 
-namespace Br1WebEngine.Models.Configuration;
+namespace Backend.Models.Configuration;
 
 /// <summary>
 /// Raccoglie tutta la configurazione di sicurezza letta da <c>appsettings.json</c>.

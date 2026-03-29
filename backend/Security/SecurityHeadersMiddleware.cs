@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Options;
-using Br1WebEngine.Models.Configuration;
+using Backend.Models.Configuration;
 
-namespace Br1WebEngine.Security;
+namespace Backend.Security;
 
 /// <summary>
 /// Middleware che applica gli header di sicurezza configurati a tutte le risposte HTTP.

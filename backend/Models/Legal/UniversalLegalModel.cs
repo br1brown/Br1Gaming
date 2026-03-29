@@ -1,4 +1,4 @@
-namespace Br1WebEngine.Models.Legal;
+namespace Backend.Models.Legal;
 
 /// <summary>
 /// Modello aggregato con tutte le informazioni legali e anagrafiche dell'organizzazione.

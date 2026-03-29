@@ -1,4 +1,4 @@
-namespace Br1WebEngine.Models;
+namespace Backend.Models;
 
 /// <summary>
 /// Eccezione base per gli errori API che devono essere tradotti in una risposta HTTP controllata.
@@ -8,7 +8,7 @@ namespace Br1WebEngine.Models;
 /// Questa classe e' il punto d'ingresso del pattern "lancia e basta" usato nel template.
 /// Invece di catturare errori nei controller e costruire manualmente risposte di errore,
 /// i controller lanciano un'eccezione di questa gerarchia. Il middleware
-/// <see cref="Br1WebEngine.Security.ApiExceptionHandler"/> la intercetta automaticamente
+/// <see cref="Backend.Security.ApiExceptionHandler"/> la intercetta automaticamente
 /// e la converte in un payload ProblemDetails (RFC 9457) con lo status code corretto.
 /// </para>
 /// <para>

@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
-using Br1WebEngine.Models;
+using Backend.Models;
 
-namespace Br1WebEngine.Security;
+namespace Backend.Security;
 
 /// <summary>
 /// Traduce le <see cref="ApiException"/> applicative in risposte Problem Details coerenti.

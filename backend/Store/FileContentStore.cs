@@ -1,10 +1,11 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using Br1WebEngine.Models;
-using Br1WebEngine.Models.Legal;
+using Backend.Models;
+using Backend.Models.Legal;
+using Backend.Infrastructure;
 
-namespace Br1WebEngine.Infrastructure;
+namespace Backend.Infrastructure;
 
 /// <summary>
 /// Implementa <see cref="IContentStore"/> leggendo i contenuti da file JSON nella cartella <c>data/</c>.

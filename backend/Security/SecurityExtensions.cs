@@ -3,9 +3,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
-using Br1WebEngine.Models.Configuration;
+using Backend.Models.Configuration;
 
-namespace Br1WebEngine.Security;
+namespace Backend.Security;
 
 /// <summary>
 /// Contiene le estensioni che registrano e applicano la configurazione di sicurezza del template.

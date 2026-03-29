@@ -1,8 +1,8 @@
 using System.Globalization;
-using Br1WebEngine.Infrastructure;
-using Br1WebEngine.Models.Legal;
+using Backend.Infrastructure;
+using Backend.Models.Legal;
 
-namespace Br1WebEngine.Services;
+namespace Backend.Services;
 
 /// <summary>
 /// Raccoglie i casi d'uso applicativi del sito esposti dalle API pubbliche.

@@ -43,13 +43,22 @@ Il target e' partire da una base gia' pronta e sostituire contenuti, pagine ed e
 │  └──────────────────────────────────────────┘│
 └──────────────────────────────────────────────┘
 ```
-
 ## Cosa c'e' dentro
 
-- DSL frontend in [`frontend/src/app/site.ts`](frontend/src/app/site.ts): pagine, navigazione, branding, lingue, tema
-- builder in [`frontend/src/app/siteBuilder.ts`](frontend/src/app/siteBuilder.ts): normalizza il DSL e genera rotte e sitemap
-- contenuti backend in [`backend/data/irl.json`](backend/data/irl.json) e [`backend/data/social.json`](backend/data/social.json)
-- security pipeline in [`backend/Program.cs`](backend/Program.cs) e [`backend/Security/`](backend/Security)
+Il repository separa la parte di infrastruttura del template da quella che viene modificata nel progetto.
+
+Le basi riusabili stanno soprattutto nelle cartelle del template, mentre il progetto interviene su configurazione del sito, contenuti, servizi, controller concreti e storage. L'idea e' evitare di riscrivere ogni volta sicurezza, autenticazione, struttura API e wiring generale, lasciando al progetto solo cio' che cambia davvero.
+
+Dentro trovi:
+
+- configurazione frontend in [`frontend/src/app/site.ts`](frontend/src/app/site.ts): struttura del sito, pagine, navigazione, branding, lingue e opzioni di visibilita'
+- builder in [`frontend/src/app/siteBuilder.ts`](frontend/src/app/siteBuilder.ts): normalizza la configurazione frontend e genera rotte e sitemap
+- basi backend riusabili in [`backend/Engine/`](backend/Engine): controller base e servizi condivisi del template
+- controller concreti del progetto in [`backend/Controllers/`](backend/Controllers)
+- servizi applicativi del progetto in [`backend/Services/`](backend/Services)
+- storage file-based in [`backend/Store/FileContentStore.cs`](backend/Store/FileContentStore.cs): implementazione pronta all'uso, sostituibile con altre fonti dati
+- contenuti di esempio in [`backend/data/irl.json`](backend/data/irl.json) e [`backend/data/social.json`](backend/data/social.json)
+- pipeline di sicurezza in [`backend/Program.cs`](backend/Program.cs) e [`backend/Security/`](backend/Security)
 - compose files per dev e prod in [`docker-compose.yml`](docker-compose.yml), [`docker-compose.override.yml`](docker-compose.override.yml) e [`docker-compose.prod.yml`](docker-compose.prod.yml)
 
 ## API attuale
@@ -63,47 +72,64 @@ Il target e' partire da una base gia' pronta e sostituire contenuti, pagine ed e
 
 Le API protette stanno in [`backend/Controllers/ProtectedController.cs`](backend/Controllers/ProtectedController.cs) e diventano realmente utilizzabili solo quando configuri il JWT.
 
+Questi endpoint servono soprattutto come base di partenza del template: mostrano come organizzare accesso pubblico, autenticazione e area protetta, lasciando al progetto la definizione degli endpoint reali.
+
 ### Tre controller, tre contesti di accesso
 
-- **BaseController** (`api/`) — sei **fuori**. Endpoint pubblici, richiedono solo API key.
-- **AuthController** (`api/auth`) — sei **in mezzo**. Punto di integrazione login: oggi risponde `valid = false`, con rate limiting dedicato (5 req/min per IP).
-- **ProtectedController** (`api/`) — sei **dentro**. Endpoint riservati agli utenti autenticati (API key + JWT).
+Il backend divide gli endpoint in tre gruppi, in base al contesto di accesso:
 
+- **BaseController** (`api/`) - endpoint pubblici del progetto. Richiedono solo API key e raccolgono tutto cio' che non riguarda login o contenuti protetti.
+- **AuthController** (`api/auth`) - endpoint dedicati all'autenticazione o a flussi collegati all'accesso. Nel template contiene il placeholder di login, ma e' il punto in cui aggiungere anche eventuali operazioni collegate all'identita'.
+- **ProtectedController** (`api/`) - endpoint disponibili solo dopo autenticazione. Richiedono API key + JWT e raccolgono le action accessibili agli utenti loggati.
+
+Nel template esistono anche tre corrispettivi controller base nell'area [`backend/Engine/`](backend/Engine), usati per evitare boilerplate. Non espongono da soli endpoint del progetto: servono a fornire configurazione comune, dipendenze condivise e attributi gia' pronti.
+
+In pratica:
+
+- il progetto definisce **cosa** espone e con quali route
+- il template fornisce **come** impostare in modo coerente sicurezza, accesso e dipendenze comuni
+
+Questo approccio torna utile soprattutto quando il numero di controller cresce: se domani aggiungi piu' controller protetti, non devi ripetere ogni volta policy, attributi o wiring comune, ma erediti la base corretta e ti concentri solo sulla logica applicativa.
+
+### Pattern di astrazione dei controller
+
+Il template separa la parte riusabile della configurazione dei controller dalla parte applicativa del progetto.
+
+Le classi base in [`backend/Engine/Controllers/`](backend/Engine/Controllers) servono a centralizzare cio' che tenderebbe a ripetersi:
+
+- attributi comuni
+- dipendenze condivise
+- regole di accesso
+- configurazione coerente tra controller dello stesso tipo
+
+I controller del progetto, in [`backend/Controllers/`](backend/Controllers), ereditano da queste basi e definiscono invece:
+
+- route effettive
+- endpoint concreti
+- logica specifica del progetto
+
+Linee guida rapide:
+
+- usa il controller base corretto in funzione del contesto di accesso (`Base`, `Auth`, `Protected`)
+- implementa nel progetto i metodi richiesti dalla base quando il template li espone come `abstract`
+- usa `override` quando vuoi personalizzare comportamento riusabile senza duplicare codice
+- mantieni nel template la configurazione condivisa e nel progetto la logica applicativa
+
+L'obiettivo non e' introdurre una gerarchia complessa, ma evitare che dettagli ripetitivi finiscano copiati in piu' file ogni volta che il progetto cresce.
 ### Pipeline di sicurezza
 
-Ogni richiesta HTTP attraversa 6 strati in ordine. Tutto si registra con una sola chiamata (`AddTemplateSecurity`) in `Program.cs`:
+Ogni richiesta HTTP attraversa una pipeline gia' pronta, registrata in `Program.cs` con una sola chiamata (`AddTemplateSecurity`).
 
-1. **Forwarded headers** — ricostruisce IP reale da `X-Forwarded-For` (solo se `BehindProxy = true`)
-2. **CORS** — whitelist origini; vuoto = accetta tutto. Sta prima del rate limiter per non consumare budget sui preflight
-3. **Rate limiting** — 100 req/min globale per IP + policy `login` a 5 req/min (fail fast)
-4. **Security headers** — CSP, X-Frame-Options, etc. aggiunti a ogni risposta
-5. **API Key** — header `X-Api-Key` obbligatorio; OPTIONS escluse per preflight CORS
-6. **JWT Bearer** — attivato solo se `Security.Token.SecretKey` e' valorizzata; valida il token e popola l'identita'
+In ordine:
 
-```
-Richiesta HTTP
-  │
-  ▼
-[Forwarded Headers] → ricostruisce IP reale (solo se BehindProxy = true)
-  │
-  ▼
-[CORS] → gestisce preflight OPTIONS, filtra origini
-  │
-  ▼
-[Rate Limiting] → 429 se troppe richieste (fail fast)
-  │
-  ▼
-[Security Headers] → aggiunge CSP, X-Frame-Options, etc.
-  │
-  ▼
-[API Key Check] → 401 se manca o sbagliata
-  │
-  ▼
-[JWT Validation] → (solo se SecretKey configurata) popola identita'
-  │
-  ▼
-[Controller] → BaseController / AuthController / ProtectedController
-```
+1. **Forwarded headers** — ricostruisce IP reale da `X-Forwarded-For` se `BehindProxy = true`
+2. **CORS** — gestisce origini consentite e preflight `OPTIONS`
+3. **Rate limiting** — applica limiti globali e policy dedicate
+4. **Security headers** — aggiunge gli header di sicurezza a ogni risposta
+5. **API Key** — richiede `X-Api-Key` dove previsto
+6. **JWT Bearer** — se configurato, valida il token e popola l'identita'
+
+In pratica, il template fornisce gia' il wiring completo della sicurezza: il progetto interviene soprattutto sulla configurazione (`appsettings`, env vars, policy e chiavi), non sulla struttura della pipeline.
 
 ### Eccezioni API strutturate
 
@@ -118,9 +144,19 @@ I controller lanciano eccezioni custom (`NotFoundException`, `DecodingException`
 }
 ```
 
-### Persistenza e localizzazione ricorsiva
+### Persistenza
 
-`IContentStore` astrae l'accesso ai dati; l'implementazione attuale (`FileContentStore`) legge JSON da `backend/data/`. Il deserializzatore attraversa l'albero JSON e, per ogni oggetto le cui chiavi sono tutte codici lingua, risolve al valore della lingua richiesta (fallback: italiano). La localizzazione puo' stare a qualsiasi livello di profondita', mescolata con campi normali:
+`IContentStore` astrae l'accesso ai dati. Il template non impone un database e non richiede obbligatoriamente JSON: definisce solo il contratto con cui il backend recupera contenuti.
+
+L'implementazione pronta all'uso e' [`FileContentStore`](backend/Store/FileContentStore.cs), che legge file da `backend/data/`. Di default e' gia' predisposta per lavorare bene con JSON, soprattutto perche' la gestione delle traduzioni localizzate e' gia' implementata su quella struttura, ma lo store puo' essere adattato anche ad altri formati testuali oppure sostituito del tutto con database, CMS o altre fonti dati.
+
+Questo significa che:
+
+- **il JSON non e' un vincolo del template**
+- **il file storage e' solo una base pronta all'uso**
+- **la parte gia' implementata per la localizzazione lavora bene sui JSON strutturati**
+
+La localizzazione puo' stare a qualsiasi livello di profondita' e viene risolta in base alla lingua richiesta, con fallback all'italiano. Esempio:
 
 ```json
 {
@@ -134,6 +170,8 @@ I controller lanciano eccezioni custom (`NotFoundException`, `DecodingException`
 ```
 
 Con `lang=en`: `ragioneSociale = "Acme S.r.l."`, `descrizione = "Italian company"`, `sede.via = "1 Rome Street"`, `sede.cap = "20100"`.
+
+Questa parte esiste per mostrare il comportamento dello store file-based gia' incluso nel template; non e' un vincolo architetturale sul tipo di persistenza da usare nel progetto.
 
 ## Quick start
 
@@ -185,6 +223,8 @@ Per dettagli su compose, env vars e deploy separato frontend/backend c'e' [`DOCK
 
 ## File che tocchi davvero
 
+Questa e' la sezione da usare come riferimento operativo: se stai adattando il template a un progetto, nella maggior parte dei casi lavorerai qui.
+
 ### Frontend
 
 - [`frontend/src/app/site.ts`](frontend/src/app/site.ts): struttura del sito, pagine, menu, lingue, branding
@@ -195,26 +235,55 @@ Per dettagli su compose, env vars e deploy separato frontend/backend c'e' [`DOCK
 
 ### Backend
 
-- [`backend/data/irl.json`](backend/data/irl.json): profilo aziendale / dati legali
-- [`backend/data/social.json`](backend/data/social.json): social links
-- [`backend/appsettings.json`](backend/appsettings.json): API keys, CORS, JWT, security headers
+Il backend separa cio' che appartiene all'infrastruttura riusabile del template da cio' che viene modificato nel progetto.
+
+La parte riusabile sta soprattutto nelle basi condivise:
+
+- [`backend/Engine/Controllers/`](backend/Engine/Controllers): controller base con attributi condivisi, dipendenze comuni e configurazione gia' pronta
+- [`backend/Engine/Services/AuthService.cs`](backend/Engine/Services/AuthService.cs): infrastruttura JWT (generazione e validazione token)
+- [`backend/Store/IContentStore.cs`](backend/Store/IContentStore.cs): contratto di accesso ai dati
+- [`backend/Security/`](backend/Security): pipeline di sicurezza
+- [`backend/Models/`](backend/Models): modelli, configurazioni ed eccezioni condivise
+
+La parte di progetto e' invece quella su cui si interviene normalmente:
+
+- [`backend/Controllers/`](backend/Controllers): controller concreti che espongono route ed endpoint del progetto
+- [`backend/Services/SiteService.cs`](backend/Services/SiteService.cs): logica di business
+- [`backend/Store/FileContentStore.cs`](backend/Store/FileContentStore.cs): implementazione storage pronta all'uso, sostituibile se il progetto usa un'altra fonte dati
+- [`backend/data/`](backend/data): contenuti del progetto nel caso dello storage file-based
+
+L'idea e' che il template gestisca il wiring comune, mentre il progetto definisce contenuti, endpoint e logica applicativa. In questo modo si evita di ricostruire ogni volta la stessa infrastruttura e si riduce la quantita' di configurazione ripetuta nei controller.
 
 ## Convenzioni di progetto
 
 ### Frontend
 
 - `PageType` e' l'identita' stabile delle pagine. Se aggiungi una pagina, parti da li.
-- [`frontend/src/app/site.ts`](frontend/src/app/site.ts) e' la source of truth per router, header, footer e sitemap.
+- [`frontend/src/app/site.ts`](frontend/src/app/site.ts) centralizza configurazione del sito, navigazione, footer, struttura delle pagine e relative opzioni di visibilita'.
+- [`frontend/src/app/siteBuilder.ts`](frontend/src/app/siteBuilder.ts) normalizza questa configurazione e genera gli elementi derivati, come rotte e sitemap.
 - Le page component estendono [`frontend/src/app/pages/page-base.component.ts`](frontend/src/app/pages/page-base.component.ts).
-- I file `basic.*.json` sono del template. Per il progetto lavora su `addon.*.json`.
+- I file `basic.*.json` appartengono al template. Per il progetto si lavora su `addon.*.json`.
+
+Non si tratta di una DSL da estendere come sistema a se': e' semplicemente il modo con cui il frontend tiene in un solo punto menu, link strutturali, albero delle pagine e impostazioni collegate, cosi' da poterli adattare progetto per progetto senza spargere configurazione in piu' file.
 
 ### Backend
 
-- [`backend/Controllers/BaseController.cs`](backend/Controllers/BaseController.cs): endpoint pubblici dietro API key
-- [`backend/Controllers/AuthController.cs`](backend/Controllers/AuthController.cs): punto di integrazione per il login
-- [`backend/Controllers/ProtectedController.cs`](backend/Controllers/ProtectedController.cs): endpoint API key + JWT
-- [`backend/Store/IContentStore.cs`](backend/Store/IContentStore.cs): astrazione storage; l'implementazione corrente legge JSON da disco
-- [`backend/Security/ApiExceptionHandler.cs`](backend/Security/ApiExceptionHandler.cs): normalizza gli errori in `ProblemDetails`
+Il backend e' diviso in due zone logiche:
+
+**Engine** (cartella [`backend/Engine/`](backend/Engine)) - base condivisa del template:
+
+- [`backend/Engine/Controllers/`](backend/Engine/Controllers): controller astratti con attributi condivisi e dipendenze comuni; il routing resta nei controller concreti
+- [`backend/Engine/Services/AuthService.cs`](backend/Engine/Services/AuthService.cs): infrastruttura JWT (generazione e validazione token)
+- [`backend/Store/IContentStore.cs`](backend/Store/IContentStore.cs): interfaccia di accesso ai dati
+- [`backend/Security/`](backend/Security): pipeline di sicurezza completa
+- [`backend/Models/`](backend/Models): eccezioni, configurazione, modelli dati
+
+**Progetto** (`Backend.*`) - zona custom, si modifica liberamente:
+
+- [`backend/Controllers/`](backend/Controllers): controller concreti che ereditano dall'engine
+- [`backend/Services/SiteService.cs`](backend/Services/SiteService.cs): logica di business del progetto
+- [`backend/Store/FileContentStore.cs`](backend/Store/FileContentStore.cs): implementazione storage (sostituibile con database o CMS)
+- [`backend/data/`](backend/data): contenuti JSON del progetto
 
 ## Operazioni comuni
 
@@ -228,15 +297,17 @@ Per dettagli su compose, env vars e deploy separato frontend/backend c'e' [`DOCK
 
 ### Aggiungere un endpoint API
 
-1. Mettilo in `BaseController` o `ProtectedController` in base al livello di accesso.
-2. Sposta la logica in [`backend/Services/`](backend/Services) o in uno store dedicato.
+1. Aggiungi il metodo nel controller concreto ([`backend/Controllers/`](backend/Controllers)) in base al livello di accesso: `BaseController` per endpoint pubblici, `ProtectedController` per quelli autenticati.
+2. Sposta la logica in [`backend/Services/SiteService.cs`](backend/Services/SiteService.cs) o in un servizio dedicato.
 3. Esponi la chiamata lato frontend in [`frontend/src/app/core/services/api.service.ts`](frontend/src/app/core/services/api.service.ts).
+
+Se l'engine espone un metodo `abstract` o `virtual`, implementalo o ridefiniscilo nel controller concreto. In questo template `GetProfile` viene implementato nel progetto, mentre `Login` e' definito direttamente in [`backend/Controllers/AuthController.cs`](backend/Controllers/AuthController.cs).
 
 ### Abilitare il login
 
 1. Imposta `Security.Token.SecretKey` in [`backend/appsettings.json`](backend/appsettings.json) o via env var.
-2. Implementa la validazione credenziali in [`backend/Controllers/AuthController.cs`](backend/Controllers/AuthController.cs).
-3. Emetti il token tramite `AuthService.GenerateToken()`.
+2. Implementa la validazione credenziali in [`backend/Controllers/AuthController.cs`](backend/Controllers/AuthController.cs), dentro `Login`.
+3. Emetti il token tramite `Auth.GenerateToken()` (ereditato dall'engine).
 
 ## Configurazione runtime
 
@@ -285,11 +356,15 @@ Da [`frontend/package.json`](frontend/package.json):
 ```text
 Br1WebEngine/
 |-- backend/
-|   |-- Controllers/
-|   |-- Security/
-|   |-- Services/
-|   |-- Store/
-|   |-- data/
+|   |-- Engine/                  ← basi condivise del template
+|   |   |-- Controllers/             controller astratti
+|   |   `-- Services/                AuthService (JWT)
+|   |-- Controllers/             ← Backend.Controllers (custom)
+|   |-- Services/                ← Backend.Services (custom)
+|   |-- Store/                       IContentStore (engine) + FileContentStore (custom)
+|   |-- Models/                      modelli ed eccezioni condivise
+|   |-- Security/                    pipeline di sicurezza
+|   |-- data/                        contenuti JSON del progetto
 |   `-- Program.cs
 |-- frontend/
 |   |-- src/app/

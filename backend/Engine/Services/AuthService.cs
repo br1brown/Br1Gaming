@@ -2,10 +2,10 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using Br1WebEngine.Models.Configuration;
-using Br1WebEngine.Security;
+using Backend.Models.Configuration;
+using Backend.Security;
 
-namespace Br1WebEngine.Services;
+namespace Backend.Services;
 
 /// <summary>
 /// Descrive l'esito della generazione di un token JWT.
@@ -55,10 +55,6 @@ public class AuthService
     /// Il ruolo <c>Authenticated</c> viene aggiunto comunque in modo automatico.
     /// </param>
     /// <returns>Un <see cref="TokenResult"/> contenente il token serializzato pronto per la risposta HTTP.</returns>
-    /// <remarks>
-    /// Questo metodo deve essere chiamato solo dopo che il chiamante ha gia' validato le credenziali.
-    /// Il token risultante e' compatibile con la policy <c>RequireLogin</c> configurata nel backend.
-    /// </remarks>
     public TokenResult GenerateToken(IEnumerable<Claim>? additionalClaims = null)
     {
         var claims = new List<Claim>
@@ -89,10 +85,6 @@ public class AuthService
     /// <returns>
     /// Un <see cref="TokenValidation"/> con esito booleano, messaggio sintetico e codice HTTP suggerito.
     /// </returns>
-    /// <remarks>
-    /// Nella pipeline standard il controllo viene gia' eseguito dal middleware JwtBearer.
-    /// Questo metodo resta utile solo quando un endpoint o un servizio devono validare un token in modo esplicito.
-    /// </remarks>
     public TokenValidation ValidateToken(string token)
     {
         try

@@ -1,30 +1,17 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
-using System.Linq;
-using Br1WebEngine.Security;
 
-namespace Br1WebEngine.Controllers;
+namespace Backend.Controllers;
 
 /// <summary>
-/// Controller per gli endpoint che richiedono sia API key valida sia login JWT.
+/// Controller concreto del progetto per gli endpoint protetti da login JWT.
+/// Richiede API key valida + token JWT con ruolo <c>Authenticated</c>.
+/// Aggiungere qui gli endpoint riservati agli utenti autenticati.
 /// </summary>
-/// <remarks>
-/// <para>
-/// <c>[Authorize(Policy = SecurityDefaults.RequireLoginPolicy)]</c> usa la policy registrata in
-/// <c>AddTemplateSecurity</c>, che richiede: header <c>X-Api-Key</c> valido,
-/// token JWT nell'header <c>Authorization: Bearer</c>, e claim di ruolo <c>Authenticated</c>.
-/// </para>
-/// <para>
-/// Se <c>Security.Token.SecretKey</c> e' vuota in <c>appsettings.json</c>, il JWT handler
-/// non viene registrato e la policy non puo' mai essere soddisfatta: gli endpoint
-/// di questo controller restano inaccessibili by design.
-/// </para>
-/// </remarks>
-[ApiController]
 [Route("api")]
-[Authorize(Policy = SecurityDefaults.RequireLoginPolicy)]
-public class ProtectedController(ILogger<ProtectedController> logger) : ControllerBase
+public class ProtectedController : EngineProtectedController
 {
-    private readonly ILogger<ProtectedController> _logger = logger;
+    /// <summary>
+    /// Inizializza il controller con il logger dell'engine.
+    /// </summary>
+    public ProtectedController(ILogger<ProtectedController> logger) : base(logger) { }
 }

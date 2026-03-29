@@ -2,10 +2,10 @@ using System.Globalization;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.Options;
-using Br1WebEngine.Models.Configuration;
-using Br1WebEngine.Infrastructure;
-using Br1WebEngine.Security;
-using Br1WebEngine.Services;
+using Backend.Models.Configuration;
+using Backend.Infrastructure;
+using Backend.Security;
+using Backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,15 +24,14 @@ var security = builder.Configuration
 
 // ── SERVIZI APPLICATIVI ─────────────────────────────────────────────
 //
-// IContentStore: astrae l'accesso ai dati. L'implementazione attuale
-// (FileContentStore) legge da file JSON con deserializzazione localizzata.
+// IContentStore: astrae l'accesso ai dati (engine).
+// L'implementazione attuale (FileContentStore) e' nella zona custom del progetto.
 // Sostituibile con database o CMS senza toccare controller o servizi.
 //
-// SiteService: orchestrazione della logica di business del sito.
+// SiteService: logica di business del progetto (custom).
 //
-// AuthService: registrato SOLO se il login e' abilitato (Token.SecretKey
-// valorizzata). Se non serve autenticazione, questo servizio non esiste
-// a runtime e le risorse associate non vengono allocate.
+// AuthService: infrastruttura JWT dell'engine. Registrato SOLO se il login
+// e' abilitato (Token.SecretKey valorizzata).
 //
 builder.Services.AddSingleton<IContentStore, FileContentStore>();
 builder.Services.AddScoped<SiteService>();
@@ -71,8 +70,6 @@ builder.Services.Configure<RequestLocalizationOptions>(options =>
 // Una sola chiamata registra TUTTI i servizi di sicurezza del template:
 // API key, JWT (se configurato), CORS, rate limiting, security headers
 // e gestione centralizzata degli errori (ProblemDetails).
-//
-// Vedi SecurityExtensions.cs per i commenti dettagliati su ogni strato.
 //
 builder.Services.AddTemplateSecurity(security);
 
