@@ -1,0 +1,14 @@
+<div class="text-center">
+    <h1 class="h2">{{ errorInfo() }}</h1>
+    <p>{{ errorMessage() }}</p>
+    @if (homePage != null) {
+    <a [appPage]="homePage" class="btn btn-primary btn-lg">
+        {{ 'tornaHomeAzione' | translate }}
+    </a>
+    } @else {
+    <!-- Niente home: navigazione browser "tradizionale" alla radice, fuori dal router. -->
+    <a href="/" class="btn btn-primary btn-lg">
+        {{ 'tornaHomeAzione' | translate }}
+    </a>
+    }
+</div>

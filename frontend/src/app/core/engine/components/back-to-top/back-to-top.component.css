@@ -1,0 +1,15 @@
+.back-to-top {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    /* Sopra il cookie banner e il suo pulsante di riapertura, sotto offcanvas
+       e modali Bootstrap. Scala z-index del template: vedi base.css §variabili. */
+    z-index: var(--z-fab);
+}
+
+@supports (bottom: env(safe-area-inset-bottom)) {
+    .back-to-top {
+        bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
+        right: calc(2rem + env(safe-area-inset-right, 0px));
+    }
+}

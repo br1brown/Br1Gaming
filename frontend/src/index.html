@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="it">
+<head>
+    <meta charset="utf-8">
+    <!-- Anti-flash: imposta data-bs-theme prima che Bootstrap carichi qualsiasi stile.
+         Script esterno → coperto da script-src 'self' nella CSP, nessun hash né nonce necessario.
+         Esecuzione sincrona (no defer/async) → nessun ciclo di rendering con tono sbagliato. -->
+    <script src="theme-init.js"></script>
+    <title>App</title>
+    <base href="/">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="robots" content="index, follow">
+    <meta name="description" content="Template di base che serve per fare vedere le funzionalità base">
+
+    <!-- Meta Open Graph di base, sincronizzati da scripts/generate-statics.ts -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="App">
+    <meta property="og:description" content="Template di base che serve per fare vedere le funzionalità base">
+    <meta property="og:url" content="https://example.com">
+    <meta property="og:site_name" content="App">
+    <meta property="og:locale" content="it_IT">
+    <meta property="og:image" content="https://example.com/icons/icon-512x512.png">
+    <meta property="og:updated_time" content="2026-06-08">
+
+    <!-- Meta Twitter di base, sincronizzati da scripts/generate-statics.ts -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="App">
+    <meta name="twitter:description" content="Template di base che serve per fare vedere le funzionalità base">
+    <meta name="twitter:image" content="https://example.com/icons/icon-512x512.png">
+
+    <!-- Supporto web app Apple su dispositivi mobili -->
+    <meta name="app-version" content="1.0.0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="App">
+    <meta name="application-name" content="App">
+
+    <link rel="icon" type="image/png" href="icons/icon-192x192.png">
+    <link rel="apple-touch-icon" href="icons/icon-512x512.png">
+    <link rel="manifest" href="manifest.webmanifest">
+</head>
+<body>
+    <app-root></app-root>
+    <noscript>Per utilizzare questa applicazione è necessario abilitare JavaScript.</noscript>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+    "name": "App",
+    "short_name": "App",
+    "description": "Template di base che serve per fare vedere le funzionalità base",
+    "lang": "it",
+    "theme_color": "#0b1233",
+    "background_color": "#08090c",
+    "display": "standalone",
+    "scope": "./",
+    "start_url": "./",
+    "icons": [
+        {
+            "src": "icons/icon-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "icons/icon-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "version": "1.0.0"
+}

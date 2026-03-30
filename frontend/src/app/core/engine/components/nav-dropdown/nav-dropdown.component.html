@@ -1,0 +1,25 @@
+<div class="dropdown" [class.active]="isActive()" [class.show]="open()">
+    <button type="button"
+            class="nav-link nav-dropdown-toggle"
+            aria-haspopup="true"
+            [attr.aria-expanded]="open()"
+            [attr.aria-current]="isActive() ? 'location' : null"
+            (click)="toggle.emit()">
+        <span>{{ item().label | translate }}</span>
+        <span class="nav-dropdown-caret" aria-hidden="true"></span>
+    </button>
+    <ul class="dropdown-menu list-unstyled" [class.show]="open()">
+        @for (child of item().children; track child.path) {
+            <li>
+                @if (isGroup(child)) {
+                    <app-nav-submenu [item]="child" (linkClick)="linkClick.emit()" />
+                } @else {
+                    <app-nav-link [link]="child"
+                                  cssClass="dropdown-item"
+                                  activeCssClass="dropdown-item nav-current-link active"
+                                  (linkClick)="linkClick.emit()" />
+                }
+            </li>
+        }
+    </ul>
+</div>

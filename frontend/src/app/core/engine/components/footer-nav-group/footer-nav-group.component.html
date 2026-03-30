@@ -1,0 +1,18 @@
+<div [class.footer-subgroup]="level() > 0">
+    @if (level() === 0) {
+        <span class="small fw-bold text-uppercase d-block mb-2">{{ group().label | translate }}</span>
+    } @else {
+        <span class="small fw-semibold d-block mb-1 footer-subgroup-title">{{ group().label | translate }}</span>
+    }
+    <ul class="list-unstyled mb-0">
+        @for (child of group().children; track child.path) {
+            <li>
+                @if (isGroup(child)) {
+                    <app-footer-nav-group [group]="child" [level]="level() + 1" />
+                } @else {
+                    <app-nav-link [link]="child" cssClass="d-block small py-2" />
+                }
+            </li>
+        }
+    </ul>
+</div>
