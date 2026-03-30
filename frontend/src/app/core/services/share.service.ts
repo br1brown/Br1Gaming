@@ -18,14 +18,35 @@ export class ShareService {
 
     /** Copia testo nella clipboard e mostra una notifica di successo */
     async copyText(text: string): Promise<boolean> {
+        const copied = await this.writeToClipboard(text);
+        this.notify.toast(
+            this.translate.t(copied ? 'clipboardCopied' : 'clipboardEmpty'),
+            copied ? 'success' : 'warning'
+        );
+        return copied;
+    }
+
+    /** Tenta Clipboard API, se fallisce ripiega su execCommand('copy') */
+    private async writeToClipboard(text: string): Promise<boolean> {
         try {
             await navigator.clipboard.writeText(text);
-            this.notify.toast(this.translate.t('clipboardCopied'), 'success');
             return true;
         } catch {
-            this.notify.toast(this.translate.t('clipboardEmpty'), 'warning');
-            return false;
+            return this.execCommandCopy(text);
         }
+    }
+
+    /** Fallback per contesti non-HTTPS o browser senza Clipboard API */
+    private execCommandCopy(text: string): boolean {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        return ok;
     }
 
     /** Legge testo dalla clipboard. Ritorna stringa vuota se non disponibile */
