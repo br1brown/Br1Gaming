@@ -13,6 +13,7 @@ Br1WebEngine e' un template full-stack per siti content-driven e piccoli portali
 - [Dettagli Tecnici](#dettagli-tecnici)
 - [Configurazione](#configurazione)
 - [Operazioni Comuni](#operazioni-comuni)
+- [Da locale a produzione](#da-locale-a-produzione)
 - [Estendere l'Engine](#estendere-lengine)
 - [Licenza](#licenza)
 
@@ -435,10 +436,60 @@ Lo script sostituisce i nomi interni del template nei file principali frontend/b
 3. Se serve, estendi `FileContentStore` tramite `backend/Store/IContentStore.cs`.
 4. Esponi la chiamata lato frontend in `frontend/src/app/core/services/api.service.ts`.
 
+
 ### Abilitare il login
 1. Imposta `Security.Token.SecretKey` in `appsettings.json` o via env var.
 2. Implementa la validazione credenziali in `backend/Controllers/AuthController.cs`.
 3. Emetti il token tramite `Auth.GenerateToken()`.
+
+---
+
+## Da locale a produzione
+Quando il progetto funziona in locale e vuoi portarlo su una VPS (o su un altro server), usa i file Docker come checklist operativa, non come "copia/incolla alla cieca".
+
+1. **Prepara la macchina**
+   - Installa Docker Engine + plugin Docker Compose.
+   - Apri in firewall solo le porte necessarie (di solito `80/443`; evita di esporre il backend se non serve).
+   - Crea una cartella di deploy, ad esempio `/opt/br1webengine`.
+
+2. **Copia i file essenziali sul server**
+   - `docker-compose.yml`
+   - `docker-compose.backend-exposed.yml` (solo se vuoi pubblicare anche la porta backend)
+   - `.env` (obbligatorio, puoi partire da `.env.example`)
+   - eventuali override (`docker-compose.override.yml`) se vuoi differenziare ambiente dev/prod
+
+3. **Configura `.env` per l'ambiente remoto**
+   - `PROJECT_NAME`: nome stack/volumi (es. `miosito`).
+   - `FRONTEND_PORT`: porta pubblica del frontend (tipicamente `80` o una porta dietro reverse proxy).
+   - `API_URL`: lascia vuota se frontend e backend stanno nello stesso compose (Nginx usa il proxy interno `/api`); valorizzala solo se punti a backend esterno.
+   - `API_KEY`: chiave usata dal frontend per chiamare le API.
+   - Se usi backend separato o domini diversi, ricorda di allineare anche le CORS nel backend (`Security__CorsOrigins__*`).
+
+4. **Scegli come esporre i servizi**
+   - **Scenario consigliato**: esponi solo il frontend e lascia il backend interno alla rete Docker.
+   - **Scenario con client alternativi**: aggiungi `-f docker-compose.backend-exposed.yml` se il progetto ha UI non web (app mobile, desktop, client terzi) che devono raggiungere il backend direttamente.
+
+5. **Avvia e verifica**
+   ```bash
+   docker compose --env-file .env up -d --build
+   docker compose ps
+   docker compose logs -f frontend
+   docker compose logs -f backend
+   ```
+   Verifica poi: homepage raggiungibile, chiamate `/api/*` funzionanti, health check backend OK.
+
+6. **Aggiornamenti futuri (deploy successivi)**
+   - Aggiorna codice/immagini.
+   - Riesegui `docker compose --env-file .env up -d --build`.
+   - Se hai cambiato solo env/runtime e non il codice, basta `docker compose --env-file .env up -d`.
+
+7. **Hardening minimo produzione**
+   - Metti HTTPS davanti (Nginx/Caddy/Traefik o proxy del provider).
+   - Usa API key e secret JWT robusti, non quelli di esempio.
+   - Tieni backup di `.env` e dei volumi nominati.
+   - Imposta una policy di restart (`unless-stopped`/`always`) e monitora i log.
+
+Se vuoi, puoi tenere `DOCKER_README.md` come riferimento operativo dettagliato e lasciare questa sezione nel README come guida rapida da "locale" a "server".
 
 ---
 
