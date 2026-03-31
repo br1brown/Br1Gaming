@@ -2,7 +2,7 @@
 
 **Un'engine personale e moderna per costruire siti web, basata su ASP.NET Core 9 e Angular 19.**
 
-Br1WebEngine e' un template full-stack per siti content-driven e piccoli portali. L'idea e' avere una base gia' pronta in cui il frontend centralizza struttura, rotte, menu e sitemap, mentre il backend espone API, contenuti localizzati e una pipeline di sicurezza gia' cablata.
+Br1WebEngine e' un'engine full-stack per siti content-driven e piccoli portali: si usa direttamente cosi' com'e', oppure come base da cui derivare progetti con nome e identita' propri. L'idea e' avere una struttura gia' pronta in cui il frontend centralizza rotte, menu, sitemap e meta tag, mentre il backend espone API, contenuti localizzati e una pipeline di sicurezza gia' cablata.
 
 ---
 
@@ -415,13 +415,13 @@ Se stai creando un progetto derivato, esegui prima `./init-project.sh nome-proge
 ## Operazioni Comuni
 
 ### Inizializzare un progetto derivato
-Dopo la clonazione del template, esegui una sola volta:
+Br1WebEngine funziona direttamente cosi' com'e': puoi clonare, configurare `.env` e avviare senza toccare nient'altro. Se vuoi invece partire con un nome di progetto personalizzato fin dall'inizio, esegui una sola volta:
 
 ```bash
 ./init-project.sh mio-progetto
 ```
 
-Lo script sostituisce i nomi interni del template nei file principali frontend/backend, aggiorna la configurazione Docker di base e genera `.env` con `PROJECT_NAME` coerente con il nuovo progetto. Se non lo usi, devi rinominare questi riferimenti e creare `.env` manualmente.
+Lo script sostituisce i riferimenti interni al template (`br1-web-engine`, `Br1WebEngine`) nei file principali frontend/backend, rinomina il file `.sln` e genera `.env` con `PROJECT_NAME` coerente. E' un'operazione opzionale: se preferisci mantenere i nomi originali o rinominarli a mano in un secondo momento, puoi farlo.
 
 ### Aggiungere una pagina
 1. Aggiungi un valore a `PageType` in `frontend/src/app/site.ts`.
