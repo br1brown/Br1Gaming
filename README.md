@@ -9,6 +9,7 @@ Br1WebEngine e' un'engine full-stack per siti content-driven e piccoli portali: 
 ---
 
 ## Indice
+- [Guida Rapida](#guida-rapida)
 - [Cosa fa da solo](#cosa-fa-da-solo)
 - [Tech Stack](#tech-stack)
 - [Architettura del Progetto](#architettura-del-progetto)
@@ -17,41 +18,81 @@ Br1WebEngine e' un'engine full-stack per siti content-driven e piccoli portali: 
 - [Operazioni Comuni](#operazioni-comuni)
 - [Da locale a produzione](#da-locale-a-produzione)
 - [Estendere l'Engine](#estendere-lengine)
+- [Come Contribuire](#come-contribuire)
 - [Licenza](#licenza)
+
+---
+
+## Guida Rapida
+
+```bash
+# 1. Clona il repository
+git clone https://github.com/br1brown/Br1WebEngine.git
+cd Br1WebEngine
+
+# 2. (Opzionale) Personalizza il nome del progetto
+./init-project.sh mio-progetto
+
+# 3. Configura le variabili d'ambiente
+cp .env.example .env
+# Modifica .env con i tuoi valori (PROJECT_NAME, porte, API key)
+
+# 4. Avvia con Docker
+docker compose --env-file .env up -d --build
+```
+
+Il frontend sara' disponibile sulla porta configurata in `FRONTEND_PORT`. Per lo sviluppo locale senza Docker, consulta la sezione [Configurazione](#configurazione).
 
 ---
 
 ## Cosa fa da solo
 
-Br1WebEngine e' costruito intorno a un principio: se una cosa puo' derivarsi dalla configurazione, non va scritta a mano.
+Br1WebEngine e' costruito intorno a un principio: **se una cosa puo' derivarsi dalla configurazione, non va scritta a mano.** Configuri `site.ts` e `appsettings.json`, e l'engine si occupa di rotte, menu, sicurezza, tema, traduzioni, meta tag e deploy. Di seguito il dettaglio, organizzato per area.
+
+### Configurazione e Frontend
 
 - Modifichi [`site.ts`](#dsl-dichiarativa-e-builder) e rotte, menu, sitemap, meta tag e manifest si aggiornano da soli
 - Scrivi un oggetto con `component`, `children` o `externalUrl` e il [builder deduce il tipo di pagina](#dsl-dichiarativa-e-builder) senza che tu lo dichiari
 - Aggiungi un valore a [`PageType`](#enum-pagetype) e TypeScript ti guida ovunque serva usarlo; lo rimuovi e ti segnala ogni riferimento rimasto
 - La [navigazione header e footer](#navigazione-header-e-footer) si costruisce con `addPage(PageType.X)`: le pagine disabilitate spariscono da sole, i gruppi vuoti pure
+- [`PageBaseComponent`](#pagebasecomponent) inietta `translate`, `api`, `asset`, `notify` una volta; ogni pagina [estende e basta](#pagebasecomponent)
+- Ogni pagina sceglie il [proprio layout](#pannello-e-layout) con `showPanel: false` per andare a schermo intero
+- Le [pagine di errore](#pagine-di-errore) per `400`, `401`, `403`, `404`, `500`, `503` si generano da un array con `.map()`, messaggi inclusi via i18n
+- I [titoli pagina](#titoli-pagina) si compongono da soli: `AppTitleStrategy` traduce la chiave della route e formatta `"Pagina | NomeApp"`
+
+### Tema, Stile e Accessibilita'
+
 - Un [colore hex](#gestione-del-tema) in configurazione genera contrasto testo WCAG 2.1, tono light/dark, variabili CSS e meta tag mobile
+- Il CSS usa [`color-mix()`](#sistema-css-con-color-mix) per derivare tutti i colori dal tema: surface, hover, bordi, testo. Il JS imposta solo `--colorTema`
+- [Accessibilita'](#accessibilita) integrata: skip-link WCAG 2.4.1, `prefers-reduced-motion`, `safe-area-inset` per notch, contrasto AA su testi secondari
+
+### Internazionalizzazione e Contenuti
+
 - Due file di [traduzione per lingua](#sistema-di-traduzione-addon) (`basic` + `addon`): l'addon sovrascrive il template con un `Object.assign`, senza plugin
+- Le [pagine legali](#pagine-legali) sono file Markdown in `/assets/legal/`, caricati con fallback lingua, revisionabili senza toccare codice
+- Il [Markdown](#markdown-e-protezione-xss) viene renderizzato con protezione XSS integrata: qualsiasi HTML raw nel sorgente viene ignorato
+- Il [consenso cookie](#consenso-cookie) si rileva da solo e blocca le scritture in silenzio finche' l'utente non accetta
+
+### Backend e Sicurezza
+
 - [`Security.Token.SecretKey`](#login-condizionale) valorizzata accende JWT, middleware, guard e interceptor; vuota, il sistema funziona senza, senza overhead
 - [`AddTemplateSecurity()`](#pipeline-di-sicurezza) registra in una riga schemi di autenticazione (API key + JWT condizionale), policy di autorizzazione, CORS, rate limiting, security headers e gestione errori ProblemDetails
 - Tre [controller astratti](#controller-e-ereditarieta) applicano `[Authorize]`, policy e dipendenze: il concreto aggiunge solo routing e logica
 - [`IContentStore`](#content-store) definisce il contratto di accesso ai dati; [sostituire l'implementazione](#sostituire-il-content-store) richiede una riga
-- [`PageBaseComponent`](#pagebasecomponent) inietta `translate`, `api`, `asset`, `notify` una volta; ogni pagina [estende e basta](#pagebasecomponent)
-- Ogni pagina sceglie il [proprio layout](#pannello-e-layout) con `showPanel: false` per andare a schermo intero
-- Le [pagine di errore](#pagine-di-errore) per `400`, `401`, `403`, `404`, `500`, `503` si generano da un array con `.map()`, messaggi inclusi via i18n
 - L'[interceptor HTTP](#interceptor-http) aggiunge `X-Api-Key`, `Accept-Language` e `Bearer` a ogni chiamata backend, senza toccare i componenti
-- Il [consenso cookie](#consenso-cookie) si rileva da solo e blocca le scritture in silenzio finche' l'utente non accetta
-- [`npm run build`](#build-e-script) lancia meta tag e sitemap in automatico; le [icone PWA](#build-e-script) si rigenerano da `favicon.png`
-- [Docker](#docker) esegue proxy, sostituzione env a runtime e caching hashato senza configurare nulla
-- Gli [asset](#asset-mapping) si risolvono da un `mapping.json` cachato con `shareReplay`
+
+### Componenti Riusabili
+
 - Un [context menu](#context-menu) con directive: click destro su desktop, long-press su mobile, posizionamento automatico e chiusura con Escape
 - 35+ [social con icona e colore brand](#social-link) mappati in un componente: passi il nome, esce l'icona giusta col colore giusto
-- Il [Markdown](#markdown-e-protezione-xss) viene renderizzato con protezione XSS integrata: qualsiasi HTML raw nel sorgente viene ignorato
-- Le [pagine legali](#pagine-legali) sono file Markdown in `/assets/legal/`, caricati con fallback lingua, revisionabili senza toccare codice
-- I [titoli pagina](#titoli-pagina) si compongono da soli: `AppTitleStrategy` traduce la chiave della route e formatta `"Pagina | NomeApp"`
-- Il CSS usa [`color-mix()`](#sistema-css-con-color-mix) per derivare tutti i colori dal tema: surface, hover, bordi, testo. Il JS imposta solo `--colorTema`
 - Un [servizio di condivisione](#condivisione-e-clipboard) unifica Clipboard API, Web Share API e download in un'unica interfaccia con fallback automatico
 - L'[image builder](#generazione-immagini-su-canvas) genera immagini su canvas con word-wrap calcolato via `measureText()`, pronte per social sharing
-- [Accessibilita'](#accessibilita) integrata: skip-link WCAG 2.4.1, `prefers-reduced-motion`, `safe-area-inset` per notch, contrasto AA su testi secondari
+- Gli [asset](#asset-mapping) si risolvono da un `mapping.json` cachato con `shareReplay`
+
+### Build e Deploy
+
+- [`npm run build`](#build-e-script) lancia meta tag e sitemap in automatico; le [icone PWA](#build-e-script) si rigenerano da `favicon.png`
+- [Docker](#docker) esegue proxy, sostituzione env a runtime e caching hashato senza configurare nulla
 
 ## Tech Stack
 | Categoria | Tecnologia | Note |
@@ -107,7 +148,11 @@ Br1WebEngine/
 
 ## Dettagli Tecnici
 
+Questa sezione approfondisce il funzionamento interno dell'engine. Se vuoi solo provarlo, parti dalla [Guida Rapida](#guida-rapida). Se vuoi capire come funziona sotto il cofano, o hai bisogno di estenderlo, continua qui.
+
 ### Backend
+
+Il backend e' un'API ASP.NET Core 9 con sicurezza a piu' livelli (API key obbligatoria, JWT opzionale), rate limiting e gestione errori strutturata.
 
 #### API attuale
 | Metodo | Path | Auth | Note |
@@ -166,6 +211,8 @@ Il sistema JWT si accende in base a una sola condizione: `Security.Token.SecretK
 Se la chiave e' troppo corta per HMAC-SHA256, viene espansa tramite SHA-256. Il token frontend vive in `sessionStorage` (sopravvive al refresh, si cancella alla chiusura del tab).
 
 ### Frontend
+
+Il frontend e' una SPA Angular 19 con tema dinamico, i18n, PWA e un sistema dichiarativo che genera rotte, navigazione e meta tag da un unico file di configurazione.
 
 #### DSL dichiarativa e builder
 Il sito si configura in `frontend/src/app/site.ts` attraverso una DSL a builder in tre fasi:
@@ -339,6 +386,8 @@ L'engine include supporto WCAG integrato nel CSS base:
 
 ### Servizi e componenti inclusi
 
+Riepilogo di tutti i servizi, componenti e dati disponibili out-of-the-box. Utile come riferimento rapido quando cerchi cosa c'e' gia' prima di scrivere qualcosa di nuovo.
+
 **Backend** (`Program.cs`):
 | Servizio | Lifetime | Ruolo |
 |---|---|---|
@@ -370,12 +419,14 @@ L'engine include supporto WCAG integrato nel CSS base:
 | `MarkdownPipe` | Markdown → HTML con protezione XSS integrata |
 
 **Dati demo** (`backend/data/`):
-- `social.json`: 31 social network preconfigurati
+- `social.json`: 32 social network preconfigurati
 - `irl.json`: profilo aziendale con campi localizzati it/en (ragione sociale, P.IVA, sede legale, contatti, dati societari)
 
 ---
 
 ## Configurazione
+
+L'engine si configura in tre posti: file di contenuto (testi, traduzioni, pagine legali), `appsettings.json` (backend) e `.env` (Docker). Nessuno dei tre richiede di ricompilare.
 
 ### Contenuti gestiti da file
 La maggior parte dei contenuti testuali e' gestita tramite file, aggiornabili senza ricompilare:
@@ -416,6 +467,8 @@ Se stai creando un progetto derivato, esegui prima `./init-project.sh nome-proge
 
 ## Operazioni Comuni
 
+Le operazioni piu' frequenti che farai lavorando con l'engine. Ogni ricetta e' pensata per essere seguita passo-passo.
+
 ### Inizializzare un progetto derivato
 Br1WebEngine funziona direttamente cosi' com'e': puoi clonare, configurare `.env` e avviare senza toccare nient'altro. Se vuoi invece partire con un nome di progetto personalizzato fin dall'inizio, esegui una sola volta:
 
@@ -447,7 +500,8 @@ Lo script sostituisce i riferimenti interni al template (`br1-web-engine`, `Br1W
 ---
 
 ## Da locale a produzione
-Quando il progetto funziona in locale e vuoi portarlo su una VPS (o su un altro server), usa i file Docker come checklist operativa, non come "copia/incolla alla cieca".
+
+Checklist per portare il progetto da locale a una VPS o un altro server. Segui i passi nell'ordine indicato.
 
 1. **Prepara la macchina**
    - Installa Docker Engine + plugin Docker Compose.
@@ -496,6 +550,8 @@ Se vuoi, puoi tenere `DOCKER_README.md` come riferimento operativo dettagliato e
 ---
 
 ## Estendere l'Engine
+
+L'engine e' progettato per essere esteso senza modificare il codice base. Le operazioni piu' comuni sono: sostituire lo storage, aggiungere controller protetti, supportare nuove lingue e cambiare tema.
 
 ### Sostituire il content store
 Crea una classe che implementa `IContentStore` e registrala in `Program.cs`:
