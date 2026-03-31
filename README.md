@@ -1,6 +1,6 @@
 # Br1WebEngine
 
-[![CI](https://github.com/br1brown/Br1WebEngine/actions/workflows/ci.yml/badge.svg)](https://github.com/br1brown/Br1WebEngine/actions/workflows/ci.yml)
+[![CI](https://github.com/br1brown/Br1WebEngine/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/br1brown/Br1WebEngine/actions/workflows/ci.yml)
 
 **Un'engine personale e moderna per costruire siti web, basata su ASP.NET Core 9 e Angular 19.**
 
