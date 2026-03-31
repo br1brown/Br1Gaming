@@ -262,7 +262,7 @@ Ogni richiesta verso il backend riceve automaticamente `X-Api-Key`, `Accept-Lang
 `npm run build` lancia in automatico generazione di meta tag e sitemap. Gli script leggono da `ContestoSito`: nome app, descrizione, colore tema, lingue e path delle pagine. Le icone PWA si rigenerano da `favicon.png` in tutte le dimensioni necessarie.
 
 #### Docker
-Il template Docker e' progettato per essere riusabile: piu' progetti derivati possono girare sulla stessa VPS, ciascuno su una porta dedicata configurata via `.env`. Non si usano `container_name` fissi ne' porte hardcoded. I volumi dati sono isolati per progetto tramite `PROJECT_NAME`. `docker-entrypoint.sh` sostituisce `API_URL` e `API_KEY` a runtime nei bundle JavaScript e verifica che i placeholder siano stati sostituiti. Asset hashati cachati un anno con `immutable`; service worker e manifest mai cachati.
+Il template Docker e' progettato per essere riusabile: piu' progetti derivati possono girare sulla stessa VPS, ciascuno su una porta dedicata configurata via `.env`. Per derivare un nuovo progetto dal template si usa `./init-project.sh nome-progetto`, che rinomina i riferimenti interni principali e prepara la configurazione iniziale. Non si usano `container_name` fissi ne' porte hardcoded. I volumi dati sono isolati per progetto tramite `PROJECT_NAME`. `docker-entrypoint.sh` sostituisce `API_URL` e `API_KEY` a runtime nei bundle JavaScript e verifica che i placeholder siano stati sostituiti. Asset hashati cachati un anno con `immutable`; service worker e manifest mai cachati.
 
 #### Asset mapping
 `AssetService` carica `mapping.json` una volta, lo mette in cache con `shareReplay`, e risolve ID in path reali o URL esterni.
@@ -401,7 +401,7 @@ La maggior parte dei contenuti testuali e' gestita tramite file, aggiornabili se
 | `API_URL` | no | Vuota = proxy Nginx; valorizzata = backend remoto |
 | `API_KEY` | no | API key iniettata a runtime nel frontend (default: `frontend`) |
 
-Per la lista completa vedi `.env.example`. Se frontend e backend girano su host separati, allineare anche `Security__CorsOrigins__*` sul backend.
+Se stai creando un progetto derivato, esegui prima `./init-project.sh nome-progetto`: lo script aggiorna i riferimenti del template e crea `.env` a partire da `.env.example` con `PROJECT_NAME` gia' valorizzato. Per la lista completa vedi `.env.example`. Se frontend e backend girano su host separati, allineare anche `Security__CorsOrigins__*` sul backend.
 
 ### Script di utilita'
 - `npm run generate:site-meta`: genera i meta tag del sito
@@ -412,6 +412,15 @@ Per la lista completa vedi `.env.example`. Se frontend e backend girano su host 
 ---
 
 ## Operazioni Comuni
+
+### Inizializzare un progetto derivato
+Dopo la clonazione del template, esegui una sola volta:
+
+```bash
+./init-project.sh mio-progetto
+```
+
+Lo script sostituisce i nomi interni del template nei file principali frontend/backend, aggiorna la configurazione Docker di base e genera `.env` con `PROJECT_NAME` coerente con il nuovo progetto. Se non lo usi, devi rinominare questi riferimenti e creare `.env` manualmente.
 
 ### Aggiungere una pagina
 1. Aggiungi un valore a `PageType` in `frontend/src/app/site.ts`.
