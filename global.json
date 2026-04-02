@@ -1,0 +1,6 @@
+{
+  "sdk": { "version": "9.0.0", "rollForward": "latestFeature" },
+  "msbuild-sdks": {
+    "Microsoft.VisualStudio.JavaScript.Sdk": "1.0.4991845"
+  }
+}
