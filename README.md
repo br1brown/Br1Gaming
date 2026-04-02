@@ -59,7 +59,7 @@ Br1WebEngine e' costruito intorno a un principio: **se una cosa puo' derivarsi d
 - Ogni pagina sceglie il [proprio layout](#pannello-e-layout) con `showPanel: false` per andare a schermo intero
 - Le [pagine di errore](#pagine-di-errore) per `400`, `401`, `403`, `404`, `500`, `503` si generano da un array con `.map()`, messaggi inclusi via i18n
 - I [titoli pagina](#titoli-pagina) si compongono da soli: `AppTitleStrategy` traduce la chiave della route e formatta `"Pagina | NomeApp"`
-- Ogni pagina dichiara il proprio [`renderMode`](#ssr-e-prerender) (`client`, `prerender`, `server`) direttamente in `site.ts`: il piano di rendering SSR viene derivato automaticamente senza toccare la configurazione Angular
+- Ogni pagina puà dichiarare il proprio [`renderMode`](#ssr-e-prerender) (`client`, `prerender`, `server`) direttamente in `site.ts`: il piano di rendering SSR viene derivato automaticamente senza toccare la configurazione Angular
 - Ogni pagina puo' dichiarare una `description` in `site.ts` (chiave i18n o stringa letterale): il layout la legge da `route.data` e aggiorna automaticamente title e meta tag social a navigazione o cambio lingua, con fallback sulla descrizione globale del sito
 
 ### Tema, Stile e Accessibilita'
@@ -100,7 +100,7 @@ Br1WebEngine e' costruito intorno a un principio: **se una cosa puo' derivarsi d
 | Categoria | Tecnologia | Note |
 |---|---|---|
 | Backend | ASP.NET Core 9, C# | REST API, API key, JWT opzionale, ProblemDetails |
-| Frontend | Angular 19, TypeScript, Bootstrap 5 | SPA/PWA, SSR, prerender, i18n, tema dinamico |
+| Frontend | Angular 19, TypeScript, Bootstrap 5 | SPA/PWA, prerender, i18n, tema dinamico |
 | Container | Docker, Docker Compose, Node SSR | template riusabile per multi-progetto, `.env`-driven |
 | Tooling | Node 22+, npm 10+ | script meta, sitemap e icone |
 
@@ -278,7 +278,7 @@ Tutto reattivo via Angular signals.
 #### Sistema di traduzione addon
 Due file per lingua: `basic.{lang}.json` (template) e `addon.{lang}.json` (progetto). Caricati in parallelo, fusi con `Object.assign` — l'addon vince. Supporta placeholder posizionali: `t('saluto', 'Mario')` → `"Ciao Mario"`.
 
-I loader per ciascuna lingua sono registrati in `frontend/src/app/core/i18n/translation-catalogs.ts` come import statici. Questo garantisce che i file JSON vengano inclusi nel bundle a compile time, rendendo le traduzioni disponibili anche durante il prerender SSR senza richieste HTTP aggiuntive.
+I loader per ciascuna lingua sono registrati in `frontend/src/app/core/i18n/translation-catalogs.ts` come import statici. Questo garantisce che i file JSON vengano inclusi nel bundle a compile time, rendendo le traduzioni disponibili anche durante l'eventuale build prerender SSR senza richieste HTTP aggiuntive.
 
 La lingua si persiste in cookie (solo con consenso GDPR), si ripristina al reload e si propaga al backend tramite `Accept-Language`.
 
