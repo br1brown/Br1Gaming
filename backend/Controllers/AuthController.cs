@@ -35,5 +35,10 @@ public class AuthController : EngineAuthController
             valid = false,
             error = "Login applicativo non implementato nel template base."
         });
+        //return Ok(new
+        //{
+        //    valid = true,
+        //    token = Auth.GenerateToken()
+        //});
     }
 }
