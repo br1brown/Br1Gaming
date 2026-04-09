@@ -1,17 +1,5 @@
 ﻿<footer class="container-fluid mt-3 theme-bg site-footer">
     <div class="container py-4">
-        @if (footerSections().length > 0) {
-        <div class="row mb-4 pb-3">
-            @for (section of footerSections(); track section.titleKey) {
-            <div [class]="'mb-3 col-12 col-lg-' + Math.floor(12 / footerSections().length)">
-                <h6 class="fw-bold">{{ section.titleKey | translate }}</h6>
-                <ng-container *ngTemplateOutlet="infoList; context: { items: section.items }"></ng-container>
-            </div>
-            }
-        </div>
-        <hr />
-        }
-
         @if (footerNavLinks.length > 0) {
         <div class="row mb-3">
             <div class="col-12">
@@ -66,19 +54,6 @@
         <hr />
         }
 
-        @if (socialLinks().length > 0) {
-        <div class="row mb-3 text-center">
-            <div class="col">
-                @for (link of socialLinks(); track link.type) {
-                <span class="mx-2">
-                    <app-social-link [type]="link.type" [value]="link.value" [showLabel]="true" />
-                </span>
-                }
-            </div>
-        </div>
-        <hr />
-        }
-
         <div class="row pt-3">
             <div class="col text-center">
                 <p class="small mb-1">
@@ -93,22 +68,4 @@
 
     </div>
 </footer>
-
-<ng-template #infoList let-items="items">
-    <ul class="list-unstyled small">
-        @for (item of items; track item.value) {
-        <li [class]="item.itemClass ? 'my-1 ' + item.itemClass : 'my-1'">
-            @if (item.label) { <span>{{ item.label }}:</span>&nbsp; }
-                               <strong>
-                                   @switch (item.kind) {
-                                   @case ('link') { <a [href]="item.href">{{ item.value }}</a> }
-                                   @case ('code') { <code>{{ item.value }}</code> }
-                                   @default { <span>{{ item.value }}</span> }
-                                   }
-                               </strong>
-        </li>
-        }
-    </ul>
-</ng-template>
-
 

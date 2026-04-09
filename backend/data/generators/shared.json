@@ -1,0 +1,9 @@
+{
+  "flatLists": {
+    "[social]": ["Instagram", "TikTok", "Facebook", "Twitter (o X)", "LinkedIn", "YouTube", "WhatsApp", "Telegram", "Tinder"],
+    "[city]": ["Ravenna", "Otranto", "Asti", "Cuneo", "Viterbo", "Rieti", "Ascoli Piceno", "Urbino", "Brindisi", "Matera"],
+    "[nome]": ["Pino", "Mario", "Ciro", "Pietro", "Ugo", "Ivano", "Gianni", "Bruno", "Andrea", "Adolfo", "Agostino", "Albino", "Aldo", "Alfredo", "Alvaro", "Anselmo", "Arturo", "Attilio", "Benito", "Bernardo", "Biagio", "Bonifacio", "Camillo", "Cesare", "Costantino", "Egidio", "Erminio", "Ettore", "Eugenio", "Fausto", "Ferdinando", "Gastone", "Gennaro", "Guglielmo", "Ido", "Innocenzo", "Lamberto", "Leopoldo", "Nestore", "Orlando", "Ottavio", "Romolo", "Silvio"],
+    "[nome-f]": ["Ada", "Adele", "Amalia", "Angela", "Antonietta", "Assunta", "Aurora", "Beatrice", "Carla", "Carmela", "Caterina", "Clara", "Concetta", "Dorotea", "Elena", "Elisa", "Emilia", "Flora", "Francesca", "Gemma", "Giulia", "Irene", "Isabella", "Lia", "Lucia", "Luisa", "Margherita", "Matilde", "Natalia", "Olga", "Paola", "Rosa", "Sara", "Teresa", "Valentina", "Vera", "Vilma", "Vittoria", "Zita"],
+    "[cognome]": ["Rossi", "Bianchi", "Esposito", "Moretti", "Ferrari", "Russo", "Romano", "Conti", "Martini", "Mariani", "Leone", "Serra", "Rizzo", "Ricci", "Lombardi", "Greco", "Colombo", "Gallo", "De Luca", "Santoro", "Ferri", "Caruso", "Mancini", "Pellegrino", "Marchetti", "Marini", "Messina", "Barbieri", "De Angelis", "Rossetti", "Palmieri", "Rinaldi", "Sartori", "Ferrara"]
+  }
+}

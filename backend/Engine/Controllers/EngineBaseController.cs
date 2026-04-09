@@ -1,4 +1,3 @@
-using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Backend.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
@@ -30,8 +29,4 @@ public abstract class EngineBaseController : ControllerBase
         Logger = logger;
     }
 
-    /// <summary>
-    /// Logica default per il profilo aziendale localizzato.
-    /// </summary>
-    public abstract Task<IActionResult> GetProfile();
 }

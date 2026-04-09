@@ -6,6 +6,8 @@
   </PropertyGroup>
   <ItemGroup>
     <None Remove="dist\**" />
+    <None Remove="src\app\features\**" />
     <TypeScriptConfiguration Remove="dist\**" />
+    <TypeScriptConfiguration Remove="src\app\features\**" />
   </ItemGroup>
 </Project>

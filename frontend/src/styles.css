@@ -1,6 +1,12 @@
 @import './styles/base.css';
 @import './styles/social.css';
 
+html {
+    /* Scala fluida: 16px su mobile → 20px su desktop largo.
+       I titoli Bootstrap usano rem, quindi crescono di conseguenza. */
+    font-size: clamp(1rem, 0.5rem + 1vw, 1.25rem);
+}
+
 body {
     font-family: sans-serif;
 }

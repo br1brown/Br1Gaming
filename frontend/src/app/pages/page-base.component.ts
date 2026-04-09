@@ -1,6 +1,5 @@
 import { Directive, inject, input } from '@angular/core';
 import { PageType } from '../app.routes';
-import { ApiService } from '../core/services/api.service';
 import { AssetService } from '../core/services/asset.service';
 import { NotificationService } from '../core/services/notification.service';
 import { TranslateService } from '../core/services/translate.service';
@@ -14,7 +13,6 @@ import { TranslateService } from '../core/services/translate.service';
 @Directive()
 export abstract class PageBaseComponent {
     readonly translate = inject(TranslateService);
-    readonly api = inject(ApiService);
     readonly asset = inject(AssetService);
     readonly notify = inject(NotificationService);
 

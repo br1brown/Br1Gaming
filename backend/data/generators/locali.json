@@ -1,0 +1,50 @@
+{
+  "name": "Generatore Nomi Bar",
+  "description": "Trova il nome del tuo locale tutto italiano",
+  "core": [
+    "[titoli] [locali-core]"
+  ],
+  "flatLists": {
+    "[titoli]": ["Baretto", "Chiosco", "Café", "Caffetteria", "Pizzeria", "Bottega", "Bar", "Bookique"],
+    "[locali-core]": [
+      "al crocevia",
+      "D'Azeglio [3-180]",
+      "Dolomiti",
+      "Garibaldi",
+      "Il Sultano",
+      "Il marcio",
+      "Italia mia",
+      "Italia",
+      "LUME",
+      "Mazzini",
+      "Moderno",
+      "Roxy",
+      "Tolomeo",
+      "Venezia",
+      "Viva Italia",
+      "all'angolo",
+      "braci e abbracci",
+      "braciami ancora",
+      "carpe diem",
+      "cavour",
+      "centrale",
+      "civico [3-180]",
+      "da [nome]",
+      "del Corso",
+      "delle Bontà",
+      "e non solo",
+      "enigmi",
+      "experience cocktail",
+      "il bivio",
+      "il profano",
+      "il ritrovo",
+      "jolly",
+      "l'angolo",
+      "mille idee",
+      "sapori antichi",
+      "sapori autentici",
+      "sport",
+      "spuntino"
+    ]
+  }
+}

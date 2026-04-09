@@ -1,18 +1,15 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpHeaders, HttpParams, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError, firstValueFrom } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { NotificationService } from './notification.service';
-import { Profile } from '../dto/profile.dto';
 import { LoginResult } from '../dto/api.dto';
 
 /** Endpoint backend. Aggiungere qui ogni nuovo path per evitare stringhe duplicate. */
 const apiBase = environment.apiUrl.replace(/\/$/, '');
 const API = {
-    social:  `${apiBase}/api/social`,
-    profile: `${apiBase}/api/profile`,
-    login:   `${apiBase}/api/auth/login`,
+    login: `${apiBase}/api/auth/login`,
 } as const;
 
 /**
@@ -29,31 +26,6 @@ export class ApiService {
     private readonly notify = inject(NotificationService);
 
     // ─── Endpoint pubblici ──────────────────────────────────────────────
-    // Aggiungere qui un metodo per ogni endpoint del backend.
-
-    /** Recupera i dati profilo legale e i contatti pubblici. */
-    getProfile(): Promise<Profile> {
-        return firstValueFrom(
-            this.http.get<Profile>(API.profile)
-                .pipe(catchError(err => this.handleError(err)))
-        );
-    }
-
-    /**
-     * Recupera i link ai social network.
-     * @param nomi  Filtro opzionale: array di nomi (es. ['facebook','instagram']).
-     *              Genera query string con chiavi ripetute: ?nomi=facebook&nomi=instagram
-     */
-    getSocial(nomi?: string[]): Promise<Record<string, string>> {
-        let params = new HttpParams();
-        if (nomi?.length) {
-            nomi.forEach(n => params = params.append('nomi', n));
-        }
-        return firstValueFrom(
-            this.http.get<Record<string, string>>(API.social, { params })
-                .pipe(catchError(err => this.handleError(err)))
-        );
-    }
 
     /** Effettua il login inviando la password al backend (form URL-encoded). */
     login(password: string): Promise<LoginResult> {

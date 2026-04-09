@@ -1,0 +1,810 @@
+{
+  "title": "Magrogamer09 — Il Simulatore di Gamer",
+  "description": "50.000 follower, zero scandali. Questo gioco non ha un vincitore.",
+  "startSceneId": "tono_live",
+  "initialStats": {
+    "percezionePublica": 5,
+    "amiciziaFavijanni": 8
+  },
+  "scenes": {
+    "tono_live": {
+      "text": "Sei Magrogamer09. 50.000 follower, una community affezionata, zero scandali. Le live sono regolari, il clima è positivo. Il tuo stile è chiaro fin dall'inizio.",
+      "isEnding": false,
+      "choices": [
+        {
+          "id": "A",
+          "text": "Pacato e gentile — calmi i toni quando serve",
+          "args": {
+            "nextSceneId": "moderazione_chat",
+            "consequences": "Molti ti descrivono come una presenza rassicurante. Ci si aspetta che tu reagisca con calma anche quando le cose vanno storte.",
+            "statChanges": {
+              "percezionePublica": 2
+            }
+          }
+        },
+        {
+          "id": "B",
+          "text": "Energico, urli spesso, punti sull'intrattenimento",
+          "args": {
+            "nextSceneId": "moderazione_chat",
+            "consequences": "Il pubblico ti segue per l'energia. Non sempre sei preso sul serio, ma sei molto guardato."
+          }
+        },
+        {
+          "id": "C",
+          "text": "Ironico e distaccato — raramente prendi posizione",
+          "args": {
+            "nextSceneId": "moderazione_chat",
+            "consequences": "Sei apprezzato per l'ironia, ma spesso si dice che non si capisca da che parte stai.",
+            "statChanges": {
+              "percezionePublica": 1
+            }
+          }
+        }
+      ]
+    },
+    "moderazione_chat": {
+      "text": "Fin dall'inizio hai scelto che tipo di moderazione avere. Come hai impostato la chat?",
+      "isEnding": false,
+      "choices": [
+        {
+          "id": "A",
+          "text": "Moderazione attiva e presente",
+          "args": {
+            "nextSceneId": "rapporto_streamer",
+            "consequences": "La chat è tranquilla. Qualcuno la trova un po' rigida, ma ci si sente al sicuro.",
+            "statChanges": {
+              "percezionePublica": 1
+            }
+          }
+        },
+        {
+          "id": "B",
+          "text": "Standard — intervieni solo se necessario",
+          "args": {
+            "nextSceneId": "rapporto_streamer",
+            "consequences": "La chat si autoregola quasi sempre. Ogni tanto scappa qualcosa, ma rientra."
+          }
+        },
+        {
+          "id": "C",
+          "text": "Minima — spazio alla community",
+          "args": {
+            "nextSceneId": "rapporto_streamer",
+            "consequences": "La chat è molto viva. A volte diventa difficile distinguere ironia e cattiveria.",
+            "statChanges": {
+              "percezionePublica": -1
+            }
+          }
+        }
+      ]
+    },
+    "rapporto_streamer": {
+      "text": "Fai parte di un giro di streamer con cui collabori spesso, Favijanni compreso. Come gestisci questi rapporti?",
+      "isEnding": false,
+      "choices": [
+        {
+          "id": "A",
+          "text": "Tieni molto ai rapporti personali — la fiducia prima delle opportunità",
+          "args": {
+            "nextSceneId": "rapporto_pubblico",
+            "consequences": "Gli altri streamer sanno che possono fidarsi di te.",
+            "statChanges": {
+              "amiciziaFavijanni": 1
+            }
+          }
+        },
+        {
+          "id": "B",
+          "text": "Rapporti cordiali ma professionali",
+          "args": {
+            "nextSceneId": "rapporto_pubblico",
+            "consequences": "Ci si rispetta. Ognuno pensa al proprio canale."
+          }
+        },
+        {
+          "id": "C",
+          "text": "Usi le collaborazioni soprattutto per crescere",
+          "args": {
+            "nextSceneId": "rapporto_pubblico",
+            "consequences": "C'è chi ti stima, ma qualcuno inizia a vederti come opportunista.",
+            "statChanges": {
+              "amiciziaFavijanni": -1
+            }
+          }
+        }
+      ]
+    },
+    "rapporto_pubblico": {
+      "text": "Quando succede qualcosa di delicato, come lo gestisci con il pubblico?",
+      "isEnding": false,
+      "choices": [
+        {
+          "id": "A",
+          "text": "Parli apertamente con la community",
+          "args": {
+            "nextSceneId": "crash_live",
+            "consequences": "Il pubblico sente di essere coinvolto. Crea fiducia, ma anche aspettative.",
+            "statChanges": {
+              "percezionePublica": 1
+            }
+          }
+        },
+        {
+          "id": "B",
+          "text": "Gestisci tutto dietro le quinte",
+          "args": {
+            "nextSceneId": "crash_live",
+            "consequences": "All'esterno sembra che vada tutto liscio. Non tutti capiscono cosa succede davvero."
+          }
+        },
+        {
+          "id": "C",
+          "text": "Eviti il più possibile le spiegazioni",
+          "args": {
+            "nextSceneId": "crash_live",
+            "consequences": "Il silenzio è spesso interpretato in modi diversi.",
+            "statChanges": {
+              "percezionePublica": -1
+            }
+          }
+        }
+      ]
+    },
+    "crash_live": {
+      "text": "Aspetti questo gioco da quattro mesi. Hai calendarizzato un'intera settimana di live in preparazione. Dieci minuti dopo l'inizio, OBS ti crasha tre volte di fila.\n\nLa chat diventa inquieta. Qualcuno sospetta che tu stia cercando un modo elegante di uscirne. Qualcuno ti insulta per l'incompetenza. Non è colpa tua, però tutti ti stanno guardando.",
+      "isEnding": false,
+      "choices": [
+        {
+          "id": "A",
+          "text": "Respiri, su Instagram scherzi sulla sfortuna e riparti",
+          "args": {
+            "nextSceneId": "serata_minecraft",
+            "consequences": "Mostri leggerezza e calma. La community apprezza.",
+            "statChanges": {
+              "percezionePublica": 2
+            }
+          }
+        },
+        {
+          "id": "B",
+          "text": "Ti scusi nervosamente su ogni piattaforma, dici che non è giornata",
+          "args": {
+            "nextSceneId": "serata_minecraft",
+            "consequences": "Con un atteggiamento spento, la live si trascina.",
+            "statChanges": {
+              "percezionePublica": 1
+            }
+          }
+        },
+        {
+          "id": "C",
+          "text": "Sbotti contro la piattaforma e contro chi si lamenta in un TikTok improvvisato",
+          "args": {
+            "nextSceneId": "serata_minecraft",
+            "consequences": "La tensione aumenta. La chat si chiede se finirai mai quella live.",
+            "statChanges": {
+              "percezionePublica": -1
+            }
+          }
+        }
+      ]
+    },
+    "serata_minecraft": {
+      "text": "Live chill su Minecraft: stai livellando una farm di zucchero di canna, musica lo-fi in sottofondo, 1.500 viewer che chiacchierano di cavolate innocue.\n\nAll'improvviso la chat cambia tono. Partono i \"Lol [StreamerX] fa build da boomer\", \"Solo tu sei il vero goat di MC\", e in pochi minuti si trasforma in un massacro di insulti verso metà della scena italiana. I moderatori non si sono mossi. Se lasci correre sembra che tu approvi.",
+      "isEnding": false,
+      "choices": [
+        {
+          "id": "A",
+          "text": "Intervengo e chiedo di smettere",
+          "args": {
+            "nextSceneId": "meme_sfugge",
+            "consequences": "Una parte della chat si calma subito. Qualcun altro si lamenta: \"non si può più scherzare\".",
+            "statChanges": {
+              "percezionePublica": 1
+            }
+          }
+        },
+        {
+          "id": "B",
+          "text": "Attivo i moderatori senza dire nulla",
+          "args": {
+            "nextSceneId": "meme_sfugge",
+            "consequences": "I messaggi spariscono in fretta, ma resta tensione e cose non dette."
+          }
+        },
+        {
+          "id": "C",
+          "text": "Lascio correre senza intervenire",
+          "args": {
+            "nextSceneId": "meme_sfugge",
+            "consequences": "La chat si scalda. I commenti diventano sempre più cattivi e attirano nuovi spettatori curiosi.",
+            "statChanges": {
+              "percezionePublica": -1
+            }
+          }
+        }
+      ]
+    },
+    "meme_sfugge": {
+      "text": "Stai raidando un villaggio su Minecraft e butti lì una battuta: «Guardate questi villaggers come commerciano, deve essere una vera rottura lavorare… per fortuna che io sono uno streamer e queste cose non le faccio».\n\nIn trenta secondi è già spam a raffica: «Per fortuna che io sono uno streamer e non pago le tasse», «...e non vado in palestra», «...e non tocco erba». Il meme si diffonde. Fuori dal tuo ecosistema suona diversamente.",
+      "isEnding": false,
+      "choices": [
+        {
+          "id": "A",
+          "text": "Blocco il meme e lo condanno apertamente in live",
+          "args": {
+            "nextSceneId": "sponsor_succo",
+            "consequences": "Dici chiaro che fuori contesto sembra classista e non lo vuoi sul canale. Qualcuno apprezza. Arrivano i primi unfollow silenziosi.",
+            "statChanges": {
+              "percezionePublica": 1
+            }
+          }
+        },
+        {
+          "id": "B",
+          "text": "Lascio che giri ogni tanto senza incoraggiarlo",
+          "args": {
+            "nextSceneId": "sponsor_succo",
+            "consequences": "Non lo riprendi, non lo spingi. Quando appare fai finta di niente. L'atmosfera rimane ambigua."
+          }
+        },
+        {
+          "id": "C",
+          "text": "Lo riprendo e lo rendo parte del canale",
+          "args": {
+            "nextSceneId": "sponsor_succo",
+            "consequences": "Fuori dal tuo ecosistema esplode: clip su TikTok, thread su Twitter, articoli drama. «Magrogamer09: Non lavoro, sono uno streamer».",
+            "statChanges": {
+              "percezionePublica": -2
+            }
+          }
+        }
+      ]
+    },
+    "sponsor_succo": {
+      "text": "Finita la live ti arrivano DM da follower fidati: il succo alla pera «BenBevi: 100% bio e zero schifezze» che hai sponsorizzato tre mesi fa sta per finire in causa per valori nutrizionali inventati e tracce di contaminanti. Lo scandalo non è ancora esploso, ma le carte stanno già girando tra giornalisti e pagine drama.",
+      "isEnding": false,
+      "choices": [
+        {
+          "id": "A",
+          "text": "Fai un video in cui ti assumi la responsabilità e prometti più attenzione in futuro",
+          "args": {
+            "nextSceneId": "black_friday",
+            "consequences": "Viene percepito come un esempio di assunzione di responsabilità, anche se qualcuno sottolinea che l'errore resta.",
+            "statChanges": {
+              "percezionePublica": 3
+            }
+          }
+        },
+        {
+          "id": "B",
+          "text": "Fai un video scaricando la colpa sul brand",
+          "args": {
+            "nextSceneId": "black_friday",
+            "consequences": "Le scuse vengono percepite come poco convincenti. Iniziano i primi commenti sulla tua sincerità.",
+            "statChanges": {
+              "percezionePublica": -1
+            }
+          }
+        },
+        {
+          "id": "C",
+          "text": "Ignori completamente la questione",
+          "args": {
+            "nextSceneId": "sponsor_aftermath"
+          }
+        }
+      ]
+    },
+    "sponsor_aftermath": {
+      "text": "Un paio di settimane dopo, il caso esplode. I mod hanno bloccato «pera» e «succo» nei filtri, ma sotto i video inizia a spuntare: «Comunque il succo radioattivo?», «Quando le scuse per aver rifilato veleno ai follower?». Ogni volta che qualcuno tira fuori l'argomento si crea un cluster di flame. Sei costretto a rispondere.",
+      "isEnding": false,
+      "choices": [
+        {
+          "id": "A",
+          "text": "Affronto apertamente i commenti più critici in live",
+          "args": {
+            "nextSceneId": "black_friday",
+            "consequences": "Alcuni apprezzano il confronto diretto, altri dicono che così dai solo più spazio alle polemiche.",
+            "statChanges": {
+              "percezionePublica": 1
+            }
+          }
+        },
+        {
+          "id": "B",
+          "text": "Ignoro i commenti e continuo con i contenuti abituali",
+          "args": {
+            "nextSceneId": "black_friday",
+            "consequences": "La crescita prosegue, ma i commenti più duri restano sotto la superficie.",
+            "statChanges": {
+              "percezionePublica": -1
+            }
+          }
+        }
+      ]
+    },
+    "black_friday": {
+      "text": "Dopo il Black Friday sono entrate migliaia di euro grazie ai link di affiliazione. La tua build del 2021 funziona ancora alla grande: 1440p ultra senza un singhiozzo, zero crash. Non hai bisogno di aggiornare nulla. Ma hai i soldi.",
+      "isEnding": false,
+      "choices": [
+        {
+          "id": "A",
+          "text": "Lasci tutto com'è",
+          "args": {
+            "nextSceneId": "testata",
+            "consequences": "Il pubblico continua a vivere le live come prima."
+          }
+        },
+        {
+          "id": "B",
+          "text": "Rifai completamente lo studio in modo vistoso",
+          "args": {
+            "nextSceneId": "testata",
+            "consequences": "Il nuovo setup salta all'occhio. La chat esplode in complimenti. Sembri in piena crescita.",
+            "statChanges": {
+              "percezionePublica": 1
+            }
+          }
+        },
+        {
+          "id": "C",
+          "text": "Aggiorni solo il computer senza dirlo a nessuno",
+          "args": {
+            "nextSceneId": "testata",
+            "consequences": "Le live risultano leggermente più fluide, ma pochi se ne accorgono."
+          }
+        }
+      ]
+    },
+    "testata": {
+      "text": "La testata di pettegolezzo IlWebbeh ti contatta in privato. Stanno preparando un articolo su una presunta relazione tra Favijanni e GinevraLaGamer. Sai che è vero, ma i due ci tengono a mantenerla privata. Qualsiasi conferma da parte tua potrebbe far saltare tutto.",
+      "isEnding": false,
+      "choices": [
+        {
+          "id": "A",
+          "text": "Dici di non saperne nulla",
+          "args": {
+            "nextSceneId": "preview_videogioco",
+            "consequences": "IlWebbeh prende tempo. Qualcuno inizia a chiedersi come mai proprio tu non ne sappia niente.",
+            "statChanges": {
+              "amiciziaFavijanni": 1
+            }
+          }
+        },
+        {
+          "id": "B",
+          "text": "Confermi l'esistenza della relazione",
+          "args": {
+            "nextSceneId": "preview_videogioco",
+            "consequences": "L'articolo esce e il tuo nome viene citato come fonte diretta. Le tensioni con Favijanni diventano evidenti.",
+            "statChanges": {
+              "amiciziaFavijanni": -2,
+              "percezionePublica": 3
+            }
+          }
+        },
+        {
+          "id": "C",
+          "text": "Non rispondi all'agenzia",
+          "args": {
+            "nextSceneId": "preview_videogioco",
+            "consequences": "Il silenzio viene notato e alimenta voci e supposizioni.",
+            "statChanges": {
+              "percezionePublica": -1
+            }
+          }
+        }
+      ]
+    },
+    "preview_videogioco": {
+      "text": "Vieni selezionato per una preview anticipata di Dreaming Simulator, uno dei giochi che sogni di portare da inizio canale. La build è ancora grezza, ma perfetta per preparare una recensione al day one. Nel giro di poco ti arriva un messaggio da Favijanni: ti chiede se puoi passargli «qualcosina», anche solo un breve spezzone. Non puoi condividere nulla. Nemmeno uno screenshot.",
+      "isEnding": false,
+      "choices": [
+        {
+          "id": "A",
+          "text": "Non condividi nulla",
+          "args": {
+            "nextSceneId": "ospite_controverso",
+            "statChanges": {
+              "amiciziaFavijanni": -1
+            },
+            "conditionalConsequences": [
+              {
+                "when": {
+                  "stat": "amiciziaFavijanni",
+                  "gte": 5
+                },
+                "text": "Favijanni ti capisce, non insiste."
+              },
+              {
+                "text": "I rapporti restano cordiali ma più freddi. Dice che sei diventato troppo rigido."
+              }
+            ]
+          }
+        },
+        {
+          "id": "B",
+          "text": "Condividi solo qualche spezzone non esplicito",
+          "args": {
+            "nextSceneId": "ospite_controverso",
+            "consequences": "Nessuno dice nulla apertamente."
+          }
+        },
+        {
+          "id": "C",
+          "text": "Condividi tutto il materiale disponibile",
+          "args": {
+            "nextSceneId": "ospite_controverso",
+            "consequences": "Favijanni apprezza molto e ti è grato.",
+            "statChanges": {
+              "amiciziaFavijanni": 2
+            }
+          }
+        }
+      ]
+    },
+    "ospite_controverso": {
+      "text": "Dopo settimane di organizzazione riesci a fissare una live con Osvaldo Osvaldini, uno dei nomi più rispettati nel gaming tecnico. La sera prima, però, Twitter esplode: Osvaldo ha appena scritto che la modalità facile dei videogiochi è «roba da [parola censurata e volgarissima]». La vostra live riguarda solo performance e ottimizzazione, in teoria non c'entra nulla. Ma il tweet sta girando ovunque e tutti sanno che domani lui sarà da te.",
+      "isEnding": false,
+      "choices": [
+        {
+          "id": "A",
+          "text": "Annulli la live spiegando il motivo",
+          "args": {
+            "nextSceneId": "proposta_azienda",
+            "consequences": "Viene letta come una presa di posizione coerente. Qualcuno parla di occasione sprecata."
+          }
+        },
+        {
+          "id": "B",
+          "text": "Fai la live evitando completamente l'argomento",
+          "args": {
+            "nextSceneId": "proposta_azienda",
+            "consequences": "Il silenzio viene notato. La live viene commentata più per ciò che non è stato detto che per i contenuti.",
+            "statChanges": {
+              "percezionePublica": -1
+            }
+          }
+        },
+        {
+          "id": "C",
+          "text": "Fai la live dando spazio all'ospite per chiarire",
+          "args": {
+            "nextSceneId": "proposta_azienda",
+            "consequences": "La diretta attira attenzione, ma molti dicono che così hai dato spazio a posizioni problematiche.",
+            "statChanges": {
+              "percezionePublica": -1
+            }
+          }
+        }
+      ]
+    },
+    "proposta_azienda": {
+      "text": "Ti arriva una mail da Armand Letal, una grande azienda videoludica. Nel settore tutti sanno com'è messa: ritmi di lavoro disumani, dipendenti spremuti, giochi che arrivano mediocri e pieni di compromessi. L'offerta economica è però così alta da permetterti un salto notevole al canale.",
+      "isEnding": false,
+      "choices": [
+        {
+          "id": "A",
+          "text": "Accetti la sponsorizzazione e promuovi il gioco",
+          "args": {
+            "nextSceneId": "nuove_regole",
+            "consequences": "Il gioco viene notato. Iniziano commenti critici sulla coerenza delle tue scelte.",
+            "statChanges": {
+              "percezionePublica": -2
+            }
+          }
+        },
+        {
+          "id": "B",
+          "text": "Rifiuti in privato",
+          "args": {
+            "nextSceneId": "nuove_regole",
+            "consequences": "All'esterno non succede nulla."
+          }
+        },
+        {
+          "id": "C",
+          "text": "Rifiuti pubblicamente spiegando i motivi",
+          "args": {
+            "nextSceneId": "nuove_regole",
+            "consequences": "Fa discutere e ti espone a critiche, ma rafforza l'immagine di coerenza.",
+            "statChanges": {
+              "percezionePublica": 2
+            }
+          }
+        }
+      ]
+    },
+    "nuove_regole": {
+      "text": "Un recente fatto di cronaca spinge la piattaforma a introdurre nuove regole rigide sui contenuti violenti. Il gioco che stai portando è ancora consentito, ma solo attivando la modalità censura — quella che smorza gli effetti e toglie il realismo che la tua community ama di più.",
+      "isEnding": false,
+      "choices": [
+        {
+          "id": "A",
+          "text": "Segui le regole attivando la censura e lo spieghi in live",
+          "args": {
+            "nextSceneId": "reality_casa",
+            "consequences": "Viene vista come la scelta corretta ma poco coraggiosa. Qualcuno dice che il canale sembri meno autentico."
+          }
+        },
+        {
+          "id": "B",
+          "text": "Segui le regole senza commentare la decisione",
+          "args": {
+            "nextSceneId": "reality_casa",
+            "consequences": "Molti si accorgono del cambiamento. Senza una spiegazione, il pubblico resta diviso sul motivo.",
+            "statChanges": {
+              "percezionePublica": -1
+            }
+          }
+        },
+        {
+          "id": "C",
+          "text": "Ignori le regole cercando di aggirarle tecnicamente",
+          "args": {
+            "nextSceneId": "reality_casa",
+            "consequences": "Le live tornano come prima. Ma serpeggia l'idea che prima o poi qualcuno farà un controllo.",
+            "statChanges": {
+              "percezionePublica": 1
+            }
+          }
+        }
+      ]
+    },
+    "reality_casa": {
+      "text": "Una grande azienda energetica, Dorothea, ti invita a un reality di una settimana chiamato «Casa del Pianeta» — sensibilizzazione ambientale, talk, attività green. Tu però conosci bene l'azienda: investimenti in pozzi di petrolio, greenwashing che circolano da anni. L'offerta economica è alta e la visibilità sarebbe enorme.",
+      "isEnding": false,
+      "choices": [
+        {
+          "id": "A",
+          "text": "Rifiuti l'invito",
+          "args": {
+            "nextSceneId": "metodo_follower",
+            "consequences": "Non partecipi. Nessun rischio, nessuna visibilità."
+          }
+        },
+        {
+          "id": "B",
+          "text": "Accetti ma dichiari pubblicamente le contraddizioni dell'azienda",
+          "args": {
+            "nextSceneId": "metodo_follower",
+            "statChanges": {
+              "percezionePublica": -1
+            },
+            "conditionalConsequences": [
+              {
+                "when": {
+                  "stat": "percezionePublica",
+                  "gte": 5
+                },
+                "text": "Vieni criticato per l'incoerenza, ma alcuni ti elogiano per il coraggio di dire ciò che molti evitano.",
+                "statChanges": {
+                  "percezionePublica": 1
+                }
+              },
+              {
+                "text": "Il tuo nome gira molto, ma le critiche per l'incoerenza pesano."
+              }
+            ]
+          }
+        },
+        {
+          "id": "C",
+          "text": "Accetti e glissi su ogni domanda scomoda",
+          "args": {
+            "nextSceneId": "metodo_follower",
+            "consequences": "Viene vista come un sostegno implicito al progetto. Iniziano commenti sul tuo opportunismo.",
+            "statChanges": {
+              "percezionePublica": -2
+            }
+          }
+        }
+      ]
+    },
+    "metodo_follower": {
+      "text": "Favijanni ti parla di «BoostiAMO», un sistema per far crescere i follower a una velocità impressionante. Non è chiaro come funzioni esattamente, nessuno lo spiega in modo preciso, ma nell'ambiente se ne sente parlare sempre più spesso.",
+      "isEnding": false,
+      "choices": [
+        {
+          "id": "A",
+          "text": "Lo usi anche tu",
+          "args": {
+            "nextSceneId": "accusa_favijanni",
+            "consequences": "I numeri crescono rapidamente. Molti iniziano a chiedersi come sia possibile un aumento così improvviso.",
+            "statChanges": {
+              "percezionePublica": -2
+            }
+          }
+        },
+        {
+          "id": "B",
+          "text": "Lo usi solo in minima parte per provare",
+          "args": {
+            "nextSceneId": "accusa_favijanni",
+            "consequences": "La crescita è meno evidente, ma resta la sensazione di esserti mosso in una zona poco chiara.",
+            "statChanges": {
+              "percezionePublica": -1
+            }
+          }
+        },
+        {
+          "id": "C",
+          "text": "Rifiuti e continui con la crescita naturale",
+          "args": {
+            "nextSceneId": "accusa_favijanni",
+            "consequences": "Nessun picco artificioso."
+          }
+        }
+      ]
+    },
+    "accusa_favijanni": {
+      "text": "All'improvviso Favijanni viene accusato pubblicamente di non pagare le tasse. La notizia esplode sui social e in pochi minuti arriva nella tua chat.\n\nTu però sai come stanno le cose: lo hai accompagnato tu stesso dal commercialista, ha pagato tutto, ha fatto il 730. Il problema è che l'Agenzia delle Entrate ha riattivato una vecchia multa legata a un'eredità — una questione privata, nulla che riguardi la sua condotta.\n\nLa tua community chiede una tua posizione.",
+      "isEnding": false,
+      "choices": [
+        {
+          "id": "A",
+          "text": "Difendi Favijanni apertamente",
+          "args": {
+            "nextSceneId": "moderatore_disastro",
+            "consequences": "Escono articoli che mettono in discussione la tua obiettività. La scelta divide il pubblico.",
+            "statChanges": {
+              "amiciziaFavijanni": 1,
+              "percezionePublica": -1
+            }
+          }
+        },
+        {
+          "id": "B",
+          "text": "Dici che non vuoi entrare nel drama",
+          "args": {
+            "nextSceneId": "moderatore_disastro",
+            "consequences": "Molti leggono il silenzio come prudenza. Altri come un modo per non esporsi quando serviva.",
+            "statChanges": {
+              "percezionePublica": -1,
+              "amiciziaFavijanni": -1
+            }
+          }
+        },
+        {
+          "id": "C",
+          "text": "Ironizzi sulla vicenda",
+          "args": {
+            "nextSceneId": "moderatore_disastro",
+            "consequences": "La battuta gira e genera attenzione. I rapporti con Favijanni si incrinano.",
+            "statChanges": {
+              "amiciziaFavijanni": -3,
+              "percezionePublica": 1
+            }
+          }
+        }
+      ]
+    },
+    "moderatore_disastro": {
+      "text": "Un moderatore storico del tuo canale viene accusato su Discord di aver abusato del suo ruolo: zittire utenti, cancellare messaggi a caso, vantarsi di «poteri speciali». In anni di onorato servizio non ha mai fatto cose così. Nel giro di poche ore circolano screenshot ovunque. Quando apri la live la chat è già nel caos.",
+      "isEnding": false,
+      "conditionalIntro": [
+        {
+          "when": {
+            "stat": "amiciziaFavijanni",
+            "gte": 7
+          },
+          "text": "Favijanni pubblica un messaggio di sostegno: vi conosce da anni, avete sempre gestito la community con serietà."
+        },
+        {
+          "when": {
+            "stat": "amiciziaFavijanni",
+            "gte": 4
+          },
+          "text": "Favijanni resta neutrale: «la situazione è complessa e va gestita con attenzione»."
+        },
+        {
+          "text": "Favijanni pubblica una frase ambigua: «ognuno è responsabile del proprio staff». Molti la leggono come una presa di distanza da te."
+        }
+      ],
+      "choices": [
+        {
+          "id": "A",
+          "text": "Rimuovi immediatamente il moderatore e chiedi scusa",
+          "args": {
+            "nextSceneId": "finale",
+            "consequences": "Il gesto viene visto come deciso, anche se qualcuno dice che arrivi troppo tardi.",
+            "statChanges": {
+              "percezionePublica": 1
+            }
+          }
+        },
+        {
+          "id": "B",
+          "text": "Chiedi tempo per verificare la situazione",
+          "args": {
+            "nextSceneId": "finale",
+            "consequences": "Viene accolta male. Molti leggono la cautela come un modo per non esporsi."
+          }
+        },
+        {
+          "id": "C",
+          "text": "Difendi il moderatore — potrebbe essere un equivoco",
+          "args": {
+            "nextSceneId": "finale",
+            "consequences": "Le reazioni diventano rapidamente ostili. Gli screenshot iniziano a girare su pagine sempre più grandi.",
+            "statChanges": {
+              "percezionePublica": -1
+            }
+          }
+        },
+        {
+          "id": "D",
+          "text": "Fai una dichiarazione trasparente spiegando come gestisci la moderazione",
+          "condition": {
+            "stat": "percezionePublica",
+            "gte": 6
+          },
+          "args": {
+            "nextSceneId": "finale",
+            "consequences": "Viene letta come un tentativo serio di chiarire. Molti apprezzano il tono.",
+            "statChanges": {
+              "percezionePublica": 1
+            }
+          }
+        }
+      ]
+    },
+    "finale": {
+      "text": "",
+      "isEnding": false,
+      "choices": [],
+      "statEnding": [
+        {
+          "when": {
+            "stat": "amiciziaFavijanni",
+            "gte": 9
+          },
+          "sceneId": "ending_amicizia"
+        },
+        {
+          "when": {
+            "stat": "percezionePublica",
+            "gte": 6
+          },
+          "sceneId": "ending_indenne"
+        },
+        {
+          "when": {
+            "stat": "percezionePublica",
+            "gte": 2
+          },
+          "sceneId": "ending_difficile"
+        },
+        {
+          "sceneId": "ending_chiusura"
+        }
+      ]
+    },
+    "ending_amicizia": {
+      "text": "Il sostegno pubblico di Favijanni cambia il clima. Il suo intervento diventa virale e riporta fiducia e stabilità attorno al canale.",
+      "endingTitle": "Salvati dall'Amicizia",
+      "isEnding": true,
+      "choices": []
+    },
+    "ending_indenne": {
+      "text": "Lo scandalo non si spegne subito, ma la gestione viene apprezzata. La community resta in gran parte con te.",
+      "endingTitle": "Uscita Quasi Indenne",
+      "isEnding": true,
+      "choices": []
+    },
+    "ending_difficile": {
+      "text": "Il canale non si ferma, ma perde slancio e credibilità. La ricostruzione della fiducia richiederà molto tempo.",
+      "endingTitle": "Sopravvivenza Difficile",
+      "isEnding": true,
+      "choices": []
+    },
+    "ending_chiusura": {
+      "text": "La sfiducia cresce fino a rendere impossibile continuare. Il canale si ferma.",
+      "endingTitle": "Chiusura del Canale",
+      "isEnding": true,
+      "choices": []
+    }
+  }
+}

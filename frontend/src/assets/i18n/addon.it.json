@@ -68,5 +68,13 @@
   "modalResultConfirmed": "Confermato!",
   "modalResultCancelled": "Annullato",
   "modalResultSubmitted": "Form inviato",
-  "contextMenuSampleText": "Questo è un testo di esempio. Selezionalo e usa il menu contestuale per copiarlo, tagliarlo o incollarlo."
+  "contextMenuSampleText": "Questo è un testo di esempio. Selezionalo e usa il menu contestuale per copiarlo, tagliarlo o incollarlo.",
+  "br1games": "Br1Games",
+  "generatori": "Generatori",
+  "avventure": "Avventure",
+  "generatoreDetail": "Generatore",
+  "avventuraPlayer": "Avventura",
+  "genera": "Genera",
+  "riavvia": "Riavvia",
+  "haiscelta": "Hai scelto"
 }

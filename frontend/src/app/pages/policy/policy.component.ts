@@ -56,10 +56,7 @@ export class PolicyComponent extends PageBaseComponent implements OnInit {
      */
     private getFileName(pageType: PageType): string {
         switch (pageType) {
-            case PageType.PrivacyPolicy: return 'privacy';
             case PageType.CookiePolicy: return 'cookie';
-            case PageType.TermsOfService: return 'TOS';
-            case PageType.LegalNotice: return 'legal';
             default: return '';
         }
     }
