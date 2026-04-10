@@ -2,7 +2,6 @@ export interface StorySummary {
     slug: string;
     title: string;
     description: string;
-    coverImage?: string;
 }
 
 export interface ChoiceItem {
@@ -12,6 +11,7 @@ export interface ChoiceItem {
 
 export interface StorySnapshotDto {
     storySlug: string;
+    storyTitle: string;
     sceneId: string;
     sceneText: string;
     choices: ChoiceItem[];

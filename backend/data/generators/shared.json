@@ -1,8 +1,51 @@
 {
+  "rangeAliases": {
+    "[età-giovane]": "[15-25]",
+    "[età-cresciuto]": "[30-50]",
+    "[età-adulto]": "[25-65]",
+    "[età-anziano]": "[50-70]"
+  },
+  "policyGroups": {
+    "età": ["[età-giovane]", "[età-cresciuto]", "[età-adulto]", "[età-anziano]"],
+    "professione": ["[professioni]", "[profdigitali]"]
+  },
+  "composedLists": {
+    "[nome]": ["[nome-m]", "[nome-f]"]
+  },
   "flatLists": {
+    "[professioni]": [
+      "addetto al caricamento e scaricamento delle merci", "addetto al customer service",
+      "addetto alla pulizia", "addetto alle consegne", "addetto alle vendite online",
+      "agente di viaggio", "agente immobiliare", "agricoltore", "analista di dati",
+      "analista di marketing", "apprendista cuoco", "architetto", "artista solitario",
+      "assistente di magazzino", "autista di Uber", "avvocato", "barista", "cameriere",
+      "collaboratore domestico", "commesso", "designer grafico", "disoccupato", "editore",
+      "elettricista", "fabbricante di gioielli", "fotografo", "fotografo freelance",
+      "giardiniere", "giornalista", "gym bro aggressivo", "idraulico",
+      "impiegato in un fast food", "impiegato statale", "imprenditore",
+      "ingegnere del software", "istruttore di fitness", "istruttore di yoga",
+      "lavoratore in un magazzino", "meccanico", "medico", "musicista",
+      "operatore di call center", "operatore di telemarketing", "pensionato",
+      "personal shopper", "poliziotto", "programmatore", "programmatore di videogiochi",
+      "receptionist", "ristoratore", "studente di medicina", "studente fallito",
+      "studente universitario", "tassista", "tecnico del suono", "tecnico informatico",
+      "traduttore", "venditore di strada", "vigile del fuoco", "web developer"
+    ],
+    "[profdigitali]": [
+      "aspirante youtuber", "blogger", "gamer", "moderatore Discord", "reddit user",
+      "smanettone di computer",
+      "esperto in criptovalute", "trader di criptovalute", "consulente blockchain",
+      "sviluppatore di smart contract", "creatore di nft",
+      "influencer nel campo delle criptovalute", "analista di mercato cripto",
+      "youtuber specializzato in criptovalute", "blogger di tecnologia blockchain",
+      "consulente per investimenti in criptovalute",
+      "amministratore di piattaforme di scambio cripto",
+      "ricercatore di sicurezza blockchain", "sviluppatore di giochi basati su blockchain",
+      "consulente per la tokenizzazione di asset", "truffatore di minorenni su [social]"
+    ],
     "[social]": ["Instagram", "TikTok", "Facebook", "Twitter (o X)", "LinkedIn", "YouTube", "WhatsApp", "Telegram", "Tinder"],
     "[city]": ["Ravenna", "Otranto", "Asti", "Cuneo", "Viterbo", "Rieti", "Ascoli Piceno", "Urbino", "Brindisi", "Matera"],
-    "[nome]": ["Pino", "Mario", "Ciro", "Pietro", "Ugo", "Ivano", "Gianni", "Bruno", "Andrea", "Adolfo", "Agostino", "Albino", "Aldo", "Alfredo", "Alvaro", "Anselmo", "Arturo", "Attilio", "Benito", "Bernardo", "Biagio", "Bonifacio", "Camillo", "Cesare", "Costantino", "Egidio", "Erminio", "Ettore", "Eugenio", "Fausto", "Ferdinando", "Gastone", "Gennaro", "Guglielmo", "Ido", "Innocenzo", "Lamberto", "Leopoldo", "Nestore", "Orlando", "Ottavio", "Romolo", "Silvio"],
+    "[nome-m]": ["Pino", "Mario", "Ciro", "Pietro", "Ugo", "Ivano", "Gianni", "Bruno", "Andrea", "Adolfo", "Agostino", "Albino", "Aldo", "Alfredo", "Alvaro", "Anselmo", "Arturo", "Attilio", "Benito", "Bernardo", "Biagio", "Bonifacio", "Camillo", "Cesare", "Costantino", "Egidio", "Erminio", "Ettore", "Eugenio", "Fausto", "Ferdinando", "Gastone", "Gennaro", "Guglielmo", "Ido", "Innocenzo", "Lamberto", "Leopoldo", "Nestore", "Orlando", "Ottavio", "Romolo", "Silvio"],
     "[nome-f]": ["Ada", "Adele", "Amalia", "Angela", "Antonietta", "Assunta", "Aurora", "Beatrice", "Carla", "Carmela", "Caterina", "Clara", "Concetta", "Dorotea", "Elena", "Elisa", "Emilia", "Flora", "Francesca", "Gemma", "Giulia", "Irene", "Isabella", "Lia", "Lucia", "Luisa", "Margherita", "Matilde", "Natalia", "Olga", "Paola", "Rosa", "Sara", "Teresa", "Valentina", "Vera", "Vilma", "Vittoria", "Zita"],
     "[cognome]": ["Rossi", "Bianchi", "Esposito", "Moretti", "Ferrari", "Russo", "Romano", "Conti", "Martini", "Mariani", "Leone", "Serra", "Rizzo", "Ricci", "Lombardi", "Greco", "Colombo", "Gallo", "De Luca", "Santoro", "Ferri", "Caruso", "Mancini", "Pellegrino", "Marchetti", "Marini", "Messina", "Barbieri", "De Angelis", "Rossetti", "Palmieri", "Rinaldi", "Sartori", "Ferrara"]
   }

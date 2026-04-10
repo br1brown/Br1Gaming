@@ -70,13 +70,8 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
 		]));
 
 	siteFondamentaBuilder.configureSiteNavigation(siteNavigationSectionsBuilder => {
-		siteNavigationSectionsBuilder.configureHeaderNavigation(() => {
-		});
-
 		siteNavigationSectionsBuilder.configureFooterNavigation(footerNavigationBuilder => {
-			footerNavigationBuilder.addGroup('policies', policyGroupNavigationBuilder => {
-				policyGroupNavigationBuilder.addPage(PageType.CookiePolicy);
-			});
+			footerNavigationBuilder.addPage(PageType.CookiePolicy);
 		});
 	});
 });

@@ -5,7 +5,7 @@
     "[titoli] [locali-core]"
   ],
   "flatLists": {
-    "[titoli]": ["Baretto", "Chiosco", "Café", "Caffetteria", "Pizzeria", "Bottega", "Bar", "Bookique"],
+    "[titoli]": [ "Baretto", "Chiosco", "Café", "Caffetteria", "Pizzeria", "Bottega", "Bar", "Bookique" ],
     "[locali-core]": [
       "al crocevia",
       "D'Azeglio [3-180]",

@@ -1,14 +1,15 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { StoriesApiService } from './stories-api.service';
+import { ApiService } from './api.service';
 import { StorySnapshotDto, StoryTimelineItem } from '../dto/story.dto';
 
 @Injectable({ providedIn: 'root' })
 export class StoryPlayerFacade {
-    private readonly api = inject(StoriesApiService);
+    private readonly api = inject(ApiService);
 
     readonly snapshot = signal<StorySnapshotDto | null>(null);
     readonly timeline = signal<StoryTimelineItem[]>([]);
+    readonly title = signal<string>('');
     readonly loading = signal(false);
     readonly error = signal<string | null>(null);
 
@@ -22,10 +23,36 @@ export class StoryPlayerFacade {
         return `br1games.story.${slug}.stats`;
     }
 
+    private timelineKey(slug: string): string {
+        return `br1games.story.${slug}.timeline`;
+    }
+
+    private storageGet(key: string): string | null {
+        try { return localStorage.getItem(key); } catch { return null; }
+    }
+
+    private storageSet(key: string, value: string): void {
+        try { localStorage.setItem(key, value); } catch { /* quota o privacy mode */ }
+    }
+
+    private storageRemove(key: string): void {
+        try { localStorage.removeItem(key); } catch { /* noop */ }
+    }
+
     private loadSavedStats(slug: string): Record<string, number> | null {
-        const raw = localStorage.getItem(this.statsKey(slug));
+        const raw = this.storageGet(this.statsKey(slug));
         if (!raw) return null;
         try { return JSON.parse(raw); } catch { return null; }
+    }
+
+    private loadSavedTimeline(slug: string): StoryTimelineItem[] | null {
+        const raw = this.storageGet(this.timelineKey(slug));
+        if (!raw) return null;
+        try { return JSON.parse(raw); } catch { return null; }
+    }
+
+    private saveTimeline(slug: string, items: StoryTimelineItem[]): void {
+        this.storageSet(this.timelineKey(slug), JSON.stringify(items));
     }
 
     async init(slug: string): Promise<void> {
@@ -36,18 +63,23 @@ export class StoryPlayerFacade {
         this.error.set(null);
 
         try {
-            const savedSceneId = localStorage.getItem(this.sceneKey(slug));
+            const savedSceneId = this.storageGet(this.sceneKey(slug));
             const savedStats = this.loadSavedStats(slug);
 
             if (savedSceneId && savedStats) {
                 try {
                     const snap = await firstValueFrom(this.api.resumeStory(slug, savedSceneId, savedStats));
+                    const savedTimeline = this.loadSavedTimeline(slug);
+                    if (savedTimeline && savedTimeline.length > 0) {
+                        this.timeline.set(savedTimeline);
+                    }
                     this.applySnapshot(snap);
                     return;
                 } catch {
                     // Saved state no longer valid (story updated?), restart
-                    localStorage.removeItem(this.sceneKey(slug));
-                    localStorage.removeItem(this.statsKey(slug));
+                    this.storageRemove(this.sceneKey(slug));
+                    this.storageRemove(this.statsKey(slug));
+                    this.storageRemove(this.timelineKey(slug));
                 }
             }
 
@@ -90,7 +122,9 @@ export class StoryPlayerFacade {
                 newItems.push({ type: 'scene', sceneId: next.sceneId, text: next.sceneText });
             }
 
-            this.timeline.update(items => [...items, ...newItems]);
+            const updatedTimeline = [...this.timeline(), ...newItems];
+            this.timeline.set(updatedTimeline);
+            this.saveTimeline(this.currentSlug, updatedTimeline);
             this.applySnapshot(next);
         } catch {
             this.error.set('Errore nella scelta.');
@@ -100,8 +134,9 @@ export class StoryPlayerFacade {
     }
 
     async restart(): Promise<void> {
-        localStorage.removeItem(this.sceneKey(this.currentSlug));
-        localStorage.removeItem(this.statsKey(this.currentSlug));
+        this.storageRemove(this.sceneKey(this.currentSlug));
+        this.storageRemove(this.statsKey(this.currentSlug));
+        this.storageRemove(this.timelineKey(this.currentSlug));
         this.loading.set(true);
         this.error.set(null);
         this.timeline.set([]);
@@ -118,8 +153,9 @@ export class StoryPlayerFacade {
 
     private applySnapshot(snap: StorySnapshotDto): void {
         this.snapshot.set(snap);
-        localStorage.setItem(this.sceneKey(this.currentSlug), snap.sceneId);
-        localStorage.setItem(this.statsKey(this.currentSlug), JSON.stringify(snap.stats ?? {}));
+        if (snap.storyTitle) this.title.set(snap.storyTitle);
+        this.storageSet(this.sceneKey(this.currentSlug), snap.sceneId);
+        this.storageSet(this.statsKey(this.currentSlug), JSON.stringify(snap.stats ?? {}));
 
         if (this.timeline().length === 0) {
             if (snap.isEnding) {

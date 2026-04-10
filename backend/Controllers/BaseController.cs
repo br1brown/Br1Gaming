@@ -1,84 +1,102 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Backend.Infrastructure;
 using Backend.Models;
 using Backend.Services;
+using Backend.Stories;
 
 namespace Backend.Controllers;
 
 [Route("api")]
 public class BaseController : EngineBaseController
 {
+    private readonly StoryRegistry _registry;
+    private readonly StoryEngine _engine;
     private readonly SiteService _service;
 
-    public BaseController(SiteService service, IContentStore store, ILogger<BaseController> logger)
+    public BaseController(
+        StoryRegistry registry,
+        StoryEngine engine,
+        SiteService service,
+        IContentStore store,
+        ILogger<BaseController> logger)
         : base(store, logger)
     {
+        _registry = registry;
+        _engine = engine;
         _service = service;
     }
 
     // ── Storie ───────────────────────────────────────────────────────
 
     [HttpGet("stories")]
-    public async Task<IActionResult> GetCatalog()
+    public IActionResult GetCatalog()
     {
-        var items = await _service.GetCatalogAsync();
-        var dtos = items.Select(i => new StorySummaryDto(i.Slug, i.Title, i.Description, i.CoverImage)).ToList();
+        var dtos = _registry.GetAll()
+            .Select(s => new StorySummaryDto(s.Slug, s.Title, s.Description, s.CoverImage))
+            .ToList();
         return Ok(dtos);
     }
 
     [HttpPost("stories/{slug}/start")]
-    public async Task<IActionResult> Start(string slug)
+    public IActionResult Start(string slug)
     {
-        try
-        {
-            var snapshot = await _service.StartAsync(slug);
-            return Ok(MapSnapshot(snapshot));
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound();
-        }
+        var story = _registry.Get(slug) ?? throw new NotFoundException($"storia '{slug}'");
+        return Ok(MapSnapshot(_engine.Start(story), story));
     }
 
     [HttpPost("stories/{slug}/resume")]
-    public async Task<IActionResult> Resume(string slug, [FromBody] StoryResumeRequestDto body)
+    public IActionResult Resume(string slug, [FromBody] StoryResumeRequestDto body)
     {
-        var stats = body.Stats ?? new Dictionary<string, int>();
-        var snapshot = await _service.GetSceneAsync(slug, body.SceneId, stats);
+        var story = _registry.Get(slug) ?? throw new NotFoundException($"storia '{slug}'");
+        var state = ToGameState(body.Stats);
+        var snapshot = _engine.Resume(story, body.SceneId, state);
         if (snapshot is null) return NotFound();
-        return Ok(MapSnapshot(snapshot));
+        return Ok(MapSnapshot(snapshot, story));
     }
 
     [HttpPost("stories/{slug}/choose")]
-    public async Task<IActionResult> Choose(string slug, [FromBody] StoryChoiceRequestDto body)
+    public IActionResult Choose(string slug, [FromBody] StoryChoiceRequestDto body)
     {
-        try
-        {
-            var stats = body.Stats ?? new Dictionary<string, int>();
-            var snapshot = await _service.ChooseAsync(slug, body.CurrentSceneId, body.ChoiceId, stats);
-            return Ok(MapSnapshot(snapshot));
-        }
-        catch (KeyNotFoundException ex) when (ex.Message.Contains("Story"))
-        {
-            return NotFound();
-        }
-        catch (KeyNotFoundException)
-        {
-            return BadRequest();
-        }
+        var story = _registry.Get(slug) ?? throw new NotFoundException($"storia '{slug}'");
+        var state = ToGameState(body.Stats);
+        var snapshot = _engine.Choose(story, body.CurrentSceneId, body.ChoiceId, state);
+        return Ok(MapSnapshot(snapshot, story));
     }
 
-    private static StorySnapshotDto MapSnapshot(StorySnapshot snapshot) => new()
+    // Converte il dizionario che arriva dal client (valori come JsonElement) in GameState
+    private static GameState ToGameState(Dictionary<string, object>? dict)
     {
-        StorySlug = snapshot.StorySlug,
-        SceneId = snapshot.SceneId,
-        SceneText = snapshot.Scene.Text,
-        Choices = snapshot.Choices.Select(c => new ChoiceDto(c.Id, c.Text)).ToList(),
-        IsEnding = snapshot.IsEnding,
-        Consequences = snapshot.Consequences,
-        ChosenChoiceText = snapshot.ChosenChoiceText,
-        EndingTitle = snapshot.Scene.EndingTitle,
-        Stats = snapshot.Stats
+        if (dict is null) return new GameState();
+        var unwrapped = dict.ToDictionary(
+            kvp => kvp.Key,
+            kvp => kvp.Value is JsonElement je ? UnwrapElement(je) : kvp.Value);
+        return new GameState(unwrapped);
+    }
+
+    private static object UnwrapElement(JsonElement je) => je.ValueKind switch
+    {
+        JsonValueKind.Number when je.TryGetInt32(out var i) => i,
+        JsonValueKind.Number when je.TryGetInt64(out var l) => l,
+        JsonValueKind.Number => je.GetDouble(),
+        JsonValueKind.String => je.GetString()!,
+        JsonValueKind.True => true,
+        JsonValueKind.False => false,
+        _ => je.GetRawText()
+    };
+
+    private static StorySnapshotDto MapSnapshot(StorySnapshot s, IStory story) => new()
+    {
+        StorySlug = s.StorySlug,
+        StoryTitle = story.Title,
+        SceneId = s.SceneId,
+        SceneText = s.SceneText,
+        Choices = s.Choices.Select(c => new ChoiceDto(c.Id, c.Text)).ToList(),
+        IsEnding = s.IsEnding,
+        Consequences = s.Consequences,
+        ChosenChoiceText = s.ChosenChoiceText,
+        EndingTitle = s.EndingTitle,
+        Stats = s.State   // "stats" per compatibilità col frontend esistente
     };
 
     // ── Generatori ───────────────────────────────────────────────────
@@ -87,8 +105,7 @@ public class BaseController : EngineBaseController
     public async Task<IActionResult> GetAllGenerators()
     {
         var items = await _service.GetGeneratorCatalogAsync();
-        var dtos = items.Select(i => new GeneratorInfoDto(i.Slug, i.Name ?? i.Slug, i.Description)).ToList();
-        return Ok(dtos);
+        return Ok(items.Select(i => new GeneratorInfoDto(i.Slug, i.Name ?? i.Slug, i.Description)));
     }
 
     [HttpGet("generators/{slug}")]
@@ -102,23 +119,15 @@ public class BaseController : EngineBaseController
     [HttpPost("generators/{slug}/generate")]
     public async Task<IActionResult> Generate(string slug, [FromBody] GenerateRequestDto? body)
     {
-        try
-        {
-            var request = new GenerationRequest(body?.IncludeHtml ?? false);
-            var result = await _service.GenerateAsync(slug, request);
-            return Ok(new GenerateResponseDto(result.Text, result.Markdown, result.Html));
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound();
-        }
+        var result = await _service.GenerateAsync(slug, new GenerationRequest(body?.IncludeHtml ?? false));
+        return Ok(new GenerateResponseDto(result.Text, result.Markdown, result.Html));
     }
 
     // ── DTO ──────────────────────────────────────────────────────────
 
     public sealed record StorySummaryDto(string Slug, string Title, string? Description, string? CoverImage);
-    public sealed record StoryResumeRequestDto(string SceneId, Dictionary<string, int>? Stats);
-    public sealed record StoryChoiceRequestDto(string CurrentSceneId, string ChoiceId, Dictionary<string, int>? Stats);
+    public sealed record StoryResumeRequestDto(string SceneId, Dictionary<string, object>? Stats);
+    public sealed record StoryChoiceRequestDto(string CurrentSceneId, string ChoiceId, Dictionary<string, object>? Stats);
     public sealed record ChoiceDto(string Id, string Text);
     public sealed record GeneratorInfoDto(string Slug, string Name, string? Description);
     public sealed record GenerateRequestDto(bool IncludeHtml = false);
@@ -127,6 +136,7 @@ public class BaseController : EngineBaseController
     public sealed class StorySnapshotDto
     {
         public string StorySlug { get; set; } = "";
+        public string StoryTitle { get; set; } = "";
         public string SceneId { get; set; } = "";
         public string SceneText { get; set; } = "";
         public List<ChoiceDto> Choices { get; set; } = [];
@@ -134,6 +144,6 @@ public class BaseController : EngineBaseController
         public string? Consequences { get; set; }
         public string? ChosenChoiceText { get; set; }
         public string? EndingTitle { get; set; }
-        public Dictionary<string, int> Stats { get; set; } = [];
+        public Dictionary<string, object> Stats { get; set; } = [];   // "stats" per il frontend
     }
 }

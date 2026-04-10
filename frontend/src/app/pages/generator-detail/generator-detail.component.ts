@@ -2,7 +2,7 @@ import { Component, inject, signal, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { GeneratorInfo, GenerateResponse } from '../../core/dto/generator.dto';
-import { GeneratorsApiService } from '../../core/services/generators-api.service';
+import { ApiService } from '../../core/services/api.service';
 import { ShareService } from '../../core/services/share.service';
 import { renderToCanvas } from '../../core/services/img-builder.service';
 import { MarkdownPipe } from '../../shared/pipes/markdown.pipe';
@@ -16,7 +16,7 @@ import { PageBaseComponent } from '../page-base.component';
 })
 export class GeneratorDetailComponent extends PageBaseComponent implements OnInit {
     private readonly route = inject(ActivatedRoute);
-    private readonly generatorsApi = inject(GeneratorsApiService);
+    private readonly api = inject(ApiService);
     private readonly share = inject(ShareService);
 
     readonly generator = signal<GeneratorInfo | null>(null);
@@ -27,7 +27,7 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
     async ngOnInit(): Promise<void> {
         const slug = this.route.snapshot.paramMap.get('slug') ?? '';
         try {
-            const detail = await firstValueFrom(this.generatorsApi.getGenerator(slug));
+            const detail = await firstValueFrom(this.api.getGenerator(slug));
             this.generator.set(detail);
         } catch {
             this.notify.handleApiError(404, null);
@@ -42,7 +42,7 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
         this.result.set(null);
         try {
             const res = await firstValueFrom(
-                this.generatorsApi.generate(gen.slug, {})
+                this.api.generate(gen.slug, {})
             );
             this.result.set(res);
         } catch {

@@ -4,13 +4,13 @@ import { ActivatedRoute } from '@angular/router';
 import { StoryPlayerFacade } from '../../core/services/story-player.facade';
 import { AssetService } from '../../core/services/asset.service';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
+import { MarkdownPipe } from '../../shared/pipes/markdown.pipe';
 import { PageBaseComponent } from '../page-base.component';
 
 @Component({
     selector: 'app-story-player',
-    imports: [AsyncPipe, TranslatePipe],
+    imports: [AsyncPipe, TranslatePipe, MarkdownPipe],
     templateUrl: './story-player.component.html',
-    styleUrl: './story-player.component.css'
 })
 export class StoryPlayerComponent extends PageBaseComponent implements OnInit {
     private readonly route = inject(ActivatedRoute);
@@ -28,5 +28,6 @@ export class StoryPlayerComponent extends PageBaseComponent implements OnInit {
 
     restart(): void {
         this.facade.restart();
+        window.scrollTo(0, 0);
     }
 }

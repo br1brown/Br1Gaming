@@ -6,8 +6,8 @@ import { PageBaseComponent } from '../page-base.component';
 import { ContestoSito } from '../../site';
 import { GeneratorInfo } from '../../core/dto/generator.dto';
 import { StorySummary } from '../../core/dto/story.dto';
-import { GeneratorsApiService } from '../../core/services/generators-api.service';
-import { StoriesApiService } from '../../core/services/stories-api.service';
+import { ApiService } from '../../core/services/api.service';
+import { AssetService } from '../../core/services/asset.service';
 
 @Component({
     selector: 'app-home',
@@ -15,24 +15,31 @@ import { StoriesApiService } from '../../core/services/stories-api.service';
     templateUrl: './home.component.html',
 })
 export class HomeComponent extends PageBaseComponent implements OnInit {
-    private readonly generatorsApi = inject(GeneratorsApiService);
-    private readonly storiesApi = inject(StoriesApiService);
+    private readonly api = inject(ApiService);
+    private readonly assets = inject(AssetService);
 
     readonly appName = ContestoSito.config.appName;
     readonly appDescription = ContestoSito.config.description;
     readonly generators = signal<GeneratorInfo[]>([]);
     readonly stories = signal<StorySummary[]>([]);
+    readonly coverUrls = signal<Record<string, string>>({});
     readonly loading = signal(false);
 
     async ngOnInit(): Promise<void> {
         this.loading.set(true);
         try {
             const [gens, strs] = await Promise.all([
-                firstValueFrom(this.generatorsApi.getGenerators()),
-                firstValueFrom(this.storiesApi.getStories())
+                firstValueFrom(this.api.getGenerators()),
+                firstValueFrom(this.api.getStories())
             ]);
             this.generators.set(gens);
             this.stories.set(strs);
+
+            const urls: Record<string, string> = {};
+            await Promise.all(strs.map(async s => {
+                urls[s.slug] = await firstValueFrom(this.assets.getUrl(`story.${s.slug}`));
+            }));
+            this.coverUrls.set(urls);
         } catch {
             this.notify.handleApiError(500, null);
         } finally {

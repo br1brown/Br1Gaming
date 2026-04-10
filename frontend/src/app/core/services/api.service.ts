@@ -5,11 +5,15 @@ import { catchError } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { NotificationService } from './notification.service';
 import { LoginResult } from '../dto/api.dto';
+import { StorySummary, StorySnapshotDto } from '../dto/story.dto';
+import { GeneratorInfo, GenerateRequest, GenerateResponse } from '../dto/generator.dto';
 
 /** Endpoint backend. Aggiungere qui ogni nuovo path per evitare stringhe duplicate. */
 const apiBase = environment.apiUrl.replace(/\/$/, '');
 const API = {
-    login: `${apiBase}/api/auth/login`,
+    login:      `${apiBase}/api/auth/login`,
+    stories:    `${apiBase}/api/stories`,
+    generators: `${apiBase}/api/generators`,
 } as const;
 
 /**
@@ -25,7 +29,7 @@ export class ApiService {
     private readonly http = inject(HttpClient);
     private readonly notify = inject(NotificationService);
 
-    // ─── Endpoint pubblici ──────────────────────────────────────────────
+    // ─── Auth ───────────────────────────────────────────────────────────
 
     /** Effettua il login inviando la password al backend (form URL-encoded). */
     login(password: string): Promise<LoginResult> {
@@ -35,6 +39,38 @@ export class ApiService {
             this.http.post<LoginResult>(API.login, body, { headers })
                 .pipe(catchError(err => this.handleError(err)))
         );
+    }
+
+    // ─── Stories ────────────────────────────────────────────────────────
+
+    getStories(): Observable<StorySummary[]> {
+        return this.http.get<StorySummary[]>(API.stories);
+    }
+
+    startStory(slug: string): Observable<StorySnapshotDto> {
+        return this.http.post<StorySnapshotDto>(`${API.stories}/${slug}/start`, {});
+    }
+
+    resumeStory(slug: string, sceneId: string, stats: Record<string, number>): Observable<StorySnapshotDto> {
+        return this.http.post<StorySnapshotDto>(`${API.stories}/${slug}/resume`, { sceneId, stats });
+    }
+
+    choose(slug: string, currentSceneId: string, choiceId: string, stats: Record<string, number>): Observable<StorySnapshotDto> {
+        return this.http.post<StorySnapshotDto>(`${API.stories}/${slug}/choose`, { currentSceneId, choiceId, stats });
+    }
+
+    // ─── Generators ─────────────────────────────────────────────────────
+
+    getGenerators(): Observable<GeneratorInfo[]> {
+        return this.http.get<GeneratorInfo[]>(API.generators);
+    }
+
+    getGenerator(slug: string): Observable<GeneratorInfo> {
+        return this.http.get<GeneratorInfo>(`${API.generators}/${slug}`);
+    }
+
+    generate(slug: string, req: GenerateRequest): Observable<GenerateResponse> {
+        return this.http.post<GenerateResponse>(`${API.generators}/${slug}/generate`, req);
     }
 
     // ─── Gestione errori ────────────────────────────────────────────────

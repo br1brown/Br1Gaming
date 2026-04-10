@@ -6,6 +6,8 @@ using Backend.Models.Configuration;
 using Backend.Infrastructure;
 using Backend.Security;
 using Backend.Services;
+using Backend.Stories;
+using Backend.Stories.Catalog;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,6 +37,18 @@ var security = builder.Configuration
 //
 builder.Services.AddSingleton<IContentStore, FileContentStore>();
 builder.Services.AddScoped<SiteService>();
+
+// ── STORIE IN C# ────────────────────────────────────────────────────
+//
+// Ogni storia implementa IStory ed è registrata come Singleton.
+// StoryRegistry raccoglie tutte le IStory via DI e le indicizza per slug.
+// StoryEngine è il motore narrativo stateless.
+// Per aggiungere una storia: implementa IStory, aggiungila qui.
+//
+builder.Services.AddSingleton<IStory, PoveriMaschiStory>();
+builder.Services.AddSingleton<IStory, Magrogamer09Story>();
+builder.Services.AddSingleton<StoryRegistry>();
+builder.Services.AddSingleton<StoryEngine>();
 
 if (security.LoginEnabled)
     builder.Services.AddSingleton<AuthService>();

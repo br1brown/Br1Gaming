@@ -1,9 +1,11 @@
 {
   "name": "Generatore Invettive Automobilistiche",
   "description": "Non sai cosa dire quando un guidatore fa delle manovre poco piacevoli?",
+  "suffix": "!",
   "minPhrases": 2,
   "maxPhrases": 3,
-  "separators": ["! ", "!! ", "!\n"],
+  "separators": [ " eh??!! ", " cosa mi dici?!! ", " oh! ", " eh... fighi! " ],
+  "uniqueLabels": [ "guidi" ],
   "core": [
     "ma sei serio, [epiteti]? sembra che tu abbia preso la patente [luoghi]!",
     "questo è il colmo, [epiteti]! stai guidando come se fossimo [luoghi]!",
@@ -86,7 +88,7 @@
       "scendere dalla [parolaccie-f] macchina e farti investire",
       "aver invertito il [parolaccie-m] acceleratore con il fottuto freno"
     ],
-    "[parolaccie-m]": ["cazzo di", "fottuto", "schifoso", "merdoso", "merda di"],
-    "[parolaccie-f]": ["fottuta", "schifosa", "merdosa", "cazzo di", "merda di"]
+    "[parolaccie-m]": [ "cazzo di", "fottuto", "schifoso", "merdoso", "merda di" ],
+    "[parolaccie-f]": [ "fottuta", "schifosa", "merdosa", "cazzo di", "merda di" ]
   }
 }
