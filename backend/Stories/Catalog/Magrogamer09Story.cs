@@ -1,4 +1,4 @@
-﻿namespace Backend.Stories.Catalog;
+namespace Backend.Stories.Catalog;
 
 public class Magrogamer09Story : IStory
 {
@@ -78,7 +78,11 @@ public class Magrogamer09Story : IStory
     {
         ["tono_live"] = _ => new()
         {
-            Text = "Sei Magrogamer09. 50.000 follower, una community affezionata, zero scandali. Le live sono regolari, il clima è positivo. Il tuo stile è chiaro fin dall'inizio.",
+            Text = """
+Sei **Magrogamer09**. 50.000 follower, una community affezionata, zero scandali. Le live sono regolari, il clima è positivo.
+
+Il tuo stile è chiaro fin dall'inizio.
+""",
             Choices =
             [
                 new ChoiceDef
@@ -89,7 +93,7 @@ public class Magrogamer09Story : IStory
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") + 2);
-                        return "Molti ti descrivono come una presenza rassicurante. Ci si aspetta che tu reagisca con calma anche quando le cose vanno storte.";
+                        return "Molti ti descrivono come *una presenza rassicurante*. Ci si aspetta che tu reagisca con calma anche quando le cose vanno storte.";
                     }
                 },
                 new ChoiceDef
@@ -97,7 +101,7 @@ public class Magrogamer09Story : IStory
                     Id          = "B",
                     Text        = "Energico, urli spesso, punti sull'intrattenimento",
                     NextSceneId = "moderazione_chat",
-                    Effect      = _ => "Il pubblico ti segue per l'energia. Non sempre sei preso sul serio, ma sei molto guardato."
+                    Effect      = _ => "Il pubblico ti segue per l'energia. Non sempre sei preso sul serio, ma sei **molto guardato**."
                 },
                 new ChoiceDef
                 {
@@ -107,14 +111,14 @@ public class Magrogamer09Story : IStory
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") + 1);
-                        return "Sei apprezzato per l'ironia, ma spesso si dice che non si capisca da che parte stai.";
+                        return "Sei apprezzato per l'ironia, ma spesso si dice che *non si capisca da che parte stai*.";
                     }
                 }
             ]
         },
         ["moderazione_chat"] = _ => new()
         {
-            Text = "Fin dall'inizio hai scelto che tipo di moderazione avere. Come hai impostato la chat?",
+            Text = "Fin dall'inizio hai scelto che tipo di moderazione avere. **Come hai impostato la chat?**",
             Choices =
             [
                 new ChoiceDef
@@ -125,7 +129,7 @@ public class Magrogamer09Story : IStory
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") + 1);
-                        return "La chat è tranquilla. Qualcuno la trova un po' rigida, ma ci si sente al sicuro.";
+                        return "La chat è tranquilla. Qualcuno la trova un po' rigida, ma *ci si sente al sicuro*.";
                     }
                 },
                 new ChoiceDef
@@ -143,14 +147,14 @@ public class Magrogamer09Story : IStory
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") - 1);
-                        return "La chat è molto viva. A volte diventa difficile distinguere ironia e cattiveria.";
+                        return "La chat è molto viva. A volte diventa difficile *distinguere ironia e cattiveria*.";
                     }
                 }
             ]
         },
         ["rapporto_streamer"] = _ => new()
         {
-            Text = "Fai parte di un giro di streamer con cui collabori spesso, compreso un ragazzo con ti trovi bene, Favijanni. Come gestisci questi rapporti?",
+            Text = "Fai parte di un giro di streamer con cui collabori spesso, compreso un ragazzo con cui ti trovi bene, **Favijanni**. Come gestisci questi rapporti?",
             Choices =
             [
                 new ChoiceDef
@@ -161,7 +165,7 @@ public class Magrogamer09Story : IStory
                     Effect      = state =>
                     {
                         state.Set("amiciziaFavijanni", state.Get<int>("amiciziaFavijanni") + 1);
-                        return "Gli altri streamer sanno che possono fidarsi di te.";
+                        return "Gli altri streamer sanno che *possono fidarsi di te*.";
                     }
                 },
                 new ChoiceDef
@@ -179,14 +183,14 @@ public class Magrogamer09Story : IStory
                     Effect      = state =>
                     {
                         state.Set("amiciziaFavijanni", state.Get<int>("amiciziaFavijanni") - 1);
-                        return "C'è chi ti stima, ma qualcuno inizia a vederti come opportunista.";
+                        return "C'è chi ti stima, ma qualcuno inizia a vederti come *opportunista*.";
                     }
                 }
             ]
         },
         ["rapporto_pubblico"] = _ => new()
         {
-            Text = "Quando succede qualcosa di delicato, come lo gestisci con il pubblico?",
+            Text = "Quando succede qualcosa di delicato, **come lo gestisci con il pubblico?**",
             Choices =
             [
                 new ChoiceDef
@@ -197,7 +201,7 @@ public class Magrogamer09Story : IStory
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") + 1);
-                        return "Il pubblico sente di essere coinvolto. Crea fiducia, ma anche aspettative.";
+                        return "Il pubblico sente di essere coinvolto. Crea **fiducia**, ma anche *aspettative*.";
                     }
                 },
                 new ChoiceDef
@@ -205,7 +209,7 @@ public class Magrogamer09Story : IStory
                     Id          = "B",
                     Text        = "Gestisci tutto dietro le quinte",
                     NextSceneId = "crash_live",
-                    Effect      = _ => "All'esterno sembra che vada tutto liscio. Non tutti capiscono cosa succede davvero."
+                    Effect      = _ => "All'esterno sembra che vada tutto liscio. *Non tutti capiscono cosa succede davvero.*"
                 },
                 new ChoiceDef
                 {
@@ -215,7 +219,7 @@ public class Magrogamer09Story : IStory
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") - 1);
-                        return "Il silenzio è spesso interpretato in modi diversi.";
+                        return "Il silenzio è spesso *interpretato in modi diversi*.";
                     }
                 }
             ]
@@ -225,7 +229,7 @@ public class Magrogamer09Story : IStory
             Text = """
 Aspetti questo gioco da **quattro mesi**. Hai calendarizzato un'intera settimana di live in preparazione. Dieci minuti dopo l'inizio, **OBS ti crasha tre volte di fila**.
 
-La chat diventa inquieta. Qualcuno sospetta che tu stia cercando un modo elegante di uscirne. Qualcuno ti insulta per l'incompetenza. Non è colpa tua, però tutti ti stanno guardando.
+La chat diventa inquieta. Qualcuno sospetta che tu stia cercando un modo elegante di uscirne. Qualcuno ti insulta per l'incompetenza. *Non è colpa tua*, però tutti ti stanno guardando.
 """,
             Choices =
             [
@@ -237,7 +241,7 @@ La chat diventa inquieta. Qualcuno sospetta che tu stia cercando un modo elegant
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") + 2);
-                        return "Mostri leggerezza e calma. La community apprezza.";
+                        return "Mostri leggerezza e calma. **La community apprezza.**";
                     }
                 },
                 new ChoiceDef
@@ -248,7 +252,7 @@ La chat diventa inquieta. Qualcuno sospetta che tu stia cercando un modo elegant
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") + 1);
-                        return "Con un atteggiamento spento, la live si trascina.";
+                        return "Con un atteggiamento spento, *la live si trascina*.";
                     }
                 },
                 new ChoiceDef
@@ -259,7 +263,7 @@ La chat diventa inquieta. Qualcuno sospetta che tu stia cercando un modo elegant
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") - 1);
-                        return "La tensione aumenta. La chat si chiede se finirai mai quella live.";
+                        return "La tensione aumenta. La chat si chiede *se finirai mai quella live*.";
                     }
                 }
             ]
@@ -270,11 +274,12 @@ La chat diventa inquieta. Qualcuno sospetta che tu stia cercando un modo elegant
 Live chill su Minecraft: stai livellando una farm di zucchero di canna, musica lo-fi in sottofondo, **1.500 viewer** che chiacchierano di cavolate innocue.
 
 All'improvviso la chat cambia tono:
+
 > «SOLO TU SEI IL VERO GOAT DI MC»
 > «GLI ALTRI SONO TUTTI FIGLI DI»
 > «KING È TORNATO, IL RESTO È MERDA»
 
-Poi, in meno di due minuti, la cosa degenera. Qualcuno scrive *«Comunque Favijanni fa schifo dal 2022»*, e parte il domino. I moderatori non si sono mossi. Se lasci correre sembra che tu approvi.
+Poi, in meno di due minuti, la cosa degenera. Qualcuno scrive *«Comunque Favijanni fa schifo dal 2022»*, e parte il domino. I moderatori non si sono mossi. **Se lasci correre sembra che tu approvi.**
 """,
             Choices =
             [
@@ -287,7 +292,7 @@ Poi, in meno di due minuti, la cosa degenera. Qualcuno scrive *«Comunque Favija
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") + 1);
                         state.Set("amiciziaFavijanni", state.Get<int>("amiciziaFavijanni") + 2);
-                        return "Una parte della chat si calma subito. Qualcun altro si lamenta: \"non si può più scherzare\".";
+                        return "Una parte della chat si calma subito. Qualcun altro si lamenta: *«non si può più scherzare»*.";
                     }
                 },
                 new ChoiceDef
@@ -297,7 +302,7 @@ Poi, in meno di due minuti, la cosa degenera. Qualcuno scrive *«Comunque Favija
                     NextSceneId = "meme_sfugge",
                     Effect      = state =>{
                         state.Set("amiciziaFavijanni", state.Get<int>("amiciziaFavijanni") + 1);
-                    return "I messaggi spariscono in fretta, ma resta tensione e cose non dette.";
+                    return "I messaggi spariscono in fretta, ma resta *tensione e cose non dette*.";
                     }
                 },
         new ChoiceDef
@@ -309,7 +314,7 @@ Poi, in meno di due minuti, la cosa degenera. Qualcuno scrive *«Comunque Favija
                     {
                         state.Set("amiciziaFavijanni", state.Get<int>("amiciziaFavijanni") -1);
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") - 1);
-                        return "La chat si scalda. I commenti diventano sempre più cattivi e attirano nuovi spettatori curiosi.";
+                        return "La chat si scalda. I commenti diventano *sempre più cattivi* e attirano nuovi spettatori curiosi.";
                     }
                 }
             ]
@@ -317,9 +322,12 @@ Poi, in meno di due minuti, la cosa degenera. Qualcuno scrive *«Comunque Favija
         ["meme_sfugge"] = _ => new()
         {
             Text = """
-Passa mezz'ora stai raidando un villaggio su Minecraft e butti lì una battuta: *«Guardate questi villaggers come commerciano, deve essere una vera rottura lavorare... per fortuna che io sono uno streamer e queste cose non le faccio»*.
+Passa mezz'ora, stai raidando un villaggio su Minecraft e butti lì una battuta:
+
+> *«Guardate questi villager come commerciano, deve essere una vera rottura lavorare... per fortuna che io sono uno streamer e queste cose non le faccio»*
 
 In trenta secondi è già spam a raffica:
+
 > «Per fortuna che io sono uno streamer e non pago le tasse»
 > «...e non vado in palestra»
 > «...e non tocco erba»
@@ -336,7 +344,7 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") + 1);
-                        return "Dici chiaro che fuori contesto sembra classista e non lo vuoi sul canale. Qualcuno apprezza. Arrivano i primi unfollow silenziosi.";
+                        return "Dici chiaro che fuori contesto sembra classista e non lo vuoi sul canale. Qualcuno apprezza. Arrivano i primi *unfollow silenziosi*.";
                     }
                 },
                 new ChoiceDef
@@ -344,7 +352,7 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                     Id          = "B",
                     Text        = "Lascio che giri ogni tanto senza incoraggiarlo",
                     NextSceneId = "sponsor_succo",
-                    Effect      = _ => "Non lo riprendi, non lo spingi. Quando appare fai finta di niente. L'atmosfera rimane ambigua."
+                    Effect      = _ => "Non lo riprendi, non lo spingi. Quando appare fai finta di niente. *L'atmosfera rimane ambigua.*"
                 },
                 new ChoiceDef
                 {
@@ -354,14 +362,18 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") - 2);
-                        return "Fuori dal tuo ecosistema esplode: clip su TikTok, thread su Twitter, articoli drama. «Magrogamer09: Non lavoro, sono uno streamer».";
+                        return "Fuori dal tuo ecosistema esplode: clip su TikTok, thread su Twitter, articoli drama. **«Magrogamer09: Non lavoro, sono uno streamer».**";
                     }
                 }
             ]
         },
         ["sponsor_succo"] = _ => new()
         {
-            Text = "Finita la live ti arrivano DM da follower fidati: il succo alla pera «BenBevi: 100% bio e zero schifezze» che hai sponsorizzato tre mesi fa sta per finire in causa per valori nutrizionali inventati e tracce di contaminanti. Lo scandalo non è ancora esploso, ma le carte stanno già girando tra giornalisti e pagine drama.",
+            Text = """
+Finita la live ti arrivano DM da follower fidati: il succo alla pera *«BenBevi: 100% bio e zero schifezze»* che hai sponsorizzato tre mesi fa sta per finire in causa per **valori nutrizionali inventati** e tracce di contaminanti.
+
+Lo scandalo non è ancora esploso, ma le carte stanno già girando tra giornalisti e pagine drama.
+""",
             Choices =
             [
                 new ChoiceDef
@@ -372,7 +384,7 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") + 3);
-                        return "Viene percepito come un esempio di assunzione di responsabilità, anche se qualcuno sottolinea che l'errore resta.";
+                        return "Viene percepito come un **esempio di assunzione di responsabilità**, anche se qualcuno sottolinea che l'errore resta.";
                     }
                 },
                 new ChoiceDef
@@ -383,7 +395,7 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") - 1);
-                        return "Le scuse vengono percepite come poco convincenti. Iniziano i primi commenti sulla tua sincerità.";
+                        return "Le scuse vengono percepite come *poco convincenti*. Iniziano i primi commenti sulla tua sincerità.";
                     }
                 },
                 new ChoiceDef
@@ -397,7 +409,14 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
         },
         ["sponsor_aftermath"] = _ => new()
         {
-            Text = "Un paio di settimane dopo, il caso esplode. I mod hanno bloccato «pera» e «succo» nei filtri, ma sotto i video inizia a spuntare: «Comunque il succo radioattivo?», «Quando le scuse per aver rifilato veleno ai follower?». Ogni volta che qualcuno tira fuori l'argomento si crea un cluster di flame. Sei costretto a rispondere.",
+            Text = """
+Un paio di settimane dopo, il caso esplode. I mod hanno bloccato *«pera»* e *«succo»* nei filtri, ma sotto i video inizia a spuntare:
+
+> *«Comunque il succo radioattivo?»*
+> *«Quando le scuse per aver rifilato veleno ai follower?»*
+
+Ogni volta che qualcuno tira fuori l'argomento si crea un cluster di flame. **Sei costretto a rispondere.**
+""",
             Choices =
             [
                 new ChoiceDef
@@ -408,7 +427,7 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") + 1);
-                        return "Alcuni apprezzano il confronto diretto, altri dicono che così dai solo più spazio alle polemiche.";
+                        return "Alcuni apprezzano il confronto diretto, altri dicono che *così dai solo più spazio alle polemiche*.";
                     }
                 },
                 new ChoiceDef
@@ -419,14 +438,18 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") - 1);
-                        return "La crescita prosegue, ma i commenti più duri restano sotto la superficie.";
+                        return "La crescita prosegue, ma i commenti più duri restano *sotto la superficie*.";
                     }
                 }
             ]
         },
         ["black_friday"] = _ => new()
         {
-            Text = "Dopo il Black Friday sono entrate migliaia di euro grazie ai link di affiliazione. La tua build del 2021 funziona ancora alla grande: 1440p ultra senza un singhiozzo, zero crash. Non hai bisogno di aggiornare nulla. Ma hai i soldi.",
+            Text = """
+Dopo il **Black Friday** sono entrate migliaia di euro grazie ai link di affiliazione. La tua build del 2021 funziona ancora alla grande: 1440p ultra senza un singhiozzo, zero crash.
+
+Non hai bisogno di aggiornare nulla. *Ma hai i soldi.*
+""",
             Choices =
             [
                 new ChoiceDef
@@ -444,7 +467,7 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") + 1);
-                        return "Il nuovo setup salta all'occhio. La chat esplode in complimenti. Sembri in piena crescita.";
+                        return "Il nuovo setup salta all'occhio. La chat esplode in complimenti. **Sembri in piena crescita.**";
                     }
                 },
                 new ChoiceDef
@@ -452,13 +475,17 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                     Id          = "C",
                     Text        = "Aggiorni solo il computer senza dirlo a nessuno",
                     NextSceneId = "testata",
-                    Effect      = _ => "Le live risultano leggermente più fluide, ma pochi se ne accorgono."
+                    Effect      = _ => "Le live risultano leggermente più fluide, ma *pochi se ne accorgono*."
                 }
             ]
         },
         ["testata"] = _ => new()
         {
-            Text = "La testata di pettegolezzo IlWebbeh ti contatta in privato. Stanno preparando un articolo su una presunta relazione tra Favijanni e GinevraLaGamer. Sai che è vero, ma i due ci tengono a mantenerla privata. Qualsiasi conferma da parte tua potrebbe far saltare tutto.",
+            Text = """
+La testata di pettegolezzo **IlWebbeh** ti contatta in privato. Stanno preparando un articolo su una presunta relazione tra **Favijanni** e **GinevraLaGamer**. Sai che è vero, ma i due ci tengono a mantenerla privata.
+
+*Qualsiasi conferma da parte tua potrebbe far saltare tutto.*
+""",
             Choices =
             [
                 new ChoiceDef
@@ -469,7 +496,7 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                     Effect      = state =>
                     {
                         state.Set("amiciziaFavijanni", state.Get<int>("amiciziaFavijanni") + 1);
-                        return "IlWebbeh prende tempo. Qualcuno inizia a chiedersi come mai proprio tu non ne sappia niente.";
+                        return "*IlWebbeh* prende tempo. Qualcuno inizia a chiedersi come mai proprio tu non ne sappia niente.";
                     }
                 },
                 new ChoiceDef
@@ -481,7 +508,7 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                     {
                         state.Set("amiciziaFavijanni", state.Get<int>("amiciziaFavijanni") - 2);
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") + 3);
-                        return "L'articolo esce e il tuo nome viene citato come fonte diretta. Le tensioni con Favijanni diventano evidenti.";
+                        return "L'articolo esce e il tuo nome viene citato come **fonte diretta**. Le tensioni con Favijanni diventano *evidenti*.";
                     }
                 },
                 new ChoiceDef
@@ -492,14 +519,18 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") - 1);
-                        return "Il silenzio viene notato e alimenta voci e supposizioni.";
+                        return "Il silenzio viene notato e *alimenta voci e supposizioni*.";
                     }
                 }
             ]
         },
         ["preview_videogioco"] = _ => new()
         {
-            Text = "Vieni selezionato per una preview anticipata di Dreaming Simulator, uno dei giochi che sogni di portare da inizio canale. La build è ancora grezza, ma perfetta per preparare una recensione al day one. Nel giro di poco ti arriva un messaggio da Favijanni: ti chiede se puoi passargli «qualcosina», anche solo un breve spezzone. Non puoi condividere nulla. Nemmeno uno screenshot.",
+            Text = """
+Vieni selezionato per una preview anticipata di **Dreaming Simulator**, uno dei giochi che sogni di portare da inizio canale. La build è ancora grezza, ma perfetta per preparare una recensione al day one.
+
+Nel giro di poco ti arriva un messaggio da **Favijanni**: ti chiede se puoi passargli *«qualcosina»*, anche solo un breve spezzone. Non puoi condividere nulla. **Nemmeno uno screenshot.**
+""",
             Choices =
             [
                 new ChoiceDef
@@ -515,10 +546,10 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
 
                         if (nuovaAmiciziaFavijanni >= 5)
                         {
-                            return "Favijanni ti capisce, non insiste.";
+                            return "Favijanni ti capisce, *non insiste*.";
                         }
 
-                        return "I rapporti restano cordiali ma più freddi. Dice che sei diventato troppo rigido.";
+                        return "I rapporti restano cordiali ma *più freddi*. Dice che sei diventato troppo rigido.";
                     }
                 },
                 new ChoiceDef
@@ -536,14 +567,18 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                     Effect      = state =>
                     {
                         state.Set("amiciziaFavijanni", state.Get<int>("amiciziaFavijanni") + 2);
-                        return "Favijanni apprezza molto e ti è grato.";
+                        return "Favijanni apprezza molto e *ti è grato*.";
                     }
                 }
             ]
         },
         ["ospite_controverso"] = _ => new()
         {
-            Text = "Dopo settimane di organizzazione riesci a fissare una live con Osvaldo Osvaldini, uno dei nomi più rispettati nel gaming tecnico. La sera prima, però, Twitter esplode: Osvaldo ha appena scritto che la modalità facile dei videogiochi è «roba da [parola censurata e volgarissima]». La vostra live riguarda solo performance e ottimizzazione, in teoria non c'entra nulla. Ma il tweet sta girando ovunque e tutti sanno che domani lui sarà da te.",
+            Text = """
+Dopo settimane di organizzazione riesci a fissare una live con **Osvaldo Osvaldini**, uno dei nomi più rispettati nel gaming tecnico.
+
+La sera prima, però, Twitter esplode: Osvaldo ha appena scritto che la modalità facile dei videogiochi è *«roba da [parola censurata e volgarissima]»*. La vostra live riguarda solo performance e ottimizzazione, *in teoria non c'entra nulla*. Ma il tweet sta girando ovunque e **tutti sanno che domani lui sarà da te**.
+""",
             Choices =
             [
                 new ChoiceDef
@@ -551,7 +586,7 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                     Id          = "A",
                     Text        = "Annulli la live spiegando il motivo",
                     NextSceneId = "proposta_azienda",
-                    Effect      = _ => "Viene letta come una presa di posizione coerente. Qualcuno parla di occasione sprecata."
+                    Effect      = _ => "Viene letta come una presa di posizione coerente. Qualcuno parla di *occasione sprecata*."
                 },
                 new ChoiceDef
                 {
@@ -561,7 +596,7 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") - 1);
-                        return "Il silenzio viene notato. La live viene commentata più per ciò che non è stato detto che per i contenuti.";
+                        return "Il silenzio viene notato. La live viene commentata più per **ciò che non è stato detto** che per i contenuti.";
                     }
                 },
                 new ChoiceDef
@@ -572,14 +607,18 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") - 1);
-                        return "La diretta attira attenzione, ma molti dicono che così hai dato spazio a posizioni problematiche.";
+                        return "La diretta attira attenzione, ma molti dicono che *così hai dato spazio a posizioni problematiche*.";
                     }
                 }
             ]
         },
         ["proposta_azienda"] = _ => new()
         {
-            Text = "Ti arriva una mail da Armand Letal, una grande azienda videoludica. Nel settore tutti sanno com'è messa: ritmi di lavoro disumani, dipendenti spremuti, giochi che arrivano mediocri e pieni di compromessi. L'offerta economica è però così alta da permetterti un salto notevole al canale.",
+            Text = """
+Ti arriva una mail da **Armand Letal**, una grande azienda videoludica. Nel settore tutti sanno com'è messa: ritmi di lavoro disumani, dipendenti spremuti, giochi che arrivano mediocri e pieni di compromessi.
+
+L'offerta economica è però così alta da permetterti **un salto notevole** al canale.
+""",
             Choices =
             [
                 new ChoiceDef
@@ -590,7 +629,7 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") - 2);
-                        return "Il gioco viene notato. Iniziano commenti critici sulla coerenza delle tue scelte.";
+                        return "Il gioco viene notato. Iniziano commenti critici sulla *coerenza delle tue scelte*.";
                     }
                 },
                 new ChoiceDef
@@ -608,14 +647,16 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") + 2);
-                        return "Fa discutere e ti espone a critiche, ma rafforza l'immagine di coerenza.";
+                        return "Fa discutere e ti espone a critiche, ma **rafforza l'immagine di coerenza**.";
                     }
                 }
             ]
         },
         ["nuove_regole"] = _ => new()
         {
-            Text = "Un recente fatto di cronaca spinge la piattaforma a introdurre nuove regole rigide sui contenuti violenti. Il gioco che stai portando è ancora consentito, ma solo attivando la modalità censura - quella che smorza gli effetti e toglie il realismo che la tua community ama di più.",
+            Text = """
+Un recente fatto di cronaca spinge la piattaforma a introdurre **nuove regole rigide** sui contenuti violenti. Il gioco che stai portando è ancora consentito, ma solo attivando la *modalità censura* — quella che smorza gli effetti e toglie il realismo che la tua community ama di più.
+""",
             Choices =
             [
                 new ChoiceDef
@@ -623,7 +664,7 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                     Id          = "A",
                     Text        = "Segui le regole attivando la censura e lo spieghi in live",
                     NextSceneId = "reality_casa",
-                    Effect      = _ => "Viene vista come la scelta corretta ma poco coraggiosa. Qualcuno dice che il canale sembri meno autentico."
+                    Effect      = _ => "Viene vista come la scelta corretta ma *poco coraggiosa*. Qualcuno dice che il canale sembri meno autentico."
                 },
                 new ChoiceDef
                 {
@@ -633,7 +674,7 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") - 1);
-                        return "Molti si accorgono del cambiamento. Senza una spiegazione, il pubblico resta diviso sul motivo.";
+                        return "Molti si accorgono del cambiamento. Senza una spiegazione, *il pubblico resta diviso* sul motivo.";
                     }
                 },
                 new ChoiceDef
@@ -644,14 +685,18 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") + 1);
-                        return "Le live tornano come prima. Ma serpeggia l'idea che prima o poi qualcuno farà un controllo.";
+                        return "Le live tornano come prima. Ma serpeggia l'idea che *prima o poi qualcuno farà un controllo*.";
                     }
                 }
             ]
         },
         ["reality_casa"] = _ => new()
         {
-            Text = "Una grande azienda energetica, Dorothea, ti invita a un reality di una settimana chiamato «Casa del Pianeta» - sensibilizzazione ambientale, talk, attività green. Tu però conosci bene l'azienda: investimenti in pozzi di petrolio, greenwashing che circolano da anni. L'offerta economica è alta e la visibilità sarebbe enorme.",
+            Text = """
+Una grande azienda energetica, **Dorothea**, ti invita a un reality di una settimana chiamato *«Casa del Pianeta»* — sensibilizzazione ambientale, talk, attività green.
+
+Tu però conosci bene l'azienda: investimenti in pozzi di petrolio, *greenwashing* che circolano da anni. L'offerta economica è alta e la visibilità sarebbe **enorme**.
+""",
             Choices =
             [
                 new ChoiceDef
@@ -672,10 +717,10 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                         if (state.Get<int>("percezionePublica") >= 5)
                         {
                             state.Set("percezionePublica", state.Get<int>("percezionePublica") + 1);
-                            return "Vieni criticato per l'incoerenza, ma alcuni ti elogiano per il coraggio di dire ciò che molti evitano.";
+                            return "Vieni criticato per l'incoerenza, ma alcuni ti elogiano per il **coraggio di dire ciò che molti evitano**.";
                         }
 
-                        return "Il tuo nome gira molto, ma le critiche per l'incoerenza pesano.";
+                        return "Il tuo nome gira molto, ma le critiche per l'incoerenza *pesano*.";
                     }
                 },
                 new ChoiceDef
@@ -686,14 +731,16 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") - 2);
-                        return "Viene vista come un sostegno implicito al progetto. Iniziano commenti sul tuo opportunismo.";
+                        return "Viene vista come un *sostegno implicito* al progetto. Iniziano commenti sul tuo opportunismo.";
                     }
                 }
             ]
         },
         ["metodo_follower"] = _ => new()
         {
-            Text = "Favijanni ti parla di «BoostiAMO», un sistema per far crescere i follower a una velocità impressionante. Non è chiaro come funzioni esattamente, nessuno lo spiega in modo preciso, ma nell'ambiente se ne sente parlare sempre più spesso.",
+            Text = """
+**Favijanni** ti parla di *«BoostiAMO»*, un sistema per far crescere i follower a una velocità impressionante. Non è chiaro come funzioni esattamente, *nessuno lo spiega in modo preciso*, ma nell'ambiente se ne sente parlare sempre più spesso.
+""",
             Choices =
             [
                 new ChoiceDef
@@ -704,7 +751,7 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") - 2);
-                        return "I numeri crescono rapidamente. Molti iniziano a chiedersi come sia possibile un aumento così improvviso.";
+                        return "I numeri crescono rapidamente. Molti iniziano a chiedersi **come sia possibile un aumento così improvviso**.";
                     }
                 },
                 new ChoiceDef
@@ -715,7 +762,7 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
                     Effect      = state =>
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") - 1);
-                        return "La crescita è meno evidente, ma resta la sensazione di esserti mosso in una zona poco chiara.";
+                        return "La crescita è meno evidente, ma resta la sensazione di esserti mosso in *una zona poco chiara*.";
                     }
                 },
                 new ChoiceDef
@@ -732,7 +779,7 @@ Il meme si diffonde. **Fuori dal tuo ecosistema suona diversamente.**
             Text = """
 All'improvviso **Favijanni viene accusato pubblicamente di non pagare le tasse**. La notizia esplode sui social e in pochi minuti arriva nella tua chat.
 
-Tu però sai come stanno le cose: lo hai accompagnato tu stesso dal commercialista, ha pagato tutto, ha fatto il 730. Il problema è che l'Agenzia delle Entrate ha riattivato una vecchia multa legata a un'eredità — una questione privata, nulla che riguardi la sua condotta.
+Tu però sai come stanno le cose: lo hai accompagnato tu stesso dal commercialista, ha pagato tutto, ha fatto il 730. Il problema è che l'Agenzia delle Entrate ha riattivato una vecchia multa legata a un'eredità — *una questione privata*, nulla che riguardi la sua condotta.
 
 La tua community **chiede una tua posizione**.
 """,
@@ -747,7 +794,7 @@ La tua community **chiede una tua posizione**.
                     {
                         state.Set("amiciziaFavijanni", state.Get<int>("amiciziaFavijanni") + 1);
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") - 1);
-                        return "Escono articoli che mettono in discussione la tua obiettività. La scelta divide il pubblico.";
+                        return "Escono articoli che mettono in discussione la tua obiettività. **La scelta divide il pubblico.**";
                     }
                 },
                 new ChoiceDef
@@ -759,7 +806,7 @@ La tua community **chiede una tua posizione**.
                     {
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") - 1);
                         state.Set("amiciziaFavijanni", state.Get<int>("amiciziaFavijanni") - 1);
-                        return "Molti leggono il silenzio come prudenza. Altri come un modo per non esporsi quando serviva.";
+                        return "Molti leggono il silenzio come prudenza. Altri come *un modo per non esporsi quando serviva*.";
                     }
                 },
                 new ChoiceDef
@@ -771,7 +818,7 @@ La tua community **chiede una tua posizione**.
                     {
                         state.Set("amiciziaFavijanni", state.Get<int>("amiciziaFavijanni") - 3);
                         state.Set("percezionePublica", state.Get<int>("percezionePublica") + 1);
-                        return "La battuta gira e genera attenzione. I rapporti con Favijanni si incrinano.";
+                        return "La battuta gira e genera attenzione. **I rapporti con Favijanni si incrinano.**";
                     }
                 }
             ]
@@ -782,21 +829,23 @@ La tua community **chiede una tua posizione**.
             var intro = "";
             if (amiciziaFavijanni >= 7)
             {
-                intro = "Favijanni pubblica un messaggio di sostegno: vi conosce da anni, avete sempre gestito la community con serietà.";
+                intro = "**Favijanni** pubblica un messaggio di sostegno: vi conosce da anni, avete *sempre gestito la community con serietà*.";
             }
             else if (amiciziaFavijanni >= 4)
             {
-                intro = "Favijanni resta neutrale: \"la situazione è complessa e va gestita con attenzione\".";
+                intro = "**Favijanni** resta neutrale: *«La situazione è complessa e va gestita con attenzione»*.";
             }
             else
             {
-                intro = "Favijanni pubblica una frase ambigua: \"ognuno è responsabile del proprio staff\". Molti la leggono come una presa di distanza da te.";
+                intro = "**Favijanni** pubblica una frase ambigua: *«Ognuno è responsabile del proprio staff»*. Molti la leggono come una **presa di distanza da te**.";
             }
 
             var percezionePublica = state.Get<int>("percezionePublica");
             var puoFareDichiarazioneTrasparente = percezionePublica >= 6;
             var testoScena = intro + "\n\n" + """
-Un **moderatore storico** del tuo canale viene accusato su Discord di aver abusato del suo ruolo: zittire utenti, cancellare messaggi a caso, vantarsi di *«poteri speciali»*. In anni di onorato servizio non ha mai fatto cose così. Nel giro di poche ore **circolano screenshot ovunque**. Quando apri la live la chat è già nel caos.
+Un **moderatore storico** del tuo canale viene accusato su Discord di aver abusato del suo ruolo: zittire utenti, cancellare messaggi a caso, vantarsi di *«poteri speciali»*. In anni di onorato servizio non ha mai fatto cose così.
+
+Nel giro di poche ore **circolano screenshot ovunque**. Quando apri la live la chat è già nel caos.
 """;
 
             List<ChoiceDef> choices =
@@ -811,7 +860,7 @@ Un **moderatore storico** del tuo canale viene accusato su Discord di aver abusa
                         var percezioneAttuale = sceneState.Get<int>("percezionePublica");
                         var nuovaPercezione = percezioneAttuale + 1;
                         sceneState.Set("percezionePublica", nuovaPercezione);
-                        return "Il gesto viene visto come deciso, anche se qualcuno dice che arrivi troppo tardi.";
+                        return "Il gesto viene visto come **deciso**, anche se qualcuno dice che arrivi troppo tardi.";
                     }
                 },
                 new ChoiceDef
@@ -819,7 +868,7 @@ Un **moderatore storico** del tuo canale viene accusato su Discord di aver abusa
                     Id          = "B",
                     Text        = "Chiedi tempo per verificare la situazione",
                     NextSceneId = "finale",
-                    Effect      = _ => "Viene accolta male. Molti leggono la cautela come un modo per non esporsi."
+                    Effect      = _ => "Viene accolta male. Molti leggono la cautela come *un modo per non esporsi*."
                 },
                 new ChoiceDef
                 {
@@ -831,7 +880,7 @@ Un **moderatore storico** del tuo canale viene accusato su Discord di aver abusa
                         var percezioneAttuale = sceneState.Get<int>("percezionePublica");
                         var nuovaPercezione = percezioneAttuale - 1;
                         sceneState.Set("percezionePublica", nuovaPercezione);
-                        return "Le reazioni diventano rapidamente ostili. Gli screenshot iniziano a girare su pagine sempre più grandi.";
+                        return "Le reazioni diventano rapidamente ostili. Gli screenshot iniziano a girare su **pagine sempre più grandi**.";
                     }
                 },
                 new ChoiceDef
@@ -845,7 +894,7 @@ Un **moderatore storico** del tuo canale viene accusato su Discord di aver abusa
                         var percezioneAttuale = sceneState.Get<int>("percezionePublica");
                         var nuovaPercezione = percezioneAttuale + 1;
                         sceneState.Set("percezionePublica", nuovaPercezione);
-                        return "Viene letta come un tentativo serio di chiarire. Molti apprezzano il tono.";
+                        return "Viene letta come *un tentativo serio di chiarire*. **Molti apprezzano il tono.**";
                     }
                 }
             ];
@@ -885,7 +934,7 @@ Un **moderatore storico** del tuo canale viene accusato su Discord di aver abusa
         {
             IsEnding = true,
             EndingTitle = "Salvati dall'Amicizia",
-            Text = "Il **sostegno pubblico di Favijanni** cambia il clima. Il suo intervento diventa virale e riporta fiducia e stabilità attorno al canale."
+            Text = "Il **sostegno pubblico di Favijanni** cambia il clima. Il suo intervento diventa virale e riporta *fiducia e stabilità* attorno al canale."
         },
         ["ending_indenne"] = _ => new()
         {
@@ -897,13 +946,13 @@ Un **moderatore storico** del tuo canale viene accusato su Discord di aver abusa
         {
             IsEnding = true,
             EndingTitle = "Sopravvivenza Difficile",
-            Text = "Il canale non si ferma, ma *perde slancio e credibilità*. La ricostruzione della fiducia richiederà molto tempo."
+            Text = "Il canale non si ferma, ma *perde slancio e credibilità*. La ricostruzione della fiducia richiederà **molto tempo**."
         },
         ["ending_chiusura"] = _ => new()
         {
             IsEnding = true,
             EndingTitle = "Chiusura del Canale",
-            Text = "**La sfiducia cresce** fino a rendere impossibile continuare. Il canale si ferma."
+            Text = "**La sfiducia cresce** fino a rendere impossibile continuare. *Il canale si ferma.*"
         }
     };
 }
