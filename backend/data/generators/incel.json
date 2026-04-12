@@ -2,8 +2,8 @@
   "name": "Generatore Incel",
   "description": "Genera il tuo incel di fiducia",
   "prefix": "[nome-m]",
-  "minPhrases": 3,
-  "maxPhrases": 4,
+  "minPhrases": 4,
+  "maxPhrases": 6,
   "separators": [ ". ", "; " ],
   "uniqueLabels": [ "definisce" ],
   "exclusiveGroups": [ "età", "professione" ],
@@ -55,7 +55,7 @@
     "giovane [età-giovane]enne [professioni]",
     "ragazzino di [età-giovane] anni",
     "è contro: [hating], [hating], [hating], [hating], [hating] e sorpresa sorpresa... [hating]!",
-    "è un [comportamenti] di [età-giovane] anni che ama dire '[frasi_tipiche]' su [social]"
+    "[comportamenti] di [età-giovane] anni che ama dire '[frasi_tipiche]' su [social]"
   ],
   "flatLists": {
     "[idolo]": [

@@ -8,6 +8,7 @@ import { renderToCanvas } from '../../core/services/img-builder.service';
 import { MarkdownPipe } from '../../shared/pipes/markdown.pipe';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { PageBaseComponent } from '../page-base.component';
+import { ThemeService } from '../../core/services/theme.service';
 
 @Component({
     selector: 'app-generator-detail',
@@ -18,11 +19,15 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
     private readonly route = inject(ActivatedRoute);
     private readonly api = inject(ApiService);
     private readonly share = inject(ShareService);
+    private readonly theme = inject(ThemeService);
 
     readonly generator = signal<GeneratorInfo | null>(null);
     readonly result = signal<GenerateResponse | null>(null);
     readonly loading = signal(false);
     readonly sharing = signal(false);
+
+    private readonly colorTema = this.theme.colorTema;
+    private readonly colorTesto = this.theme.colorTemaText;
 
     async ngOnInit(): Promise<void> {
         const slug = this.route.snapshot.paramMap.get('slug') ?? '';
@@ -58,7 +63,7 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
         await this.share.copyText(res.markdown);
     }
 
-async shareResult(): Promise<void> {
+    async shareResult(): Promise<void> {
         const res = this.result();
         const gen = this.generator();
         if (!res || !gen) return;
@@ -67,10 +72,10 @@ async shareResult(): Promise<void> {
         try {
             const canvas = document.createElement('canvas');
             renderToCanvas(canvas, {
-                text: `${res.text}\n\n\n   Dal ${gen.name}`,
-                bgColor: '#1a1a2e',
-                textColor: '#ffffff',
-                fontSize: 50,
+                text: `${res.text}\n\nDal ${gen.name}`,
+                bgColor: this.colorTema(),
+                textColor: this.colorTesto(),
+                fontSize: 25,
                 canvasWidth: 900,
                 fontFamily: 'Verdana',
                 margin: 50
