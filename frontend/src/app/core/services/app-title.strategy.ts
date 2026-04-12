@@ -1,7 +1,7 @@
 import { inject, Injectable, InjectionToken } from '@angular/core';
-import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRouteSnapshot, RouterStateSnapshot, TitleStrategy } from '@angular/router';
 
+import { PageMetaService } from './page-meta.service';
 import { TranslateService } from './translate.service';
 
 export interface TitleStrategyConfig {
@@ -14,15 +14,16 @@ export const TITLE_STRATEGY_CONFIG =
 
 @Injectable()
 export class AppTitleStrategy extends TitleStrategy {
-    private readonly title = inject(Title);
-    private readonly meta = inject(Meta);
+    private readonly pageMeta = inject(PageMetaService);
     private readonly translate = inject(TranslateService);
     private readonly config = inject(TITLE_STRATEGY_CONFIG);
 
     override updateTitle(snapshot: RouterStateSnapshot): void {
-        const pageTitle = this.formatTitle(snapshot);
-        this.title.setTitle(pageTitle);
-        this.updateMeta(snapshot, pageTitle);
+        const title = this.formatTitle(snapshot);
+        const description =
+            this.extractData<string>(snapshot.root, 'pageDescription')
+            ?? this.config.defaultDescription;
+        this.pageMeta.setTitle(title, description);
     }
 
     /** Riesegue title + meta senza una navigazione (es. cambio lingua). */
@@ -38,16 +39,6 @@ export class AppTitleStrategy extends TitleStrategy {
         if (!pageTitle || pageTitle === this.config.appName) return this.config.appName;
 
         return `${pageTitle} | ${this.config.appName}`;
-    }
-
-    private updateMeta(snapshot: RouterStateSnapshot, pageTitle: string): void {
-        const description =
-            this.extractData<string>(snapshot.root, 'pageDescription')
-            ?? this.config.defaultDescription;
-        this.meta.updateTag({ name: 'description', content: description });
-        this.meta.updateTag({ property: 'og:description', content: description });
-        this.meta.updateTag({ property: 'og:title', content: pageTitle });
-        this.meta.updateTag({ name: 'twitter:description', content: description });
     }
 
     /** Cerca ricorsivamente un dato in route.data nell'albero snapshot. */
