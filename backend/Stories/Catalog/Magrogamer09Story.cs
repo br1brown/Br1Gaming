@@ -26,14 +26,6 @@ public class Magrogamer09Story : IStory
         }
     }
 
-    public string? CoverImage
-    {
-        get
-        {
-            return null;
-        }
-    }
-
     public string StartSceneId
     {
         get

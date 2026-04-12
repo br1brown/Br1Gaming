@@ -33,7 +33,7 @@ public class BaseController : EngineBaseController
     public IActionResult GetCatalog()
     {
         var dtos = _registry.GetAll()
-            .Select(s => new StorySummaryDto(s.Slug, s.Title, s.Description, s.CoverImage))
+            .Select(s => new StorySummaryDto(s.Slug, s.Title, s.Description))
             .ToList();
         return Ok(dtos);
     }
@@ -125,7 +125,7 @@ public class BaseController : EngineBaseController
 
     // ── DTO ──────────────────────────────────────────────────────────
 
-    public sealed record StorySummaryDto(string Slug, string Title, string? Description, string? CoverImage);
+    public sealed record StorySummaryDto(string Slug, string Title, string? Description);
     public sealed record StoryResumeRequestDto(string SceneId, Dictionary<string, object>? Stats);
     public sealed record StoryChoiceRequestDto(string CurrentSceneId, string ChoiceId, Dictionary<string, object>? Stats);
     public sealed record ChoiceDto(string Id, string Text);

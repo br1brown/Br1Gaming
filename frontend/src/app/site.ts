@@ -41,6 +41,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
 				enabled: true,
 				pageType: PageType.Home,
 				showPanel: false,
+				description: 'Generatori casuali, avventure interattive e tanto altro da Br1.',
 				component: () => import('./pages/home/home.component').then(m => m.HomeComponent),
 			},
 			{
@@ -49,6 +50,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
 				enabled: true,
 				pageType: PageType.GeneratorDetail,
 				showPanel: true,
+				description: 'Genera risultati casuali con i generatori di Br1-Gaming.',
 				component: () => import('./pages/generator-detail/generator-detail.component').then(m => m.GeneratorDetailComponent),
 			},
 			{
@@ -57,6 +59,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
 				enabled: true,
 				pageType: PageType.CookiePolicy,
 				showPanel: true,
+				description: 'Informativa sui cookie di Br1-Gaming.',
 				component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
 			},
 			{
@@ -65,6 +68,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
 				enabled: true,
 				pageType: PageType.StoryPlayer,
 				showPanel: true,
+				description: 'Gioca a un\'avventura testuale interattiva su Br1-Gaming.',
 				component: () => import('./pages/story-player/story-player.component').then(m => m.StoryPlayerComponent),
 			},
 		]));

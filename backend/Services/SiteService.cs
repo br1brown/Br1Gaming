@@ -47,7 +47,7 @@ public class SiteService(IContentStore store)
             ?? throw new NotFoundException($"generatore '{slug}'");
 
         if (generator.Core.Count == 0)
-            return new GenerationResult("", null, null);
+            return new GenerationResult("", "", null);
 
         var shared = await GetSharedAssetsAsync();
 

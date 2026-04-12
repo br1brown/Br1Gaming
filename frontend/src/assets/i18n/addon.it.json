@@ -72,8 +72,8 @@
   "br1games": "Br1Games",
   "generatori": "Generatori",
   "avventure": "Avventure",
-  "generatoreDetail": "Generatore",
-  "avventuraPlayer": "Avventura",
+  "generatoreDetail": "Generatore: {0}",
+  "avventuraPlayer": "Avventura: {0}",
   "genera": "Genera",
   "riavvia": "Riavvia",
   "haiscelta": "Hai scelto"

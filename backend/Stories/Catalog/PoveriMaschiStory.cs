@@ -26,14 +26,6 @@ public class PoveriMaschiStory : IStory
         }
     }
 
-    public string? CoverImage
-    {
-        get
-        {
-            return "br1games/stories/poveri-maschi/cover.png";
-        }
-    }
-
     public string StartSceneId
     {
         get

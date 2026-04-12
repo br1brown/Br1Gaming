@@ -9,7 +9,6 @@ public interface IStory
     string Slug { get; }
     string Title { get; }
     string? Description { get; }
-    string? CoverImage { get; }
     string StartSceneId { get; }
     Dictionary<string, object> InitialState { get; }
 

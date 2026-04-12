@@ -2,26 +2,18 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://example.com/</loc>
-    <lastmod>2026-04-01</lastmod>
+    <lastmod>2026-04-11</lastmod>
   </url>
   <url>
-    <loc>https://example.com/social-feed</loc>
-    <lastmod>2026-04-01</lastmod>
+    <loc>https://example.com/generatori/:slug</loc>
+    <lastmod>2026-04-11</lastmod>
   </url>
   <url>
-    <loc>https://example.com/legale/privacy</loc>
-    <lastmod>2026-04-01</lastmod>
+    <loc>https://example.com/cookie-policy</loc>
+    <lastmod>2026-04-11</lastmod>
   </url>
   <url>
-    <loc>https://example.com/legale/termini</loc>
-    <lastmod>2026-04-01</lastmod>
-  </url>
-  <url>
-    <loc>https://example.com/legale/cookie</loc>
-    <lastmod>2026-04-01</lastmod>
-  </url>
-  <url>
-    <loc>https://example.com/impostazioni</loc>
-    <lastmod>2026-04-01</lastmod>
+    <loc>https://example.com/avventura/:slug</loc>
+    <lastmod>2026-04-11</lastmod>
   </url>
 </urlset>
