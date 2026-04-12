@@ -60,6 +60,7 @@
 </div>
     }
 }
+@if (!facade.error()) {
 
 <div class="text-center mt-4">
     <button class="btn btn-outline-secondary btn-sm"
@@ -68,3 +69,4 @@
         {{ 'riavvia' | translate }}
     </button>
 </div>
+}

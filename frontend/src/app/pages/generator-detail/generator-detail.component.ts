@@ -1,8 +1,11 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, effect, inject, OnInit, signal } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { GeneratorInfo, GenerateResponse } from '../../core/dto/generator.dto';
 import { ApiService } from '../../core/services/api.service';
+import { PageMetaService } from '../../core/services/page-meta.service';
+import { ContestoSito } from '../../site';
 import { ShareService } from '../../core/services/share.service';
 import { renderToCanvas } from '../../core/services/img-builder.service';
 import { MarkdownPipe } from '../../shared/pipes/markdown.pipe';
@@ -17,6 +20,8 @@ import { ThemeService } from '../../core/services/theme.service';
 })
 export class GeneratorDetailComponent extends PageBaseComponent implements OnInit {
     private readonly route = inject(ActivatedRoute);
+    private readonly router = inject(Router);
+    private readonly pageMeta = inject(PageMetaService);
     private readonly api = inject(ApiService);
     private readonly share = inject(ShareService);
     private readonly theme = inject(ThemeService);
@@ -28,14 +33,24 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
 
     private readonly colorTema = this.theme.colorTema;
     private readonly colorTesto = this.theme.colorTemaText;
+    private readonly defaultPageDescription = this.route.snapshot.data['pageDescription'] as string | null | undefined;
+
+    constructor() {
+        super();
+
+        effect(() => {
+            this.translate.currentLang();
+            this.updatePageMeta(this.generator());
+        });
+    }
 
     async ngOnInit(): Promise<void> {
         const slug = this.route.snapshot.paramMap.get('slug') ?? '';
         try {
             const detail = await firstValueFrom(this.api.getGenerator(slug));
             this.generator.set(detail);
-        } catch {
-            this.notify.handleApiError(404, null);
+        } catch (error) {
+            await this.handleGeneratorLoadError(error);
         }
     }
 
@@ -50,8 +65,8 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
                 this.api.generate(gen.slug, {})
             );
             this.result.set(res);
-        } catch {
-            this.notify.handleApiError(500, null);
+        } catch (error) {
+            this.handleRequestError(error);
         } finally {
             this.loading.set(false);
         }
@@ -84,5 +99,32 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
         } finally {
             this.sharing.set(false);
         }
+    }
+
+    private async handleGeneratorLoadError(error: unknown): Promise<void> {
+        if (error instanceof HttpErrorResponse && error.status === 404) {
+            await this.router.navigateByUrl('/error/404');
+            return;
+        }
+
+        this.handleRequestError(error);
+    }
+
+    private handleRequestError(error: unknown): void {
+        const httpStatus = error instanceof HttpErrorResponse ? error.status || 500 : 500;
+        const responseBody = error instanceof HttpErrorResponse ? error.error : null;
+        this.notify.handleApiError(httpStatus, responseBody);
+    }
+
+    private updatePageMeta(generator: GeneratorInfo | null): void {
+        const raw = generator
+            ? this.translate.translate('generatoreDetail', generator.name)
+            : this.translate.translate('generatori');
+        const title = `${raw} | ${ContestoSito.config.appName}`;
+        const description = generator?.description
+            ?? this.defaultPageDescription
+            ?? ContestoSito.config.description;
+
+        this.pageMeta.setTitle(title, description);
     }
 }

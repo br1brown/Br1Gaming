@@ -46,7 +46,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
 			},
 			{
 				path: 'generatori/:slug',
-				title: 'generatoreDetail',
+				title: 'generatori',
 				enabled: true,
 				pageType: PageType.GeneratorDetail,
 				showPanel: true,
@@ -64,7 +64,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
 			},
 			{
 				path: 'avventura/:slug',
-				title: 'avventuraPlayer',
+				title: 'avventure',
 				enabled: true,
 				pageType: PageType.StoryPlayer,
 				showPanel: true,

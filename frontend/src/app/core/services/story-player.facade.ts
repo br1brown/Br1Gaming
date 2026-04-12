@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from './api.service';
@@ -85,7 +86,10 @@ export class StoryPlayerFacade {
 
             const snap = await firstValueFrom(this.api.startStory(slug));
             this.applySnapshot(snap);
-        } catch {
+        } catch (error) {
+            if (error instanceof HttpErrorResponse && error.status === 404) {
+                throw error;
+            }
             this.error.set('Errore nel caricamento della storia.');
         } finally {
             this.loading.set(false);

@@ -1,4 +1,5 @@
 {
+  "order": 2,
   "name": "Generatore MBEB",
   "description": "Genera il tuo Maschio Bianco Etero Basico",
   "prefix": "[nome-m]",

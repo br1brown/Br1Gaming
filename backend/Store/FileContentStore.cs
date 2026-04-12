@@ -34,7 +34,7 @@ public class FileContentStore : IContentStore
             if (generator is not null)
                 generators.Add(generator);
         }
-        return generators;
+        return generators.OrderBy(g => g.Order).ToList();
     }
 
     public async Task<GeneratorData?> GetGeneratorAsync(string slug)
