@@ -72,10 +72,7 @@ export class TranslateService {
         await this.setLanguage(this.getInitialLanguage());
     }
 
-    /**
-     * @abstract Restituisce la lista delle lingue disponibili, ordinata con la predefinita per prima.
-     * @returns
-     */
+    /** Restituisce la lista delle lingue disponibili, ordinata con la predefinita per prima. */
     getAvailableLanguages(): string[]  {
         return TranslateService.availableLanguages();
     }
@@ -94,7 +91,7 @@ export class TranslateService {
 
         let result = template;
         for (let i = 0; i < args.length; i++) {
-            result = result.replace(`{${i}}`, String(args[i] ?? ''));
+            result = result.replaceAll(`{${i}}`, String(args[i] ?? ''));
         }
         return result;
     }
