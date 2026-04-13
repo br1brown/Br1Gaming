@@ -1,9 +1,9 @@
 {
   "rangeAliases": {
-    "[età-giovane]": "[15-25]",
-    "[età-cresciuto]": "[30-50]",
-    "[età-adulto]": "[25-65]",
-    "[età-anziano]": "[50-70]"
+    "[età-giovane]": "[15-26]",
+    "[età-cresciuto]": "[24-44]",
+    "[età-adulto]": "[35-65]",
+    "[età-anziano]": "[46-76]"
   },
   "policyGroups": {
     "età": ["[età-giovane]", "[età-cresciuto]", "[età-adulto]", "[età-anziano]"],

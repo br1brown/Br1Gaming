@@ -3,9 +3,9 @@
   "name": "Generatore MBEB",
   "description": "Genera il tuo Maschio Bianco Etero Basico",
   "prefix": "[nome-m]",
-  "minPhrases": 3,
-  "maxPhrases": 4,
-  "separators": [". ", "; ", ".\n"],
+  "minPhrases": 4,
+  "maxPhrases": 7,
+  "separators": [". ", "; "],
   "uniqueLabels": ["[donne]", "vanta", "definisce", "fetic"],
   "exclusiveGroups": ["età", "professione"],
   "core": [
@@ -131,10 +131,21 @@
   ],
   "flatLists": {
     "[donne]": [
-      "mogl... la sua ex moglie", "sua ex moglie", "madre", "zia [nome-f]",
-      "nonna", "sorella", "sua ragazza", "sua donna", "sua ex-collega idealizzata",
-      "sua miglior amica", "sua prima compagna", "sua ultima fidanzata",
-      "sua vicina di casa", "sua insegnante delle medie", "sua ex-fidanzata",
+      "mogl... la sua ex moglie",
+      "sua ex moglie",
+      "madre",
+      "zia [nome-f]",
+      "nonna",
+      "sorella",
+      "sua ragazza",
+      "«sua donna»",
+      "sua ex-collega idealizzata",
+      "sua miglior amica",
+      "sua prima compagna",
+      "sua ultima fidanzata",
+      "sua vicina di casa",
+      "sua insegnante delle medie",
+      "sua ex-fidanzata",
       "ex-moglie del suo miglior amico, [nome-f]"
     ],
     "[idoli]": [

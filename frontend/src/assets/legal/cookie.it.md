@@ -1,30 +1,25 @@
 # Cookie Policy
 
-## Cosa sono i cookie
+La presente informativa descrive in modo specifico l'utilizzo di strumenti di tracciamento e archiviazione dati all'interno di questo sito. Non vengono utilizzati cookie di profilazione o di terze parti per scopi pubblicitari.
 
-I cookie sono piccoli file di testo che vengono memorizzati sul dispositivo dell'utente quando visita un sito web. Vengono utilizzati per migliorare l'esperienza di navigazione.
+## 1. Cosa sono i cookie e le tecnologie simili
+I cookie sono piccoli file di testo salvati sul tuo dispositivo. In aggiunta, utilizziamo il **localStorage**, una tecnologia che permette di memorizzare dati direttamente all'interno del browser per garantire la continuità delle tue sessioni di gioco.
 
-## Come usiamo i cookie
+## 2. Strumenti tecnici utilizzati
+Tutti gli strumenti elencati di seguito sono **necessari** al corretto funzionamento del sito. Trattandosi di strumenti tecnici, non richiedono un consenso preventivo per essere attivati.
 
-Utilizziamo cookie tecnici necessari al funzionamento del sito e, se configurati nel progetto, eventuali strumenti analitici per comprendere come gli utenti interagiscono con il sito.
+### Archiviazione locale (localStorage)
+Utilizziamo il localStorage esclusivamente per permetterti di non perdere i progressi nelle storie interattive. Questi dati risiedono localmente sul tuo browser e non vengono trasmessi ai nostri server né a terze parti.
 
-### Cookie tecnici utilizzati
+* `br1games.story.<slug>.sceneId`: Memorizza l'identificativo della scena corrente per permetterti di riprendere la lettura dal punto in cui l'avevi interrotta.
+* `br1games.story.<slug>.stats`: Memorizza le variabili e le statistiche di gioco necessarie per il funzionamento delle meccaniche narrative (scelte effettuate, punteggi, inventario).
 
-- `lang`: memorizza la lingua selezionata dall'utente (`it` o `en`) per mantenere la preferenza nei successivi caricamenti della pagina.
+## 3. Gestione dei dati
+Poiché i dati di gioco sono salvati esclusivamente nel tuo browser:
+* **Per cancellarli:** È sufficiente svuotare la cache del browser o i dati dei siti web dalle impostazioni del tuo programma di navigazione.
+* **Limitazioni:** Se decidi di disabilitare il localStorage o navigare in modalità incognito, non sarà possibile salvare i tuoi progressi e dovrai ricominciare la storia a ogni caricamento della pagina.
 
-### Dati in localStorage
+## 4. Modifiche all'informativa
+Qualora venissero implementati nuovi strumenti (come sistemi di analisi o nuove funzionalità tecniche), questa pagina verrà aggiornata tempestivamente.
 
-Oltre ai cookie, il sito utilizza il localStorage del browser per salvare informazioni strettamente necessarie al funzionamento delle funzionalità interattive. Questi dati restano sul dispositivo e non vengono mai trasmessi a terze parti.
-
-- `br1games.story.<slug>.sceneId`: memorizza la scena corrente di una storia interattiva, per consentire la ripresa dal punto in cui si era arrivati.
-- `br1games.story.<slug>.stats`: memorizza le statistiche di gioco associate alla storia, necessarie per il corretto funzionamento delle meccaniche narrative.
-
-## Controllo dei cookie
-
-Puoi controllare e gestire i cookie attraverso le impostazioni del tuo browser. La disabilitazione di alcuni cookie potrebbe influire sulla funzionalità del sito.
-
-## Modifiche all'informativa
-
-Eventuali modifiche a questa Informativa verranno pubblicate su questa pagina con indicazione della data di aggiornamento.
-
-**Ultima revisione:** 2026-04-09
+**Ultima revisione:** 13 Aprile 2026
