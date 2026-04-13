@@ -87,7 +87,7 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
         try {
             const canvas = document.createElement('canvas');
             renderToCanvas(canvas, {
-                text: `${res.text}\n\nDal ${gen.name}`,
+                text: `${res.text}\n\nDal ${gen.name}\n${window.location}`,
                 bgColor: this.colorTema(),
                 textColor: this.colorTesto(),
                 fontSize: 25,

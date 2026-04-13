@@ -22,11 +22,11 @@ public class SiteService(IContentStore store)
             if (_sharedCache is not null) return _sharedCache;
         }
 
-        var lists     = await _store.GetSharedListsAsync();
-        var groups    = await _store.GetPolicyGroupsAsync();
-        var composed  = await _store.GetComposedListsAsync();
-        var aliases   = await _store.GetRangeAliasesAsync();
-        var assets    = new SharedAssets(lists, groups, composed, aliases);
+        var lists = await _store.GetSharedListsAsync();
+        var groups = await _store.GetPolicyGroupsAsync();
+        var composed = await _store.GetComposedListsAsync();
+        var aliases = await _store.GetRangeAliasesAsync();
+        var assets = new SharedAssets(lists, groups, composed, aliases);
 
         lock (_sharedLock) { _sharedCache = assets; }
         return assets;
