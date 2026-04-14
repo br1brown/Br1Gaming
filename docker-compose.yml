@@ -1,21 +1,27 @@
 # =============================================================================
 # Docker Compose - Frontend SSR Node + Backend (.NET) come servizi separati.
 #
-# STESSO HOST:
-#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up
-#   -> Frontend Node SSR su FRONTEND_PORT, proxy /api interno verso il backend.
+# DEV (automatico):
+#   docker compose up
+#   -> Applica docker-compose.override.yml: Angular dev server + backend con hot reload.
+#
+# PROD (stesso host):
+#   docker compose -f docker-compose.yml up -d --build
+#
+# PROD (backend esposto sull'host, es. API pubbliche o deploy separato):
+#   docker compose -f docker-compose.yml -f docker-compose.backend-exposed.yml up -d --build
 #
 # HOST SEPARATI:
-#   Sul server del backend (cliente):
-#     docker compose up backend
-#   Sul server del frontend (tuo):
-#     API_URL=https://api.cliente.it docker compose up frontend
-#   -> Il frontend SSR chiama il backend remoto direttamente (configurare CORS).
+#   Sul server del backend:
+#     docker compose -f docker-compose.yml up -d --build backend
+#   Sul server del frontend (API_URL punta al backend remoto):
+#     API_URL=https://api.cliente.it docker compose -f docker-compose.yml up -d --build frontend
+#
+# NOTA: specificare -f docker-compose.yml esclude docker-compose.override.yml (dev).
 #
 # VARIABILI OBBLIGATORIE (da .env):
-#   PROJECT_NAME  - identifica il progetto (usato per volumi e namespace)
-#   FRONTEND_PORT - porta del frontend, uguale lato host e container
-#   BACKEND_PORT  - porta del backend, uguale lato host e container se esposto
+#   PROJECT_NAME  - identifica il progetto (usato per i volumi Docker)
+#   FRONTEND_PORT - porta esposta del frontend
 # =============================================================================
 
 services:
@@ -49,6 +55,11 @@ services:
       backend:
         condition: service_healthy
         required: false
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
     networks:
       - app-network
@@ -62,7 +73,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       BACKEND_PORT: "${BACKEND_PORT:-8080}"
       ASPNETCORE_URLS: "http://+:${BACKEND_PORT:-8080}"
-      # Segreti - sovrascrivono appsettings.json via configuration binding .NET
+      # Segreti - sovrascrivono appsettings.json via configuration binding .NET.
       # Decommentare e valorizzare in produzione:
       # Security__ApiKeys__0: frontend
       # Security__Token__SecretKey: CAMBIAMI_MIN_32_CHARS
@@ -85,6 +96,11 @@ services:
       timeout: 5s
       start_period: 10s
       retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     volumes:
       - app-data:/app/data
     restart: unless-stopped
