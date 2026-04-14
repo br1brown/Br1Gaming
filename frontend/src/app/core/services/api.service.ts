@@ -2,23 +2,21 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError, firstValueFrom } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { environment } from '../../../environments/environment';
 import { NotificationService } from './notification.service';
+import { apiPrefix } from '../api-prefix';
 import { LoginResult } from '../dto/api.dto';
 import { StorySummary, StorySnapshotDto } from '../dto/story.dto';
 import { GeneratorInfo, GenerateRequest, GenerateResponse } from '../dto/generator.dto';
 
 /** Endpoint backend. Aggiungere qui ogni nuovo path per evitare stringhe duplicate. */
-const apiBase = environment.apiUrl.replace(/\/$/, '');
 const API = {
-    login:            `${apiBase}/api/auth/login`,
-    stories:          `${apiBase}/api/stories`,
-    generators:       `${apiBase}/api/generators`,
-    generatorIncel:   `${apiBase}/api/generators/incel`,
-    generatorAuto:    `${apiBase}/api/generators/auto`,
-    generatorAntiveg: `${apiBase}/api/generators/antiveg`,
-    generatorLocali:  `${apiBase}/api/generators/locali`,
-    generatorMbeb:    `${apiBase}/api/generators/mbeb`,
+    stories:          `${apiPrefix}/stories`,
+    generators:       `${apiPrefix}/generators`,
+    generatorIncel:   `${apiPrefix}/generators/incel`,
+    generatorAuto:    `${apiPrefix}/generators/auto`,
+    generatorAntiveg: `${apiPrefix}/generators/antiveg`,
+    generatorLocali:  `${apiPrefix}/generators/locali`,
+    generatorMbeb:    `${apiPrefix}/generators/mbeb`,
 } as const;
 
 /**

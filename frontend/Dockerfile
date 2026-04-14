@@ -37,12 +37,11 @@ COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist/${DIST_PATH} ./dist/${DIST_PATH}
 
-RUN chmod +x /docker-entrypoint.sh \
-    && adduser -D -u 1000 appuser \
-    && chown -R appuser:appuser /app /docker-entrypoint.sh
-
-USER appuser
+RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider "http://localhost:${PORT:-3000}/health" || exit 1
 
 ENTRYPOINT ["/docker-entrypoint.sh"]

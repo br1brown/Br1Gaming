@@ -18,6 +18,9 @@ FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine
 
 WORKDIR /app
 
+RUN apk add --no-cache icu-libs
+ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
+
 COPY --from=build /app/publish ./
 
 RUN adduser -D -u 1000 appuser && chown -R appuser:appuser /app
