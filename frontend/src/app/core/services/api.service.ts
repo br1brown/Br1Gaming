@@ -11,9 +11,14 @@ import { GeneratorInfo, GenerateRequest, GenerateResponse } from '../dto/generat
 /** Endpoint backend. Aggiungere qui ogni nuovo path per evitare stringhe duplicate. */
 const apiBase = environment.apiUrl.replace(/\/$/, '');
 const API = {
-    login:      `${apiBase}/api/auth/login`,
-    stories:    `${apiBase}/api/stories`,
-    generators: `${apiBase}/api/generators`,
+    login:            `${apiBase}/api/auth/login`,
+    stories:          `${apiBase}/api/stories`,
+    generators:       `${apiBase}/api/generators`,
+    generatorIncel:   `${apiBase}/api/generators/incel`,
+    generatorAuto:    `${apiBase}/api/generators/auto`,
+    generatorAntiveg: `${apiBase}/api/generators/antiveg`,
+    generatorLocali:  `${apiBase}/api/generators/locali`,
+    generatorMbeb:    `${apiBase}/api/generators/mbeb`,
 } as const;
 
 /**
@@ -65,13 +70,17 @@ export class ApiService {
         return this.http.get<GeneratorInfo[]>(API.generators);
     }
 
-    getGenerator(slug: string): Observable<GeneratorInfo> {
-        return this.http.get<GeneratorInfo>(`${API.generators}/${slug}`);
-    }
+    getIncel():   Observable<GeneratorInfo> { return this.http.get<GeneratorInfo>(API.generatorIncel); }
+    getAuto():    Observable<GeneratorInfo> { return this.http.get<GeneratorInfo>(API.generatorAuto); }
+    getAntiveg(): Observable<GeneratorInfo> { return this.http.get<GeneratorInfo>(API.generatorAntiveg); }
+    getLocali():  Observable<GeneratorInfo> { return this.http.get<GeneratorInfo>(API.generatorLocali); }
+    getMbeb():    Observable<GeneratorInfo> { return this.http.get<GeneratorInfo>(API.generatorMbeb); }
 
-    generate(slug: string, req: GenerateRequest): Observable<GenerateResponse> {
-        return this.http.post<GenerateResponse>(`${API.generators}/${slug}/generate`, req);
-    }
+    generateIncel(req: GenerateRequest):   Observable<GenerateResponse> { return this.http.post<GenerateResponse>(`${API.generatorIncel}/generate`, req); }
+    generateAuto(req: GenerateRequest):    Observable<GenerateResponse> { return this.http.post<GenerateResponse>(`${API.generatorAuto}/generate`, req); }
+    generateAntiveg(req: GenerateRequest): Observable<GenerateResponse> { return this.http.post<GenerateResponse>(`${API.generatorAntiveg}/generate`, req); }
+    generateLocali(req: GenerateRequest):  Observable<GenerateResponse> { return this.http.post<GenerateResponse>(`${API.generatorLocali}/generate`, req); }
+    generateMbeb(req: GenerateRequest):    Observable<GenerateResponse> { return this.http.post<GenerateResponse>(`${API.generatorMbeb}/generate`, req); }
 
     // ─── Gestione errori ────────────────────────────────────────────────
 

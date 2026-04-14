@@ -44,36 +44,21 @@ public class FileContentStore : IContentStore
         return await LoadGeneratorAsync(slug, file);
     }
 
-    public async Task<Dictionary<string, List<string>>> GetSharedListsAsync()
+    public async Task<SharedData> GetSharedDataAsync()
     {
         var file = Path.Combine(_generatorsPath, "shared.json");
-        if (!File.Exists(file)) return [];
-        var generator = await LoadGeneratorAsync("shared", file);
-        return generator?.FlatLists ?? [];
-    }
+        if (!File.Exists(file))
+            return new SharedData([], [], [], []);
 
-    public async Task<Dictionary<string, List<string>>> GetPolicyGroupsAsync()
-    {
-        var file = Path.Combine(_generatorsPath, "shared.json");
-        if (!File.Exists(file)) return [];
-        var generator = await LoadGeneratorAsync("shared", file);
-        return generator?.PolicyGroups ?? [];
-    }
+        var shared = await LoadGeneratorAsync("shared", file);
+        if (shared is null)
+            return new SharedData([], [], [], []);
 
-    public async Task<Dictionary<string, List<string>>> GetComposedListsAsync()
-    {
-        var file = Path.Combine(_generatorsPath, "shared.json");
-        if (!File.Exists(file)) return [];
-        var generator = await LoadGeneratorAsync("shared", file);
-        return generator?.ComposedLists ?? [];
-    }
-
-    public async Task<Dictionary<string, string>> GetRangeAliasesAsync()
-    {
-        var file = Path.Combine(_generatorsPath, "shared.json");
-        if (!File.Exists(file)) return [];
-        var generator = await LoadGeneratorAsync("shared", file);
-        return generator?.RangeAliases ?? [];
+        return new SharedData(
+            shared.FlatLists,
+            shared.PolicyGroups ?? [],
+            shared.ComposedLists ?? [],
+            shared.RangeAliases ?? []);
     }
 
     private static async Task<GeneratorData?> LoadGeneratorAsync(string slug, string filePath)
@@ -81,7 +66,6 @@ public class FileContentStore : IContentStore
         var json = await File.ReadAllTextAsync(filePath);
         var generator = JsonSerializer.Deserialize<GeneratorData>(json, JsonOptions);
         if (generator is null) return null;
-        // Lo slug viene derivato dal nome del file — non serve nel JSON
         generator.Slug = slug;
         return generator;
     }

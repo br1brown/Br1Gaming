@@ -1,4 +1,5 @@
 import { buildSite } from './siteBuilder';
+import type { LeafPageInput } from './siteBuilder';
 
 export type {
 	SiteConfig,
@@ -14,8 +15,32 @@ export type {
 export enum PageType {
 	Home,
 	CookiePolicy,
-	GeneratorDetail,
+	GeneratorIncel,
+	GeneratorAuto,
+	GeneratorAntiveg,
+	GeneratorLocali,
+	GeneratorMbeb,
 	StoryPlayer,
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// HELPER — crea una pagina generatore con path esplicito
+// ═══════════════════════════════════════════════════════════════════════
+function generatorPage(
+	urlSegment: string,
+	pageType: PageType,
+	description: string
+): Omit<LeafPageInput, 'title'> & { title: string } {
+	return {
+		path: `generatori/${urlSegment}`,
+		title: `generatore-${urlSegment}`,
+		enabled: true,
+		pageType,
+		showPanel: true,
+		description,
+		component: () => import('./pages/generator-detail/generator-detail.component')
+			.then(m => m.GeneratorDetailComponent),
+	};
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -42,15 +67,14 @@ export const ContestoSito = buildSite(site => {
 			description: 'Generatori casuali, avventure interattive e tanto altro da Br1.',
 			component: () => import('./pages/home/home.component').then(m => m.HomeComponent),
 		},
-		{
-			path: 'generatori/:slug',
-			title: 'generatori',
-			enabled: true,
-			pageType: PageType.GeneratorDetail,
-			showPanel: true,
-			description: 'Genera risultati casuali con i generatori di Br1-Gaming.',
-			component: () => import('./pages/generator-detail/generator-detail.component').then(m => m.GeneratorDetailComponent),
-		},
+
+		// ── Generatori ──────────────────────────────────────────────
+		generatorPage('incel',   PageType.GeneratorIncel,   'Genera il tuo incel di fiducia'),
+		generatorPage('auto',    PageType.GeneratorAuto,    'Genera storie di automobilisti'),
+		generatorPage('antiveg', PageType.GeneratorAntiveg, 'Genera il profilo dell\'antivegano'),
+		generatorPage('locali',  PageType.GeneratorLocali,  'Trova il nome del tuo locale tutto italiano'),
+		generatorPage('mbeb',    PageType.GeneratorMbeb,    'Genera il tuo mbeb'),
+
 		{
 			path: 'cookie-policy',
 			title: 'cookiePolicy',

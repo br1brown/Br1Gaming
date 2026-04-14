@@ -105,21 +105,51 @@ public class BaseController : EngineBaseController
     public async Task<IActionResult> GetAllGenerators()
     {
         var items = await _service.GetGeneratorCatalogAsync();
-        return Ok(items.Select(i => new GeneratorInfoDto(i.Slug, i.Name ?? i.Slug, i.Description)));
+        return Ok(items
+            .Where(i => GeneratorRegistry.IsValid(i.Slug))
+            .Select(i => new GeneratorInfoDto(i.Slug, i.Name ?? i.Slug, i.Description)));
     }
 
-    [HttpGet("generators/{slug}")]
-    public async Task<IActionResult> GetGeneratorBySlug(string slug)
+    [HttpGet("generators/incel")]
+    public Task<IActionResult> GetIncel() => GetGenerator(GeneratorRegistry.Incel);
+
+    [HttpGet("generators/auto")]
+    public Task<IActionResult> GetAuto() => GetGenerator(GeneratorRegistry.Auto);
+
+    [HttpGet("generators/antiveg")]
+    public Task<IActionResult> GetAntiveg() => GetGenerator(GeneratorRegistry.Antiveg);
+
+    [HttpGet("generators/locali")]
+    public Task<IActionResult> GetLocali() => GetGenerator(GeneratorRegistry.Locali);
+
+    [HttpGet("generators/mbeb")]
+    public Task<IActionResult> GetMbeb() => GetGenerator(GeneratorRegistry.Mbeb);
+
+    [HttpPost("generators/incel/generate")]
+    public Task<IActionResult> GenerateIncel([FromBody] GenerateRequestDto? body) => GenerateWith(GeneratorRegistry.Incel, body);
+
+    [HttpPost("generators/auto/generate")]
+    public Task<IActionResult> GenerateAuto([FromBody] GenerateRequestDto? body) => GenerateWith(GeneratorRegistry.Auto, body);
+
+    [HttpPost("generators/antiveg/generate")]
+    public Task<IActionResult> GenerateAntiveg([FromBody] GenerateRequestDto? body) => GenerateWith(GeneratorRegistry.Antiveg, body);
+
+    [HttpPost("generators/locali/generate")]
+    public Task<IActionResult> GenerateLocali([FromBody] GenerateRequestDto? body) => GenerateWith(GeneratorRegistry.Locali, body);
+
+    [HttpPost("generators/mbeb/generate")]
+    public Task<IActionResult> GenerateMbeb([FromBody] GenerateRequestDto? body) => GenerateWith(GeneratorRegistry.Mbeb, body);
+
+    private async Task<IActionResult> GetGenerator(GeneratorEntry entry)
     {
-        var item = await _service.GetGeneratorBySlugAsync(slug);
+        var item = await _service.GetGeneratorBySlugAsync(entry.Slug);
         if (item is null) return NotFound();
-        return Ok(new GeneratorInfoDto(item.Slug, item.Name ?? item.Slug, item.Description));
+        return Ok(new GeneratorInfoDto(item.Slug, item.Name ?? entry.DisplayName, item.Description));
     }
 
-    [HttpPost("generators/{slug}/generate")]
-    public async Task<IActionResult> Generate(string slug, [FromBody] GenerateRequestDto? body)
+    private async Task<IActionResult> GenerateWith(GeneratorEntry entry, GenerateRequestDto? body)
     {
-        var result = await _service.GenerateAsync(slug, new GenerationRequest(body?.IncludeHtml ?? false));
+        var result = await _service.GenerateAsync(entry.Slug, new GenerationRequest(body?.IncludeHtml ?? false));
         return Ok(new GenerateResponseDto(result.Text, result.Markdown, result.Html));
     }
 

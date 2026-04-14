@@ -2,10 +2,10 @@
   "order": 1,
   "name": "Generatore Incel",
   "description": "Genera il tuo incel di fiducia",
-  "prefix": "[nome-m]",
+  "prefix": "[nome-m]; ",
   "minPhrases": 4,
   "maxPhrases": 8,
-  "separators": [ ". ", "; " ],
+  "separators": [ ". ", "; ", "\n" ],
   "uniqueLabels": [ "definisce" ],
   "exclusiveGroups": [ "età", "professione" ],
   "core": [
