@@ -29,7 +29,13 @@ escape_sed() {
 API_URL_ESCAPED=$(escape_sed "$API_URL")
 API_KEY_ESCAPED=$(escape_sed "$API_KEY")
 
+SERVER_DIST="/app/dist/${DIST_PATH}/server"
+
+# browser + server SSR
 find "$BROWSER_DIST" -name '*.js' -exec \
+    sed -i "s|__API_URL__|${API_URL_ESCAPED}|g;s|__API_KEY__|${API_KEY_ESCAPED}|g" {} +
+
+find "$SERVER_DIST" \( -name '*.js' -o -name '*.mjs' \) -exec \
     sed -i "s|__API_URL__|${API_URL_ESCAPED}|g;s|__API_KEY__|${API_KEY_ESCAPED}|g" {} +
 
 exec node "$SERVER_ENTRY"
