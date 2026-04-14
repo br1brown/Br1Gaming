@@ -1,0 +1,13 @@
+{
+  "_nota": "Header di sicurezza del template: identici per ogni progetto e NON gestiti dal progetto figlio (si aggiornano col git pull). Letti sia dal backend (.NET) sia dal frontend Node SSR. Per un override eccezionale (es. estendere la CSP con un dominio CDN) modifica direttamente questo file.",
+  "Security": {
+    "Headers": {
+      "X-Frame-Options": "SAMEORIGIN",
+      "X-Content-Type-Options": "nosniff",
+      "Referrer-Policy": "strict-origin-when-cross-origin",
+      "Strict-Transport-Security": "max-age=31536000",
+      "Permissions-Policy": "camera=(), microphone=(), geolocation=(), browsing-topics=()",
+      "Content-Security-Policy": "default-src 'self'; script-src 'self' {SCRIPT_NONCE_PLACEHOLDER}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+    }
+  }
+}

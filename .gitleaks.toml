@@ -1,0 +1,24 @@
+# Configurazione gitleaks per Br1WebEngine.
+# Regole di default + allowlist dei FALSI POSITIVI noti del template:
+#  - file di traduzione i18n (stringhe, mai segreti) e file generati (package-lock);
+#  - il pattern `descKey` (riferimenti a chiavi di traduzione, non segreti);
+#  - i segnaposto/segreti di SVILUPPO (non reali).
+# I segreti VERI vivono in global-settings.local.json (gitignored), fuori dallo scan.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Falsi positivi noti del template (i18n, descKey, segnaposto)"
+regexTarget = "line"
+paths = [
+  '''assets/i18n/.*\.json''',
+  '''package-lock\.json''',
+  '''global-settings\.local\.example\.json''',
+  '''\.gitleaks\.toml''',
+]
+regexes = [
+  '''descKey''',
+  '''dev-only-change-me-chiave-di-sviluppo-min-32-byte''',
+  '''INCOLLA-QUI-''',
+]
