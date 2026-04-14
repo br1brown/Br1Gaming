@@ -23,6 +23,35 @@ const internalApiOrigin = `http://backend:${backendPort}`;
 const apiOrigin = externalApiOrigin || internalApiOrigin;
 const proxyTimeoutMs = Number(process.env['PROXY_TIMEOUT_MS'] ?? 30_000);
 
+// Security headers per le risposte HTML e gli asset statici.
+// Le API (/api/*) ricevono questi header dal backend; li escludiamo qui per evitare duplicati.
+//
+// connect-src include automaticamente l'origine esterna quando API_URL è impostato
+// (deploy separato frontend/backend): senza questo il browser bloccherebbe le chiamate API.
+//
+// Tutti i valori sono sovrascrivibili via env (es. SECURITY_CSP=...) per i progetti derivati
+// che devono aggiungere origini (Google Fonts, CDN, analytics, ecc.).
+const connectSrc = externalApiOrigin ? `'self' ${externalApiOrigin}` : "'self'";
+const defaultCsp = [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self'",
+    `connect-src ${connectSrc}`,
+    "frame-ancestors 'self'",
+    "base-uri 'self'",
+    "form-action 'self'"
+].join('; ');
+
+const htmlSecurityHeaders: [string, string][] = [
+    ['X-Frame-Options',        process.env['SECURITY_X_FRAME_OPTIONS'] ?? 'SAMEORIGIN'],
+    ['X-Content-Type-Options', 'nosniff'],
+    ['Referrer-Policy',        process.env['SECURITY_REFERRER_POLICY'] ?? 'strict-origin-when-cross-origin'],
+    ['Permissions-Policy',     process.env['SECURITY_PERMISSIONS_POLICY'] ?? 'camera=(), microphone=(), geolocation=()'],
+    ['Content-Security-Policy', process.env['SECURITY_CSP'] ?? defaultCsp],
+];
+
 app.disable('x-powered-by');
 app.set('trust proxy', true);
 
@@ -166,6 +195,15 @@ app.get('/health', (_request, response) => {
 
 app.use('/api', (request, response, next) => {
     void proxyApiRequest(request, response, next);
+});
+
+// Applica security headers a tutte le risposte non-API (HTML, assets statici).
+// Posizionato dopo il proxy /api: quelle risposte non passano da qui.
+app.use((_request, response, next) => {
+    for (const [name, value] of htmlSecurityHeaders) {
+        response.setHeader(name, value);
+    }
+    next();
 });
 
 app.use(
