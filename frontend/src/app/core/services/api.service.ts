@@ -10,7 +10,8 @@ import { GeneratorInfo, GenerateRequest, GenerateResponse } from '../dto/generat
 
 /** Endpoint backend. Aggiungere qui ogni nuovo path per evitare stringhe duplicate. */
 const API = {
-    stories:          `${apiPrefix}/stories`,
+    login: `${apiPrefix}/login`,
+    stories: `${apiPrefix}/stories`,
     generators:       `${apiPrefix}/generators`,
     generatorIncel:   `${apiPrefix}/generators/incel`,
     generatorAuto:    `${apiPrefix}/generators/auto`,
