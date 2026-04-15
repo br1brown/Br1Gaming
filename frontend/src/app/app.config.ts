@@ -6,56 +6,17 @@
  */
 
 import { ApplicationConfig, inject, isDevMode, provideAppInitializer, provideZoneChangeDetection } from '@angular/core';
-import { HttpInterceptorFn, provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
+import { provideHttpClient, withFetch } from '@angular/common/http';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
 import { provideServiceWorker } from '@angular/service-worker';
 import { provideRouter, TitleStrategy, withComponentInputBinding, withInMemoryScrolling } from '@angular/router';
 
-import { environment } from '../environments/environment';
 import { ContestoSito } from './site';
 import { routes } from './app.routes';
-import { apiPrefix } from './core/api-prefix';
 import { AppTitleStrategy } from './core/services/app-title.strategy';
 import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/services/theme.service';
 import { TranslateService } from './core/services/translate.service';
-
-/**
- * Aggiunge automaticamente headers a ogni richiesta HTTP verso il backend.
- *
- * PER OGNI RICHIESTA VERSO IL BACKEND:
- *   - Aggiunge l'header "Accept-Language" con la lingua corrente (RFC 9110)
- *   - Aggiunge l'header "X-Api-Key" con la chiave API (da environment.ts)
- *
- * SE L'UTENTE E' AUTENTICATO:
- *   - Aggiunge l'header standard "Authorization: Bearer <token>" (RFC 6750)
- *  Il token JWT viene recuperato da AuthService.token(), che conserva solo token
- *  ben formati e non scaduti lato client. La firma resta validata dal backend.
- *  Se il token e' scaduto o mancante, la richiesta viene inviata senza header di autenticazione.
- **/
-const authInterceptor: HttpInterceptorFn = (req, next) => {
-    const authService = inject(AuthService);
-    const translate = inject(TranslateService);
-
-    // Determina se la richiesta e' diretta al nostro backend
-    const isBackendRequest = req.url === apiPrefix || req.url.startsWith(`${apiPrefix}/`);
-
-    if (!isBackendRequest) {
-        return next(req);
-    }
-
-    let headers = req.headers
-        .set('X-Api-Key', environment.apiKey)
-        .set('Accept-Language', translate.currentLang());
-
-    // Token JWT standard (Authorization: Bearer)
-    const token = authService.token();
-    if (token) {
-        headers = headers.set('Authorization', `Bearer ${token}`);
-    }
-
-    return next(req.clone({ headers }));
-};
 
 export const appConfig: ApplicationConfig = {
     providers: [
@@ -74,7 +35,7 @@ export const appConfig: ApplicationConfig = {
             })
         ),
 
-        provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
+        provideHttpClient(withFetch()),
         { provide: TitleStrategy, useClass: AppTitleStrategy },
         { provide: AppTitleStrategy, useExisting: TitleStrategy },
 

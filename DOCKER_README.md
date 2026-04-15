@@ -20,8 +20,10 @@ Rinomina tutti i riferimenti interni al template (`package.json`, `angular.json`
 # Se non hai gia' eseguito init-project.sh:
 cp .env.example .env
 # Modificare .env: impostare almeno PROJECT_NAME e FRONTEND_PORT
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+./rebuild.sh
 ```
+
+`rebuild.sh` è il punto di ingresso consigliato per il deploy in produzione: verifica `.env`, chiede se esporre il backend, imposta automaticamente le variabili di produzione (tra cui `Security__BehindProxy`) e avvia i container.
 
 ### Esposizione dei servizi
 
@@ -50,9 +52,8 @@ Risultato:
 
 ## File Compose
 
-- **`docker-compose.yml`** - base riusabile: servizi, build, rete, volumi con nome derivato da `PROJECT_NAME`
+- **`docker-compose.yml`** - base riusabile: servizi, build, rete, volumi con nome derivato da `PROJECT_NAME`. Usato direttamente anche in produzione (`restart: unless-stopped` e log rotation già inclusi).
 - **`docker-compose.override.yml`** - sviluppo locale: applicato automaticamente, frontend con `npm run start:docker`, backend su porta dev
-- **`docker-compose.prod.yml`** - produzione: `restart: always` e log rotation JSON
 - **`docker-compose.backend-exposed.yml`** - opzionale: espone il backend verso l'host su `BACKEND_PORT`
 
 ## Variabili `.env`
@@ -63,9 +64,11 @@ Risultato:
 | `FRONTEND_PORT` | si | — | Porta host del frontend in produzione |
 | `BACKEND_PORT` | no | vuoto | Porta host del backend (vuoto = solo rete interna) |
 | `API_KEY` | no | `frontend` | API key iniettata nel frontend a runtime |
-| `API_URL` | no | vuoto | Vuoto = proxy Nginx; valorizzato = backend remoto |
+| `API_URL` | no | vuoto | Vuoto = proxy Node SSR; valorizzato = backend remoto |
 | `DEV_FRONTEND_PORT` | no | `4200` | Porta frontend in sviluppo |
 | `DEV_BACKEND_PORT` | no | `5000` | Porta backend in sviluppo |
+| `EXPOSE_BACKEND` | no | — | Impostata da `rebuild.sh`: `yes` espone la porta backend sull'host |
+| `Security__BehindProxy` | no | — | Chiesta da `rebuild.sh`: `true` se c'è un reverse proxy davanti. Necessaria affinché il rate limiter backend veda l'IP reale del client |
 
 ## Sviluppo
 
@@ -88,24 +91,20 @@ Note pratiche:
 
 ```bash
 cp .env.example .env
-# Modificare .env
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+# Modificare .env: impostare almeno PROJECT_NAME e FRONTEND_PORT
+./rebuild.sh
 ```
 
 In produzione:
 
 - **Frontend** su `http://localhost:FRONTEND_PORT`
-- **Backend** solo interno (per esporlo, aggiungere `docker-compose.backend-exposed.yml`)
+- **Backend** solo interno per default (per esporlo, rispondere `s` alla domanda di `rebuild.sh`)
 
 Il frontend gira su Node SSR: serve l'app Angular e proxya `/api/*` al backend sulla rete Docker interna.
 
 ### Esporre il backend
 
-Per rendere il backend raggiungibile dall'esterno, impostare `BACKEND_PORT` in `.env` e aggiungere il file dedicato:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.backend-exposed.yml up -d --build
-```
+Rispondere `s` alla domanda di `rebuild.sh` alla prima esecuzione. La scelta viene salvata in `.env` (`EXPOSE_BACKEND=yes`) e ricordata nei deploy successivi. In alternativa, impostare manualmente `EXPOSE_BACKEND=yes` in `.env` e rieseguire `./rebuild.sh`.
 
 ### Controlli all'avvio
 
@@ -159,7 +158,7 @@ docker compose exec backend sh
 
 | | Dev (default) | Prod |
 |---|---|---|
-| Compose usata | `docker-compose.yml` + `override` | `docker-compose.yml` + `prod` |
+| Compose usata | `docker-compose.yml` + `override` | `docker-compose.yml` |
 | Frontend | `npm run start:docker` su `DEV_FRONTEND_PORT` | Node SSR su `FRONTEND_PORT` |
 | Backend | ASP.NET Core su `DEV_BACKEND_PORT` | ASP.NET Core su `8080` (interno) |
 | Container | 2 | 2 |

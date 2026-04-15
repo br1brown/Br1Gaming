@@ -15,6 +15,10 @@ namespace Backend.Services;
 /// <param name="Error">Messaggio di errore applicativo, valorizzato solo in caso di fallimento.</param>
 public record TokenResult(bool Valid, string? Token = null, string? Error = null);
 
+/// <summary>Body JSON della richiesta di login.</summary>
+/// <param name="Pwd">Password in chiaro inviata dal client.</param>
+public record LoginRequest(string? Pwd);
+
 /// <summary>
 /// Descrive l'esito della validazione di un token JWT gia' esistente.
 /// </summary>

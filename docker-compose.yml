@@ -79,7 +79,7 @@ services:
       # Security__Token__SecretKey: CAMBIAMI_MIN_32_CHARS
       # Security__Token__ExpirationSeconds: "3000"
       # Security__CorsOrigins__0: https://miosito.it
-      # Security__BehindProxy: "true"   # true se c'è Nginx/Cloudflare/ALB davanti
+      Security__BehindProxy: "${Security__BehindProxy:-false}"
       # Lingue supportate dal backend - decommentare per modificare:
       # Localization__DefaultLanguage: it
       # Localization__SupportedLanguages__0: it

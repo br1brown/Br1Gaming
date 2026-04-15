@@ -27,9 +27,9 @@ public class AuthController : EngineAuthController
     /// </summary>
     [HttpPost("login")]
     [EnableRateLimiting(SecurityDefaults.LoginRateLimitPolicy)]
-    public ActionResult<TokenResult> Login([FromForm] string? pwd = null)
+    public ActionResult<TokenResult> Login([FromBody] LoginRequest request)
     {
-        _ = pwd;
+        _ = request.Pwd;
         return Ok(new TokenResult(false, Error: "Login applicativo non implementato nel template base."));
         // Esempio minimo quando il login va a buon fine:
         // return Ok(Auth.GenerateToken());

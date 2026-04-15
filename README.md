@@ -38,11 +38,11 @@ cd Br1WebEngine
 cp .env.example .env
 # Modifica .env con i tuoi valori (PROJECT_NAME, porte, API key)
 
-# 4. Avvia con Docker
-docker compose --env-file .env up -d --build
+# 4. Deploy in produzione
+./rebuild.sh
 ```
 
-Il frontend sara' disponibile sulla porta configurata in `FRONTEND_PORT`. Per lo sviluppo locale senza Docker, consulta la sezione [Configurazione](#configurazione).
+Lo script controlla `.env`, configura automaticamente le variabili di produzione e avvia i container. Il frontend sara' disponibile sulla porta configurata in `FRONTEND_PORT`. Per lo sviluppo locale senza Docker, consulta la sezione [Configurazione](#configurazione).
 
 ---
 
@@ -82,7 +82,7 @@ Br1WebEngine e' costruito intorno a un principio: **se una cosa puo' derivarsi d
 - [`AddTemplateSecurity()`](#pipeline-di-sicurezza) registra in una riga schemi di autenticazione (API key + JWT condizionale), policy di autorizzazione, CORS, rate limiting, security headers e gestione errori ProblemDetails
 - Tre [controller astratti](#controller-e-ereditarieta) applicano `[Authorize]`, policy e dipendenze: il concreto aggiunge solo routing e logica
 - [`IContentStore`](#content-store) definisce il contratto di accesso ai dati; [sostituire l'implementazione](#sostituire-il-content-store) richiede una riga
-- L'[interceptor HTTP](#interceptor-http) aggiunge `X-Api-Key`, `Accept-Language` e `Bearer` a ogni chiamata backend, senza toccare i componenti
+- [`ApiService`](#apiservice) aggiunge `X-Api-Key`, `Accept-Language` e `Bearer` a ogni chiamata backend: essendo l'unico punto di accesso al backend, non serve un interceptor globale
 
 ### Componenti Riusabili
 
@@ -94,7 +94,7 @@ Br1WebEngine e' costruito intorno a un principio: **se una cosa puo' derivarsi d
 
 ### Build e Deploy
 
-- [`npm run build`](#build-e-script) lancia meta tag e sitemap in automatico; le [icone PWA](#build-e-script) si rigenerano da `favicon.png`
+- [`npm run build`](#build-e-script) lancia meta tag, sitemap e icone PWA in automatico via `prebuild`
 - [Docker](#docker) esegue proxy, sostituzione env a runtime e caching hashato senza configurare nulla
 
 ## Tech Stack
@@ -162,7 +162,7 @@ Il backend e' un'API ASP.NET Core 9 con sicurezza a piu' livelli (API key obblig
 |---|---|---|---|
 | `GET` | `/api/profile` | API key | profilo aziendale localizzato |
 | `GET` | `/api/social` | API key | filtro opzionale con `nomi` |
-| `POST` | `/api/auth/login` | API key | placeholder, esposto solo quando il login JWT e' abilitato |
+| `POST` | `/api/auth/login` | API key | placeholder; body JSON `{ "pwd": "..." }`; esposto solo quando il login JWT e' abilitato |
 | `GET` | `/health` | nessuna | health check |
 
 Le API protette stanno in `backend/Controllers/ProtectedController.cs` e diventano realmente utilizzabili solo quando configuri il JWT.
@@ -345,14 +345,16 @@ Il valore arriva al layout tramite `route.data` e viene letto dall'`AppComponent
 #### Pagine di errore
 `buildErrorRoutes()` genera una singola rotta parametrica `error/:errorCode` che accetta qualsiasi codice HTTP. I messaggi si traducono via i18n (chiavi `errore{codice}Info`, `errore{codice}Desc`) con fallback generico se la chiave non esiste. Il wildcard `**` reindirizza a `error/404`.
 
-#### Interceptor HTTP
-Ogni richiesta verso il backend riceve automaticamente `X-Api-Key`, `Accept-Language` nella lingua corrente e `Authorization: Bearer` se c'e' un token attivo. L'interceptor filtra solo le chiamate al backend, lasciando intatte richieste verso asset o servizi esterni.
+#### ApiService
+`ApiService` è l'unico punto di accesso al backend. Ogni metodo pubblico corrisponde a un endpoint e costruisce la richiesta tramite `buildHeaders()`, che aggiunge automaticamente `X-Api-Key`, `Accept-Language` nella lingua corrente e `Authorization: Bearer` se c'è un token attivo in `sessionStorage`. Non serve un interceptor globale: poiché tutte le chiamate backend passano da qui, gli header vengono applicati direttamente, senza filtrare per URL.
+
+Il prefisso `/api` è definito come costante privata del modulo (`apiBase`) e deve corrispondere all'attributo `[Route("api")]` del `BaseController` backend. Ogni endpoint è dichiarato nell'oggetto `API` in cima al file: per aggiungere un endpoint basta aggiungere lì il path e creare il metodo pubblico corrispondente.
 
 #### Consenso cookie
 `CookieConsentService` rileva se il consenso e' necessario (es. piu' lingue → preferenza da persistere). Se l'utente non ha accettato, le scritture su cookie vengono bloccate in silenzio. Lettura e cancellazione restano sempre consentite.
 
 #### Build e script
-`npm run build` lancia in automatico `generate:statics` (meta tag + sitemap in un unico script) prima della compilazione Angular. Gli script leggono da `ContestoSito`: nome app, descrizione, colore tema, lingue e path delle pagine. Le icone PWA si rigenerano da `favicon.png` in tutte le dimensioni necessarie. Per una `sitemap.xml` corretta in produzione, impostare `SITEMAP_BASE_URL` con l'URL pubblico del sito; se manca, la build usa `https://example.com` e stampa un warning.
+`npm run build` esegue in automatico `prebuild` prima della compilazione Angular, che comprende due step in sequenza: `generate:statics` (meta tag + sitemap) e `generate:icons` (icone PWA da `favicon.png` in tutte le dimensioni). Entrambi gli script leggono da `ContestoSito`: nome app, descrizione, colore tema, lingue e path delle pagine. Per una `sitemap.xml` corretta in produzione, impostare `SITEMAP_BASE_URL` con l'URL pubblico del sito; se manca, la build usa `https://example.com` e stampa un warning.
 
 #### Docker
 Il template Docker e' progettato per essere riusabile: piu' progetti derivati possono girare sulla stessa VPS, ciascuno su una porta dedicata configurata via `.env`. Non si usano `container_name` fissi ne' porte hardcoded. I volumi dati sono isolati per progetto tramite `PROJECT_NAME`.
@@ -464,8 +466,9 @@ Riepilogo di tutti i servizi, componenti e dati disponibili out-of-the-box. Util
 |---|---|
 | `ThemeService` | Tema dinamico da colore iniziale; tutta la logica colore è esposta come metodi statici (`prefersDarkText`, `getReadableTextColor`, `mixHexColors`) |
 | `TranslateService` | i18n con sistema addon |
-| `AuthService` | Login, token in sessionStorage, interceptor Bearer |
-| `ApiService` | HTTP client con API key e Accept-Language |
+| `TokenService` | Conserva il token JWT in memoria e sessionStorage; letto da `ApiService` per l'header `Bearer` |
+| `AuthService` | Login, logout e stato sessione; delega lo storage del token a `TokenService` |
+| `ApiService` | Unico client HTTP verso il backend: costruisce header (`X-Api-Key`, `Accept-Language`, `Bearer`) e centralizza GET/POST |
 | `AssetService` | Risoluzione URL asset statici da mapping |
 | `ShareService` | Clipboard, Web Share API e download con fallback |
 | `CookieConsentService` | Gestione consenso cookie GDPR |
@@ -526,6 +529,7 @@ La maggior parte dei contenuti testuali e' gestita tramite file, aggiornabili se
 | `PROXY_TIMEOUT_MS` | no | Timeout del proxy Node SSR verso il backend in millisecondi (default: `30000`). Aumentare per endpoint lenti. |
 | `DIST_PATH` | no | Nome cartella dist Angular; cambiare solo se si rinomina il progetto rispetto al template (default: `br1-web-engine`) |
 | `SECURITY_CSP` | no | Override del Content-Security-Policy per HTML e asset statici; il default include automaticamente `API_URL` nel `connect-src`. Vedere `.env.example` per tutti gli header sovrascrivibili (`SECURITY_X_FRAME_OPTIONS`, `SECURITY_REFERRER_POLICY`, `SECURITY_PERMISSIONS_POLICY`). |
+| `Security__BehindProxy` | no | Impostata automaticamente a `true` da `rebuild.sh`. Abilita la lettura di `X-Forwarded-For` nel backend, necessaria affinché il rate limiter veda l'IP reale del client invece dell'IP del proxy. Da impostare manualmente solo se si bypassa `rebuild.sh`. |
 
 Se stai creando un progetto derivato, esegui prima `./init-project.sh nome-progetto`: lo script aggiorna i riferimenti del template e crea `.env` a partire da `.env.example` con `PROJECT_NAME` gia' valorizzato. Per la lista completa vedi `.env.example`. Se frontend e backend girano su host separati, allineare anche `Security__CorsOrigins__*` sul backend.
 
@@ -549,7 +553,7 @@ Il frontend usa `proxy.local.conf.json` che reindirizza `/api/*` a `http://local
 ### Script di utilita'
 - `npm run generate:statics`: genera meta tag e sitemap in un unico passaggio
 - `npm run generate:icons`: rigenera le icone PWA da `favicon.png`
-- `npm run build`: build production + meta + sitemap in automatico
+- `npm run build`: build production completa — esegue automaticamente statics + icone via `prebuild`
 
 ---
 
@@ -583,7 +587,7 @@ Lo script sostituisce i riferimenti interni al template (`br1-web-engine`, `Br1W
 
 ### Abilitare il login
 1. Imposta `Security.Token.SecretKey` in `appsettings.json` o via env var.
-2. Implementa la validazione credenziali in `backend/Controllers/AuthController.cs`. **Questo passo è obbligatorio**: il template include un endpoint `POST /api/auth/login` che per design risponde sempre `valid: false`. Devi sostituire quella logica con la tua (database, hash password, ecc.).
+2. Implementa la validazione credenziali in `backend/Controllers/AuthController.cs`. **Questo passo è obbligatorio**: il template include un endpoint `POST /api/auth/login` che per design risponde sempre `valid: false`. La password arriva come JSON nel campo `request.Pwd` (record `LoginRequest`). Devi sostituire quella logica con la tua (database, hash password, ecc.).
 3. Emetti il token tramite `Auth.GenerateToken(additionalClaims)` quando le credenziali sono valide. I claim aggiuntivi (es. userId, ruoli) vengono inclusi nel JWT e sono verificabili lato server nelle route protette.
 
 ---
@@ -613,20 +617,21 @@ Checklist per portare il progetto da locale a una VPS o un altro server. Segui i
    - `API_KEY`: chiave usata dal frontend per chiamare le API.
    - Se usi backend separato o domini diversi, ricorda di allineare anche le CORS nel backend (`Security__CorsOrigins__*`).
 
-4. **Scegli come esporre i servizi**
-   - **Scenario consigliato**: esponi solo il frontend e lascia il backend interno alla rete Docker.
-     ```bash
-     docker compose -f docker-compose.yml up -d --build
-     ```
-   - **Scenario con client alternativi** (app mobile, desktop, API pubbliche): aggiungi il file che espone la porta backend.
-     ```bash
-     docker compose -f docker-compose.yml -f docker-compose.backend-exposed.yml up -d --build
-     ```
+4. **Avvia con `rebuild.sh`**
 
-5. **Avvia e verifica**
+   Il modo consigliato per il primo avvio e per tutti i deploy successivi:
    ```bash
-   # -f docker-compose.yml esclude il file di override (sviluppo locale)
-   docker compose -f docker-compose.yml up -d --build
+   ./rebuild.sh
+   ```
+   Lo script:
+   - Verifica che `.env` sia corretto e completo
+   - Chiede se esporre la porta backend sull'host (salva la risposta in `.env`)
+   - Imposta automaticamente `Security__BehindProxy=true` (necessario per il rate limiting per IP reale)
+   - Sceglie il file compose corretto in base a `EXPOSE_BACKEND`
+   - Avvia i container in background
+
+   Per controllare lo stato dopo il deploy:
+   ```bash
    docker compose -f docker-compose.yml ps
    docker compose -f docker-compose.yml logs -f frontend
    docker compose -f docker-compose.yml logs -f backend
@@ -635,8 +640,7 @@ Checklist per portare il progetto da locale a una VPS o un altro server. Segui i
 
 6. **Aggiornamenti futuri (deploy successivi)**
    - Aggiorna codice/immagini.
-   - Riesegui `docker compose -f docker-compose.yml up -d --build`.
-   - Se hai cambiato solo env/runtime e non il codice, basta `docker compose -f docker-compose.yml up -d`.
+   - Riesegui `./rebuild.sh` — risponde alle domande già salvate in `.env`, quindi è non interattivo.
 
 7. **Hardening minimo produzione**
    - Metti HTTPS davanti (Nginx/Caddy/Traefik o proxy del provider).

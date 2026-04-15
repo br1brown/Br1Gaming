@@ -2,40 +2,49 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError, firstValueFrom } from 'rxjs';
 import { catchError } from 'rxjs/operators';
+import { environment } from '../../../environments/environment';
 import { NotificationService } from './notification.service';
-import { apiPrefix } from '../api-prefix';
+import { TranslateService } from './translate.service';
+import { TokenService } from './auth.service';
 import { Profile } from '../dto/profile.dto';
 import { LoginResult } from '../dto/api.dto';
+import { FeatureCatalogEntry } from '../dto/feature-catalog.dto';
 
-/** Endpoint backend. Aggiungere qui ogni nuovo path per evitare stringhe duplicate. */
+/**
+ * Prefisso base di tutte le chiamate al backend.
+ * Deve corrispondere a [Route("api")] nel BaseController.
+ */
+const apiBase = environment.apiUrl
+    ? `${environment.apiUrl.replace(/\/$/, '')}/api`
+    : '/api';
+
+/** Endpoint backend. Aggiungere il path qui, poi il metodo pubblico sotto. */
 const API = {
-    social:  `${apiPrefix}/social`,
-    profile: `${apiPrefix}/profile`,
-    login:   `${apiPrefix}/auth/login`,
+    social:  `${apiBase}/social`,
+    profile: `${apiBase}/profile`,
+    login:   `${apiBase}/auth/login`,
 } as const;
 
 /**
  * Client HTTP centralizzato. Ogni endpoint del backend ha un metodo pubblico dedicato.
  * La gestione errori e' automatica: NotificationService mostra l'errore all'utente.
  *
- * Per aggiungere un nuovo endpoint:
- *   1. Aggiungere il path in API (costante in cima al file)
- *   2. Aggiungere il metodo pubblico (es. getProducts())
+ * Per aggiungere un endpoint:
+ *   1. Aggiungere il path in API (sopra)
+ *   2. Aggiungere il metodo pubblico usando this.get<T>() o this.post<T>()
  */
 @Injectable({ providedIn: 'root' })
 export class ApiService {
     private readonly http = inject(HttpClient);
     private readonly notify = inject(NotificationService);
+    private readonly translate = inject(TranslateService);
+    private readonly tokenService = inject(TokenService);
 
     // ─── Endpoint pubblici ──────────────────────────────────────────────
-    // Aggiungere qui un metodo per ogni endpoint del backend.
 
     /** Recupera i dati profilo legale e i contatti pubblici. */
     getProfile(): Promise<Profile> {
-        return firstValueFrom(
-            this.http.get<Profile>(API.profile)
-                .pipe(catchError(err => this.handleError(err)))
-        );
+        return this.get<Profile>(API.profile);
     }
 
     /**
@@ -48,23 +57,45 @@ export class ApiService {
         if (nomi?.length) {
             nomi.forEach(n => params = params.append('nomi', n));
         }
-        return firstValueFrom(
-            this.http.get<Record<string, string>>(API.social, { params })
-                .pipe(catchError(err => this.handleError(err)))
-        );
+        return this.get<Record<string, string>>(API.social, params);
     }
 
-    /** Effettua il login inviando la password al backend (form URL-encoded). */
+
+    /** Effettua il login inviando la password al backend. */
     login(password: string): Promise<LoginResult> {
-        const body = new URLSearchParams({ pwd: password }).toString();
-        const headers = new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' });
+        return this.post<LoginResult>(API.login, { pwd: password });
+    }
+
+    // ─── Metodi HTTP interni ─────────────────────────────────────────────
+    // Centralizzano headers, firstValueFrom e gestione errori.
+    // I metodi pubblici sopra li chiamano senza ripetere la struttura.
+
+    private get<T>(url: string, params?: HttpParams): Promise<T> {
         return firstValueFrom(
-            this.http.post<LoginResult>(API.login, body, { headers })
+            this.http.get<T>(url, { headers: this.buildHeaders(), params })
                 .pipe(catchError(err => this.handleError(err)))
         );
     }
 
-    // ─── Gestione errori ────────────────────────────────────────────────
+    private post<T>(url: string, body: unknown): Promise<T> {
+        return firstValueFrom(
+            this.http.post<T>(url, body, { headers: this.buildHeaders() })
+                .pipe(catchError(err => this.handleError(err)))
+        );
+    }
+
+    // ─── Infrastruttura ──────────────────────────────────────────────────
+
+    private buildHeaders(): HttpHeaders {
+        let headers = new HttpHeaders()
+            .set('X-Api-Key', environment.apiKey)
+            .set('Accept-Language', this.translate.currentLang());
+
+        const token = this.tokenService.token();
+        if (token) headers = headers.set('Authorization', `Bearer ${token}`);
+
+        return headers;
+    }
 
     /** Notifica l'utente e ri-lancia l'errore per eventuali handler a monte. */
     private handleError(error: HttpErrorResponse): Observable<never> {
