@@ -6,7 +6,6 @@ using Backend.Models.Configuration;
 using Backend.Infrastructure;
 using Backend.Security;
 using Backend.Services;
-using Backend.Stories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,25 +24,17 @@ var security = builder.Configuration
 
 // ── SERVIZI APPLICATIVI ─────────────────────────────────────────────
 //
-// IContentStore: astrae l'accesso ai dati (engine).
-// L'implementazione attuale (FileContentStore) e' nella zona custom del progetto.
-// Sostituibile con database o CMS senza toccare controller o servizi.
+// IContentStore: astrae l'accesso ai dati (JSON su filesystem).
+// Sostituibile con database o CMS senza toccare i service.
 //
-// SiteService: logica di business del progetto (custom).
+// GeneratorService: catalogo, info e generazione testo per ogni generatore.
+// StoryService: registro storie, motore narrativo e play per ogni storia.
 //
-// AuthService: infrastruttura JWT dell'engine. Registrato SOLO se il login
-// e' abilitato (Token.SecretKey valorizzata).
+// AuthService: infrastruttura JWT. Registrato SOLO se il login è abilitato.
 //
 builder.Services.AddSingleton<IContentStore, FileContentStore>();
-builder.Services.AddScoped<SiteService>();
-
-// ── STORIE IN C# ────────────────────────────────────────────────────
-//
-// StoryRegistry conosce tutte le storie (la lista è in StoryRegistry.cs).
-// StoryEngine è il motore narrativo stateless.
-//
-builder.Services.AddSingleton<StoryRegistry>();
-builder.Services.AddSingleton<StoryEngine>();
+builder.Services.AddScoped<GeneratorService>();
+builder.Services.AddSingleton<StoryService>();
 
 if (security.LoginEnabled)
     builder.Services.AddSingleton<AuthService>();

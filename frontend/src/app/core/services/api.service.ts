@@ -12,12 +12,14 @@ import { GeneratorInfo, GenerateRequest, GenerateResponse } from '../dto/generat
 const API = {
     login: `${apiPrefix}/login`,
     stories: `${apiPrefix}/stories`,
-    generators:       `${apiPrefix}/generators`,
-    generatorIncel:   `${apiPrefix}/generators/incel`,
-    generatorAuto:    `${apiPrefix}/generators/auto`,
+    generators: `${apiPrefix}/generators`,
+    generatorIncel: `${apiPrefix}/generators/incel`,
+    generatorAuto: `${apiPrefix}/generators/auto`,
     generatorAntiveg: `${apiPrefix}/generators/antiveg`,
-    generatorLocali:  `${apiPrefix}/generators/locali`,
-    generatorMbeb:    `${apiPrefix}/generators/mbeb`,
+    generatorLocali: `${apiPrefix}/generators/locali`,
+    generatorMbeb: `${apiPrefix}/generators/mbeb`,
+    storyPoveriMaschi: `${apiPrefix}/stories/poveri-maschi`,
+    storyMagrogamer09: `${apiPrefix}/stories/magrogamer09`,
 } as const;
 
 /**
@@ -45,22 +47,22 @@ export class ApiService {
         );
     }
 
-    // ─── Stories ────────────────────────────────────────────────────────
+    // ─── Stories: catalogo ──────────────────────────────────────────────
 
     getStories(): Observable<StorySummary[]> {
         return this.http.get<StorySummary[]>(API.stories);
     }
 
-    startStory(slug: string): Observable<StorySnapshotDto> {
-        return this.http.post<StorySnapshotDto>(`${API.stories}/${slug}/start`, {});
+    // ─── Story: Poveri Maschi ───────────────────────────────────────────
+
+    playPoveriMaschi(sceneId?: string, choiceId?: string, stats?: Record<string, number>): Observable<StorySnapshotDto> {
+        return this.http.post<StorySnapshotDto>(`${API.storyPoveriMaschi}/play`, { sceneId, choiceId, stats });
     }
 
-    resumeStory(slug: string, sceneId: string, stats: Record<string, number>): Observable<StorySnapshotDto> {
-        return this.http.post<StorySnapshotDto>(`${API.stories}/${slug}/resume`, { sceneId, stats });
-    }
+    // ─── Story: Magrogamer09 ────────────────────────────────────────────
 
-    choose(slug: string, currentSceneId: string, choiceId: string, stats: Record<string, number>): Observable<StorySnapshotDto> {
-        return this.http.post<StorySnapshotDto>(`${API.stories}/${slug}/choose`, { currentSceneId, choiceId, stats });
+    playMagrogamer09(sceneId?: string, choiceId?: string, stats?: Record<string, number>): Observable<StorySnapshotDto> {
+        return this.http.post<StorySnapshotDto>(`${API.storyMagrogamer09}/play`, { sceneId, choiceId, stats });
     }
 
     // ─── Generators ─────────────────────────────────────────────────────
@@ -69,17 +71,17 @@ export class ApiService {
         return this.http.get<GeneratorInfo[]>(API.generators);
     }
 
-    getIncel():   Observable<GeneratorInfo> { return this.http.get<GeneratorInfo>(API.generatorIncel); }
-    getAuto():    Observable<GeneratorInfo> { return this.http.get<GeneratorInfo>(API.generatorAuto); }
+    getIncel(): Observable<GeneratorInfo> { return this.http.get<GeneratorInfo>(API.generatorIncel); }
+    getAuto(): Observable<GeneratorInfo> { return this.http.get<GeneratorInfo>(API.generatorAuto); }
     getAntiveg(): Observable<GeneratorInfo> { return this.http.get<GeneratorInfo>(API.generatorAntiveg); }
-    getLocali():  Observable<GeneratorInfo> { return this.http.get<GeneratorInfo>(API.generatorLocali); }
-    getMbeb():    Observable<GeneratorInfo> { return this.http.get<GeneratorInfo>(API.generatorMbeb); }
+    getLocali(): Observable<GeneratorInfo> { return this.http.get<GeneratorInfo>(API.generatorLocali); }
+    getMbeb(): Observable<GeneratorInfo> { return this.http.get<GeneratorInfo>(API.generatorMbeb); }
 
-    generateIncel(req: GenerateRequest):   Observable<GenerateResponse> { return this.http.post<GenerateResponse>(`${API.generatorIncel}/generate`, req); }
-    generateAuto(req: GenerateRequest):    Observable<GenerateResponse> { return this.http.post<GenerateResponse>(`${API.generatorAuto}/generate`, req); }
+    generateIncel(req: GenerateRequest): Observable<GenerateResponse> { return this.http.post<GenerateResponse>(`${API.generatorIncel}/generate`, req); }
+    generateAuto(req: GenerateRequest): Observable<GenerateResponse> { return this.http.post<GenerateResponse>(`${API.generatorAuto}/generate`, req); }
     generateAntiveg(req: GenerateRequest): Observable<GenerateResponse> { return this.http.post<GenerateResponse>(`${API.generatorAntiveg}/generate`, req); }
-    generateLocali(req: GenerateRequest):  Observable<GenerateResponse> { return this.http.post<GenerateResponse>(`${API.generatorLocali}/generate`, req); }
-    generateMbeb(req: GenerateRequest):    Observable<GenerateResponse> { return this.http.post<GenerateResponse>(`${API.generatorMbeb}/generate`, req); }
+    generateLocali(req: GenerateRequest): Observable<GenerateResponse> { return this.http.post<GenerateResponse>(`${API.generatorLocali}/generate`, req); }
+    generateMbeb(req: GenerateRequest): Observable<GenerateResponse> { return this.http.post<GenerateResponse>(`${API.generatorMbeb}/generate`, req); }
 
     // ─── Gestione errori ────────────────────────────────────────────────
 

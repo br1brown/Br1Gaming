@@ -90,7 +90,7 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
                 fontFamily: 'Verdana',
                 margin: 50
             });
-            await this.share.shareCanvas(canvas, gen.name, `${gen.slug}.png`);
+            await this.share.shareCanvas(canvas, `${gen.name}:${window.location}`, `${gen.slug}.png`);
         } finally {
             this.sharing.set(false);
         }
@@ -100,22 +100,22 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
 
     private fetchGeneratorInfo(): Observable<GeneratorInfo> {
         switch (this.PageType) {
-            case PageType.GeneratorIncel:   return this.api.getIncel();
-            case PageType.GeneratorAuto:    return this.api.getAuto();
+            case PageType.GeneratorIncel: return this.api.getIncel();
+            case PageType.GeneratorAuto: return this.api.getAuto();
             case PageType.GeneratorAntiveg: return this.api.getAntiveg();
-            case PageType.GeneratorLocali:  return this.api.getLocali();
-            case PageType.GeneratorMbeb:    return this.api.getMbeb();
+            case PageType.GeneratorLocali: return this.api.getLocali();
+            case PageType.GeneratorMbeb: return this.api.getMbeb();
             default: throw new Error(`PageType non è un generatore: ${this.PageType}`);
         }
     }
 
     private fetchGeneratedText(): Observable<GenerateResponse> {
         switch (this.PageType) {
-            case PageType.GeneratorIncel:   return this.api.generateIncel({});
-            case PageType.GeneratorAuto:    return this.api.generateAuto({});
+            case PageType.GeneratorIncel: return this.api.generateIncel({});
+            case PageType.GeneratorAuto: return this.api.generateAuto({});
             case PageType.GeneratorAntiveg: return this.api.generateAntiveg({});
-            case PageType.GeneratorLocali:  return this.api.generateLocali({});
-            case PageType.GeneratorMbeb:    return this.api.generateMbeb({});
+            case PageType.GeneratorLocali: return this.api.generateLocali({});
+            case PageType.GeneratorMbeb: return this.api.generateMbeb({});
             default: throw new Error(`PageType non è un generatore: ${this.PageType}`);
         }
     }

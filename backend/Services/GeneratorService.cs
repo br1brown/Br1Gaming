@@ -4,7 +4,13 @@ using Backend.Models;
 
 namespace Backend.Services;
 
-public class SiteService(IContentStore store)
+/// <summary>
+/// Tutto ciò che riguarda i generatori: catalogo, info per nome, generazione testo.
+/// Per aggiungere un generatore: creare il JSON in data/generators/,
+/// aggiungere qui i due metodi (GetXxxAsync + GenerateXxxAsync)
+/// e aggiungere lo slug a KnownSlugs qui sotto.
+/// </summary>
+public class GeneratorService(IContentStore store)
 {
     private readonly IContentStore _store = store;
 
@@ -13,7 +19,7 @@ public class SiteService(IContentStore store)
     private static SharedData? _sharedCache;
     private static readonly Lock _sharedLock = new();
 
-    private async Task<SharedData> LoadSharedDataFromCacheAsync()
+    private async Task<SharedData> LoadSharedDataAsync()
     {
         if (_sharedCache is not null) return _sharedCache;
 
@@ -31,15 +37,55 @@ public class SiteService(IContentStore store)
     /// <summary>Forza la rilettura di shared.json al prossimo accesso.</summary>
     public static void ClearCache() { lock (_sharedLock) { _sharedCache = null; } }
 
-    // ── Catalogo generatori ──────────────────────────────────────────
+    // ── Slug — unica dichiarazione per generatore ─────────────────────
+    // Aggiungere qui lo slug e i due metodi pubblici (Get + Generate).
 
-    public Task<List<GeneratorData>> GetGeneratorCatalogAsync() => _store.GetGeneratorsAsync();
+    private const string SlugIncel = "incel";
+    private const string SlugAuto = "auto";
+    private const string SlugAntiveg = "antiveg";
+    private const string SlugLocali = "locali";
+    private const string SlugMbeb = "mbeb";
 
-    public Task<GeneratorData?> GetGeneratorBySlugAsync(string slug) => _store.GetGeneratorAsync(slug);
+    // ── Catalogo ─────────────────────────────────────────────────────
 
-    // ── Generazione testo ────────────────────────────────────────────
+    private static readonly string[] AllSlugs = [SlugIncel, SlugAuto, SlugAntiveg, SlugLocali, SlugMbeb];
 
-    public async Task<GenerationResult> GenerateAsync(string slug, GenerationRequest request)
+    public async Task<List<GeneratorData>> GetCatalogAsync()
+    {
+        var all = await _store.GetGeneratorsAsync();
+        return all.Where(i => AllSlugs.Contains(i.Slug)).ToList();
+    }
+
+    // ── Incel ─────────────────────────────────────────────────────────
+
+    public Task<GeneratorData?> GetIncelAsync() => _store.GetGeneratorAsync(SlugIncel);
+    public Task<GenerationResult> GenerateIncelAsync(bool html) => GenerateAsync(SlugIncel, html);
+
+    // ── Auto ──────────────────────────────────────────────────────────
+
+    public Task<GeneratorData?> GetAutoAsync() => _store.GetGeneratorAsync(SlugAuto);
+    public Task<GenerationResult> GenerateAutoAsync(bool html) => GenerateAsync(SlugAuto, html);
+
+    // ── Antiveg ───────────────────────────────────────────────────────
+
+    public Task<GeneratorData?> GetAntivegAsync() => _store.GetGeneratorAsync(SlugAntiveg);
+    public Task<GenerationResult> GenerateAntivegAsync(bool html) => GenerateAsync(SlugAntiveg, html);
+
+    // ── Locali ────────────────────────────────────────────────────────
+
+    public Task<GeneratorData?> GetLocaliAsync() => _store.GetGeneratorAsync(SlugLocali);
+    public Task<GenerationResult> GenerateLocaliAsync(bool html) => GenerateAsync(SlugLocali, html);
+
+    // ── Mbeb ──────────────────────────────────────────────────────────
+
+    public Task<GeneratorData?> GetMbebAsync() => _store.GetGeneratorAsync(SlugMbeb);
+    public Task<GenerationResult> GenerateMbebAsync(bool html) => GenerateAsync(SlugMbeb, html);
+
+    // ══════════════════════════════════════════════════════════════════
+    // MOTORE DI GENERAZIONE (privato — lo slug arriva solo dai metodi named)
+    // ══════════════════════════════════════════════════════════════════
+
+    private async Task<GenerationResult> GenerateAsync(string slug, bool includeHtml)
     {
         var generator = await _store.GetGeneratorAsync(slug)
             ?? throw new NotFoundException($"generatore '{slug}'");
@@ -47,17 +93,15 @@ public class SiteService(IContentStore store)
         if (generator.Core.Count == 0)
             return new GenerationResult("", "", null);
 
-        var shared = await LoadSharedDataFromCacheAsync();
+        var shared = await LoadSharedDataAsync();
         var lists = AggregateAllLists(generator, shared);
         var exclusiveGroups = ExpandGroupNamesToTags(generator, shared);
-
-        // Tiene traccia dei valori già estratti per evitare ripetizioni
         var used = new Dictionary<string, HashSet<string>>();
 
         var text = ComposeText(generator, lists, shared.RangeAliases, exclusiveGroups, used);
         text = CapitalizeSentences(text);
 
-        var html = request.IncludeHtml
+        var html = includeHtml
             ? $"<p>{System.Net.WebUtility.HtmlEncode(text)}</p>"
             : null;
 
@@ -66,11 +110,6 @@ public class SiteService(IContentStore store)
 
     // ── Aggregazione liste ───────────────────────────────────────────
 
-    /// <summary>
-    /// Costruisce il dizionario completo di liste per questo generatore:
-    /// prima le condivise, poi le composte ([nome] = [nome-m] + [nome-f]),
-    /// infine quelle locali del generatore che sovrascrivono le precedenti.
-    /// </summary>
     private static Dictionary<string, List<string>> AggregateAllLists(GeneratorData generator, SharedData shared)
     {
         var all = new Dictionary<string, List<string>>(shared.FlatLists);
@@ -93,10 +132,6 @@ public class SiteService(IContentStore store)
 
     // ── Risoluzione gruppi esclusivi ─────────────────────────────────
 
-    /// <summary>
-    /// Traduce i nomi dei gruppi (es. "età", "professione") nelle liste
-    /// di tag corrispondenti definiti in shared.json.
-    /// </summary>
     private static List<List<string>>? ExpandGroupNamesToTags(GeneratorData generator, SharedData shared)
     {
         if (generator.ExclusiveGroups is not { Count: > 0 })
@@ -109,7 +144,6 @@ public class SiteService(IContentStore store)
 
     // ── Composizione testo ───────────────────────────────────────────
 
-    /// <summary>Assembla prefix, corpo centrale e suffix nel testo finale.</summary>
     private static string ComposeText(
         GeneratorData generator,
         Dictionary<string, List<string>> lists,
@@ -117,7 +151,6 @@ public class SiteService(IContentStore store)
         List<List<string>>? exclusiveGroups,
         Dictionary<string, HashSet<string>> used)
     {
-        // Il prefix va risolto prima: il suo [nome] non si ripeterà nelle frasi
         var prefix = ResolveIfPresent(generator.Prefix, lists, rangeAliases, used);
         var suffix = ResolveIfPresent(generator.Suffix, lists, rangeAliases, used);
 
@@ -132,7 +165,6 @@ public class SiteService(IContentStore store)
         return body;
     }
 
-    /// <summary>Seleziona i template e li espande nei placeholder per formare le frasi.</summary>
     private static string ComposeBody(
         GeneratorData generator,
         Dictionary<string, List<string>> lists,
@@ -172,14 +204,6 @@ public class SiteService(IContentStore store)
 
     // ── Selezione template con policy ────────────────────────────────
 
-    /// <summary>
-    /// Pesca <paramref name="count"/> template dal pool mescolato,
-    /// rispettando le policy di unicità:
-    /// <list type="bullet">
-    ///   <item>UniqueLabels — ogni etichetta può comparire al massimo una volta.</item>
-    ///   <item>ExclusiveGroups — quando un tag del gruppo viene usato, il gruppo è chiuso.</item>
-    /// </list>
-    /// </summary>
     private static List<string> PickTemplatesRespectingPolicies(
         List<string> core, int count,
         List<string>? uniqueLabels,
@@ -236,10 +260,6 @@ public class SiteService(IContentStore store)
     private static readonly Regex PlaceholderRx = new(@"\[[^\]]+\]", RegexOptions.Compiled);
     private static readonly Regex RangeRx = new(@"^\d+-\d+$", RegexOptions.Compiled);
 
-    /// <summary>
-    /// Espande iterativamente tutti i placeholder nel template (max 5 passaggi,
-    /// per gestire placeholder annidati come [età-giovane] → [15-26] → 21).
-    /// </summary>
     private static string ExpandAllPlaceholders(
         string template,
         Dictionary<string, List<string>> lists,
@@ -266,19 +286,16 @@ public class SiteService(IContentStore store)
     {
         var inner = placeholder[1..^1];
 
-        // 1) Alias di range: [età-giovane] → [15-26] → numero
         if (rangeAliases.TryGetValue(placeholder, out var rangeTarget))
             return TryPickFromRange(rangeTarget[1..^1]) ?? rangeTarget;
 
-        // 2) Range numerico diretto: [15-25] → numero casuale
         if (TryPickFromRange(inner) is { } number)
             return number;
 
-        // 3) Lista con anti-ripetizione
         if (lists.TryGetValue(placeholder, out var list) && list.Count > 0)
             return PickUniqueFromList(placeholder, list, used);
 
-        return placeholder; // non riconosciuto: lascia invariato
+        return placeholder;
     }
 
     private static string? TryPickFromRange(string inner)
@@ -329,5 +346,4 @@ public class SiteService(IContentStore store)
     }
 }
 
-public record GenerationRequest(bool IncludeHtml);
 public record GenerationResult(string Text, string Markdown, string? Html);

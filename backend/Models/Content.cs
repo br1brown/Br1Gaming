@@ -6,6 +6,7 @@ public record ChoiceSnapshot(string Id, string Text);
 
 public record StorySnapshot(
     string StorySlug,
+    string StoryTitle,
     string SceneId,
     string SceneText,
     string? EndingTitle,
@@ -13,7 +14,7 @@ public record StorySnapshot(
     bool IsEnding,
     string? Consequences,
     string? ChosenChoiceText,
-    Dictionary<string, object> State);
+    Dictionary<string, object> Stats);
 
 // ── Modello dati del generatore ───────────────────────────────────────
 
