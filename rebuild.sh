@@ -82,8 +82,15 @@ SECURITY_BEHIND_PROXY="$(env_get Security__BehindProxy)"
 [[ -z "$PROJECT_NAME" ]]             && fail "PROJECT_NAME non impostato in .env"
 [[ "$PROJECT_NAME" == "CHANGE_ME" ]] && fail "PROJECT_NAME è ancora il placeholder 'CHANGE_ME'"
 [[ -n "$PROJECT_NAME" && ! "$PROJECT_NAME" =~ ^[a-z0-9_-]+$ ]] && fail "PROJECT_NAME contiene caratteri non validi (usare solo lowercase, numeri, - e _)"
+
 [[ -z "$FRONTEND_PORT" ]]            && fail "FRONTEND_PORT non impostato in .env"
 
+# Se vuoi esporre il backend, la porta diventa obbligatoria per evitare conflitti tra progetti
+if [[ "${EXPOSE_BACKEND:-no}" == "yes" && -z "$BACKEND_PORT" ]]; then
+    fail "EXPOSE_BACKEND=yes richiede che BACKEND_PORT sia definita in .env"
+fi
+
+[[ -n "$PROJECT_NAME" && "$PROJECT_NAME" != "CHANGE_ME" ]] && ok "PROJECT_NAME = $PROJECT_NAME"
 [[ -n "$PROJECT_NAME" && "$PROJECT_NAME" != "CHANGE_ME" ]] && ok "PROJECT_NAME = $PROJECT_NAME"
 [[ -n "$FRONTEND_PORT" ]]                                  && ok "FRONTEND_PORT = $FRONTEND_PORT"
 
@@ -141,8 +148,8 @@ if [[ "$EXPOSE_BACKEND" == "yes" ]]; then
         warn "EXPOSE_BACKEND=yes ma docker-compose.backend-exposed.yml non trovato — procedo senza"
         COMPOSE="docker compose -f docker-compose.yml"
     else
-        COMPOSE="docker compose -f docker-compose.yml -f docker-compose.backend-exposed.yml"
-        ok "Backend esposto sull'host (porta ${BACKEND_PORT:-8080})"
+		COMPOSE="docker compose -f docker-compose.yml -f docker-compose.backend-exposed.yml"
+		ok "Backend esposto sull'host (porta $BACKEND_PORT)"
     fi
 else
     COMPOSE="docker compose -f docker-compose.yml"
