@@ -1,7 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, effect, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Observable, firstValueFrom } from 'rxjs';
 import { GeneratorInfo, GenerateResponse } from '../../core/dto/generator.dto';
 import { ApiService } from '../../core/services/api.service';
 import { PageMetaService } from '../../core/services/page-meta.service';
@@ -47,7 +46,7 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
 
     async ngOnInit(): Promise<void> {
         try {
-            const detail = await firstValueFrom(this.fetchGeneratorInfo());
+            const detail = await this.fetchGeneratorInfo();
             this.generator.set(detail);
         } catch (error) {
             await this.handleGeneratorLoadError(error);
@@ -58,7 +57,7 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
         this.loading.set(true);
         this.result.set(null);
         try {
-            const res = await firstValueFrom(this.fetchGeneratedText());
+            const res = await this.fetchGeneratedText();
             this.result.set(res);
         } catch (error) {
             this.handleRequestError(error);
@@ -98,7 +97,7 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
 
     // ── Dispatch per generatore ──────────────────────────────────────
 
-    private fetchGeneratorInfo(): Observable<GeneratorInfo> {
+    private fetchGeneratorInfo(): Promise<GeneratorInfo> {
         switch (this.PageType) {
             case PageType.GeneratorIncel: return this.api.getIncel();
             case PageType.GeneratorAuto: return this.api.getAuto();
@@ -109,7 +108,7 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
         }
     }
 
-    private fetchGeneratedText(): Observable<GenerateResponse> {
+    private fetchGeneratedText(): Promise<GenerateResponse> {
         switch (this.PageType) {
             case PageType.GeneratorIncel: return this.api.generateIncel({});
             case PageType.GeneratorAuto: return this.api.generateAuto({});

@@ -1,7 +1,7 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { dirname, resolve } from 'node:path';
-import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
+import { createProxyMiddleware } from 'http-proxy-middleware';
 import {
     AngularNodeAppEngine,
     createNodeRequestHandler,
@@ -31,14 +31,16 @@ const proxyTimeoutMs = Number(process.env['PROXY_TIMEOUT_MS'] ?? 30_000);
 //
 // Tutti i valori sono sovrascrivibili via env (es. SECURITY_CSP=...) per i progetti derivati
 // che devono aggiungere origini (Google Fonts, CDN, analytics, ecc.).
-const connectSrc = externalApiOrigin ? `'self' ${externalApiOrigin}` : "'self'";
 const defaultCsp = [
     "default-src 'self'",
-    "script-src 'self'",
+    // 'unsafe-inline' richiesto da Angular withEventReplay() (SSR hydration):
+    // Angular inietta script inline nell'HTML per catturare eventi utente prima che
+    // la hydration sia completata. Senza questo flag la CSP li bloccherebbe.
+    "script-src 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
-    "font-src 'self'",
-    `connect-src ${connectSrc}`,
+    "font-src 'self' data:",
+    `connect-src ${externalApiOrigin ? `'self' ${externalApiOrigin}` : "'self'"}`,
     "frame-ancestors 'self'",
     "base-uri 'self'",
     "form-action 'self'"
@@ -58,142 +60,6 @@ const htmlSecurityHeaders: [string, string][] = [
 app.disable('x-powered-by');
 app.set('trust proxy', true);
 
-function shouldProxyRequestBody(request: Request): boolean {
-    return request.method !== 'GET' && request.method !== 'HEAD';
-}
-
-function getForwardedForHeader(request: Request): string | null {
-    const forwardedFor = request.headers['x-forwarded-for'];
-
-    if (Array.isArray(forwardedFor)) {
-        return forwardedFor.join(', ');
-    }
-
-    if (typeof forwardedFor === 'string' && forwardedFor.length > 0) {
-        return forwardedFor;
-    }
-
-    return request.ip || request.socket.remoteAddress || null;
-}
-
-function buildProxyHeaders(request: Request): Headers {
-    const headers = new Headers();
-
-    for (const [name, value] of Object.entries(request.headers)) {
-        if (value === undefined || name === 'host') {
-            continue;
-        }
-
-        if (Array.isArray(value)) {
-            value.forEach(item => headers.append(name, item));
-            continue;
-        }
-
-        headers.set(name, value);
-    }
-
-    const forwardedFor = getForwardedForHeader(request);
-    const forwardedProto = request.header('x-forwarded-proto') ?? request.protocol;
-    const forwardedHost = request.header('x-forwarded-host') ?? request.get('host');
-
-    if (forwardedFor) {
-        headers.set('x-forwarded-for', forwardedFor);
-    }
-
-    headers.set('x-forwarded-proto', forwardedProto);
-
-    if (forwardedHost) {
-        headers.set('x-forwarded-host', forwardedHost);
-    }
-
-    return headers;
-}
-
-function setProxyResponseHeaders(proxyResponse: globalThis.Response, response: Response): void {
-    const responseHeaders = proxyResponse.headers as Headers & {
-        getSetCookie?: () => string[];
-    };
-    const setCookies = responseHeaders.getSetCookie?.();
-
-    if (setCookies?.length > 0) {
-        response.setHeader('set-cookie', setCookies);
-    }
-
-    proxyResponse.headers.forEach((value, name) => {
-        if (name === 'set-cookie') {
-            return;
-        }
-
-        response.setHeader(name, value);
-    });
-}
-
-async function proxyApiRequest(request: Request, response: Response, next: NextFunction): Promise<void> {
-    const abortController = new AbortController();
-    const targetUrl = new URL(request.originalUrl, `${apiOrigin}/`);
-    const requestHeaders = buildProxyHeaders(request);
-    const hasRequestBody = shouldProxyRequestBody(request);
-    const requestBody = hasRequestBody ? Readable.toWeb(request) as BodyInit : undefined;
-    const fetchOptions: RequestInit & { duplex?: 'half' } = {
-        method: request.method,
-        headers: requestHeaders,
-        body: requestBody,
-        duplex: hasRequestBody ? 'half' : undefined,
-        redirect: 'manual',
-        signal: AbortSignal.any([abortController.signal, AbortSignal.timeout(proxyTimeoutMs)])
-    };
-
-    request.on('close', () => abortController.abort());
-
-    try {
-        const proxyResponse = await fetch(targetUrl, fetchOptions);
-
-        response.status(proxyResponse.status);
-        setProxyResponseHeaders(proxyResponse, response);
-
-        if (!proxyResponse.body) {
-            response.end();
-            return;
-        }
-
-        const reader = proxyResponse.body.getReader();
-
-        while (true) {
-            const { done, value } = await reader.read();
-
-            if (done) {
-                break;
-            }
-
-            if (value) {
-                response.write(value);
-            }
-        }
-
-        response.end();
-    } catch (error) {
-        if (abortController.signal.aborted) {
-            return;
-        }
-
-        if (error instanceof DOMException && error.name === 'TimeoutError') {
-            if (!response.headersSent) {
-                // ProblemDetails (RFC 9457): il frontend legge .detail per il messaggio
-                response.status(504).json({
-                    status: 504,
-                    title: 'Gateway Timeout',
-                    detail: 'Il backend non ha risposto in tempo.'
-                });
-            } else {
-                response.end();
-            }
-            return;
-        }
-
-        next(error);
-    }
-}
-
 app.get('/health', (_request, response) => {
     response.json({
         status: 'ok',
@@ -201,9 +67,37 @@ app.get('/health', (_request, response) => {
     });
 });
 
-app.use('/api', (request, response, next) => {
-    void proxyApiRequest(request, response, next);
-});
+// Proxy /api/* → backend.
+// Montato a root con pathFilter (non app.use('/api', ...)): Express con app.use('/api', ...)
+// striscia il prefisso /api prima di passare la richiesta al middleware, causando 404.
+// Con pathFilter il percorso completo (/api/generators ecc.) viene preservato.
+app.use(createProxyMiddleware({
+    target: apiOrigin,
+    pathFilter: '/api',
+    changeOrigin: true,
+    xfwd: true,
+    proxyTimeout: proxyTimeoutMs,
+    timeout: proxyTimeoutMs,
+    on: {
+        error: (err, _req, res, next) => {
+            const response = res as Response;
+            if (response.headersSent) {
+                // Headers già inviati: non possiamo mandare un nuovo status.
+                // Passiamo l'errore a Express per logging e cleanup.
+                (next as NextFunction)(err);
+                return;
+            }
+            // ProblemDetails (RFC 9457): il frontend legge .detail per il messaggio.
+            // Tutti gli errori del proxy sono errori gateway (504), indipendentemente
+            // dalla causa (timeout, ECONNREFUSED, ecc.).
+            response.status(504).json({
+                status: 504,
+                title: 'Gateway Timeout',
+                detail: 'Il backend non ha risposto in tempo.'
+            });
+        }
+    }
+}));
 
 // Applica security headers a tutte le risposte non-API (HTML, assets statici).
 // Posizionato dopo il proxy /api: quelle risposte non passano da qui.

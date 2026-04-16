@@ -9,6 +9,7 @@
         <a class="navbar-brand" [routerLink]="homePath">{{ appName }}</a>
         }
 
+        @if (menuItems.length > 0 || languages().length > 1) {
         <button class="navbar-toggler" type="button"
                 (click)="toggleMenu()"
                 aria-controls="navbar-menu"
@@ -16,6 +17,7 @@
                 aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
+        }
 
         <div id="navbar-menu" class="collapse navbar-collapse" [class.show]="menuOpen()">
             @if (menuItems.length > 0) {

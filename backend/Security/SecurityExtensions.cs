@@ -209,11 +209,29 @@ public static class SecurityExtensions
         // mandando un X-Forwarded-For finto.
         if (security.BehindProxy)
         {
-            app.UseForwardedHeaders(new ForwardedHeadersOptions
+            var fwdOptions = new ForwardedHeadersOptions
             {
                 ForwardedHeaders = ForwardedHeaders.XForwardedFor
                     | ForwardedHeaders.XForwardedProto
-            });
+            };
+
+            // Fidati dell'header X-Forwarded-For solo se la connessione arriva
+            // da un proxy su rete privata RFC 1918 (range usati da Docker).
+            //
+            // Sicuro anche con EXPOSE_BACKEND=yes: un attaccante che colpisce
+            // direttamente la porta backend da internet ha un IP pubblico →
+            // non rientra in questi range → X-Forwarded-For viene ignorato →
+            // il rate limiter vede il suo IP reale.
+            //
+            // Con EXPOSE_BACKEND=no il backend e' raggiungibile solo via
+            // il container frontend (172.x.x.x), che rientra nel range 172.16/12.
+            fwdOptions.KnownNetworks.Clear();
+            fwdOptions.KnownProxies.Clear();
+            fwdOptions.KnownNetworks.Add(new IPNetwork(System.Net.IPAddress.Parse("10.0.0.0"), 8));
+            fwdOptions.KnownNetworks.Add(new IPNetwork(System.Net.IPAddress.Parse("172.16.0.0"), 12));
+            fwdOptions.KnownNetworks.Add(new IPNetwork(System.Net.IPAddress.Parse("192.168.0.0"), 16));
+
+            app.UseForwardedHeaders(fwdOptions);
         }
 
         // CORS prima del rate limiter: i preflight OPTIONS che il browser

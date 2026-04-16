@@ -29,8 +29,8 @@ export class HomeComponent extends PageBaseComponent implements OnInit {
         this.loading.set(true);
         try {
             const [gens, strs] = await Promise.all([
-                firstValueFrom(this.api.getGenerators()),
-                firstValueFrom(this.api.getStories())
+                this.api.getGenerators(),
+                this.api.getStories()
             ]);
             this.generators.set(gens);
             this.stories.set(strs);

@@ -1,11 +1,10 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
-import { Observable, firstValueFrom } from 'rxjs';
 import { ApiService } from './api.service';
 import { StorySnapshotDto, StoryTimelineItem } from '../dto/story.dto';
 
 /** Firma unica: sceneId e choiceId opzionali decidono start / resume / choose. */
-type PlayFn = (sceneId?: string, choiceId?: string, stats?: Record<string, number>) => Observable<StorySnapshotDto>;
+type PlayFn = (sceneId?: string, choiceId?: string, stats?: Record<string, number>) => Promise<StorySnapshotDto>;
 
 @Injectable({ providedIn: 'root' })
 export class StoryPlayerFacade {
@@ -42,9 +41,7 @@ export class StoryPlayerFacade {
         this.error.set(null);
 
         try {
-            const next = await firstValueFrom(
-                this.playFn(current.sceneId, choiceId, current.stats)
-            );
+            const next = await this.playFn(current.sceneId, choiceId, current.stats);
 
             const newItems: StoryTimelineItem[] = [];
 
@@ -80,7 +77,7 @@ export class StoryPlayerFacade {
         this.timeline.set([]);
 
         try {
-            const snap = await firstValueFrom(this.playFn());
+            const snap = await this.playFn();
             this.applySnapshot(snap);
         } catch {
             this.error.set('Errore nel riavvio.');
@@ -107,7 +104,7 @@ export class StoryPlayerFacade {
             if (savedSceneId && savedStats) {
                 try {
                     // Resume: sceneId presente, nessun choiceId
-                    const snap = await firstValueFrom(this.playFn(savedSceneId, undefined, savedStats));
+                    const snap = await this.playFn(savedSceneId, undefined, savedStats);
                     const savedTimeline = this.loadSavedTimeline(slug);
                     if (savedTimeline && savedTimeline.length > 0) {
                         this.timeline.set(savedTimeline);
@@ -122,7 +119,7 @@ export class StoryPlayerFacade {
             }
 
             // Start: nessun parametro → stats vuote → prima esecuzione
-            const snap = await firstValueFrom(this.playFn());
+            const snap = await this.playFn();
             this.applySnapshot(snap);
         } catch (error) {
             if (error instanceof HttpErrorResponse && error.status === 404) {

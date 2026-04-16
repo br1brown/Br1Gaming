@@ -10,7 +10,7 @@ ENV SITEMAP_BASE_URL=${SITEMAP_BASE_URL}
 
 COPY package.json ./
 COPY package-lock.json* ./
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+RUN if [ -f package-lock.json ]; then npm ci --include=dev; else npm install; fi
 
 COPY . .
 RUN npm run build
