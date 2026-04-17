@@ -34,7 +34,7 @@ public class FileContentStore : IContentStore
             if (generator is not null)
                 generators.Add(generator);
         }
-        return generators.OrderBy(g => g.Order).ToList();
+        return generators.OrderBy(g => g.Info?.Order ?? 999).ToList();
     }
 
     public async Task<GeneratorData?> GetGeneratorAsync(string slug)
@@ -58,7 +58,7 @@ public class FileContentStore : IContentStore
             shared.FlatLists,
             shared.PolicyGroups ?? [],
             shared.ComposedLists ?? [],
-            shared.RangeAliases ?? []);
+            shared.AgeAliases ?? []);
     }
 
     private static async Task<GeneratorData?> LoadGeneratorAsync(string slug, string filePath)

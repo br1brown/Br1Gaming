@@ -24,7 +24,7 @@ public class BaseController : EngineBaseController
         _generators = generators;
     }
 
-    // ── Storie: catalogo ─────────────────────────────────────────────
+    // ── Storie: catalogo e play (invariati) ───────────────────────────
 
     [HttpGet("stories")]
     public IActionResult GetCatalog()
@@ -35,8 +35,6 @@ public class BaseController : EngineBaseController
         return Ok(dtos);
     }
 
-    // ── Storie: Poveri Maschi ─────────────────────────────────────────
-
     [HttpPost("stories/poveri-maschi/play")]
     public IActionResult PlayPoveriMaschi([FromBody] StoryPlayRequestDto body)
     {
@@ -44,8 +42,6 @@ public class BaseController : EngineBaseController
         if (snapshot is null) return NotFound();
         return Ok(snapshot);
     }
-
-    // ── Storie: Magrogamer09 ──────────────────────────────────────────
 
     [HttpPost("stories/magrogamer09/play")]
     public IActionResult PlayMagrogamer09([FromBody] StoryPlayRequestDto body)
@@ -61,98 +57,96 @@ public class BaseController : EngineBaseController
     public async Task<IActionResult> GetAllGenerators()
     {
         var items = await _generators.GetCatalogAsync();
-        return Ok(items.Select(i => new GeneratorInfoDto(i.Slug, i.Name ?? i.Slug, i.Description)));
+        // Usiamo il record Info per il mapping
+        return Ok(items.Select(i => new GeneratorInfoDto(
+            i.Slug,
+            i.Info?.Name ?? i.Slug,
+            i.Info?.Description)));
     }
 
-    // ── Generatori: Incel ─────────────────────────────────────────────
+    // ── Generatori: Logica di Composizione (DML nel Controller) ──────
+    // Qui il controller decide quali slug passare al servizio
 
+    // INCEL (Mix: Incel + Mbeb)
     [HttpGet("generators/incel")]
-    public async Task<IActionResult> GetIncel()
-    {
-        var item = await _generators.GetIncelAsync();
-        if (item is null) return NotFound();
-        return Ok(new GeneratorInfoDto(item.Slug, item.Name ?? item.Slug, item.Description));
-    }
+    public async Task<IActionResult> GetIncel() => await GetGeneratorInfo("incel");
 
     [HttpPost("generators/incel/generate")]
     public async Task<IActionResult> GenerateIncel([FromBody] GenerateRequestDto? body)
     {
-        var result = await _generators.GenerateIncelAsync(body?.IncludeHtml ?? false);
+        var result = await _generators.GenerateIncelAsync();
         return Ok(new GenerateResponseDto(result.Text, result.Markdown, result.Html));
     }
 
-    // ── Generatori: Auto ──────────────────────────────────────────────
-
-    [HttpGet("generators/auto")]
-    public async Task<IActionResult> GetAuto()
-    {
-        var item = await _generators.GetAutoAsync();
-        if (item is null) return NotFound();
-        return Ok(new GeneratorInfoDto(item.Slug, item.Name ?? item.Slug, item.Description));
-    }
-
-    [HttpPost("generators/auto/generate")]
-    public async Task<IActionResult> GenerateAuto([FromBody] GenerateRequestDto? body)
-    {
-        var result = await _generators.GenerateAutoAsync(body?.IncludeHtml ?? false);
-        return Ok(new GenerateResponseDto(result.Text, result.Markdown, result.Html));
-    }
-
-    // ── Generatori: Antiveg ───────────────────────────────────────────
-
-    [HttpGet("generators/antiveg")]
-    public async Task<IActionResult> GetAntiveg()
-    {
-        var item = await _generators.GetAntivegAsync();
-        if (item is null) return NotFound();
-        return Ok(new GeneratorInfoDto(item.Slug, item.Name ?? item.Slug, item.Description));
-    }
-
-    [HttpPost("generators/antiveg/generate")]
-    public async Task<IActionResult> GenerateAntiveg([FromBody] GenerateRequestDto? body)
-    {
-        var result = await _generators.GenerateAntivegAsync(body?.IncludeHtml ?? false);
-        return Ok(new GenerateResponseDto(result.Text, result.Markdown, result.Html));
-    }
-
-    // ── Generatori: Locali ────────────────────────────────────────────
-
-    [HttpGet("generators/locali")]
-    public async Task<IActionResult> GetLocali()
-    {
-        var item = await _generators.GetLocaliAsync();
-        if (item is null) return NotFound();
-        return Ok(new GeneratorInfoDto(item.Slug, item.Name ?? item.Slug, item.Description));
-    }
-
-    [HttpPost("generators/locali/generate")]
-    public async Task<IActionResult> GenerateLocali([FromBody] GenerateRequestDto? body)
-    {
-        var result = await _generators.GenerateLocaliAsync(body?.IncludeHtml ?? false);
-        return Ok(new GenerateResponseDto(result.Text, result.Markdown, result.Html));
-    }
-
-    // ── Generatori: Mbeb ──────────────────────────────────────────────
-
+    // MBEB (Solo Mbeb)
     [HttpGet("generators/mbeb")]
-    public async Task<IActionResult> GetMbeb()
-    {
-        var item = await _generators.GetMbebAsync();
-        if (item is null) return NotFound();
-        return Ok(new GeneratorInfoDto(item.Slug, item.Name ?? item.Slug, item.Description));
-    }
+    public async Task<IActionResult> GetMbeb() => await GetGeneratorInfo("mbeb");
 
     [HttpPost("generators/mbeb/generate")]
     public async Task<IActionResult> GenerateMbeb([FromBody] GenerateRequestDto? body)
     {
-        var result = await _generators.GenerateMbebAsync(body?.IncludeHtml ?? false);
+        var result = await _generators.GenerateMbebAsync();
         return Ok(new GenerateResponseDto(result.Text, result.Markdown, result.Html));
     }
 
-    // ── Utility ──────────────────────────────────────────────────────
+    // AUTO
+    [HttpGet("generators/auto")]
+    public async Task<IActionResult> GetAuto() => await GetGeneratorInfo("auto");
+
+    [HttpPost("generators/auto/generate")]
+    public async Task<IActionResult> GenerateAuto([FromBody] GenerateRequestDto? body)
+    {
+        var result = await _generators.GenerateAutoAsync();
+        return Ok(new GenerateResponseDto(result.Text, result.Markdown, result.Html));
+    }
+
+    // ANTIVEG
+    [HttpGet("generators/antiveg")]
+    public async Task<IActionResult> GetAntiveg() => await GetGeneratorInfo("antiveg");
+
+    [HttpPost("generators/antiveg/generate")]
+    public async Task<IActionResult> GenerateAntiveg([FromBody] GenerateRequestDto? body)
+    {
+        var result = await _generators.GenerateAntivegAsync();
+        return Ok(new GenerateResponseDto(result.Text, result.Markdown, result.Html));
+    }
+
+    // LOCALI
+    [HttpGet("generators/locali")]
+    public async Task<IActionResult> GetLocali() => await GetGeneratorInfo("locali");
+
+    [HttpPost("generators/locali/generate")]
+    public async Task<IActionResult> GenerateLocali([FromBody] GenerateRequestDto? body)
+    {
+        var result = await _generators.GenerateLocaliAsync();
+        return Ok(new GenerateResponseDto(result.Text, result.Markdown, result.Html));
+    }
+
+    // ── Helper Privati ───────────────────────────────────────────────
+
+    private async Task<IActionResult> GetGeneratorInfo(string slug)
+    {
+        var items = await _generators.GetCatalogAsync(); 
+            var item = items.FirstOrDefault(i => i.Slug == slug);   
+        if (item is null) return NotFound();
+        return Ok(new GeneratorInfoDto(
+            item.Slug,
+            item.Info?.Name ?? item.Slug,
+            item.Info?.Description));
+    }
 
     private static GameState ToGameState(Dictionary<string, object>? dict)
     {
+        Func<JsonElement, object> UnwrapElement = (JsonElement je) => je.ValueKind switch
+        {
+            JsonValueKind.Number when je.TryGetInt32(out var i) => i,
+            JsonValueKind.Number when je.TryGetInt64(out long l) => l,
+            JsonValueKind.Number => je.GetDouble(),
+            JsonValueKind.String => je.GetString()!,
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            _ => je.GetRawText()
+        };
         if (dict is null) return new GameState();
         var unwrapped = dict.ToDictionary(
             kvp => kvp.Key,
@@ -160,22 +154,12 @@ public class BaseController : EngineBaseController
         return new GameState(unwrapped);
     }
 
-    private static object UnwrapElement(JsonElement je) => je.ValueKind switch
-    {
-        JsonValueKind.Number when je.TryGetInt32(out var i) => i,
-        JsonValueKind.Number when je.TryGetInt64(out var l) => l,
-        JsonValueKind.Number => je.GetDouble(),
-        JsonValueKind.String => je.GetString()!,
-        JsonValueKind.True => true,
-        JsonValueKind.False => false,
-        _ => je.GetRawText()
-    };
-
     // ── DTO ──────────────────────────────────────────────────────────
 
     public sealed record StorySummaryDto(string Slug, string Title, string? Description);
     public sealed record StoryPlayRequestDto(string? SceneId, string? ChoiceId, Dictionary<string, object>? Stats);
     public sealed record GeneratorInfoDto(string Slug, string Name, string? Description);
     public sealed record GenerateRequestDto(bool IncludeHtml = false);
+    public sealed record CustomGenerateRequestDto(string[] Slugs, bool IncludeHtml = false);
     public sealed record GenerateResponseDto(string Text, string Markdown, string? Html);
 }

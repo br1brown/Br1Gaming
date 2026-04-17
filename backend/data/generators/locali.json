@@ -1,12 +1,20 @@
 {
-  "order": 5,
-  "name": "Generatore Nomi Bar",
-  "description": "Trova il nome del tuo locale tutto italiano",
-  "core": [
-    "[titoli] [locali-core]"
-  ],
+  "info": {
+    "order": 5,
+    "name": "Generatore Nomi Bar",
+    "description": "Trova il nome del tuo locale tutto italiano"
+  },
   "flatLists": {
-    "[titoli]": [ "Baretto", "Chiosco", "Café", "Caffetteria", "Pizzeria", "Bottega", "Bar", "Bookique" ],
+    "[titoli]": [
+      "Baretto",
+      "Chiosco",
+      "Café",
+      "Caffetteria",
+      "Pizzeria",
+      "Bottega",
+      "Bar",
+      "Bookique"
+    ],
     "[locali-core]": [
       "al crocevia",
       "D'Azeglio [3-180]",
@@ -47,5 +55,8 @@
       "sport",
       "spuntino"
     ]
-  }
+  },
+  "core": [
+    "[titoli] [locali-core]"
+  ]
 }

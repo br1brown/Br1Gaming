@@ -7,7 +7,7 @@ public record SharedData(
     Dictionary<string, List<string>> FlatLists,
     Dictionary<string, List<string>> PolicyGroups,
     Dictionary<string, List<string>> ComposedLists,
-    Dictionary<string, string> RangeAliases);
+    Dictionary<string, string> AgeAliases);
 
 public interface IContentStore
 {

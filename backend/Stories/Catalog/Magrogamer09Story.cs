@@ -932,7 +932,7 @@ Nel giro di poche ore **circolano screenshot ovunque**. Quando apri la live la c
         {
             IsEnding = true,
             EndingTitle = "Uscita Quasi Indenne",
-            Text = "Lo scandalo non si spegne subito, ma la gestione viene apprezzata. **La community resta in gran parte con te.**"
+            Text = "Lo scandalo non si spegne subito, ma la gestione viene apprezzata. **La community resta in gran parte con te mentre si beve succo alla pera.**"
         },
         ["ending_difficile"] = _ => new()
         {

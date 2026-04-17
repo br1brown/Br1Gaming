@@ -1,33 +1,22 @@
 {
-  "order": 4,
-  "name": "Generatore Invettive Automobilistiche",
-  "description": "Non sai cosa dire quando un guidatore fa delle manovre poco piacevoli?",
+  "info": {
+    "order": 4,
+    "name": "Generatore Invettive Automobilistiche",
+    "description": "Non sai cosa dire quando un guidatore fa delle manovre poco piacevoli?"
+  },
+  "phraseSettings": {
+    "minPhrases": 2,
+    "maxPhrases": 3,
+    "separators": [
+      " eh??!! ",
+      " cosa mi dici?!! ",
+      " oh! ",
+      " eh... fighi! "
+    ]
+  },
   "suffix": "!",
-  "minPhrases": 2,
-  "maxPhrases": 3,
-  "separators": [ " eh??!! ", " cosa mi dici?!! ", " oh! ", " eh... fighi! " ],
-  "uniqueLabels": [ "guidi" ],
-  "core": [
-    "ma sei serio, [epiteti]? sembra che tu abbia preso la patente [luoghi]!",
-    "questo è il colmo, [epiteti]! stai guidando come se fossimo [luoghi]!",
-    "[epiteti], hai trasformato la strada [luoghi]! sei fuori di testa?",
-    "incredibile, [epiteti]! la tua guida è peggio di stare [luoghi]!",
-    "[epiteti], sei un [epiteti]! smettila di [azioni]",
-    "sei completamente pazzo, [epiteti]! dove hai lasciato [dimenticati]? [luoghi]?",
-    "[epiteti], è ora di smetterla! smettila di [azioni]!",
-    "chi diavolo ti ha dato la patente, [epiteti]? sembra un lavoro da uno senza [dimenticati]!",
-    "svegliati, [epiteti]! guidi come se fossi [luoghi]!",
-    "sei un disastro ambulante, [epiteti]! vedi cosa succede [azioni]!",
-    "ehi tu, [epiteti]! dove hai preso la patente, [luoghi]?",
-    "ehi [epiteti], attenzione! qui non siamo [luoghi]!",
-    "[epiteti], non siamo [luoghi]!",
-    "spero che tu, [epiteti], guidi meglio [luoghi]!",
-    "fai attenzione [epiteti], cerca di [azioni]!",
-    "hai dimenticato [dimenticati], [epiteti]?",
-    "forse dovresti, [epiteti], [azioni]!",
-    "chi ti ha dato la patente? [epiteti]?",
-    "[epiteti], guidi come [luoghi]!",
-    "[epiteti], sei sicuro di non [azioni]?"
+  "uniqueLabels": [
+    "guidi"
   ],
   "flatLists": {
     "[epiteti]": [
@@ -89,7 +78,41 @@
       "scendere dalla [parolaccie-f] macchina e farti investire",
       "aver invertito il [parolaccie-m] acceleratore con il fottuto freno"
     ],
-    "[parolaccie-m]": [ "cazzo di", "fottuto", "schifoso", "merdoso", "merda di" ],
-    "[parolaccie-f]": [ "fottuta", "schifosa", "merdosa", "cazzo di", "merda di" ]
-  }
+    "[parolaccie-m]": [
+      "cazzo di",
+      "fottuto",
+      "schifoso",
+      "merdoso",
+      "merda di"
+    ],
+    "[parolaccie-f]": [
+      "fottuta",
+      "schifosa",
+      "merdosa",
+      "cazzo di",
+      "merda di"
+    ]
+  },
+  "core": [
+    "ma sei serio, [epiteti]? sembra che tu abbia preso la patente [luoghi]!",
+    "questo è il colmo, [epiteti]! stai guidando come se fossimo [luoghi]!",
+    "[epiteti], hai trasformato la strada [luoghi]! sei fuori di testa?",
+    "incredibile, [epiteti]! la tua guida è peggio di stare [luoghi]!",
+    "[epiteti], sei un [epiteti]! smettila di [azioni]",
+    "sei completamente pazzo, [epiteti]! dove hai lasciato [dimenticati]? [luoghi]?",
+    "[epiteti], è ora di smetterla! smettila di [azioni]!",
+    "chi diavolo ti ha dato la patente, [epiteti]? sembra un lavoro da uno senza [dimenticati]!",
+    "svegliati, [epiteti]! guidi come se fossi [luoghi]!",
+    "sei un disastro ambulante, [epiteti]! vedi cosa succede [azioni]!",
+    "ehi tu, [epiteti]! dove hai preso la patente, [luoghi]?",
+    "ehi [epiteti], attenzione! qui non siamo [luoghi]!",
+    "[epiteti], non siamo [luoghi]!",
+    "spero che tu, [epiteti], guidi meglio [luoghi]!",
+    "fai attenzione [epiteti], cerca di [azioni]!",
+    "hai dimenticato [dimenticati], [epiteti]?",
+    "forse dovresti, [epiteti], [azioni]!",
+    "chi ti ha dato la patente? [epiteti]?",
+    "[epiteti], guidi come [luoghi]!",
+    "[epiteti], sei sicuro di non [azioni]?"
+  ]
 }
