@@ -13,30 +13,13 @@ public class GeneratorService(IContentStore store)
 {
     private readonly IContentStore _store = store;
 
-    // ── Cache shared data ────────────────────────────────────────────
-    private static SharedData? _sharedCache;
-    private static readonly Lock _sharedLock = new();
+    // ── Cache dei Generatori ─────────────────────────────────────────
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, RuntimeGenerator> _generatorCache = new();
 
     /// <summary>
-    /// Carica o restituisce dalla memoria cache il file Shared.json contenente le policy globali.
+    /// Svuota forzatamente la cache dei generatori (da richiamare quando si ricompilano i file).
     /// </summary>
-    /// <returns>Il modello deserializzato di SharedData.</returns>
-    private async Task<SharedData> LoadSharedDataAsync()
-    {
-        if (_sharedCache is not null) return _sharedCache;
-        lock (_sharedLock)
-        {
-            if (_sharedCache is not null) return _sharedCache;
-        }
-        var data = await _store.GetSharedDataAsync();
-        lock (_sharedLock) { _sharedCache = data; }
-        return data;
-    }
-
-    /// <summary>
-    /// Svuota forzatamente la cache dei file condivisi.
-    /// </summary>
-    public static void ClearCache() { lock (_sharedLock) { _sharedCache = null; } }
+    public static void ClearCache() => _generatorCache.Clear();
 
     // ── Slug ──────────────────────────────────────────────────────────
     private const string SlugIncel = "incel";
@@ -114,8 +97,8 @@ public class GeneratorService(IContentStore store)
     /// </summary>
     private record RuntimeGenerator(
         GeneratorData.GenerationSettings Settings,
-        string? Prefix,
-        string? Suffix,
+        string? Apertura,
+        string? Chiusura,
         List<string> GlobalCore,
         List<GeneratorData.RequiredInjectData> Requirements,
         Dictionary<string, List<string>> FlatLists,
@@ -134,11 +117,15 @@ public class GeneratorService(IContentStore store)
         if (slugs == null || slugs.Length == 0)
             throw new ArgumentException("Almeno uno slug è richiesto.");
 
+        var cacheKey = string.Join("|", slugs);
+        if (_generatorCache.TryGetValue(cacheKey, out var cachedGenerator))
+            return cachedGenerator;
+
         var instances = new List<GeneratorData>();
-        foreach (var s in slugs)
+        foreach (var slugName in slugs)
         {
-            var g = await _store.GetGeneratorAsync(s);
-            if (g != null) instances.Add(g);
+            var generatorData = await _store.GetGeneratorAsync(slugName);
+            if (generatorData != null) instances.Add(generatorData);
         }
 
         if (instances.Count == 0)
@@ -147,117 +134,115 @@ public class GeneratorService(IContentStore store)
         var master = instances[0];
 
 
-        // ══════════════════════════════════════════════════════════════════
-        // CONFIGURAZIONE DEL BERSAGLIO GLOBALE (Limiti Min e Max testuali)
-        // ══════════════════════════════════════════════════════════════════
-        // Mettiamo a confronto il "MinPhrases" e "MaxPhrases" di TUTTI i generatori fusi.
-        // ESTRAIAMO IL PIÙ ALTO TRA TUTTI. Questo fa sì che la frase non venga "strozzata" 
-        // dal Master se un ospite iniettato richiede uno spazio maggiore per esprimersi.
-        var globalMin = instances.Max(i => i.PhraseSettings?.MinPhrases ?? 1);
-        var globalMax = instances.Max(i => i.PhraseSettings?.MaxPhrases ?? globalMin);
-        var masterSettings = master.PhraseSettings ?? new GeneratorData.GenerationSettings(globalMin, globalMax, [". "]);
+        // Determina il numero minimo e massimo di frasi confrontando tutti i generatori richiesti.
+        // Viene selezionato il valore massimo tra i generatori per garantire spazio sufficiente a tutti i contenuti.
+        var globalMin = instances.Max(instance => instance.PhraseSettings?.MinPhrases ?? 1);
+        var globalMax = instances.Max(instance => instance.PhraseSettings?.MaxPhrases ?? globalMin);
+        var masterSettings = master.PhraseSettings ?? new GeneratorData.GenerationSettings { MinPhrases = globalMin, MaxPhrases = globalMax, Separators = [". "] };
         var settings = masterSettings with { MinPhrases = globalMin, MaxPhrases = globalMax };
 
 
-        var shared = await LoadSharedDataAsync();
+        var shared = await _store.GetSharedDataAsync();
 
-        // Combina core generale
-        var globalCore = instances.SelectMany(i => i.Core).Distinct().ToList();
+        // Estrae tutte le frasi (Core) dai vari generatori rimuovendo i duplicati
+        var frasiGlobali = instances.SelectMany(instance => instance.Core).Distinct().ToList();
 
-        // ══════════════════════════════════════════════════════════════════
-        // DEFINIZIONE OBBLIGATORIETA' (Regole Strict per gli ospiti iniettati)
-        // ══════════════════════════════════════════════════════════════════
-        // Compiliamo un registro ("requirements") contenente tutte le regole non derogabili.
-        var requirements = new List<GeneratorData.RequiredInjectData>();
+        // Compila una lista di regole di immissione obbligatoria per garantire la presenza dei generatori secondari
+        var requisitiObbligatori = new List<GeneratorData.RequiredInjectData>();
         for (int i = 0; i < instances.Count; i++)
         {
             if (i == 0 && instances[i].CoreRequired is { Phrases.Count: > 0 } masterReq)
             {
-                // Se il Master aveva una regola formale ("Required" dal JSON), la si protegge
-                requirements.Add(masterReq);
+                // Mantiene i requisiti del master se esplicitamente definiti nel file JSON
+                requisitiObbligatori.Add(masterReq);
             }
             else if (i > 0 && instances[i].Core.Count > 0)
             {
-                // Per GUEST INIETTATI (i > 0) si crea il vincolo logico:
                 if (instances[i].CoreRequired is { Phrases.Count: > 0 } injectReq)
                 {
-                    requirements.Add(injectReq);
+                    // Aggiunge i requisiti specifici di un generatore iniettato
+                    requisitiObbligatori.Add(injectReq);
                 }
                 else
                 {
-                    // L'obbligatorietà "aperta" per fargli spazio. 
-                    // Minimo: esattamente la metà del conteggio minimo globale +1 per assicurargli posto.
-                    // Massimo: scalato a metà del globale per non fagocitare interamente il testo a scapito del Master.
-                    requirements.Add(new GeneratorData.RequiredInjectData(Math.Max(1, (globalMin +1 )/ 2), globalMax / 2, instances[i].Core));
+                    // Se non ci sono regole esplicite, assegna una quota proporzionale del testo generato al generatore ospite
+                    requisitiObbligatori.Add(new GeneratorData.RequiredInjectData(Math.Max(1, (globalMin + 1) / 2), globalMax / 2, instances[i].Core));
                 }
             }
         }
 
         // Unisce tutte le flatLists (condivise e delle singole istanze)
-        var lists = new Dictionary<string, List<string>>(shared.FlatLists);
+        var dizionariParole = new Dictionary<string, List<string>>(shared.FlatLists);
         foreach (var (key, sources) in shared.ComposedLists)
         {
-            var combined = sources.Where(lists.ContainsKey).SelectMany(src => lists[src]).ToList();
-            if (combined.Count > 0) lists[key] = combined;
+            var combined = sources.Where(dizionariParole.ContainsKey).SelectMany(src => dizionariParole[src]).ToList();
+            if (combined.Count > 0) dizionariParole[key] = combined;
         }
 
         foreach (var instance in instances)
         {
             foreach (var (key, list) in instance.FlatLists)
             {
-                if (lists.TryGetValue(key, out var existing))
-                    lists[key] = existing.Concat(list).Distinct().ToList();
+                if (dizionariParole.TryGetValue(key, out var existing))
+                    dizionariParole[key] = existing.Concat(list).Distinct().ToList();
                 else
-                    lists[key] = list;
+                    dizionariParole[key] = list;
             }
         }
 
         // Policy & Labels & Template string resolving
-        var prefix = instances.Select(i => i.Prefix).FirstOrDefault(p => !string.IsNullOrEmpty(p));
-        var suffix = instances.Select(i => i.Suffix).FirstOrDefault(s => !string.IsNullOrEmpty(s));
+        var apertura = instances.Select(instance => instance.Apertura).FirstOrDefault(pfx => !string.IsNullOrEmpty(pfx));
+        var chiusura = instances.Select(instance => instance.Chiusura).FirstOrDefault(sfx => !string.IsNullOrEmpty(sfx));
 
-        var combinedExclusiveGroupNames = instances
-            .Where(i => i.ExclusiveGroups != null)
-            .SelectMany(i => i.ExclusiveGroups!)
+        var nomiGruppiEsclusivi = instances
+            .Where(instance => instance.ExclusiveGroups != null)
+            .SelectMany(instance => instance.ExclusiveGroups!)
             .Distinct()
             .ToList();
 
-        List<List<string>>? exclusiveGroups = null;
-        if (combinedExclusiveGroupNames.Count > 0)
+        List<List<string>>? gruppiEsclusivi = null;
+        if (nomiGruppiEsclusivi.Count > 0)
         {
-            exclusiveGroups = combinedExclusiveGroupNames
+            gruppiEsclusivi = nomiGruppiEsclusivi
                 .Select(name => shared.PolicyGroups.TryGetValue(name, out var tags) ? tags : [name])
                 .ToList();
         }
 
-        var uniqueLabels = instances
-            .Where(i => i.UniqueLabels != null)
-            .SelectMany(i => i.UniqueLabels!)
+        var etichetteUniche = instances
+            .Where(instance => instance.UniqueLabels != null)
+            .SelectMany(instance => instance.UniqueLabels!)
             .Distinct()
             .ToList();
 
-        var combinedSeparators = instances
-            .Where(i => i.PhraseSettings?.Separators != null)
-            .SelectMany(i => i.PhraseSettings!.Separators!)
+        var separatoriCombinati = instances
+            .Where(instance => instance.PhraseSettings?.Separators != null)
+            .SelectMany(instance => instance.PhraseSettings!.Separators!)
             .Distinct()
             .ToList();
 
-        if (combinedSeparators.Count > 0)
-            settings = settings with { Separators = combinedSeparators };
+        if (separatoriCombinati.Count > 0)
+            settings = settings with { Separators = separatoriCombinati };
         else if (settings.Separators == null || settings.Separators.Count == 0)
             settings = settings with { Separators = [". "] };
 
-        return new RuntimeGenerator(
+        var mappaFasceEta = shared.AgeAliases != null 
+            ? new Dictionary<string, string>(shared.AgeAliases, StringComparer.OrdinalIgnoreCase) 
+            : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        var finalGenerator = new RuntimeGenerator(
             Settings: settings,
-            Prefix: prefix,
-            Suffix: suffix,
-            GlobalCore: globalCore,
-            Requirements: requirements,
-            FlatLists: lists,
-            ExclusiveGroups: exclusiveGroups,
-            UniqueLabels: uniqueLabels,
-            AgeAliases: shared.AgeAliases ?? []
+            Apertura: apertura,
+            Chiusura: chiusura,
+            GlobalCore: frasiGlobali,
+            Requirements: requisitiObbligatori,
+            FlatLists: dizionariParole,
+            ExclusiveGroups: gruppiEsclusivi,
+            UniqueLabels: etichetteUniche,
+            AgeAliases: mappaFasceEta
         );
+
+        _generatorCache[cacheKey] = finalGenerator;
+        return finalGenerator;
     }
 
     /// <summary>
@@ -267,17 +252,17 @@ public class GeneratorService(IContentStore store)
     /// <returns>Il testo testuale flat generato e concatenato.</returns>
     private static string ComposeText(RuntimeGenerator gen)
     {
-        var used = new Dictionary<string, HashSet<string>>();
-        var prefix = ResolveIfPresent(gen.Prefix, gen.FlatLists, gen.AgeAliases, used);
-        var suffix = ResolveIfPresent(gen.Suffix, gen.FlatLists, gen.AgeAliases, used);
+        var etichetteUsate = new Dictionary<string, HashSet<string>>();
+        var testoApertura = ResolveIfPresent(gen.Apertura, gen.FlatLists, gen.AgeAliases, etichetteUsate);
+        var testoChiusura = ResolveIfPresent(gen.Chiusura, gen.FlatLists, gen.AgeAliases, etichetteUsate);
 
-        var body = ComposeBody(gen, used);
+        var body = ComposeBody(gen, etichetteUsate);
 
-        if (prefix != null && body.Length > 0)
-            body = prefix + ", " + char.ToLower(body[0]) + body[1..];
+        if (testoApertura != null && body.Length > 0)
+            body = testoApertura + ", " + char.ToLower(body[0]) + body[1..];
 
-        if (suffix != null)
-            body += suffix;
+        if (testoChiusura != null)
+            body += testoChiusura;
 
         return body;
     }
@@ -289,83 +274,85 @@ public class GeneratorService(IContentStore store)
     /// <param name="gen">Il contesto generatore contenente settings globali, Required e Core unificato.</param>
     /// <param name="used">Riferimento al tracciamento in-memory dei campi scartati/utilizzati.</param>
     /// <returns>Lo spezzone di blocchi centrali risolti unito dai separatori.</returns>
-    private static string ComposeBody(RuntimeGenerator gen, Dictionary<string, HashSet<string>> used)
+    private static string ComposeBody(RuntimeGenerator gen, Dictionary<string, HashSet<string>> etichetteUsate)
     {
         // 1. Pesca della Lunghezza del Testo (Sulla base della griglia globale generata prima)
         var min = gen.Settings.MinPhrases ?? 1;
         var max = gen.Settings.MaxPhrases ?? min;
-        var totalCount = min >= max ? min : Random.Shared.Next(min, max + 1);
+        var conteggioTotale = min >= max ? min : Random.Shared.Next(min, max + 1);
 
         // 2. Protezione Anti-Strozzamento
-        // Se la somma dei requisiti minimi di tutti i guest (totalRequiredMin) supera sfortunatamente 
-        // il numero scelto dal Random, forziamo il totalCount ad ingrandirsi quanto le esigenze.
-        var totalRequiredMin = gen.Requirements.Sum(req => req.Min);
-        if (totalCount < totalRequiredMin)
+        // Se la somma dei requisiti minimi di tutti i guest (minimoRichiestoTotale) supera sfortunatamente 
+        // il numero scelto dal Random, forziamo il conteggioTotale ad ingrandirsi quanto le esigenze.
+        var minimoRichiestoTotale = gen.Requirements.Sum(req => req.Min);
+        if (conteggioTotale < minimoRichiestoTotale)
         {
-            totalCount = totalRequiredMin;
+            conteggioTotale = minimoRichiestoTotale;
         }
 
-        var selected = new List<string>();
-        var usedLabels = new HashSet<string>();
-        var closedGroups = new HashSet<int>();
+        var frasiSelezionate = new List<string>();
+        var etichetteUnicheUsate = new HashSet<string>();
+        var gruppiEsclusiviChiusi = new HashSet<int>();
 
-        // ══════════════════════════════════════════════════════════════════
-        // FASE 1: INGRESSO DALLA PORTA VIP (Il Required Ospite)
-        // ══════════════════════════════════════════════════════════════════
-        // Prima ancora di mischiare i calderoni, leggiamo le esigenze d'obbligo (di norma gli ospiti iniettati).
-        foreach (var req in gen.Requirements)
+        // Risolve prima le frasi obbligatorie ("Required") provenienti dai generatori iniettati
+        foreach (var requisito in gen.Requirements)
         {
-            // Troviamo il numero esatto da estrarre (rispettando il tetto del totalCount)
-            var maxLimit = Math.Max(req.Min, Math.Min(req.Max, totalCount));
-            var targetReq = Random.Shared.Next(req.Min, maxLimit + 1);
+            // Calcola quante frasi prelevare per questo requisito senza superare il limite totale
+            var limiteMassimo = Math.Max(requisito.Min, Math.Min(requisito.Max, conteggioTotale));
+            var obiettivoRequisito = Random.Shared.Next(requisito.Min, limiteMassimo + 1);
             
-            // Pesca SOLO DALLA "SCATOLA" ORIGINARIA (Il Core puro del guest iniettato, non il mischiotto)
-            var reqPool = ShuffledCopy(req.Phrases);
+            // Mescola le frasi di origine per un'estrazione randomica e non ripetitiva
+            var cestoFrasiObbligatorie = ShuffledCopy(requisito.Phrases);
 
-            var addedForReq = 0;
-            foreach (var p in reqPool)
+            var aggiuntePerRequisito = 0;
+            foreach (var frase in cestoFrasiObbligatorie)
             {
-                // Appena abbiamo rubato le frasi minime/massime previste, blocchiamo l'estrazione.
-                if (addedForReq >= targetReq)
+                // Interrompe il ciclo se è stato raggiunto il numero target di frasi per questo requisito
+                if (aggiuntePerRequisito >= obiettivoRequisito)
                     break;
 
-                if (selected.Contains(p) || HasLabelConflict(p, gen.UniqueLabels, usedLabels) || HasGroupConflict(p, gen.ExclusiveGroups, closedGroups))
+                if (frasiSelezionate.Contains(frase) || HasLabelConflict(frase, gen.UniqueLabels, etichetteUnicheUsate) || HasGroupConflict(frase, gen.ExclusiveGroups, gruppiEsclusiviChiusi))
                     continue;
 
-                selected.Add(p);
-                addedForReq++;
-                TrackUsedLabels(p, gen.UniqueLabels, usedLabels);
-                TrackUsedGroups(p, gen.ExclusiveGroups, closedGroups);
+                frasiSelezionate.Add(frase);
+                aggiuntePerRequisito++;
+                TrackUsedLabels(frase, gen.UniqueLabels, etichetteUnicheUsate);
+                TrackUsedGroups(frase, gen.ExclusiveGroups, gruppiEsclusiviChiusi);
             }
         }
 
-        // ══════════════════════════════════════════════════════════════════
-        // FASE 2: I TAPPABUCHI (Riempimento dal grande Calderone)
-        // ══════════════════════════════════════════════════════════════════
-        // Adesso che i VIP della FASE 1 si sono seduti ai loro posti di diritto,
-        // mischiamo TUTTE le frasi (GlobalCore = Master + Injected) e peschiamo
-        // casualmente per arrivare al "totalCount" prestabilito in cima alla funzione.
-        var fillPool = ShuffledCopy(gen.GlobalCore);
-        foreach (var p in fillPool)
+        // Riempie il resto del testo pescando casualmente dall'unione di tutte le frasi disponibili (GlobalCore)
+        var cestoFrasiRiempimento = ShuffledCopy(gen.GlobalCore);
+        foreach (var frase in cestoFrasiRiempimento)
         {
-            // Appena arriviamo a riempire lo slot prefissato, l'organico è al completo e ci fermiamo.
-            if (selected.Count >= totalCount)
+            // Interrompe quando il numero totale desiderato di frasi è stato raggiunto
+            if (frasiSelezionate.Count >= conteggioTotale)
                 break;
 
-            // L'integrità è assicurata: se la casualità rincappa in una frase del VIP (ospite) che
-            // avevamo GIÀ posizionato nella Fase 1, non verrà sdoppiata (selected.Contains la scavalca).
-            if (selected.Contains(p) || HasLabelConflict(p, gen.UniqueLabels, usedLabels) || HasGroupConflict(p, gen.ExclusiveGroups, closedGroups))
+            // Valida la frase ignorandola se è già stata selezionata o se viola policy di unicità e mutua esclusione
+            if (frasiSelezionate.Contains(frase) || HasLabelConflict(frase, gen.UniqueLabels, etichetteUnicheUsate) || HasGroupConflict(frase, gen.ExclusiveGroups, gruppiEsclusiviChiusi))
                 continue;
 
-            selected.Add(p);
-            TrackUsedLabels(p, gen.UniqueLabels, usedLabels);
-            TrackUsedGroups(p, gen.ExclusiveGroups, closedGroups);
+            frasiSelezionate.Add(frase);
+            TrackUsedLabels(frase, gen.UniqueLabels, etichetteUnicheUsate);
+            TrackUsedGroups(frase, gen.ExclusiveGroups, gruppiEsclusiviChiusi);
         }
 
-        var separators = gen.Settings.Separators ?? [". "];
-        var sep = separators[Random.Shared.Next(separators.Count)];
+        // Risolve i placeholder (es. [professioni]) in base ai dizionari finali
+        var separatori = gen.Settings.Separators ?? [". "];
+        var frasiFinite = frasiSelezionate.Select(spezzoneTesto => ExpandAllPlaceholders(spezzoneTesto, gen.FlatLists, gen.AgeAliases, etichetteUsate)).ToList();
+        
+        if (frasiFinite.Count == 0) throw new InvalidOperationException("Impossibile generare il corpo: nessuna frase compatibile trovata (possibile database vuoto o conflitti estremi).");
+        if (frasiFinite.Count == 1) return frasiFinite[0];
 
-        return string.Join(sep, selected.Select(t => ExpandAllPlaceholders(t, gen.FlatLists, gen.AgeAliases, used)));
+        // Costruisce il testo estraendo casualmente un separatore diverso per l'intervallo tra ogni frase
+        var costruttoreTesto = new System.Text.StringBuilder(frasiFinite[0]);
+        for (int indice = 1; indice < frasiFinite.Count; indice++)
+        {
+            var separatoreCasuale = separatori[Random.Shared.Next(separatori.Count)];
+            costruttoreTesto.Append(separatoreCasuale).Append(frasiFinite[indice]);
+        }
+        return costruttoreTesto.ToString();
     }
 
     // ── Logica di Supporto (Policy e Espansione) ─────────────────────
@@ -378,7 +365,7 @@ public class GeneratorService(IContentStore store)
     /// <param name="used">Il set che mantiene memoria di tutti i tag UniqueLabel già impiegati.</param>
     /// <returns>True se c'è confitto, false se è ammessa.</returns>
     private static bool HasLabelConflict(string phrase, List<string>? labels, HashSet<string> used) =>
-        labels?.Any(l => phrase.Contains(l) && used.Contains(l)) ?? false;
+        labels?.Any(label => phrase.Contains(label) && used.Contains(label)) ?? false;
 
     /// <summary>
     /// Verifica se una frase candidata richiama un tag appartenente a un gruppo logico d'esclusione già bloccato.
@@ -404,7 +391,7 @@ public class GeneratorService(IContentStore store)
     private static void TrackUsedLabels(string phrase, List<string>? labels, HashSet<string> used)
     {
         if (labels is null) return;
-        foreach (var l in labels.Where(phrase.Contains)) used.Add(l);
+        foreach (var label in labels.Where(phrase.Contains)) used.Add(label);
     }
 
     /// <summary>
@@ -459,15 +446,15 @@ public class GeneratorService(IContentStore store)
     /// <param name="ageAliases">La mappa di corrispondenza delle fasce d'età.</param>
     /// <param name="used">Collezione di riferimento delle estrazioni precedenti per l'unicità.</param>
     /// <returns>La stringa pescata randomicamente.</returns>
-    private static string ExpandPlaceholder(string placeholder, Dictionary<string, List<string>> lists, Dictionary<string, string> ageAliases, Dictionary<string, HashSet<string>> used)
+    private static string ExpandPlaceholder(string segnaposto, Dictionary<string, List<string>> dizionariParole, Dictionary<string, string> mappaFasceEta, Dictionary<string, HashSet<string>> etichetteUsate)
     {
-        var inner = placeholder[1..^1];
-        if (ageAliases.TryGetValue(placeholder, out var rangeTarget))
-            return TryPickFromRange(rangeTarget[1..^1]) ?? rangeTarget;
-        if (TryPickFromRange(inner) is { } number) return number;
-        if (lists.TryGetValue(placeholder, out var list) && list.Count > 0)
-            return PickUniqueFromList(placeholder, list, used);
-        return placeholder;
+        var contenutoSegnaposto = segnaposto[1..^1];
+        if (mappaFasceEta.TryGetValue(segnaposto, out var limitiEta))
+            return TryPickFromRange(limitiEta[1..^1]) ?? limitiEta;
+        if (TryPickFromRange(contenutoSegnaposto) is { } numeroRandom) return numeroRandom;
+        if (dizionariParole.TryGetValue(segnaposto, out var paroleDisponibili) && paroleDisponibili.Count > 0)
+            return PickUniqueFromList(segnaposto, paroleDisponibili, etichetteUsate);
+        return segnaposto;
     }
 
     /// <summary>
@@ -486,14 +473,14 @@ public class GeneratorService(IContentStore store)
     /// Garantisce l'estrazione non-ripetuta e univoca tramite l'impostazione e ricalcolo dei Set "used".
     /// Se tutto l'array della flatList viene esplorato integralmente, fa il flush e resetta la randomizzazione.
     /// </summary>
-    private static string PickUniqueFromList(string key, List<string> list, Dictionary<string, HashSet<string>> used)
+    private static string PickUniqueFromList(string chiave, List<string> parole, Dictionary<string, HashSet<string>> etichetteUsate)
     {
-        if (!used.TryGetValue(key, out var seen)) used[key] = seen = [];
-        var available = list.Where(v => !seen.Contains(v)).ToList();
-        if (available.Count == 0) { seen.Clear(); available = list; }
-        var chosen = available[Random.Shared.Next(available.Count)];
-        seen.Add(chosen);
-        return chosen;
+        if (!etichetteUsate.TryGetValue(chiave, out var paroleGiaViste)) etichetteUsate[chiave] = paroleGiaViste = [];
+        var paroleDisponibili = parole.Where(v => !paroleGiaViste.Contains(v)).ToList();
+        if (paroleDisponibili.Count == 0) { paroleGiaViste.Clear(); paroleDisponibili = parole; }
+        var parolaScelta = paroleDisponibili[Random.Shared.Next(paroleDisponibili.Count)];
+        paroleGiaViste.Add(parolaScelta);
+        return parolaScelta;
     }
 
     /// <summary>

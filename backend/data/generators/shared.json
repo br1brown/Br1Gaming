@@ -1,16 +1,19 @@
 {
   "ageAliases": {
-    "[età-giovane]": "[15-26]",
-    "[età-cresciuto]": "[24-44]",
-    "[età-adulto]": "[35-65]",
-    "[età-anziano]": "[46-76]"
+    "[eta-giovane]": "[15-26]",
+    "[eta-cresciuto]": "[24-44]",
+    "[eta-adulto]": "[35-65]",
+    "[eta-anziano]": "[46-76]"
   },
   "policyGroups": {
-    "età": [
-      "[età-giovane]",
-      "[età-cresciuto]",
-      "[età-adulto]",
-      "[età-anziano]"
+    "eta": [
+      "[eta-giovane]",
+      "[eta-cresciuto]",
+      "[eta-adulto]",
+      "[eta-anziano]"
+    ],
+    "professioni": [
+      "[professioni]"
     ]
   },
   "composedLists": {

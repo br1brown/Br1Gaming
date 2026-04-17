@@ -30,11 +30,11 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
     readonly result = signal<GenerateResponse | null>(null);
     readonly loading = signal(false);
     readonly sharing = signal(false);
+    private allaFine = ("");
 
     private readonly colorTema = this.theme.colorTema;
     private readonly colorTesto = this.theme.colorTemaText;
     private readonly defaultPageDescription = this.route.snapshot.data['pageDescription'] as string | null | undefined;
-
     constructor() {
         super();
 
@@ -48,6 +48,8 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
         try {
             const detail = await this.fetchGeneratorInfo();
             this.generator.set(detail);
+            this.allaFine = `\n\nDal ${detail.name}\n${window.location}`;
+            this.generate();
         } catch (error) {
             await this.handleGeneratorLoadError(error);
         }
@@ -69,7 +71,7 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
     async copyResult(): Promise<void> {
         const res = this.result();
         if (!res) return;
-        await this.share.copyText(res.markdown);
+        await this.share.copyText(res.markdown + this.allaFine);
     }
 
     async shareResult(): Promise<void> {
@@ -81,7 +83,7 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
         try {
             const canvas = document.createElement('canvas');
             renderToCanvas(canvas, {
-                text: `${res.text}\n\nDal ${gen.name}\n${window.location}`,
+                text: `${res.text}\n${this.allaFine}`,
                 bgColor: this.colorTema(),
                 textColor: this.colorTesto(),
                 fontSize: 25,
@@ -89,7 +91,7 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
                 fontFamily: 'Verdana',
                 margin: 50
             });
-            await this.share.shareCanvas(canvas, `${gen.name}:${window.location}`, `${gen.slug}.png`);
+            await this.share.shareCanvas(canvas, `${gen.name}: ${window.location}`, `${gen.slug}.png`);
         } finally {
             this.sharing.set(false);
         }
