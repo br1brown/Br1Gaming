@@ -15,6 +15,7 @@ export type {
 export enum PageType {
     Home,
     CookiePolicy,
+    GitHub,
     GeneratorIncel,
     GeneratorAuto,
     GeneratorAntiveg,
@@ -90,6 +91,12 @@ export const ContestoSito = buildSite(site => {
             description: 'Generatori casuali, avventure interattive e tanto altro da Br1.',
             component: () => import('./pages/home/home.component').then(m => m.HomeComponent),
         },
+        {
+            externalUrl: 'https://github.com/br1brown/Br1Gaming',
+            title: 'Codice Sorgente',
+            enabled: true,
+            pageType: PageType.GitHub,
+        },
 
         // ── Generatori ──────────────────────────────────────────────
         generatorPage('incel', PageType.GeneratorIncel, 'Genera il tuo incel di fiducia'),
@@ -114,6 +121,7 @@ export const ContestoSito = buildSite(site => {
     ]);
 
     site.configureFooterNavigation(footer => {
+        footer.addPage(PageType.GitHub);
         footer.addPage(PageType.CookiePolicy);
     });
 });
