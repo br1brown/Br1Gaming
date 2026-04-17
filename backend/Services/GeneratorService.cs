@@ -259,7 +259,7 @@ public class GeneratorService(IContentStore store)
         var body = ComposeBody(gen, etichetteUsate);
 
         if (testoApertura != null && body.Length > 0)
-            body = testoApertura + ", " + char.ToLower(body[0]) + body[1..];
+            body = testoApertura + body;
 
         if (testoChiusura != null)
             body += testoChiusura;
