@@ -13,7 +13,7 @@
       "!\n"
     ]
   },
-  "suffix": "\n\n([nome] [età-adulto] anni, su [social])",
+  "chiusura": "\n\n([nome] [età-adulto] anni, su [social])",
   "uniqueLabels": [
     "[concetto]",
     "capiscono",

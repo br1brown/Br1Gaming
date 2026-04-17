@@ -20,13 +20,32 @@ public record StorySnapshot(
 public class GeneratorData
 {
     // Informazioni di catalogo e identità
-    public record GeneratorInfo(string? Name, string? Description, int? Order);
+    public record GeneratorInfo {
+        public string? Name { get; init; }
+        public string? Description { get; init; }
+        public int? Order { get; init; }
+    }
 
     // Regole di composizione del testo
-    public record GenerationSettings(int? MinPhrases, int? MaxPhrases, List<string>? Separators);
+    public record GenerationSettings {
+        public int? MinPhrases { get; init; }
+        public int? MaxPhrases { get; init; }
+        public List<string>? Separators { get; init; }
+    }
 
     // Quota di frasi "identitarie" (da usare se il Manager decide di mixare)
-    public record RequiredInjectData(int Min, int Max, List<string> Phrases);
+    public record RequiredInjectData {
+        public int Min { get; init; }
+        public int Max { get; init; }
+        public List<string> Phrases { get; init; } = [];
+        
+        public RequiredInjectData() { }
+        public RequiredInjectData(int min, int max, List<string> phrases) {
+            Min = min;
+            Max = max;
+            Phrases = phrases;
+        }
+    }
 
     public string Slug { get; set; } = "";
 
@@ -35,8 +54,8 @@ public class GeneratorData
     public RequiredInjectData? CoreRequired { get; set; }
 
     // Componenti testuali
-    public string? Prefix { get; set; }
-    public string? Suffix { get; set; }
+    public string? Apertura { get; set; }
+    public string? Chiusura { get; set; }
     public List<string> Core { get; set; } = [];
 
     // Vocabolario locale e logiche di filtro

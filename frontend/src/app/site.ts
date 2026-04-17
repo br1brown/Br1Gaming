@@ -36,7 +36,7 @@ function generatorPage(
     return {
         path: `generatori/${urlSegment}`,
         title: `generatore-${urlSegment}`,
-        renderMode: 'prerender',
+        renderMode: 'server',
         enabled: true,
         pageType,
         showPanel: true,
@@ -57,7 +57,7 @@ function storyPage(
     return {
         path: `avventura/${urlSegment}`,
         title: `avventura-${urlSegment}`,
-        renderMode: 'prerender',
+        renderMode: 'server',
         enabled: true,
         pageType,
         showPanel: true,
