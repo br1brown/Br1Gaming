@@ -1,15 +1,31 @@
 @import 'bootstrap/dist/css/bootstrap.min.css';
-@import '@fortawesome/fontawesome-free/css/all.min.css';
+@import '@fortawesome/fontawesome-free/css/fontawesome.min.css';
+@import '@fortawesome/fontawesome-free/css/solid.min.css';
+@import '@fortawesome/fontawesome-free/css/brands.min.css';
 @import './styles/base.css';
 @import './styles/social.css';
+
+/* QUI METTERE Stili specifici del progetto -> sovrascrive tutto */
+
+:root {
+    --colorPrimaryContrast: #f8fafc;
+    --shellMaxWidth: 1440px;
+    --shellGutter: clamp(1rem, 2vw, 2rem);
+    --shadowSoft: 0 4px 16px rgba(15, 23, 42, 0.10);
+    --shadowStrong: 0 8px 32px rgba(15, 23, 42, 0.14);
+}
 
 html {
     font-size: clamp(1rem, 0.5rem + 1vw, 1.25rem);
     scroll-behavior: smooth;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--colorBase) 92%, white 8%), color-mix(in srgb, var(--colorBase) 86%, black 14%));
 }
 
 body {
     font-family: 'Space Grotesk', 'Segoe UI Variable Display', 'Aptos', 'Trebuchet MS', sans-serif;
+    min-height: 100vh;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--colorBase) 92%, white 8%), color-mix(in srgb, var(--colorBase) 84%, black 16%));
+    color: var(--colorSurfaceText);
 }
 
 ::selection {
@@ -28,6 +44,12 @@ h1, h2, h3, h4, h5, h6,
 
 p, li, .card-text, .lead {
     text-wrap: pretty;
+}
+
+main#main-content {
+    max-width: var(--shellMaxWidth);
+    margin: 0 auto;
+    padding-inline: var(--shellGutter);
 }
 
 .container-fluid {
@@ -51,6 +73,7 @@ p, li, .card-text, .lead {
 
 .btn-primary {
     color: var(--colorPrimaryContrast);
+    box-shadow: 0 14px 35px color-mix(in srgb, var(--colorPrimary) 28%, transparent);
 }
 
 .btn-outline-secondary {
@@ -65,12 +88,31 @@ p, li, .card-text, .lead {
     color: inherit;
 }
 
+.theme-bg {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--colorTema) 86%, white 14%), color-mix(in srgb, var(--colorTema) 88%, black 12%));
+}
+
+.content-panel {
+    border-radius: 2rem;
+}
+
+.background-wrapper {
+    overflow: hidden;
+    border-radius: 1.5rem;
+}
+
+.background-wrapper::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent, rgba(15, 23, 42, 0.4));
+}
+
 .card {
     border: 1px solid color-mix(in srgb, currentColor 10%, transparent);
     border-radius: 1.5rem;
-    background:
-        linear-gradient(180deg, color-mix(in srgb, var(--colorSurface) 96%, white 4%), color-mix(in srgb, var(--colorSurface) 92%, black 8%));
-    box-shadow: 0 20px 50px rgba(10, 15, 25, 0.12);
+    background-color: var(--colorSurface);
+    box-shadow: var(--shadowSoft);
     overflow: hidden;
 }
 

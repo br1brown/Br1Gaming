@@ -1,21 +1,17 @@
-/* base.css - Layout e tema. Le custom properties sono impostate da ThemeService. */
+/* base.css — Layout e tema. Le custom properties sono impostate da ThemeService. */
 
+/* §5 — Variabili CSS tema. ThemeService imposta solo --colorTema;
+   il browser calcola tutto il resto via color-mix(). */
 :root {
     --colorTema: #212529;
     --colorBase: color-mix(in srgb, var(--colorTema), white 20%);
     --colorPrimary: color-mix(in srgb, var(--colorTema), black 40%);
     --colorPrimaryScuro: color-mix(in srgb, var(--colorPrimary), black 20%);
-    --colorPrimaryContrast: #f8fafc;
     --colorLink: currentColor;
     --colorSurface: color-mix(in srgb, var(--colorTema), white 24%);
     --colorSurfaceHover: color-mix(in srgb, var(--colorTema), white 30%);
     --colorSurfaceBorder: color-mix(in srgb, var(--colorTema), white 38%);
     --colorSurfaceText: color-mix(in srgb, white 94%, var(--colorTema) 6%);
-    --shellMaxWidth: 1440px;
-    --shellGutter: clamp(1rem, 2vw, 2rem);
-    --glassBlur: 26px;
-    --shadowSoft: 0 18px 44px rgba(15, 23, 42, 0.12);
-    --shadowStrong: 0 28px 80px rgba(15, 23, 42, 0.22);
 }
 
 :root[data-theme-tone='light'] {
@@ -33,21 +29,13 @@
 html {
     position: relative;
     min-height: 100vh;
-    background:
-        radial-gradient(circle at top left, color-mix(in srgb, var(--colorTema) 18%, white 82%) 0, transparent 34%),
-        radial-gradient(circle at top right, color-mix(in srgb, var(--colorPrimary) 14%, white 86%) 0, transparent 30%),
-        linear-gradient(180deg, color-mix(in srgb, var(--colorBase) 92%, white 8%), color-mix(in srgb, var(--colorBase) 86%, black 14%));
 }
 
 body {
-    min-height: 100vh;
-    background:
-        radial-gradient(circle at 15% 20%, color-mix(in srgb, var(--colorTema) 16%, transparent) 0, transparent 28%),
-        radial-gradient(circle at 85% 10%, color-mix(in srgb, var(--colorPrimary) 10%, transparent) 0, transparent 24%),
-        linear-gradient(180deg, color-mix(in srgb, var(--colorBase) 92%, white 8%), color-mix(in srgb, var(--colorBase) 84%, black 16%));
-    color: var(--colorSurfaceText);
+    background-color: var(--colorBase);
 }
 
+/* Link - esclude .btn per non sovrascrivere i colori del testo dei bottoni Bootstrap */
 :where(a:not(.btn)),
 :where(a:not(.btn):visited),
 :where(a:not(.btn):active),
@@ -58,10 +46,10 @@ body {
     text-decoration-color: currentColor;
 }
 
+/* Bottone primario - usa i colori del tema */
 .btn-primary {
     background-color: var(--colorPrimary);
     border-color: var(--colorPrimary);
-    box-shadow: 0 14px 35px color-mix(in srgb, var(--colorPrimary) 28%, transparent);
 }
 
 .btn-primary:active,
@@ -79,9 +67,9 @@ body {
     color: var(--colorPrimary);
 }
 
+/* Riempimento dello sfondo tema */
 .theme-bg {
-    background:
-        linear-gradient(135deg, color-mix(in srgb, var(--colorTema) 86%, white 14%), color-mix(in srgb, var(--colorTema) 88%, black 12%));
+    background-color: var(--colorTema);
     color: var(--bs-body-color);
 }
 
@@ -89,6 +77,7 @@ body {
     background-color: var(--colorBase);
 }
 
+/* Contenitore con scorrimento orizzontale */
 .horizontal-scroll {
     overflow-x: auto;
     white-space: nowrap;
@@ -96,16 +85,16 @@ body {
     scrollbar-width: none;
 }
 
+/* Pannello contenuti - si adatta automaticamente al contrasto con lo sfondo tema.
+   Su temi scuri: pannello chiaro con testo scuro.
+   Su temi chiari: pannello scuro con testo chiaro.
+   Usa .panel-light / .panel-dark se serve forzare una variante. */
 .content-panel {
     --colorLink: currentColor;
-    background:
-        linear-gradient(180deg, color-mix(in srgb, var(--colorSurface) 96%, white 4%), color-mix(in srgb, var(--colorSurface) 92%, black 8%));
-    border: 1px solid color-mix(in srgb, var(--colorSurfaceBorder) 74%, white 26%);
-    padding: clamp(1rem, 1vw + 0.8rem, 1.5rem);
-    box-shadow: var(--shadowStrong);
+    background-color: var(--colorSurface);
+    border: 1px solid var(--colorSurfaceBorder);
+    padding: 10px;
     color: var(--colorSurfaceText);
-    backdrop-filter: blur(var(--glassBlur)) saturate(1.08);
-    border-radius: 2rem;
 }
 
 .content-panel.panel-light {
@@ -118,6 +107,7 @@ body {
     color: #212529;
 }
 
+/* Variante scura per temi chiari, quando il pannello predefinito ha poco contrasto */
 .content-panel.panel-dark {
     --colorSurface: rgba(15, 23, 42, 0.92);
     --colorSurfaceHover: rgba(30, 41, 59, 0.96);
@@ -128,20 +118,12 @@ body {
     color: #f8f9fa;
 }
 
+/* Contenitore di sfondo (immagini di copertina) */
 .background-wrapper {
     background-size: cover;
     background-position: center;
     position: relative;
     height: 200px;
-    overflow: hidden;
-    border-radius: 1.5rem;
-}
-
-.background-wrapper::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(180deg, transparent, rgba(15, 23, 42, 0.4));
 }
 
 .background-wrapper-content {
@@ -167,18 +149,14 @@ code {
     background-color: transparent;
 }
 
-main#main-content {
-    max-width: var(--shellMaxWidth);
-    margin: 0 auto;
-    padding-inline: var(--shellGutter);
-}
-
+/* Schermi piccoli */
 @media only screen and (max-width: 768px) {
     .container-fluid {
         overflow-x: hidden;
     }
 }
 
+/* Effetto shake al passaggio */
 .shake-on-hover:hover {
     animation: shake 0.5s;
     animation-iteration-count: infinite;
@@ -190,25 +168,29 @@ main#main-content {
     20%, 80% { transform: translate(-3px, 0px) rotate(1deg); }
 }
 
+/* Carosello */
 .carousel-item { height: 80vh; }
 .carousel-item img { height: 100%; object-fit: cover; width: 100%; }
 
+/* Zoom su schermi ampi */
 @media only screen and (min-width: 768px) {
     .zoom-on-hover { transition: transform .2s; }
     .zoom-on-hover:hover { transform: scale(1.5); }
 }
 
+/* WCAG 2.1 AA - contrasto migliorato per text-body-secondary */
 .text-body-secondary {
     color: #595f66 !important;
 }
 
+/* WCAG 2.2 - rispetta la preferenza di movimento ridotto */
 @media (prefers-reduced-motion: reduce) {
     .shake-on-hover:hover { animation: none; }
     .zoom-on-hover { transition: none; }
     .zoom-on-hover:hover { transform: none; }
-    .content-panel { backdrop-filter: none; }
 }
 
+/* Link "salta al contenuto" (WCAG 2.4.1) */
 .skip-link:focus {
     position: fixed;
     top: 0.5rem;
@@ -224,6 +206,7 @@ main#main-content {
     font-weight: 600;
 }
 
+/* Area sicura per dispositivi con notch */
 @supports (padding: env(safe-area-inset-top)) {
     .navbar {
         padding-top: calc(0.5rem + env(safe-area-inset-top, 0px));
