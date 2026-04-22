@@ -1,3 +1,24 @@
 # Gli script bash devono avere LF obbligatorio.
 # Su Windows Git potrebbe salvare CRLF, che rompe lo shebang nei container Linux.
 *.sh text eol=lf
+
+# File interamente del figlio: il merge dal template non li tocca mai.
+# Il figlio li riscrive da zero ad ogni progetto.
+frontend/src/assets/i18n/addon.*.json merge=ours
+frontend/src/assets/mapping.json merge=ours
+frontend/src/app/core/services/api.service.ts merge=ours
+frontend/src/app/pages/home/home.component.ts merge=ours
+frontend/src/app/pages/home/home.component.html merge=ours
+
+# Backend: file interamente del figlio.
+backend/Controllers/BaseController.cs merge=ours
+
+# Asset binari: nessun diff testuale, nessun problema di line ending.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
