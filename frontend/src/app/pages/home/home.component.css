@@ -8,40 +8,10 @@
 }
 
 .home-hero {
-    position: relative;
-    overflow: hidden;
     padding: clamp(1.5rem, 2.5vw, 2.5rem);
-    border-radius: 2rem;
-    background:
-        radial-gradient(circle at top right, color-mix(in srgb, var(--colorPrimary) 22%, transparent), transparent 36%),
-        linear-gradient(145deg, color-mix(in srgb, var(--colorSurface) 92%, white 8%), color-mix(in srgb, var(--colorSurface) 84%, black 16%));
-    border: 1px solid color-mix(in srgb, currentColor 10%, transparent);
-    box-shadow: var(--shadowStrong);
-}
-
-.home-hero::after {
-    content: '';
-    position: absolute;
-    inset: auto -10% -45% auto;
-    width: clamp(10rem, 34vw, 22rem);
-    aspect-ratio: 1;
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--colorPrimary) 20%, transparent);
-    filter: blur(18px);
-    pointer-events: none;
-}
-
-.home-kicker {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.45rem 0.8rem;
-    margin-bottom: 1rem;
-    border-radius: 999px;
-    background: color-mix(in srgb, currentColor 8%, transparent);
-    font-size: 0.8rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    border: 1px solid var(--colorSurfaceBorder);
+    border-radius: 1.5rem;
+    background-color: var(--colorSurface);
 }
 
 .home-title {
@@ -62,10 +32,7 @@
 }
 
 .home-section-head {
-    display: flex;
-    align-items: end;
-    justify-content: space-between;
-    gap: 1rem;
+    display: block;
 }
 
 .home-section-title {
@@ -89,15 +56,14 @@
 }
 
 .home-card {
-    position: relative;
     min-height: 100%;
-    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    transition: transform 0.25s ease;
+    will-change: transform;
 }
 
 .home-card:hover,
 .home-card:focus-within {
     transform: translateY(-4px);
-    box-shadow: 0 28px 70px rgba(10, 15, 25, 0.18);
 }
 
 .home-card .card-body {
@@ -137,12 +103,16 @@
         gap: 2rem;
     }
 
+    .home-grid {
+        margin-inline: calc(-1 * var(--shellGutter));
+    }
+
     .home-card-wrap {
         grid-column: 1 / -1;
     }
 
-    .home-section-head {
-        display: grid;
+    .home-card {
+        border-radius: 0;
     }
 }
 

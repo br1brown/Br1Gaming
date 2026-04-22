@@ -1,6 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { PageBaseComponent } from '../page-base.component';
 import { ContestoSito } from '../../site';
@@ -13,7 +12,8 @@ import { AssetService } from '../../core/services/asset.service';
     selector: 'app-home',
     imports: [TranslatePipe, RouterLink],
     templateUrl: './home.component.html',
-    styleUrl: './home.component.css'
+    styleUrl: './home.component.css',
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class HomeComponent extends PageBaseComponent implements OnInit {
     private readonly api = inject(ApiService);
@@ -38,8 +38,9 @@ export class HomeComponent extends PageBaseComponent implements OnInit {
 
             const urls: Record<string, string> = {};
             await Promise.all(strs.map(async s => {
-                const url = await firstValueFrom(this.assets.getUrl(`story.${s.slug}`));
+                const url = this.assets.getUrl(`story.${s.slug}`);
                 try {
+                    throw new Error("immettere immagini");
                     const response = await fetch(url, { method: 'HEAD' });
                     if (response.ok) {
                         urls[s.slug] = url;

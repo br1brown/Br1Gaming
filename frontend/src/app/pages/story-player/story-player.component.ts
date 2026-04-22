@@ -1,6 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, effect, inject, OnInit } from '@angular/core';
-import { AsyncPipe } from '@angular/common';
+import { ChangeDetectionStrategy, Component, effect, inject, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { PageMetaService } from '../../core/services/page-meta.service';
 import { ContestoSito } from '../../site';
@@ -13,9 +12,11 @@ import { PageBaseComponent } from '../page-base.component';
 
 @Component({
     selector: 'app-story-player',
-    imports: [AsyncPipe, TranslatePipe, MarkdownPipe],
+    imports: [TranslatePipe, MarkdownPipe],
     templateUrl: './story-player.component.html',
-    styleUrl: './story-player.component.css'
+    styleUrl: './story-player.component.css',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    host: { ngSkipHydration: 'true' }
 })
 export class StoryPlayerComponent extends PageBaseComponent implements OnInit {
     private readonly router = inject(Router);
@@ -59,6 +60,16 @@ export class StoryPlayerComponent extends PageBaseComponent implements OnInit {
     restart(): void {
         this.facade.restart();
         window.scrollTo(0, 0);
+    }
+
+    getSceneImageUrl(sceneId: string): string | null {
+        const storySlug = this.facade.snapshot()?.storySlug;
+        return null;
+        if (!storySlug) {
+            return null;
+        }
+
+        return this.assets.getUrl(`story.${storySlug}.${sceneId}`);
     }
 
     private updatePageMeta(storyTitle: string): void {

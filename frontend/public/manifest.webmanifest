@@ -1,7 +1,7 @@
 {
     "name": "Br1-Gaming",
     "short_name": "Br1-Gaming",
-    "description": "Br1 e i suoi giochini",
+    "description": "Generatori ignoranti, avventure interattive, universo Br1.",
     "lang": "it",
     "theme_color": "#20262f",
     "background_color": "#20262f",
@@ -22,5 +22,5 @@
             "purpose": "any maskable"
         }
     ],
-    "version": "1.0.0"
+    "version": "2.0.0"
 }

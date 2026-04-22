@@ -10,7 +10,7 @@
     @for (item of facade.timeline(); track $index) {
         @if (item.type === 'scene') {
         <div class="story-scene mb-3">
-            @if (assets.getUrl(item.sceneId) | async; as img) {
+            @if (getSceneImageUrl(item.sceneId); as img) {
             <img [src]="img" alt="" class="img-fluid story-scene-image mb-3">
             }
             <div [innerHTML]="item.text | markdown"></div>
@@ -31,7 +31,7 @@
 
         @if (item.type === 'ending') {
         <div class="story-ending text-center">
-            @if (assets.getUrl(item.sceneId) | async; as img) {
+            @if (getSceneImageUrl(item.sceneId); as img) {
             <img [src]="img" [alt]="item.title" class="img-fluid story-ending-image mb-3">
             }
             @if (item.title) {

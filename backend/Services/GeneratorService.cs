@@ -507,7 +507,7 @@ public class GeneratorService(IContentStore store)
         if (string.IsNullOrWhiteSpace(text)) return text;
 
         // Prima lettera assoluta in maiuscolo
-        text = Regex.Replace(text, @"^([^a-zA-Z]*)([a-z])",
+        text = Regex.Replace(text, @"^([^\p{L}]*)(\p{Ll})",
             m => m.Groups[1].Value + m.Groups[2].Value.ToUpper());
 
         // Riduce spazi multipli (ma non i newline)
@@ -524,7 +524,7 @@ public class GeneratorService(IContentStore store)
         // - Inizio stringa (^)
         // - Dopo i segni . ! ? ; seguiti da spazi o newline
         // - Inizio di una nuova riga dopo un newline
-        text = Regex.Replace(text, @"(^|[.!?;]\s+|^[ \t]*)([a-z])",
+        text = Regex.Replace(text, @"(^|[.!?;]\s+|^[ \t]*)(\p{Ll})",
             m => m.Groups[1].Value + m.Groups[2].Value.ToUpper(),
             RegexOptions.Multiline);
 

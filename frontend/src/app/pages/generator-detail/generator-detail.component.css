@@ -11,18 +11,9 @@
     display: grid;
     gap: 0.8rem;
     padding: clamp(1.25rem, 2vw, 2rem);
-    border-radius: 1.75rem;
-    background:
-        linear-gradient(135deg, color-mix(in srgb, var(--colorSurface) 92%, white 8%), color-mix(in srgb, var(--colorSurface) 86%, black 14%));
-    border: 1px solid color-mix(in srgb, currentColor 10%, transparent);
-}
-
-.generator-label {
-    font-size: 0.8rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: color-mix(in srgb, currentColor 62%, transparent);
+    border-radius: 1.5rem;
+    background-color: var(--colorSurface);
+    border: 1px solid var(--colorSurfaceBorder);
 }
 
 .generator-title {
@@ -37,18 +28,35 @@
 }
 
 .generator-card {
-    border-radius: 1.75rem;
+    border-radius: 1.5rem;
 }
 
 .generator-actions {
-    gap: 0.75rem;
-    padding-bottom: 0;
+    display: grid;
+    gap: 1rem;
+    padding-bottom: 0.6rem;
     border-bottom: 0;
+}
+
+.generator-action-primary {
+    justify-self: start;
+    min-width: 10rem;
+}
+
+.generator-action-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.generator-action-secondary {
+    min-width: 8.25rem;
 }
 
 .generator-output {
     font-size: 1.02rem;
     line-height: 1.75;
+    padding-top: 0.5rem;
 }
 
 .generator-output :first-child {
@@ -61,11 +69,30 @@
 }
 
 @media (max-width: 767.98px) {
-    .generator-actions {
-        display: grid !important;
+    .generator-card {
+        border-radius: 1.25rem;
     }
 
+    .generator-actions {
+        gap: 0.85rem;
+    }
+
+    .generator-action-primary,
     .generator-actions .btn {
         width: 100%;
+    }
+
+    .generator-action-group {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.65rem;
+    }
+
+    .generator-action-group .generator-action-secondary:first-child {
+        grid-column: 1 / -1;
+    }
+
+    .generator-output {
+        padding-top: 0.25rem;
     }
 }

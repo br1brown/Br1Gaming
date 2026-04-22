@@ -1,7 +1,6 @@
 <div class="generator-shell">
   <section class="generator-hero">
     @if (generator(); as gen) {
-      <span class="generator-label">Generator Engine</span>
       <h1 class="generator-title">{{ gen.name }}</h1>
       <p class="generator-description">{{ gen.description }}</p>
     } @else {
@@ -14,30 +13,32 @@
   @if (result(); as res) {
     <section>
       <div class="card generator-card">
-          <div class="card-header generator-actions d-flex flex-wrap justify-content-start">
-              <button class="btn btn-primary" (click)="generate()" [disabled]="loading()">
+          <div class="card-header generator-actions">
+              <button class="btn btn-primary generator-action-primary" (click)="generate()" [disabled]="loading()">
                   @if (loading()) {
                   <span class="spinner-border spinner-border-sm me-2" role="status"></span>
                   }
                   {{ 'genera' | translate }}!
               </button>
 
-              <button class="btn btn-sm btn-outline-secondary" (click)="toggleAudio()">
-                  <i class="fa-solid me-1"
-                     [class.fa-volume-high]="!speech.isSpeaking()"
-                     [class.fa-stop]="speech.isSpeaking()"
-                     aria-hidden="true"></i>
-                  {{ (speech.isSpeaking() ? 'fermaAudio' : 'riproduciAudio') | translate }}
-              </button>
-              <button class="btn btn-sm btn-outline-secondary" (click)="copyResult()">
-                  Copia
-              </button>
-              <button class="btn btn-sm btn-outline-secondary" (click)="shareResult()" [disabled]="sharing()">
-                  @if (sharing()) {
-                  <span class="spinner-border spinner-border-sm me-1" role="status"></span>
-                  }
-                  Condividi
-              </button>
+              <div class="generator-action-group">
+                  <button class="btn btn-sm btn-outline-secondary generator-action-secondary" (click)="toggleAudio()">
+                      <i class="fa-solid me-1"
+                         [class.fa-volume-high]="!speech.isSpeaking()"
+                         [class.fa-stop]="speech.isSpeaking()"
+                         aria-hidden="true"></i>
+                      {{ (speech.isSpeaking() ? 'fermaAudio' : 'riproduciAudio') | translate }}
+                  </button>
+                  <button class="btn btn-sm btn-outline-secondary generator-action-secondary" (click)="copyResult()">
+                      Copia
+                  </button>
+                  <button class="btn btn-sm btn-outline-secondary generator-action-secondary" (click)="shareResult()" [disabled]="sharing()">
+                      @if (sharing()) {
+                      <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                      }
+                      Condividi
+                  </button>
+              </div>
           </div>
         <div class="card-body generator-output">
           <div [innerHTML]="res.markdown | markdown"></div>

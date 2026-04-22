@@ -76,7 +76,8 @@ export const ContestoSito = buildSite(site => {
         appName: 'Br1-Gaming',
         defaultLang: 'it',
         description: 'Generatori ignoranti, avventure interattive, universo Br1.',
-        colorTema: '#20262f',
+        colorTema: '#e7ffe3',
+        version: '2.0.0',
         showHeader: true,
         showFooter: true,
     });

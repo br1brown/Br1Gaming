@@ -1,16 +1,16 @@
-﻿import { isPlatformBrowser, NgTemplateOutlet } from '@angular/common';
+﻿import { isPlatformBrowser } from '@angular/common';
 import { ChangeDetectionStrategy, Component, PLATFORM_ID, computed, inject, resource } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { injectCurrentUrl } from '../../app.routes';
 import { ApiService } from '../../core/services/api.service';
 import { TranslateService } from '../../core/services/translate.service';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
-import { SocialLinkComponent } from '../../shared/components/social-link/social-link.component';
 import { ContestoSito } from '../../site';
 import { NavLink } from '../../siteBuilder';
 
 @Component({
     selector: 'app-footer',
-    imports: [NgTemplateOutlet, RouterLink, TranslatePipe, SocialLinkComponent],
+    imports: [RouterLink, TranslatePipe],
     templateUrl: './footer.component.html',
     styleUrl: './footer.component.css',
     changeDetection: ChangeDetectionStrategy.OnPush
@@ -22,6 +22,7 @@ export class FooterComponent {
     private readonly router = inject(Router);
     private readonly translate = inject(TranslateService);
     private readonly platformId = inject(PLATFORM_ID);
+    private readonly currentUrl = injectCurrentUrl();
 
     readonly appName = ContestoSito.config.appName;
     readonly description = ContestoSito.config.description;
@@ -40,16 +41,8 @@ export class FooterComponent {
     }
 
     isRouteActive(path: string): boolean {
-        if (this.isExternalPath(path) || path.startsWith('#')) {
-            return false;
-        }
-
-        return this.router.isActive(path, {
-            paths: 'exact' as const,
-            queryParams: 'ignored' as const,
-            fragment: 'ignored' as const,
-            matrixParams: 'ignored' as const
-        });
+        this.currentUrl(); // signal dependency → re-render on every navigation
+        return this.router.isActive(path, { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' });
     }
 
 }

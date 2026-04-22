@@ -25,6 +25,7 @@
         linear-gradient(180deg, color-mix(in srgb, var(--colorSurface) 95%, white 5%), color-mix(in srgb, var(--colorSurface) 88%, black 12%));
     border: 1px solid color-mix(in srgb, currentColor 10%, transparent);
     box-shadow: var(--shadowSoft);
+    color: var(--colorSurfaceText);
 }
 
 .story-scene {
