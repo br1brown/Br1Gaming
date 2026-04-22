@@ -2,12 +2,6 @@
   @if (generator(); as gen) {
     <h1 class="h3">{{ gen.name }}</h1>
     <p class="text-muted">{{ gen.description }}</p>
-    <button class="btn btn-primary" (click)="generate()" [disabled]="loading()">
-      @if (loading()) {
-        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-      }
-      {{ 'genera' | translate }}!
-    </button>
   } @else {
     <div class="text-center py-5">
       <div class="spinner-border text-muted" role="status"></div>
@@ -18,10 +12,13 @@
 @if (result(); as res) {
   <section>
     <div class="card">
-      <div class="card-body">
-        <div [innerHTML]="res.markdown | markdown"></div>
-      </div>
-      <div class="card-footer d-flex justify-content-end gap-2">
+      <div class="card-header d-flex flex-wrap justify-content-start gap-2">
+        <button class="btn btn-primary" (click)="generate()" [disabled]="loading()">
+          @if (loading()) {
+            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+          }
+          {{ 'genera' | translate }}!
+        </button>
         <button class="btn btn-sm btn-outline-secondary" (click)="copyResult()">
           Copia
         </button>
@@ -31,7 +28,29 @@
           }
           Condividi
         </button>
+        <button class="btn btn-sm btn-outline-secondary" (click)="toggleAudio()">
+          <i
+            class="fa-solid me-1"
+            [class.fa-volume-high]="!speech.isSpeaking()"
+            [class.fa-stop]="speech.isSpeaking()"
+            aria-hidden="true"></i>
+          {{ (speech.isSpeaking() ? 'fermaAudio' : 'riproduciAudio') | translate }}
+        </button>
+      </div>
+      <div class="card-body">
+        <div [innerHTML]="res.markdown | markdown"></div>
       </div>
     </div>
+  </section>
+}
+
+@if (generator() && !result()) {
+  <section class="d-flex justify-content-start">
+    <button class="btn btn-primary" (click)="generate()" [disabled]="loading()">
+      @if (loading()) {
+        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+      }
+      {{ 'genera' | translate }}!
+    </button>
   </section>
 }

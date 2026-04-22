@@ -5,6 +5,8 @@
   "generatoreDetail": "Generatore: {0}",
   "avventuraPlayer": "Avventura: {0}",
   "genera": "Genera",
+  "riproduciAudio": "Riproduci audio",
+  "fermaAudio": "Ferma audio",
   "riavvia": "Riavvia",
   "haiscelta": "Hai scelto"
 }

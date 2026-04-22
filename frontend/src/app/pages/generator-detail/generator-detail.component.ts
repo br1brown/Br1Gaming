@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, effect, inject, OnInit, signal } from '@angular/core';
+import { Component, effect, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { GeneratorInfo, GenerateResponse } from '../../core/dto/generator.dto';
 import { ApiService } from '../../core/services/api.service';
@@ -7,6 +7,7 @@ import { PageMetaService } from '../../core/services/page-meta.service';
 import { ContestoSito } from '../../site';
 import { PageType } from '../../app.routes';
 import { ShareService } from '../../core/services/share.service';
+import { SpeechService } from '../../core/services/speech.service';
 import { renderToCanvas } from '../../core/services/img-builder.service';
 import { MarkdownPipe } from '../../shared/pipes/markdown.pipe';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
@@ -18,12 +19,13 @@ import { ThemeService } from '../../core/services/theme.service';
     imports: [TranslatePipe, MarkdownPipe],
     templateUrl: './generator-detail.component.html'
 })
-export class GeneratorDetailComponent extends PageBaseComponent implements OnInit {
+export class GeneratorDetailComponent extends PageBaseComponent implements OnInit, OnDestroy {
     private readonly route = inject(ActivatedRoute);
     private readonly router = inject(Router);
     private readonly pageMeta = inject(PageMetaService);
     private readonly api = inject(ApiService);
     private readonly share = inject(ShareService);
+    readonly speech = inject(SpeechService);
     private readonly theme = inject(ThemeService);
 
     readonly generator = signal<GeneratorInfo | null>(null);
@@ -55,7 +57,12 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
         }
     }
 
+    ngOnDestroy(): void {
+        this.speech.stop();
+    }
+
     async generate(): Promise<void> {
+        this.speech.stop();
         this.loading.set(true);
         this.result.set(null);
         try {
@@ -95,6 +102,18 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
         } finally {
             this.sharing.set(false);
         }
+    }
+
+    toggleAudio(): void {
+        const res = this.result();
+        if (!res) return;
+
+        if (this.speech.isSpeaking()) {
+            this.speech.stop();
+            return;
+        }
+
+        this.speech.speak(res.text);
     }
 
     // ── Dispatch per generatore ──────────────────────────────────────
