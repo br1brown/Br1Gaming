@@ -8,7 +8,7 @@ using Backend.Stories;
 namespace Backend.Controllers;
 
 [Route("api")]
-public class BaseController : EngineBaseController
+public class BaseController : EngineApiController
 {
     private readonly StoryService _stories;
     private readonly GeneratorService _generators;
@@ -16,9 +16,8 @@ public class BaseController : EngineBaseController
     public BaseController(
         StoryService stories,
         GeneratorService generators,
-        IContentStore store,
         ILogger<BaseController> logger)
-        : base(store, logger)
+        : base(logger)
     {
         _stories = stories;
         _generators = generators;
@@ -126,8 +125,8 @@ public class BaseController : EngineBaseController
 
     private async Task<IActionResult> GetGeneratorInfo(string slug)
     {
-        var items = await _generators.GetCatalogAsync(); 
-            var item = items.FirstOrDefault(i => i.Slug == slug);   
+        var items = await _generators.GetCatalogAsync();
+            var item = items.FirstOrDefault(i => i.Slug == slug);
         if (item is null) return NotFound();
         return Ok(new GeneratorInfoDto(
             item.Slug,
