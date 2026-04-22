@@ -1,0 +1,77 @@
+# =============================================================================
+# Docker Compose - Frontend SSR Node + Backend (.NET) come servizi separati.
+#
+# Pubblicazione: usa ./deploy.sh (legge global-settings.json e orchestra build + up).
+#
+# PROD (stesso host):
+#   docker compose -f docker-compose.yml up -d --build
+#
+# PROD (backend esposto sull'host, es. API pubbliche o deploy separato):
+#   docker compose -f docker-compose.yml -f docker-compose.backend-exposed.yml up -d --build
+#
+# Sviluppo locale: si usa lo script del frontend (Angular dev server) + Visual Studio
+# per il backend, non Docker.
+#
+# La configurazione proviene da global-settings.json, montato in entrambi i container.
+# Frontend e backend leggono direttamente il file JSON alla loro avvio.
+# deploy.sh legge global-settings.json per le poche variabili necessarie a docker-compose
+# (porta host, project name) e le passa come variabili d'ambiente inline.
+# =============================================================================
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        FRONTEND_BASE_URL: "${FRONTEND_BASE_URL:-}"
+        BR1_PROJECT_JSON: "${BR1_PROJECT_JSON:-}"
+    environment:
+      BACKEND_ORIGIN: "http://backend:8080"
+      GLOBAL_SETTINGS_PATH: /app/global-settings.json
+      SECURITY_HEADERS_PATH: /app/security-headers.json
+    ports:
+      - "${FRONTEND_PORT:?ERRORE: impostare frontend.port in global-settings.json}:3000"
+    volumes:
+      - ${BR1_SETTINGS_FILE:-./global-settings.json}:/app/global-settings.json:ro
+      - ./security-headers.json:/app/security-headers.json:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+        required: false
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes:
+      - ${BR1_SETTINGS_FILE:-./global-settings.json}:/app/global-settings.json:ro
+      - ./security-headers.json:/app/security-headers.json:ro
+      - uploads-data:/app/uploads
+      - db-data:/app/db
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  uploads-data:
+    driver: local
+  db-data:
+    driver: local

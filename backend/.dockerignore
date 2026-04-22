@@ -1,0 +1,9 @@
+bin/
+obj/
+.env
+.env.*
+*.md
+*.log
+.DS_Store
+Dockerfile
+.dockerignore
