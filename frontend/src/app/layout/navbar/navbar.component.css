@@ -4,6 +4,11 @@
 
 .navbar {
     color: var(--bs-body-color);
+    margin: 0.75rem;
+    border: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+    border-radius: 1.4rem;
+    box-shadow: var(--shadowSoft);
+    backdrop-filter: blur(22px) saturate(1.08);
 }
 
 .navbar .nav-link,
@@ -19,6 +24,7 @@
 .navbar .nav-disclosure-summary:hover,
 .navbar .nav-disclosure-summary:focus-visible {
     color: var(--bs-emphasis-color);
+    background-color: color-mix(in srgb, currentColor 8%, transparent);
 }
 
 .navbar .nav-link.active,
@@ -101,6 +107,8 @@
     background: transparent;
     text-decoration: none;
     user-select: none;
+    padding: 0.55rem 0.9rem;
+    border-radius: 999px;
 }
 
 .nav-disclosure-summary::marker,
@@ -134,6 +142,7 @@
     border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
     box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18);
     overflow: hidden;
+    backdrop-filter: blur(18px) saturate(1.05);
 }
 
 .nav-disclosure-menu li {
@@ -146,6 +155,8 @@
     display: inline-flex;
     align-items: center;
     text-decoration: none;
+    padding: 0.55rem 0.9rem;
+    border-radius: 999px;
 }
 
 .nav-link.active,
@@ -357,5 +368,9 @@
 
     .nav-disclosure-caret {
         transition: none;
+    }
+
+    .navbar {
+        backdrop-filter: none;
     }
 }

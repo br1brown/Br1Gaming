@@ -4,7 +4,32 @@
 }
 
 .site-footer {
+    position: relative;
+    margin-top: 2rem;
     font-size: 0.8rem;
+    border-top: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.site-footer .container {
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+}
+
+.footer-link {
+    opacity: 0.82;
+    text-decoration: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.footer-link:hover,
+.footer-link:focus-visible {
+    opacity: 1;
+    transform: translateX(2px);
+}
+
+.footer-group-title {
+    letter-spacing: 0.08em;
+    color: color-mix(in srgb, currentColor 66%, transparent);
 }
 
 footer a {

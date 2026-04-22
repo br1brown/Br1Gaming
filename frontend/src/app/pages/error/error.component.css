@@ -4,3 +4,22 @@
   justify-content: center;
   min-height: 60vh;
 }
+
+.error-shell {
+  max-width: 34rem;
+  padding: clamp(1.5rem, 2vw, 2.5rem);
+  border-radius: 2rem;
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--colorSurface) 94%, white 6%), color-mix(in srgb, var(--colorSurface) 84%, black 16%));
+  border: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+  box-shadow: var(--shadowStrong);
+}
+
+.error-kicker {
+  margin-bottom: 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, currentColor 58%, transparent);
+}

@@ -1,56 +1,59 @@
-<section class="mb-4">
-  @if (generator(); as gen) {
-    <h1 class="h3">{{ gen.name }}</h1>
-    <p class="text-muted">{{ gen.description }}</p>
-  } @else {
-    <div class="text-center py-5">
-      <div class="spinner-border text-muted" role="status"></div>
-    </div>
+<div class="generator-shell">
+  <section class="generator-hero">
+    @if (generator(); as gen) {
+      <span class="generator-label">Generator Engine</span>
+      <h1 class="generator-title">{{ gen.name }}</h1>
+      <p class="generator-description">{{ gen.description }}</p>
+    } @else {
+      <div class="text-center py-5">
+        <div class="spinner-border text-muted" role="status"></div>
+      </div>
+    }
+  </section>
+
+  @if (result(); as res) {
+    <section>
+      <div class="card generator-card">
+          <div class="card-header generator-actions d-flex flex-wrap justify-content-start">
+              <button class="btn btn-primary" (click)="generate()" [disabled]="loading()">
+                  @if (loading()) {
+                  <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                  }
+                  {{ 'genera' | translate }}!
+              </button>
+
+              <button class="btn btn-sm btn-outline-secondary" (click)="toggleAudio()">
+                  <i class="fa-solid me-1"
+                     [class.fa-volume-high]="!speech.isSpeaking()"
+                     [class.fa-stop]="speech.isSpeaking()"
+                     aria-hidden="true"></i>
+                  {{ (speech.isSpeaking() ? 'fermaAudio' : 'riproduciAudio') | translate }}
+              </button>
+              <button class="btn btn-sm btn-outline-secondary" (click)="copyResult()">
+                  Copia
+              </button>
+              <button class="btn btn-sm btn-outline-secondary" (click)="shareResult()" [disabled]="sharing()">
+                  @if (sharing()) {
+                  <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                  }
+                  Condividi
+              </button>
+          </div>
+        <div class="card-body generator-output">
+          <div [innerHTML]="res.markdown | markdown"></div>
+        </div>
+      </div>
+    </section>
   }
-</section>
 
-@if (result(); as res) {
-  <section>
-    <div class="card">
-      <div class="card-header d-flex flex-wrap justify-content-start gap-2">
-        <button class="btn btn-primary" (click)="generate()" [disabled]="loading()">
-          @if (loading()) {
-            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-          }
-          {{ 'genera' | translate }}!
-        </button>
-        <button class="btn btn-sm btn-outline-secondary" (click)="copyResult()">
-          Copia
-        </button>
-        <button class="btn btn-sm btn-outline-secondary" (click)="shareResult()" [disabled]="sharing()">
-          @if (sharing()) {
-            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
-          }
-          Condividi
-        </button>
-        <button class="btn btn-sm btn-outline-secondary" (click)="toggleAudio()">
-          <i
-            class="fa-solid me-1"
-            [class.fa-volume-high]="!speech.isSpeaking()"
-            [class.fa-stop]="speech.isSpeaking()"
-            aria-hidden="true"></i>
-          {{ (speech.isSpeaking() ? 'fermaAudio' : 'riproduciAudio') | translate }}
-        </button>
-      </div>
-      <div class="card-body">
-        <div [innerHTML]="res.markdown | markdown"></div>
-      </div>
-    </div>
-  </section>
-}
-
-@if (generator() && !result()) {
-  <section class="d-flex justify-content-start">
-    <button class="btn btn-primary" (click)="generate()" [disabled]="loading()">
-      @if (loading()) {
-        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-      }
-      {{ 'genera' | translate }}!
-    </button>
-  </section>
-}
+  @if (generator() && !result()) {
+    <section class="generator-empty">
+      <button class="btn btn-primary" (click)="generate()" [disabled]="loading()">
+        @if (loading()) {
+          <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+        }
+        {{ 'genera' | translate }}!
+      </button>
+    </section>
+  }
+</div>

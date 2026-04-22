@@ -39,7 +39,7 @@ function generatorPage(
         renderMode: 'server',
         enabled: true,
         pageType,
-        showPanel: true,
+        showPanel: false,
         description,
         component: () => import('./pages/generator-detail/generator-detail.component')
             .then(m => m.GeneratorDetailComponent),
@@ -75,8 +75,8 @@ export const ContestoSito = buildSite(site => {
     site.setSiteConfiguration({
         appName: 'Br1-Gaming',
         defaultLang: 'it',
-        description: 'Br1 e i suoi giochini',
-        colorTema: '#cff7cb',
+        description: 'Generatori ignoranti, avventure interattive, universo Br1.',
+        colorTema: '#20262f',
         showHeader: true,
         showFooter: true,
     });

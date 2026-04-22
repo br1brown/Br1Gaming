@@ -58,6 +58,10 @@ app-cookie-banner .cookie-banner-modern .cookie-banner__content {
     max-width: 70ch;
 }
 
+app-cookie-banner .cookie-banner-modern .cookie-banner__content strong {
+    font-weight: 700;
+}
+
 app-cookie-banner .cookie-banner-modern .cookie-banner__content > *:last-child {
     margin-bottom: 0;
 }

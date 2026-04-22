@@ -1,72 +1,71 @@
-@if (facade.error()) {
-<div class="alert alert-danger mt-3">
-    {{ facade.error() }}
+<div class="story-shell">
+    @if (facade.error()) {
+    <div class="alert alert-danger mt-3 story-error">
+        {{ facade.error() }}
+    </div>
+    }
+
+    <h1 class="story-title">{{ facade.title() }}</h1>
+
+    @for (item of facade.timeline(); track $index) {
+        @if (item.type === 'scene') {
+        <div class="story-scene mb-3">
+            @if (assets.getUrl(item.sceneId) | async; as img) {
+            <img [src]="img" alt="" class="img-fluid story-scene-image mb-3">
+            }
+            <div [innerHTML]="item.text | markdown"></div>
+        </div>
+        }
+
+        @if (item.type === 'choice') {
+        <div class="story-choice-history my-2">
+            <small class="text-muted fst-italic">{{ 'haiscelta' | translate }}:</small>
+            &nbsp;
+            <strong>{{ item.text }}</strong>
+        </div>
+        }
+
+        @if (item.type === 'consequence') {
+        <div class="story-consequence mb-1" [innerHTML]="item.text | markdown"></div>
+        }
+
+        @if (item.type === 'ending') {
+        <div class="story-ending text-center">
+            @if (assets.getUrl(item.sceneId) | async; as img) {
+            <img [src]="img" [alt]="item.title" class="img-fluid story-ending-image mb-3">
+            }
+            @if (item.title) {
+            <h2 class="story-ending-title mb-2">{{ item.title }}</h2>
+            }
+            <div [innerHTML]="item.text | markdown"></div>
+        </div>
+        }
+    }
+
+    @if (facade.loading()) {
+    <div class="text-center py-2">
+        <div class="spinner-border spinner-border-sm" role="status"></div>
+    </div>
+    }
+
+    @if (facade.snapshot(); as snap) {
+        @if (!snap.isEnding && !facade.loading()) {
+        <div class="story-choices">
+            @for (choice of snap.choices; track choice.id) {
+            <button class="btn btn-primary text-start story-choice-button" (click)="choose(choice.id)">
+                {{ choice.text }}
+            </button>
+            }
+        </div>
+        }
+    }
+    @if (!facade.error()) {
+    <div class="text-center story-restart">
+        <button class="btn btn-outline-secondary btn-sm"
+                (click)="restart()"
+                [disabled]="facade.loading()">
+            {{ 'riavvia' | translate }}
+        </button>
+    </div>
+    }
 </div>
-}
-
-<h4 class="mb-5 text-center">{{ facade.title() }}</h4>
-
-@for (item of facade.timeline(); track $index) {
-
-    @if (item.type === 'scene') {
-<div class="border border-primary border-bottom-0 p-2 mb-3">
-    @if (assets.getUrl(item.sceneId) | async; as img) {
-    <img [src]="img" alt="" class="img-fluid m-2">
-    }
-    <div [innerHTML]="item.text | markdown"></div>
-</div>
-    }
-
-    @if (item.type === 'choice') {
-<div class="p-1 my-2 bg-light border">
-    <small class="text-muted fst-italic">{{ 'haiscelta' | translate }}:</small>
-    &nbsp;
-    <strong>{{ item.text }}</strong>
-</div>
-    }
-
-    @if (item.type === 'consequence') {
-<div class="mb-1" [innerHTML]="item.text | markdown"></div>
-    }
-
-    @if (item.type === 'ending') {
-<div class="rounded border border-danger py-4 text-center">
-    @if (assets.getUrl(item.sceneId) | async; as img) {
-    <img [src]="img" [alt]="item.title" class="img-fluid mb-3">
-    }
-    @if (item.title) {
-    <h4 class="mb-2">{{ item.title }}</h4>
-    }
-    <div [innerHTML]="item.text | markdown"></div>
-</div>
-    }
-
-}
-
-@if (facade.loading()) {
-<div class="text-center py-2">
-    <div class="spinner-border spinner-border-sm" role="status"></div>
-</div>
-}
-
-@if (facade.snapshot(); as snap) {
-    @if (!snap.isEnding && !facade.loading()) {
-<div class="d-grid gap-2 my-3">
-    @for (choice of snap.choices; track choice.id) {
-    <button class="btn btn-primary text-start" (click)="choose(choice.id)">
-        {{ choice.text }}
-    </button>
-    }
-</div>
-    }
-}
-@if (!facade.error()) {
-
-<div class="text-center mt-4">
-    <button class="btn btn-outline-secondary btn-sm"
-            (click)="restart()"
-            [disabled]="facade.loading()">
-        {{ 'riavvia' | translate }}
-    </button>
-</div>
-}

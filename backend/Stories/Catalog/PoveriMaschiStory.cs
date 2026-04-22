@@ -22,7 +22,7 @@ public class PoveriMaschiStory : IStory
     {
         get
         {
-            return "Una storia interattiva su Marco, beta maschio etero di 28 anni incastrato in un mondo che non lo capisce.";
+            return "Marco, maschio beta etero di 28 anni incastrato in un mondo che non lo capisce fino in fondo... Riuscirà a sopravvivere?";
         }
     }
 

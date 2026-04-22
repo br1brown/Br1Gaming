@@ -15,6 +15,7 @@ import { PageBaseComponent } from '../page-base.component';
     selector: 'app-story-player',
     imports: [AsyncPipe, TranslatePipe, MarkdownPipe],
     templateUrl: './story-player.component.html',
+    styleUrl: './story-player.component.css'
 })
 export class StoryPlayerComponent extends PageBaseComponent implements OnInit {
     private readonly router = inject(Router);

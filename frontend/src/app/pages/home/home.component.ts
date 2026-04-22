@@ -13,6 +13,7 @@ import { AssetService } from '../../core/services/asset.service';
     selector: 'app-home',
     imports: [TranslatePipe, RouterLink],
     templateUrl: './home.component.html',
+    styleUrl: './home.component.css'
 })
 export class HomeComponent extends PageBaseComponent implements OnInit {
     private readonly api = inject(ApiService);
@@ -37,7 +38,15 @@ export class HomeComponent extends PageBaseComponent implements OnInit {
 
             const urls: Record<string, string> = {};
             await Promise.all(strs.map(async s => {
-                urls[s.slug] = await firstValueFrom(this.assets.getUrl(`story.${s.slug}`));
+                const url = await firstValueFrom(this.assets.getUrl(`story.${s.slug}`));
+                try {
+                    const response = await fetch(url, { method: 'HEAD' });
+                    if (response.ok) {
+                        urls[s.slug] = url;
+                    }
+                } catch {
+                    // L'immagine e' opzionale: se manca, la card resta senza cover.
+                }
             }));
             this.coverUrls.set(urls);
         } catch {

@@ -17,7 +17,8 @@ import { ThemeService } from '../../core/services/theme.service';
 @Component({
     selector: 'app-generator-detail',
     imports: [TranslatePipe, MarkdownPipe],
-    templateUrl: './generator-detail.component.html'
+    templateUrl: './generator-detail.component.html',
+    styleUrl: './generator-detail.component.css'
 })
 export class GeneratorDetailComponent extends PageBaseComponent implements OnInit, OnDestroy {
     private readonly route = inject(ActivatedRoute);

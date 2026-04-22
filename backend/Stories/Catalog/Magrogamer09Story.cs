@@ -22,7 +22,7 @@ public class Magrogamer09Story : IStory
     {
         get
         {
-            return "50.000 follower, zero scandali. Questo gioco non ha un vincitore.";
+            return "Sei un ganer da 50.000 follower, zero scandali. Riuscirai a sopravvivere in questo mondo?";
         }
     }
 

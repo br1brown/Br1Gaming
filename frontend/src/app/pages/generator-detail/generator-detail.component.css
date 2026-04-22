@@ -1,0 +1,71 @@
+:host {
+    display: block;
+}
+
+.generator-shell {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.generator-hero {
+    display: grid;
+    gap: 0.8rem;
+    padding: clamp(1.25rem, 2vw, 2rem);
+    border-radius: 1.75rem;
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--colorSurface) 92%, white 8%), color-mix(in srgb, var(--colorSurface) 86%, black 14%));
+    border: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.generator-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, currentColor 62%, transparent);
+}
+
+.generator-title {
+    margin: 0;
+    font-size: clamp(2rem, 4vw, 3.4rem);
+}
+
+.generator-description {
+    max-width: 40rem;
+    margin: 0;
+    color: color-mix(in srgb, currentColor 70%, transparent);
+}
+
+.generator-card {
+    border-radius: 1.75rem;
+}
+
+.generator-actions {
+    gap: 0.75rem;
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.generator-output {
+    font-size: 1.02rem;
+    line-height: 1.75;
+}
+
+.generator-output :first-child {
+    margin-top: 0;
+}
+
+.generator-empty {
+    display: flex;
+    justify-content: flex-start;
+}
+
+@media (max-width: 767.98px) {
+    .generator-actions {
+        display: grid !important;
+    }
+
+    .generator-actions .btn {
+        width: 100%;
+    }
+}

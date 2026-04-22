@@ -6,14 +6,22 @@ a,
 a:visited,
 a:active,
 a:focus {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.4rem 0.7rem;
+    border-radius: 999px;
     color: inherit;
     text-decoration: none;
-    transition: opacity 0.2s;
+    background: color-mix(in srgb, currentColor 7%, transparent);
+    transition: opacity 0.2s, transform 0.2s, background-color 0.2s;
 }
 
 a:hover {
     color: inherit;
-    opacity: 0.8;
+    opacity: 1;
+    transform: translateY(-1px);
+    background: color-mix(in srgb, currentColor 12%, transparent);
 }
 
 a::before,
@@ -26,6 +34,5 @@ a::after {
 }
 
 .social-label {
-    margin-left: 0.3em;
     vertical-align: middle;
 }
