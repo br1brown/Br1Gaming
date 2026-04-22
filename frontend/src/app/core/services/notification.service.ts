@@ -1,4 +1,5 @@
-import { Injectable, inject } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { Injectable, PLATFORM_ID, inject } from '@angular/core';
 import { TranslateService } from './translate.service';
 
 /**
@@ -9,35 +10,44 @@ import { TranslateService } from './translate.service';
 @Injectable({ providedIn: 'root' })
 export class NotificationService {
     private translate = inject(TranslateService);
+    private platformId = inject(PLATFORM_ID);
     private swalPromise?: Promise<typeof import('sweetalert2').default>;
 
-    /**
-     * Carica SweetAlert2 solo al primo utilizzo e riusa la stessa Promise.
-     * Questo evita di mettere la libreria nel bundle iniziale.
-     */
-    private loadSwal(): Promise<typeof import('sweetalert2').default> {
+    private loadSwal(): Promise<typeof import('sweetalert2').default> | null {
+        if (!isPlatformBrowser(this.platformId)) return null;
         return this.swalPromise ??= import('sweetalert2').then(module => module.default);
     }
 
     // --- FEEDBACK STANDARD ---
 
     success(message: string, onClose?: () => void): void {
-        void this.loadSwal().then(Swal =>
-            Swal.fire(this.translate.translate('ottimo') + '!', message, 'success').then(() => onClose?.())
-        );
+        const swal = this.loadSwal();
+        if (swal) {
+            void swal.then(Swal =>
+                Swal.fire(this.translate.translate('ottimo') + '!', message, 'success').then(() => onClose?.())
+            );
+        } else if (typeof window !== 'undefined') {
+            window.alert(message);
+            onClose?.();
+        }
     }
 
     error(title: string, message: string): void {
-        void this.loadSwal().then(Swal => {
-            if (Swal.isVisible()) return;
-            Swal.fire(title, message, 'error');
-        });
+        const swal = this.loadSwal();
+        if (swal) {
+            void swal.then(Swal => {
+                if (Swal.isVisible()) return;
+                Swal.fire(title, message, 'error');
+            });
+        } else if (typeof window !== 'undefined') {
+            window.alert(`${title}\n${message}`);
+        }
     }
 
     // --- LOADING ---
 
     loading(message?: string): void {
-        void this.loadSwal().then(Swal =>
+        void this.loadSwal()?.then(Swal =>
             Swal.fire({
                 title: message ?? this.translate.translate('caricamento'),
                 allowOutsideClick: false,
@@ -47,7 +57,7 @@ export class NotificationService {
     }
 
     close(): void {
-        void this.loadSwal().then(Swal => Swal.close());
+        void this.loadSwal()?.then(Swal => Swal.close());
     }
 
     // --- INTERAZIONE ---
@@ -58,46 +68,57 @@ export class NotificationService {
         icon?: 'question' | 'info' | 'warning';
         allowOutsideClick?: boolean;
     }): void {
-        void this.loadSwal().then(Swal =>
-            Swal.fire({
-                title,
-                text,
-                icon: options?.icon ?? 'question',
-                showCancelButton: true,
-                confirmButtonText: options?.confirmText ?? this.translate.translate('si'),
-                cancelButtonText: options?.cancelText ?? this.translate.translate('annulla'),
-                allowOutsideClick: options?.allowOutsideClick ?? true,
-            }).then(result => result.isConfirmed ? callbacks.onConfirm() : callbacks.onCancel?.())
-        );
+        const swal = this.loadSwal();
+        if (swal) {
+            void swal.then(Swal =>
+                Swal.fire({
+                    title,
+                    text,
+                    icon: options?.icon ?? 'question',
+                    showCancelButton: true,
+                    confirmButtonText: options?.confirmText ?? this.translate.translate('si'),
+                    cancelButtonText: options?.cancelText ?? this.translate.translate('annulla'),
+                    allowOutsideClick: options?.allowOutsideClick ?? true,
+                }).then(result => result.isConfirmed ? callbacks.onConfirm() : callbacks.onCancel?.())
+            );
+        } else if (typeof window !== 'undefined') {
+            window.confirm(`${title}\n${text}`) ? callbacks.onConfirm() : callbacks.onCancel?.();
+        }
     }
 
     prompt(title: string, inputLabel: string, callbacks: { onSubmit: (value: string) => void; onCancel?: () => void }, options?: {
         confirmText?: string;
         cancelText?: string;
     }): void {
-        void this.loadSwal().then(Swal =>
-            Swal.fire({
-                title,
-                input: 'text',
-                inputLabel,
-                inputPlaceholder: inputLabel,
-                showCancelButton: true,
-                confirmButtonText: options?.confirmText ?? this.translate.translate('si'),
-                cancelButtonText: options?.cancelText ?? this.translate.translate('annulla'),
-            }).then(result => {
-                if (result.isConfirmed && result.value) {
-                    callbacks.onSubmit(result.value as string);
-                } else {
-                    callbacks.onCancel?.();
-                }
-            })
-        );
+        const swal = this.loadSwal();
+        if (swal) {
+            void swal.then(Swal =>
+                Swal.fire({
+                    title,
+                    input: 'text',
+                    inputLabel,
+                    inputPlaceholder: inputLabel,
+                    showCancelButton: true,
+                    confirmButtonText: options?.confirmText ?? this.translate.translate('si'),
+                    cancelButtonText: options?.cancelText ?? this.translate.translate('annulla'),
+                }).then(result => {
+                    if (result.isConfirmed && result.value) {
+                        callbacks.onSubmit(result.value as string);
+                    } else {
+                        callbacks.onCancel?.();
+                    }
+                })
+            );
+        } else if (typeof window !== 'undefined') {
+            const val = window.prompt(inputLabel);
+            val !== null ? callbacks.onSubmit(val) : callbacks.onCancel?.();
+        }
     }
 
     // --- TOAST ---
 
     toast(message: string, icon: 'success' | 'error' | 'info' | 'warning' = 'success'): void {
-        void this.loadSwal().then(Swal => {
+        void this.loadSwal()?.then(Swal => {
             const Toast = Swal.mixin({
                 toast: true,
                 position: 'top-end',
@@ -120,21 +141,26 @@ export class NotificationService {
             ? errors
             : Object.values(errors).flat();
 
-        void this.loadSwal().then(Swal => {
-            const ul = document.createElement('ul');
-            ul.style.cssText = 'text-align:left;font-size:0.9em;margin:0;';
-            items.forEach(msg => {
-                const li = document.createElement('li');
-                li.textContent = msg;
-                ul.appendChild(li);
+        const swal = this.loadSwal();
+        if (swal) {
+            void swal.then(Swal => {
+                const ul = document.createElement('ul');
+                ul.style.cssText = 'text-align:left;font-size:0.9em;margin:0;';
+                items.forEach(msg => {
+                    const li = document.createElement('li');
+                    li.textContent = msg;
+                    ul.appendChild(li);
+                });
+                return Swal.fire({
+                    title,
+                    html: ul,
+                    icon: 'warning',
+                    confirmButtonText: this.translate.translate('chiudi'),
+                });
             });
-            return Swal.fire({
-                title,
-                html: ul,
-                icon: 'warning',
-                confirmButtonText: this.translate.translate('chiudi'),
-            });
-        });
+        } else if (typeof window !== 'undefined') {
+            window.alert(`${title}\n${items.join('\n')}`);
+        }
     }
 
     // --- ERRORI API ---
