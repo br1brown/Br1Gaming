@@ -1,6 +1,6 @@
-using System.Text.RegularExpressions;
 using Backend.Infrastructure;
 using Backend.Models;
+using System.Text.RegularExpressions;
 
 namespace Backend.Services;
 
@@ -85,13 +85,32 @@ public class GeneratorService(IContentStore store)
         // Dati Iniziali (Caricamento e Merging Architetturale)
         var generator = await CreateGenerator(slugs);
 
-        // Generazione del testo dal runtime generato (Text Composition Engine)
-        var text = ComposeText(generator);
+        //genero e pulisco
+        var raw_text = ComposeText(generator);
+        string textMD = ArmonizzaTesto(raw_text);
 
-        text = CapitalizeSentences(text);
-        return new GenerationResult(text, text, $"<p>{System.Net.WebUtility.HtmlEncode(text)}</p>");
+        // Trasforma MD in HTML base (molto leggero)
+        string ToHtml(string md)
+        {
+            var res = md;
+            res = Regex.Replace(res, @"^#\s+(.*)$", "<h1>$1</h1>", RegexOptions.Multiline);
+            res = Regex.Replace(res, @"\*\*(.*)\*\*", "<strong>$1</strong>");
+            res = Regex.Replace(res, @"\[([^\]]+)\]\(([^\)]+)\)", "<a href='$2'>$1</a>");
+            return res.Replace("\n", "<br />");
+        }
+
+        // Pulisce il MD per avere solo testo normale
+        string ToPlain(string md)
+        {
+            var res = md;
+            res = Regex.Replace(res, @"\[([^\]]+)\]\([^\)]+\)", "$1"); // Rimuove link tenendo il testo
+            res = Regex.Replace(res, @"#+\s+", "");                    // Rimuove i cancelletti dei titoli
+            res = Regex.Replace(res, @"(\*\*|__|\*|_|`)", "");         // Rimuove formattazione e backtick
+            return res.Trim();
+        }
+
+        return new GenerationResult(ToPlain(textMD), textMD, ToHtml(textMD));
     }
-
     /// <summary>
     /// Struttura transiente (in-memory) che agisce da Super-Generatore dopo il merging di tutti gli slug.
     /// </summary>
@@ -225,8 +244,8 @@ public class GeneratorService(IContentStore store)
         else if (settings.Separators == null || settings.Separators.Count == 0)
             settings = settings with { Separators = [". "] };
 
-        var mappaFasceEta = shared.AgeAliases != null 
-            ? new Dictionary<string, string>(shared.AgeAliases, StringComparer.OrdinalIgnoreCase) 
+        var mappaFasceEta = shared.AgeAliases != null
+            ? new Dictionary<string, string>(shared.AgeAliases, StringComparer.OrdinalIgnoreCase)
             : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         var finalGenerator = new RuntimeGenerator(
@@ -300,7 +319,7 @@ public class GeneratorService(IContentStore store)
             // Calcola quante frasi prelevare per questo requisito senza superare il limite totale
             var limiteMassimo = Math.Max(requisito.Min, Math.Min(requisito.Max, conteggioTotale));
             var obiettivoRequisito = Random.Shared.Next(requisito.Min, limiteMassimo + 1);
-            
+
             // Mescola le frasi di origine per un'estrazione randomica e non ripetitiva
             var cestoFrasiObbligatorie = ShuffledCopy(requisito.Phrases);
 
@@ -341,7 +360,7 @@ public class GeneratorService(IContentStore store)
         // Risolve i placeholder (es. [professioni]) in base ai dizionari finali
         var separatori = gen.Settings.Separators ?? [". "];
         var frasiFinite = frasiSelezionate.Select(spezzoneTesto => ExpandAllPlaceholders(spezzoneTesto, gen.FlatLists, gen.AgeAliases, etichetteUsate)).ToList();
-        
+
         if (frasiFinite.Count == 0) throw new InvalidOperationException("Impossibile generare il corpo: nessuna frase compatibile trovata (possibile database vuoto o conflitti estremi).");
         if (frasiFinite.Count == 1) return frasiFinite[0];
 
@@ -483,14 +502,33 @@ public class GeneratorService(IContentStore store)
         return parolaScelta;
     }
 
-    /// <summary>
-    /// Normalizza i caratteri finali e fissa automaticamente le maiuscole ad inizio paragrafo o pre-punteggiatura.
-    /// </summary>
-    private static string CapitalizeSentences(string text)
+    private static string ArmonizzaTesto(string text)
     {
-        if (text.Length == 0) return text;
-        text = char.ToUpper(text[0]) + text[1..];
-        return Regex.Replace(text, @"(?<=[.!?;]\s)([a-z])", m => m.Value.ToUpper());
+        if (string.IsNullOrWhiteSpace(text)) return text;
+
+        // Prima lettera assoluta in maiuscolo
+        text = Regex.Replace(text, @"^([^a-zA-Z]*)([a-z])",
+            m => m.Groups[1].Value + m.Groups[2].Value.ToUpper());
+
+        // Riduce spazi multipli (ma non i newline)
+        text = Regex.Replace(text, @"[ \t]+", " ");
+
+        // Rimuove spazi all'inizio e alla fine di ogni riga
+        text = Regex.Replace(text, @"^[ \t]+|[ \t]+$", string.Empty, RegexOptions.Multiline);
+
+        // Collassa 3 o più newline in massimo due (mantiene il concetto di paragrafo)
+        text = Regex.Replace(text, @"(\r?\n){3,}", "\n\n");
+
+        // Maiuscola dopo la punteggiatura (. ! ? ;) e a inizio riga
+        // La regex ora cattura:
+        // - Inizio stringa (^)
+        // - Dopo i segni . ! ? ; seguiti da spazi o newline
+        // - Inizio di una nuova riga dopo un newline
+        text = Regex.Replace(text, @"(^|[.!?;]\s+|^[ \t]*)([a-z])",
+            m => m.Groups[1].Value + m.Groups[2].Value.ToUpper(),
+            RegexOptions.Multiline);
+
+        return text.Trim();
     }
 
     /// <summary>

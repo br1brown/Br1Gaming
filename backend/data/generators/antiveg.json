@@ -10,10 +10,12 @@
     "separators": [
       "!! ",
       "!1! ",
-      "!\n"
+      "! ",
+      "\n"
     ]
   },
-  "chiusura": "\n\n([nome] [età-adulto] anni, su [social])",
+  "apertura": "``",
+  "chiusura": "``\n\n- _[nome] [eta-adulto] anni, su [social]_",
   "uniqueLabels": [
     "[concetto]",
     "capiscono",

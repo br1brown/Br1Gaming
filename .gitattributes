@@ -1,3 +1,0 @@
-# Gli script bash devono avere LF obbligatorio.
-# Su Windows Git potrebbe salvare CRLF, che rompe lo shebang nei container Linux.
-*.sh text eol=lf
