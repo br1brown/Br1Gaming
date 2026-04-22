@@ -22,20 +22,43 @@ const cacheDir = join(browserDistFolder, 'assets/files/image-cache');
 mkdirSync(cacheDir, { recursive: true });
 
 // Carichiamo il mapping ID -> filename reale da assets/mapping.json.
-// Come servire l'asset è determinato dal content type del file, non dalla struttura del mapping.
-// Formato valori: stringa semplice oppure { file: string, ... }
-type RawEntry = string | { file: string;[key: string]: unknown };
+// Cerchiamo in più percorsi per gestire sia il build finale che l'avvio in dev mode (ng serve).
+// Formato valori in mapping.json: stringa semplice oppure { file: string, ... }
+type RawEntry = string | { file: string; [key: string]: unknown };
 const assetMapping: Record<string, string> = {};
 
-try {
-    const raw = JSON.parse(
-        readFileSync(join(browserDistFolder, 'assets/mapping.json'), 'utf-8')
-    ) as Record<string, RawEntry>;
-    for (const [id, val] of Object.entries(raw)) {
-        assetMapping[id] = typeof val === 'string' ? val : val.file;
+function loadAssetMapping(): boolean {
+    try {
+        const mappingPaths = [
+            join(browserDistFolder, 'assets/mapping.json'),
+            join(process.cwd(), 'src/assets/mapping.json'),
+            join(process.cwd(), 'frontend/src/assets/mapping.json')
+        ];
+
+        let mappingData: string | null = null;
+        for (const p of mappingPaths) {
+            if (existsSync(p)) {
+                mappingData = readFileSync(p, 'utf-8');
+                break;
+            }
+        }
+
+        if (mappingData) {
+            const raw = JSON.parse(mappingData) as Record<string, RawEntry>;
+            for (const [id, val] of Object.entries(raw)) {
+                assetMapping[id] = typeof val === 'string' ? val : val.file;
+            }
+            return true;
+        }
+    } catch {
+        // Fallimento silenzioso, gestito dal chiamante
     }
-} catch {
-    console.warn('[Server] assets/mapping.json non trovato');
+    return false;
+}
+
+// Caricamento iniziale all'avvio
+if (!loadAssetMapping()) {
+    console.warn('[Server] assets/mapping.json non trovato all\'avvio (sarà ricaricato alla prima richiesta)');
 }
 
 class AssetHandler {
@@ -123,7 +146,7 @@ app.get('/health', (_request, response) => {
 // Proxy /api/* → backend.
 // Montato a root con pathFilter (non app.use('/api', ...)): Express con app.use('/api', ...)
 // striscia il prefisso /api prima di passare la richiesta al middleware, causando 404.
-// Con pathFilter il percorso completo (/api/generators ecc.) viene preservato.
+// Con pathFilter il percorso completo (/api/XXXX ecc.) viene preservato.
 app.use(createProxyMiddleware({
     target: apiOrigin,
     pathFilter: '/api',
@@ -166,11 +189,18 @@ app.get('/cdn-cgi/asset', async (req, res) => {
         const id = req.query['id'] as string;
         if (!id) return res.status(400).send('Missing id');
 
-        const filename = assetMapping[id];
+        let filename = assetMapping[id];
+        if (!filename) {
+            // Se non trovato, proviamo a ricaricare il mapping (potrebbe essere stato creato dopo l'avvio)
+            loadAssetMapping();
+            filename = assetMapping[id];
+        }
+
         if (!filename) return res.status(404).send('Asset not found');
 
         const absolutePath = join(browserDistFolder, 'assets/files/', filename);
-        if (!existsSync(absolutePath)) return res.status(404).send('Source file not found');
+        if (!existsSync(absolutePath))
+            return res.status(404).send('Source file not found');
 
         // File non-immagine: serve diretto senza elaborazione
         if (!AssetHandler.isSharpCompatible(filename)) return AssetHandler.serveFile(res, absolutePath);

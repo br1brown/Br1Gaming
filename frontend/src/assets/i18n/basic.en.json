@@ -82,6 +82,7 @@
   "passwordTroppoCorta": "The password must be at least 8 characters long.",
   "valoreNonValido": "The value entered is invalid.",
   "numeroPositivo": "Please enter a positive number.",
+  "caricamento": "Loading...",
   "chiudi": "Close",
   "conferma": "Confirm",
   "confirmed": "Confirmed!",
@@ -95,5 +96,8 @@
   "online": "online",
   "skipToContent": "Skip to main content",
   "cookieBannerAccept": "Accept",
-  "cookieBannerReject": "Decline"
+  "cookieBannerReject": "Decline",
+  "nuovaVersioneTitle": "New version available",
+  "nuovaVersioneDesc": "An updated version of the application is available. Refresh the page to apply the changes.",
+  "aggiornaApp": "Refresh"
 }
