@@ -166,6 +166,7 @@ export class ContextMenuDirective implements OnDestroy {
     private close(): void {
         this.clearLongPressState();
         if (this.overlayRef) {
+            this.overlayRef.location.nativeElement.remove();
             this.overlayRef.destroy();
             this.overlayRef = null;
         }

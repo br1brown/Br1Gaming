@@ -92,6 +92,7 @@ function updateIndexHtml(): void {
     html = replaceTag(html, /<title>[^<]*<\/title>/, `<title>${appName}</title>`, '<title>');
 
     const nameMeta: [string, string][] = [
+        ['app-version',                  ContestoSito.config.version],
         ['description',                  description],
         ['apple-mobile-web-app-title',   appName],
         ['apple-mobile-web-app-status-bar-style', 'default'],
@@ -144,6 +145,7 @@ function updateManifest(): void {
     manifest['lang']             = ContestoSito.config.defaultLang;
     manifest['theme_color']      = ContestoSito.config.colorTema;
     manifest['background_color'] = ContestoSito.config.colorTema;
+    manifest['version']          = ContestoSito.config.version;
 
     writeFileSync(MANIFEST, `${JSON.stringify(manifest, null, 4)}\n`, 'utf8');
     console.log(`[statics] manifest.webmanifest aggiornato`);

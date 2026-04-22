@@ -72,6 +72,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
     //
     siteFondamentaBuilder.setSiteConfiguration({
         appName: 'Template',
+        version: '1.0.0',
         defaultLang: 'it',
         availableLanguages: ['it', 'en'],
         description: 'Template di base che serve per fare vedere le funzionalità base',

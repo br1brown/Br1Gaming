@@ -60,7 +60,7 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
     readonly socialResult = signal('');
 
     // --- Risoluzione asset + playground resize ---
-    assetId = 'favIcon';
+    assetId = 'img4k';
     readonly assetUrl = signal('');
     readonly assetResizeWidth = signal<number | null>(null);
     readonly assetWidths = ALLOWED_WIDTHS;

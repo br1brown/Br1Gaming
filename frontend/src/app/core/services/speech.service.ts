@@ -1,23 +1,20 @@
-import { inject, Injectable, signal, effect, Injector } from '@angular/core';
+import { inject, Injectable, signal, effect } from '@angular/core';
 import { TranslateService } from './translate.service';
 
 @Injectable({ providedIn: 'root' })
 export class SpeechService {
     private readonly translate = inject(TranslateService);
-    private readonly injector = inject(Injector); // Recuperiamo l'iniettore
 
     readonly isSpeaking = signal(false);
     readonly currentVoice = signal<SpeechSynthesisVoice | null>(null);
 
     constructor() {
         if (typeof window !== 'undefined' && window.speechSynthesis) {
-            window.speechSynthesis.onvoiceschanged = () => this.updateVoice();
-
-            // Specifichiamo l'iniettore per evitare l'errore nel service
+            window.speechSynthesis.addEventListener('voiceschanged', () => this.updateVoice());
             effect(() => {
                 this.translate.currentLang();
                 this.updateVoice();
-            }, { injector: this.injector });
+            });
         }
     }
 

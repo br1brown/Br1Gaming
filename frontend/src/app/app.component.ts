@@ -13,6 +13,7 @@ import { SmokeEffectComponent } from './layout/smoke-effect/smoke-effect.compone
 import { BackToTopComponent } from './shared/components/back-to-top/back-to-top.component';
 import { CookieBannerComponent } from './shared/components/cookie-banner/cookie-banner.component';
 import { PageMetaService } from './core/services/page-meta.service';
+import { VersionCheckService } from './core/services/version-check.service';
 import { TranslatePipe } from './shared/pipes/translate.pipe';
 
 /**
@@ -60,6 +61,8 @@ export class AppComponent {
     });
 
     constructor() {
+        inject(VersionCheckService).init();
+
         effect(() => {
             // Traccia il cambio lingua: riesegue title e meta senza navigazione.
             this.translate.currentLang();

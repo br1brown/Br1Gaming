@@ -87,6 +87,8 @@ export type SmokeSettingsInput = Partial<SmokeSettings> | null | undefined;
 export interface SiteConfig {
     /** Nome applicativo del sito. */
     appName: string;
+    /** Versione dell'applicazione (es. "1.2.0"). Usata per rilevare aggiornamenti. */
+    version: string;
     /** Lingua predefinita del sito. */
     defaultLang: string;
     /** Elenco delle lingue supportate dal sito. */
@@ -114,6 +116,8 @@ export interface SiteConfig {
 export interface SiteConfigInput {
     /** Nome applicativo del sito. */
     appName: string;
+    /** Versione dell'applicazione (es. "1.2.0"). Usata per rilevare aggiornamenti. */
+    version?: string;
     /** Lingua predefinita del sito. */
     defaultLang: string;
     /** Lingue dichiarate dall'utente, prima della normalizzazione. */
@@ -731,6 +735,7 @@ export function buildSite(
 
             siteConfig = {
                 appName: siteConfigurationInput.appName,
+                version: siteConfigurationInput.version ?? '1.0.0',
                 defaultLang: normalizeLang(siteConfigurationInput.defaultLang) || siteConfigurationInput.defaultLang,
                 availableLanguages,
                 description: siteConfigurationInput.description,
@@ -803,6 +808,11 @@ export function buildSite(
              * La registriamo comunque nella mappa per poterla usare
              */
             if (isExternalPage(page)) {
+                if (pageMap.has(page.pageType)) {
+                    throw new Error(
+                        `[SiteBuilder] PageType duplicato rilevato: "${String(page.pageType)}". Ogni pagina deve avere un pageType unico.`
+                    );
+                }
                 pageMap.set(page.pageType, {
                     label: page.title,
                     path: page.externalUrl,
@@ -841,6 +851,11 @@ export function buildSite(
             if (seenInternalPaths.has(fullPath)) {
                 throw new Error(
                     `[SiteBuilder] Path interno duplicato rilevato: "${fullPath}".`
+                );
+            }
+            if (pageMap.has(page.pageType)) {
+                throw new Error(
+                    `[SiteBuilder] PageType duplicato rilevato: "${String(page.pageType)}". Ogni pagina deve avere un pageType unico.`
                 );
             }
 

@@ -1,4 +1,4 @@
-import { computed, inject, Injectable, PLATFORM_ID, signal } from '@angular/core';
+import { computed, inject, Injectable, OnDestroy, PLATFORM_ID, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { ApiService } from './api.service';
 
@@ -8,7 +8,7 @@ import { ApiService } from './api.service';
  * Separato per evitare la dipendenza circolare AuthService ↔ ApiService.
  */
 @Injectable({ providedIn: 'root' })
-export class TokenService {
+export class TokenService implements OnDestroy {
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
     private readonly _token = signal<string | null>(null);
     private expirationTimer: ReturnType<typeof setTimeout> | null = null;
@@ -41,6 +41,10 @@ export class TokenService {
         if (!this.isBrowser) return;
         const token = sessionStorage.getItem('bearerToken');
         if (token) this.store(token);
+    }
+
+    ngOnDestroy(): void {
+        this.clear();
     }
 
     private scheduleExpiration(expiration: number): void {

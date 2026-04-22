@@ -91,6 +91,8 @@ Br1WebEngine e' costruito intorno a un principio: **se una cosa puo' derivarsi d
 - Un [servizio di condivisione](#condivisione-e-clipboard) unifica Clipboard API, Web Share API e download in un'unica interfaccia con fallback automatico
 - L'[image builder](#generazione-immagini-su-canvas) genera immagini su canvas con word-wrap calcolato via `measureText()`, pronte per social sharing
 - Gli [asset](#ottimizzazione-immagini) si risolvono da un `mapping.json` piatto: immagini raster vengono ottimizzate con Sharp, gli altri file serviti direttamente — tutto accessibile tramite ID, senza esporre il filesystem
+- [`AssetService.getUrlFromBlob()`](#ottimizzazione-immagini-e-asset) crea URL da Blob (API esterne o canvas) con tracking automatico e rilascio memoria al cambio pagina
+- Il [controllo versione](#controllo-versione-e-aggiornamenti) rileva automaticamente se è disponibile una nuova versione dell'app e propone all'utente di ricaricare la pagina
 
 ### Build e Deploy
 
@@ -233,7 +235,7 @@ siteFondamentaBuilder.configureFooterNavigation(f => { f.addPage(...); });
 Internamente `buildSite` lavora in tre fasi:
 
 1. **Dichiarazione**: configurazione, pagine e navigazione con tipi `*Input` e campi opzionali
-2. **Normalizzazione**: il builder deduce `kind` dalla struttura (`children` → parent, `component` → leaf, `externalUrl` → external), valida la coerenza e costruisce la mappa `PageType → path`
+2. **Normalizzazione**: il builder deduce `kind` dalla struttura (`children` → parent, `component` → leaf, `externalUrl` → external), valida la coerenza e costruisce la mappa `PageType → path`. Ogni `PageType` deve essere unico — un duplicato (su pagine interne o esterne) lancia un errore a build time con il nome del tipo coinvolto
 3. **Generazione**: produce rotte Angular, `NavLink[]` per header/footer (con flag `isExternal` su ogni link), `getPath(PageType)` e `getSitemapEntries()`
 
 Il risultato (`ContestoSito`) viene consumato da router, navbar, footer e script di build.
@@ -295,6 +297,7 @@ Tutti i campi di `SiteConfigInput`:
 | Campo | Obbligatorio | Effetto |
 |---|---|---|
 | `appName` | si | Nome mostrato in navbar, titoli pagina e PWA manifest |
+| `version` | no | Versione dell'app (es. `"1.2.0"`); iniettata nel meta tag `app-version` e nel manifest, letta da `VersionCheckService` per rilevare aggiornamenti (default: `"1.0.0"`) |
 | `defaultLang` | si | Lingua di fallback quando la preferenza non è disponibile |
 | `description` | si | Meta description globale del sito (usata come fallback per le pagine senza `description` propria) |
 | `colorTema` | si | Colore hex principale; genera automaticamente contrasto, tono e variabili CSS |
@@ -381,7 +384,14 @@ La cache immagini è effimera — si azzera ad ogni deploy, così le immagini ag
 
 `AssetService` gestisce tutto in modo trasparente: nei componenti si usa `this.asset.getUrl('hero', 1080)` e il resto avviene lato server.
 
+Per Blob prodotti localmente (canvas, file scaricati da API esterne), `getUrlFromBlob(blob)` restituisce `{ rawUrl, angularUrl }`: il primo è usabile in JS puro, il secondo è già sanitizzato per i template Angular. Gli URL sono tracciati internamente e revocati automaticamente al cambio pagina tramite `NavigationEnd`; si possono liberare esplicitamente con `revokeAll()`.
+
 Le larghezze disponibili e il mapping ID→file sono configurati in `app.config.ts` e `assets/mapping.json`.
+
+#### Controllo versione e aggiornamenti
+`VersionCheckService` rileva in modo non invasivo se è disponibile una nuova versione dell'app. All'avvio legge la versione corrente dal meta tag `<meta name="app-version">` (popolato da `site.ts` tramite il campo `version`); ogni 10 minuti fa un `fetch` di `/manifest.webmanifest?cache=no-store` e confronta il campo `version`. Se differisce, mostra una dialog di conferma che propone di ricaricare la pagina; se l'utente annulla, il dialogo non viene riproposto fino al prossimo rilevamento.
+
+Il servizio è inizializzato da `AppComponent` alla partenza dell'app e non richiede configurazione aggiuntiva. Per attivarlo è sufficiente impostare `version` in `setSiteConfiguration`.
 
 #### Context menu
 La directive `[appContextMenu]` aggiunge un menu contestuale personalizzato a qualsiasi elemento:
@@ -488,10 +498,11 @@ Riepilogo di tutti i servizi, componenti e dati disponibili out-of-the-box. Util
 | `BaseApiService` | Classe astratta: infrastruttura HTTP condivisa (header, error handling, health check); estesa da `ApiService` |
 | `ApiService` | Unico client HTTP verso il backend: endpoint concreti (`getProfile`, `getSocial`, `getBlob`, `exportDocument`, `login`) |
 | `SpeechService` | Text-to-speech via Web Speech API: `speak(text, options?)`, `stop()`, segnali `isSpeaking` e `currentVoice`; voce e lingua seguono automaticamente `TranslateService` |
-| `AssetService` | Costruisce URL verso `/cdn-cgi/asset?id=X&w=Y`; il server Node gestisce resize, WebP e cache per immagini raster; file generici serviti direttamente |
+| `AssetService` | URL verso `/cdn-cgi/asset`; `getUrlFromBlob(blob)` per Blob locali con tracking e revoca automatica |
 | `ShareService` | Clipboard, Web Share API e download con fallback |
 | `CookieConsentService` | Gestione consenso cookie GDPR |
-| `NotificationService` | Toast, errori e parsing ProblemDetails RFC 9457; SweetAlert2 caricato in lazy loading al primo utilizzo |
+| `NotificationService` | SweetAlert2 lazy: `success()`, `error()`, `loading()` / `close()`, `confirm()` (con opzioni icona/testi/click-esterno), `prompt()`, `toast()` (con pausa hover), `validationErrors()`, `handleApiError()` |
+| `VersionCheckService` | Rileva nuove versioni dell'app ogni 10 min; propone reload via `confirm()` |
 | `AppTitleStrategy` | Titoli pagina tradotti nel formato `Pagina \| NomeApp` |
 
 **Componenti e directive riusabili**:
