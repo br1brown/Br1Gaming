@@ -1,5 +1,5 @@
 ﻿import { isPlatformBrowser } from '@angular/common';
-import { ChangeDetectionStrategy, Component, PLATFORM_ID, computed, inject, resource } from '@angular/core';
+import { Component, PLATFORM_ID, computed, inject, resource } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { injectCurrentUrl } from '../../app.routes';
 import { ApiService } from '../../core/services/api.service';
@@ -12,8 +12,7 @@ import { NavLink } from '../../siteBuilder';
     selector: 'app-footer',
     imports: [RouterLink, TranslatePipe],
     templateUrl: './footer.component.html',
-    styleUrl: './footer.component.css',
-    changeDetection: ChangeDetectionStrategy.OnPush
+    styleUrl: './footer.component.css'
 })
 export class FooterComponent {
     protected readonly Math = Math;

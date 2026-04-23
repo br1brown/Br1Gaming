@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, effect, inject, OnInit } from '@angular/core';
+import { Component, effect, inject, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { PageMetaService } from '../../core/services/page-meta.service';
 import { ContestoSito } from '../../site';
@@ -14,9 +14,7 @@ import { PageBaseComponent } from '../page-base.component';
     selector: 'app-story-player',
     imports: [TranslatePipe, MarkdownPipe],
     templateUrl: './story-player.component.html',
-    styleUrl: './story-player.component.css',
-    changeDetection: ChangeDetectionStrategy.OnPush,
-    host: { ngSkipHydration: 'true' }
+    styleUrl: './story-player.component.css'
 })
 export class StoryPlayerComponent extends PageBaseComponent implements OnInit {
     private readonly router = inject(Router);

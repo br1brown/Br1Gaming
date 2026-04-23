@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, HostListener, PLATFORM_ID, inject, signal } from '@angular/core';
+import { Component, computed, HostListener, PLATFORM_ID, inject, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { ThemeService } from '../../../core/services/theme.service';
 
@@ -14,8 +14,7 @@ import { ThemeService } from '../../../core/services/theme.service';
 @Component({
   selector: 'app-back-to-top',
   templateUrl: './back-to-top.component.html',
-  styleUrl: './back-to-top.component.css',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  styleUrl: './back-to-top.component.css'
 })
 export class BackToTopComponent {
   readonly theme = inject(ThemeService);

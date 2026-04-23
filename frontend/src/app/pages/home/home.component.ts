@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { PageBaseComponent } from '../page-base.component';
@@ -12,8 +12,7 @@ import { AssetService } from '../../core/services/asset.service';
     selector: 'app-home',
     imports: [TranslatePipe, RouterLink],
     templateUrl: './home.component.html',
-    styleUrl: './home.component.css',
-    changeDetection: ChangeDetectionStrategy.OnPush
+    styleUrl: './home.component.css'
 })
 export class HomeComponent extends PageBaseComponent implements OnInit {
     private readonly api = inject(ApiService);

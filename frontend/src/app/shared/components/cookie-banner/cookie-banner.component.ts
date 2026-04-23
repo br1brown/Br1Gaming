@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ViewEncapsulation, effect, inject, input, signal } from '@angular/core';
+import { Component, ViewEncapsulation, effect, inject, input, signal } from '@angular/core';
 
 import { PageType } from '../../../app.routes';
 import { CookieConsentService } from '../../../core/services/cookie-consent.service';
@@ -17,8 +17,7 @@ const cookieBannerCatalog: Record<string, string> = cookieBannerLegalCatalog;
     imports: [TranslatePipe, MarkdownPipe],
     templateUrl: './cookie-banner.component.html',
     styleUrl: './cookie-banner.component.css',
-    encapsulation: ViewEncapsulation.None,
-    changeDetection: ChangeDetectionStrategy.OnPush
+    encapsulation: ViewEncapsulation.None
 })
 export class CookieBannerComponent {
     readonly tiny = input(false);

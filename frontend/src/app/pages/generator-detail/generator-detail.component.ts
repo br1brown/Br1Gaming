@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, effect, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, effect, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { GeneratorInfo, GenerateResponse } from '../../core/dto/generator.dto';
 import { ApiService } from '../../core/services/api.service';
@@ -18,9 +18,7 @@ import { ThemeService } from '../../core/services/theme.service';
     selector: 'app-generator-detail',
     imports: [TranslatePipe, MarkdownPipe],
     templateUrl: './generator-detail.component.html',
-    styleUrl: './generator-detail.component.css',
-    changeDetection: ChangeDetectionStrategy.OnPush,
-    host: { ngSkipHydration: 'true' }
+    styleUrl: './generator-detail.component.css'
 })
 export class GeneratorDetailComponent extends PageBaseComponent implements OnInit, OnDestroy {
     private readonly route = inject(ActivatedRoute);
