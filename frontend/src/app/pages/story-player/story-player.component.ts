@@ -1,4 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { DOCUMENT } from '@angular/common';
 import { Component, effect, inject, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { PageMetaService } from '../../core/services/page-meta.service';
@@ -19,6 +20,7 @@ import { PageBaseComponent } from '../page-base.component';
 export class StoryPlayerComponent extends PageBaseComponent implements OnInit {
     private readonly router = inject(Router);
     private readonly pageMeta = inject(PageMetaService);
+    private readonly document = inject(DOCUMENT);
     readonly facade = inject(StoryPlayerFacade);
     readonly assets = inject(AssetService);
 
@@ -57,7 +59,7 @@ export class StoryPlayerComponent extends PageBaseComponent implements OnInit {
 
     restart(): void {
         this.facade.restart();
-        window.scrollTo(0, 0);
+        this.document.defaultView?.scrollTo(0, 0);
     }
 
     getSceneImageUrl(sceneId: string): string | null {

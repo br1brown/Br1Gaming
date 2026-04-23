@@ -1,4 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { DOCUMENT } from '@angular/common';
 import { Component, effect, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { GeneratorInfo, GenerateResponse } from '../../core/dto/generator.dto';
@@ -26,6 +27,7 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
     private readonly pageMeta = inject(PageMetaService);
     private readonly api = inject(ApiService);
     private readonly share = inject(ShareService);
+    private readonly document = inject(DOCUMENT);
     readonly speech = inject(SpeechService);
     private readonly theme = inject(ThemeService);
 
@@ -51,7 +53,7 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
         try {
             const detail = await this.fetchGeneratorInfo();
             this.generator.set(detail);
-            this.allaFine = `\n\nDal ${detail.name}\n${window.location}`;
+            this.allaFine = `\n\nDal ${detail.name}\n${this.document.URL}`;
             this.generate();
         } catch (error) {
             await this.handleGeneratorLoadError(error);
@@ -99,7 +101,7 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
                 fontFamily: 'Verdana',
                 margin: 50
             });
-            await this.share.shareCanvas(canvas, `${gen.name}: ${window.location}`, `${gen.slug}.png`);
+            await this.share.shareCanvas(canvas, `${gen.name}: ${this.document.URL}`, `${gen.slug}.png`);
         } finally {
             this.sharing.set(false);
         }

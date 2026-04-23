@@ -155,14 +155,17 @@ export class StoryPlayerFacade {
     private timelineKey(slug: string): string { return `br1games.story.${slug}.timeline`; }
 
     private storageGet(key: string): string | null {
+        if (typeof localStorage === 'undefined') return null;
         try { return localStorage.getItem(key); } catch { return null; }
     }
 
     private storageSet(key: string, value: string): void {
+        if (typeof localStorage === 'undefined') return;
         try { localStorage.setItem(key, value); } catch { /* quota o privacy mode */ }
     }
 
     private storageRemove(key: string): void {
+        if (typeof localStorage === 'undefined') return;
         try { localStorage.removeItem(key); } catch { /* noop */ }
     }
 
