@@ -1,4 +1,5 @@
-﻿import type { Type } from '@angular/core';
+﻿import type { Type, EnvironmentProviders, Provider } from '@angular/core';
+import type { ResolveFn, CanDeactivateFn, RunGuardsAndResolvers } from '@angular/router';
 import type { PageType } from './site';
 import type { PageBaseComponent } from './pages/page-base.component';
 
@@ -240,6 +241,20 @@ export type LeafPageInput = BasePageInput & {
      * Se omessa, viene usata la descrizione globale del sito come fallback.
      */
     description?: string;
+    /**
+     * Resolver per pre-caricare dati prima che la route si attivi.
+     * In SSR Angular attende il completamento: usare per dati necessari ai meta tag SEO.
+     */
+    resolve?: Record<string, ResolveFn<unknown>>;
+    /**
+     * Quando rieseguire guard e resolver sulla stessa route.
+     * Necessario se lo stesso componente è usato su path diversi (es. /generatori/incel e /generatori/auto).
+     */
+    runGuardsAndResolvers?: RunGuardsAndResolvers;
+    /** Guard all'uscita dalla route. Utile per pagine con stato non salvato. */
+    canDeactivate?: CanDeactivateFn<PageBaseComponent>[];
+    /** Provider con scope limitato alla route. Utile per isolare service con stato locale. */
+    providers?: (Provider | EnvironmentProviders)[];
     /** Non consentito per una pagina interna. */
     externalUrl?: never;
 };
