@@ -85,6 +85,14 @@ function toAngularRoute(page: InternalSitePage): Route {
             showPanel: page.showPanel !== undefined ? page.showPanel : true,
             pageDescription: page.description ?? null,
         };
+        if (page.resolve)
+            route.resolve = page.resolve;
+        if (page.runGuardsAndResolvers)
+            route.runGuardsAndResolvers = page.runGuardsAndResolvers;
+        if (page.canDeactivate)
+            route.canDeactivate = page.canDeactivate;
+        if (page.providers)
+            route.providers = page.providers;
     }
 
     return route;
