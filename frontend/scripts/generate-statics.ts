@@ -91,6 +91,8 @@ function updateIndexHtml(): void {
     html = replaceTag(html, /<html lang="[^"]*">/, `<html lang="${lang}">`, '<html lang>');
     html = replaceTag(html, /<title>[^<]*<\/title>/, `<title>${appName}</title>`, '<title>');
 
+    const defaultImageUrl = `${BASE_URL}/icons/icon-512x512.png`;
+
     const nameMeta: [string, string][] = [
         ['app-version',                  ContestoSito.config.version],
         ['description',                  description],
@@ -100,6 +102,7 @@ function updateIndexHtml(): void {
         ['theme-color',                  themeColor],
         ['twitter:title',                appName],
         ['twitter:description',          description],
+        ['twitter:image',                defaultImageUrl],
     ];
 
     const propertyMeta: [string, string][] = [
@@ -107,6 +110,8 @@ function updateIndexHtml(): void {
         ['og:description', description],
         ['og:site_name',   appName],
         ['og:locale',      lang],
+        ['og:url',         BASE_URL],
+        ['og:image',       defaultImageUrl],
     ];
 
     for (const [key, value] of nameMeta) {
@@ -128,6 +133,13 @@ function updateIndexHtml(): void {
         /<!-- Meta Twitter[\s\S]*?-->/,
         '<!-- Meta Twitter di base, sincronizzati da scripts/generate-statics.ts -->',
         'commento Twitter'
+    );
+
+    html = replaceTag(
+        html,
+        /<link rel="icon" type="image\/png" href="[^"]*">/,
+        '<link rel="icon" type="image/png" href="icons/icon-192x192.png">',
+        '<link rel="icon">'
     );
 
     writeFileSync(INDEX, html, 'utf8');
