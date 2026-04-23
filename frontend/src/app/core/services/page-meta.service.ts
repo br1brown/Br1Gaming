@@ -47,7 +47,9 @@ export class PageMetaService {
             this.meta.updateTag({ name: 'twitter:description', content: description });
         }
 
-        const origin = this.document.location.origin;
+        const url = this.document.URL;
+        const origin = this.document.location?.origin || '';
+
         const imageUrl = imgId
             ? `${origin}/cdn-cgi/asset?id=${imgId}`
             : `${origin}/icons/icon-512x512.png`;
@@ -56,7 +58,6 @@ export class PageMetaService {
         this.meta.updateTag({ property: 'og:image', content: imageUrl });
         this.meta.updateTag({ name: 'twitter:image', content: imageUrl });
 
-        const url = this.document.URL;
         this.updateCanonical(url);
     }
 
