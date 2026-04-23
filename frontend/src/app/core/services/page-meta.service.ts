@@ -48,7 +48,11 @@ export class PageMetaService {
         }
 
         const url = this.document.URL;
-        const origin = this.document.location?.origin || '';
+        // document.location?.origin può essere falso/vuoto in SSR — estrazione da URL come fallback.
+        // og:image richiede URL assoluto per i crawler social (WhatsApp, Telegram, ecc.)
+        const origin = this.document.location?.origin || (() => {
+            try { return new URL(url).origin; } catch { return ''; }
+        })();
 
         const imageUrl = imgId
             ? `${origin}/cdn-cgi/asset?id=${imgId}`
