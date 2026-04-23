@@ -1,5 +1,5 @@
 ﻿import { isPlatformBrowser, NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, PLATFORM_ID, computed, inject, resource } from '@angular/core';
+import { Component, PLATFORM_ID, computed, inject, resource } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { injectCurrentUrl } from '../../app.routes';
 import { Profile } from '../../core/dto/profile.dto';
@@ -29,8 +29,7 @@ interface SocialLinkVm {
     selector: 'app-footer',
     imports: [NgTemplateOutlet, RouterLink, TranslatePipe, SocialLinkComponent],
     templateUrl: './footer.component.html',
-    styleUrl: './footer.component.css',
-    changeDetection: ChangeDetectionStrategy.OnPush
+    styleUrl: './footer.component.css'
 })
 export class FooterComponent {
     protected readonly Math = Math;

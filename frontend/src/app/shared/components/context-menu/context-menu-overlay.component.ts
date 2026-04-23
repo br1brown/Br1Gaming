@@ -1,5 +1,4 @@
 import {
-    ChangeDetectionStrategy,
     Component,
     ElementRef,
     EventEmitter,
@@ -17,8 +16,7 @@ import { ContextMenuOption } from './context-menu.models';
 @Component({
     selector: 'app-context-menu-overlay',
     templateUrl: './context-menu-overlay.component.html',
-    styleUrl: './context-menu.component.css',
-    changeDetection: ChangeDetectionStrategy.OnPush
+    styleUrl: './context-menu.component.css'
 })
 export class ContextMenuOverlayComponent {
     @Input() options: ContextMenuOption[] = [];

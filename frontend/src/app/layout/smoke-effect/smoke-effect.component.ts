@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, Input, ElementRef, ViewChild, AfterViewInit, DestroyRef, PLATFORM_ID, inject } from '@angular/core';
+import { Component, Input, ElementRef, ViewChild, AfterViewInit, DestroyRef, PLATFORM_ID, inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { SmokeSettings } from '../../site';
 
@@ -30,8 +30,7 @@ import { SmokeSettings } from '../../site';
 @Component({
     selector: 'app-smoke-effect',
     templateUrl: './smoke-effect.component.html',
-    styleUrl: './smoke-effect.component.css',
-    changeDetection: ChangeDetectionStrategy.OnPush
+    styleUrl: './smoke-effect.component.css'
 })
 export class SmokeEffectComponent implements AfterViewInit {
     @Input() config!: SmokeSettings;

@@ -1,6 +1,5 @@
 import {
     AfterViewInit,
-    ChangeDetectionStrategy,
     Component,
     ElementRef,
     ViewChild,
@@ -28,8 +27,7 @@ import { ALLOWED_WIDTHS, type AssetWidth } from '../../app.config';
     selector: 'app-home',
     imports: [TranslatePipe, FormsModule, CommonModule, ContextMenuDirective],
     templateUrl: './home.component.html',
-    styleUrl: './home.component.css',
-    changeDetection: ChangeDetectionStrategy.OnPush
+    styleUrl: './home.component.css'
 })
 export class HomeComponent extends PageBaseComponent implements AfterViewInit {
     readonly theme = inject(ThemeService);

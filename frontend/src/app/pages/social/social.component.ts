@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, resource } from '@angular/core';
+import { Component, computed, resource } from '@angular/core';
 import { SocialLinkComponent } from '../../shared/components/social-link/social-link.component';
 import { PageBaseComponent } from '../page-base.component';
 
@@ -8,8 +8,7 @@ import { PageBaseComponent } from '../page-base.component';
 @Component({
     selector: 'app-social',
     imports: [SocialLinkComponent],
-    templateUrl: './social.component.html',
-    changeDetection: ChangeDetectionStrategy.OnPush
+    templateUrl: './social.component.html'
 })
 export class SocialComponent extends PageBaseComponent {
     private readonly socialResource = resource({
