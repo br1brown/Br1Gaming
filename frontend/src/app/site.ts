@@ -6,7 +6,8 @@ export type {
     SiteConfigInput,
     SitePageInput,
     SmokeSettings,
-    SmokeSettingsInput
+    SmokeSettingsInput,
+    RouteExtrasMap,
 } from './siteBuilder';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -126,3 +127,11 @@ export const ContestoSito = buildSite(site => {
         footer.addPage(PageType.CookiePolicy);
     });
 });
+
+/**
+ * Configurazione Angular-specifica delle route (resolver, guard, provider).
+ * Importata da app.routes.ts — NON dagli script Node.js (generate-statics.ts).
+ * Il child sovrascrive questa variabile con la propria configurazione.
+ * Usare `lazyResolver` da core/utils/lazy-resolver.ts per i resolver.
+ */
+export const routeExtras: import('./siteBuilder').RouteExtrasMap = {};
