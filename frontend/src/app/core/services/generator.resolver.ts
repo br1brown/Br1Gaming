@@ -19,7 +19,7 @@ function fetchByPageType(api: ApiService, pageType: PageType): Promise<Generator
 /**
  * Factory che restituisce un ResolveFn tipizzato per il PageType specificato.
  * I dati sono disponibili sincroni in route.snapshot.data['generator'].
- * In SSR saltiamo il caricamento per evitare hanging del server node in dev mode.
+ * In SSR Angular attende il completamento prima di serializzare l'HTML.
  */
 export function generatorResolver(pageType: PageType): ResolveFn<GeneratorInfo | null> {
     return (route, state) => {
