@@ -1011,28 +1011,3 @@ export function buildSite(
     };
 }
 
-/**
- * Avvolge un import dinamico in una ResolveFn lazy-loaded.
- *
- * Garantisce che Angular (e qualsiasi servizio iniettato nel resolver)
- * non venga mai caricato durante l'esecuzione di script Node.js come
- * generate-statics.ts: il dynamic import scatta solo quando il router
- * attiva la route, mai al bootstrap dello script.
- *
- * Uso tipico in site.ts:
- *   resolve: {
- *       myData: lazyResolver(() =>
- *           import('./core/services/my.resolver').then(m => m.myResolver(arg))
- *       ),
- *   }
- */
-export function lazyResolver<T>(
-    loadResolver: () => Promise<ResolveFn<T>>
-): ResolveFn<T> {
-    return async (route, state) => {
-        // Lazy import del resolver
-        const resolver = await loadResolver();
-        // Cast necessario: lazyResolver non supporta resolver che ritornano Observable
-        return resolver(route, state) as T | RedirectCommand;
-    };
-}
