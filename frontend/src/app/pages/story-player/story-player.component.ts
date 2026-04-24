@@ -4,7 +4,7 @@ import { Component, effect, inject, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { PageMetaService } from '../../core/services/page-meta.service';
 import { ContestoSito } from '../../site';
-import { PageType } from '../../app.routes';
+import { PageType } from '../../site';
 import { StoryPlayerFacade } from '../../core/services/story-player.facade';
 import { AssetService } from '../../core/services/asset.service';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
@@ -73,10 +73,8 @@ export class StoryPlayerComponent extends PageBaseComponent implements OnInit {
     }
 
     private updatePageMeta(storyTitle: string): void {
-        const raw = storyTitle
-            ? this.translate.translate('avventuraPlayer', storyTitle)
-            : this.translate.translate('avventure');
-        const title = `${raw} | ${ContestoSito.config.appName}`;
+        if (!storyTitle) return;
+        const title = `${this.translate.translate('avventuraPlayer', storyTitle)} | ${ContestoSito.config.appName}`;
         this.pageMeta.setTitle(title, ContestoSito.config.description);
     }
 }

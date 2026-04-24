@@ -25,6 +25,8 @@ export enum PageType {
     StoryMagrogamer09,
 }
 
+import { generatorResolver } from './core/services/generator.resolver';
+
 // ═══════════════════════════════════════════════════════════════════════
 // HELPER — crea una pagina generatore con path esplicito
 // ═══════════════════════════════════════════════════════════════════════
@@ -41,6 +43,10 @@ function generatorPage(
         pageType,
         showPanel: false,
         description,
+        resolve: {
+            generator: generatorResolver(pageType)
+        },
+        runGuardsAndResolvers: 'always',
         component: () => import('./pages/generator-detail/generator-detail.component')
             .then(m => m.GeneratorDetailComponent),
     };
