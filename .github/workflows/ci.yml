@@ -38,6 +38,14 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Build
+      - name: Generate Statics
         working-directory: frontend
-        run: npm run build -- --configuration production
+        run: npm run generate:statics
+
+      - name: Generate Icons
+        working-directory: frontend
+        run: npm run generate:icons
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npx ng build --configuration production
