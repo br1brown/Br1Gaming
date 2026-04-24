@@ -1,4 +1,4 @@
-﻿import type { Type, EnvironmentProviders, Provider } from '@angular/core';
+import type { Type, EnvironmentProviders, Provider } from '@angular/core';
 import type { ResolveFn, CanDeactivateFn, RunGuardsAndResolvers } from '@angular/router';
 import type { PageType } from './site';
 import type { PageBaseComponent } from './pages/page-base.component';
@@ -218,52 +218,46 @@ export type ParentPageInput = BasePageInput & {
  * - non può essere un link esterno
  */
 export type LeafPageInput = BasePageInput & {
-    /**
-     * Discriminante opzionale.
-     *
-     * In `site.ts` non serve più scriverlo: il builder deduce il tipo
-     * dalla presenza di `component`.
-     */
+    /** Discriminante opzionale */
     kind?: 'leaf';
-    /** Tipo logico della pagina interna. */
+
+    /** Tipo logico della pagina interna */
     pageType: PageType;
-    /** Loader lazy del componente Angular associato alla pagina. */
+
+    /** Loader lazy del componente Angular associato alla pagina */
     component: () => Promise<Type<PageBaseComponent>>;
-    /** Non consentito per una pagina foglia interna. */
+
+    /** Non consentito per una pagina foglia interna */
     children?: never;
-    /** Consente di mostrare o nascondere il pannello associato. */
+
+    /** Consente di mostrare o nascondere il pannello  */
     showPanel?: boolean;
-    /** Strategia di rendering dichiarativa della pagina. Default: `client`. */
+
+    /** Strategia di rendering dichiarativa della pagina. Default: `client` */
     renderMode?: SiteRenderMode;
+
     /**
      * Descrizione della pagina per social sharing (og:description, twitter:description).
      * Può essere una chiave i18n o una stringa letterale.
      * Se omessa, viene usata la descrizione globale del sito come fallback.
      */
     description?: string;
-    /** Non consentito per una pagina interna. */
-    externalUrl?: never;
-};
 
-/**
- * Configurazione Angular-specifica aggiuntiva per una route.
- *
- * Dichiarata in `routeExtras` (in site.ts) invece che in LeafPageInput
- * perché richiede import Angular runtime (resolver, guard, etc.) che non
- * devono essere caricati dagli script Node.js come generate-statics.ts.
- *
- * Vedere `lazyResolver` in core/utils/lazy-resolver.ts per i resolver.
- */
-export type RouteExtras = {
+    /** Non consentito per una pagina interna */
+    externalUrl?: never;
+
+    /** Resolver dati */
     resolve?: Record<string, ResolveFn<unknown>>;
+
+    /** Strategia di esecuzione di guard e resolver */
     runGuardsAndResolvers?: RunGuardsAndResolvers;
+
+    /** Guard di disattivazione */
     canDeactivate?: CanDeactivateFn<PageBaseComponent>[];
+
+    /** Provider locali alla route */
     providers?: (Provider | EnvironmentProviders)[];
 };
-
-/** Mappa PageType → configurazione Angular aggiuntiva della route. */
-export type RouteExtrasMap = Partial<Record<PageType, RouteExtras>>;
-
 /**
  * Pagina esterna dichiarabile in `site.ts`.
  *

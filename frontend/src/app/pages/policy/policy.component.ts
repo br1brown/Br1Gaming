@@ -1,10 +1,9 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, effect, inject, Injector, OnInit, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { PageType } from '../../app.routes';
 import { MarkdownPipe } from '../../shared/pipes/markdown.pipe';
 import { PageBaseComponent } from '../page-base.component';
-import { ContestoSito } from '../../site';
+import { ContestoSito, PageType } from '../../site';
 
 /**
  * Componente riusabile per tutte le pagine legali.
