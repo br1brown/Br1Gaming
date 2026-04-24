@@ -1,9 +1,8 @@
 ﻿import { Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { PageType } from '../../app.routes';
 import { TranslateService } from '../../core/services/translate.service';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
-import { ContestoSito } from '../../site';
+import { ContestoSito, PageType } from '../../site';
 
 /**
  * Pagina di errore generica, usata per qualsiasi codice HTTP (404, 500, ecc.).

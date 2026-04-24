@@ -1,10 +1,8 @@
 import { Component, ViewEncapsulation, effect, inject, input, signal } from '@angular/core';
-
-import { PageType } from '../../../app.routes';
 import { CookieConsentService } from '../../../core/services/cookie-consent.service';
 import { ThemeService } from '../../../core/services/theme.service';
 import { TranslateService } from '../../../core/services/translate.service';
-import { ContestoSito } from '../../../site';
+import { ContestoSito, PageType } from '../../../site';
 import { MarkdownPipe } from '../../pipes/markdown.pipe';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import cookieBannerLegalCatalog from './cookie-banner.legal.json';

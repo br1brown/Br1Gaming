@@ -1,7 +1,12 @@
 import { CanActivateFn, NavigationEnd, Route, Router, Routes } from '@angular/router';
 import { inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { filter, map } from 'rxjs/operators';
+import { filter, map } from 'rxjs';
+import { ContestoSito, PageType } from './site';
+import { AuthService } from './core/services/auth.service';
+import { InternalSitePage, isInternalPage, isParentPage } from './siteBuilder';
+import { NotificationService } from './core/services/notification.service';
+import { TranslateService } from './core/services/translate.service';
 
 export function injectCurrentUrl() {
     const router = inject(Router);
@@ -13,13 +18,6 @@ export function injectCurrentUrl() {
         { initialValue: router.url }
     );
 }
-
-import { ContestoSito, routeExtras } from './site';
-export { PageType } from './site';
-import { AuthService } from './core/services/auth.service';
-import { InternalSitePage, isInternalPage, isParentPage, RouteExtrasMap } from './siteBuilder';
-import { NotificationService } from './core/services/notification.service';
-import { TranslateService } from './core/services/translate.service';
 
 /**
  * Guard di autenticazione: protegge le rotte che hanno il flag `requiresAuth`.
@@ -45,23 +43,23 @@ const authGuard: CanActivateFn = () => {
  */
 export const routes: Routes = [
     // Contesto.pages contiene solo pagine interne; qui filtriamo quelle abilitate.
-    ...buildRoutes(ContestoSito.pages, routeExtras),
+    ...buildRoutes(ContestoSito.pages),
     ...buildErrorRoutes()
 ];
 
 /**
  * Trasforma ricorsivamente l'albero di pagine interne in Routes di Angular.
  */
-function buildRoutes(pages: InternalSitePage[], extras: RouteExtrasMap): Routes {
+function buildRoutes(pages: InternalSitePage[]): Routes {
     return pages
         .filter(page => page.enabled)
-        .map(page => toAngularRoute(page, extras));
+        .map(page => toAngularRoute(page));
 }
 
 /**
  * Converte un singolo nodo della DSL (Parent o Leaf) in una Route di Angular.
  */
-function toAngularRoute(page: InternalSitePage, extras: RouteExtrasMap): Route {
+function toAngularRoute(page: InternalSitePage): Route {
     const route: Route = {
         path: page.path,
         title: page.title,
@@ -75,7 +73,7 @@ function toAngularRoute(page: InternalSitePage, extras: RouteExtrasMap): Route {
 
     if (isParentPage(page)) {
         // Se e' un Parent, non carichiamo un componente ma i suoi figli.
-        route.children = buildRoutes(page.children.filter(isInternalPage), extras);
+        route.children = buildRoutes(page.children.filter(isInternalPage));
     } else {
         // Se e' una LeafPage, carichiamo il componente in modo lazy.
         route.loadComponent = page.component;
@@ -85,19 +83,18 @@ function toAngularRoute(page: InternalSitePage, extras: RouteExtrasMap): Route {
             showPanel: page.showPanel !== undefined ? page.showPanel : true,
             pageDescription: page.description ?? null,
         };
-        let pageExtras = page.pageType !== undefined ? extras[page.pageType] : undefined;
 
-        if (!!pageExtras?.resolve)
-            route.resolve = pageExtras.resolve;
+        if (!!page.resolve)
+            route.resolve = page.resolve;
 
-        if (!!pageExtras?.runGuardsAndResolvers)
-            route.runGuardsAndResolvers = pageExtras.runGuardsAndResolvers;
+        if (!!page.runGuardsAndResolvers)
+            route.runGuardsAndResolvers = page.runGuardsAndResolvers;
 
-        if (!!pageExtras?.canDeactivate)
-            route.canDeactivate = pageExtras.canDeactivate;
+        if (!!page.canDeactivate)
+            route.canDeactivate = page.canDeactivate;
 
-        if (!!pageExtras?.providers)
-            route.providers = pageExtras.providers;
+        if (!!page.providers)
+            route.providers = page.providers;
     }
 
     return route;

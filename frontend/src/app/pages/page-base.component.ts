@@ -1,8 +1,9 @@
 import { Directive, inject, input } from '@angular/core';
-import { PageType } from '../app.routes';
+import { ApiService } from '../core/services/api.service';
 import { AssetService } from '../core/services/asset.service';
 import { NotificationService } from '../core/services/notification.service';
 import { TranslateService } from '../core/services/translate.service';
+import { PageType } from '../site';
 
 /**
  * Base comune per le pagine instradate tramite il modello centrale app.routes.

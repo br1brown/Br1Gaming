@@ -4,12 +4,10 @@ import { NgTemplateOutlet, UpperCasePipe } from '@angular/common';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { injectCurrentUrl } from '../../app.routes';
-
-import { PageType } from '../../app.routes';
 import { ThemeService } from '../../core/services/theme.service';
 import { TranslateService } from '../../core/services/translate.service';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
-import { ContestoSito } from '../../site';
+import { ContestoSito, PageType } from '../../site';
 import { NavLink } from '../../siteBuilder';
 
 /**

@@ -18,6 +18,7 @@
  *   - Pagine protette da autenticazione (requiresAuth: true)
  */
 
+import '@angular/compiler';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { ContestoSito } from '../src/app/site';
