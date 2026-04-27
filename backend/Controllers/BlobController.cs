@@ -32,7 +32,7 @@ public class BlobController : EngineApiController
     {
         var filePath = Path.GetFullPath(Path.Combine(_uploadsPath, slug));
 
-        if (!filePath.StartsWith(_uploadsPath, StringComparison.OrdinalIgnoreCase))
+        if (!filePath.StartsWith(_uploadsPath, StringComparison.Ordinal))
             throw new InvalidParametersException();
 
         if (!System.IO.File.Exists(filePath))

@@ -59,7 +59,7 @@ export class ApiService extends BaseApiService {
     getBlob(slug: string): Promise<Blob> {
         return firstValueFrom(
             this.http.get(API.blob(slug), { headers: this.build_api_Headers(), responseType: 'blob' })
-                .pipe(catchError(err => { throw err; }))
+                .pipe(catchError(err => this.handleError(err)))
         );
     }
 

@@ -7,4 +7,5 @@ export const serverEnv = {
     backendOrigin: (process.env['BACKEND_ORIGIN']          ?? 'http://backend:8080').replace(/\/$/, ''),
     backendApiKey: process.env['BACKEND_API_KEY']          ?? 'frontend',
     proxyTimeout:  Number(process.env['PROXY_TIMEOUT_MS']  ?? 30_000),
+    assetsDir:           process.env['ASSETS_DIR']         ?? '',
 };

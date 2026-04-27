@@ -15,9 +15,8 @@ Br1WebEngine e' un'engine full-stack per siti content-driven e piccoli portali: 
 - [Architettura del Progetto](#architettura-del-progetto)
 - [Dettagli Tecnici](#dettagli-tecnici)
 - [Configurazione](#configurazione)
-- [Operazioni Comuni](#operazioni-comuni)
 - [Da locale a produzione](#da-locale-a-produzione)
-- [Estendere l'Engine](#estendere-lengine)
+- [Guide allo sviluppo](#guide-allo-sviluppo)
 - [Licenza](#licenza)
 
 ---
@@ -89,7 +88,9 @@ Br1WebEngine e' costruito intorno a un principio: **se una cosa puo' derivarsi d
 - Un [context menu](#context-menu) con directive: click destro su desktop, long-press su mobile, posizionamento automatico e chiusura con Escape
 - 35+ [social con icona e colore brand](#social-link) mappati in un componente: passi il nome, esce l'icona giusta col colore giusto
 - Un [servizio di condivisione](#condivisione-e-clipboard) unifica Clipboard API, Web Share API e download in un'unica interfaccia con fallback automatico
-- L'[image builder](#generazione-immagini-su-canvas) genera immagini su canvas con word-wrap calcolato via `measureText()`, pronte per social sharing
+- L'[image builder](#generazione-immagini-su-canvas) genera immagini su canvas con word-wrap calcolato via `measureText()`; i colori di default seguono automaticamente il tema attivo con contrasto WCAG garantito, pronte per social sharing
+- Il [generatore QR code](#generatore-qr-code) produce blob PNG e SVG per cinque formati (testo/URL, WhatsApp, email, Wi-Fi, SEPA); SSR-safe, con caching payload+colori e colori automatici dal tema
+- `<app-loading>` e' un [wrapper di caricamento](#componente-loading) riusabile: mostra uno spinner Bootstrap quando `loading = true`, proietta il contenuto via `<ng-content>` quando e' `false`
 - Gli [asset](#ottimizzazione-immagini) si risolvono da un `mapping.json` piatto: immagini raster vengono ottimizzate con Sharp, gli altri file serviti direttamente — tutto accessibile tramite ID, senza esporre il filesystem
 - [`AssetService.getUrlFromBlob()`](#ottimizzazione-immagini-e-asset) crea URL da Blob (API esterne o canvas) con tracking automatico e rilascio memoria al cambio pagina
 - Il [controllo versione](#controllo-versione-e-aggiornamenti) rileva automaticamente se è disponibile una nuova versione dell'app e propone all'utente di ricaricare la pagina
@@ -316,7 +317,7 @@ Un colore hex in `site.ts` (`colorTema: '#131e24'`). Il `ThemeService` calcola:
 - **CSS variable** `--colorTema` su `:root`
 - **Meta tag** `theme-color` per browser mobile
 
-Tutto reattivo via Angular signals.
+Tutto reattivo via Angular signals. `ImgBuilderService` e `QrCodeService` leggono `colorPrimary()` e `colorPrimaryText()` come default colori, garantendo coerenza visiva e contrasto WCAG senza configurazione aggiuntiva.
 
 #### Sistema di traduzione addon
 Due file per lingua: `basic.{lang}.json` (template) e `addon.{lang}.json` (progetto). Caricati in parallelo, fusi con `Object.assign` — l'addon vince. Supporta placeholder posizionali: `t('saluto', 'Mario')` → `"Ciao Mario"`.
@@ -490,7 +491,14 @@ Il pannello contenuti si adatta automaticamente: su temi scuri usa superficie ch
 Supporta anche la condivisione di canvas come immagini PNG tramite `shareCanvas()`.
 
 #### Generazione immagini su canvas
-`ImgBuilder` genera immagini dinamiche su canvas con:
+`renderToCanvas` e' la funzione pura che esegue il rendering. `ImgBuilderService` e' il wrapper Angular injectable:
+
+- `render(canvas, opts)` — usa automaticamente `colorPrimary` (sfondo) e `colorPrimaryText` (testo) dal tema attivo; contrasto WCAG garantito da `ThemeService`
+- `renderWithColors(canvas, opts, fg, bg)` — colori espliciti quando il componente offre un color picker o necessita di colori specifici
+
+`opts` non include `bgColor`/`textColor`: chi usa il service non deve preoccuparsi dei colori. La funzione pura `renderToCanvas` rimane disponibile per chi ha gia' tutti i parametri.
+
+Funzionalita' del renderer:
 
 - Word-wrap intelligente via `measureText()` (spezza per parola, poi per carattere se necessario)
 - Centratura verticale automatica del testo
@@ -498,6 +506,50 @@ Supporta anche la condivisione di canvas come immagini PNG tramite `shareCanvas(
 - Font web-safe selezionabili (Arial, Georgia, Courier New, Verdana, Times)
 
 Utile per banner, placeholder e immagini di condivisione social generate al volo.
+
+#### Generatore QR code
+`QrCodeService` genera QR code in formato Blob PNG o stringa SVG. E' un generatore puro: non gestisce UI, errori visivi ne' download — il chiamante usa `ShareService` e `AssetService` secondo necessita'.
+
+**Formati supportati**
+| Tipo | Campi richiesti | Campi opzionali |
+|---|---|---|
+| `text` | `content` | — |
+| `whatsapp` | `phone` | `text` |
+| `email` | `to` | `subject`, `body` |
+| `wifi` | `ssid` | `password`, `encryption` (`WPA`/`WEP`/`nopass`) |
+| `sepa` | `iban`, `name`, `amount` | `remittance` |
+
+**API**
+- `create(config)` — Blob PNG con colori del tema attivo (`colorPrimary` sfondo, `colorPrimaryText` moduli)
+- `createWithColors(config, fg, bg)` — Blob PNG con colori espliciti
+- `toSVG(config)` / `toSVGWithColors(config, fg, bg)` — varianti SVG; restituiscono `null` su SSR
+- Risultati cachati per `payload + colori` — generare lo stesso QR piu' volte costa solo la prima volta
+
+**Validazione integrata**: telefono (E.164), email e IBAN vengono validati prima della generazione; errori restituiti come `QrResponse` tipizzato con `QrError` enum.
+
+**Pattern di utilizzo tipico**:
+```typescript
+const result = await this.qrCode.create({ type: 'text', content: url });
+if (result.success) {
+    // mostra inline
+    this.qrUrl = this.asset.getUrlFromBlob(result.blob).angularUrl;
+    // oppure scarica
+    this.share.downloadBlob(result.blob, 'qrcode.png');
+    // oppure condividi
+    await this.share.shareFile(result.blob, 'qrcode.png');
+}
+```
+
+#### Componente loading
+`LoadingComponent` e' un wrapper standalone riusabile per qualsiasi blocco condizionato al caricamento:
+
+```html
+<app-loading [loading]="isLoading">
+    <div>contenuto visibile solo quando pronto</div>
+</app-loading>
+```
+
+Quando `loading = true` mostra uno spinner Bootstrap centrato; quando `false` proietta il contenuto tramite `<ng-content>`. Usato ad esempio nel footer per le sezioni profilo-dipendenti: durante il caricamento dell'API compare lo spinner, poi appaiono contatti e dati societari.
 
 #### Accessibilita'
 L'engine include supporto WCAG integrato nel CSS base:
@@ -530,6 +582,8 @@ Riepilogo di tutti i servizi, componenti e dati disponibili out-of-the-box. Util
 | `SpeechService` | Text-to-speech via Web Speech API: `speak(text, options?)`, `stop()`, segnali `isSpeaking` e `currentVoice`; voce e lingua seguono automaticamente `TranslateService` |
 | `AssetService` | URL verso `/cdn-cgi/asset`; `getUrlFromBlob(blob)` per Blob locali con tracking e revoca automatica |
 | `ShareService` | Clipboard, Web Share API e download con fallback |
+| `QrCodeService` | Genera QR code in blob PNG e SVG per testo/URL, WhatsApp, email, Wi-Fi e SEPA; colori tema automatici; `create()` / `createWithColors()` / `toSVG()` / `toSVGWithColors()`; caching per payload+colori; SSR-safe |
+| `ImgBuilderService` | Wrapper injectable su `renderToCanvas`: `render()` usa i colori del tema (WCAG), `renderWithColors()` per colori espliciti |
 | `CookieConsentService` | Gestione consenso cookie GDPR |
 | `NotificationService` | SweetAlert2 lazy: `success()`, `error()`, `loading()` / `close()`, `confirm()` (con opzioni icona/testi/click-esterno), `prompt()`, `toast()` (con pausa hover), `validationErrors()`, `handleApiError()` |
 | `VersionCheckService` | Rileva nuove versioni dell'app ogni 10 min; propone reload via `confirm()` |
@@ -543,6 +597,7 @@ Riepilogo di tutti i servizi, componenti e dati disponibili out-of-the-box. Util
 | `CookieBannerComponent` | Banner GDPR con testo Markdown e placeholder dinamici |
 | `BackToTopComponent` | Pulsante scroll-to-top con soglia; colori derivati automaticamente dal tema |
 | `SmokeEffectComponent` | Effetto particellare su canvas configurabile da `site.ts` |
+| `LoadingComponent` | Wrapper `<app-loading [loading]="bool">`: spinner Bootstrap se `true`, `<ng-content>` se `false`; standalone |
 | `MarkdownPipe` | Markdown → HTML con protezione XSS integrata |
 
 **Dati demo** (`backend/data/`):
@@ -620,55 +675,6 @@ npm run dev:ssr   # build + avvia server.mjs
 
 ---
 
-## Operazioni Comuni
-
-Le operazioni piu' frequenti che farai lavorando con l'engine. Ogni ricetta e' pensata per essere seguita passo-passo.
-
-### Inizializzare un progetto derivato
-Br1WebEngine funziona direttamente cosi' com'e': puoi clonare, configurare `.env` e avviare senza toccare nient'altro. Se vuoi invece partire con un nome di progetto personalizzato fin dall'inizio, esegui una sola volta:
-
-```bash
-./init-project.sh mio-progetto
-```
-
-Lo script crea `.env` con `COMPOSE_PROJECT_NAME` gia' valorizzato. E' un'operazione opzionale: puoi anche copiare manualmente `.env.example` in `.env` e impostare `COMPOSE_PROJECT_NAME` a mano.
-
-### Aggiungere una pagina
-1. Aggiungi un valore a `PageType` in `frontend/src/app/site.ts`.
-2. Crea il componente sotto `frontend/src/app/pages/` estendendo `PageBaseComponent`.
-3. Registra la pagina in `defineSitePages(...)` con path, titolo e componente.
-4. (Opzionale) Aggiungi `description: 'chiaveI18n'` per personalizzare i meta tag social della pagina.
-5. Aggiungila alla navigazione con `addPage(PageType.X)` se serve.
-6. Inserisci le chiavi i18n in `addon.it.json` e `addon.en.json`.
-
-**Se la pagina usa `renderMode: 'server'`**, aggiungi anche:
-
-7. Dichiara un `resolve` in `site.ts` con le chiamate API che servono alla pagina:
-   ```typescript
-   resolve: { nomeInput: () => inject(ApiService).tuoMetodo() }
-   ```
-8. Nel componente, dichiara un `input()` con lo stesso nome e il tipo corretto:
-   ```typescript
-   readonly nomeInput = input<TuoTipo>();
-   ```
-9. Usa `computed()` (non `effect()`) per derivare lo stato dai dati risolti.
-
-   > Se dimentichi il `resolve`, `SiteBuilder` lo segnala con un avviso a console al caricamento dell'app.
-
-### Aggiungere un endpoint API
-1. Scegli il controller giusto: `BaseController`, `AuthController` o `ProtectedController`. Quelli auth/protected vengono esposti solo quando il login JWT e' abilitato.
-2. Crea la logica in `backend/Services/` o in un servizio dedicato.
-3. Se serve, estendi `FileContentStore` tramite `backend/Store/IContentStore.cs`.
-4. Esponi la chiamata lato frontend in `frontend/src/app/core/services/api.service.ts`.
-
-
-### Abilitare il login
-1. Imposta `Security.Token.SecretKey` in `appsettings.json` o via env var.
-2. Implementa la validazione credenziali in `backend/Controllers/AuthController.cs`. **Questo passo è obbligatorio**: il template include un endpoint `POST /api/auth/login` che per design risponde sempre `valid: false`. La password arriva come JSON nel campo `request.Pwd` (record `LoginRequest`). Devi sostituire quella logica con la tua (database, hash password, ecc.).
-3. Emetti il token tramite `Auth.GenerateToken(additionalClaims)` quando le credenziali sono valide. I claim aggiuntivi (es. userId, ruoli) vengono inclusi nel JWT e sono verificabili lato server nelle route protette.
-
----
-
 ## Da locale a produzione
 
 Checklist per portare il progetto da locale a una VPS o un altro server. Segui i passi nell'ordine indicato.
@@ -734,39 +740,14 @@ Se vuoi, puoi tenere `DOCKER_README.md` come riferimento operativo dettagliato e
 
 ---
 
-## Estendere l'Engine
+## Guide allo sviluppo
 
-L'engine e' progettato per essere esteso senza modificare il codice base. Le operazioni piu' comuni sono: sostituire lo storage, aggiungere controller protetti, supportare nuove lingue e cambiare tema.
+I dettagli su come aggiungere pagine, servizi, componenti ed endpoint sono nelle guide dedicate:
 
-### Sostituire il content store
-Crea una classe che implementa `IContentStore` e registrala in `Program.cs`:
-```csharp
-builder.Services.AddSingleton<IContentStore, MyDatabaseStore>();
-```
-Controller e servizi continuano a funzionare senza modifiche.
+- **[`frontend/DEVELOPMENT.md`](frontend/DEVELOPMENT.md)** — pattern Angular: pagine, servizi, componenti, direttive, signal, SSR, i18n
+- **[`backend/DEVELOPMENT.md`](backend/DEVELOPMENT.md)** — pattern ASP.NET Core: endpoint, servizi, gestione errori, database, login, configurazione
 
-### Aggiungere un controller protetto
-Estendi `EngineProtectedController`: erediti `[Authorize(Policy = RequireLoginPolicy)]` e `ILogger` senza configurare nulla.
-```csharp
-[Route("api/admin")]
-public class AdminController : EngineProtectedController
-{
-    public AdminController(ILogger<AdminController> logger) : base(logger) { }
-
-    [HttpGet("dashboard")]
-    public IActionResult Dashboard() => Ok(new { status = "ok" });
-}
-```
-
-### Aggiungere una lingua
-1. Aggiungi il codice in `availableLanguages` dentro `site.ts`.
-2. Crea `basic.{lang}.json` e `addon.{lang}.json` in `frontend/src/assets/i18n/`.
-3. Registra il loader della nuova lingua in `frontend/src/app/core/i18n/translation-catalogs.ts`, seguendo il pattern delle lingue esistenti.
-4. Aggiungi il codice in `Localization.SupportedLanguages` dentro `appsettings.json` (es. `"fr"`). Nessuna modifica al codice C#.
-5. Se i contenuti JSON in `backend/data/` hanno campi localizzati, aggiungi il ramo della nuova lingua.
-
-### Cambiare il tema
-Modifica `colorTema` in `site.ts`. Il `ThemeService` ricalcola automaticamente contrasto, tono, colore primario e variabili CSS.
+Il README rimane l'overview di cosa fa l'engine e come deployarlo; le guide coprono il come si estende.
 
 ## Licenza
 Questo progetto e' rilasciato sotto licenza MIT. Vedi [`LICENSE`](LICENSE).

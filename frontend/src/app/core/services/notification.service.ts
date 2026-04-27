@@ -26,7 +26,7 @@ export class NotificationService {
             void swal.then(Swal =>
                 Swal.fire(this.translate.translate('ottimo') + '!', message, 'success').then(() => onClose?.())
             );
-        } else if (typeof window !== 'undefined') {
+        } else if (isPlatformBrowser(this.platformId)) {
             window.alert(message);
             onClose?.();
         }
@@ -39,7 +39,7 @@ export class NotificationService {
                 if (Swal.isVisible()) return;
                 Swal.fire(title, message, 'error');
             });
-        } else if (typeof window !== 'undefined') {
+        } else if (isPlatformBrowser(this.platformId)) {
             window.alert(`${title}\n${message}`);
         }
     }
@@ -81,7 +81,7 @@ export class NotificationService {
                     allowOutsideClick: options?.allowOutsideClick ?? true,
                 }).then(result => result.isConfirmed ? callbacks.onConfirm() : callbacks.onCancel?.())
             );
-        } else if (typeof window !== 'undefined') {
+        } else if (isPlatformBrowser(this.platformId)) {
             window.confirm(`${title}\n${text}`) ? callbacks.onConfirm() : callbacks.onCancel?.();
         }
     }
@@ -109,7 +109,7 @@ export class NotificationService {
                     }
                 })
             );
-        } else if (typeof window !== 'undefined') {
+        } else if (isPlatformBrowser(this.platformId)) {
             const val = window.prompt(inputLabel);
             val !== null ? callbacks.onSubmit(val) : callbacks.onCancel?.();
         }
@@ -158,7 +158,7 @@ export class NotificationService {
                     confirmButtonText: this.translate.translate('chiudi'),
                 });
             });
-        } else if (typeof window !== 'undefined') {
+        } else if (isPlatformBrowser(this.platformId)) {
             window.alert(`${title}\n${items.join('\n')}`);
         }
     }

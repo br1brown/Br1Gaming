@@ -10,10 +10,12 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { SafeUrl } from '@angular/platform-browser';
 import { MarkdownPipe } from '../../shared/pipes/markdown.pipe';
 import { ShareService } from '../../core/services/share.service';
 import { ThemeService } from '../../core/services/theme.service';
-import { renderToCanvas } from '../../core/services/img-builder.service';
+import { ImgBuilderService } from '../../core/services/img-builder.service';
+import { QrCodeService, QrConfig } from '../../core/services/qr-code.service';
 
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { ContextMenuOption } from '../../shared/components/context-menu/context-menu.models';
@@ -32,6 +34,8 @@ import { ALLOWED_WIDTHS, type AssetWidth } from '../../app.config';
 export class HomeComponent extends PageBaseComponent implements AfterViewInit {
     readonly theme = inject(ThemeService);
     readonly share = inject(ShareService);
+    private readonly imgBuilder = inject(ImgBuilderService);
+    private readonly qrCode = inject(QrCodeService);
     readonly appName = ContestoSito.config.appName;
     readonly speech = inject(SpeechService);
 
@@ -39,8 +43,8 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
 
     @ViewChild('homeImageCanvas') homeImageCanvasRef!: ElementRef<HTMLCanvasElement>;
 
-    // --- Inizializza con una traduzione ---
-    speechDemoText = this.translate.translate('speechPlaceholder');
+    // --- Signal scrivibile: aggiornato al cambio lingua, modificabile dall'utente ---
+    readonly speechDemoText = signal(this.translate.translate('speechPlaceholder'));
 
     // --- Laboratorio Markdown ---
     markdownInput = '';
@@ -50,9 +54,29 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
 
     // --- Demo immagini integrata nella home ---
     imgText = 'Hello World';
-    imgBgColor = this.theme.colorTema();
-    imgTextColor = this.theme.isDarkTextPreferred() ? '#000000' : '#ffffff';
+    imgBgColor = this.theme.colorPrimary();
+    imgTextColor = this.theme.colorPrimaryText();
     imgFontSize = 48;
+
+    // --- QR Code playground ---
+    qrType: QrConfig['type'] = 'text';
+    qrText = 'https://example.com';
+    qrPhone = '';
+    qrWhatsappText = '';
+    qrEmail = '';
+    qrEmailSubject = '';
+    qrEmailBody = '';
+    qrSsid = '';
+    qrWifiPassword = '';
+    qrWifiEncryption: 'WPA' | 'WEP' | 'nopass' = 'WPA';
+    qrIban = '';
+    qrBeneficiaryName = '';
+    qrAmount = 10;
+    qrRemittance = '';
+    readonly qrImageUrl = signal<SafeUrl | null>(null);
+    readonly qrError = signal<string | null>(null);
+    readonly qrReady = signal(false);
+    private qrBlob: Blob | null = null;
 
     // --- Sistema & API ---
     socialFilter = '';
@@ -128,9 +152,9 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
         super();
         this.contextDemoText = '';
 
+        // Aggiorna il testo di esempio al cambio lingua, preservando eventuali modifiche utente
         effect(() => {
-            this.translate.currentLang(); // traccia cambio lingua
-            this.speechDemoText = this.translate.translate('speechPlaceholder');
+            this.speechDemoText.set(this.translate.translate('speechPlaceholder'));
         });
     }
 
@@ -169,15 +193,13 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
         const canvas = this.homeImageCanvasRef?.nativeElement;
         if (!canvas) return;
 
-        renderToCanvas(canvas, {
+        this.imgBuilder.renderWithColors(canvas, {
             text: this.imgText || 'Hello World',
-            bgColor: this.imgBgColor,
-            textColor: this.imgTextColor,
             fontSize: this.imgFontSize,
             canvasWidth: 600,
             fontFamily: 'Arial',
             margin: 24
-        });
+        }, this.imgTextColor, this.imgBgColor);
     }
 
     resetHomeImage(): void {
@@ -188,8 +210,8 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
     }
 
     private applyThemeImageDefaults(): void {
-        this.imgBgColor = this.theme.colorTema();
-        this.imgTextColor = this.theme.isDarkTextPreferred() ? '#000000' : '#ffffff';
+        this.imgBgColor = this.theme.colorPrimary();
+        this.imgTextColor = this.theme.colorPrimaryText();
     }
 
     downloadHomeImage(): void {
@@ -203,6 +225,56 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
         if (!canvas) return;
         const filename = `${this.appName.toLowerCase().replace(/\s+/g, '-')}-image.png`;
         this.share.shareCanvas(canvas, this.appName, filename);
+    }
+
+    // ==================== QR Code ====================
+
+    async generateQr(): Promise<void> {
+        const config = this.buildQrConfig();
+        if (!config) return;
+
+        const result = await this.qrCode.create(config);
+        if (!result.success) {
+            this.qrError.set(result.message ?? result.error);
+            this.qrImageUrl.set(null);
+            this.qrBlob = null;
+            return;
+        }
+
+        this.qrBlob = result.blob;
+        this.qrReady.set(true);
+        this.qrError.set(null);
+        this.qrImageUrl.set(this.asset.getUrlFromBlob(result.blob).angularUrl);
+    }
+
+    private buildQrConfig(): QrConfig | null {
+        switch (this.qrType) {
+            case 'text':
+                return { type: 'text', content: this.qrText };
+            case 'whatsapp':
+                return { type: 'whatsapp', phone: this.qrPhone, text: this.qrWhatsappText };
+            case 'email':
+                return { type: 'email', to: this.qrEmail, subject: this.qrEmailSubject, body: this.qrEmailBody };
+            case 'wifi':
+                return { type: 'wifi', ssid: this.qrSsid, password: this.qrWifiPassword, encryption: this.qrWifiEncryption };
+            case 'sepa':
+                return { type: 'sepa', iban: this.qrIban, name: this.qrBeneficiaryName, amount: this.qrAmount, remittance: this.qrRemittance };
+        }
+    }
+
+    onQrTypeChange(): void {
+        this.qrImageUrl.set(null);
+        this.qrError.set(null);
+        this.qrReady.set(false);
+        this.qrBlob = null;
+    }
+
+    downloadQr(): void {
+        if (this.qrBlob) this.share.downloadBlob(this.qrBlob, 'qrcode.png');
+    }
+
+    async shareQrCode(): Promise<void> {
+        if (this.qrBlob) await this.share.shareFile(this.qrBlob, 'qrcode.png', 'QR Code');
     }
 
     // ==================== Demo modali ====================
@@ -245,7 +317,7 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
         if (this.speech.isSpeaking()) {
             this.speech.stop();
         } else {
-            this.speech.speak(this.speechDemoText);
+            this.speech.speak(this.speechDemoText());
         }
     }
 

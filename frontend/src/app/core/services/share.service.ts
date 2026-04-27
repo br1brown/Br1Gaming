@@ -1,4 +1,5 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, PLATFORM_ID, inject } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { NotificationService } from './notification.service';
 import { TranslateService } from './translate.service';
 
@@ -13,6 +14,7 @@ import { TranslateService } from './translate.service';
 export class ShareService {
     private readonly notify = inject(NotificationService);
     private readonly translate = inject(TranslateService);
+    private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
     // ─── Clipboard ──────────────────────────────────────────────────────
 
@@ -38,6 +40,7 @@ export class ShareService {
 
     /** Fallback per contesti non-HTTPS o browser senza Clipboard API */
     private execCommandCopy(text: string): boolean {
+        if (!this.isBrowser) return false;
         const textarea = document.createElement('textarea');
         textarea.value = text;
         textarea.style.position = 'fixed';
@@ -112,6 +115,7 @@ export class ShareService {
 
     /** Scarica un blob come file */
     downloadBlob(blob: Blob, filename: string): void {
+        if (!this.isBrowser) return;
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.download = filename;
@@ -122,6 +126,7 @@ export class ShareService {
 
     /** Scarica il contenuto di un canvas come file PNG */
     downloadCanvas(canvas: HTMLCanvasElement, filename = 'immagine.png'): void {
+        if (!this.isBrowser) return;
         const link = document.createElement('a');
         link.download = filename;
         link.href = canvas.toDataURL('image/png');

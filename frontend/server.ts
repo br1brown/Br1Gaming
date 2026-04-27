@@ -20,8 +20,11 @@ const { port, backendOrigin, backendApiKey, proxyTimeout } = serverEnv;
 const serverDistFolder = dirname(fileURLToPath(import.meta.url));
 const browserDistFolder = resolve(serverDistFolder, '../browser');
 
+// In prod (Docker) i file sono nel browser dist; in dev locale si imposta ASSETS_DIR nello script di avvio.
+const assetFilesDir = serverEnv.assetsDir || join(browserDistFolder, 'assets/files');
+
 // Cache immagini su disco: creata all'avvio, svuotata ad ogni rebuild del container
-const cacheDir = join(browserDistFolder, 'assets/files/image-cache');
+const cacheDir = join(assetFilesDir, 'image-cache');
 mkdirSync(cacheDir, { recursive: true });
 
 // Carichiamo il mapping ID -> filename reale da assets/mapping.json.
@@ -186,7 +189,7 @@ app.get('/cdn-cgi/asset', async (req, res) => {
 
         if (!filename) return res.status(404).send('Asset not found');
 
-        const absolutePath = join(browserDistFolder, 'assets/files/', filename);
+        const absolutePath = join(assetFilesDir, filename);
         if (!existsSync(absolutePath))
             return res.status(404).send('Source file not found');
 

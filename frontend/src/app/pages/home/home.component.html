@@ -153,6 +153,151 @@
                 </div>
             </section>
 
+            <!-- QR CODE -->
+            <section class="mb-4">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <h2 class="card-title mb-1 h5">QR Code</h2>
+                                <p class="text-muted small mb-3">
+                                    Genera QR code per testo, link, WhatsApp, email, Wi-Fi e pagamenti SEPA.
+                                    Colori automatici dal tema attivo con contrasto WCAG garantito.
+                                </p>
+
+                                <div class="row g-4 align-items-start">
+
+                                    <!-- Controlli -->
+                                    <div class="col-md-5">
+
+                                        <!-- Tipo -->
+                                        <label class="form-label">Tipo</label>
+                                        <select class="form-select mb-3"
+                                                [(ngModel)]="qrType"
+                                                (ngModelChange)="onQrTypeChange()">
+                                            <option value="text">Testo / URL</option>
+                                            <option value="whatsapp">WhatsApp</option>
+                                            <option value="email">Email</option>
+                                            <option value="wifi">Wi-Fi</option>
+                                            <option value="sepa">Pagamento SEPA</option>
+                                        </select>
+
+                                        <!-- Campi dinamici per tipo -->
+                                        @switch (qrType) {
+
+                                            @case ('text') {
+                                                <label class="form-label">Contenuto</label>
+                                                <textarea class="form-control mb-3"
+                                                          rows="3"
+                                                          [(ngModel)]="qrText"
+                                                          placeholder="https://example.com oppure testo libero"></textarea>
+                                            }
+
+                                            @case ('whatsapp') {
+                                                <label class="form-label">Numero (con prefisso, es. +39…)</label>
+                                                <input type="tel" class="form-control mb-2"
+                                                       [(ngModel)]="qrPhone"
+                                                       placeholder="+393331234567">
+                                                <label class="form-label">Messaggio precompilato (opzionale)</label>
+                                                <textarea class="form-control mb-3"
+                                                          rows="2"
+                                                          [(ngModel)]="qrWhatsappText"></textarea>
+                                            }
+
+                                            @case ('email') {
+                                                <label class="form-label">Destinatario</label>
+                                                <input type="email" class="form-control mb-2"
+                                                       [(ngModel)]="qrEmail"
+                                                       placeholder="info@esempio.it">
+                                                <label class="form-label">Oggetto (opzionale)</label>
+                                                <input type="text" class="form-control mb-2"
+                                                       [(ngModel)]="qrEmailSubject">
+                                                <label class="form-label">Corpo (opzionale)</label>
+                                                <textarea class="form-control mb-3"
+                                                          rows="2"
+                                                          [(ngModel)]="qrEmailBody"></textarea>
+                                            }
+
+                                            @case ('wifi') {
+                                                <label class="form-label">Nome rete (SSID)</label>
+                                                <input type="text" class="form-control mb-2"
+                                                       [(ngModel)]="qrSsid"
+                                                       placeholder="NomeWifi">
+                                                <label class="form-label">Password (opzionale)</label>
+                                                <input type="text" class="form-control mb-2"
+                                                       [(ngModel)]="qrWifiPassword">
+                                                <label class="form-label">Sicurezza</label>
+                                                <select class="form-select mb-3" [(ngModel)]="qrWifiEncryption">
+                                                    <option value="WPA">WPA / WPA2</option>
+                                                    <option value="WEP">WEP</option>
+                                                    <option value="nopass">Nessuna</option>
+                                                </select>
+                                            }
+
+                                            @case ('sepa') {
+                                                <label class="form-label">IBAN beneficiario</label>
+                                                <input type="text" class="form-control mb-2"
+                                                       [(ngModel)]="qrIban"
+                                                       placeholder="IT60 X054 2811 1010 0000 0123 456">
+                                                <label class="form-label">Nome beneficiario</label>
+                                                <input type="text" class="form-control mb-2"
+                                                       [(ngModel)]="qrBeneficiaryName">
+                                                <label class="form-label">Importo (€)</label>
+                                                <input type="number" class="form-control mb-2"
+                                                       [(ngModel)]="qrAmount"
+                                                       min="0.01" step="0.01">
+                                                <label class="form-label">Causale (opzionale)</label>
+                                                <input type="text" class="form-control mb-3"
+                                                       [(ngModel)]="qrRemittance">
+                                            }
+                                        }
+
+                                        <div class="d-flex flex-wrap gap-2">
+                                            <button class="btn btn-primary btn-sm" (click)="generateQr()">
+                                                <i class="fa-solid fa-qrcode me-1"></i>Genera
+                                            </button>
+
+                                            @if (qrReady()) {
+                                                <button class="btn btn-outline-primary btn-sm" (click)="downloadQr()">
+                                                    <i class="fas fa-download me-1"></i>{{ 'scarica' | translate }}
+                                                </button>
+                                                <button class="btn btn-outline-secondary btn-sm" (click)="shareQrCode()">
+                                                    <i class="fas fa-share-nodes me-1"></i>{{ 'condividi' | translate }}
+                                                </button>
+                                            }
+                                        </div>
+
+                                        @if (qrError()) {
+                                            <div class="alert alert-warning mt-3 mb-0 py-2 small">
+                                                <i class="fa-solid fa-triangle-exclamation me-1"></i>{{ qrError() }}
+                                            </div>
+                                        }
+                                    </div>
+
+                                    <!-- Anteprima -->
+                                    <div class="col-md-7 d-flex flex-column align-items-center justify-content-center">
+                                        <div class="border rounded p-3 d-flex align-items-center justify-content-center image-preview-shell theme-demo-surface w-100">
+                                            @if (qrImageUrl()) {
+                                                <img [src]="qrImageUrl()"
+                                                     alt="QR Code generato"
+                                                     class="img-fluid rounded"
+                                                     style="max-width: 280px;">
+                                            } @else {
+                                                <span class="text-muted small">
+                                                    <i class="fa-solid fa-qrcode fa-2x d-block mb-2 text-center opacity-25"></i>
+                                                    Configura i campi e premi <strong>Genera</strong>
+                                                </span>
+                                            }
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- COMPONENTI UX -->
             <section class="mb-4">
                 <div class="row g-3">
@@ -167,8 +312,9 @@
                                 <p class="text-muted mb-3">{{ 'contextMenuHint' | translate }}</p>
 
                                 <div [appContextMenu]="contextMenuOptions()"
+
                                      class="demo-context-area border rounded p-3">
-                                    <textarea class="form-control context-textarea"
+                                     <textarea class="form-control context-textarea"
                                               rows="4"
                                               [(ngModel)]="contextDemoText"
                                               [placeholder]="translate.translate('contextMenuSampleText')">
@@ -205,7 +351,7 @@
                                     <label class="form-label">{{ 'speechInputLabel' | translate }}</label>
                                     <textarea class="form-control"
                                               rows="3"
-                                              [(ngModel)]="speechDemoText"
+                                              [ngModel]="speechDemoText()" (ngModelChange)="speechDemoText.set($event)"
                                               [placeholder]="translate.translate('speechPlaceholder')">
                 </textarea>
                                 </div>

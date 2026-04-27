@@ -1,16 +1,18 @@
 ﻿<footer class="container-fluid mt-3 theme-bg site-footer">
     <div class="container py-4">
-        @if (footerSections().length > 0) {
-        <div class="row mb-4 pb-3">
-            @for (section of footerSections(); track section.titleKey) {
-            <div [class]="'mb-3 col-12 col-lg-' + Math.floor(12 / footerSections().length)">
-                <h6 class="fw-bold">{{ section.titleKey | translate }}</h6>
-                <ng-container *ngTemplateOutlet="infoList; context: { items: section.items }"></ng-container>
+        <app-loading [loading]="profileLoading()">
+            @if (footerSections().length > 0) {
+            <div class="row mb-4 pb-3">
+                @for (section of footerSections(); track section.titleKey) {
+                <div [class]="'mb-3 col-12 col-lg-' + Math.floor(12 / footerSections().length)">
+                    <h6 class="fw-bold">{{ section.titleKey | translate }}</h6>
+                    <ng-container *ngTemplateOutlet="infoList; context: { items: section.items }"></ng-container>
+                </div>
+                }
             </div>
+            <hr />
             }
-        </div>
-        <hr />
-        }
+        </app-loading>
 
         @if (footerNavLinks.length > 0) {
         <div class="row mb-3">

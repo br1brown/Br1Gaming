@@ -7,6 +7,7 @@ import { ApiService } from '../../core/services/api.service';
 import { TranslateService } from '../../core/services/translate.service';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { SocialLinkComponent } from '../../shared/components/social-link/social-link.component';
+import { LoadingComponent } from '../../shared/components/loading/loading.component';
 import { ContestoSito } from '../../site';
 import { NavLink } from '../../siteBuilder';
 
@@ -27,7 +28,7 @@ interface SocialLinkVm {
 
 @Component({
     selector: 'app-footer',
-    imports: [NgTemplateOutlet, RouterLink, TranslatePipe, SocialLinkComponent],
+    imports: [NgTemplateOutlet, RouterLink, TranslatePipe, SocialLinkComponent, LoadingComponent],
     templateUrl: './footer.component.html',
     styleUrl: './footer.component.css'
 })
@@ -41,6 +42,7 @@ export class FooterComponent {
 
     private readonly profileResource = this.api.getProfileResource();
     readonly profile = computed<Profile | null>(() => this.profileResource.value() ?? null);
+    readonly profileLoading = this.profileResource.isLoading;
 
     readonly appName = ContestoSito.config.appName;
     readonly description = ContestoSito.config.description;

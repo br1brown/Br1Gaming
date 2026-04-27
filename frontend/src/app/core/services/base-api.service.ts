@@ -91,10 +91,10 @@ export abstract class BaseApiService {
             headers = headers.set('X-Api-Key', this.ssrApiKey);
 
         if (this.tokenService.isLoggedIn())
-            headers = headers.set('Authorization', `Bearer ${this.tokenService.token}`);
+            headers = headers.set('Authorization', `Bearer ${this.tokenService.token()}`);
 
         if (aggiunte) {
-            for (var key in aggiunte) {
+            for (const key in aggiunte) {
                 headers = headers.set(key, aggiunte[key]);
             }
         }
@@ -103,7 +103,7 @@ export abstract class BaseApiService {
     }
 
     /** Notifica l'utente e ri-lancia l'errore per eventuali handler a monte. */
-    private handleError(error: HttpErrorResponse): Observable<never> {
+    protected handleError(error: HttpErrorResponse): Observable<never> {
         this.notify.handleApiError(error.status, error.error);
         return throwError(() => error);
     }
