@@ -69,53 +69,42 @@ export class FooterComponent {
             }));
     });
 
-    readonly contactItems = computed<FooterItem[]>(() => {
+    readonly footerSections = computed<FooterSection[]>(() => {
         const profile = this.profile();
         if (!profile) return [];
 
-        return this.compactItems([
-            this.createTextItem(profile.ragioneSociale, this.label('ragioneSociale')),
-            this.createTextItem(this.formatAddress(profile), this.label('sedeLegale')),
-            this.createLinkItem(this.label('telefono'), profile.contatti?.telefono, 'tel:'),
-            this.createLinkItem(this.label('PEC'), profile.contatti?.pec, 'mailto:'),
-            this.createLinkItem(this.label('mail'), profile.contatti?.email, 'mailto:'),
-            this.createTextItem(profile.metadatiAggiuntivi?.['rappresentanteLegale'], this.label('rappresentanteLegale')),
-            this.createTextItem(profile.metadatiAggiuntivi?.['orariContatto'], this.label('orariContatto'), 'mt-3')
-        ]);
-    });
-
-    readonly companyItems = computed<FooterItem[]>(() => {
-        const profile = this.profile();
-        if (!profile) return [];
-
-        return this.compactItems([
-            this.createCodeItem(this.label('partitaiva'), profile.partitaIva),
-            this.createCodeItem(this.label('codiceFiscale'), profile.codiceFiscale),
-            this.createTextItem(profile.datiSocietari?.registroImprese, this.label('registroimprese')),
-            this.createCodeItem(this.label('numerorea'), profile.datiSocietari?.numeroRea),
-            this.createTextItem(this.formatCurrency(profile.datiSocietari?.capitaleSociale), this.label('capitaleSociale')),
-            this.createTextItem(
-                this.formatBoolean(profile.datiSocietari?.capitaleInteramenteVersato),
-                this.label('capitaleInteramenteVersato')
-            ),
-            this.createTextItem(this.formatBoolean(profile.datiSocietari?.isSocioUnico), this.label('isSocioUnico')),
-            this.createTextItem(this.formatBoolean(profile.datiSocietari?.inLiquidazione), this.label('inLiquidazione')),
-            this.createCodeItem(this.label('codicesdi'), profile.datiSocietari?.codiceSdi)
-        ]);
-    });
-
-    readonly footerSections = computed<FooterSection[]>(() =>
-        this.compactSections([
+        return this.compactSections([
             {
                 titleKey: 'contatti',
-                items: this.contactItems()
+                items: this.compactItems([
+                    this.createTextItem(profile.ragioneSociale, this.label('ragioneSociale')),
+                    this.createTextItem(this.formatAddress(profile), this.label('sedeLegale')),
+                    this.createLinkItem(this.label('telefono'), profile.contatti?.telefono, 'tel:'),
+                    this.createLinkItem(this.label('PEC'), profile.contatti?.pec, 'mailto:'),
+                    this.createLinkItem(this.label('mail'), profile.contatti?.email, 'mailto:'),
+                    this.createTextItem(profile.metadatiAggiuntivi?.['rappresentanteLegale'], this.label('rappresentanteLegale')),
+                    this.createTextItem(profile.metadatiAggiuntivi?.['orariContatto'], this.label('orariContatto'), 'mt-3')
+                ])
             },
             {
                 titleKey: 'dati_societari',
-                items: this.companyItems()
+                items: this.compactItems([
+                    this.createCodeItem(this.label('partitaiva'), profile.partitaIva),
+                    this.createCodeItem(this.label('codiceFiscale'), profile.codiceFiscale),
+                    this.createTextItem(profile.datiSocietari?.registroImprese, this.label('registroimprese')),
+                    this.createCodeItem(this.label('numerorea'), profile.datiSocietari?.numeroRea),
+                    this.createTextItem(this.formatCurrency(profile.datiSocietari?.capitaleSociale), this.label('capitaleSociale')),
+                    this.createTextItem(
+                        this.formatBoolean(profile.datiSocietari?.capitaleInteramenteVersato),
+                        this.label('capitaleInteramenteVersato')
+                    ),
+                    this.createTextItem(this.formatBoolean(profile.datiSocietari?.isSocioUnico), this.label('isSocioUnico')),
+                    this.createTextItem(this.formatBoolean(profile.datiSocietari?.inLiquidazione), this.label('inLiquidazione')),
+                    this.createCodeItem(this.label('codicesdi'), profile.datiSocietari?.codiceSdi)
+                ])
             }
-        ])
-    );
+        ]);
+    });
 
     private compactItems(items: Array<FooterItem | null>): FooterItem[] {
         return items.filter((item): item is FooterItem => item !== null);
