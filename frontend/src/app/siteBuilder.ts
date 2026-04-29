@@ -2,6 +2,7 @@ import type { Type, EnvironmentProviders, Provider } from '@angular/core';
 import type { ResolveFn, CanDeactivateFn, RunGuardsAndResolvers } from '@angular/router';
 import type { PageType } from './site';
 import type { PageBaseComponent } from './pages/page-base.component';
+import { tryNormalizeBcp47 } from './core/i18n/bcp47';
 
 // ======================================================
 // MODELLI DI CONFIGURAZIONE
@@ -246,7 +247,7 @@ export type LeafPageInput = BasePageInput & {
     /** Non consentito per una pagina interna */
     externalUrl?: never;
 
-    /** Resolver dati */
+    /** Resolver dati. Le chiavi corrispondono agli input del componente (withComponentInputBinding). */
     resolve?: Record<string, ResolveFn<unknown>>;
 
     /** Strategia di esecuzione di guard e resolver */
@@ -731,29 +732,37 @@ export function buildSite(
 
             /**
              * Normalizzazione della config:
+             * - valida ogni tag lingua secondo BCP 47 (RFC 5646) tramite Intl.getCanonicalLocales,
+             *   cosi' qualsiasi tag accettato qui e' garantito accettabile anche dal backend
              * - garantisce che la lingua di default sia inclusa
              * - rimuove eventuali duplicati nelle lingue
              * - merge dei default smoke con i valori custom
              */
-            const normalizeLang = (l?: string) =>
-                typeof l === 'string' ? l.trim().toLowerCase() : '';
+            const normalizeLang = (l: string | null | undefined, context: string): string => {
+                const normalized = tryNormalizeBcp47(l);
+                if (normalized === null) {
+                    throw new Error(
+                        `[SiteBuilder] Tag lingua non valido in ${context}: "${l}". Usare un tag BCP 47 (es. "it", "en", "zh-Hant-TW").`
+                    );
+                }
+                return normalized;
+            };
 
             const normalizeVersion = (v?: string) =>
                 typeof v === 'string' ? v.trim().replace(/[^a-zA-Z0-9.\-_]/g, '') : '';
 
-            const rawLangs = [
-                siteConfigurationInput.defaultLang,
-                ...(siteConfigurationInput.availableLanguages ?? [])
-            ];
-
-            const availableLanguages = Array.from(
-                new Set(rawLangs.map(normalizeLang).filter(Boolean))
-            );
+            const defaultLang = normalizeLang(siteConfigurationInput.defaultLang, 'siteConfig.defaultLang');
+            const availableLanguages = Array.from(new Set([
+                defaultLang,
+                ...(siteConfigurationInput.availableLanguages ?? []).map((l, i) =>
+                    normalizeLang(l, `siteConfig.availableLanguages[${i}]`)
+                )
+            ]));
 
             siteConfig = {
                 appName: siteConfigurationInput.appName,
                 version: normalizeVersion(siteConfigurationInput.version) || '1.0.0',
-                defaultLang: normalizeLang(siteConfigurationInput.defaultLang) || siteConfigurationInput.defaultLang,
+                defaultLang,
                 availableLanguages,
                 description: siteConfigurationInput.description,
                 colorTema: siteConfigurationInput.colorTema,
@@ -886,6 +895,25 @@ export function buildSite(
                 path: fullPath,
                 renderMode: page.renderMode ?? 'client'
             });
+
+            /**
+             * Pagina server-rendered senza resolver: Angular SSR renderizzerà la pagina
+             * senza dati dinamici. Di solito è un errore di configurazione.
+             *
+             * Il warning appare all'avvio del processo (browser e Node SSR) perché
+             * buildSite() viene eseguito a livello di modulo durante il bootstrap.
+             * In sviluppo è il primo segnale visibile prima ancora del primo render.
+             */
+            if (page.renderMode === 'server' && !page.resolve) {
+                console.warn(
+                    `[SiteBuilder] ⚠ La pagina "${fullPath}" ha renderMode 'server' ma nessun resolver dichiarato.\n` +
+                    `  Se la pagina non ha bisogno di dati dal backend puoi ignorare questo avviso.\n` +
+                    `  Altrimenti aggiungi in site.ts:\n` +
+                    `    resolve: { nomeInput: () => inject(TuoService).tuoMetodo() }\n` +
+                    `  e nel componente:\n` +
+                    `    readonly nomeInput = input<TuoTipo>();`
+                );
+            }
 
             /**
              * Le pagine che richiedono autenticazione non devono essere indicizzate:

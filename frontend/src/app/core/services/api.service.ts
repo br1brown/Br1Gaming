@@ -1,30 +1,26 @@
 import { Injectable } from '@angular/core';
-import { environment } from '../../../environments/environment';
+import { firstValueFrom } from 'rxjs';
+import { catchError } from 'rxjs/operators';
+import { Profile } from '../dto/profile.dto';
 import { LoginResult } from '../dto/api.dto';
 import { StorySummary, StorySnapshotDto } from '../dto/story.dto';
 import { GeneratorInfo, GenerateRequest, GenerateResponse } from '../dto/generator.dto';
 import { BaseApiService } from './base-api.service';
 
-/**
- * Prefisso base di tutte le chiamate al backend.
- * Deve corrispondere a [Route("api")] nel BaseController.
- */
-const apiBase = environment.apiUrl
-    ? `${environment.apiUrl.replace(/\/$/, '')}/api`
-    : '/api';
-
 /** Endpoint backend. Aggiungere il path qui, poi il metodo pubblico sotto. */
 const API = {
-    login: `${apiBase}/auth/login`,
-    stories: `${apiBase}/stories`,
-    generators: `${apiBase}/generators`,
-    generatorIncel: `${apiBase}/generators/incel`,
-    generatorAuto: `${apiBase}/generators/auto`,
-    generatorAntiveg: `${apiBase}/generators/antiveg`,
-    generatorLocali: `${apiBase}/generators/locali`,
-    generatorMbeb: `${apiBase}/generators/mbeb`,
-    storyPoveriMaschi: `${apiBase}/stories/poveri-maschi`,
-    storyMagrogamer09: `${apiBase}/stories/magrogamer09`,
+    profile: 'profile',
+    login: 'auth/login',
+    blob: (slug: string) => `blob/${encodeURIComponent(slug)}`,
+    stories: 'stories',
+    generators: 'generators',
+    generatorIncel: 'generators/incel',
+    generatorAuto: 'generators/auto',
+    generatorAntiveg: 'generators/antiveg',
+    generatorLocali: 'generators/locali',
+    generatorMbeb: 'generators/mbeb',
+    storyPoveriMaschi: 'stories/poveri-maschi',
+    storyMagrogamer09: 'stories/magrogamer09',
 } as const;
 
 /**
@@ -37,6 +33,31 @@ const API = {
  */
 @Injectable({ providedIn: 'root' })
 export class ApiService extends BaseApiService {
+
+    /** Recupera i dati profilo legale e i contatti pubblici. */
+    getProfile(): Promise<Profile> {
+        return this.api_get<Profile>(API.profile);
+    }
+
+    /**
+     * Versione reattiva di getProfile() basata su httpResource.
+     * Si aggiorna automaticamente al cambio lingua (via Accept-Language nell'header).
+     * Usare nei componenti persistenti come il footer.
+     */
+    getProfileResource() {
+        return this.api_resource<Profile>(API.profile);
+    }
+
+    /**
+     * Recupera un file dal volume uploads come Blob (immagini, documenti, ecc.).
+     * Usa HttpClient direttamente: responseType 'blob' non e' compatibile con get<T>().
+     */
+    getBlob(slug: string): Promise<Blob> {
+        return firstValueFrom(
+            this.http.get(API.blob(slug), { headers: this.build_api_Headers(), responseType: 'blob' })
+                .pipe(catchError(err => this.handleError(err)))
+        );
+    }
 
     // ─── Auth ───────────────────────────────────────────────────────────
 

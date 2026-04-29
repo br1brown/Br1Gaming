@@ -26,7 +26,7 @@ export class NotificationService {
             void swal.then(Swal =>
                 Swal.fire(this.translate.translate('ottimo') + '!', message, 'success').then(() => onClose?.())
             );
-        } else if (typeof window !== 'undefined') {
+        } else if (isPlatformBrowser(this.platformId)) {
             window.alert(message);
             onClose?.();
         }
@@ -39,7 +39,7 @@ export class NotificationService {
                 if (Swal.isVisible()) return;
                 Swal.fire(title, message, 'error');
             });
-        } else if (typeof window !== 'undefined') {
+        } else if (isPlatformBrowser(this.platformId)) {
             window.alert(`${title}\n${message}`);
         }
     }
@@ -62,57 +62,46 @@ export class NotificationService {
 
     // --- INTERAZIONE ---
 
-    confirm(title: string, text: string, callbacks: { onConfirm: () => void; onCancel?: () => void }, options?: {
+    confirm(title: string, text: string, options?: {
         confirmText?: string;
         cancelText?: string;
         icon?: 'question' | 'info' | 'warning';
         allowOutsideClick?: boolean;
-    }): void {
+    }): Promise<boolean> {
         const swal = this.loadSwal();
-        if (swal) {
-            void swal.then(Swal =>
-                Swal.fire({
-                    title,
-                    text,
-                    icon: options?.icon ?? 'question',
-                    showCancelButton: true,
-                    confirmButtonText: options?.confirmText ?? this.translate.translate('si'),
-                    cancelButtonText: options?.cancelText ?? this.translate.translate('annulla'),
-                    allowOutsideClick: options?.allowOutsideClick ?? true,
-                }).then(result => result.isConfirmed ? callbacks.onConfirm() : callbacks.onCancel?.())
-            );
-        } else if (typeof window !== 'undefined') {
-            window.confirm(`${title}\n${text}`) ? callbacks.onConfirm() : callbacks.onCancel?.();
-        }
+        if (!swal) return Promise.resolve(false);
+
+        return swal.then(Swal =>
+            Swal.fire({
+                title,
+                text,
+                icon: options?.icon ?? 'question',
+                showCancelButton: true,
+                confirmButtonText: options?.confirmText ?? this.translate.translate('si'),
+                cancelButtonText: options?.cancelText ?? this.translate.translate('annulla'),
+                allowOutsideClick: options?.allowOutsideClick ?? true,
+            }).then(result => result.isConfirmed)
+        );
     }
 
-    prompt(title: string, inputLabel: string, callbacks: { onSubmit: (value: string) => void; onCancel?: () => void }, options?: {
+    prompt(title: string, inputLabel: string, options?: {
         confirmText?: string;
         cancelText?: string;
-    }): void {
+    }): Promise<string | null> {
         const swal = this.loadSwal();
-        if (swal) {
-            void swal.then(Swal =>
-                Swal.fire({
-                    title,
-                    input: 'text',
-                    inputLabel,
-                    inputPlaceholder: inputLabel,
-                    showCancelButton: true,
-                    confirmButtonText: options?.confirmText ?? this.translate.translate('si'),
-                    cancelButtonText: options?.cancelText ?? this.translate.translate('annulla'),
-                }).then(result => {
-                    if (result.isConfirmed && result.value) {
-                        callbacks.onSubmit(result.value as string);
-                    } else {
-                        callbacks.onCancel?.();
-                    }
-                })
-            );
-        } else if (typeof window !== 'undefined') {
-            const val = window.prompt(inputLabel);
-            val !== null ? callbacks.onSubmit(val) : callbacks.onCancel?.();
-        }
+        if (!swal) return Promise.resolve(null);
+
+        return swal.then(Swal =>
+            Swal.fire({
+                title,
+                input: 'text',
+                inputLabel,
+                inputPlaceholder: inputLabel,
+                showCancelButton: true,
+                confirmButtonText: options?.confirmText ?? this.translate.translate('si'),
+                cancelButtonText: options?.cancelText ?? this.translate.translate('annulla'),
+            }).then(result => result.isConfirmed && result.value ? result.value as string : null)
+        );
     }
 
     // --- TOAST ---
@@ -158,7 +147,7 @@ export class NotificationService {
                     confirmButtonText: this.translate.translate('chiudi'),
                 });
             });
-        } else if (typeof window !== 'undefined') {
+        } else if (isPlatformBrowser(this.platformId)) {
             window.alert(`${title}\n${items.join('\n')}`);
         }
     }

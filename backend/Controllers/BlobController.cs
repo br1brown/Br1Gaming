@@ -11,7 +11,7 @@ namespace Backend.Controllers;
 /// L'accesso richiede API key (ereditata da <see cref="EngineApiController"/>), ma nessuna autenticazione utente.
 /// Il file viene identificato dal suo slug univoco assegnato al momento dell'upload.
 /// </remarks>
-[Route("api/blob")]
+[Route("blob")]
 public class BlobController : EngineApiController
 {
     private readonly string _uploadsPath;
@@ -20,7 +20,8 @@ public class BlobController : EngineApiController
     public BlobController(IWebHostEnvironment env, ILogger<BlobController> logger)
         : base(logger)
     {
-        _uploadsPath = Path.Combine(env.ContentRootPath, "uploads");
+        // Trailing separator: senza, "/app/uploads-public/x" supererebbe il check StartsWith("/app/uploads").
+        _uploadsPath = Path.Combine(env.ContentRootPath, "uploads") + Path.DirectorySeparatorChar;
     }
 
     /// <summary>
@@ -32,7 +33,7 @@ public class BlobController : EngineApiController
     {
         var filePath = Path.GetFullPath(Path.Combine(_uploadsPath, slug));
 
-        if (!filePath.StartsWith(_uploadsPath, StringComparison.OrdinalIgnoreCase))
+        if (!filePath.StartsWith(_uploadsPath, StringComparison.Ordinal))
             throw new InvalidParametersException();
 
         if (!System.IO.File.Exists(filePath))

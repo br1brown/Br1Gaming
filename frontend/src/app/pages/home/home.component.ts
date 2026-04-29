@@ -15,7 +15,6 @@ import { AssetService } from '../../core/services/asset.service';
     styleUrl: './home.component.css'
 })
 export class HomeComponent extends PageBaseComponent implements OnInit {
-    private readonly api = inject(ApiService);
     private readonly assets = inject(AssetService);
 
     readonly appName = ContestoSito.config.appName;

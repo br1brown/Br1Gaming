@@ -40,3 +40,4 @@ Thumbs.db
 frontend/public/sitemap.xml
 frontend/public/icons/
 .claude
+frontend/src/assets/files/image-cache

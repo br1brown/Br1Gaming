@@ -3,6 +3,10 @@
  * Utilizzabile da qualsiasi componente del template per creare immagini dinamiche
  * (banner, placeholder, thumbnail, ecc.) senza dipendere dal componente ImgBuilder.
  */
+import { Injectable, inject } from '@angular/core';
+import { ThemeService } from './theme.service';
+
+type ImgRenderCoreOpts = Omit<ImgRenderOptions, 'bgColor' | 'textColor'>;
 
 /**
  * Font web-safe disponibili per la generazione immagini.
@@ -27,6 +31,30 @@ export interface ImgRenderOptions {
     canvasWidth: number;
     fontFamily: string;
     margin: number;
+}
+
+/**
+ * Servizio injectable per la generazione immagini su canvas.
+ * Usa automaticamente i colori del tema attivo (colorPrimary + colorPrimaryText).
+ * Per colori personalizzati usare renderWithColors().
+ */
+@Injectable({ providedIn: 'root' })
+export class ImgBuilderService {
+    private readonly theme = inject(ThemeService);
+
+    /** Renderizza sul canvas con i colori del tema attivo. */
+    render(canvas: HTMLCanvasElement, opts: ImgRenderCoreOpts): void {
+        renderToCanvas(canvas, {
+            ...opts,
+            bgColor: this.theme.colorPrimary(),
+            textColor: this.theme.colorPrimaryText(),
+        });
+    }
+
+    /** Renderizza con colori espliciti anziché quelli del tema. */
+    renderWithColors(canvas: HTMLCanvasElement, opts: ImgRenderCoreOpts, fg: string, bg: string): void {
+        renderToCanvas(canvas, { ...opts, bgColor: bg, textColor: fg });
+    }
 }
 
 /** Suddivide un singolo paragrafo in righe rispettando la larghezza massima. */

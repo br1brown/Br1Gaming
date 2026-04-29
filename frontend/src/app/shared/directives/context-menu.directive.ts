@@ -4,32 +4,31 @@ import {
     HostListener,
     Input,
     OnDestroy,
-    ViewContainerRef
+    PLATFORM_ID,
+    ViewContainerRef,
+    inject
 } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { take } from 'rxjs/operators';
 import { ContextMenuOption } from '../components/context-menu/context-menu.models';
 import { ContextMenuOverlayComponent } from '../components/context-menu/context-menu-overlay.component';
 
 /**
  * Directive per aggiungere un menu contestuale personalizzato a qualsiasi elemento.
- *
- * Uso:
- *   <div [appContextMenu]="menuOptions">Contenuto...</div>
- *
- * La directive ascolta il click destro sull'elemento host e mostra
- * un overlay con le opzioni fornite.
  */
 @Directive({
-    selector: '[appContextMenu]'
+    selector: '[appContextMenu]',
+    standalone: true
 })
 export class ContextMenuDirective implements OnDestroy {
     @Input('appContextMenu') options: ContextMenuOption[] = [];
 
+    private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
     private overlayRef: ComponentRef<ContextMenuOverlayComponent> | null = null;
     private destroyListeners: (() => void)[] = [];
     private longPressTimer: number | null = null;
     private touchOrigin: { x: number; y: number } | null = null;
-    private suppressContextMenuUntil = 0;
+    private suppressNextContextMenu = false;
     private readonly longPressDelayMs = 450;
     private readonly touchMoveThresholdPx = 12;
 
@@ -37,7 +36,10 @@ export class ContextMenuDirective implements OnDestroy {
 
     @HostListener('contextmenu', ['$event'])
     onContextMenu(event: MouseEvent): void {
-        if (Date.now() < this.suppressContextMenuUntil) {
+        if (!this.isBrowser) return;
+
+        if (this.suppressNextContextMenu) {
+            this.suppressNextContextMenu = false;
             event.preventDefault();
             event.stopPropagation();
             return;
@@ -51,7 +53,7 @@ export class ContextMenuDirective implements OnDestroy {
 
     @HostListener('touchstart', ['$event'])
     onTouchStart(event: TouchEvent): void {
-        if (event.touches.length !== 1 || this.options.length === 0) {
+        if (!this.isBrowser || event.touches.length !== 1 || this.options.length === 0) {
             return;
         }
 
@@ -63,7 +65,7 @@ export class ContextMenuDirective implements OnDestroy {
                 return;
             }
 
-            this.suppressContextMenuUntil = Date.now() + 800;
+            this.suppressNextContextMenu = true;
             this.openMenu(this.touchOrigin.x, this.touchOrigin.y, 'sheet');
         }, this.longPressDelayMs);
     }
@@ -83,13 +85,8 @@ export class ContextMenuDirective implements OnDestroy {
         }
     }
 
-    @HostListener('touchend', ['$event'])
-    onTouchEnd(event: TouchEvent): void {
-        if (Date.now() < this.suppressContextMenuUntil) {
-            event.preventDefault();
-            event.stopPropagation();
-        }
-
+    @HostListener('touchend')
+    onTouchEnd(): void {
         this.clearLongPressState();
     }
 
@@ -107,7 +104,9 @@ export class ContextMenuDirective implements OnDestroy {
 
         // Sposta l'overlay su document.body per evitare clipping da overflow/positioning
         const el = this.overlayRef.location.nativeElement;
-        document.body.appendChild(el);
+        if (this.isBrowser) {
+            document.body.appendChild(el);
+        }
 
         this.overlayRef.instance.adjustPosition(clientX, clientY);
 
@@ -122,6 +121,8 @@ export class ContextMenuDirective implements OnDestroy {
     }
 
     private addCloseListeners(overlayEl: HTMLElement): void {
+        if (!this.isBrowser) return;
+
         const onDocClick = (e: MouseEvent) => {
             if (!overlayEl.contains(e.target as Node)) {
                 this.close();
@@ -129,7 +130,10 @@ export class ContextMenuDirective implements OnDestroy {
         };
 
         const onDocContext = (e: MouseEvent) => {
-            if (!overlayEl.contains(e.target as Node)) {
+            const target = e.target as Node;
+            // Se il target è l'elemento host, ci pensa @HostListener('contextmenu') — non interferire
+            if ((this.vcr.element.nativeElement as HTMLElement).contains(target)) return;
+            if (!overlayEl.contains(target)) {
                 this.close();
             }
         };
@@ -166,7 +170,9 @@ export class ContextMenuDirective implements OnDestroy {
     private close(): void {
         this.clearLongPressState();
         if (this.overlayRef) {
-            this.overlayRef.location.nativeElement.remove();
+            if (this.isBrowser) {
+                this.overlayRef.location.nativeElement.remove();
+            }
             this.overlayRef.destroy();
             this.overlayRef = null;
         }

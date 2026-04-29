@@ -1,5 +1,5 @@
-import { Injectable, OnDestroy, inject } from '@angular/core';
-import { DOCUMENT } from '@angular/common';
+import { Injectable, OnDestroy, PLATFORM_ID, inject } from '@angular/core';
+import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { NotificationService } from './notification.service';
 import { TranslateService } from './translate.service';
 
@@ -10,12 +10,17 @@ export class VersionCheckService implements OnDestroy {
     private readonly document = inject(DOCUMENT);
     private readonly translate = inject(TranslateService);
     private readonly notify = inject(NotificationService);
+    private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
     private currentVersion: string | null = null;
     private intervalId: ReturnType<typeof setInterval> | null = null;
     private updateShown = false;
 
     init(): void {
+        // setInterval crea una macrotask Zone.js che impedisce all'SSR di completarsi.
+        // Il controllo versione ha senso solo nel browser: in SSR non serve e causerebbe hang.
+        if (!this.isBrowser) return;
+
         this.currentVersion = this.document
             .querySelector('meta[name="app-version"]')
             ?.getAttribute('content') ?? null;
@@ -42,20 +47,21 @@ export class VersionCheckService implements OnDestroy {
         }
     }
 
-    private showUpdateDialog(): void {
-        this.notify.confirm(
+    private async showUpdateDialog(): Promise<void> {
+        const confirmed = await this.notify.confirm(
             this.translate.translate('nuovaVersioneTitle'),
             this.translate.translate('nuovaVersioneDesc'),
-            {
-                onConfirm: () => window.location.reload(),
-                onCancel: () => { this.updateShown = false; },
-            },
             {
                 icon: 'info',
                 confirmText: this.translate.translate('aggiornaApp'),
                 allowOutsideClick: false,
             }
         );
+        if (confirmed) {
+            window.location.reload();
+        } else {
+            this.updateShown = false;
+        }
     }
 
     ngOnDestroy(): void {

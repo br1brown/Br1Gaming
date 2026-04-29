@@ -7,6 +7,7 @@ import {
     ViewChild,
     signal
 } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { ContextMenuOption } from './context-menu.models';
 
 /**
@@ -15,6 +16,8 @@ import { ContextMenuOption } from './context-menu.models';
  */
 @Component({
     selector: 'app-context-menu-overlay',
+    standalone: true,
+    imports: [CommonModule],
     templateUrl: './context-menu-overlay.component.html',
     styleUrl: './context-menu.component.css'
 })

@@ -1,15 +1,17 @@
-import { inject, Injectable, signal, effect } from '@angular/core';
+import { inject, Injectable, signal, effect, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { TranslateService } from './translate.service';
 
 @Injectable({ providedIn: 'root' })
 export class SpeechService {
     private readonly translate = inject(TranslateService);
+    private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
     readonly isSpeaking = signal(false);
     readonly currentVoice = signal<SpeechSynthesisVoice | null>(null);
 
     constructor() {
-        if (typeof window !== 'undefined' && window.speechSynthesis) {
+        if (this.isBrowser && window.speechSynthesis) {
             window.speechSynthesis.addEventListener('voiceschanged', () => this.updateVoice());
             effect(() => {
                 this.translate.currentLang();
@@ -19,7 +21,7 @@ export class SpeechService {
     }
 
     speak(text: string, options?: { rate?: number; pitch?: number }): void {
-        if (typeof window === 'undefined' || !window.speechSynthesis) return;
+        if (!this.isBrowser || !window.speechSynthesis) return;
 
         this.stop();
 
@@ -43,7 +45,7 @@ export class SpeechService {
     }
 
     stop(): void {
-        if (typeof window !== 'undefined' && window.speechSynthesis) {
+        if (this.isBrowser && window.speechSynthesis) {
             window.speechSynthesis.cancel();
             this.isSpeaking.set(false);
         }

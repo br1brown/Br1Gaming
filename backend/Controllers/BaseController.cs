@@ -7,7 +7,14 @@ using Backend.Stories;
 
 namespace Backend.Controllers;
 
-[Route("api")]
+/// <summary>
+/// Controller concreto del progetto per gli endpoint pubblici (API key).
+/// </summary>
+/// <remarks>
+/// Eredita sicurezza e logger da <see cref="EngineApiController"/>.
+/// Aggiungere qui gli endpoint del progetto che non richiedono autenticazione utente.
+/// </remarks>
+[Route("")]
 public class BaseController : EngineApiController
 {
     private readonly StoryService _stories;
@@ -23,7 +30,7 @@ public class BaseController : EngineApiController
         _generators = generators;
     }
 
-    // ── Storie: catalogo e play (invariati) ───────────────────────────
+    // ── Storie: catalogo e play ───────────────────────────────────────
 
     [HttpGet("stories")]
     public IActionResult GetCatalog()
@@ -56,15 +63,13 @@ public class BaseController : EngineApiController
     public async Task<IActionResult> GetAllGenerators()
     {
         var items = await _generators.GetCatalogAsync();
-        // Usiamo il record Info per il mapping
         return Ok(items.Select(i => new GeneratorInfoDto(
             i.Slug,
             i.Info?.Name ?? i.Slug,
             i.Info?.Description)));
     }
 
-    // ── Generatori: Logica di Composizione (DML nel Controller) ──────
-    // Qui il controller decide quali slug passare al servizio
+    // ── Generatori: Logica di Composizione ──────────────────────────
 
     // INCEL (Mix: Incel + Mbeb)
     [HttpGet("generators/incel")]
@@ -126,7 +131,7 @@ public class BaseController : EngineApiController
     private async Task<IActionResult> GetGeneratorInfo(string slug)
     {
         var items = await _generators.GetCatalogAsync();
-            var item = items.FirstOrDefault(i => i.Slug == slug);
+        var item = items.FirstOrDefault(i => i.Slug == slug);
         if (item is null) return NotFound();
         return Ok(new GeneratorInfoDto(
             item.Slug,

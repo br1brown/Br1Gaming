@@ -1,12 +1,26 @@
-﻿import { isPlatformBrowser } from '@angular/common';
-import { Component, PLATFORM_ID, computed, inject, resource } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { injectCurrentUrl } from '../../app.routes';
-import { ApiService } from '../../core/services/api.service';
+import { Profile } from '../../core/dto/profile.dto';
 import { TranslateService } from '../../core/services/translate.service';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { ContestoSito } from '../../site';
 import { NavLink } from '../../siteBuilder';
+
+type FooterItem =
+    | { kind: 'text'; label: string; value: string; itemClass?: string }
+    | { kind: 'link'; label: string; value: string; href: string; itemClass?: string }
+    | { kind: 'code'; label: string; value: string; itemClass?: string };
+
+interface FooterSection {
+    titleKey: string;
+    items: FooterItem[];
+}
+
+interface SocialLinkVm {
+    type: string;
+    value: string;
+}
 
 @Component({
     selector: 'app-footer',
@@ -17,11 +31,13 @@ import { NavLink } from '../../siteBuilder';
 export class FooterComponent {
     protected readonly Math = Math;
 
-    private readonly api = inject(ApiService);
     private readonly router = inject(Router);
     private readonly translate = inject(TranslateService);
-    private readonly platformId = inject(PLATFORM_ID);
     private readonly currentUrl = injectCurrentUrl();
+
+    // Br1Gaming non espone un endpoint /profile: le sezioni aziendali restano vuote.
+    readonly profile = signal<Profile | null>(null);
+    readonly profileLoading = signal(false);
 
     readonly appName = ContestoSito.config.appName;
     readonly description = ContestoSito.config.description;
@@ -35,8 +51,64 @@ export class FooterComponent {
         return Array.isArray(item.children) && item.children.length > 0;
     }
 
-    isExternalPath(path: string): boolean {
-        return path.startsWith('http://') || path.startsWith('https://');
+    readonly socialLinks = computed<SocialLinkVm[]>(() => {
+        const social = this.profile()?.social;
+        if (!social) return [];
+
+        return Object.entries(social)
+            .filter((entry): entry is [string, string] => {
+                const value = entry[1];
+                return typeof value === 'string' && value.trim().length > 0;
+            })
+            .map(([type, value]) => ({
+                type: type.toLowerCase(),
+                value
+            }));
+    });
+
+    readonly footerSections = computed<FooterSection[]>(() => {
+        const profile = this.profile();
+        if (!profile) return [];
+
+        return this.compactSections([
+            {
+                titleKey: 'contatti',
+                items: this.compactItems([
+                    this.createTextItem(profile.ragioneSociale, this.label('ragioneSociale')),
+                    this.createTextItem(this.formatAddress(profile), this.label('sedeLegale')),
+                    this.createLinkItem(this.label('telefono'), profile.contatti?.telefono, 'tel:'),
+                    this.createLinkItem(this.label('PEC'), profile.contatti?.pec, 'mailto:'),
+                    this.createLinkItem(this.label('mail'), profile.contatti?.email, 'mailto:'),
+                    this.createTextItem(profile.metadatiAggiuntivi?.['rappresentanteLegale'], this.label('rappresentanteLegale')),
+                    this.createTextItem(profile.metadatiAggiuntivi?.['orariContatto'], this.label('orariContatto'), 'mt-3')
+                ])
+            },
+            {
+                titleKey: 'dati_societari',
+                items: this.compactItems([
+                    this.createCodeItem(this.label('partitaiva'), profile.partitaIva),
+                    this.createCodeItem(this.label('codiceFiscale'), profile.codiceFiscale),
+                    this.createTextItem(profile.datiSocietari?.registroImprese, this.label('registroimprese')),
+                    this.createCodeItem(this.label('numerorea'), profile.datiSocietari?.numeroRea),
+                    this.createTextItem(this.formatCurrency(profile.datiSocietari?.capitaleSociale), this.label('capitaleSociale')),
+                    this.createTextItem(
+                        this.formatBoolean(profile.datiSocietari?.capitaleInteramenteVersato),
+                        this.label('capitaleInteramenteVersato')
+                    ),
+                    this.createTextItem(this.formatBoolean(profile.datiSocietari?.isSocioUnico), this.label('isSocioUnico')),
+                    this.createTextItem(this.formatBoolean(profile.datiSocietari?.inLiquidazione), this.label('inLiquidazione')),
+                    this.createCodeItem(this.label('codicesdi'), profile.datiSocietari?.codiceSdi)
+                ])
+            }
+        ]);
+    });
+
+    private compactItems(items: Array<FooterItem | null>): FooterItem[] {
+        return items.filter((item): item is FooterItem => item !== null);
+    }
+
+    private compactSections(sections: FooterSection[]): FooterSection[] {
+        return sections.filter(section => section.items.length > 0);
     }
 
     isRouteActive(path: string): boolean {
@@ -44,5 +116,74 @@ export class FooterComponent {
         return this.router.isActive(path, { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' });
     }
 
-}
+    private createTextItem(value?: string | null, label = '', itemClass?: string): FooterItem | null {
+        if (!this.hasText(value)) return null;
+        return { kind: 'text', label, value: value.trim(), itemClass };
+    }
 
+    private createLinkItem(label: string, value?: string | null, hrefPrefix = '', itemClass?: string): FooterItem | null {
+        if (!this.hasText(value)) return null;
+        const normalizedValue = value.trim();
+        return {
+            kind: 'link',
+            label,
+            value: normalizedValue,
+            href: `${hrefPrefix}${normalizedValue}`,
+            itemClass
+        };
+    }
+
+    private createCodeItem(label: string, value?: string | null, itemClass?: string): FooterItem | null {
+        if (!this.hasText(value)) return null;
+        return { kind: 'code', label, value: value.trim(), itemClass };
+    }
+
+    private label(key: string): string {
+        return this.translate.translate(key);
+    }
+
+    private formatBoolean(value?: boolean | null): string | null {
+        if (typeof value !== 'boolean') return null;
+        return this.translate.translate(value ? 'si' : 'no');
+    }
+
+    private formatCurrency(value?: number | null): string | null {
+        if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+
+        const LOCALE_MAP: Record<string, string> = {
+            it: 'it-IT',
+            en: 'en-GB',
+        };
+        const locale = LOCALE_MAP[this.translate.currentLang()] ?? 'it-IT';
+        return new Intl.NumberFormat(locale, {
+            style: 'currency',
+            currency: 'EUR'
+        }).format(value);
+    }
+
+    private hasText(value?: string | null): value is string {
+        return typeof value === 'string' && value.trim().length > 0;
+    }
+
+    private formatAddress(profile: Profile): string | null {
+        const address = profile.sedeLegale;
+        if (!address) return null;
+
+        const streetLine = [address.via, address.civico]
+            .filter(this.isNonEmptyString)
+            .join(', ');
+
+        const cityLine = [address.cap, address.citta, address.provincia]
+            .filter(this.isNonEmptyString)
+            .join(' ');
+
+        const parts = [streetLine, cityLine, address.nazione]
+            .filter(this.isNonEmptyString);
+
+        return parts.length > 0 ? parts.join(' - ') : null;
+    }
+
+    private isNonEmptyString(value: unknown): value is string {
+        return typeof value === 'string' && value.trim().length > 0;
+    }
+}

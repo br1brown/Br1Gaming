@@ -1,7 +1,6 @@
-import { DOCUMENT } from '@angular/common';
+import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, effect, inject, OnDestroy, signal, afterNextRender } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { Component, computed, effect, inject, OnDestroy, OnInit, PLATFORM_ID, signal } from '@angular/core';
 import { GeneratorInfo, GenerateResponse } from '../../core/dto/generator.dto';
 import { ApiService } from '../../core/services/api.service';
 import { PageMetaService } from '../../core/services/page-meta.service';
@@ -15,23 +14,46 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { PageBaseComponent } from '../page-base.component';
 import { ThemeService } from '../../core/services/theme.service';
 
+/**
+ * Mappa statica dei metadati di ogni generatore, indicizzata per PageType.
+ *
+ * Usata per derivare i metadati in SSR tramite computed() a partire dal
+ * pageType (input obbligatorio, sempre disponibile prima del render).
+ * Evita la dipendenza da withComponentInputBinding, che può avere problemi
+ * di timing con afterNextRender nelle versioni correnti di Angular SSR.
+ */
+const GENERATOR_INFO_MAP: Partial<Record<PageType, GeneratorInfo>> = {
+    [PageType.GeneratorIncel]:   { slug: 'incel',   name: 'Generatore Incel',      description: 'Genera il tuo incel di fiducia' },
+    [PageType.GeneratorAuto]:    { slug: 'auto',    name: 'Generatore Auto',        description: 'Genera storie di automobilisti' },
+    [PageType.GeneratorAntiveg]: { slug: 'antiveg', name: 'Generatore Antivegano',  description: "Genera il profilo dell'antivegano" },
+    [PageType.GeneratorLocali]:  { slug: 'locali',  name: 'Generatore Locali',      description: 'Trova il nome del tuo locale tutto italiano' },
+    [PageType.GeneratorMbeb]:    { slug: 'mbeb',    name: 'Generatore Mbeb',        description: 'Genera il tuo mbeb' },
+};
+
 @Component({
     selector: 'app-generator-detail',
     imports: [TranslatePipe, MarkdownPipe],
     templateUrl: './generator-detail.component.html',
     styleUrl: './generator-detail.component.css'
 })
-export class GeneratorDetailComponent extends PageBaseComponent implements OnDestroy {
-    private readonly route = inject(ActivatedRoute);
-    private readonly router = inject(Router);
+export class GeneratorDetailComponent extends PageBaseComponent implements OnInit, OnDestroy {
     private readonly pageMeta = inject(PageMetaService);
-    private readonly api = inject(ApiService);
     private readonly share = inject(ShareService);
     private readonly document = inject(DOCUMENT);
+    private readonly platformId = inject(PLATFORM_ID);
     readonly speech = inject(SpeechService);
     private readonly theme = inject(ThemeService);
 
-    readonly generator = signal<GeneratorInfo | null>(null);
+    /**
+     * Metadati del generatore corrente, derivati in modo sincrono dal pageType.
+     *
+     * pageType è un input obbligatorio di PageBaseComponent, sempre disponibile
+     * prima del primo ciclo di change detection sia in SSR che nel browser.
+     * L'uso di computed() garantisce che generator() non sia mai null per le
+     * pagine generatore, eliminando lo spinner nell'HTML servito in SSR.
+     */
+    readonly generator = computed<GeneratorInfo | null>(() => GENERATOR_INFO_MAP[this.pageType()] ?? null);
+
     readonly result = signal<GenerateResponse | null>(null);
     readonly loading = signal(false);
     readonly sharing = signal(false);
@@ -43,28 +65,17 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnDes
     constructor() {
         super();
 
-        const generator = this.route.snapshot.data['generator'] as GeneratorInfo;
-        this.generator.set(generator);
-
         effect(() => {
             this.translate.currentLang();
             this.updatePageMeta(this.generator());
         });
+    }
 
-        // Avvia la prima generazione solo sul client (browser) per evitare
-        // che l'SSR (Server-Side Rendering) chiami l'API e si appenda o rallenti.
-        afterNextRender(async () => {
-            // Se i dati del generatore mancano (perché saltati in SSR), li carichiamo ora
-            if (!this.generator()) {
-                try {
-                    const info = await this.fetchGeneratorInfo();
-                    this.generator.set(info);
-                } catch (error) {
-                    this.handleRequestError(error);
-                }
-            }
-            this.generate();
-        });
+    ngOnInit(): void {
+        // La prima generazione usa POST: ha senso solo nel browser.
+        // L'SSR si occupa solo del rendering del meta SEO tramite computed().
+        if (!isPlatformBrowser(this.platformId)) return;
+        void this.generate();
     }
 
     ngOnDestroy(): void {
@@ -129,25 +140,14 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnDes
 
     // ── Dispatch per generatore ──────────────────────────────────────
 
-    private fetchGeneratorInfo(): Promise<GeneratorInfo> {
-        switch (this.PageType) {
-            case PageType.GeneratorIncel:   return this.api.getIncel();
-            case PageType.GeneratorAuto:    return this.api.getAuto();
-            case PageType.GeneratorAntiveg: return this.api.getAntiveg();
-            case PageType.GeneratorLocali:  return this.api.getLocali();
-            case PageType.GeneratorMbeb:    return this.api.getMbeb();
-            default: throw new Error(`PageType non è un generatore: ${this.PageType}`);
-        }
-    }
-
     private fetchGeneratedText(): Promise<GenerateResponse> {
-        switch (this.PageType) {
+        switch (this.pageType()) {
             case PageType.GeneratorIncel:   return this.api.generateIncel({});
             case PageType.GeneratorAuto:    return this.api.generateAuto({});
             case PageType.GeneratorAntiveg: return this.api.generateAntiveg({});
             case PageType.GeneratorLocali:  return this.api.generateLocali({});
             case PageType.GeneratorMbeb:    return this.api.generateMbeb({});
-            default: throw new Error(`PageType non è un generatore: ${this.PageType}`);
+            default: throw new Error(`PageType non è un generatore: ${this.pageType()}`);
         }
     }
 
