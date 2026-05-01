@@ -6,26 +6,36 @@ import { tryNormalizeBcp47 } from '../i18n/bcp47';
 import { ContestoSito } from '../../site';
 
 /**
- * Traduzione i18n e gestione lingua corrente.
- *
- * Unico punto di gestione della lingua: currentLang signal + setLanguage() che
- * aggiorna il signal e ricarica le traduzioni in un'unica operazione.
- *
+ * TRANSLATE SERVICE
+ * Gestisce il caricamento dei dizionari JSON, la lingua corrente e la 
+ * formattazione delle stringhe con parametri.
  */
 @Injectable({ providedIn: 'root' })
 export class TranslateService {
     private readonly document = inject(DOCUMENT);
     private readonly consent = inject(CookieConsentService);
+
+    // Flag interno per distinguere il caricamento iniziale dai cambi lingua successivi
     private hasInitializedLanguage = false;
 
-    /** Lingua corrente dell'app (signal reattivo) */
+    /** 
+     * Lingua corrente dell'app (Signal). 
+     * Qualsiasi componente che legge questo signal si aggiornerà automaticamente al variare del valore.
+     */
     readonly currentLang = signal<string>(ContestoSito.config.defaultLang);
 
-    /** Dizionario chiave→traduzione per la lingua corrente (signal reattivo) */
+    /** 
+     * Archivio delle traduzioni caricate (Signal).
+     * Contiene una mappa chiave -> valore (es: { "home.title": "Benvenuto" })
+     */
     private translations = signal<Record<string, string>>({});
 
-    /** Lingua iniziale: cookie salvato o lingua di default come fallback. */
+    /** 
+     * Determina quale lingua caricare all'avvio.
+     * Priorità: Lingua salvata nei cookie -> Lingua di default del sito.
+     */
     getInitialLanguage(): string {
+        // Se il sito supporta una sola lingua, inutile cercare preferenze salvate
         if (!this.hasMultipleLanguages()) {
             this.clearSavedLanguage();
             return ContestoSito.config.defaultLang;
@@ -36,31 +46,36 @@ export class TranslateService {
     }
 
     /**
-     * Carica le traduzioni per la lingua specificata.
-     * Scarica basic.{lang}.json e addon.{lang}.json in parallelo,
-     * poi li fonde in un unico dizionario (addon ha priorità su basic).
+     * Carica i file JSON delle traduzioni.
+     * Implementa un sistema di fallback: se la lingua richiesta non ha cataloghi, 
+     * prova a caricare quella di default per non lasciare l'utente senza testi.
      */
     async loadTranslations(lang: string): Promise<void> {
         const resolved = this.resolveLanguage(lang);
 
+        // Caricamento asincrono dei cataloghi (basic + addon)
         const catalogs =
             await loadTranslationCatalogs(resolved)
             ?? await loadTranslationCatalogs(ContestoSito.config.defaultLang)
             ?? [];
 
+        // Fonde i cataloghi in un unico oggetto. Se una chiave esiste in entrambi, 
+        // l'ultimo (addon) sovrascrive il primo (basic).
         this.translations.set(Object.assign({}, ...catalogs));
     }
 
     /**
-     * Cambia la lingua corrente e ricarica le traduzioni.
-     * Unica operazione necessaria per il cambio lingua.
+     * Cambia la lingua: carica i JSON, aggiorna il signal (triggera UI),
+     * imposta lang sull'HTML e persiste la scelta se c'è il consenso cookie.
      */
     async setLanguage(lang: string): Promise<void> {
         const resolved = this.resolveLanguage(lang);
+
         await this.loadTranslations(resolved);
         this.currentLang.set(resolved);
         this.updateDocumentLanguage(resolved);
 
+        // Salva la preferenza solo se non è il primo init e se il sito è multilingua
         if (this.hasMultipleLanguages() && this.hasInitializedLanguage) {
             this.persistLanguage(resolved);
         }
@@ -68,28 +83,30 @@ export class TranslateService {
         this.hasInitializedLanguage = true;
     }
 
-    /** Imposta la lingua iniziale */
+    /** Inizializza il servizio al bootstrap dell'applicazione. */
     async setInitialLanguage(): Promise<void> {
         await this.setLanguage(this.getInitialLanguage());
     }
 
-    /** Restituisce la lista delle lingue disponibili, ordinata con la predefinita per prima. */
+    /** Ritorna l'array delle lingue configurate per il sito (es: ['it', 'en']). */
     getAvailableLanguages(): string[] {
         return TranslateService.availableLanguages();
     }
 
-
     /**
-     * Traduce una chiave nella lingua corrente.
-     * Se la chiave non esiste, restituisce la chiave stessa (utile per debug).
+     * Cerca la chiave nelle traduzioni e sostituisce i segnaposto posizionali.
+     * Es: translate("saluto", "Mario") → "Ciao {0}" diventa "Ciao Mario"
      */
     translate(key: string, ...args: any[]): string {
         const translations = this.translations();
         const template = translations[key];
+
+        // Debug: se la chiave manca, ritorna la chiave stessa per evidenziare l'errore nel template
         if (!template) return key;
 
         if (args.length === 0) return template;
 
+        // Sostituzione posizionale dei parametri
         let result = template;
         for (let i = 0; i < args.length; i++) {
             result = result.replaceAll(`{${i}}`, String(args[i] ?? ''));
@@ -97,32 +114,27 @@ export class TranslateService {
         return result;
     }
 
-    /** Alias breve di translate() */
+    /** Alias rapido per il metodo translate() da usare nei template. */
     t(key: string, ...args: any[]): string {
         return this.translate(key, ...args);
     }
 
-    // ─── Private ───────────────────────────────────────────────────────
+    // ─── PRIVATE UTILITIES ──────────────────────────────────────────────
 
+    /** Verifica se una stringa è inclusa nell'elenco delle lingue supportate dal sito. */
     private isSupportedLanguage(lang: string | null | undefined): lang is string {
         return typeof lang === 'string' && TranslateService.availableLanguages().includes(lang);
     }
 
     /**
-     * Sanifica qualsiasi tag esterno (cookie, query string, header) prima di usarlo:
-     * 1) deve essere un tag BCP 47 well-formed (Intl.getCanonicalLocales)
-     * 2) deve essere fra le lingue dichiarate dal sito
-     * 3) deve avere un catalogo di traduzioni disponibile
-     *
-     * Qualsiasi fallimento ricade sulla lingua di default. Cosi' il backend
-     * riceve sempre un Accept-Language valido e nessun layer a valle si rompe.
+     * Risolve il codice lingua assicurandosi che sia valido.
+     * Se riceve un codice non supportato o malformato, ricade sulla defaultLang.
      */
     private resolveLanguage(lang: string | null | undefined): string {
         const normalized = tryNormalizeBcp47(lang);
         if (normalized && this.isSupportedLanguage(normalized) && hasTranslationCatalogs(normalized)) {
             return normalized;
         }
-
         return ContestoSito.config.defaultLang;
     }
 
@@ -140,12 +152,13 @@ export class TranslateService {
         this.consent.clearSavedLanguage();
     }
 
+    /** Aggiorna <html lang="..."> per i motori di ricerca e screen reader. */
     private updateDocumentLanguage(lang: string): void {
         this.document.documentElement?.setAttribute('lang', lang);
     }
 
+    /** Metodo statico per accedere alle lingue configurate nel sito. */
     public static availableLanguages(): string[] {
-        // buildSite() normalizza già la lista: deduplicata, lowercased, defaultLang inclusa.
         return ContestoSito.config.availableLanguages;
     }
 }

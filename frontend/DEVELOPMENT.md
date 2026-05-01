@@ -12,7 +12,9 @@ Il README è l'overview del progetto; qui si entra nel dettaglio del "come si fa
 - [Aggiungere un componente](#aggiungere-un-componente)
 - [Aggiungere una direttiva](#aggiungere-una-direttiva)
 - [Aggiungere un endpoint API](#aggiungere-un-endpoint-api)
+- [Resolver automatico dei contenuti](#resolver-automatico-dei-contenuti)
 - [Regole SSR](#regole-ssr)
+- [Meta SEO e SSR](#meta-seo-e-ssr)
 - [Pattern dei Signal](#pattern-dei-signal)
 - [Internazionalizzazione (i18n)](#internazionalizzazione-i18n)
 
@@ -101,14 +103,19 @@ export class MiaPaginaComponent extends PageBaseComponent {
 }
 ```
 
-Servizi già disponibili da `PageBaseComponent`:
+Già disponibile da `PageBaseComponent`:
 
-| Proprietà | Servizio |
-|-----------|---------|
-| `this.translate` | `TranslateService` — traduzioni e lingua corrente |
-| `this.api` | `ApiService` — chiamate HTTP al backend |
-| `this.asset` | `AssetService` — URL degli asset statici |
-| `this.notify` | `NotificationService` — toast, dialog, conferme |
+| Proprietà | Tipo | Note |
+|-----------|------|------|
+| `this.translate` | `TranslateService` | Traduzioni e lingua corrente |
+| `this.api` | `ApiService` | Chiamate HTTP al backend |
+| `this.asset` | `AssetService` | URL degli asset statici |
+| `this.notify` | `NotificationService` | Toast, dialog, conferme |
+| `this.pageContent()` | `any` | Contenuto dal resolver — castare al tipo atteso |
+| `this.platformId` | `object` | Per guard `isPlatformBrowser` |
+
+`pageContent()` è un `computed` che vale `null` per le pagine senza contenuto associato
+nel resolver e si aggiorna automaticamente ad ogni cambio lingua nel browser.
 
 ### 4. Aggiungere al menu (opzionale)
 
@@ -293,6 +300,98 @@ Non servono `try/catch` nei componenti salvo casi specifici.
 
 ---
 
+## Resolver automatico dei contenuti
+
+`app.routes.ts` applica automaticamente `ContentResolver` come resolver
+su ogni pagina che non dichiara un `resolve` esplicito in `site.ts`.
+`PageBaseComponent` riceve il risultato e lo espone tramite `pageContent()`,
+già aggiornato ad ogni cambio lingua — funziona uguale per `server`, `client` e `prerender`.
+
+### Come funziona
+
+```
+Navigazione → ContentResolver.loadResolved(pageType, lang)
+                        ↓
+             switch(pageType) → dati da file, API, o null
+                        ↓
+             contentByResolve = input  ← legato da withComponentInputBinding
+                        ↓
+             pageContent = computed(() => _liveContent() ?? contentByResolve())
+                        ↓
+             [SSR / prerender]  HTML serializzato con dati già dentro
+             [Browser]          effect aggiorna _liveContent ad ogni cambio lingua
+```
+
+Il componente usa **solo** `this.pageContent()` — non sa nulla del render mode.
+
+### Aggiungere contenuto a una nuova pagina
+
+**1. Aggiungere il case in `ContentResolver.loadResolved()`**
+
+```typescript
+// pages/content.resolver.ts
+case PageType.MiaPagina:
+    return this.chiamataApi(lang);             // API esterna
+    // oppure
+    return this.tryLoadPolicy('slug', lang);   // file MD da /assets/legal/
+    // oppure
+    return Promise.resolve({ statico: true }); // dati statici, nessuna chiamata HTTP
+```
+
+Nessun altro file da toccare: il resolver viene applicato in automatico.
+
+**2. Leggere `pageContent()` nel componente**
+
+```typescript
+export class MiaPaginaComponent extends PageBaseComponent {
+    // Cast al tipo atteso — null se la pagina non ha contenuto nel resolver
+    readonly meteo = computed(() => this.pageContent() as MeteoData | null);
+}
+```
+
+Niente signal aggiuntivi, niente effect, niente override. `pageContent()` vale
+già sia per SSR che per i cambi lingua successivi.
+
+### Override esplicito del resolver
+
+Se una pagina ha logica incompatibile con lo switch centrale, dichiarare
+`resolve` esplicitamente in `site.ts` — il resolver automatico non viene applicato:
+
+```typescript
+// site.ts
+{
+    pageType: PageType.MiaPagina,
+    resolve: { contentByResolve: mioResolverCustom() },
+    ...
+}
+```
+
+### Estendere in un progetto figlio
+
+Il progetto figlio registra la propria versione del servizio nel DI:
+
+```typescript
+// app.config.ts del figlio
+{ provide: ContentResolver, useClass: ChildContentResolverService }
+```
+
+```typescript
+// ChildContentResolverService
+override async loadResolved(pageType: PageType, lang?: string): Promise<any> {
+    switch (pageType) {
+        case PageType.GeneratoreMeteo:
+            return this.api.getMeteo(lang);
+        default:
+            return super.loadResolved(pageType, lang); // delega al padre per le Policy
+    }
+}
+```
+
+`contentLoaderResolver` (usato da `app.routes.ts`) chiama `inject(ContentResolver)`,
+quindi usa automaticamente la versione del figlio senza toccare nulla nell'engine.
+
+---
+
 ## Regole SSR
 
 Il frontend usa SSR con hydration (`provideClientHydration(withEventReplay())`).
@@ -328,6 +427,111 @@ metodo(): void {
 - **`ngAfterViewInit`**: non viene chiamato lato server → sicuro per accesso DOM
 - **Event handler / `@HostListener`**: non vengono scatenati lato server → sicuri
 - **`constructor` / `ngOnInit`**: vengono eseguiti lato server → richiedono guard
+
+---
+
+## Meta SEO e SSR
+
+`AppTitleStrategy` imposta `<title>` e `<meta name="description">` ad ogni
+navigazione, leggendo `title` e `description` dalla configurazione della pagina
+in `site.ts`. Sono disponibili tre pattern, in ordine di semplicità.
+
+---
+
+### Pattern A — Stringhe statiche in `site.ts` *(zero codice nel componente)*
+
+```typescript
+// site.ts
+{
+    path: 'generatori/incel',
+    title: 'Generatore Incel',            // stringa letterale → titolo in <title>
+    description: 'Genera il tuo incel',   // stringa letterale → <meta description>
+    renderMode: 'server',
+    ...
+}
+```
+
+`AppTitleStrategy` accetta sia chiavi i18n (`'miaPagina'` → tradotto) sia stringhe
+letterali (`'Generatore Incel'` → usato direttamente). Non serve nessun resolver,
+nessun `input()`, nessun `effect()` nel componente.
+
+**Usarlo quando:** il titolo e la descrizione sono fissi e noti in `site.ts`.
+
+---
+
+### Pattern B — Dati da API tramite resolver *(per contenuto dinamico)*
+
+```typescript
+// site.ts
+{
+    renderMode: 'server',
+    resolve: { post: () => inject(ApiService).getPost() },
+    ...
+}
+
+// componente
+readonly post = input<Post | null>(null);
+
+constructor() {
+    effect(() => {
+        const p = this.post();
+        if (!p) return;
+        this.pageMeta.setTitle(`${p.titolo} | ${ContestoSito.config.appName}`, p.descrizione);
+    });
+}
+
+ngOnInit(): void {
+    if (!isPlatformBrowser(this.platformId)) return;  // API client-only
+    // caricamento aggiuntivo lato browser se necessario
+}
+```
+
+> ⚠️ **Non usare `afterNextRender`** per avviare chiamate API: interferisce con
+> il binding degli `input()` in SSR e causa lo stato null al primo render.
+> Usare sempre `ngOnInit` + `isPlatformBrowser`.
+
+**Usarlo quando:** il titolo o la descrizione vengono da un'API e cambiano per
+ogni richiesta (es. pagina dettaglio di un articolo).
+
+---
+
+### Pattern C — Mappa statica per tipo di pagina *(dati fissi per PageType)*
+
+```typescript
+// componente
+private static readonly META: Partial<Record<PageType, { name: string; desc: string }>> = {
+    [PageType.GeneratorIncel]: { name: 'Generatore Incel', desc: 'Genera il tuo incel' },
+    [PageType.GeneratorAuto]:  { name: 'Generatore Auto',  desc: 'Genera automobilisti' },
+};
+
+readonly meta = computed(() => MioComp.META[this.pageType()] ?? null);
+
+constructor() {
+    effect(() => {
+        const m = this.meta();
+        if (!m) return;
+        this.pageMeta.setTitle(`${m.name} | ${ContestoSito.config.appName}`, m.desc);
+    });
+}
+```
+
+`pageType` è un `input.required` iniettato da `route.data` in modo sincrono:
+è sempre disponibile prima del primo render, in SSR e nel browser.
+`computed()` da `pageType()` è quindi sempre non-null per i PageType noti.
+
+**Usarlo quando:** lo stesso componente serve più PageType con metadati diversi
+e i dati sono tutti noti a compile-time (non servono chiamate API).
+
+---
+
+### Quale scegliere?
+
+| Caso | Pattern |
+|------|---------|
+| Titolo e descrizione fissi, gestiti in `site.ts` | **A** |
+| Titolo/descrizione da API (SEO per crawler) | **B** |
+| Un componente, N PageType con dati statici diversi | **C** |
+| Titolo dinamico che aggiorna anche dopo l'idratazione | **B** o **C** + `effect()` |
 
 ---
 

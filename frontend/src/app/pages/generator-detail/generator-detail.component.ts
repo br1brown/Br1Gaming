@@ -1,6 +1,6 @@
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, effect, inject, OnDestroy, OnInit, PLATFORM_ID, signal } from '@angular/core';
+import { Component, computed, effect, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { GeneratorInfo, GenerateResponse } from '../../core/dto/generator.dto';
 import { ApiService } from '../../core/services/api.service';
 import { PageMetaService } from '../../core/services/page-meta.service';
@@ -14,21 +14,6 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { PageBaseComponent } from '../page-base.component';
 import { ThemeService } from '../../core/services/theme.service';
 
-/**
- * Mappa statica dei metadati di ogni generatore, indicizzata per PageType.
- *
- * Usata per derivare i metadati in SSR tramite computed() a partire dal
- * pageType (input obbligatorio, sempre disponibile prima del render).
- * Evita la dipendenza da withComponentInputBinding, che può avere problemi
- * di timing con afterNextRender nelle versioni correnti di Angular SSR.
- */
-const GENERATOR_INFO_MAP: Partial<Record<PageType, GeneratorInfo>> = {
-    [PageType.GeneratorIncel]:   { slug: 'incel',   name: 'Generatore Incel',      description: 'Genera il tuo incel di fiducia' },
-    [PageType.GeneratorAuto]:    { slug: 'auto',    name: 'Generatore Auto',        description: 'Genera storie di automobilisti' },
-    [PageType.GeneratorAntiveg]: { slug: 'antiveg', name: 'Generatore Antivegano',  description: "Genera il profilo dell'antivegano" },
-    [PageType.GeneratorLocali]:  { slug: 'locali',  name: 'Generatore Locali',      description: 'Trova il nome del tuo locale tutto italiano' },
-    [PageType.GeneratorMbeb]:    { slug: 'mbeb',    name: 'Generatore Mbeb',        description: 'Genera il tuo mbeb' },
-};
 
 @Component({
     selector: 'app-generator-detail',
@@ -40,19 +25,10 @@ export class GeneratorDetailComponent extends PageBaseComponent implements OnIni
     private readonly pageMeta = inject(PageMetaService);
     private readonly share = inject(ShareService);
     private readonly document = inject(DOCUMENT);
-    private readonly platformId = inject(PLATFORM_ID);
     readonly speech = inject(SpeechService);
     private readonly theme = inject(ThemeService);
 
-    /**
-     * Metadati del generatore corrente, derivati in modo sincrono dal pageType.
-     *
-     * pageType è un input obbligatorio di PageBaseComponent, sempre disponibile
-     * prima del primo ciclo di change detection sia in SSR che nel browser.
-     * L'uso di computed() garantisce che generator() non sia mai null per le
-     * pagine generatore, eliminando lo spinner nell'HTML servito in SSR.
-     */
-    readonly generator = computed<GeneratorInfo | null>(() => GENERATOR_INFO_MAP[this.pageType()] ?? null);
+    readonly generator = computed<GeneratorInfo | null>(() => this.pageContent() as GeneratorInfo | null);
 
     readonly result = signal<GenerateResponse | null>(null);
     readonly loading = signal(false);

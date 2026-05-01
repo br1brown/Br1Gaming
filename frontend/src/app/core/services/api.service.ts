@@ -72,6 +72,9 @@ export class ApiService extends BaseApiService {
         return this.api_get<StorySummary[]>(API.stories);
     }
 
+    getStoryPoveriMaschi(): Promise<StorySummary> { return this.api_get<StorySummary>(API.storyPoveriMaschi); }
+    getStoryMagrogamer09(): Promise<StorySummary> { return this.api_get<StorySummary>(API.storyMagrogamer09); }
+
     playPoveriMaschi(sceneId?: string, choiceId?: string, stats?: Record<string, number>): Promise<StorySnapshotDto> {
         return this.api_post<StorySnapshotDto>(`${API.storyPoveriMaschi}/play`, { sceneId, choiceId, stats });
     }

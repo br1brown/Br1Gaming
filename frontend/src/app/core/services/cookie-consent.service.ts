@@ -1,39 +1,41 @@
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { Injectable, inject, PLATFORM_ID, signal } from '@angular/core';
 import { TranslateService } from './translate.service';
+import { ContestoSito } from '../../site';
 
 /**
+ * COOKIE CONSENT SERVICE
  * Gestione centralizzata del consenso cookie — Conformità EU (ePrivacy + GDPR).
- *
- * Nessun altro servizio deve accedere direttamente a document.cookie: tutto passa da qui.
- *
- * - Le letture (getCookie) funzionano sempre — il dato potrebbe essere
- *   stato scritto con un consenso precedente.
- * - Le scritture (setCookie) sono bloccate finché l'utente non accetta.
- * - Le rimozioni (removeCookie) funzionano sempre — la pulizia è sempre consentita.
- *
- * Il consenso stesso è salvato in localStorage (non in un cookie,
- * per evitare la circolarità di usare un cookie per il consenso cookie).
+ * 
+ * Il principio cardine è il "Privacy by Default": le scritture sono bloccate
+ * finché l'utente non esprime un consenso esplicito.
  */
 @Injectable({ providedIn: 'root' })
 export class CookieConsentService {
+    // Iniezione delle dipendenze per l'accesso sicuro al DOM e al contesto SSR
     private readonly document = inject(DOCUMENT);
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+
+    // Chiavi per lo storage
     private readonly consentKey = 'cookie-consent-accepted';
     private readonly consentLogKey = 'cookie-consent-log';
     private readonly languagePreferenceKey = 'lang';
-    private readonly languagePreferenceMaxAgeSeconds = 60 * 60 * 24 * 365;
+    private readonly languagePreferenceMaxAgeSeconds = 60 * 60 * 24 * 365; // 1 anno
 
-    /** true se il banner è necessario — logica in {@link CookieConsentService.requiresCookieConsent} */
+    /** 
+     * Flag calcolato staticamente: indica se l'app ha funzionalità che richiedono cookie 
+     * (es. multilingua). Se false, il banner potrebbe non essere mostrato affatto.
+     */
     readonly isNeeded = CookieConsentService.requiresCookieConsent();
 
-    /** true se l'utente ha accettato i cookie */
+    /** Signal: stato attuale del consenso (true = accettato) */
     readonly accepted = signal(false);
 
-    /** true se l'utente ha risposto al banner (accettato o rifiutato) */
+    /** Signal: indica se l'utente ha interagito con il banner in questa sessione o in passato */
     readonly responded = signal(false);
 
     constructor() {
+        // Al caricamento, recuperiamo lo stato salvato nel browser
         if (this.isBrowser) {
             try {
                 const stored = localStorage.getItem(this.consentKey);
@@ -42,28 +44,31 @@ export class CookieConsentService {
                     this.accepted.set(stored === '1');
                 }
             } catch {
-                // localStorage non disponibile — consent resta false.
+                // Gestione silenziosa se localStorage è disabilitato (es. navigazione anonima restrittiva)
             }
         }
     }
 
-    // ─── Consenso ──────────────────────────────────────────────────────
+    // ─── GESTIONE CONSENSO ──────────────────────────────────────────────
 
-    /** Registra l'accettazione dell'utente. */
+    /** Azione: L'utente clicca su "Accetta tutto" */
     accept(): void {
         this.accepted.set(true);
         this.responded.set(true);
         this.persistConsent('accepted');
     }
 
-    /** Registra il rifiuto dell'utente. */
+    /** Azione: L'utente clicca su "Rifiuta" */
     reject(): void {
         this.accepted.set(false);
         this.responded.set(true);
         this.persistConsent('rejected');
     }
 
-    /** Salva lo stato del consenso e il log con timestamp. */
+    /** 
+     * Salva permanentemente la scelta dell'utente in localStorage.
+     * Include un log per dimostrare la conformità in caso di audit (Accountability GDPR).
+     */
     private persistConsent(action: 'accepted' | 'rejected'): void {
         if (!this.isBrowser) return;
         try {
@@ -71,61 +76,76 @@ export class CookieConsentService {
             const log = {
                 action,
                 timestamp: new Date().toISOString(),
-                version: '1.0'
+                version: ContestoSito.config.version,
             };
             localStorage.setItem(this.consentLogKey, JSON.stringify(log));
         } catch { /* storage non disponibile */ }
     }
 
-    // ─── Cookie ────────────────────────────────────────────────────────
+    // ─── OPERAZIONI SUI COOKIE ──────────────────────────────────────────
 
-    /** Legge un cookie per nome. Sempre consentito (il dato potrebbe esistere da prima). */
+    /** 
+     * Legge un cookie dal documento. 
+     * Nota: La lettura è sempre permessa perché non viola la privacy "scrivere" dati.
+     */
     getCookie(key: string): string | null {
         if (!this.isBrowser) return null;
+        // Regex per estrarre il valore del cookie in modo sicuro
         const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const match = this.document.cookie.match(new RegExp(`(?:^|;\\s*)${escapedKey}=([^;]*)`));
         return match ? decodeURIComponent(match[1]) : null;
     }
 
-    /** Scrive un cookie — solo se il consenso è stato dato. */
+    /** 
+     * Scrive un cookie.
+     * PROTEZIONE: Se il consenso non è stato dato, l'operazione viene annullata silenziosamente.
+     */
     setCookie(key: string, value: string, maxAgeSeconds: number): void {
         if (!this.isBrowser || !this.accepted()) return;
+
+        // Impostazione standard con SameSite=Lax per sicurezza CSRF
         this.document.cookie =
             `${key}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAgeSeconds}; SameSite=Lax`;
     }
 
-    /** Rimuove un cookie (sempre consentito — è pulizia). */
+    /** 
+     * Rimuove un cookie impostando la scadenza nel passato.
+     * Sempre consentito (operazione di pulizia).
+     */
     removeCookie(key: string): void {
         if (!this.isBrowser) return;
         this.document.cookie = `${key}=; Path=/; Max-Age=0; SameSite=Lax`;
     }
 
-    /** Restituisce la lingua salvata nel cookie di preferenza, se presente. */
+    // ─── PREFERENZA LINGUA ──────────────────────────────────────────────
+
+    /** Recupera la lingua salvata (se esiste) */
     getSavedLanguage(): string | null {
         return this.getCookie(this.languagePreferenceKey);
     }
 
-    /** Salva la lingua preferita nel cookie dedicato. */
+    /** Salva la lingua (solo se accettato il consenso) */
     setSavedLanguage(language: string): void {
         this.setCookie(this.languagePreferenceKey, language, this.languagePreferenceMaxAgeSeconds);
     }
 
-    /** Rimuove il cookie della lingua preferita. */
+    /** Rimuove il cookie della lingua */
     clearSavedLanguage(): void {
         this.removeCookie(this.languagePreferenceKey);
     }
 
     /**
-    * Restituisce true se il consenso cookie è necessario.
-    * Aggiungere qui ogni nuova condizione che richiede persistenza lato client.
-    */
+     * LOGICA DI BUSINESS: Stabilisce se mostrare il banner.
+     * Attualmente richiede il consenso se l'app supporta più di una lingua
+     * (perché deve salvare la preferenza dell'utente).
+     */
     public static requiresCookieConsent(): boolean {
         let req = false;
 
+        // Se l'app ha più lingue, serve un cookie per ricordare la scelta dell'utente
         if (TranslateService.availableLanguages().length > 1)
             req = true;
 
         return req;
     }
-
 }

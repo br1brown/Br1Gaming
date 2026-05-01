@@ -250,15 +250,8 @@ export type LeafPageInput = BasePageInput & {
     /** Resolver dati. Le chiavi corrispondono agli input del componente (withComponentInputBinding). */
     resolve?: Record<string, ResolveFn<unknown>>;
 
-    /** Strategia di esecuzione di guard e resolver */
-    runGuardsAndResolvers?: RunGuardsAndResolvers;
-
-    /** Guard di disattivazione */
-    canDeactivate?: CanDeactivateFn<PageBaseComponent>[];
-
-    /** Provider locali alla route */
-    providers?: (Provider | EnvironmentProviders)[];
 };
+
 /**
  * Pagina esterna dichiarabile in `site.ts`.
  *
@@ -603,7 +596,7 @@ export type SitemapEntry = {
 // ======================================================
 
 /**
- * Rappresentazione interna “grezza” della navigazione.
+ * Rappresentazione interna "grezza" della navigazione.
  *
  * Durante la build non risolviamo subito i link finali,
  * ma accumuliamo una struttura intermedia composta da:
@@ -739,6 +732,10 @@ export function buildSite(
              * - merge dei default smoke con i valori custom
              */
             const normalizeLang = (l: string | null | undefined, context: string): string => {
+                // tryNormalizeBcp47 chiama Intl.getCanonicalLocales internamente:
+                // se il tag non è accettato da tutti i runtime JS/browser, ritorna null.
+                // Questo garantisce che qualsiasi lingua passata qui sia valida anche
+                // nel backend (Accept-Language → CultureInfo) e nei file JSON localizzati.
                 const normalized = tryNormalizeBcp47(l);
                 if (normalized === null) {
                     throw new Error(
@@ -749,9 +746,19 @@ export function buildSite(
             };
 
             const normalizeVersion = (v?: string) =>
+                // trim() rimuove spazi iniziali/finali accidentali
+                // replace() elimina qualsiasi carattere che non sia alfanumerico, punto, trattino o underscore
+                // → evita che stringhe arbitrarie finiscano in header HTTP o manifest PWA
                 typeof v === 'string' ? v.trim().replace(/[^a-zA-Z0-9.\-_]/g, '') : '';
 
+            // Prima normalizza e valida la lingua di default (viene sempre inclusa).
             const defaultLang = normalizeLang(siteConfigurationInput.defaultLang, 'siteConfig.defaultLang');
+
+            // Costruisce l'array finale delle lingue disponibili:
+            // 1. Parte da un Set per eliminare i duplicati automaticamente.
+            // 2. Il primo elemento è sempre defaultLang, così è garantito che sia presente.
+            // 3. Le lingue dichiarate dall'utente vengono aggiunte dopo, ognuna normalizzata e validata.
+            // 4. Array.from converte il Set in array ordinato (defaultLang sempre in testa).
             const availableLanguages = Array.from(new Set([
                 defaultLang,
                 ...(siteConfigurationInput.availableLanguages ?? []).map((l, i) =>
@@ -831,7 +838,7 @@ export function buildSite(
 
             /**
              * Una pagina esterna non ha un path Angular locale.
-             * La registriamo comunque nella mappa per poterla usare
+             * La registriamo comunque nella mappa per poterla usare.
              */
             if (isExternalPage(page)) {
                 if (pageMap.has(page.pageType)) {
@@ -858,6 +865,12 @@ export function buildSite(
              *
              * Il replace finale elimina eventuali slash doppi.
              */
+            // Costruisce il path completo combinando parent e segmento corrente:
+            // 1. [parent, page.path] → es. ['admin', 'users']
+            // 2. .filter(Boolean)    → rimuove stringhe vuote (es. parent='' alla radice)
+            // 3. .join('/')          → 'admin/users'
+            // 4. `/${...}`           → '/admin/users'
+            // 5. .replace(/\/+/g, '/') → collassa eventuali slash doppi ('//' → '/')
             const fullPath = `/${[parent, page.path]
                 .filter(Boolean)
                 .join('/')}`.replace(/\/+/g, '/');
@@ -895,25 +908,6 @@ export function buildSite(
                 path: fullPath,
                 renderMode: page.renderMode ?? 'client'
             });
-
-            /**
-             * Pagina server-rendered senza resolver: Angular SSR renderizzerà la pagina
-             * senza dati dinamici. Di solito è un errore di configurazione.
-             *
-             * Il warning appare all'avvio del processo (browser e Node SSR) perché
-             * buildSite() viene eseguito a livello di modulo durante il bootstrap.
-             * In sviluppo è il primo segnale visibile prima ancora del primo render.
-             */
-            if (page.renderMode === 'server' && !page.resolve) {
-                console.warn(
-                    `[SiteBuilder] ⚠ La pagina "${fullPath}" ha renderMode 'server' ma nessun resolver dichiarato.\n` +
-                    `  Se la pagina non ha bisogno di dati dal backend puoi ignorare questo avviso.\n` +
-                    `  Altrimenti aggiungi in site.ts:\n` +
-                    `    resolve: { nomeInput: () => inject(TuoService).tuoMetodo() }\n` +
-                    `  e nel componente:\n` +
-                    `    readonly nomeInput = input<TuoTipo>();`
-                );
-            }
 
             /**
              * Le pagine che richiedono autenticazione non devono essere indicizzate:
@@ -961,11 +955,17 @@ export function buildSite(
                  * solo se contiene almeno un elemento valido.
                  */
                 if (isRawGroup(item)) {
+                    // Risolve prima i figli in modo ricorsivo.
+                    // Se nessun figlio è valido (tutti disabilitati o non trovati),
+                    // il gruppo non viene incluso nella navigazione finale.
                     const children = resolveNavigation(item.children);
 
                     return children.length > 0
                         ? {
                             label: item.label,
+                            // Il path '#group:...' è un sentinel sintetico, mai navigabile.
+                            // Il componente navbar lo riconosce e lo tratta come dropdown:
+                            // non ci naviga, ma espande i figli quando cliccato.
                             path: `#group:${item.label}`,
                             isExternal: false,
                             children
@@ -979,6 +979,8 @@ export function buildSite(
                 return {
                     label: item.label,
                     path: item.path,
+                    // Considera esterno qualsiasi link che inizia con http:// o https://.
+                    // Il componente navbar usa isExternal per aggiungere target="_blank" rel="noopener".
                     isExternal: item.path.startsWith('http://') || item.path.startsWith('https://')
                 };
             })
@@ -1025,4 +1027,3 @@ export function buildSite(
         getSitemapEntries: () => sitemap
     };
 }
-

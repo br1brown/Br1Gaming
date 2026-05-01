@@ -1,6 +1,4 @@
-import { buildSite } from './siteBuilder';
-import type { LeafPageInput } from './siteBuilder';
-import { policyContent } from './pages/policy/policy-content.service';
+import { buildSite, LeafPageInput } from './siteBuilder';
 
 export type {
     SiteConfig,
@@ -26,16 +24,13 @@ export enum PageType {
     StoryMagrogamer09,
 }
 
-import { storyStaticResolver } from './core/services/story.resolver';
-
 // ═══════════════════════════════════════════════════════════════════════
 // HELPER — crea una pagina generatore con path esplicito
 // ═══════════════════════════════════════════════════════════════════════
 function generatorPage(
     urlSegment: string,
     pageType: PageType,
-    description: string
-): Omit<LeafPageInput, 'title'> & { title: string } {
+): LeafPageInput {
     return {
         path: `generatori/${urlSegment}`,
         title: `generatore-${urlSegment}`,
@@ -43,7 +38,6 @@ function generatorPage(
         enabled: true,
         pageType,
         showPanel: false,
-        description,
         component: () => import('./pages/generator-detail/generator-detail.component')
             .then(m => m.GeneratorDetailComponent),
     };
@@ -55,9 +49,7 @@ function generatorPage(
 function storyPage(
     urlSegment: string,
     pageType: PageType,
-    displayTitle: string,
-    description: string
-): Omit<LeafPageInput, 'title'> & { title: string } {
+): LeafPageInput {
     return {
         path: `avventura/${urlSegment}`,
         title: `avventura-${urlSegment}`,
@@ -65,10 +57,6 @@ function storyPage(
         enabled: true,
         pageType,
         showPanel: true,
-        description,
-        resolve: {
-            storyInfo: storyStaticResolver({ displayTitle, description }),
-        },
         component: () => import('./pages/story-player/story-player.component')
             .then(m => m.StoryPlayerComponent),
     };
@@ -107,19 +95,15 @@ export const ContestoSito = buildSite(site => {
         },
 
         // ── Generatori ──────────────────────────────────────────────
-        generatorPage('incel',   PageType.GeneratorIncel,   'Genera il tuo incel di fiducia'),
-        generatorPage('auto',    PageType.GeneratorAuto,    'Genera storie di automobilisti'),
-        generatorPage('antiveg', PageType.GeneratorAntiveg, "Genera il profilo dell'antivegano"),
-        generatorPage('locali',  PageType.GeneratorLocali,  'Trova il nome del tuo locale tutto italiano'),
-        generatorPage('mbeb',    PageType.GeneratorMbeb,    'Genera il tuo mbeb'),
+        generatorPage('incel',   PageType.GeneratorIncel),
+        generatorPage('auto',    PageType.GeneratorAuto),
+        generatorPage('antiveg', PageType.GeneratorAntiveg),
+        generatorPage('locali',  PageType.GeneratorLocali),
+        generatorPage('mbeb',    PageType.GeneratorMbeb),
 
         // ── Avventure ────────────────────────────────────────────────
-        storyPage('poveri-maschi', PageType.StoryPoveriMaschi,
-            'Poveri Maschi - L\'avventura interattiva',
-            'Scopri se i poveri maschi hanno davvero ragione o torto'),
-        storyPage('magrogamer09', PageType.StoryMagrogamer09,
-            'Magrogamer09 - Il Simulatore di Gamer',
-            'Segui le avventure del leggendario Magrogamer09'),
+        storyPage('poveri-maschi', PageType.StoryPoveriMaschi),
+        storyPage('magrogamer09',  PageType.StoryMagrogamer09),
 
         {
             path: 'cookie-policy',
@@ -128,10 +112,7 @@ export const ContestoSito = buildSite(site => {
             pageType: PageType.CookiePolicy,
             renderMode: 'server',
             showPanel: true,
-            description: 'Informativa sui cookie di Br1-Gaming.',
-            resolve: {
-                content: policyContent(PageType.CookiePolicy),
-            },
+            description: 'cookiePolicyDesc',
             component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
         },
     ]);

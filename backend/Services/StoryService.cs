@@ -21,6 +21,9 @@ public class StoryService
 
     public IEnumerable<IStory> GetCatalog() => [PoveriMaschi, Magrogamer09];
 
+    public IStory GetPoveriMaschi() => PoveriMaschi;
+    public IStory GetMagrogamer09() => Magrogamer09;
+
     // ── Poveri Maschi ─────────────────────────────────────────────────
 
     public StorySnapshot? PlayPoveriMaschi(string? sceneId, string? choiceId, GameState state)

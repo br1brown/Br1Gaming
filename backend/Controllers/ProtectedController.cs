@@ -14,4 +14,8 @@ public class ProtectedController : EngineProtectedController
     /// Inizializza il controller con il logger dell'engine.
     /// </summary>
     public ProtectedController(ILogger<ProtectedController> logger) : base(logger) { }
+
+    /// <summary>Health check per endpoint protetti da JWT (utile anche per i test di integrazione).</summary>
+    [HttpGet("ping")]
+    public IActionResult Ping() => Ok(new { status = "ok" });
 }

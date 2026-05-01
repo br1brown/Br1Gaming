@@ -1,6 +1,6 @@
-/** Metadati statici di una storia, risolti in SSR senza chiamate API. */
+/** Metadati di una storia, risolti tramite API in SSR. */
 export interface StoryInfo {
-    displayTitle: string;
+    title: string;
     description: string;
 }
 

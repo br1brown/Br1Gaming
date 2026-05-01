@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
-import { Component, effect, inject, input, OnInit, PLATFORM_ID } from '@angular/core';
+import { Component, computed, effect, inject, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { PageMetaService } from '../../core/services/page-meta.service';
 import { ContestoSito } from '../../site';
@@ -22,21 +22,17 @@ export class StoryPlayerComponent extends PageBaseComponent implements OnInit {
     private readonly router = inject(Router);
     private readonly pageMeta = inject(PageMetaService);
     private readonly document = inject(DOCUMENT);
-    private readonly platformId = inject(PLATFORM_ID);
     readonly facade = inject(StoryPlayerFacade);
     readonly assets = inject(AssetService);
 
-    /** Metadati statici risolti in SSR senza chiamate API (title + description per SEO). */
-    readonly storyInfo = input<StoryInfo | null>(null);
+    readonly storyInfo = computed(() => this.pageContent() as StoryInfo | null);
 
     constructor() {
         super();
 
         effect(() => {
             this.translate.currentLang();
-            // In SSR: facade.title() è vuoto, si usa il displayTitle statico del resolver.
-            // In client: facade.title() si aggiorna appena la storia carica dall'API.
-            const title = this.facade.title() || this.storyInfo()?.displayTitle || '';
+            const title = this.facade.title() || this.storyInfo()?.title || '';
             this.updatePageMeta(title);
         });
     }

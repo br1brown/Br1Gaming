@@ -41,6 +41,20 @@ public class BaseController : EngineApiController
         return Ok(dtos);
     }
 
+    [HttpGet("stories/poveri-maschi")]
+    public IActionResult GetPoveriMaschi()
+    {
+        var s = _stories.GetPoveriMaschi();
+        return Ok(new StorySummaryDto(s.Slug, s.Title, s.Description));
+    }
+
+    [HttpGet("stories/magrogamer09")]
+    public IActionResult GetMagrogamer09()
+    {
+        var s = _stories.GetMagrogamer09();
+        return Ok(new StorySummaryDto(s.Slug, s.Title, s.Description));
+    }
+
     [HttpPost("stories/poveri-maschi/play")]
     public IActionResult PlayPoveriMaschi([FromBody] StoryPlayRequestDto body)
     {

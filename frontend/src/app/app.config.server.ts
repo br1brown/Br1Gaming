@@ -7,23 +7,28 @@ import type { SiteRenderMode } from './siteBuilder';
 import { SSR_BACKEND_ORIGIN, SSR_API_KEY } from './core/services/base-api.service';
 import { serverEnv } from '../server-env';
 
+/** Funzione utility: pulisce i percorsi delle rotte per Angular (es: trasforma "/home" in "home") */
 const toAngularServerPath = (path: string): string =>
     path === '/' ? '' : path.replace(/^\/+/, '');
 
+/** Funzione di mappatura: trasforma la logica del tuo engine nel formato richiesto da Angular SSR */
 function toServerRoute(path: string, renderMode: SiteRenderMode): ServerRoute {
     const normalizedPath = toAngularServerPath(path);
 
     switch (renderMode) {
+        /** Caso Prerender: la pagina viene generata una volta sola durante la build (file statico HTML) */
         case 'prerender':
             return {
                 path: normalizedPath,
                 renderMode: RenderMode.Prerender
             };
+        /** Caso Server: la pagina viene generata da zero ogni volta che un utente la richiede (SSR puro) */
         case 'server':
             return {
                 path: normalizedPath,
                 renderMode: RenderMode.Server
             };
+        /** Caso Client: il server non fa nulla, lascia che sia il browser a scaricare JS e mostrare tutto */
         default:
             return {
                 path: normalizedPath,
@@ -32,24 +37,32 @@ function toServerRoute(path: string, renderMode: SiteRenderMode): ServerRoute {
     }
 }
 
+/** Array delle rotte server: prende le impostazioni da ContestoSito e le converte per Angular */
 const serverRoutes: ServerRoute[] = [
+    /** Spatola (spread) tutte le pagine definite nella configurazione del tuo sito */
     ...ContestoSito.serverRenderEntries.map(({ path, renderMode }) =>
         toServerRoute(path, renderMode)
     ),
+    /** Wildcard: tutto ciò che non è mappato esplicitamente viene gestito solo dal browser (Client Side) */
     {
         path: '**',
         renderMode: RenderMode.Client
     }
 ];
 
+/** Configurazione specifica per il lato Server */
 const serverConfig: ApplicationConfig = {
     providers: [
+        /** Abilita i servizi necessari per far girare Angular su Node.js */
         provideServerRendering(),
+        /** Applica la strategia di rendering (Prerender/Server/Client) definita sopra */
         provideServerRouting(serverRoutes),
+        /** Inietta l'URL del backend: il server ha bisogno dell'indirizzo completo */
         {
             provide: SSR_BACKEND_ORIGIN,
             useValue: serverEnv.backendOrigin,
         },
+        /** Inietta la chiave API */
         {
             provide: SSR_API_KEY,
             useValue: serverEnv.backendApiKey,
@@ -57,5 +70,6 @@ const serverConfig: ApplicationConfig = {
     ]
 };
 
+/** Esportazione finale: unisce la configurazione base dell'app con quella specifica del server */
 export const config: ApplicationConfig =
     mergeApplicationConfig(appConfig, serverConfig);

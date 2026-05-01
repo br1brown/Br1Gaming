@@ -2,7 +2,12 @@ import { isPlatformBrowser } from '@angular/common';
 import { Injectable, PLATFORM_ID, inject } from '@angular/core';
 import * as QRCode from 'qrcode';
 import { ThemeService } from './theme.service';
+import { TranslateService } from './translate.service';
 
+/**
+ * Configurazioni supportate per la generazione del QR Code.
+ * Copre i casi d'uso comuni: WhatsApp, Email, WiFi, Bonifici SEPA e Testo libero.
+ */
 export type QrConfig =
     | { type: 'whatsapp'; phone: string; text?: string }
     | { type: 'email'; to: string; subject?: string; body?: string }
@@ -10,38 +15,44 @@ export type QrConfig =
     | { type: 'sepa'; iban: string; name: string; amount: number; remittance?: string }
     | { type: 'text'; content: string };
 
+/** Codici di errore standardizzati per il modulo QR. */
 export const enum QrError {
-    INVALID_INPUT     = 'INVALID_INPUT',
-    PAYLOAD_TOO_LARGE = 'PAYLOAD_TOO_LARGE',
-    CONVERSION_ERROR  = 'CONVERSION_ERROR',
-    GENERATION_FAILED = 'GENERATION_FAILED',
-    NOT_IN_BROWSER    = 'NOT_IN_BROWSER',
+    INVALID_INPUT = 'INVALID_INPUT',           // Fallimento validazione (es. IBAN o Email errati)
+    PAYLOAD_TOO_LARGE = 'PAYLOAD_TOO_LARGE',   // Testo troppo lungo per gli standard QR
+    CONVERSION_ERROR = 'CONVERSION_ERROR',     // Errore nel passaggio Canvas -> Blob
+    GENERATION_FAILED = 'GENERATION_FAILED',   // Fallimento generico della libreria qrcode
+    NOT_IN_BROWSER = 'NOT_IN_BROWSER',         // Chiamata effettuata lato server (SSR)
 }
 
+/** Risposta del servizio: restituisce un file binario (Blob) o un errore con messaggio tradotto. */
 export type QrResponse =
     | { success: true; blob: Blob }
-    | { success: false; error: QrError; message?: string };
+    | { success: false; error: QrError; message: string };
 
 /**
- * Generatore QR code — restituisce blob o SVG, nessuna logica UI.
- * Il chiamante gestisce download, condivisione e visualizzazione inline
- * tramite ShareService e AssetService secondo necessità.
+ * QR CODE SERVICE
+ * Fornisce logica per generare codici QR in formato PNG o SVG.
+ * Integra la gestione dei colori del tema e la traduzione automatica dei messaggi d'errore.
  */
 @Injectable({ providedIn: 'root' })
 export class QrCodeService {
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
     private readonly theme = inject(ThemeService);
+    private readonly translate = inject(TranslateService);
+
+    /** Cache per evitare calcoli ridondanti e risparmiare memoria su QR identici. */
     private readonly cache = new Map<string, Blob>();
 
-    // ─── Validator ───────────────────────────────────────────────────────
+    // ─── VALIDATORI ───────────────────────────────────────────────────────
 
     private readonly validators = {
         phone: (p: string) => /^\+?[1-9]\d{1,14}$/.test(p),
         email: (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e),
-        iban:  (i: string) => /^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(i.replace(/\s/g, '')),
+        iban: (i: string) => /^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(i.replace(/\s/g, '')),
     };
 
-    // ─── Builder payload ─────────────────────────────────────────────────
+    // ─── BUILDER PAYLOAD ──────────────────────────────────────────────────
+    // Genera le stringhe nel formato standard per essere interpretate dalle fotocamere.
 
     private readonly builders = {
         whatsapp: (p: string, t = '') =>
@@ -55,74 +66,81 @@ export class QrCodeService {
         text: (c: string) => c,
     };
 
-    // ─── API pubblica ────────────────────────────────────────────────────
-
-    /**
-     * Genera il QR come Blob PNG con i colori del tema attivo (colorPrimary + colorPrimaryText).
-     * Risultato cachato per payload + colori identici.
-     */
+    /** Genera un QR (PNG) usando i colori del tema globale. */
     async create(config: QrConfig): Promise<QrResponse> {
         return this.createWithColors(config, this.theme.colorPrimaryText(), this.theme.colorPrimary());
     }
 
-    /** Genera il QR con colori espliciti anziché quelli del tema. */
+    /** 
+     * Genera un QR (PNG) con colori personalizzati. 
+     * Gestisce la validazione e il controllo dell'ambiente (Browser vs Server).
+     */
     async createWithColors(config: QrConfig, fg: string, bg: string): Promise<QrResponse> {
         if (!this.isBrowser) return this.err(QrError.NOT_IN_BROWSER);
+
         const payload = this.buildPayload(config);
-        if (typeof payload !== 'string') return payload;
+        if (typeof payload !== 'string') return payload; // Restituisce l'oggetto QrResponse di errore
+
         return this.generate(payload, fg, bg);
     }
 
-    /** Genera il QR come stringa SVG con i colori del tema attivo. Browser-only, ritorna null su SSR. */
+    /** Genera la stringa SVG del QR Code con i colori del tema. */
     async toSVG(config: QrConfig): Promise<string | null> {
         return this.toSVGWithColors(config, this.theme.colorPrimaryText(), this.theme.colorPrimary());
     }
 
-    /** Genera il QR come stringa SVG con colori espliciti. Browser-only, ritorna null su SSR. */
+    /** Genera la stringa SVG del QR Code. Solo per uso nel browser. */
     async toSVGWithColors(config: QrConfig, fg: string, bg: string): Promise<string | null> {
         if (!this.isBrowser) return null;
         const payload = this.buildPayload(config);
         if (typeof payload !== 'string') return null;
+
         return QRCode.toString(payload, { type: 'svg', color: { dark: fg, light: bg } });
     }
 
-    // ─── Internals ───────────────────────────────────────────────────────
-
+    /** Trasforma la configurazione in stringa, validando i campi critici. */
     private buildPayload(config: QrConfig): string | QrResponse {
         switch (config.type) {
             case 'whatsapp':
                 return this.validators.phone(config.phone)
                     ? this.builders.whatsapp(config.phone, config.text)
-                    : this.err(QrError.INVALID_INPUT, 'Numero di telefono non valido');
+                    : this.err(QrError.INVALID_INPUT);
             case 'email':
                 return this.validators.email(config.to)
                     ? this.builders.email(config.to, config.subject, config.body)
-                    : this.err(QrError.INVALID_INPUT, 'Indirizzo email non valido');
+                    : this.err(QrError.INVALID_INPUT);
             case 'wifi':
                 return this.builders.wifi(config.ssid, config.password, config.encryption);
             case 'sepa':
                 return this.validators.iban(config.iban)
                     ? this.builders.sepa(config.iban, config.name, config.amount, config.remittance)
-                    : this.err(QrError.INVALID_INPUT, 'IBAN non valido');
+                    : this.err(QrError.INVALID_INPUT);
             case 'text':
                 return this.builders.text(config.content);
         }
     }
 
+    /**
+     * Esegue il rendering fisico del QR su un canvas e lo converte in Blob.
+     * Applica caching basato su payload e schema colori.
+     */
     private async generate(payload: string, fg: string, bg: string): Promise<QrResponse> {
         const cacheKey = `${payload}|${fg}|${bg}`;
         if (this.cache.has(cacheKey)) {
             return { success: true, blob: this.cache.get(cacheKey)! };
         }
 
+        // Limite tecnico per QR Code versione 40
         if (payload.length > 2953) {
-            return this.err(QrError.PAYLOAD_TOO_LARGE, 'Payload supera il limite QR (2953 caratteri)');
+            return this.err(QrError.PAYLOAD_TOO_LARGE);
         }
 
         try {
             const canvas = document.createElement('canvas');
             await QRCode.toCanvas(canvas, payload, {
-                width: 512, margin: 2, errorCorrectionLevel: 'H',
+                width: 512,
+                margin: 2,
+                errorCorrectionLevel: 'H', // Alta resilienza: il QR rimane leggibile anche se sporco o coperto
                 color: { dark: fg, light: bg },
             });
 
@@ -132,16 +150,31 @@ export class QrCodeService {
                         this.cache.set(cacheKey, blob);
                         resolve({ success: true, blob });
                     } else {
-                        resolve(this.err(QrError.CONVERSION_ERROR, 'Conversione canvas→Blob fallita'));
+                        resolve(this.err(QrError.CONVERSION_ERROR));
                     }
                 }, 'image/png');
             });
-        } catch (e) {
-            return this.err(QrError.GENERATION_FAILED, (e as Error).message);
+        } catch {
+            return this.err(QrError.GENERATION_FAILED);
         }
     }
 
-    private err(error: QrError, message?: string): QrResponse {
-        return { success: false, error, message };
+    /**
+     * Centralizza la creazione degli oggetti di errore.
+     * Mappa il tipo di errore (enum) sulla chiave di traduzione corrispondente.
+     */
+    private err(error: QrError): QrResponse {
+        const qrErrorMap: Record<QrError, string> = {
+            [QrError.INVALID_INPUT]: 'qrErrorInvalidInput',
+            [QrError.PAYLOAD_TOO_LARGE]: 'qrErrorPayloadTooLarge',
+            [QrError.CONVERSION_ERROR]: 'qrErrorConversionError',
+            [QrError.GENERATION_FAILED]: 'qrErrorGenerationFailed',
+            [QrError.NOT_IN_BROWSER]: 'qrErrorSsrNotSupported',
+        };
+        return {
+            success: false,
+            error,
+            message: this.translate.t(qrErrorMap[error]) // Traduzione dinamica
+        };
     }
 }

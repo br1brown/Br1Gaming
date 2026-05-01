@@ -8,17 +8,9 @@ using Backend.Models.Configuration;
 namespace Backend.Security;
 
 /// <summary>
-/// Contiene le estensioni che registrano e applicano la configurazione di sicurezza del template.
+/// Estensioni che registrano e applicano la sicurezza del template (defense in depth).
+/// L'ordine di registrazione e applicazione è fisso. Vedi DEVELOPMENT.md → "Pipeline HTTP".
 /// </summary>
-/// <remarks>
-/// La sicurezza del template e' organizzata come una pipeline di strati concentrici.
-/// Ogni richiesta HTTP attraversa tutti gli strati in ordine, e ognuno puo' bloccarla
-/// prima che arrivi al controller. Questo approccio segue il principio "defense in depth":
-/// anche se uno strato viene bypassato, quelli successivi continuano a proteggere.
-///
-/// L'ordine di registrazione in <see cref="AddTemplateSecurity"/> e l'ordine di applicazione
-/// in <see cref="UseTemplateSecurity"/> sono entrambi critici e non intercambiabili.
-/// </remarks>
 public static class SecurityExtensions
 {
     /// <summary>
@@ -27,10 +19,6 @@ public static class SecurityExtensions
     /// <param name="services">Collezione DI da configurare.</param>
     /// <param name="security">Opzioni tipizzate lette da <c>appsettings.json</c>.</param>
     /// <returns>La stessa collezione servizi, per consentire il chaining della configurazione.</returns>
-    /// <remarks>
-    /// I commenti inline spiegano ogni sezione. L'ordine degli schemi di autenticazione
-    /// e' API key (sempre) → JWT (solo se <see cref="SecurityOptions.LoginEnabled"/>).
-    /// </remarks>
     public static IServiceCollection AddTemplateSecurity(
         this IServiceCollection services,
         SecurityOptions security)
@@ -111,16 +99,8 @@ public static class SecurityExtensions
         });
 
         // ── CORS ────────────────────────────────────────────────────────
-        //
-        // Controlla quali origini (domini) possono chiamare le API dal browser.
-        // CORS e' rilevante solo per client browser: chiamate server-to-server,
-        // app mobile e altri client non-web non sono soggetti a questa policy.
-        //
-        // CorsOrigins vuoto = AllowAnyOrigin: scelta deliberata per API pubbliche
-        // accessibili da qualsiasi richiedente. La protezione reale e' l'API key
-        // (X-Api-Key), che identifica il tipo di client indipendentemente dall'origine.
-        // Valorizzare Security.CorsOrigins solo se si vuole limitare l'accesso
-        // browser a domini specifici (es. pannello admin su dominio separato).
+        // CorsOrigins vuoto = AllowAnyOrigin deliberato: la protezione reale è l'API key.
+        // Valorizzare Security.CorsOrigins solo per domini admin separati o multi-tenant.
         services.AddCors(options =>
         {
             options.AddDefaultPolicy(policy =>
@@ -189,24 +169,13 @@ public static class SecurityExtensions
     /// <param name="app">Applicazione ASP.NET da configurare.</param>
     /// <param name="security">Opzioni tipizzate lette da <c>appsettings.json</c>.</param>
     /// <returns>La stessa applicazione, per consentire il chaining della pipeline.</returns>
-    /// <remarks>
-    /// L'ordine e' critico: ForwardedHeaders → CORS → RateLimiter → SecurityHeaders → ExceptionHandler.
-    /// I commenti inline spiegano il perche' di ogni posizione.
-    /// Dopo questo metodo, Program.cs chiama UseAuthentication() e UseAuthorization().
-    /// </remarks>
     public static WebApplication UseTemplateSecurity(
         this WebApplication app,
         SecurityOptions security)
     {
-        // Se l'app e' dietro un reverse proxy, questo middleware legge
-        // l'header X-Forwarded-For e sovrascrive context.Connection.RemoteIpAddress
-        // con l'IP reale del client. Questo e' fondamentale perche' il rate limiter
-        // (AddRateLimiter sopra) partiziona i contatori proprio per RemoteIpAddress:
-        // senza questa sovrascrittura, vedrebbe l'IP del proxy per tutti gli utenti.
-        //
-        // Quando BehindProxy e' false il middleware non viene registrato, cosi'
-        // RemoteIpAddress resta l'IP diretto del client e nessuno puo' spoofarlo
-        // mandando un X-Forwarded-For finto.
+        // BehindProxy: legge X-Forwarded-For e sovrascrive RemoteIpAddress con l'IP reale.
+        // Necessario perché il rate limiter partiziona per RemoteIpAddress.
+        // Se false, il middleware non viene registrato: nessuno può spoofarlo con X-Forwarded-For.
         if (security.BehindProxy)
         {
             var fwdOptions = new ForwardedHeadersOptions
@@ -215,16 +184,8 @@ public static class SecurityExtensions
                     | ForwardedHeaders.XForwardedProto
             };
 
-            // Fidati dell'header X-Forwarded-For solo se la connessione arriva
-            // da un proxy su rete privata RFC 1918 (range usati da Docker).
-            //
-            // Sicuro anche con EXPOSE_BACKEND=yes: un attaccante che colpisce
-            // direttamente la porta backend da internet ha un IP pubblico →
-            // non rientra in questi range → X-Forwarded-For viene ignorato →
-            // il rate limiter vede il suo IP reale.
-            //
-            // Con EXPOSE_BACKEND=no il backend e' raggiungibile solo via
-            // il container frontend (172.x.x.x), che rientra nel range 172.16/12.
+            // Trusted solo da reti private RFC 1918 (range Docker).
+            // IP pubblici → X-Forwarded-For ignorato → rate limiter vede l'IP reale.
             fwdOptions.KnownNetworks.Clear();
             fwdOptions.KnownProxies.Clear();
             fwdOptions.KnownNetworks.Add(new IPNetwork(System.Net.IPAddress.Parse("10.0.0.0"), 8));

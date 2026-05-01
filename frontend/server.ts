@@ -14,25 +14,28 @@ import {
 } from '@angular/ssr/node';
 import { serverEnv } from './src/server-env';
 
+/** Estrae le variabili d'ambiente validate dal file di configurazione server */
 const { port, backendOrigin, backendApiKey, proxyTimeout } = serverEnv;
 
-// Percorsi del bundle Angular: server/ contiene server.mjs, browser/ gli asset statici
+/** Individua la cartella dove risiede il codice server eseguito da Node */
 const serverDistFolder = dirname(fileURLToPath(import.meta.url));
+/** Risolve il percorso della cartella 'browser' che contiene gli asset statici finali */
 const browserDistFolder = resolve(serverDistFolder, '../browser');
 
-// In prod (Docker) i file sono nel browser dist; in dev locale si imposta ASSETS_DIR nello script di avvio.
+/** Definisce la sorgente dei file: usa ASSETS_DIR se impostata, altrimenti la cartella di build */
 const assetFilesDir = serverEnv.assetsDir || join(browserDistFolder, 'assets/files');
 
-// Cache immagini su disco: creata all'avvio, svuotata ad ogni rebuild del container
+/** Percorso della cache per le immagini processate da Sharp */
 const cacheDir = join(assetFilesDir, 'image-cache');
+/** Crea la cartella di cache se non esiste (recursive evita errori se mancano i padri) */
 mkdirSync(cacheDir, { recursive: true });
 
-// Carichiamo il mapping ID -> filename reale da assets/mapping.json.
-// Cerchiamo in più percorsi per gestire sia il build finale che l'avvio in dev mode (ng serve).
-// Formato valori in mapping.json: stringa semplice oppure { file: string, ... }
-type RawEntry = string | { file: string; [key: string]: unknown };
+/** Tipo per l'entry del JSON: può essere solo il nome file o un oggetto complesso */
+type RawEntry = string | { file: string;[key: string]: unknown };
+/** Dizionario ID -> NomeFile reale per nascondere i percorsi fisici agli utenti */
 const assetMapping: Record<string, string> = {};
 
+/** Funzione: scansiona vari percorsi per caricare il mapping degli asset (fondamentale per l'engine) */
 function loadAssetMapping(): boolean {
     try {
         const mappingPaths = [
@@ -52,56 +55,56 @@ function loadAssetMapping(): boolean {
         if (mappingData) {
             const raw = JSON.parse(mappingData) as Record<string, RawEntry>;
             for (const [id, val] of Object.entries(raw)) {
+                /** Normalizza il mapping: estrae solo il nome file indipendentemente dal formato */
                 assetMapping[id] = typeof val === 'string' ? val : val.file;
             }
             return true;
         }
-    } catch {
-        // Fallimento silenzioso, gestito dal chiamante
-    }
+    } catch { return false; }
     return false;
 }
 
-// Caricamento iniziale all'avvio
+/** Tentativo di caricamento iniziale del mapping all'avvio del processo */
 if (!loadAssetMapping()) {
     console.warn('[Server] assets/mapping.json non trovato all\'avvio (sarà ricaricato alla prima richiesta)');
 }
 
+/** Classe: raggruppa le utility per gestire l'invio dei file e il controllo dei formati */
 class AssetHandler {
-    /** True se il file è un'immagine raster processabile da Sharp (MIME image/*, escluso SVG). */
+    /** Verifica se il file è un'immagine raster (no SVG) supportata per il resize */
     static isSharpCompatible(filename: string): boolean {
         const mime = mimeLookup(filename);
         if (mime) return mime.startsWith('image/') && mime !== 'image/svg+xml';
         return false;
     }
 
-    /** Serve un'immagine WebP già pronta (da cache o appena elaborata). */
+    /** Spedisce l'immagine al browser impostando il tipo WebP e cache eterna (1 anno) */
     static serveImage(res: Response, path: string): void {
         res.setHeader('Content-Type', 'image/webp');
         res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
         res.sendFile(path);
     }
 
-    /** Serve un file generico direttamente, con Content-Type rilevato da Express. */
+    /** Spedisce un file non-immagine (PDF, ecc) mantenendo il formato originale e cache eterna */
     static serveFile(res: Response, path: string): void {
         res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
         res.sendFile(path);
     }
 }
 
-// Lock per evitare che richieste simultanee processino la stessa immagine (Race Condition)
+/** Mappa per gestire le richieste pendenti ed evitare race conditions sulla creazione delle miniature */
 const inProgress = new Map<string, Promise<void>>();
-const immutableAssetPattern =
-    /\.[0-9a-f]{16,}\.(?:js|css|woff2?|ttf|eot|svg|png|jpe?g|gif|webp|avif|ico)$/i;
+/** Pattern per identificare asset con hash (es. main.v123.js) per abilitare la cache immutabile */
+const immutableAssetPattern = /\.[0-9a-f]{16,}\.(?:js|css|woff2?|ttf|eot|svg|png|jpe?g|gif|webp|avif|ico)$/i;
 
+/** Inizializzazione applicazione Express */
 const app = express();
+/** Motore Angular SSR ufficiale: gestisce il rendering delle pagine lato server */
 const angularApp = new AngularNodeAppEngine({
     allowedHosts: [new URL(backendOrigin).hostname, 'localhost', '127.0.0.1']
 });
 
-// Security headers per le risposte HTML e gli asset statici.
-// Le API (/api/*) ricevono questi header dal backend; li escludiamo qui per evitare duplicati.
-// 'unsafe-inline' in script-src richiesto da Angular withEventReplay() (SSR hydration).
+/** Policy di sicurezza: definisce permessi per script, immagini e connessioni esterne */
 const defaultCsp = [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline'",
@@ -114,6 +117,7 @@ const defaultCsp = [
     "form-action 'self'",
 ].join('; ');
 
+/** Header di sicurezza standard applicati a tutte le risposte HTML */
 const htmlSecurityHeaders: [string, string][] = [
     ['X-Frame-Options', 'SAMEORIGIN'],
     ['X-Content-Type-Options', 'nosniff'],
@@ -122,10 +126,12 @@ const htmlSecurityHeaders: [string, string][] = [
     ['Content-Security-Policy', defaultCsp],
 ];
 
-app.disable('x-powered-by');  // non esporre la versione di Express negli header
-app.set('trust proxy', true); // necessario per leggere l'IP reale dietro reverse proxy
+/** Nasconde l'uso di Express per rendere più difficile il fingerprinting del server */
+app.disable('x-powered-by');
+/** Abilita il riconoscimento degli IP reali quando il server è dietro un reverse proxy (es. Nginx/Docker) */
+app.set('trust proxy', true);
 
-// Endpoint di health check per Docker e monitor esterni
+/** Rotta Health: usata dai sistemi di monitoraggio per sapere se il frontend è attivo */
 app.get('/health', (_request, response) => {
     response.json({
         status: 'ok',
@@ -133,19 +139,19 @@ app.get('/health', (_request, response) => {
     });
 });
 
-// Proxy /api/* → backend: intercetta le chiamate con prefisso /api e le gira al backend
-// strippando il prefisso stesso. Il backend non conosce /api: i controller partono da /.
-// pathFilter (non app.use('/api', ...)): evita che Express strisci il prefisso prima del middleware.
+/** Middleware Proxy: devia tutte le chiamate /api verso il backend reale */
 app.use(createProxyMiddleware({
     target: backendOrigin,
     pathFilter: '/api',
-    pathRewrite: { '^/api': '' },
+    pathRewrite: { '^/api': '' }, // Rimuove '/api' dall'URL finale inviato al backend
     changeOrigin: true,
     xfwd: true,
     proxyTimeout: proxyTimeout,
     timeout: proxyTimeout,
     on: {
+        /** Aggiunge automaticamente la chiave API segreta a ogni richiesta verso il backend */
         proxyReq: (proxyReq) => proxyReq.setHeader('x-api-key', backendApiKey),
+        /** Gestisce il fallimento del backend restituendo un errore 504 JSON standard */
         error: (err, _req, res, next) => {
             const response = res as Response;
             if (response.headersSent) {
@@ -166,8 +172,7 @@ app.use(createProxyMiddleware({
     }
 }));
 
-// Applica security headers a tutte le risposte non-API (HTML, assets statici).
-// Posizionato dopo il proxy /api: quelle risposte non passano da qui.
+/** Middleware Security: inietta gli header di protezione in ogni risposta (non API) */
 app.use((_request, response, next) => {
     for (const [name, value] of htmlSecurityHeaders) {
         response.setHeader(name, value);
@@ -175,11 +180,13 @@ app.use((_request, response, next) => {
     next();
 });
 
+/** Endpoint CDN Asset: gestisce il recupero e l'ottimizzazione delle immagini al volo */
 app.get('/cdn-cgi/asset', async (req, res) => {
     try {
         const id = req.query['id'] as string;
         if (!id) return res.status(400).send('Missing id');
 
+        /** Cerca il nome file nel mapping; se non c'è, tenta un ricaricamento a caldo del JSON */
         let filename = assetMapping[id];
         if (!filename) {
             // Se non trovato, proviamo a ricaricare il mapping (potrebbe essere stato creato dopo l'avvio)
@@ -200,30 +207,32 @@ app.get('/cdn-cgi/asset', async (req, res) => {
         const format = 'webp';
         let requestedWidth = parseInt(req.query['w'] as string);
 
+        /** Gestione larghezza: usa il massimo consentito se omessa, valida contro la whitelist */
         if (isNaN(requestedWidth)) {
             requestedWidth = Math.max(...ALLOWED_WIDTHS);
         } else if (!ALLOWED_WIDTHS.includes(requestedWidth as any)) {
             return res.status(400).send(`Invalid width. Allowed: ${ALLOWED_WIDTHS.join(', ')}`);
         }
 
-        // Evita upscaling: se l'originale è più piccolo della larghezza richiesta, si usa quella
+        /** Analizza i metadati dell'originale per evitare di ingrandire immagini piccole (pixel sgranati) */
         const metadata = await sharp(absolutePath).metadata();
         const originalWidth = metadata.width || 0;
         const finalWidth = originalWidth < requestedWidth ? originalWidth : requestedWidth;
 
-        // Chiave cache univoca per ID + dimensione finale
+        /** Chiave cache basata su ID e dimensione: identifica univocamente la miniatura generata */
         const cacheKey = `${id}_w${finalWidth}.${format}`;
         const cacheFile = join(cacheDir, cacheKey);
 
+        /** Se la miniatura esiste già in cache, la serve istantaneamente */
         if (existsSync(cacheFile)) return AssetHandler.serveImage(res, cacheFile);
 
-        // Richiesta concorrente per la stessa chiave: aspetta il job già in corso
+        /** Se un altro utente sta già generando questa immagine, si mette in attesa della stessa Promise */
         if (inProgress.has(cacheKey)) {
             await inProgress.get(cacheKey);
             return AssetHandler.serveImage(res, cacheFile);
         }
 
-        // Prima richiesta: elabora e salva in cache
+        /** Elaborazione Sharp: ridimensiona, converte in WebP 80% e salva su disco */
         const job = sharp(absolutePath)
             .resize(finalWidth, null, { withoutEnlargement: true, fastShrinkOnLoad: true })
             .toFormat(format, { quality: 80 })
@@ -243,53 +252,64 @@ app.get('/cdn-cgi/asset', async (req, res) => {
     }
 });
 
-// Blocca accesso diretto ad assets/files/: tutto deve passare per /cdn-cgi/asset?id=
+/** Sicurezza: nega l'accesso diretto alla cartella file per forzare l'uso della CDN via ID */
 app.use('/assets/files', (_req, res) => { res.status(404).end(); });
 
+/** Middleware Legal: serve i file Markdown delle policy garantendo che siano sempre aggiornati (no cache) */
+app.use('/assets/legal', (req, res, next) => {
+    const safePath = req.path.replace(/\.\./g, '');
+    const filePath = join(browserDistFolder, 'assets/legal', safePath);
+    if (existsSync(filePath)) {
+        res.setHeader('Cache-Control', 'no-cache');
+        res.sendFile(filePath);
+    } else { next(); }
+});
+
+/** Serve tutti i restanti file statici (JS, CSS, Immagini del template) */
 app.use(
     express.static(browserDistFolder, {
         index: false,
         redirect: false,
         setHeaders(response, filePath) {
             const fileName = filePath.split(/[\\/]/).pop() ?? '';
-
+            /** Applica cache eterna agli asset con hash nel nome (gestiti da Angular) */
             if (immutableAssetPattern.test(fileName)) {
                 // File con hash nel nome: non cambiano mai → cache permanente
                 response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
                 return;
             }
-
+            /** Forza i file del Service Worker a non essere mai cachati per permettere aggiornamenti app */
             if (fileName === 'ngsw-worker.js' || fileName === 'ngsw.json') {
                 response.setHeader('Cache-Control', 'no-store');
                 return;
             }
-
+            /** Cache di un giorno per il file manifest della PWA */
             if (fileName === 'manifest.webmanifest') {
                 response.setHeader('Cache-Control', 'public, max-age=86400');
                 return;
             }
-
-            // Tutto il resto (asset non hashati: i18n, legal, ecc.) → rivalidare ad ogni deploy
+            /** Tutto il resto (traduzioni, icone standard) viene rivalidato a ogni richiesta */
             response.setHeader('Cache-Control', 'no-cache');
         }
     })
 );
 
-// Tutte le richieste non gestite sopra arrivano ad Angular SSR
+/** Catch-all: ogni richiesta non risolta dai file o dalla CDN viene passata al motore Angular SSR */
 app.use((request, response, next) => {
     angularApp
         .handle(request)
         .then((renderedResponse) => {
             if (renderedResponse) {
+                /** Converte la risposta web standard di Angular in una risposta compatibile con Node.js/Express */
                 return writeResponseToNodeResponse(renderedResponse, response);
             }
-            next(); // nessuna route Angular corrispondente → 404 di Express
+            next(); // Se Angular non ha una rotta corrispondente, passa al 404 di Express
             return;
         })
         .catch(next);
 });
 
-// Avvio diretto (node server.mjs): non eseguito quando Angular usa reqHandler
+/** Avvio del server se il file è eseguito come modulo principale (node server.mjs) */
 if (isMainModule(import.meta.url)) {
     app.listen(port, () => {
         console.log(`[frontend] Node SSR server listening on http://localhost:${port}`);
@@ -297,5 +317,5 @@ if (isMainModule(import.meta.url)) {
     });
 }
 
-// Handler esportato per Angular SSR (usato da main.server.ts in modalità integrata)
+/** Esporta l'handler per l'integrazione nativa di Angular SSR (usato da main.server.ts) */
 export const reqHandler = createNodeRequestHandler(app);
