@@ -2,6 +2,30 @@ import { isPlatformBrowser } from '@angular/common';
 import { Injectable, PLATFORM_ID, inject } from '@angular/core';
 import { TranslateService } from './translate.service';
 
+type SwalType = typeof import('sweetalert2').default;
+
+export interface ValidationResult {
+    isValid: boolean;
+    errors?: string[];
+}
+
+
+export interface InteractContext {
+    popup: HTMLElement;
+    $: <T extends HTMLElement = HTMLElement>(selector: string) => T;
+    byId: <T extends HTMLElement = HTMLElement>(id: string) => T;
+}
+
+export interface InteractConfig<T> {
+    title: string;
+    html: string | HTMLElement;
+    confirmText?: string;
+    cancelText?: string;
+    showLoaderOnConfirm?: boolean;
+    validation?: (ctx: InteractContext) => ValidationResult;
+    mapResult?: (ctx: InteractContext) => T;
+}
+
 /**
  * Notifiche utente via SweetAlert2.
  * Metodi: success(), error(), loading(), close(), confirm(), prompt(), toast(), validationErrors(), handleApiError().
@@ -11,9 +35,9 @@ import { TranslateService } from './translate.service';
 export class NotificationService {
     private translate = inject(TranslateService);
     private platformId = inject(PLATFORM_ID);
-    private swalPromise?: Promise<typeof import('sweetalert2').default>;
+    private swalPromise?: Promise<SwalType>;
 
-    private loadSwal(): Promise<typeof import('sweetalert2').default> | null {
+    private loadSwal(): Promise<SwalType> | null {
         if (!isPlatformBrowser(this.platformId)) return null;
         return this.swalPromise ??= import('sweetalert2').then(module => module.default);
     }
@@ -36,8 +60,8 @@ export class NotificationService {
         const swal = this.loadSwal();
         if (swal) {
             void swal.then(Swal => {
-                if (Swal.isVisible()) return;
-                Swal.fire(title, message, 'error');
+                Swal.close();
+                void Swal.fire(title, message, 'error');
             });
         } else if (isPlatformBrowser(this.platformId)) {
             window.alert(`${title}\n${message}`);
@@ -46,7 +70,7 @@ export class NotificationService {
 
     // --- LOADING ---
 
-    loading(message?: string): void {
+    openLoading(message?: string): void {
         void this.loadSwal()?.then(Swal =>
             Swal.fire({
                 title: message ?? this.translate.translate('caricamento'),
@@ -56,52 +80,138 @@ export class NotificationService {
         );
     }
 
-    close(): void {
+    closeLoading(): void {
         void this.loadSwal()?.then(Swal => Swal.close());
     }
 
     // --- INTERAZIONE ---
 
-    confirm(title: string, text: string, options?: {
+    async confirm(title: string, text: string, options?: {
         confirmText?: string;
         cancelText?: string;
         icon?: 'question' | 'info' | 'warning';
         allowOutsideClick?: boolean;
     }): Promise<boolean> {
         const swal = this.loadSwal();
-        if (!swal) return Promise.resolve(false);
+        if (!swal) return false;
 
-        return swal.then(Swal =>
-            Swal.fire({
-                title,
-                text,
-                icon: options?.icon ?? 'question',
-                showCancelButton: true,
-                confirmButtonText: options?.confirmText ?? this.translate.translate('si'),
-                cancelButtonText: options?.cancelText ?? this.translate.translate('annulla'),
-                allowOutsideClick: options?.allowOutsideClick ?? true,
-            }).then(result => result.isConfirmed)
-        );
+        const Swal = await swal;
+        const result = await Swal.fire({
+            title,
+            text,
+            icon: options?.icon ?? 'question',
+            showCancelButton: true,
+            confirmButtonText: options?.confirmText ?? this.translate.translate('si'),
+            cancelButtonText: options?.cancelText ?? this.translate.translate('annulla'),
+            allowOutsideClick: options?.allowOutsideClick ?? true,
+        });
+        return result.isConfirmed;
     }
 
-    prompt(title: string, inputLabel: string, options?: {
-        confirmText?: string;
-        cancelText?: string;
-    }): Promise<string | null> {
+    async prompt(title: string, inputLabel: string,
+        confirmText?: string,
+        cancelText?: string,
+        defaultValue?: string,
+        validator?: (value: string) => ValidationResult
+    ): Promise<string | null> {
         const swal = this.loadSwal();
-        if (!swal) return Promise.resolve(null);
+        if (!swal) {
+            if (isPlatformBrowser(this.platformId)) {
+                return window.prompt(`${title}\n${inputLabel}`, defaultValue ?? '') ?? null;
+            }
+            return null;
+        }
 
-        return swal.then(Swal =>
-            Swal.fire({
-                title,
-                input: 'text',
-                inputLabel,
-                inputPlaceholder: inputLabel,
+        const Swal = await swal;
+        const result = await Swal.fire({
+            title,
+            input: 'text',
+            inputLabel,
+            inputPlaceholder: inputLabel,
+            inputValue: defaultValue ?? '',
+            showCancelButton: true,
+            confirmButtonText: confirmText ?? this.translate.translate('si'),
+            cancelButtonText: cancelText ?? this.translate.translate('annulla'),
+            inputValidator: (value: string) => {
+                if (validator) {
+                    const res = validator(value);
+                    return !res.isValid ? this.formatErrors(res.errors) : null;
+                }
+                if (!value) {
+                    return this.translate.translate('campoObbligatorio');
+                }
+                return null;
+            }
+        });
+        return result.isConfirmed ? (result.value as string) : null;
+    }
+
+    async interact<T = unknown>(config: InteractConfig<T>): Promise<T | null> {
+        const swal = this.loadSwal();
+        if (!swal) return null;
+
+        const Swal = await swal;
+
+        try {
+            const result = await Swal.fire({
+                title: config.title,
+                html: config.html,
                 showCancelButton: true,
-                confirmButtonText: options?.confirmText ?? this.translate.translate('si'),
-                cancelButtonText: options?.cancelText ?? this.translate.translate('annulla'),
-            }).then(result => result.isConfirmed && result.value ? result.value as string : null)
-        );
+                confirmButtonText: config.confirmText ?? this.translate.translate('si'),
+                cancelButtonText: config.cancelText ?? this.translate.translate('annulla'),
+                showLoaderOnConfirm: config.showLoaderOnConfirm ?? false,
+                preConfirm: () => {
+                    const popup = Swal.getPopup();
+                    if (!popup) {
+                        Swal.showValidationMessage(this.translate.translate('erroreGenerico'));
+                        return false;
+                    }
+
+                    const ctx = this.createContext(popup);
+
+                    if (config.validation) {
+                        const res = config.validation(ctx);
+                        if (!res.isValid) {
+                            Swal.showValidationMessage(this.formatErrors(res.errors, true));
+                            return false;
+                        }
+                    }
+
+                    return config.mapResult ? config.mapResult(ctx) : true;
+                }
+            });
+
+            return result.isConfirmed ? (result.value as T) : null;
+        } catch (err) {
+            console.error('[NotificationService] Errore in interact:', err);
+            return null;
+        }
+    }
+
+    private createContext(popup: HTMLElement): InteractContext {
+        const cache = new Map<string, HTMLElement>();
+
+        const resolve = <T extends HTMLElement>(selector: string, errorMsg: string): T => {
+            if (!cache.has(selector)) {
+                const el = popup.querySelector<T>(selector);
+                if (!el) throw new Error(errorMsg);
+                cache.set(selector, el);
+            }
+            return cache.get(selector) as T;
+        };
+
+        return {
+            popup,
+            $: <T extends HTMLElement = HTMLElement>(selector: string): T =>
+                resolve<T>(selector, `Elemento non trovato: ${selector}`),
+            byId: <T extends HTMLElement = HTMLElement>(id: string): T =>
+                resolve<T>(`#${id}`, `Elemento con id "${id}" non trovato`),
+        };
+    }
+
+    private formatErrors(errors?: string[], html = false): string {
+        if (!errors?.length) return this.translate.translate('erroreGenerico');
+        return html ? errors.join('<br>') : errors.join('\n');
     }
 
     // --- TOAST ---

@@ -329,14 +329,18 @@ La lingua si persiste in cookie (solo con consenso GDPR), si ripristina al reloa
 #### PageBaseComponent
 Ogni componente-pagina estende `PageBaseComponent`, che inietta una sola volta:
 
-| Servizio | Accesso |
+| Proprietà | Accesso |
 |---|---|
 | `TranslateService` | `this.translate.t('chiave')` |
 | `ApiService` | `this.api.get(...)` |
 | `AssetService` | `this.asset.getUrl(...)` |
 | `NotificationService` | `this.notify.error(...)` |
+| `pageContent()` | Contenuto risolto da `ContentResolverService` — castare al tipo atteso |
+| `platformId` | Per guard `isPlatformBrowser` nelle sottoclassi |
 
 Il componente estende la base e implementa il template, senza ripetere `inject()`.
+
+`pageContent()` è un `computed` che vale `null` per le pagine senza contenuto associato e si aggiorna automaticamente ad ogni cambio lingua nel browser, senza rinavigare.
 
 I meta tag route-based non vivono nei componenti pagina: vengono sincronizzati centralmente dal layout leggendo `title` e `pageDescription` dalla route attiva. Questo evita boilerplate nei componenti e non richiede chiamate a `super.ngOnInit()`.
 
@@ -413,9 +417,9 @@ Piattaforme incluse: Facebook, Instagram, Twitter/X, LinkedIn, TikTok, YouTube, 
 `MarkdownPipe` converte Markdown in HTML usando `marked` con GitHub Flavored Markdown (tabelle, checklist, a capo automatici). La protezione XSS e' integrata nel renderer: `renderer.html = () => ''` ignora completamente qualsiasi tag HTML raw nel sorgente. Utilizzabile nei template (`{{ testo | markdown }}`) e da codice (`MarkdownPipe.render(testo)`).
 
 #### Pagine legali
-Un singolo componente (`PolicyComponent`) gestisce tutte le pagine legali: privacy, cookie policy, termini di servizio e note legali. Il contenuto viene caricato da file Markdown in `/assets/legal/{tipo}.{lang}.md` con fallback all'italiano. Il `PageType` della route determina quale file caricare.
+Un singolo componente (`PolicyComponent`) gestisce tutte le pagine legali: privacy, cookie policy, termini di servizio e note legali. Il contenuto arriva automaticamente da `ContentResolver`, che carica il file Markdown corretto da `/assets/legal/{tipo}.{lang}.md` con fallback all'italiano. Nessun `resolve` esplicito in `site.ts`: il resolver è applicato in automatico da `app.routes.ts` su tutte le pagine.
 
-Questo separa i contenuti legali dal codice applicativo: i testi restano revisionabili come semplici file Markdown.
+Questo separa i contenuti legali dal codice applicativo: i testi restano revisionabili come semplici file Markdown. Per aggiungere una nuova pagina legale basta aggiungere un `case` in `ContentResolverService` e il file `.md` corrispondente.
 
 #### Titoli pagina
 `AppTitleStrategy` è l'unica sorgente per titolo e meta tag: traduce la chiave `title` della route, compone il titolo browser nel formato `"Pagina | NomeApp"` e delega a `PageMetaService` l'aggiornamento dei tag. La `description` dichiarata in `site.ts` è una chiave i18n: viene tradotta prima di essere passata al servizio, così i crawler sociali ricevono testo leggibile e non la chiave tecnica. In assenza di descrizione specifica per la pagina, si usa `ContestoSito.config.description` come fallback.
@@ -439,33 +443,20 @@ Le rotte non dichiarate esplicitamente restano `client`. In un progetto derivato
 
 **Pagine `renderMode: 'server'` e caricamento dati**
 
-Quando una pagina viene renderizzata lato server, i dati devono essere disponibili *prima* che il componente venga costruito — quindi non possono essere caricati nel costruttore né con `ngOnInit`. Il pattern corretto usa il `resolver` dichiarato direttamente in `site.ts`:
+Quando una pagina viene renderizzata lato server, i dati devono essere disponibili *prima* che il componente venga costruito. `app.routes.ts` applica automaticamente `ContentResolver` come resolver su ogni pagina che non dichiara un `resolve` esplicito: il risultato arriva al componente tramite `pageContent()`, già disponibile in SSR e aggiornato ad ogni cambio lingua nel browser senza rinavigare.
 
 ```typescript
-// In site.ts, nella definizione della pagina:
-{
-    path: 'profilo',
-    renderMode: 'server',
-    component: () => import('./pages/profilo/profilo.component').then(m => m.ProfiloComponent),
-    resolve: {
-        profilo: () => inject(ApiService).getProfilo(),
-    },
+export class MeteoComponent extends PageBaseComponent {
+    // pageContent() vale sia in SSR che nel browser
+    readonly meteo = computed(() => this.pageContent() as MeteoData | null);
 }
 ```
 
-Il componente riceve i dati tramite un `input()` con lo stesso nome del resolver — Angular li inietta automaticamente grazie a `withComponentInputBinding()`:
+Per aggiungere dati a una pagina basta aggiungere un `case` in `ContentResolver.loadResolved()` — il resolver è già cablato, nessun altro file da toccare.
 
-```typescript
-export class ProfiloComponent extends PageBaseComponent {
-    readonly profilo = input<Profilo>();
+Per pagine con dati non gestibili dallo switch centrale (es. resolver con logica custom), dichiarare `resolve` esplicitamente in `site.ts`: il resolver automatico non viene applicato.
 
-    readonly nomeCompleto = computed(() => this.profilo()?.nome ?? '');
-}
-```
-
-Due regole da seguire sempre con SSR:
-- Usa `computed()` per derivare stato dai dati del resolver — **mai `effect()`**, che crea macrotask Zone.js e puo' bloccare la stabilizzazione SSR.
-- Se una pagina ha `renderMode: 'server'` ma nessun `resolve`, `SiteBuilder` emette un avviso a console al caricamento dell'app (sia browser che Node). L'avviso e' innocuo se la pagina non ha bisogno di dati dal backend, ma e' utile come promemoria.
+Una regola da seguire sempre con SSR: usa `computed()` per derivare stato dai dati — **mai `effect()`**, che crea macrotask Zone.js e puo' bloccare la stabilizzazione SSR.
 
 #### Sistema CSS con color-mix()
 Il `ThemeService` imposta una sola variabile CSS (`--colorTema`). Tutto il resto viene derivato dal browser via `color-mix()`:
@@ -579,13 +570,14 @@ Riepilogo di tutti i servizi, componenti e dati disponibili out-of-the-box. Util
 | `AuthService` | Login, logout e stato sessione; delega lo storage del token a `TokenService` |
 | `BaseApiService` | Classe astratta: infrastruttura HTTP condivisa (header, URL normalization, error handling, health check); estesa da `ApiService` |
 | `ApiService` | Unico client HTTP verso il backend: endpoint concreti (`getProfile`, `getSocial`, `getBlob`, `exportDocument`, `login`) |
+| `ContentResolver` | Resolver automatico dei contenuti di pagina: switch su `PageType` → file MD, API o dati statici; estendibile dai progetti figli via DI |
 | `SpeechService` | Text-to-speech via Web Speech API: `speak(text, options?)`, `stop()`, segnali `isSpeaking` e `currentVoice`; voce e lingua seguono automaticamente `TranslateService` |
 | `AssetService` | URL verso `/cdn-cgi/asset`; `getUrlFromBlob(blob)` per Blob locali con tracking e revoca automatica |
 | `ShareService` | Clipboard, Web Share API e download con fallback |
 | `QrCodeService` | Genera QR code in blob PNG e SVG per testo/URL, WhatsApp, email, Wi-Fi e SEPA; colori tema automatici; `create()` / `createWithColors()` / `toSVG()` / `toSVGWithColors()`; caching per payload+colori; SSR-safe |
 | `ImgBuilderService` | Wrapper injectable su `renderToCanvas`: `render()` usa i colori del tema (WCAG), `renderWithColors()` per colori espliciti |
 | `CookieConsentService` | Gestione consenso cookie GDPR |
-| `NotificationService` | SweetAlert2 lazy: `success()`, `error()`, `loading()` / `close()`, `confirm()` → `Promise<boolean>` (opzioni icona/testi/click-esterno), `prompt()` → `Promise<string\|null>`, `toast()` (con pausa hover), `validationErrors()`, `handleApiError()` |
+| `NotificationService` | SweetAlert2 lazy: `success()`, `error()`, `openLoading()` / `closeLoading()`, `confirm()` → `Promise<boolean>` (opzioni icona/testi/click-esterno), `prompt()` → `Promise<string\|null>`, `interact<T>(config)` → `Promise<T\|null>` (dialog custom con validazione e mapping risultato), `toast()` (con pausa hover), `validationErrors()`, `handleApiError()` |
 | `VersionCheckService` | Rileva nuove versioni dell'app ogni 10 min; propone reload via `confirm()` |
 | `AppTitleStrategy` | Titoli pagina tradotti nel formato `Pagina \| NomeApp` |
 

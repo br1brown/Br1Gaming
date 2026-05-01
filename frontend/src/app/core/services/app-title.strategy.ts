@@ -20,25 +20,23 @@ export class AppTitleStrategy extends TitleStrategy {
     }
 
     /**
-     * Traduce la chiave descrizione della pagina corrente.
+     * Risolve la descrizione della pagina corrente.
      *
      * Priorità:
-     *   1. Chiave i18n dichiarata nella pagina (es. 'socialDesc')
-     *   2. Chiave 'siteDesc' — descrizione del sito tradotta (addon.*.json)
-     *   3. Stringa statica di fallback dalla configurazione del sito
+     * - Traduzione della chiave `description` della pagina (es. 'socialDesc')
+     * - Valore letterale di `description` se non è una chiave i18n riconosciuta
+     * - (es. description: 'Genera il tuo incel di fiducia' → usato direttamente)
+     * - Chiave 'siteDesc' — descrizione globale tradotta
+     * - Stringa statica di fallback dalla configurazione del sito
      *
-     * Usare 'siteDesc' come fallback invece della stringa hardcoded garantisce che
-     * anche la descrizione globale sia localizzata quando l'utente cambia lingua.
+     * Usare 'siteDesc' come fallback garantisce che anche la descrizione globale
+     * sia localizzata quando l'utente cambia lingua.
      */
     private resolveDescription(rawKey: string | null | undefined): string {
         if (rawKey) {
-            const translated = this.translate.translate(rawKey);
-            // translate() restituisce la chiave stessa se non trovata — scartarla come valida
-            if (translated !== rawKey) return translated;
+            return this.translate.translate(rawKey);
         }
-
-        const siteDesc = this.translate.translate('siteDesc');
-        return siteDesc !== 'siteDesc' ? siteDesc : ContestoSito.config.description;
+        return ContestoSito.config.description;
     }
 
     /** Riesegue title + meta senza una navigazione (es. cambio lingua). */

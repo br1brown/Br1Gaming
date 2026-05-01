@@ -4,6 +4,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs';
 import { ContestoSito, PageType } from './site';
 import { AuthService } from './core/services/auth.service';
+import { contentLoaderResolver } from './pages/content.resolver';
 import { InternalSitePage, isInternalPage, isParentPage } from './siteBuilder';
 import { NotificationService } from './core/services/notification.service';
 import { TranslateService } from './core/services/translate.service';
@@ -84,17 +85,12 @@ function toAngularRoute(page: InternalSitePage): Route {
             pageDescription: page.description ?? null,
         };
 
-        if (!!page.resolve)
+        if (page.resolve) {
             route.resolve = page.resolve;
+        } else {
+            route.resolve = { contentByResolve: contentLoaderResolver(page.pageType) };
+        }
 
-        if (!!page.runGuardsAndResolvers)
-            route.runGuardsAndResolvers = page.runGuardsAndResolvers;
-
-        if (!!page.canDeactivate)
-            route.canDeactivate = page.canDeactivate;
-
-        if (!!page.providers)
-            route.providers = page.providers;
     }
 
     return route;

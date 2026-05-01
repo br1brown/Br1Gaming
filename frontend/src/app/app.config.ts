@@ -33,7 +33,6 @@ export const appConfig: ApplicationConfig = {
         provideZoneChangeDetection({ eventCoalescing: true }),
         provideClientHydration(withEventReplay()),
 
-        // `routes` e' il risultato finale della definizione custom delle pagine.
         provideRouter(
             routes,
             // Collega piu' facilmente input componente e stato router.
@@ -48,23 +47,25 @@ export const appConfig: ApplicationConfig = {
         // HttpClient con supporto fetch: migliore performance, compatibilità e gestione errori
         provideHttpClient(withFetch()),
 
-        // Gestione dinamica dei titoli delle pagine (document.title) basata sulle route
+        // Ogni volta che qualcuno nel codice chiede TitleStrategy
+        //non dargli quello standard dagli invece AppTitleStrategy
         { provide: TitleStrategy, useClass: AppTitleStrategy },
+        //Se qualcuno chiede specificamente AppTitleStrategy, usa l'istanza che hai già creato per TitleStrategy
         { provide: AppTitleStrategy, useExisting: TitleStrategy },
 
         /** Inizializzazione app: sessione, traduzioni, tema */
         provideAppInitializer(async () => {
             const translateService = inject(TranslateService);
             const authService = inject(AuthService);
-            // L'injection basta per attivare la logica del tema fin da subito.
+            // L'injection basta per attivare la logica del tema fin da subito
             inject(ThemeService);
 
-            // I titoli delle pagine nelle route sono chiavi di traduzione.
-            // La lingua iniziale va quindi caricata prima che l'app cominci a usarli.
+            // I titoli delle pagine nelle route sono chiavi di traduzione
+            // La lingua iniziale va quindi caricata prima che l'app cominci a usarli
             await translateService.setInitialLanguage();
 
             // Il ripristino sessione arriva subito dopo, cosi' le pagine protette custom
-            // partono gia' con uno stato auth coerente.
+            // partono gia' con uno stato auth coerente
             authService.restoreSession();
         }),
 

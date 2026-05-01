@@ -4,15 +4,9 @@ using Microsoft.AspNetCore.Mvc;
 namespace Backend.Controllers;
 
 /// <summary>
-/// Radice astratta comune a tutti i controller dell'engine.
+/// Radice astratta di tutti i controller: centralizza API key, Authorize e logger condiviso.
+/// Il routing resta responsabilità del controller concreto.
 /// </summary>
-/// <remarks>
-/// Centralizza gli attributi di sicurezza (<c>[ApiController]</c>, <c>[Authorize]</c>)
-/// e il logger condiviso, eliminando duplicazioni nelle classi derivate.
-/// Ogni classe engine specializzata eredita da qui aggiungendo solo
-/// le dipendenze e i vincoli che la distinguono.
-/// Il routing (<c>[Route]</c>) resta responsabilità del controller concreto.
-/// </remarks>
 [ApiController]
 [Authorize]
 public abstract class EngineApiController : ControllerBase

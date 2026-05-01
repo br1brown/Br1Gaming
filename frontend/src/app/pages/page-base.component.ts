@@ -1,48 +1,50 @@
-import { Directive, inject, input } from '@angular/core';
+import { computed, Directive, effect, inject, input, PLATFORM_ID, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { ApiService } from '../core/services/api.service';
 import { AssetService } from '../core/services/asset.service';
 import { NotificationService } from '../core/services/notification.service';
 import { TranslateService } from '../core/services/translate.service';
 import { PageType } from '../site';
+import { ContentResolver } from './content.resolver';
 
 /**
- * Base comune per le pagine instradate tramite il modello centrale app.routes.
- * Espone il contesto di pagina e i servizi piu' usati dai page component.
- * I meta route-based vengono sincronizzati centralmente da AppComponent,
- * quindi i componenti pagina non dipendono da lifecycle hook condivisi.
- *
- * ── Pattern SSR ──────────────────────────────────────────────────────────
- * Le pagine con renderMode: 'server' dichiarano in site.ts un resolver
- * esplicito e tipizzato:
- *
- *   resolve: { nomeInput: () => inject(ApiService).getSomething() }
- *
- * Il componente dichiara l'input con lo stesso nome e tipo corretto:
- *
- *   readonly nomeInput = input<MioTipo>();
- *
- * Angular (withComponentInputBinding) inietta automaticamente il valore
- * risolto nell'input. Il componente legge da `this.nomeInput()` senza
- * sapere né curarsi del renderMode.
- *
- * Usare computed() per derivare stato dai dati risolti — mai effect(),
- * che crea macrotask Zone.js e può bloccare la stabilizzazione SSR.
- *
- * Eccezione: è lecito registrare un effect() guardato da isPlatformBrowser()
- * quando serve reagire a stato locale del client dopo l'idratazione (es.
- * cambio lingua su pagine SSR senza rinavigare), purché l'effect non venga
- * mai creato durante l'SSR. Vedi PolicyComponent per il pattern di riferimento.
+ * Base comune per le pagine con resolver: espone pageContent (aggiornato ad ogni cambio lingua),
+ * translate, api, asset, notify già pronti. Per nuove sorgenti dati aggiungere un case in ContentResolver.
+ * Per titoli dinamici usare PageMetaService; vedi DEVELOPMENT.md → "Meta SEO e SSR".
  */
 @Directive()
 export abstract class PageBaseComponent {
+    private readonly contentResolverService = inject(ContentResolver);
+    protected readonly platformId = inject(PLATFORM_ID);
     readonly translate = inject(TranslateService);
     readonly api = inject(ApiService);
     readonly asset = inject(AssetService);
     readonly notify = inject(NotificationService);
 
-    /**
-     * Tipo logico della pagina corrente.
-     * Sempre presente: il builder lo inietta via route.data con withComponentInputBinding.
-     */
+    /** Tipo logico della pagina. Iniettato via route.data con withComponentInputBinding. */
     protected readonly pageType = input.required<PageType>();
+
+    /** Dati grezzi dal resolver al momento della navigazione (SSR + client). */
+    protected readonly contentByResolve = input<any>(null);
+
+    /** Aggiornato dal browser ad ogni cambio lingua tramite ContentResolverService. */
+    private readonly _liveContent = signal<any>(null);
+
+    /**
+     * Contenuto sempre aggiornato della pagina corrente.
+     * SSR / primo render → contentByResolve() dal router.
+     * Browser dopo idratazione → _liveContent() aggiornato ad ogni cambio lingua.
+     * Castare al tipo atteso nel componente: computed(() => this.pageContent() as MioTipo).
+     */
+    protected readonly pageContent = computed(() => this._liveContent() ?? this.contentByResolve());
+
+    constructor() {
+        if (isPlatformBrowser(this.platformId)) {
+            effect(() => {
+                const lang = this.translate.currentLang();
+                this.contentResolverService.loadResolved(this.pageType(), lang)
+                    .then(data => this._liveContent.set(data));
+            });
+        }
+    }
 }

@@ -295,10 +295,8 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
         const value = await this.notify.prompt(
             this.translate.translate('modalFormTitle'),
             this.translate.translate('modalFormNameLabel'),
-            {
-                confirmText: this.translate.translate('modalFormSubmit'),
-                cancelText: this.translate.translate('annulla'),
-            }
+            this.translate.translate('modalFormSubmit'),
+            this.translate.translate('annulla'),
         );
         if (value !== null) {
             this.modalResult.set(`${this.translate.translate('modalResultSubmitted')}: ${value}`);

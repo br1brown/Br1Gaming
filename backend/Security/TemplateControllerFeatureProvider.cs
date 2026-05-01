@@ -52,10 +52,19 @@ public sealed class TemplateControllerFeatureProvider : IApplicationFeatureProvi
     private static void RemoveControllersDerivedFrom<TControllerBase>(ControllerFeature feature)
         where TControllerBase : ControllerBase
     {
+        // IsAssignableFrom verifica se il TypeInfo del controller concreto
+        // è uguale a TControllerBase oppure eredita da esso (direttamente o transitivamente).
+        // Esempio: AuthController : EngineAuthController → IsAssignableFrom ritorna true.
+        //
+        // .ToArray() è necessario perché non si può iterare e modificare la stessa collezione:
+        // materializzando prima la lista dei candidati si evita l'eccezione "collection modified".
         var toRemove = feature.Controllers
             .Where(controller => typeof(TControllerBase).IsAssignableFrom(controller.AsType()))
             .ToArray();
 
+        // Rimuove i controller trovati dalla feature, uno per volta.
+        // Dopo questa chiamata ASP.NET non li vedrà mai come endpoint registrati:
+        // non genererà rotte, non li esporrà in Swagger, non li raggiungerà alcuna richiesta.
         foreach (var controller in toRemove)
             feature.Controllers.Remove(controller);
     }

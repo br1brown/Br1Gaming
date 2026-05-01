@@ -45,6 +45,32 @@ Request → API Key → RateLimiter → (JWT se protetto) → Controller → Ser
                                                ApiException → ProblemDetails JSON
 ```
 
+### Ordine della pipeline HTTP (critico — non invertire)
+
+`UseTemplateSecurity()` registra i middleware in quest'ordine fisso:
+
+| # | Middleware | Perché in questa posizione |
+|---|-----------|---------------------------|
+| 1 | **ForwardedHeaders** | deve essere primo: sovrascrive `RemoteIpAddress` con l'IP reale prima che il rate limiter lo legga (solo se `BehindProxy: true`) |
+| 2 | **CORS** | gestisce i preflight `OPTIONS` prima del rate limiter; i preflight non consumano quota |
+| 3 | **RateLimiter** | fail fast per IP: 100 req/min globali, 5/min su `/auth/login`; posizione alta = risparmio risorse |
+| 4 | **SecurityHeaders** | aggiunge header anti-clickjacking/XSS su ogni risposta, inclusi 429 e errori |
+| 5 | **HSTS** | forza HTTPS |
+| 6 | **ExceptionHandler** | converte `ApiException` → `ProblemDetails` JSON |
+
+Dopo `UseTemplateSecurity()`, `Program.cs` aggiunge nell'ordine:
+
+| # | Middleware | Note |
+|---|-----------|------|
+| 7 | **RequestLocalization** | legge `Accept-Language` → imposta `CultureInfo.CurrentUICulture` |
+| 8 | **Authentication** | valida API key (sempre) e JWT Bearer (se `LoginEnabled`) |
+| 9 | **Authorization** | applica policy `RequireLogin` sui controller protetti |
+| 10 | **MapControllers** | smista al controller corretto |
+
+**Nota CORS vs AllowAnyOrigin:** `CorsOrigins` vuoto = `AllowAnyOrigin` deliberato per API pubbliche.
+La protezione reale è l'API key (`X-Api-Key`), indipendente dall'origine.
+Valorizzare `Security.CorsOrigins` solo per domini admin separati o multi-tenant.
+
 ---
 
 ## Aggiungere un endpoint

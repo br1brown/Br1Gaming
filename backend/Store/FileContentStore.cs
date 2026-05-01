@@ -127,7 +127,20 @@ public class FileContentStore : IContentStore
             if (string.IsNullOrWhiteSpace(language))
                 return fallback;
 
+            // Un header Accept-Language tipico ha questo formato:
+            //   "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7"
+            //
+            // Passo 1 — Split(',')[0] → prende solo la prima preferenza: "it-IT"
+            //           (l'utente indica la più desiderata per prima)
+            // Passo 2 — Trim()        → rimuove spazi accidentali attorno al tag
+            // Passo 3 — Split('-')[0] → estrae solo il codice lingua, senza il paese: "it"
+            //           (i file JSON usano chiavi brevi "it"/"en", non "it-IT"/"en-US")
+            // Passo 4 — Trim()        → sicurezza extra per spazi residui
+            // Passo 5 — ToLowerInvariant() → normalizza al minuscolo per il confronto con le chiavi JSON
             var normalized = language.Split(',')[0].Trim().Split('-')[0].Trim().ToLowerInvariant();
+
+            // Accetta il codice solo se è esattamente a 2 caratteri (es. "it", "en", "fr").
+            // Valori anomali come stringhe vuote o tag non standard cadono sul fallback.
             return normalized.Length == 2 ? normalized : fallback;
         }
 
@@ -176,20 +189,32 @@ public class FileContentStore : IContentStore
         /// </returns>
         private static JsonNode? ResolveObject(JsonObject obj, string language, string fallbackLanguage)
         {
+            // CASO 1 — L'oggetto è un dizionario lingua→valore puro (es. { "it": "Ciao", "en": "Hello" }).
+            // TryResolveLocalizedObject sceglie il ramo corretto e lo restituisce come nodo singolo.
+            // Poi si chiama ricorsivamente ResolveNode sul valore scelto: quel valore potrebbe a sua
+            // volta contenere oggetti localizzati annidati, quindi deve essere risolto allo stesso modo.
             if (TryResolveLocalizedObject(obj, language, fallbackLanguage, out var localizedValue))
                 return ResolveNode(localizedValue, language, fallbackLanguage);
 
+            // CASO 2 — L'oggetto ha chiavi di dominio normali (es. "name", "url", "items").
+            // Si costruisce un nuovo oggetto copiando solo i campi che sopravvivono alla localizzazione.
             var resolvedObject = new JsonObject();
 
             foreach (var (key, value) in obj)
             {
+                // Risolve ogni campo figlio ricorsivamente (potrebbe contenere blocchi i18n annidati).
                 var resolvedValue = ResolveNode(value, language, fallbackLanguage);
+
+                // Se il campo è diventato vuoto dopo la risoluzione (stringa "", array [],
+                // oggetto {} o null), viene saltato: non ha senso serializzarlo nel modello finale.
                 if (IsEmptyNode(resolvedValue))
                     continue;
 
                 resolvedObject[key] = resolvedValue;
             }
 
+            // Se tutti i campi erano vuoti, l'oggetto intero non porta informazione utile:
+            // si restituisce null in modo che il chiamante possa scartarlo.
             return resolvedObject.Count == 0 ? null : resolvedObject;
         }
 
@@ -236,9 +261,22 @@ public class FileContentStore : IContentStore
         {
             localizedValue = null;
 
+            // Controlla se l'oggetto è un dizionario lingua→valore puro.
+            // Condizioni di esclusione (= non è un oggetto localizzato):
+            // - L'oggetto è vuoto: nessuna chiave da analizzare.
+            // - Almeno una chiave non ha il formato lingua (es. "name", "url", "items"):
+            //   significa che è un oggetto normale del dominio, non un blocco i18n.
+            // In entrambi i casi si restituisce false e il chiamante elabora l'oggetto normalmente.
             if (obj.Count == 0 || obj.Any(property => !IsLanguageKey(property.Key)))
                 return false;
 
+            // Arrivati qui, tutte le chiavi sono tag lingua (es. "it", "en").
+            // Sceglie il valore più adatto con priorità decrescente:
+            //   1. obj[language]         → lingua richiesta (es. "it"): caso ideale.
+            //   2. obj[fallbackLanguage] → lingua di riserva (es. "it"): se la richiesta non c'è.
+            //   3. FirstOrDefault(...)   → primo valore non vuoto trovato: ultimo tentativo
+            //                             quando nemmeno il fallback è presente nel file.
+            // L'operatore ?? cortocircuita: se il primo non è null si usa quello.
             localizedValue =
                 obj[language]
                 ?? obj[fallbackLanguage]
@@ -256,12 +294,22 @@ public class FileContentStore : IContentStore
         /// </returns>
         private static bool IsLanguageKey(string key)
         {
+            // Divide la chiave sul trattino, ignorando parti vuote e spazi.
+            // Esempi: "it" → ["it"]   |   "it-IT" → ["it", "IT"]   |   "name" → ["name"]
             var parts = key.Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
             return parts.Length switch
             {
+                // Tag semplice (es. "it", "en"): deve avere esattamente 2 lettere.
+                // Esclusi numeri, simboli o stringhe più lunghe come "url" o "name".
                 1 => parts[0].Length == 2 && parts[0].All(char.IsLetter),
+
+                // Tag con subtag paese (es. "it-IT", "en-US"):
+                // sia il codice lingua sia il codice paese devono essere di 2 lettere.
+                // All(part => ...) verifica che entrambi siano alfabetici (no "x1-IT").
                 2 => parts[0].Length == 2 && parts[1].Length == 2 && parts.All(part => part.All(char.IsLetter)),
+
+                // Qualsiasi altra struttura (0 parti, 3+ parti) non è un tag lingua.
                 _ => false
             };
         }

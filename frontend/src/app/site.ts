@@ -1,7 +1,6 @@
 import { inject } from '@angular/core';
 import { buildSite } from './siteBuilder';
 import { ApiService } from './core/services/api.service';
-import { policyContent } from './pages/policy/policy-content.service';
 
 export type {
     SiteConfig,
@@ -60,7 +59,7 @@ export enum PageType {
 //   ContestoSito.linkFooter   → voci del footer
 //   ContestoSito.getPath(PageType.X) → path di una pagina per link interni
 //   ContestoSito.getSitemapEntries() → voci per la sitemap (path + metadati)
-//
+
 export const ContestoSito = buildSite(siteFondamentaBuilder => {
     // ── CONFIGURAZIONE GLOBALE ────────────────────────────────────────
     //
@@ -79,7 +78,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
         defaultLang: 'it',
         availableLanguages: ['it', 'en'],
         description: 'Template di base che serve per fare vedere le funzionalità base',
-        colorTema: '#131e24',
+        colorTema: '#131e54',
         showFooter: true,
         fixedTopHeader: true,
         smoke: {
@@ -150,9 +149,6 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
                     pageType: PageType.PrivacyPolicy,
                     renderMode: 'server',
                     component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
-                    resolve: {
-                        content: policyContent(PageType.PrivacyPolicy),
-                    },
                 },
                 {
                     path: 'termini',
@@ -162,9 +158,6 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
                     pageType: PageType.TermsOfService,
                     renderMode: 'server',
                     component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
-                    resolve: {
-                        content: policyContent(PageType.TermsOfService),
-                    },
                 },
                 {
                     path: 'cookie',
@@ -174,9 +167,6 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
                     pageType: PageType.CookiePolicy,
                     renderMode: 'server',
                     component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
-                    resolve: {
-                        content: policyContent(PageType.CookiePolicy),
-                    },
                 },
                 {
                     path: 'legal',
@@ -186,9 +176,6 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
                     pageType: PageType.LegalNotice,
                     renderMode: 'server',
                     component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
-                    resolve: {
-                        content: policyContent(PageType.LegalNotice),
-                    },
                 }
             ]
         },

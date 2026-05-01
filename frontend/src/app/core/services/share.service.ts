@@ -4,11 +4,9 @@ import { NotificationService } from './notification.service';
 import { TranslateService } from './translate.service';
 
 /**
- * Servizio centralizzato per copia, condivisione e download.
- *
- * Astrae le API del browser (Clipboard API, Web Share API, download via blob)
- * dietro metodi semplici con gestione errori e notifiche integrate.
- * Utilizzabile da qualsiasi componente del template.
+ * SHARE SERVICE
+ * Servizio centralizzato per le operazioni di interazione con il sistema operativo:
+ * copia negli appunti, condivisione nativa e salvataggio file.
  */
 @Injectable({ providedIn: 'root' })
 export class ShareService {
@@ -16,11 +14,16 @@ export class ShareService {
     private readonly translate = inject(TranslateService);
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
-    // ─── Clipboard ──────────────────────────────────────────────────────
+    // ─── CLIPBOARD (APPUNTI) ──────────────────────────────────────────────
 
-    /** Copia testo nella clipboard e mostra una notifica di successo */
+    /** 
+     * Copia il testo negli appunti e invia un feedback visivo all'utente.
+     * @param text Il contenuto da copiare.
+     */
     async copyText(text: string): Promise<boolean> {
         const copied = await this.writeToClipboard(text);
+
+        // Notifica l'esito tramite il servizio di Toast
         this.notify.toast(
             this.translate.translate(copied ? 'clipboardCopied' : 'clipboardEmpty'),
             copied ? 'success' : 'warning'
@@ -28,31 +31,47 @@ export class ShareService {
         return copied;
     }
 
-    /** Tenta Clipboard API, se fallisce ripiega su execCommand('copy') */
+    /** 
+     * Logica di scrittura negli appunti.
+     * Tenta l'uso della moderna Clipboard API; in caso di errore o mancanza di permessi,
+     * utilizza il vecchio metodo basato sul DOM.
+     */
     private async writeToClipboard(text: string): Promise<boolean> {
         try {
+            // Metodo moderno (richiede contesto sicuro/HTTPS)
             await navigator.clipboard.writeText(text);
             return true;
         } catch {
+            // Fallback per browser datati o contesti HTTP
             return this.execCommandCopy(text);
         }
     }
 
-    /** Fallback per contesti non-HTTPS o browser senza Clipboard API */
+    /** 
+     * Metodo di ripiego: crea un elemento temporaneo nel DOM, lo seleziona 
+     * ed esegue il comando di copia del sistema.
+     */
     private execCommandCopy(text: string): boolean {
         if (!this.isBrowser) return false;
+
         const textarea = document.createElement('textarea');
         textarea.value = text;
+        // Impedisce lo scroll della pagina durante la creazione dell'elemento
         textarea.style.position = 'fixed';
         textarea.style.opacity = '0';
         document.body.appendChild(textarea);
-        textarea.select();
-        const ok = document.execCommand('copy');
-        document.body.removeChild(textarea);
+
+        textarea.select(); // Seleziona il testo
+        const ok = document.execCommand('copy'); // Esegue la copia
+
+        document.body.removeChild(textarea); // Pulizia del DOM
         return ok;
     }
 
-    /** Legge testo dalla clipboard. Ritorna stringa vuota se non disponibile */
+    /** 
+     * Legge il contenuto testuale dagli appunti del sistema.
+     * Richiede solitamente l'interazione esplicita dell'utente e permessi browser.
+     */
     async readText(): Promise<string> {
         try {
             return await navigator.clipboard.readText();
@@ -61,44 +80,49 @@ export class ShareService {
         }
     }
 
-    // ─── Web Share API ──────────────────────────────────────────────────
+    // ─── WEB SHARE API (CONDIVISIONE NATIVA) ─────────────────────────────
 
-    /** true se il browser supporta la Web Share API */
+    /** 
+     * Verifica la disponibilità della condivisione nativa (es. il menu "Condividi" su iOS/Android).
+     */
     get canShare(): boolean {
         return typeof navigator !== 'undefined' && !!navigator.share;
     }
 
-    /** Condivide testo tramite Web Share API. Ritorna false se non supportato o annullato */
+    /** 
+     * Apre il menu di condivisione di sistema per inviare testo o link.
+     */
     async shareText(text: string, title?: string): Promise<boolean> {
         if (!this.canShare) return false;
         try {
             await navigator.share({ title, text });
             return true;
         } catch {
-            return false;
+            return false; // L'utente potrebbe aver annullato la condivisione
         }
     }
 
     /**
-     * Condivide un file (es. immagine) tramite Web Share API.
-     * Se non supportato, esegue il download come ripiego.
+     * Condivide un file reale (es. un'immagine generata).
+     * Se il browser non supporta la condivisione di file, scarica l'asset localmente.
      */
     async shareFile(blob: Blob, filename: string, title?: string): Promise<void> {
         if (this.canShare) {
             try {
+                // Converte il Blob in un oggetto File compatibile con la Share API
                 const file = new File([blob], filename, { type: blob.type });
                 await navigator.share({ title, files: [file] });
                 return;
             } catch {
-                // Condivisione annullata: ripiega sul download
+                // Fallback in caso di errore o annullamento
             }
         }
+        // Se non possiamo condividere, offriamo il download diretto
         this.downloadBlob(blob, filename);
     }
 
     /**
-     * Condivide il contenuto di un canvas come immagine PNG.
-     * Se Web Share non è disponibile, scarica il file.
+     * Cattura il contenuto di un elemento Canvas e lo condivide come immagine.
      */
     async shareCanvas(canvas: HTMLCanvasElement, title?: string, filename = 'immagine.png'): Promise<void> {
         return new Promise<void>((resolve) => {
@@ -111,24 +135,35 @@ export class ShareService {
         });
     }
 
-    // ─── Download ───────────────────────────────────────────────────────
+    // ─── DOWNLOAD GESTITO ────────────────────────────────────────────────
 
-    /** Scarica un blob come file */
+    /** 
+     * Forza il download di un file binario creando un link "anchor" virtuale.
+     */
     downloadBlob(blob: Blob, filename: string): void {
         if (!this.isBrowser) return;
+
+        // Crea un URL temporaneo che punta ai dati in memoria (RAM)
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.download = filename;
         link.href = url;
-        link.click();
+
+        link.click(); // Simula il click per avviare il download
+
+        // Importante: rilascia la memoria una volta terminato
         URL.revokeObjectURL(url);
     }
 
-    /** Scarica il contenuto di un canvas come file PNG */
+    /** 
+     * Esegue il download immediato di un Canvas trasformandolo in una stringa Base64.
+     */
     downloadCanvas(canvas: HTMLCanvasElement, filename = 'immagine.png'): void {
         if (!this.isBrowser) return;
+
         const link = document.createElement('a');
         link.download = filename;
+        // toDataURL converte l'immagine in una stringa di dati codificata
         link.href = canvas.toDataURL('image/png');
         link.click();
     }

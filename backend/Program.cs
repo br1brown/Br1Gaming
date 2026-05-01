@@ -23,16 +23,9 @@ var security = builder.Configuration
     .Get<SecurityOptions>() ?? new SecurityOptions();
 
 // ── SERVIZI APPLICATIVI ─────────────────────────────────────────────
-//
-// IContentStore: astrae l'accesso ai dati (engine).
-// L'implementazione attuale (FileContentStore) e' nella zona custom del progetto.
-// Sostituibile con database o CMS senza toccare controller o servizi.
-//
-// SiteService: logica di business del progetto (custom).
-//
-// AuthService: infrastruttura JWT dell'engine. Registrato SOLO se il login
-// e' abilitato (Token.SecretKey valorizzata).
-//
+// IContentStore (FileContentStore): accesso dati, sostituibile con DB senza toccare controller.
+// SiteService: logica di business del progetto.
+// AuthService: infrastruttura JWT, registrata solo se LoginEnabled.
 builder.Services.AddSingleton<IContentStore, FileContentStore>();
 builder.Services.AddScoped<SiteService>();
 
@@ -89,24 +82,7 @@ builder.Services.AddHealthChecks();
 var app = builder.Build();
 
 // ── PIPELINE HTTP ───────────────────────────────────────────────────
-//
-// L'ORDINE E' CRITICO. La pipeline viene attraversata dall'alto al basso
-// per ogni richiesta, e dal basso all'alto per ogni risposta.
-//
-// UseTemplateSecurity() registra (in ordine):
-//   1. ForwardedHeaders  → ricostruisce IP reale (solo se BehindProxy = true)
-//   2. CORS              → gestisce preflight OPTIONS senza consumare rate limit
-//   3. RateLimiter       → 100 req/min globali, 5/min su login (fail fast)
-//   4. SecurityHeaders   → header anti-clickjacking/XSS su ogni risposta
-//   5. HSTS              → forza HTTPS
-//   6. ExceptionHandler  → ApiException → ProblemDetails JSON
-//
-// Poi, dopo UseTemplateSecurity():
-//   7. RequestLocalization → legge Accept-Language per localizzare i dati
-//   8. Authentication      → valida API key e (se configurato) JWT
-//   9. Authorization       → applica policy "RequireLogin" sui controller protetti
-//   10. MapControllers     → smista la richiesta al controller corretto
-//
+// L'ordine è critico. Vedi DEVELOPMENT.md → "Ordine della pipeline HTTP".
 app.UseTemplateSecurity(security);
 
 app.UseRequestLocalization(
