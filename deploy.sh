@@ -431,6 +431,36 @@ fi
 # =============================================================================
 
 echo
+echo -e "${BOLD}Port check${RESET}"
+
+check_port_conflict() {
+    local port="$1"
+    local conflicting
+    conflicting=$(docker ps --format "{{.Names}}\t{{.Ports}}" \
+        | grep -E "(0\.0\.0\.0|:::):${port}->" \
+        | grep -v "^${COMPOSE_PROJECT_NAME}-" || true)
+    if [[ -n "$conflicting" ]]; then
+        local container_name
+        container_name=$(echo "$conflicting" | awk '{print $1}')
+        fail "Port ${port} already used by: ${container_name}"
+        echo "  Stop it with: docker stop ${container_name}" >&2
+        return 1
+    fi
+    ok "Port ${port} is free"
+}
+
+check_port_conflict "${FRONTEND_PORT}"
+if [[ "${EXPOSE_BACKEND:-no}" == "yes" && -n "${BACKEND_PORT:-}" ]]; then
+    check_port_conflict "${BACKEND_PORT}"
+fi
+
+if (( ERRORS > 0 )); then
+    echo
+    echo -e "  ${RED}ERR${RESET} Fix port conflicts before deploying" >&2
+    exit 1
+fi
+
+echo
 echo -e "${BOLD}Deploy${RESET}"
 
 if [[ "$NO_CACHE" == true ]]; then
