@@ -101,7 +101,7 @@ const immutableAssetPattern = /\.[0-9a-f]{16,}\.(?:js|css|woff2?|ttf|eot|svg|png
 const app = express();
 /** Motore Angular SSR ufficiale: gestisce il rendering delle pagine lato server */
 const angularApp = new AngularNodeAppEngine({
-    allowedHosts: [new URL(backendOrigin).hostname, 'localhost', '127.0.0.1']
+    allowedHosts: serverEnv.allowedHosts
 });
 
 /** Policy di sicurezza: definisce permessi per script, immagini e connessioni esterne */
@@ -139,11 +139,32 @@ app.get('/health', (_request, response) => {
     });
 });
 
+/** Rifiuta richieste pubbliche con host non autorizzato prima di raggiungere proxy o SSR */
+app.use((request, response, next) => {
+    if (serverEnv.allowedHosts.length === 0 || request.path === '/health') {
+        next();
+        return;
+    }
+
+    const requestHost = request.hostname.trim().toLowerCase();
+    const isAllowed = serverEnv.allowedHosts.some((host) => host.toLowerCase() === requestHost);
+
+    if (isAllowed) {
+        next();
+        return;
+    }
+
+    console.warn(`[frontend] Rejected request for unauthorized host: ${request.headers.host ?? requestHost}`);
+    response.status(421).json({
+        status: 421,
+        title: 'Misdirected Request',
+        detail: 'Host non autorizzato.'
+    });
+});
+
 /** Middleware Proxy: devia tutte le chiamate /api verso il backend reale */
-app.use(createProxyMiddleware({
+app.use('/api', createProxyMiddleware({
     target: backendOrigin,
-    pathFilter: '/api',
-    pathRewrite: { '^/api': '' }, // Rimuove '/api' dall'URL finale inviato al backend
     changeOrigin: true,
     xfwd: true,
     proxyTimeout: proxyTimeout,
@@ -314,6 +335,14 @@ if (isMainModule(import.meta.url)) {
     app.listen(port, () => {
         console.log(`[frontend] Node SSR server listening on http://localhost:${port}`);
         console.log(`[frontend] Backend origin: ${backendOrigin}`);
+        console.log(`[frontend] Frontend base URL: ${serverEnv.frontendBaseUrl || '(not set)'}`);
+        console.log(
+            `[frontend] NG_ALLOWED_HOSTS: ${
+                serverEnv.allowedHosts.length > 0
+                    ? serverEnv.allowedHosts.join(', ')
+                    : '(not set)'
+            }`
+        );
     });
 }
 
