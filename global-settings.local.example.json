@@ -1,0 +1,21 @@
+{
+  "$schema": "./global-settings.schema.json",
+  "_nota": "Copia questo file in 'global-settings.local.json' (gitignorato). Qui vivono PUBBLICAZIONE e SEGRETI del singolo ambiente di deploy: porte, dominio, CORS, reverse proxy e le chiavi (SecretKey JWT, ApiKeys). deploy.sh lo fonde sopra global-settings.json (merge profondo; gli array sostituiscono). L'identità del progetto (nome, versione, lingue, config di sito) sta invece in global-settings.json, che è committabile. Genera i segreti con: openssl rand -base64 48 (SecretKey) e openssl rand -base64 32 (ApiKeys). Tieni solo le chiavi che ti servono.",
+
+  "frontend": {
+    "hostname": "miodominio.it",
+    "port": 3000
+  },
+  "backend": {
+    "public": false,
+    "publicPort": null
+  },
+  "Security": {
+    "ApiKeys": ["INCOLLA-QUI-openssl-rand-base64-32"],
+    "CorsOrigins": [],
+    "BehindProxy": true,
+    "Token": {
+      "SecretKey": "INCOLLA-QUI-openssl-rand-base64-48"
+    }
+  }
+}

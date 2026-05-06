@@ -1,0 +1,31 @@
+{
+  "$schema": "./global-settings.schema.json",
+  "_nota": "File di PROGETTO (committabile): identità e configurazione del sito che il progetto figlio possiede e versiona. La pubblicazione e i SEGRETI (porte, hostname, ApiKeys, SecretKey, CORS) vivono in global-settings.local.json (gitignored); gli header di sicurezza fissi in security-headers.json (del template).",
+  "project": {
+    "name": "App",
+    "version": "1.0.0",
+    "lastModified": "08/06/2026"
+  },
+  "Localization": {
+    "DefaultLanguage": "it",
+    "SupportedLanguages": ["it", "en"]
+  },
+  "site": {
+    "description": {
+      "it": "Template di base che serve per fare vedere le funzionalità base",
+      "en": "Base template showcasing the core building blocks"
+    },
+    "colorTema": "#131e55",
+    "smoke": {
+      "enable": true,
+      "color": "#b5d9ff",
+      "opacity": 0.7,
+      "maximumVelocity": 120,
+      "particleRadius": 350,
+      "density": 18
+    }
+  },
+  "Custom": {
+    "esempio": "valore di progetto leggibile anche dal browser via APP_CUSTOM"
+  }
+}
