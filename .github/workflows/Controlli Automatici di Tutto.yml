@@ -1,0 +1,145 @@
+name: Controlli Automatici di Tutto
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+# Annulla i run superati sullo stesso ref (es. push rapidi o push+PR dello stesso
+# branch): evita doppioni e libera i runner.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Compila backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configura .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Compila
+        # -warnaserror: il template parte a zero warning e in CI ci resta — un warning nuovo
+        # (XML-doc mancante, nullability) si vede subito invece di accumularsi come rumore.
+        run: dotnet build backend/backend.csproj --configuration Release -warnaserror
+
+      - name: Controlla pacchetti vulnerabili
+        run: |
+          OUTPUT=$(dotnet list backend/backend.csproj package --vulnerable --include-transitive 2>&1)
+          echo "$OUTPUT"
+          if echo "$OUTPUT" | grep -q "has the following vulnerable packages"; then
+            echo "::error::Trovati pacchetti NuGet vulnerabili. Esegui 'dotnet list package --vulnerable' localmente per i dettagli."
+            exit 1
+          fi
+
+  frontend:
+    name: Compila frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configura Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Installa dipendenze
+        working-directory: frontend
+        run: npm ci
+
+      - name: Audit di sicurezza
+        working-directory: frontend
+        run: npm audit --audit-level=high --omit=dev
+
+      - name: Analisi Lint
+        run: bash scripts/test/lint-check.sh
+
+      - name: Controllo dei tipi
+        run: bash scripts/test/tsc-check.sh
+
+      - name: Dipendenze circolari
+        run: bash scripts/test/circular-deps-check.sh
+
+      - name: Genera risorse statiche
+        working-directory: frontend
+        run: npm run generate:statics
+
+      - name: Genera icone
+        working-directory: frontend
+        run: npm run generate:icons
+
+      - name: Compila frontend
+        working-directory: frontend
+        run: npx ng build --configuration production
+
+  i18n:
+    name: Completezza i18n
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configura Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Controlla simmetria chiavi di tutte le lingue
+        run: bash scripts/test/i18n-check.sh
+
+  security-scan:
+    name: Sicurezza (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Secret scanning: intercetta segreti committati per sbaglio (rinforza l'architettura
+      # "segreti fuori da git"). Via immagine Docker: nessuna licenza/token, portabile su ogni
+      # fork. L'allowlist dei segnaposto del template è in .gitleaks.toml.
+      - name: Secret scanning (gitleaks)
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/repo" zricethezav/gitleaks:latest \
+            detect --source=/repo --no-git --redact --verbose --config=/repo/.gitleaks.toml
+
+  live-tests:
+    name: Test live
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configura Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Installa dipendenze
+        working-directory: frontend
+        run: npm ci
+
+      - name: Avvia stack
+        run: bash scripts/test/public-test.sh
+
+      - name: Audit di accessibilità
+        run: bash scripts/test/a11y-test.sh http://localhost:8088
+
+      - name: Audit Lighthouse
+        run: bash scripts/test/lighthouse-test.sh http://localhost:8088
+
+      - name: Butta giù
+        if: always()
+        run: |
+          # Stesso project name che public-test.sh deriva da global-settings.json (slug di
+          # project.name): derivato e non hardcoded, così il teardown resta corretto anche
+          # nei progetti figli che rinominano il progetto. Stessa one-liner di pre-push.sh.
+          COMPOSE_PROJECT_NAME="$(node --input-type=module --eval "import{readFileSync}from'fs';const s=JSON.parse(readFileSync('global-settings.json','utf-8'));process.stdout.write(String(s.project?.name||'app').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+\$/g,''))")" \
+          docker compose -f docker-compose.yml -f docker-compose.public-test.yml down
