@@ -1,4 +1,4 @@
-import { InjectionToken, isDevMode, type Type } from '@angular/core';
+import { InjectionToken, type Type } from '@angular/core';
 import type { PageType } from '../../site';
 import type { PageBaseComponent } from '../../pages/page-base.component';
 import { environment } from '../../../environments/environment';
@@ -461,10 +461,6 @@ const isRawGroup = (
     item: RawNavItem
 ): item is { kind: 'group'; label: string; children: RawNavItem[] } =>
     item.kind === 'group';
-
-/** Verifica se un `NavLink` è un gruppo (ha figli): usato da navbar, dropdown, submenu e footer per il render ricorsivo. */
-export const isNavGroup = (item: NavLink): item is NavLink & { children: NavLink[] } =>
-    Array.isArray(item.children) && item.children.length > 0;
 
 /**
  * Verifica se l'input dichiarato rappresenta una pagina contenitore.
@@ -945,51 +941,6 @@ function sanitizePageRefs(config: SiteConfig, pageMap: Map<PageType, PageInfo>):
 }
 
 /**
- * Limiti di profondità della navigazione (header e footer condividono la stessa struttura).
- * Livello 1 = voci di primo livello; ogni discesa in `children` aggiunge un livello.
- */
-const NAV_DEPTH_WARN = 3; // da questo livello in poi: avviso di usabilità (dev)
-const NAV_DEPTH_MAX = 5;  // livelli oltre questo: errore bloccante a build/avvio
-
-/**
- * Valida la profondità di una sezione di navigazione risolta: lancia se si annida oltre
- * `NAV_DEPTH_MAX` livelli, avvisa (solo in dev) se si raggiunge `NAV_DEPTH_WARN`.
- *
- * @throws Se un gruppo genera figli oltre il quinto livello di profondità.
- */
-function validateNavDepth(items: NavLink[], section: 'header' | 'footer'): void {
-    // Profondità massima effettivamente raggiunta, per decidere l'avviso una sola volta.
-    let maxDepth = 0;
-
-    const walk = (nodes: NavLink[], depth: number): void => {
-        if (depth > maxDepth) maxDepth = depth;
-        for (const node of nodes) {
-            if (isNavGroup(node)) {
-                // I figli di questo gruppo stanno a depth+1: oltre il quinto livello è bloccante.
-                if (depth + 1 > NAV_DEPTH_MAX) {
-                    throw new Error(
-                        `[SiteBuilder] Navigazione ${section}: superato il limite di ${NAV_DEPTH_MAX} livelli di ` +
-                        `profondità sul gruppo "${node.label}". Annidare oltre il quinto livello non è consentito: ` +
-                        `riduci la gerarchia.`
-                    );
-                }
-                walk(node.children, depth + 1);
-            }
-        }
-    };
-
-    walk(items, 1);
-
-    if (isDevMode() && maxDepth >= NAV_DEPTH_WARN) {
-        console.warn(
-            `[SiteBuilder] Navigazione ${section}: profondità ${maxDepth} livelli (max consigliato: ${NAV_DEPTH_WARN - 1}). ` +
-            `Aumentare la profondità della navigazione peggiora usabilità, accessibilità, facilità di navigazione e ` +
-            `comprensione della struttura informativa. Valuta di appiattire la gerarchia.`
-        );
-    }
-}
-
-/**
  * Risolve gli item grezzi di navigazione in `NavLink` finali: i riferimenti `PageType`
  * passano dalla `pageMap`; i gruppi vuoti e i riferimenti non risolti vengono scartati.
  */
@@ -1054,17 +1005,11 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
         );
     }
 
-    // Navigazione risolta + validazione profondità condivisa (header e footer).
-    const menuNav = resolveNavigation(rawHeader, pageMap);
-    const linkFooter = resolveNavigation(rawFooter, pageMap);
-    validateNavDepth(menuNav, 'header');
-    validateNavDepth(linkFooter, 'footer');
-
     return {
         config: finalConfig,
         pages: sitePages.filter(isInternalPage),
-        menuNav,
-        linkFooter,
+        menuNav: resolveNavigation(rawHeader, pageMap),
+        linkFooter: resolveNavigation(rawFooter, pageMap),
         serverRenderEntries,
         getPath: (type: PageType) => pageMap.get(type)?.path ?? null,
         getPageInfo: (type: PageType) => pageMap.get(type) ?? null,

@@ -1,4 +1,4 @@
-import { buildSite } from './core/engine/siteBuilder';
+import { buildSite, LeafPageInput } from './core/engine/siteBuilder';
 
 export type {
     SiteConfig,
@@ -9,174 +9,144 @@ export type {
 // ═══════════════════════════════════════════════════════════════════════
 // ENUM PageType — identita' di ogni pagina
 // ═══════════════════════════════════════════════════════════════════════
-//
-// Ogni pagina del sito DEVE avere un valore qui.
-//
-// Per aggiungere una pagina: aggiungi un valore all'enum, poi usalo
-// nella chiamata defineSitePages sotto. Il resto (rotte, menu, sitemap)
-// si aggiorna da solo.
-//
-// Perche' un enum e non stringhe?
-// - Se rinomini un path (es. "chi-siamo" → "about"), cambi UNA riga
-//   in defineSitePages. Menu, footer, link interni continuano a
-//   funzionare perche' puntano a PageType.ChiSiamo, non alla stringa.
-// - Se rimuovi un valore dall'enum, TypeScript ti segnala tutti i punti
-//   del codice che ancora lo usano. Con le stringhe lo scopri a runtime.
-//
 export enum PageType {
     //IMPORTANTI
     PrivacyPolicy,
     CookiePolicy,
     TermsOfService,
     LegalNotice,
-    Home,
     //PERSONALIZZABILI
-    Social,
-    Impostazioni,
-    Login,
+    Home,
+    GitHub,
+    GeneratorIncel,
+    GeneratorAuto,
+    GeneratorAntiveg,
+    GeneratorLocali,
+    GeneratorMbeb,
+    StoryPoveriMaschi,
+    StoryMagrogamer09,
+    StorySurviveUsa,
+    GameDuceNonDuce,
+    GameRadar,
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// HELPER — crea una pagina generatore con path esplicito
+// ═══════════════════════════════════════════════════════════════════════
+function generatorPage(
+    urlSegment: string,
+    pageType: PageType,
+): LeafPageInput {
+    return {
+        path: `generatori/${urlSegment}`,
+        title: `generatore-${urlSegment}`,
+        pageType,
+        layout: { showPanel: false },
+        otherSEO: { ogImage: `generator.${urlSegment}` },
+        component: () => import('./pages/generator-detail/generator-detail.component')
+            .then(m => m.GeneratorDetailComponent),
+    };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// HELPER — crea una pagina avventura con path esplicito
+// ═══════════════════════════════════════════════════════════════════════
+function storyPage(
+    urlSegment: string,
+    pageType: PageType,
+): LeafPageInput {
+    return {
+        path: `avventura/${urlSegment}`,
+        title: `avventura-${urlSegment}`,
+        pageType,
+        otherSEO: { ogImage: `story.${urlSegment}` },
+        component: () => import('./pages/story-player/story-player.component')
+            .then(m => m.StoryPlayerComponent),
+    };
 }
 
 // ═══════════════════════════════════════════════════════════════════════
 // CONFIGURAZIONE MASTER DEL SITO
 // ═══════════════════════════════════════════════════════════════════════
 //
-// Definisce la STRUTTURA del sito: opzioni globali (loginPage, homePage, legalPages,
-// shell, …), le pagine (`pages`) e le voci dei menu (`headerNav` / `footerNav`).
-// Identità ed estetica (nome, versione, lingue, descrizione, tema, smoke) NON stanno
-// qui: vivono in global-settings.json e arrivano via environment.ts.
+// Definisce la STRUTTURA e il COMPORTAMENTO del sito. Identità ed estetica
+// (nome, versione, lingue, descrizione, tema, smoke) NON stanno qui: vivono in
+// global-settings.json e arrivano al frontend via environment.ts.
 //
-// Il risultato (ContestoSito) è usato da tutta l'app: .config, .pages, .menuNav,
-// .linkFooter, .getPath(PageType.X), .getSitemapEntries().
-
 export const ContestoSito = buildSite({
-
-    // Pagina di login: dove mandare gli utenti non autenticati (se omessa → /error/401).
-    loginPage: PageType.Login,
 
     // Pagina del brand/logo nel navbar.
     homePage: PageType.Home,
 
-    // Pagine legali: mappa gli slot dell'Engine ai tuoi PageType; il builder crea le rotte
-    // /policy/*. Slot omesso = pagina assente. `cookie` obbligatoria se il sito usa cookie.
+    // Pagine legali: il progetto usa solo la Cookie Policy (obbligatoria perché il sito
+    // usa cookie). Gli altri slot omessi = pagine non create. L'Engine costruisce /policy/*.
     legalPages: {
-        privacy: PageType.PrivacyPolicy,
         cookie: PageType.CookiePolicy,
-        tos: PageType.TermsOfService,
-        legal: PageType.LegalNotice,
     },
 
-    // Comportamento di navbar/footer/header/pannello (default applicati per ogni flag omesso).
+    // Comportamento della shell (default sensati per ogni flag omesso).
     shell: {
         showNav: true,
         showFooter: true,
-        fixedTopHeader: true,
+        fixedTopHeader: false,
         showBrandIconInHeader: true,
-        showLoginInHeader: true,
+        showLoginInHeader: false,
         forcedLightPanel: true,
     },
 
-    isWebApp: true,        // funzionalità PWA (Service Worker, aggiornamenti, install offline)
-    onlyPlainImage: false, // anteprime social con sola immagine, senza scritte/favicon
+    isWebApp: true,         // PWA: Service Worker, aggiornamenti, install offline
+    onlyPlainImage: false,  // anteprime social con scritte/favicon sovrapposte
 
-    // ── ALBERO DELLE PAGINE ───────────────────────────────────────────────
-    //
-    // Tre tipi di pagina. Non serve specificare quale, si capisce da solo:
-    //
-    //   Ha "component"?   → pagina interna (rotta Angular, lazy loaded)
-    //   Ha "children"?    → gruppo di sotto-pagine (es. /policy/privacy)
-    //   Ha "externalUrl"? → link esterno (appare nei menu, non genera rotte)
-    //
-    // Campi comuni:
-    //   path         → segmento URL (es. "chi-siamo" → /chi-siamo)
-    //   title        → chiave di traduzione per il titolo pagina
-    //   enabled      → false = esclusa da rotte, menu e sitemap
-    //   pageType     → identita' della pagina (vedi enum sopra)
-    //
-    // Campi opzionali:
-    //   requiresAuth → true = richiede login (JWT), altrimenti redirect
-    //   layout       → { showPanel, showNav, showFooter } override per-pagina
-    //   otherSEO     → { ogImage, ogType, structuredDataType } meta OG/Schema.org
-    //   description  → chiave i18n o stringa per meta description + sitemap
-    //   renderMode   → 'server' (default) | 'client' (no SSR)
-    //   data         → dati custom passati al componente via route.data
-    //
-    // Il componente DEVE estendere PageBaseComponent.
-    //
     pages: () => [
         {
             path: '',
-            title: '',
+            title: 'homeNav',
             pageType: PageType.Home,
-            description: 'homeDesc',
-            otherSEO: { ogImage: 'img4k' },
+            layout: { showPanel: false },
+            description: 'Generatori casuali, avventure interattive e tanto altro da Br1.',
             component: () => import('./pages/home/home.component').then(m => m.HomeComponent),
         },
+
+        // ── Generatori ──────────────────────────────────────────────
+        generatorPage('incel', PageType.GeneratorIncel),
+        generatorPage('auto', PageType.GeneratorAuto),
+        generatorPage('antiveg', PageType.GeneratorAntiveg),
+        generatorPage('locali', PageType.GeneratorLocali),
+        generatorPage('mbeb', PageType.GeneratorMbeb),
+
+        // ── Giochi ──────────────────────────────────────────────────
+        storyPage('poveri-maschi', PageType.StoryPoveriMaschi),
+        storyPage('magrogamer09', PageType.StoryMagrogamer09),
+        storyPage('sopravvivi-agli-usa', PageType.StorySurviveUsa),
+
         {
-            path: 'social-feed',
-            title: 'socialNav',
-            pageType: PageType.Social,
-            description: 'socialDesc',
-            component: () => import('./pages/social/social.component').then(m => m.SocialComponent),
+            path: `ducenonduce`,
+            title: `DUCE NON DUCE?`,
+            description: 'Indovina se la persona è un duce o non duce',
+            pageType: PageType.GameDuceNonDuce,
             layout: { showPanel: false },
+            otherSEO: { ogImage: 'game.ducenonduce' },
+            component: () => import('./pages/duce-non-duce/duce-non-duce.component')
+                .then(m => m.DuceNonDuceComponent),
         },
+
         {
-            path: 'login',
-            title: 'loginNav',
-            pageType: PageType.Login,
-            description: 'loginDesc',
-            component: () => import('./pages/login/login.component').then(m => m.LoginComponent),
-        },
-        {
-            path: 'impostazioni',
-            title: 'impostazioniNav',
-            requiresAuth: true,
-            pageType: PageType.Impostazioni,
-            description: 'settingsDesc',
-            component: () => import('./pages/social/social.component').then(m => m.SocialComponent),
+            path: `radar`,
+            title: `Dragon Radar`,
+            description: 'Trova le 7 chiese sacre nascoste intorno a te',
+            pageType: PageType.GameRadar,
+            otherSEO: { ogImage: 'game.radar' },
+            layout: { showPanel: false, showFooter: false },
+            // 'server' (non 'client'): l'SSR rende la shell e popola il TransferState con
+            // Custom (token Mapbox). La logica GPS/bussola/mappa resta client (afterNextRender).
+            renderMode: 'server',
+            component: () => import('./pages/radar/radar.component')
+                .then(m => m.RadarComponent),
         },
     ],
 
-    // ── NAVIGAZIONE (header e footer) ─────────────────────────────────────
-    //
-    // Tre metodi disponibili:
-    //   addPage(PageType.X)              → voce singola
-    //   addLink('label', '/path')        → link diretto (raro, per URL custom)
-    //   addGroup('label', b => { ... })  → dropdown con sotto-voci
-    //
-    // I gruppi sono ANNIDABILI: dentro un addGroup puoi richiamare un altro
-    // addGroup per costruire gerarchie a più livelli (utile soprattutto nel
-    // footer). Su desktop i livelli ≥2 aprono un pannello laterale, su mobile
-    // un accordion indentato. Limiti: livelli 1-2 liberi; dal livello 3 in poi
-    // compare un avviso di usabilità in console (dev); annidare oltre il
-    // livello 5 genera un errore bloccante a build/avvio.
-    //
-    // Le pagine disabilitate (enabled: false) vengono escluse in automatico.
-    // Se un gruppo resta vuoto (tutti i figli disabilitati), scompare anche lui.
-    //
-    headerNav: (h) => {
-        h.addPage(PageType.Impostazioni);
-        h.addGroup('menuPolicy', g => {
-            g.addPage(PageType.PrivacyPolicy);
-            g.addPage(PageType.CookiePolicy);
-            // Esempio di gruppo annidato nell'header: su desktop apre un pannello laterale.
-            g.addGroup('menuLegale', sg => {
-                sg.addPage(PageType.TermsOfService);
-                sg.addPage(PageType.LegalNotice);
-            });
-        });
-        h.addPage(PageType.Social);
-    },
-
     footerNav: (f) => {
-        f.addLink('githubDesc', 'https://github.com/br1brown/Br1WebEngine');
-        f.addGroup('menuPolicy', g => {
-            g.addPage(PageType.PrivacyPolicy);
-            g.addPage(PageType.CookiePolicy);
-            // Esempio di gruppo annidato: un sottogruppo dentro un gruppo.
-            g.addGroup('menuLegale', sg => {
-                sg.addPage(PageType.TermsOfService);
-                sg.addPage(PageType.LegalNotice);
-            });
-        });
+        f.addLink("githubDesc", 'https://github.com/br1brown/Br1Gaming');
+        f.addPage(PageType.CookiePolicy);
     },
 });

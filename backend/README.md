@@ -83,8 +83,6 @@ Dopo la rimozione, ASP.NET non genera rotte, non espone nulla in Swagger e nessu
 **Perché è così?** Installare Entity Framework e SQL per un MVP rallenta pesantemente le prime settimane. Spesso servono solo testi legali e di configurazione.
 **Cosa fa l'Engine:** Il `FileContentStore` carica file JSON da `/data/`, li cacha in `IMemoryCache` (con TTL di 1 ora e rispetto della memory pressure del runtime) e, risolvendo la lingua dall'header HTTP `Accept-Language`, restituisce l'oggetto già localizzato. Per gestire la lettura del file usa `try/catch` su `ReadAllTextAsync` invece di un `File.Exists` preventivo: elimina la race condition TOCTOU (il file potrebbe essere rimosso tra il controllo e la lettura effettiva) e converte correttamente la `FileNotFoundException` in `NotFoundException`.
 
-Il percorso di crescita è già predisposto: la cartella `backend/db/` è il mount point del volume Docker `<progetto>_db-data` (vedi `docker-compose.yml` e `backup.sh`). Quando il progetto migra da `FileContentStore` a un database reale — cioè una nuova implementazione di `IContentStore` — i file del DB vivono lì e sopravvivono ai deploy.
-
 #### `LocalizedJsonDeserializer` — regole dettagliate della risoluzione i18n
 
 Il deserializzatore interno di `FileContentStore` risolve ricorsivamente i campi localizzati dei file JSON. Le sue regole esatte:
@@ -324,29 +322,13 @@ foreach (var source in defaultJsonSources)
     builder.Configuration.Sources.Remove(source);
 ```
 
-**Conseguenza pratica:** `appsettings.Development.json` non viene letto. L'identità/config di progetto vive in `global-settings.json`; i **segreti** e la pubblicazione (ApiKeys, SecretKey, porte) in `global-settings.local.json`.
+**Conseguenza pratica:** `appsettings.Development.json` non viene letto. Per override locali, modifica `global-settings.json` direttamente.
 
-I file vengono cercati e **fusi** in quest'ordine (gli ultimi vincono — lo stesso deep-merge che `scripts/lib/br1-config.sh` fa in prod producendo il file effettivo):
-1. `../global-settings.json` poi `global-settings.json` — base committata (dev `cwd=backend/` → `../`; Docker `cwd=/app`)
-2. `../global-settings.local.json` poi `global-settings.local.json` — override coi segreti (gitignored)
-3. `../security-headers.json` poi `security-headers.json` — header del template (sezione `Security.Headers`)
+Il file viene cercato in due posizioni (ordine):
+1. `../global-settings.json` (dev: `dotnet run` eseguito da `backend/`)
+2. `global-settings.json` (Docker: `cwd=/app`)
 
-Tutte `optional: true` (se un file manca si usano i default dei modelli `*Options`). In **dev locale** è il punto 2 che fa arrivare `Security.ApiKeys` (da `global-settings.local.json`) al backend **senza env var né deploy**: prima del template 2.0.1 il backend leggeva solo `global-settings.json` (privo di `Security`) → `ApiKeys` vuoto → **401 su ogni richiesta**. In Docker/prod il `.local` non esiste (i segreti sono già fusi nel file effettivo montato) → no-op.
-
-### Ordine della pipeline HTTP
-
-L'ordine dei middleware è critico e va mantenuto. I primi 5 vivono dentro `UseTemplateSecurity()` (`Engine/Security/SecurityExtensions.cs`), gli altri in `Program.cs`:
-
-| # | Middleware | Perché in questa posizione |
-| :-- | :--- | :--- |
-| 1 | `UseForwardedHeaders` (solo `BehindProxy`) | Ricostruisce l'IP reale da `X-Forwarded-For` **prima di tutto**: il rate limiter partiziona per IP. Trusted solo da reti private RFC 1918; se `BehindProxy` è `false` il middleware non viene proprio registrato (niente spoofing). |
-| 2 | `UseCors` | I preflight `OPTIONS` che il browser manda prima delle richieste cross-origin vengono gestiti qui e **non consumano il budget del rate limiter**. |
-| 3 | `UseExceptionHandler` + `UseStatusCodePages` | Prima del rate limiter: cattura anche eventuali eccezioni interne del limiter. I 429 di `OnRejected` non passano da qui (non sono eccezioni). |
-| 4 | `UseRateLimiter` | Fail fast: un client abusivo viene bloccato subito, senza sprecare i middleware successivi. |
-| 5 | Security headers (se `Security.Headers` presente) + `UseHsts` | Header browser-facing da `security-headers.json`. CSP esclusa (irrilevante su JSON, gestita dall'SSR), HSTS escluso dal loop perché emesso da `UseHsts()`. |
-| 6 | `UseRequestLocalization` | Da qui in poi `IStringLocalizer` risolve nella lingua di `Accept-Language`. Per questo `OnRejected` del limiter (che sta **prima**) ricava la cultura a mano, e `ApiExceptionHandler` la rilegge da `IRequestCultureFeature`. |
-| 7 | `UseAuthentication` → `UseAuthorization` | API key e JWT validati dopo i filtri "di costo" (CORS, rate limit). |
-| 8 | `MapControllers` + `MapHealthChecks("/health")` | `/health` è `AllowAnonymous`. |
+Entrambe sono `optional: true`: se il file manca, l'app usa i default dei modelli `*Options`.
 
 ### Comportamento Serializzazione JSON (Risposte API)
 
@@ -358,8 +340,6 @@ Tutti i controller usano queste opzioni globali, applicate automaticamente a tut
 | Enum | `JsonStringEnumConverter` | Serializzati come stringa, non numero |
 
 Un campo `null` nel DTO non appare nella risposta JSON. Se il frontend si aspetta un campo assente come `null` funziona; se si aspetta un campo assente come un valore di default va gestito lato client.
-
-> Queste sono le opzioni delle **risposte API** (registrate in `AddJsonOptions`, `Program.cs`). Per i **file di contenuto** (`data/*.json`) lo store usa invece l'istanza condivisa `EngineJson.Web` (`Engine/EngineJson.cs`): convenzioni web + enum come stringhe, un'unica istanza così la cache dei metadata di System.Text.Json viene riusata da tutti i consumatori.
 
 ### `Content-Language` nelle Risposte
 
@@ -409,10 +389,8 @@ public class UserResponseDto {
 
 `IContentStore` è già implementato da `FileContentStore`: legge un file JSON da `data/`, lo cacha e lo restituisce localizzato nella lingua della richiesta. Esempio di metodo del contratto:
 ```csharp
-Task<UniversalLegalModel> GetProfileAsync(string language, CancellationToken cancellationToken = default); // dati aziendali localizzati (data/irl.json)
+Task<UniversalLegalModel> GetProfileAsync(string language); // dati aziendali localizzati (data/irl.json)
 ```
-
-Il `CancellationToken` arriva dal controller (basta dichiararlo come parametro dell'action: ASP.NET lo lega a `HttpContext.RequestAborted`) e viene propagato fino alla lettura del file: se il client abbandona la richiesta, l'I/O si interrompe. Mantenerlo nelle nuove firme: per lo store su DB diventa la cancellazione delle query.
 
 #### Schema completo di `UniversalLegalModel` (e `data/irl.json`)
 
@@ -587,7 +565,7 @@ var session = new SessionInfo
 return Ok(new LoginResult(true, Token: Auth.GenerateToken(new[] { SessionPayload.Claim(session) })));
 ```
 
-La verifica delle credenziali è logica di dominio del progetto: `AuthController` è un punto di partenza da sostituire con la propria sorgente di identità (Identity Provider, DB, ecc.) — per questo il template non aggiunge file o configurazione dedicati al login. Nella demo le credenziali (`admin`/`Password1!`) vivono hardcoded nel controller e il confronto è in tempo costante, come per le API key. Il meccanismo di emissione del token (`Auth.GenerateToken`, `SessionPayload.Claim`) è invece fornito dall'Engine.
+La verifica delle credenziali è logica di dominio del progetto: `AuthController` è un punto di partenza da sostituire con la propria sorgente di identità (Identity Provider, DB, ecc.). Il meccanismo di emissione del token (`Auth.GenerateToken`, `SessionPayload.Claim`) è invece fornito dall'Engine.
 
 #### `AuthService` — Claim Impliciti in Ogni Token
 
@@ -621,14 +599,18 @@ Il JWT è stateless: il logout sul client (rimozione del token) non invalida il 
 
 ---
 
-## 📦 Strumenti HTTP di Fabbrica
+## 📦 Controller Template Inclusi
 
-> I **controller dimostrativi** del template (profilo/social, login demo, ping protetto) non sono
-> documentati qui: il catalogo vive nella **vetrina della demo** del [README root](../README.md).
-> Sono esempi da sostituire col dominio del progetto. Qui sotto restano gli strumenti che il
-> template fornisce di default e che un figlio usa così come sono.
+Il template include già 4 controller operativi come esempio/punto di partenza:
 
-#### `BlobController` — Upload e Download File
+| Controller | Base class | Endpoint |
+| :--- | :--- | :--- |
+| `BaseController` | `EngineApiController` | `GET /profile` |
+| `AuthController` | `EngineAuthController` | `POST /auth/login` |
+| `ProtectedController` | `EngineProtectedController` | `GET /ping` |
+| `BlobController` | `EngineBlobController` | `GET /blob/{slug}[?webopt=true]`, `POST /blob/up` |
+
+#### `BlobController` — Dettagli Tecnici
 
 Eredita da `EngineBlobController` (helper per il resize immagini), espone download e upload dei file salvati nel volume persistente.
 

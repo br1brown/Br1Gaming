@@ -1,4 +1,4 @@
-import { type CookieConfig } from "../engine/services/cookie/cookie-type";
+import { CookieCategory, type CookieConfig } from "../engine/services/cookie/cookie-type";
 
 /**
  * Registro unico dei cookie del progetto.
@@ -17,7 +17,8 @@ import { type CookieConfig } from "../engine/services/cookie/cookie-type";
  *   '_ga': { category: CookieCategory.Analytics, descriptionKey: 'cookieDescGa' },
  */
 export const COOKIE_MAP = {
-
+    'storyPlayerState': { category: CookieCategory.Technical, descriptionKey: 'gamingCookieDescStoryPlayerState' },
+    'duceNonDuceRecord': { category: CookieCategory.Technical, descriptionKey: 'gamingCookieDescDuceNonDuceRecord' }
 } as const satisfies Readonly<Record<string, CookieConfig>>;
 
 export type CookieKey = keyof typeof COOKIE_MAP;

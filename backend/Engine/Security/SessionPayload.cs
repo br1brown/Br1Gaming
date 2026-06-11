@@ -8,7 +8,7 @@ namespace Backend.Security;
 /// personalizzabile dal progetto dentro il JWT, come unico claim JSON ("session").
 /// </summary>
 /// <remarks>
-/// L'engine fornisce solo il MECCANISMO (serializza/deserializza un <c>T</c>
+/// L'engine fornisce solo il MECCANISMO (serializza/deserializza un <typeparamref name="T"/>
 /// generico): non conosce la forma del payload. La FORMA la definisce il progetto
 /// (es. <c>record SessionInfo</c>) e deve rispecchiare a mano l'interfaccia TypeScript
 /// lato frontend (<c>frontend/src/app/core/dto/session.dto.ts</c>): è il contratto del

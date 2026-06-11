@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Backend.Models;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -19,9 +20,9 @@ public static class FileUtils
     /// <summary>
     /// Legge il contenuto testuale di un file JSON dalla cartella dati, con cache in memoria.
     /// </summary>
-    public static async Task<string> ReadStaticFileAsync(string name, string dataPath, IMemoryCache cache, TimeSpan? cacheDuration = null, bool forceReload = false, CancellationToken cancellationToken = default)
+    public static async Task<string> ReadStaticFileAsync(string name, string dataPath, IMemoryCache cache, TimeSpan? cacheDuration = null, bool forceReload = false)
     {
-        // Se è richiesta l'invalidazione, espelliamo fisicamente la chiave dalla cache.
+        // Se � richiesta l'invalidazione, espelliamo fisicamente la chiave dalla cache.
         if (forceReload)
         {
             cache.Remove(name);
@@ -35,7 +36,7 @@ public static class FileUtils
             var filePath = Path.Combine(dataPath, $"{name}.json");
             try
             {
-                return await File.ReadAllTextAsync(filePath, cancellationToken);
+                return await File.ReadAllTextAsync(filePath);
             }
             catch (FileNotFoundException)
             {
@@ -69,6 +70,8 @@ public static class FileUtils
             _defaultLanguage = defaultLanguage;
         }
 
+        private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
+
         /// <summary>
         /// Converte un JSON localizzato in un modello .NET gia' risolto nella lingua effettiva.
         /// </summary>
@@ -78,7 +81,7 @@ public static class FileUtils
             var root = JsonNode.Parse(json) ?? throw new DecodingException();
             var resolved = ResolveNode(root, NormalizeLanguage(language), supportedLanguages);
 
-            return resolved?.Deserialize<T>(EngineJson.Web) ?? throw new DecodingException();
+            return resolved?.Deserialize<T>(JsonOptions) ?? throw new DecodingException();
         }
 
         private string NormalizeLanguage(string? language)
@@ -96,6 +99,17 @@ public static class FileUtils
             {
                 return _defaultLanguage;
             }
+        }
+
+        private static JsonSerializerOptions CreateJsonOptions()
+        {
+            var options = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+            {
+                WriteIndented = true
+            };
+
+            options.Converters.Add(new JsonStringEnumConverter());
+            return options;
         }
 
         private JsonNode? ResolveNode(JsonNode? node, string language, HashSet<string> supportedLanguages)

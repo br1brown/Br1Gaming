@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using Backend.Models;
 using Backend.Security;
 using Backend.Services;
@@ -12,6 +10,12 @@ namespace Backend.Controllers;
 /// <summary>
 /// Controller concreto del progetto per l'autenticazione.
 /// </summary>
+/// <remarks>
+/// MVP: verifica credenziali fisse hardcoded e, se corrette, emette un token JWT via
+/// <see cref="EngineAuthController.Auth"/>. Sostituire la verifica con un Identity Provider o un DB
+/// in produzione. Le credenziali errate lanciano <see cref="Backend.Models.UnauthorizedException"/>,
+/// che l'handler converte in un ProblemDetails 401.
+/// </remarks>
 [Route("auth")]
 public class AuthController : EngineAuthController
 {
@@ -41,18 +45,12 @@ public class AuthController : EngineAuthController
             return ValidationProblem();
         }
 
-        // Credenziali demo del template, volutamente hardcoded: il login è opzionale e ogni
-        // progetto ha la propria sorgente di identità (IdP, DB...) con cui sostituire questa verifica.
+        // MVP: credenziali fisse. Sostituire con un Identity Provider o DB in produzione.
         const string validUsername = "admin";
         const string validPassword = "Password1!";
 
-        // Username case-insensitive, password esatta: entrambi confrontati in tempo costante,
-        // come le API key (un confronto ordinario uscirebbe al primo carattere divergente).
-        // Il validator ha già escluso i campi vuoti: il coalesce copre il nullable del record.
-        var usernameOk = FixedTimeEquals((request.Username ?? "").ToLowerInvariant(), validUsername);
-        var passwordOk = FixedTimeEquals(request.Pwd ?? "", validPassword);
-
-        if (!usernameOk || !passwordOk)
+        if (!string.Equals(request.Username, validUsername, StringComparison.OrdinalIgnoreCase)
+            || request.Pwd != validPassword)
         {
             Logger.LogWarning("Tentativo di login fallito per username '{Username}'.", request.Username);
             // Chiave generica: non riveliamo se a sbagliare e' username o password. L'handler la localizza.
@@ -72,15 +70,5 @@ public class AuthController : EngineAuthController
         };
 
         return Ok(new LoginResult(true, Token: Auth.GenerateToken(new[] { SessionPayload.Claim(session) })));
-    }
-
-    /// <summary>
-    /// Confronto di stringhe in tempo costante (UTF-8, byte per byte).
-    /// </summary>
-    private static bool FixedTimeEquals(string presented, string expected)
-    {
-        return CryptographicOperations.FixedTimeEquals(
-            Encoding.UTF8.GetBytes(presented),
-            Encoding.UTF8.GetBytes(expected));
     }
 }

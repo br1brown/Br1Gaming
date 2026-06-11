@@ -48,26 +48,6 @@ export enum PageType { Home, AboutUs }
 ### 3. Niente Manipolazioni dirette del DOM (Salva l'Idratazione)
 Usa esclusivamente binding dichiarativi (`[class.hidden]="!isVisible()"`) e Template Refs. Usare `document.getElementById` romperà l'SSR lato server.
 
-**Idratazione incrementale per le pagine lunghe.** L'Engine registra già `withIncrementalHydration()` (`app.config.ts`): nelle pagine lunghe basta avvolgere le sezioni sotto la piega in un blocco `@defer (hydrate on viewport)`:
-
-```html
-@defer (hydrate on viewport) {
-    <section><!-- sezione pesante sotto la piega --></section>
-} @placeholder {
-    <!-- scheletro Bootstrap: appare solo in navigazione client, mai in SSR -->
-    <section class="card placeholder-glow" aria-hidden="true" style="min-height: 320px">
-        <div class="card-body"><span class="placeholder col-6"></span></div>
-    </section>
-}
-```
-
-Comportamento:
-- **Primo caricamento (SSR):** la sezione è renderizzata normalmente nell'HTML — contenuto e SEO invariati — ma il browser la idrata solo quando entra nel viewport: meno JavaScript eseguito all'avvio.
-- **Navigazione client (cambio pagina nella SPA):** il blocco carica `on idle`, mostrando per un attimo il `@placeholder`.
-- I click su una sezione non ancora idratata non vanno persi: `withEventReplay()` li riconsegna a idratazione avvenuta.
-
-La home demo lo applica alle sezioni QR, Notifiche e Sistema — esempio vivo, finché un progetto figlio non la riscrive.
-
 ### 4. CSS: Bootstrap First, Custom Solo Se Necessario
 Il progetto usa **Bootstrap 5** come sistema di design principale. Non scrivere CSS custom per cose che Bootstrap già copre.
 
@@ -90,8 +70,6 @@ Il progetto usa **Bootstrap 5** come sistema di design principale. Non scrivere 
 - Effetti visivi avanzati (glassmorphism con `backdrop-filter`, gradienti complessi)
 - Override di tema via `color-mix()` e custom properties (`--color*`)
 - Layout a griglia complesso (`grid-template-rows: 0fr → 1fr` per accordion)
-
-**z-index e ombre: solo variabili, mai letterali.** `base.css` definisce la scala z-index del template (`--z-cookie-banner`, `--z-fab`, `--z-skip-link`, `--z-cdk-overlay`), incastrata nei vuoti della scala Bootstrap così i widget persistenti restano **sotto** offcanvas e modali (che devono coprirli). Un nuovo elemento fisso usa una di queste variabili o ne aggiunge una alla scala — mai un numero scritto a mano. Stesso principio per le ombre di elevazione: `--shadowElevated` / `--shadowElevatedHover`.
 
 **Componenti senza CSS:** Se un componente non ha bisogno di nulla di quanto sopra, *non creare il file `.css`*. Il footer, ad esempio, non ne ha uno — è 100% classi Bootstrap nel template.
 
@@ -234,8 +212,6 @@ loginPage: PageType.Login,       // pagina dove redirigere gli utenti non autent
 ### Proteggere una Pagina
 
 In `pages`, imposta `requiresAuth: true` sulla pagina da proteggere. L'Engine aggiunge automaticamente `renderMode: 'client'` (disabilita SSR per quella pagina) e attiva l'auth guard.
-
-**Cosa fa il guard quando l'utente non è loggato** (`authGuard` in `app.routes.ts`): se in `site.ts` è dichiarata una `loginPage`, redirige lì con i query param `returnPageType` (la pagina di partenza, per tornarci dopo il login) e `reason=auth` (la pagina di login mostra un avviso inline invece di una modale). Senza `loginPage`, resta sulla pagina corrente e mostra la modale di errore 401.
 
 ```typescript
 pages: (ctx) => [
@@ -618,17 +594,6 @@ Invece di costruire gli URL manualmente, usa le directive dichiarative:
 Le directive sono type-safe: errori di applicazione su elementi sbagliati vengono rilevati a compile-time.
 
 > **Attenzione:** `appAsset` / `appAssetHref` lavorano **solo** con gli asset gestiti da `AssetService` (id in `mapping.json`), **non** con i file caricati a runtime. Per un blob non passare lo slug alla directive: usa il binding diretto `[src]="api.getBlobUrl(slug)"` / `[href]="api.getBlobUrl(slug)"`.
-
-### Directive `appFitViewport`
-
-Per pagine/viste a tutto schermo (mappe, giochi, dashboard) dove lo scroll spezzerebbe l'esperienza: porta l'altezza dell'elemento a riempire lo spazio che resta fino in fondo al viewport, senza creare scroll verticale di pagina.
-
-```html
-<section appFitViewport>...</section>
-<section appFitViewport [appFitViewportMin]="400">...</section>
-```
-
-Calcolo auto-adattivo senza numeri magici: `altezza = innerHeight − (scrollHeight − altezza attuale dell'elemento)`, cioè "questo elemento + tutto il resto della pagina" = esattamente il viewport. Si riadatta da sé a navbar/footer/banner/orientamento; ricalcola su `resize`/`orientationchange` (listener `host`, no SSR). `appFitViewportMin` (default `320`) è l'altezza minima sotto cui non scende (schermi molto bassi).
 
 ---
 
@@ -1033,36 +998,6 @@ legalPages: { /* … */ },           // pagine legali → vedi sotto
 
 > `description` (mappa per-lingua `{ it, en, … }`), `colorTema` e l'effetto `smoke` non stanno qui: sono identità/estetica e vivono in `global-settings.json → site`.
 
-### Navigazione Multilivello (Navbar e Footer)
-
-I menu in `site.ts` (`headerNav` e `footerNav`) supportano la navigazione annidata (gruppi di link e sottomenu). Invece di un singolo link, puoi inserire un oggetto usando la proprietà `children`:
-
-```typescript
-headerNav: [
-    { label: 'navChiSiamo', path: PageType.AboutUs },
-    {
-        label: 'navServizi',
-        children: [
-            { label: 'navConsulenza', path: PageType.Consulting },
-            {
-                label: 'navSviluppo',
-                children: [
-                    { label: 'navWeb', path: PageType.WebDev },
-                    { label: 'navApp', path: PageType.AppDev }
-                ]
-            }
-        ]
-    }
-]
-```
-
-L'Engine elabora i gruppi in modo automatico:
-- **Navbar (Desktop)**: genera un menu dropdown. Dal secondo livello in giù, genera **flyout laterali** che si espandono verso destra (o si ribaltano a sinistra in automatico se sforano il viewport).
-- **Navbar (Mobile)**: converte i gruppi in **accordion indentati** che si espandono al click.
-- **Footer**: genera colonne annidate visivamente strutturate per livelli di indentazione.
-
-**Limiti di Profondità**: Se superi i 3 livelli di profondità, in fase di sviluppo riceverai un avviso di usabilità in console (`NAV_DEPTH_WARN`), e un errore bloccante se si superano i 5 livelli (`NAV_DEPTH_MAX`).
-
 ### Pagine legali (`legalPages`)
 
 Mappi gli slot legali dell'Engine ai tuoi `PageType`; il builder costruisce da solo il contenitore `/policy/*` con le sole pagine valorizzate:
@@ -1112,8 +1047,6 @@ const trackingId = custom['Analytics']?.['TrackingId'] as string | undefined;
 ```
 
 > `Custom` è committabile ed esposto al client: non metterci segreti — quelli vivono in `global-settings.local.json`.
-
-> ⚠️ **`Custom` lato browser richiede SSR sulla rotta.** `inject(APP_CUSTOM)` si popola dal `TransferState`, che esiste solo se la pagina è renderizzata dal server. Su una rotta `renderMode: 'client'` (incluse le pagine `requiresAuth`, vedi sopra) il `TransferState` non viene emesso → al **caricamento diretto/refresh** di quella rotta `APP_CUSTOM` è `{}`. Se una pagina deve leggere `Custom` lato client (es. un token mappa), tienila `renderMode: 'server'`: l'SSR rende solo la shell e popola il `TransferState`, mentre la logica browser resta in `afterNextRender`. Se il valore deve restare fuori dal repo, mettilo in `Custom` di `global-settings.local.json` (gitignored): il merge in dev e il file effettivo in prod lo fanno comunque arrivare.
 
 ---
 
@@ -1549,18 +1482,15 @@ Readable.fromWeb(renderedResponse.body).pipe(response);
 ```
 Il browser inizia a ricevere e parsare l'HTML prima che Angular abbia completato il rendering completo della pagina.
 
-### Cache Immagini su Disco (`IMAGE_CACHE_DIR`, `IMAGE_CACHE_MAX_MB`)
+### Cache Immagini su Disco (`IMAGE_CACHE_MAX_MB`)
 
-I thumbnail generati da `/cdn-cgi/asset` e `/cdn-cgi/preview` vengono scritti su disco per evitare di ricalcolarli a ogni richiesta. Sono dato derivato ed effimero: serviti **solo** dagli handler Node (l'accesso diretto a `/assets/files` è 404), mai come file statico, quindi non vivono sotto `src/assets` né nel build output.
+I thumbnail generati da `/cdn-cgi/asset` e `/cdn-cgi/preview` vengono scritti su disco per evitare di ricalcolarli a ogni richiesta. Lo sweep LRU avviene ogni 6 ore:
 
 ```bash
-IMAGE_CACHE_DIR=/var/cache/app-images   # default: <temp di sistema>/br1-image-cache-<hash>
-IMAGE_CACHE_MAX_MB=500                   # default: 500 MB — oltre questa soglia elimina i file meno usati
+IMAGE_CACHE_MAX_MB=500   # default: 500 MB — oltre questa soglia elimina i file meno usati
 ```
 
-**Posizione (`IMAGE_CACHE_DIR`).** Senza override la cache vive in una cartella dedicata nella temp di sistema, isolata per progetto tramite un hash del percorso asset (così più siti — questo template e i suoi figli — sullo stesso host non si mischiano le immagini). Tenerla fuori da `src/assets` è ciò che evita che `ng serve` ricarichi la pagina a ogni miniatura generata in sviluppo, e che thumbnail effimeri finiscano copiati in `dist` al build. In produzione la temp è scrivibile anche col container non-root, ma è effimera: dopo un riavvio la cache parte fredda e si rigenera on-demand. **Per una cache calda tra i deploy**, monta un volume persistente e punta `IMAGE_CACHE_DIR` lì.
-
-**Sweep (`IMAGE_CACHE_MAX_MB`).** Lo sweep LRU avviene ogni 6 ore e porta la cache al 90% del cap (non al 100%) per evitare di ri-sweepare a ogni singolo thumbnail aggiunto. L'`mtime` di ogni file viene aggiornato a ogni hit, così i thumbnail realmente richiesti sopravvivono e vengono scartati solo quelli inutilizzati.
+Il sweep porta la cache al 90% del cap (non al 100%) per evitare di ri-sweepare a ogni singolo thumbnail aggiunto. L'`mtime` di ogni file viene aggiornato a ogni hit, così i thumbnail realmente richiesti sopravvivono e vengono scartati solo quelli inutilizzati.
 
 ---
 
@@ -1570,5 +1500,3 @@ npm install
 npm run start
 ```
 Il proxy si collegherà in automatico al backend .NET in esecuzione sulla porta di default.
-
-> Il proxy del dev server è configurato da `proxy.local.conf.cjs` (sviluppo locale, backend su `localhost:5000`) o `proxy.docker.conf.cjs` (dev in Docker, backend sul container). Entrambi leggono la `x-api-key` dalla sorgente unica `global-settings(.local).json` tramite il modulo condiviso `proxy.api-key.cjs`.

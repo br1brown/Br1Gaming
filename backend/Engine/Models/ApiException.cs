@@ -89,7 +89,6 @@ public class ApiException : Exception
 /// </remarks>
 public class DecodingException : ApiException
 {
-    /// <summary>Crea l'eccezione con chiave <c>error_decoding</c> e status 400.</summary>
     public DecodingException()
         : base("error_decoding", 400)
     {
@@ -105,7 +104,6 @@ public class DecodingException : ApiException
 /// </remarks>
 public class InvalidParametersException : ApiException
 {
-    /// <summary>Crea l'eccezione con chiave <c>error_invalid_parameters</c> e status 400.</summary>
     public InvalidParametersException()
         : base("error_invalid_parameters", 400)
     {
@@ -145,7 +143,6 @@ public class UnauthorizedException : ApiException
 /// </remarks>
 public class ForbiddenException : ApiException
 {
-    /// <summary>Crea l'eccezione con chiave <c>error_forbidden</c> e status 403.</summary>
     public ForbiddenException()
         : base("error_forbidden", 403)
     {
@@ -182,7 +179,6 @@ public class NotFoundException : ApiException
 /// </remarks>
 public class DataNotFoundException : ApiException
 {
-    /// <summary>Crea l'eccezione con chiave <c>error_data_not_found</c> e status 404.</summary>
     public DataNotFoundException()
         : base("error_data_not_found", 404)
     {
@@ -245,7 +241,6 @@ public class GoneException : ApiException
 /// </remarks>
 public class UnprocessableEntityException : ApiException
 {
-    /// <summary>Crea l'eccezione con chiave <c>error_unprocessable_entity</c> e status 422.</summary>
     public UnprocessableEntityException()
         : base("error_unprocessable_entity", 422)
     {
@@ -261,7 +256,7 @@ public class UnprocessableEntityException : ApiException
 /// Il rate limiting infrastrutturale e' gia' gestito dal middleware (100 req/min globale,
 /// 5 req/min per login). Questa eccezione serve per limiti di business applicativi piu'
 /// granulari (es. max 3 tentativi di OTP per sessione, max 10 export al giorno per utente).
-/// Se valorizzato, <c>retryAfterSeconds</c> aggiunge l'header <c>Retry-After</c>
+/// Se valorizzato, <paramref name="retryAfterSeconds"/> aggiunge l'header <c>Retry-After</c>
 /// alla risposta, indicando al client quando potra' riprovare.
 /// </remarks>
 public class TooManyRequestsException : ApiException
@@ -289,7 +284,6 @@ public class TooManyRequestsException : ApiException
 /// </remarks>
 public class NotImplementedEndpointException : ApiException
 {
-    /// <summary>Crea l'eccezione con chiave <c>error_not_implemented</c> e status 501.</summary>
     public NotImplementedEndpointException()
         : base("error_not_implemented", 501)
     {
@@ -309,7 +303,6 @@ public class NotImplementedEndpointException : ApiException
 /// </remarks>
 public class BadGatewayException : ApiException
 {
-    /// <summary>Crea l'eccezione con chiave <c>error_bad_gateway</c> e status 502.</summary>
     public BadGatewayException()
         : base("error_bad_gateway", 502)
     {
@@ -325,7 +318,7 @@ public class BadGatewayException : ApiException
 /// Uso tipico: un servizio di terze parti (email, pagamenti, SMS) non risponde o
 /// restituisce un errore. Segnala al client che l'operazione puo' essere ritentata piu' tardi,
 /// senza esporre dettagli tecnici dell'infrastruttura.
-/// Se valorizzato, <c>retryAfterSeconds</c> aggiunge l'header <c>Retry-After</c>
+/// Se valorizzato, <paramref name="retryAfterSeconds"/> aggiunge l'header <c>Retry-After</c>
 /// alla risposta (RFC 9110 §15.6.4).
 /// </remarks>
 public class ServiceUnavailableException : ApiException
@@ -354,7 +347,6 @@ public class ServiceUnavailableException : ApiException
 /// </remarks>
 public class GatewayTimeoutException : ApiException
 {
-    /// <summary>Crea l'eccezione con chiave <c>error_gateway_timeout</c> e status 504.</summary>
     public GatewayTimeoutException()
         : base("error_gateway_timeout", 504)
     {

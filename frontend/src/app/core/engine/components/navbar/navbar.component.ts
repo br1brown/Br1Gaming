@@ -10,7 +10,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
 import { NavLinkComponent } from '../nav-link/nav-link.component';
 import { NavDropdownComponent } from '../nav-dropdown/nav-dropdown.component';
 import { ContestoSito } from '../../../../site';
-import { isNavGroup } from '../../siteBuilder';
+import { NavLink } from '../../siteBuilder';
 import { AssetDirective } from '../../directives/asset.directive';
 import { UserNavComponent } from '../../../../components/shared/user-nav/user-nav.component';
 
@@ -85,8 +85,9 @@ export class NavbarComponent {
         return this.router.isActive(path, { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' });
     }
 
-    /** Type-guard riusato nel template per ramificare voce-gruppo (dropdown) / voce-link. */
-    readonly isGroup = isNavGroup;
+    isGroup(item: NavLink): item is NavLink & { children: NavLink[] } {
+        return Array.isArray(item.children) && item.children.length > 0;
+    }
 
     isNavDropdownOpen(i: number): boolean {
         return this.openDropdownIndex() === i;

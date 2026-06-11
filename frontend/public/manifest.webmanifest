@@ -1,10 +1,10 @@
 {
-    "name": "App",
-    "short_name": "App",
-    "description": "Template di base che serve per fare vedere le funzionalità base",
+    "name": "Br1Gaming",
+    "short_name": "Br1Gaming",
+    "description": "Generatori ignoranti, avventure interattive, universo Br1.",
     "lang": "it",
-    "theme_color": "#0b1233",
-    "background_color": "#08090c",
+    "theme_color": "#72735e",
+    "background_color": "#f5f5f4",
     "display": "standalone",
     "scope": "./",
     "start_url": "./",
@@ -22,5 +22,5 @@
             "purpose": "any maskable"
         }
     ],
-    "version": "1.0.0"
+    "version": "2.1.1"
 }

@@ -9,7 +9,6 @@ namespace Backend.Validation;
 /// </summary>
 public class LoginRequestValidator : AbstractValidator<LoginRequest>
 {
-    /// <summary>Regole di validazione del login, con messaggi localizzati via resx.</summary>
     public LoginRequestValidator(IStringLocalizer<SharedResource> localizer)
     {
         RuleFor(x => x.Username)

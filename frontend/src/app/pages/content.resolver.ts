@@ -7,8 +7,15 @@ import { ContestoSito, PageType } from '../site';
 import { TranslateService } from '../core/engine/services/translate.service';
 import { ApiService } from '../core/services/api.service';
 import { PageInfo } from '../core/engine/siteBuilder';
+import { GeneratorInfo } from '../core/dto/generator.dto';
+import { StorySummary } from '../core/dto/story.dto';
 
 export type LegalFileReader = (slug: string, lang: string) => Promise<string | null>;
+
+export interface HomeContent {
+    generators: GeneratorInfo[];
+    stories: StorySummary[];
+}
 
 /** In SSR viene fornita da app.config.server.ts per leggere i file .md da disco.
  *  Nel browser rimane null e tryLoadPolicy usa la fetch HTTP normale. */
@@ -33,7 +40,7 @@ export interface ResolvedPage<T = unknown> {
  *   1. Aggiungere il metodo in ApiService (o usare tryLoadPolicy per file statici)
  *   2. Aggiungere un case nello switch di loadResolved()
  *
- * Il try-catch esterno protegge il router: se l'API fallisce, BaseApiService
+ * Il try-catch esterno protegge il router: se l'API fallisce, l'apiErrorInterceptor
  * ha già mostrato il dialog all'utente e il resolver restituisce content = null
  * invece di rigettare (che cancellerebbe la navigazione).
  *
@@ -56,7 +63,7 @@ export class ContentResolver {
         const language = lang ?? this.translate.currentLang();
 
         let content: unknown = null;
-        const info = ContestoSito.getPageInfo(pageType);
+        let info = ContestoSito.getPageInfo(pageType);
 
         try {
             // Le pagine legali sono risolte in modo generico: l'Engine sa quale .md
@@ -67,9 +74,65 @@ export class ContentResolver {
                 content = await this.tryLoadPolicy(legalSlug, language);
             } else {
                 switch (pageType) {
-                    case PageType.Social:
-                        content = await this.apiService.getSocial();
+                    case PageType.Home: {
+                        const [generators, stories] = await Promise.all([
+                            this.apiService.getGenerators().catch((): GeneratorInfo[] => []),
+                            this.apiService.getStories().catch((): StorySummary[] => []),
+                        ]);
+                        content = { generators, stories };
                         break;
+                    }
+                    // ── Generatori ───────────────────────────────────────────────────────────────
+                    case PageType.GeneratorIncel: {
+                        const gen = await this.apiService.getIncel().catch(() => null);
+                        content = gen;
+                        if (gen && info) info = { ...info, title: gen.name, description: gen.description };
+                        break;
+                    }
+                    case PageType.GeneratorAuto: {
+                        const gen = await this.apiService.getAuto().catch(() => null);
+                        content = gen;
+                        if (gen && info) info = { ...info, title: gen.name, description: gen.description };
+                        break;
+                    }
+                    case PageType.GeneratorAntiveg: {
+                        const gen = await this.apiService.getAntiveg().catch(() => null);
+                        content = gen;
+                        if (gen && info) info = { ...info, title: gen.name, description: gen.description };
+                        break;
+                    }
+                    case PageType.GeneratorLocali: {
+                        const gen = await this.apiService.getLocali().catch(() => null);
+                        content = gen;
+                        if (gen && info) info = { ...info, title: gen.name, description: gen.description };
+                        break;
+                    }
+                    case PageType.GeneratorMbeb: {
+                        const gen = await this.apiService.getMbeb().catch(() => null);
+                        content = gen;
+                        if (gen && info) info = { ...info, title: gen.name, description: gen.description };
+                        break;
+                    }
+
+                    // ── Storie ───────────────────────────────────────────────────────────────────
+                    case PageType.StoryPoveriMaschi: {
+                        const story = await this.apiService.getStoryPoveriMaschi().catch(() => null);
+                        content = story;
+                        if (story && info) info = { ...info, title: story.title, description: story.description };
+                        break;
+                    }
+                    case PageType.StoryMagrogamer09: {
+                        const story = await this.apiService.getStoryMagrogamer09().catch(() => null);
+                        content = story;
+                        if (story && info) info = { ...info, title: story.title, description: story.description };
+                        break;
+                    }
+                    case PageType.StorySurviveUsa: {
+                        const story = await this.apiService.getStorySurviveUsa().catch(() => null);
+                        content = story;
+                        if (story && info) info = { ...info, title: story.title, description: story.description };
+                        break;
+                    }
                 }
             }
         } catch {

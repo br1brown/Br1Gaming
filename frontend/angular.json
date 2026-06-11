@@ -39,12 +39,14 @@
               "node_modules/@fortawesome/fontawesome-free/css/solid.min.css",
               "node_modules/@fortawesome/fontawesome-free/css/brands.min.css",
               "node_modules/@angular/cdk/overlay-prebuilt.css",
+              "node_modules/mapbox-gl/dist/mapbox-gl.css",
               "src/styles.css"
             ],
             "scripts": [],
             "polyfills": [],
             "allowedCommonJsDependencies": [
-              "qrcode"
+              "qrcode",
+              "mapbox-gl"
             ]
           },
           "configurations": {
@@ -52,7 +54,7 @@
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "820kB",
+                  "maximumWarning": "880kB",
                   "maximumError": "1MB"
                 },
                 {

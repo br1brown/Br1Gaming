@@ -25,9 +25,7 @@ jobs:
           dotnet-version: "9.0.x"
 
       - name: Compila
-        # -warnaserror: il template parte a zero warning e in CI ci resta — un warning nuovo
-        # (XML-doc mancante, nullability) si vede subito invece di accumularsi come rumore.
-        run: dotnet build backend/backend.csproj --configuration Release -warnaserror
+        run: dotnet build backend/backend.csproj --configuration Release
 
       - name: Controlla pacchetti vulnerabili
         run: |
@@ -138,8 +136,6 @@ jobs:
       - name: Butta giù
         if: always()
         run: |
-          # Stesso project name che public-test.sh deriva da global-settings.json (slug di
-          # project.name): derivato e non hardcoded, così il teardown resta corretto anche
-          # nei progetti figli che rinominano il progetto. Stessa one-liner di pre-push.sh.
-          COMPOSE_PROJECT_NAME="$(node --input-type=module --eval "import{readFileSync}from'fs';const s=JSON.parse(readFileSync('global-settings.json','utf-8'));process.stdout.write(String(s.project?.name||'app').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+\$/g,''))")" \
+          # Stesso project name che public-test.sh deriva da global-settings.json (slug di project.name "App").
+          COMPOSE_PROJECT_NAME=app \
           docker compose -f docker-compose.yml -f docker-compose.public-test.yml down

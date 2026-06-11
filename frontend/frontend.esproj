@@ -6,11 +6,15 @@
   </PropertyGroup>
   <ItemGroup>
     <None Remove="dist\**" />
+    <None Remove="src\app\directives\**" />
+    <None Remove="src\app\features\**" />
+    <None Remove="src\app\pipes\**" />
     <TypeScriptConfiguration Remove="dist\**" />
+    <TypeScriptConfiguration Remove="src\app\directives\**" />
+    <TypeScriptConfiguration Remove="src\app\features\**" />
+    <TypeScriptConfiguration Remove="src\app\pipes\**" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="src\app\directives\" />
-    <Folder Include="src\app\pipes\" />
     <Folder Include="src\assets\files\image-cache\" />
   </ItemGroup>
 </Project>

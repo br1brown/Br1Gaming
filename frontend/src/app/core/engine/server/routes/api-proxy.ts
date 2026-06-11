@@ -16,16 +16,8 @@ const { server: nodeCfg } = serverEnv;
 let proxy: RequestHandler | undefined;
 
 function buildProxy(): RequestHandler {
-    // Fail-fast sull'origin: un valore malformato in configurazione (typo, schema mancante)
-    // emerge qui come errore esplicito, invece che come errore criptico del proxy a ogni richiesta.
-    const origin = serverEnv.backend.origin;
-    const protocol = new URL(origin).protocol; // lancia TypeError se l'origin non è un URL
-    if (protocol !== 'http:' && protocol !== 'https:') {
-        throw new Error(`BACKEND_ORIGIN non valido (atteso http/https): ${origin}`);
-    }
-
     return createProxyMiddleware({
-        target: origin,
+        target: serverEnv.backend.origin,
         // changeOrigin riscrive l'Host verso il backend (come faceva fetch leggendo l'URL).
         changeOrigin: true,
         // Timeout sulla risposta del backend → on.error → 504.

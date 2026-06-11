@@ -1,16 +1,26 @@
 import { Injectable } from '@angular/core';
-import { HttpParams } from '@angular/common/http';
-import { Profile } from '../engine/dto/profile.dto';
-import { LoginRequest, LoginResult } from '../dto/auth.dto';
 import { BaseApiService } from '../engine/services/base-api.service';
+import { StorySummary, StorySnapshotDto } from '../dto/story.dto';
+import { GeneratorInfo, GenerateRequest, GenerateResponse } from '../dto/generator.dto';
+import { LoginResult, LoginRequest } from '../dto/auth.dto';
+import { Profile } from '../engine/dto/profile.dto';
 
 /** Endpoint backend. Aggiungere il path qui, poi il metodo pubblico sotto. */
 const API = {
-    social: 'social',
     profile: 'profile',
     login: 'auth/login',
     blob: (slug: string) => `blob/${encodeURIComponent(slug)}`,
     blobUpload: 'blob/up',
+    stories: 'stories',
+    generators: 'generators',
+    generatorIncel: 'generators/incel',
+    generatorAuto: 'generators/auto',
+    generatorAntiveg: 'generators/antiveg',
+    generatorLocali: 'generators/locali',
+    generatorMbeb: 'generators/mbeb',
+    storyPoveriMaschi: 'stories/poveri-maschi',
+    storyMagrogamer09: 'stories/magrogamer09',
+    storySurviveUsa: 'stories/sopravvivi-agli-usa',
 } as const;
 
 /**
@@ -45,22 +55,8 @@ export class ApiService extends BaseApiService {
     }
 
     /**
-     * Recupera i link ai social network.
-     * @param nomi  Filtro opzionale: array di nomi (es. ['facebook','instagram']).
-     * Genera query string con chiavi ripetute: ?nomi=facebook&nomi=instagram
-     */
-    getSocial(nomi?: string[]): Promise<Record<string, string>> {
-        let params = new HttpParams();
-        if (nomi?.length) {
-            nomi.forEach(n => params = params.append('nomi', n));
-        }
-        return this.api_get<Record<string, string>>(API.social, params);
-    }
-
-    /**
-     * Recupera un file dal volume uploads come oggetto `Blob` (immagini, documenti, ecc.).
-     * Utile quando il file deve essere elaborato in memoria (es. anteprima locale, download forzato).
-     * Per visualizzare un'immagine direttamente in un `<img>`, preferisci `getBlobUrl()`.
+     * Recupera un file dal volume uploads come Blob (immagini, documenti, ecc.).
+     * Delega a api_get_blob della base: stessa risoluzione URL (SSR-aware), header e gestione errori.
      */
     getBlob(slug: string): Promise<Blob> {
         return this.api_get_blob(API.blob(slug));
@@ -112,4 +108,46 @@ export class ApiService extends BaseApiService {
         return this.api_post<LoginResult>(API.login, request, { silent: true });
     }
 
+    // ─── Storie ──────────────────────────────────────────────
+
+    getStories(): Promise<StorySummary[]> {
+        return this.api_get<StorySummary[]>(API.stories);
+    }
+
+    getStoryPoveriMaschi(): Promise<StorySummary> { return this.api_get<StorySummary>(API.storyPoveriMaschi); }
+    getStoryMagrogamer09(): Promise<StorySummary> { return this.api_get<StorySummary>(API.storyMagrogamer09); }
+
+    // `silent: true`: lo StoryPlayerFacade ha la propria UI d'errore (signal `error` + redirect
+    // a /error/404 sullo story-not-found), quindi niente notifica automatica dall'interceptor.
+    playPoveriMaschi(sceneId?: string, choiceId?: string, stats?: Record<string, number>): Promise<StorySnapshotDto> {
+        return this.api_post<StorySnapshotDto>(`${API.storyPoveriMaschi}/play`, { sceneId, choiceId, stats }, { silent: true });
+    }
+
+    playMagrogamer09(sceneId?: string, choiceId?: string, stats?: Record<string, number>): Promise<StorySnapshotDto> {
+        return this.api_post<StorySnapshotDto>(`${API.storyMagrogamer09}/play`, { sceneId, choiceId, stats }, { silent: true });
+    }
+
+    getStorySurviveUsa(): Promise<StorySummary> { return this.api_get<StorySummary>(API.storySurviveUsa); }
+
+    playSurviveUsa(sceneId?: string, choiceId?: string, stats?: Record<string, number>): Promise<StorySnapshotDto> {
+        return this.api_post<StorySnapshotDto>(`${API.storySurviveUsa}/play`, { sceneId, choiceId, stats }, { silent: true });
+    }
+
+    // ─── Generators ─────────────────────────────────────────────────────
+
+    getGenerators(): Promise<GeneratorInfo[]> {
+        return this.api_get<GeneratorInfo[]>(API.generators);
+    }
+
+    getIncel(): Promise<GeneratorInfo> { return this.api_get<GeneratorInfo>(API.generatorIncel); }
+    getAuto(): Promise<GeneratorInfo> { return this.api_get<GeneratorInfo>(API.generatorAuto); }
+    getAntiveg(): Promise<GeneratorInfo> { return this.api_get<GeneratorInfo>(API.generatorAntiveg); }
+    getLocali(): Promise<GeneratorInfo> { return this.api_get<GeneratorInfo>(API.generatorLocali); }
+    getMbeb(): Promise<GeneratorInfo> { return this.api_get<GeneratorInfo>(API.generatorMbeb); }
+
+    generateIncel(req: GenerateRequest): Promise<GenerateResponse> { return this.api_post<GenerateResponse>(`${API.generatorIncel}/generate`, req); }
+    generateAuto(req: GenerateRequest): Promise<GenerateResponse> { return this.api_post<GenerateResponse>(`${API.generatorAuto}/generate`, req); }
+    generateAntiveg(req: GenerateRequest): Promise<GenerateResponse> { return this.api_post<GenerateResponse>(`${API.generatorAntiveg}/generate`, req); }
+    generateLocali(req: GenerateRequest): Promise<GenerateResponse> { return this.api_post<GenerateResponse>(`${API.generatorLocali}/generate`, req); }
+    generateMbeb(req: GenerateRequest): Promise<GenerateResponse> { return this.api_post<GenerateResponse>(`${API.generatorMbeb}/generate`, req); }
 }

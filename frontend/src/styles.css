@@ -10,3 +10,134 @@
 @import 'sweetalert2/themes/bootstrap-5.css';
 
 /* QUI METTERE Stili specifici del progetto -> sovrascrive tutto */
+
+:root {
+    --colorPrimaryContrast: #f8fafc;
+    --shellMaxWidth: 1440px;
+    --shellGutter: clamp(1rem, 2vw, 2rem);
+    --shadowSoft: 0 4px 16px rgba(15, 23, 42, 0.10);
+    --shadowStrong: 0 8px 32px rgba(15, 23, 42, 0.14);
+}
+
+html {
+    font-size: clamp(1rem, 0.5rem + 1vw, 1.25rem);
+    scroll-behavior: smooth;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--colorBase) 92%, white 8%), color-mix(in srgb, var(--colorBase) 86%, black 14%));
+}
+
+body {
+    min-height: 100vh;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--colorBase) 92%, white 8%), color-mix(in srgb, var(--colorBase) 84%, black 16%));
+    color: var(--colorSurfaceText);
+}
+
+::selection {
+    background: color-mix(in srgb, var(--colorPrimary) 72%, white 28%);
+    color: var(--colorPrimaryContrast);
+}
+
+h1, h2, h3, h4, h5, h6,
+.display-1, .display-2, .display-3, .display-4, .display-5, .display-6 {
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 0.98;
+    text-wrap: balance;
+}
+
+p, li, .card-text, .lead {
+    text-wrap: pretty;
+}
+
+main#main-content {
+    max-width: var(--shellMaxWidth);
+    margin: 0 auto;
+    padding-inline: var(--shellGutter);
+    /* Spazio fisso sotto per non nascondere contenuto sotto il cookie banner fisso */
+    padding-bottom: 8rem;
+}
+
+@media (min-width: 768px) {
+    main#main-content {
+        padding-bottom: 5rem;
+    }
+}
+
+.container-fluid {
+    position: relative;
+    z-index: 1;
+}
+
+.btn {
+    --bs-btn-border-radius: 999px;
+    --bs-btn-padding-x: 1rem;
+    --bs-btn-padding-y: 0.75rem;
+    --bs-btn-font-weight: 700;
+    --bs-btn-box-shadow: none;
+    letter-spacing: 0.01em;
+}
+
+.btn-sm {
+    --bs-btn-padding-y: 0.55rem;
+    --bs-btn-padding-x: 0.9rem;
+}
+
+.btn-primary {
+    color: var(--colorPrimaryContrast);
+    box-shadow: 0 14px 35px color-mix(in srgb, var(--colorPrimary) 28%, transparent);
+}
+
+.btn-outline-secondary {
+    border-color: color-mix(in srgb, currentColor 18%, transparent);
+    color: inherit;
+}
+
+.btn-outline-secondary:hover,
+.btn-outline-secondary:focus-visible {
+    background-color: color-mix(in srgb, currentColor 8%, transparent);
+    border-color: color-mix(in srgb, currentColor 22%, transparent);
+    color: inherit;
+}
+
+.content-panel {
+    border-radius: 2rem;
+}
+
+.background-wrapper {
+    overflow: hidden;
+    border-radius: 1.5rem;
+}
+
+.background-wrapper::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent, rgba(15, 23, 42, 0.4));
+}
+
+.card {
+    border: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+    border-radius: 1.5rem;
+    background-color: var(--colorSurface);
+    box-shadow: var(--shadowSoft);
+    overflow: hidden;
+}
+
+.card-header,
+.card-body {
+    padding: 1.2rem;
+}
+
+.card-img-top {
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+}
+
+.spinner-border {
+    border-width: 0.16em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+}

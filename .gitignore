@@ -52,5 +52,6 @@ Thumbs.db
 frontend/public/
 frontend/src/environments/environment.ts
 .claude
+frontend/src/assets/files/image-cache
 frontend/lh-report.json
 frontend/ssr-server*.log
