@@ -200,10 +200,14 @@ else
 fi
 
 # ── PUBBLICAZIONE (swap) ─────────────────────────────────────────────────────
-# Le immagini sono già costruite e validate: lo swap riusa la cache (istantaneo) e
-# `--wait` ricontrolla la salute sulle porte reali.
+# Il preflight ha buildato sotto il progetto "-pf", quindi le immagini di produzione
+# vanno ricostruite esplicitamente: senza questa build, `up` riuserebbe l'immagine
+# del deploy precedente. La build attinge alla cache calda del preflight (istantaneo)
+# e `--wait` ricontrolla la salute sulle porte reali.
 echo
 echo -e "${BOLD}Pubblicazione${RESET}"
+info "Build delle immagini di produzione (dalla cache del preflight)..."
+docker compose "${compose_files[@]}" build "${services[@]}"
 info "Sostituzione dei container di produzione..."
 docker compose "${compose_files[@]}" up -d --wait --wait-timeout 120 "${services[@]}"
 ok "Container avviati e sani"
