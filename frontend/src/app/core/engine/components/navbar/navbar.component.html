@@ -7,14 +7,14 @@
         @if (isRouteActive(homePath)) {
         <span class="navbar-brand nav-current-link d-flex align-items-center gap-2" aria-current="page">
             @if (showBrandIconInHeader) {
-            <img aria-hidden="true" alt="" class="navbar-brand-icon" [appAsset]="'favIcon'" />
+            <img aria-hidden="true" alt="" class="navbar-brand-icon" [appAsset]="'favIcon'" [appAssetWidth]="125" />
             }
             {{ appName }}
         </span>
         } @else {
         <a class="navbar-brand d-flex align-items-center gap-2" [routerLink]="homePath">
             @if (showBrandIconInHeader) {
-            <img aria-hidden="true" alt="" class="navbar-brand-icon" [appAsset]="'favIcon'" />
+            <img aria-hidden="true" alt="" class="navbar-brand-icon" [appAsset]="'favIcon'" [appAssetWidth]="125" />
             }
             {{ appName }}
         </a>

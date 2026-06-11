@@ -15,7 +15,7 @@ var builder = WebApplication.CreateBuilder(args);
 var defaultJsonSources = builder.Configuration.Sources.OfType<Microsoft.Extensions.Configuration.Json.JsonConfigurationSource>().ToList();
 foreach (var source in defaultJsonSources)
 {
-    if (source.Path != null && source.Path.StartsWith("appsettings"))
+    if (source.Path != null && source.Path.StartsWith("appsettings", StringComparison.OrdinalIgnoreCase))
     {
         builder.Configuration.Sources.Remove(source);
     }

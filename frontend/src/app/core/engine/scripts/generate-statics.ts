@@ -229,8 +229,7 @@ function updateIndexHtml(): void {
     const updatedTime = getLastModifiedDate();
 
     // <meta name="theme-color"> è omesso: viene iniettato dinamicamente per-request
-    // da ThemeService.buildThemeColorMeta() nel middleware SSR di server.ts,
-    // con varianti light/dark via media attribute.
+    // dall'app-initializer SSR (app.config.server.ts), con varianti light/dark via media attribute.
     const allMeta: ['name' | 'property', string, string][] = [
         ['name', 'app-version', APP_VERSION],
         ['property', 'og:updated_time', updatedTime],
@@ -309,6 +308,17 @@ export const environment: AppEnvironment = {
         /<link rel="icon" type="image\/png" href="[^"]*">/,
         '<link rel="icon" type="image/png" href="icons/icon-192x192.png">',
         '<link rel="icon">'
+    );
+
+    // theme-init.js DEVE essere referenziato con path ASSOLUTO: lo <script> sta prima
+    // di <base href>, quindi un path relativo risolverebbe contro la rotta corrente
+    // (es. /sezione/theme-init.js → 404) sulle pagine annidate. Forzato qui così è
+    // deterministico e sopravvive a un'eventuale reintroduzione del path relativo.
+    html = replaceTag(
+        html,
+        /<script\s+src="\/?theme-init\.js"><\/script>/,
+        '<script src="/theme-init.js"></script>',
+        '<script theme-init>'
     );
 
     writeFileSync(INDEX, html, 'utf8');

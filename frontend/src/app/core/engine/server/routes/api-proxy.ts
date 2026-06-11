@@ -49,20 +49,32 @@ function buildProxy(): RequestHandler {
                 if (r.ip) proxyReq.setHeader('x-forwarded-for', r.ip);
                 else proxyReq.removeHeader('x-forwarded-for');
 
-                // Proto/host: usa l'header del client se presente (siamo dietro NPM), altrimenti i valori locali.
-                const proto = (r.headers['x-forwarded-proto'] as string) || r.protocol;
-                const host = (r.headers['x-forwarded-host'] as string) || r.get('host');
+                // Proto/host: come l'XFF sopra, usa i valori risolti da Express via `trust proxy`.
+                // r.protocol/r.hostname leggono gli X-Forwarded-* SOLO dagli hop fidati, altrimenti
+                // ricadono sui valori reali della connessione. Leggere gli header grezzi del client
+                // bypasserebbe quel filtro → host/proto header injection da chi colpisce il server in diretta.
+                const proto = r.protocol;
+                const host = r.hostname;
                 if (proto) proxyReq.setHeader('x-forwarded-proto', proto);
+                else proxyReq.removeHeader('x-forwarded-proto');
                 if (host) proxyReq.setHeader('x-forwarded-host', host);
+                else proxyReq.removeHeader('x-forwarded-host');
             },
             error: (err, _req, res) => {
                 console.error('[proxy /api]', err);
                 const response = res as Response;
                 if (!response.headersSent) {
-                    response.status(504).json({
-                        status: 504,
-                        title: 'Gateway Timeout',
-                        detail: 'Il backend non ha risposto in tempo.',
+                    // ECONNRESET/ETIMEDOUT = timeout reale → 504. ECONNREFUSED/ENOTFOUND/EHOSTUNREACH
+                    // = backend non raggiungibile → 502 Bad Gateway (non un timeout).
+                    const code = (err as NodeJS.ErrnoException).code;
+                    const isTimeout = code === 'ECONNRESET' || code === 'ETIMEDOUT';
+                    const status = isTimeout ? 504 : 502;
+                    response.status(status).json({
+                        status,
+                        title: isTimeout ? 'Gateway Timeout' : 'Bad Gateway',
+                        detail: isTimeout
+                            ? 'Il backend non ha risposto in tempo.'
+                            : 'Il backend non è raggiungibile.',
                     });
                 }
             },

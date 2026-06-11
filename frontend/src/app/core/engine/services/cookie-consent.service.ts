@@ -1,5 +1,5 @@
 import { isPlatformBrowser } from '@angular/common';
-import { Injectable, computed, inject, isDevMode, PLATFORM_ID, signal, DOCUMENT } from '@angular/core';
+import { Injectable, computed, inject, isDevMode, PLATFORM_ID, REQUEST, signal, DOCUMENT } from '@angular/core';
 import { COOKIE_MAP, type CookieKey } from '../../services/cookie-registry';
 import { LOCALE_CONFIG } from '../services/translate.service';
 import { SITE_CONFIG } from '../siteBuilder';
@@ -91,6 +91,8 @@ export class CookieConsentService {
 
     private readonly document = inject(DOCUMENT);
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+    /** Richiesta SSR: serve a leggere i cookie lato server (document.cookie è vuoto in SSR). */
+    private readonly request = inject(REQUEST, { optional: true });
     private readonly localeConfig = inject(LOCALE_CONFIG);
     private readonly siteConfig = inject(SITE_CONFIG);
 
@@ -135,8 +137,10 @@ export class CookieConsentService {
     readonly analyticsAccepted = this._analyticsAccepted.asReadonly();
     readonly profilingAccepted = this._profilingAccepted.asReadonly();
 
-    /** True se l'utente ha interagito con il banner (ora o in sessioni precedenti). */
-    readonly responded = signal(false);
+    /** True se l'utente ha interagito con il banner (ora o in sessioni precedenti).
+     *  Sola lettura: si modifica solo via accept/reject/saveSelected/reopen. */
+    private readonly _responded = signal(false);
+    readonly responded = this._responded.asReadonly();
 
     private readonly _activeEngineCookies = signal<Record<string, CookieConfig>>({});
     readonly activeEngineCookies = this._activeEngineCookies.asReadonly();
@@ -191,7 +195,7 @@ export class CookieConsentService {
                     (!isTechnicalNeededNow || technicalStored !== null) &&
                     (!isAnalyticsNeededNow || analyticsStored !== null) &&
                     (!isProfilingNeededNow || profilingStored !== null);
-                if (anyStored && allAnswered) this.responded.set(true);
+                if (anyStored && allAnswered) this._responded.set(true);
 
                 // ─── PULIZIA DEI COOKIE REVOCATI ───
                 this.clearRevokedCookies();
@@ -208,7 +212,7 @@ export class CookieConsentService {
         if (this.isTechnicalNeeded()) this._technicalAccepted.set(true);
         if (this.isAnalyticsNeeded()) this._analyticsAccepted.set(true);
         if (this.isProfilingNeeded()) this._profilingAccepted.set(true);
-        this.responded.set(true);
+        this._responded.set(true);
         this.persistConsent();
     }
 
@@ -217,13 +221,13 @@ export class CookieConsentService {
         this._technicalAccepted.set(false);
         this._analyticsAccepted.set(false);
         this._profilingAccepted.set(false);
-        this.responded.set(true);
+        this._responded.set(true);
         this.persistConsent();
     }
 
     /** Riapre il banner per permettere all'utente di modificare le proprie preferenze. */
     reopen(): void {
-        this.responded.set(false);
+        this._responded.set(false);
     }
 
     /** Salva la selezione granulare fatta dall'utente tramite i toggle del banner. */
@@ -231,7 +235,7 @@ export class CookieConsentService {
         if (this.isTechnicalNeeded()) this._technicalAccepted.set(technical);
         if (this.isAnalyticsNeeded()) this._analyticsAccepted.set(analytics);
         if (this.isProfilingNeeded()) this._profilingAccepted.set(profiling);
-        this.responded.set(true);
+        this._responded.set(true);
         this.persistConsent();
     }
 
@@ -351,17 +355,9 @@ export class CookieConsentService {
      */
     getCookie<K extends CookieKey | EngineCookieKey>(key: K): InferCookieType<K> | null {
         const fullKey = buildPhysicalCookieKey(key);
-        if (!fullKey || !this.isBrowser) return null;
+        if (!fullKey) return null;
 
-        const cookies = this.document.cookie.split(';');
-        let rawString: string | null = null;
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.startsWith(fullKey + '=')) {
-                rawString = decodeURIComponent(cookie.substring(fullKey.length + 1));
-                break;
-            }
-        }
+        const rawString = this.readRawCookie(fullKey);
         if (rawString === null) return null;
 
         const config = this._cm[key as string];
@@ -381,6 +377,27 @@ export class CookieConsentService {
         }
         // Default: restituisce stringa
         return rawString as InferCookieType<K>;
+    }
+
+    /**
+     * Valore grezzo di un cookie: da `document.cookie` nel browser, dall'header `cookie`
+     * della REQUEST in SSR. Senza la lettura SSR, getCookie tornerebbe null lato server
+     * (document.cookie è vuoto): la lingua salvata verrebbe ignorata e l'HTML SSR uscirebbe
+     * in defaultLang → hydration mismatch col primo render client. Le letture non richiedono
+     * consenso (il gate GDPR è solo sulla scrittura).
+     */
+    private readRawCookie(fullKey: string): string | null {
+        const header = this.isBrowser
+            ? this.document.cookie
+            : (this.request?.headers.get('cookie') ?? '');
+        if (!header) return null;
+        for (const part of header.split(';')) {
+            const cookie = part.trim();
+            if (cookie.startsWith(fullKey + '=')) {
+                return decodeURIComponent(cookie.substring(fullKey.length + 1));
+            }
+        }
+        return null;
     }
 
     /**

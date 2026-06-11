@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using SkiaSharp;
+using Backend.Models;
 
 namespace Backend.Controllers;
 
@@ -45,6 +46,11 @@ public abstract class EngineBlobController : EngineApiController
     protected static FileContentResult ResizeImageForWeb(Stream imageStream, string contentType, int maxSide = 1920)
     {
         using var original = SKBitmap.Decode(imageStream);
+        // Decode restituisce null se i byte non sono un'immagine decodificabile (estensione
+        // valida ma contenuto corrotto/falso): senza questo check si avrebbe una NRE → 500
+        // generico invece di un 400 strutturato.
+        if (original is null)
+            throw new DecodingException();
 
         int newWidth, newHeight;
         if (original.Width <= maxSide && original.Height <= maxSide)

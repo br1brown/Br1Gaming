@@ -65,7 +65,16 @@ public class BlobController : EngineBlobController
         }
 
         var stream = System.IO.File.OpenRead(filePath);
-        return File(stream, contentType, enableRangeProcessing: true);
+
+        // Difesa XSS stored: solo i formati immagine raster noti (IsImage) vengono serviti
+        // inline col loro content-type. Tutto il resto — inclusi .html/.svg/.xml che un utente
+        // autenticato potrebbe caricare (l'upload non filtra l'estensione) — è forzato a download
+        // (Content-Disposition: attachment) con application/octet-stream, così non viene mai
+        // interpretato/eseguito sull'origin del backend. nosniff resta attivo dagli header di sicurezza.
+        if (IsImage(contentType))
+            return File(stream, contentType, enableRangeProcessing: true);
+
+        return File(stream, "application/octet-stream", fileDownloadName: slug, enableRangeProcessing: true);
     }
 
     /// <summary>

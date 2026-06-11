@@ -90,7 +90,21 @@ export class TranslateService {
             this.clearSavedLanguage();
             return this.localeConfig.defaultLang;
         }
-        return this.resolveLanguage(this.consent.getSavedLanguage());
+        // Cookie salvato (ora leggibile anche in SSR via REQUEST → SSR e client allineati).
+        const saved = this.consent.getSavedLanguage();
+        if (saved) return this.resolveLanguage(saved);
+        // Primo accesso, nessun cookie: ripieghiamo sulla lingua preferita del browser
+        // (Accept-Language in SSR, navigator.language nel client) invece di defaultLang.
+        return this.resolveLanguage(this.preferredLanguageFromBrowser());
+    }
+
+    /** Lingua preferita del browser: header Accept-Language in SSR, navigator.language nel client. */
+    private preferredLanguageFromBrowser(): string | null {
+        if (this.request) {
+            const header = this.request.headers.get('accept-language');
+            return header ? (header.split(',')[0]?.trim() ?? null) : null;
+        }
+        return typeof navigator !== 'undefined' ? navigator.language : null;
     }
 
     async loadTranslations(lang: string): Promise<void> {

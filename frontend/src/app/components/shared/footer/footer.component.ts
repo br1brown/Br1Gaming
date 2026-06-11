@@ -1,14 +1,14 @@
 import { Component, computed, inject } from '@angular/core';
-import { Profile } from '../../../engine/dto/profile.dto';
-import { ApiService } from '../../../services/api.service';
-import { TranslatePipe } from '../../pipes/translate.pipe';
-import { SocialLinkComponent } from '../../../../components/shared/navigation/social-link/social-link.component';
-import { LoadingComponent } from '../../../../components/shared/loading/loading.component';
-import { ProfileRenderComponent } from '../../../../components/shared/profile-render/profile-render.component';
-import { FooterNavComponent } from '../footer-nav/footer-nav.component';
-import { ContestoSito } from '../../../../site';
-import { pickLocaleText } from '../../siteBuilder';
-import { TranslateService } from '../../services/translate.service';
+import { Profile } from '../../../core/engine/dto/profile.dto';
+import { ApiService } from '../../../core/services/api.service';
+import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
+import { SocialLinkComponent } from '../navigation/social-link/social-link.component';
+import { LoadingComponent } from '../loading/loading.component';
+import { ProfileRenderComponent } from '../profile-render/profile-render.component';
+import { FooterNavComponent } from '../../../core/engine/components/footer-nav/footer-nav.component';
+import { ContestoSito } from '../../../site';
+import { pickLocaleText } from '../../../core/engine/siteBuilder';
+import { TranslateService } from '../../../core/engine/services/translate.service';
 
 interface SocialLinkVm {
     type: string;
