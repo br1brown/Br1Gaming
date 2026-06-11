@@ -9,13 +9,32 @@
     overflow: hidden;
 }
 
+/* La card di gioco può restringersi sotto l'altezza del suo contenuto (i flex item hanno
+   min-height: auto implicito, che altrimenti la farebbe debordare dalla shell). */
+.game-card {
+    min-height: 0;
+}
+
+.game-card .card-body {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* Quando lo spazio verticale non basta, a cedere è solo l'immagine: timer e
+   bottoni mantengono la loro dimensione e restano sempre visibili. */
+.game-card .card-body > :not(.game-image-container) {
+    flex-shrink: 0;
+}
+
 .game-image-container {
     display: flex;
     align-items: center;
     justify-content: center;
-    /* Altezza legata al viewport (max 360px): sugli schermi bassi l'immagine si
-       rimpicciolisce invece di spingere i bottoni fuori schermo. */
+    /* Altezza preferita (max 360px); con min-height: 0 può scendere sotto
+       quando la shell è più bassa del contenuto della card. */
     height: min(360px, 42vh);
+    min-height: 0;
     overflow: hidden;
 }
 
