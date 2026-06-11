@@ -35,7 +35,7 @@ const STATIC_GIOCHI: CardEntry[] = [
     },
     {
         title: 'Dragon Radar',
-        subtitle: 'Le sfere del drago sono le 7 chiese sacre intorno a te. Trovale tutte con GPS e bussola.',
+        subtitle: 'Il radar delle chiese, in stile sfere del drago: apri la mappa e vedi quelle intorno a te.',
         imageId: 'game.radar',
         pageType: PageType.GameRadar,
     },

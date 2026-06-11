@@ -124,7 +124,9 @@ export const ContestoSito = buildSite({
             title: `DUCE NON DUCE?`,
             description: 'Indovina se la persona è un duce o non duce',
             pageType: PageType.GameDuceNonDuce,
-            layout: { showPanel: false },
+            // Niente footer: il gioco riempie lo spazio sotto la navbar (catena flex
+            // dell'app) e col footer visibile verrebbe compresso invece di riempirlo.
+            layout: { showPanel: false, showFooter: false },
             otherSEO: { ogImage: 'game.ducenonduce' },
             component: () => import('./pages/duce-non-duce/duce-non-duce.component')
                 .then(m => m.DuceNonDuceComponent),
@@ -133,12 +135,12 @@ export const ContestoSito = buildSite({
         {
             path: `radar`,
             title: `Dragon Radar`,
-            description: 'Trova le 7 chiese sacre nascoste intorno a te',
+            description: 'Il radar delle chiese intorno a te',
             pageType: PageType.GameRadar,
             otherSEO: { ogImage: 'game.radar' },
             layout: { showPanel: false, showFooter: false },
             // 'server' (non 'client'): l'SSR rende la shell e popola il TransferState con
-            // Custom (token Mapbox). La logica GPS/bussola/mappa resta client (afterNextRender).
+            // Custom (token Mapbox). La logica GPS/mappa resta client (afterNextRender).
             renderMode: 'server',
             component: () => import('./pages/radar/radar.component')
                 .then(m => m.RadarComponent),
