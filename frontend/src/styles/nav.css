@@ -68,7 +68,17 @@ footer a {
 
 /* ── Override Bootstrap dropdown nel contesto navbar ─────────────── */
 
-/* Il dropdown desktop usa gli stessi colori della navbar, 
+/* Senza fixed-top/sticky-top Bootstrap non assegna z-index alla navbar, lasciando
+   il dropdown vulnerabile a contenuti di pagina con z-index positivo. Questa regola
+   crea un contesto di stacking sulla navbar (z-index: 100) così il dropdown galleggia
+   sopra il contenuto qualunque z-index abbiano gli elementi dei progetti figli.
+   fixed-top (z-index: 1030) e sticky-top (z-index: 1020) sono esclusi: Bootstrap li
+   gestisce già con valori più alti. */
+.navbar:not(.fixed-top):not(.sticky-top) {
+    z-index: 100;
+}
+
+/* Il dropdown desktop usa gli stessi colori della navbar,
    mantenendo l'ombra per dare senso di elevazione. */
 .navbar .dropdown-menu {
     margin-top: 0.35rem;

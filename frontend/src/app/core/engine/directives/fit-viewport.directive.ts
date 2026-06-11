@@ -1,47 +1,42 @@
-import { afterNextRender, Directive, ElementRef, inject, input } from '@angular/core';
+import { Directive, ElementRef, inject, OnInit, Renderer2 } from '@angular/core';
 
 /**
- * `appFitViewport` — porta l'altezza dell'elemento a riempire lo spazio che resta sotto di
- * esso fino in fondo al viewport, senza creare scroll verticale di pagina.
+ * `appFitViewport` — rende l'elemento "schermo-friendly": riempie lo spazio che resta
+ * sotto la navbar fino in fondo al viewport, senza scroll di pagina quando il contenuto
+ * ci sta. Se il contenuto è più alto del viewport, l'elemento cresce con lui e la pagina
+ * scorre normalmente: niente parti tagliate o irraggiungibili.
  *
- * Pensata per le pagine/viste a tutto schermo (mappe, giochi, dashboard) dove lo scroll
- * spezzerebbe l'esperienza e si vuole che l'interfaccia sia interamente visibile.
+ * COME: nessuna misura in JS. app-root è già una colonna flex alta min-100vh col <main>
+ * che cresce (flex-grow-1): la direttiva risale dall'elemento fino a quel <main> e rende
+ * ogni anello intermedio (host del componente, col, row...) una colonna flex che cresce.
+ * Da lì è layout nativo del browser: si riadatta da sé a resize, rotazione, navbar più
+ * alta, banner che compaiono — senza listener né osservatori.
  *
- * COME calcola l'altezza — senza numeri magici:
- *   tutto-il-resto = scrollHeight della pagina − altezza attuale di questo elemento
- *                    (navbar, footer, padding del main, banner inline... qualunque cosa ci sia)
- *   altezza = innerHeight − tutto-il-resto   (con un minimo per gli schermi molto bassi)
- * Così "questo elemento + tutto il resto" = esattamente il viewport → nessuno scroll. Si
- * autoregola: footer presente o no, navbar più alta, cambio orientamento — si riadatta da sé.
+ * Gira in ngOnInit, quindi anche in SSR: gli stili inline escono già nell'HTML
+ * renderizzato e il primo paint è corretto (niente salti).
  *
- * Ricalcola a ogni resize/orientationchange (listener host: Angular li registra/rimuove e non
- * scattano in SSR). `afterNextRender` gira solo nel browser, quindi niente guardia isBrowser.
+ * Nota: gli anelli intermedi diventano colonne flex. L'elemento è pensato per viste a
+ * tutto schermo (mappe, giochi, dashboard), da solo nella propria gerarchia di pagina.
  *
  * Uso:
  *   <section appFitViewport>...</section>
- *   <section appFitViewport [appFitViewportMin]="400">...</section>
  */
-@Directive({
-    selector: '[appFitViewport]',
-    host: {
-        '(window:resize)': 'fit()',
-        '(window:orientationchange)': 'fit()',
-    },
-})
-export class FitViewportDirective {
-    /** Altezza minima in px: sotto questa soglia non si scende (schermi molto bassi → si accetta lo scroll). */
-    readonly appFitViewportMin = input(320);
-
+@Directive({ selector: '[appFitViewport]' })
+export class FitViewportDirective implements OnInit {
     private readonly el = inject(ElementRef) as ElementRef<HTMLElement>;
+    private readonly renderer = inject(Renderer2);
 
-    constructor() {
-        afterNextRender(() => this.fit());
-    }
-
-    protected fit(): void {
-        const node = this.el.nativeElement;
-        const others = document.documentElement.scrollHeight - node.getBoundingClientRect().height;
-        const h = Math.max(this.appFitViewportMin(), Math.round(window.innerHeight - others));
-        node.style.height = `${h}px`;
+    ngOnInit(): void {
+        const host = this.el.nativeElement;
+        this.renderer.setStyle(host, 'flex', '1 1 auto');
+        let node = host.parentElement;
+        while (node && node.tagName !== 'BODY') {
+            this.renderer.setStyle(node, 'display', 'flex');
+            this.renderer.setStyle(node, 'flex-direction', 'column');
+            // Il <main> del guscio app cresce già da sé (flex-grow-1): la catena è completa.
+            if (node.tagName === 'MAIN' && node.id === 'main-content') break;
+            this.renderer.setStyle(node, 'flex', '1 1 auto');
+            node = node.parentElement;
+        }
     }
 }
