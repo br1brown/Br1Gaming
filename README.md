@@ -140,7 +140,7 @@ Il Node SSR del frontend gestisce oltre alle pagine Angular anche alcune route i
 Senza scrivere codice infrastrutturale, il template fornisce già:
 
 - **SEO e social**: tag OpenGraph e JSON-LD per pagina, SSR granulare guidato da `site.ts`, più `sitemap.xml`, `robots.txt` e anteprime `og:image` dinamiche.
-- **Sicurezza sugli endpoint**: rate limiting, CORS, API key e header di sicurezza ereditati da ogni controller; errori in formato `ProblemDetails` (RFC 9457) senza leak di stack trace.
+- **Sicurezza by-design**: protezione attiva contro Stored XSS (file isolati e markdown sanificato), rate limiting, CORS, API key, header di sicurezza (incluso HSTS subdomains); prevenzione Host Header Injection e script di deploy fail-fast sui segreti. Errori API standardizzati in `ProblemDetails` (RFC 9457) senza leak di stack trace.
 - **Pronto all'uso**: routing, navigazione, i18n, PWA, consenso cookie e pagine legali già funzionanti — si parte direttamente dalla logica di dominio.
 - **Menu Multilivello**: supporto nativo a navigazione ricorsiva sia nella Navbar (con flyout desktop che evita di uscire dallo schermo e accordion su mobile) sia nel Footer. Basta annidare i gruppi in `site.ts`.
 

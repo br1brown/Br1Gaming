@@ -390,6 +390,7 @@ La preferenza lingua è salvata solo con consenso tecnico accettato:
 2. Utente accetta consenso tecnico → cambia lingua a "en" → persiste tra i reload
 
 La lettura della preferenza salvata non richiede consenso (operazione di sola lettura, privacy-safe).
+**Nota SSR:** In ambiente Server-Side Rendering (SSR), la lettura dei cookie avviene tramite l'header `Cookie` della richiesta HTTP in ingresso (`REQUEST` token in Angular). Questo garantisce che il server sia allineato con le preferenze del client, evitando idratazioni errate o flash di contenuto con lingua sbagliata al primo caricamento. Se il cookie non è presente, l'SSR usa l'header `Accept-Language` del client per dedurre la preferenza.
 
 ### Dichiarazione Cookie GDPR nella Cookie Policy
 
@@ -688,7 +689,7 @@ readonly trad = computed(() => this.translate.translate('chiave'));
 
 ### Pipe `markdown`
 
-Converte Markdown a HTML nel template, con sanitizzazione XSS automatica:
+Converte Markdown a HTML nel template, con sanitizzazione XSS rigorosa: l'HTML grezzo viene bloccato e gli URL non sicuri (`javascript:`, `data:`, `vbscript:`, o protocol-relative `//`) in link e immagini vengono neutralizzati automaticamente per prevenire esecuzione di payload malevoli.
 ```html
 <div [innerHTML]="testo | markdown"></div>
 ```
