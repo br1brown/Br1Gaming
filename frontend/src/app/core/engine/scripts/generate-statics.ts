@@ -8,6 +8,7 @@
  * - public/robots.txt        → user-agent, disallow, sitemap URL
  * - public/llms.txt          → indice del sito per i crawler AI (convenzione llms.txt)
  * - public/security.txt      → contatto di sicurezza RFC 9116 (servito su /.well-known/)
+ * - public/theme-init.js     → script anti-flash del tema, referenziato da index.html
  *
  * Eseguire con:
  *   npm run generate:statics
@@ -115,6 +116,7 @@ const SITEMAP = join(ROOT, 'public', 'sitemap.xml');
 const ROBOTS = join(ROOT, 'public', 'robots.txt');
 const LLMS = join(ROOT, 'public', 'llms.txt');
 const SECURITY = join(ROOT, 'public', 'security.txt');
+const THEME_INIT = join(ROOT, 'public', 'theme-init.js');
 
 // Rimuove lo slash finale per evitare doppi slash negli URL generati
 const BASE_URL = (process.env['FRONTEND_BASE_URL'] || 'https://example.com').replace(/\/$/, '');
@@ -227,8 +229,7 @@ function updateIndexHtml(): void {
     const updatedTime = getLastModifiedDate();
 
     // <meta name="theme-color"> è omesso: viene iniettato dinamicamente per-request
-    // da ThemeService.buildThemeColorMeta() nel middleware SSR di server.ts,
-    // con varianti light/dark via media attribute.
+    // dall'app-initializer SSR (app.config.server.ts), con varianti light/dark via media attribute.
     const allMeta: ['name' | 'property', string, string][] = [
         ['name', 'app-version', APP_VERSION],
         ['property', 'og:updated_time', updatedTime],
@@ -307,6 +308,17 @@ export const environment: AppEnvironment = {
         /<link rel="icon" type="image\/png" href="[^"]*">/,
         '<link rel="icon" type="image/png" href="icons/icon-192x192.png">',
         '<link rel="icon">'
+    );
+
+    // theme-init.js DEVE essere referenziato con path ASSOLUTO: lo <script> sta prima
+    // di <base href>, quindi un path relativo risolverebbe contro la rotta corrente
+    // (es. /sezione/theme-init.js → 404) sulle pagine annidate. Forzato qui così è
+    // deterministico e sopravvive a un'eventuale reintroduzione del path relativo.
+    html = replaceTag(
+        html,
+        /<script\s+src="\/?theme-init\.js"><\/script>/,
+        '<script src="/theme-init.js"></script>',
+        '<script theme-init>'
     );
 
     writeFileSync(INDEX, html, 'utf8');
@@ -459,6 +471,26 @@ function updateSecurityTxt(): void {
     console.log(`[statics] security.txt aggiornato`);
 }
 
+// ── Generazione theme-init.js (anti-flash tema, pre-idratazione) ───────────
+
+function updateThemeInit(): void {
+    // Script anti-flash: imposta data-bs-theme / data-theme-tone su <html> prima che
+    // Bootstrap carichi qualsiasi stile. Referenziato da <script src="theme-init.js"> in
+    // index.html (eseguito sincrono nel <head>). È un asset statico servito da
+    // express.static: va materializzato qui perché public/ è gitignored, altrimenti
+    // mancherebbe su un checkout/build pulito (404 + MIME error a ogni full load).
+    const script = `(function () {
+    var t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    var el = document.documentElement;
+    el.setAttribute('data-bs-theme', t);
+    el.setAttribute('data-theme-tone', t);
+}());
+`;
+
+    writeFileSync(THEME_INIT, script, 'utf8');
+    console.log('[statics] theme-init.js aggiornato');
+}
+
 // ── Entry point ───────────────────────────────────────────────────────────
 
 function main(): void {
@@ -473,6 +505,7 @@ function main(): void {
     updateRobots();
     updateLlms();
     updateSecurityTxt();
+    updateThemeInit();
 }
 
 main();

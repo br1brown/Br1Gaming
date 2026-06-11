@@ -16,7 +16,8 @@ export const FALLBACK_SECURITY_HEADERS: Record<string, string> = {
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     // HSTS: i browser lo applicano solo su HTTPS e lo ignorano su HTTP (RFC 6797),
     // quindi è sicuro anche in locale. È il layer SSR a parlare col browser, non il backend.
-    'Strict-Transport-Security': 'max-age=31536000',
+    // includeSubDomains: estende la policy a tutti i sottodomini (assume deploy all-HTTPS).
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), browsing-topics=()',
     'Content-Security-Policy':
         "default-src 'self'; script-src 'self' {SCRIPT_NONCE_PLACEHOLDER}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",

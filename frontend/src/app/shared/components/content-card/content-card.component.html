@@ -1,6 +1,6 @@
 <div class="card h-100">
     @if (imageId() && imageVisible()) {
-    <img [appAsset]="imageId()!" [alt]="title()" class="card-img-top content-card-image"
+    <img [appAsset]="imageId()!" [appAssetWidth]="512" [alt]="title()" class="card-img-top content-card-image" loading="lazy"
          (error)="onImageError()">
     }
     <div class="card-body d-flex flex-column">

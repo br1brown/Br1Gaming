@@ -58,12 +58,6 @@
                             </div>
                         }
                     </div>
-                } @else if (seg.type === 'profile') {
-                    @if (rawProfile()) {
-                        <div class="my-4">
-                            <app-profile-render inColonna [profile]="rawProfile()"></app-profile-render>
-                        </div>
-                    }
                 }
             }
         }

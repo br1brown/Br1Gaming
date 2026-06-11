@@ -5,7 +5,7 @@
       "X-Frame-Options": "SAMEORIGIN",
       "X-Content-Type-Options": "nosniff",
       "Referrer-Policy": "strict-origin-when-cross-origin",
-      "Strict-Transport-Security": "max-age=31536000",
+      "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
       "Permissions-Policy": "camera=(), microphone=(), geolocation=(self), browsing-topics=()",
       "Content-Security-Policy": "default-src 'self'; script-src 'self' {SCRIPT_NONCE_PLACEHOLDER}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://api.mapbox.com; font-src 'self' data:; connect-src 'self' https://api.mapbox.com https://events.mapbox.com; worker-src 'self' blob:; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
     }

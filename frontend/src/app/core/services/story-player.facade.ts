@@ -1,4 +1,5 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, PLATFORM_ID, inject, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { ApiService } from './api.service';
 import { ApiError } from '../engine/services/base-api.service';
 import { CookieConsentService } from '../engine/services/cookie-consent.service';
@@ -11,6 +12,12 @@ type PlayFn = (sceneId?: string, choiceId?: string, stats?: Record<string, numbe
 export class StoryPlayerFacade {
     private readonly api = inject(ApiService);
     private readonly cookies = inject(CookieConsentService);
+    private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+
+    /** maxAge cookie: 1 anno. */
+    private static readonly MAX_AGE = 60 * 60 * 24 * 365;
+    /** Chiave localStorage per le timeline (parte pesante, fuori dai 4KB del cookie). */
+    private static readonly TIMELINE_KEY = 'storyPlayerTimeline';
 
     readonly snapshot = signal<StorySnapshotDto | null>(null);
     readonly timeline = signal<StoryTimelineItem[]>([]);
@@ -152,60 +159,90 @@ export class StoryPlayerFacade {
         }
     }
 
-    // ── Cookie (tramite CookieConsentService) ────────────────────────
+    // ── Persistenza stato storia ─────────────────────────────────────
+    //
+    // Il punto di ripristino (sceneId + stats) è piccolo e va nel cookie
+    // `storyPlayerState` (gated GDPR dal CookieConsentService, categoria Technical).
+    // La `timeline` (storico scene) cresce con la partita e supererebbe il limite
+    // ~4KB del cookie facendo fallire la scrittura in SILENZIO → resume che rolla
+    // indietro. Per questo la timeline va in localStorage, sotto lo STESSO gate
+    // tecnico (`technicalAccepted`) e con guardia SSR.
 
     private getStoryState(slug: string): { sceneId: string | null; stats: Record<string, number> | null; timeline: StoryTimelineItem[] | null } {
         const raw = this.cookies.getCookie('storyPlayerState');
-        if (!raw) return { sceneId: null, stats: null, timeline: null };
-        try {
-            const all = JSON.parse(raw) as Record<string, any>;
-            const story = all[slug] || {};
-            return {
-                sceneId: story.sceneId ?? null,
-                stats: story.stats ?? null,
-                timeline: story.timeline ?? null,
-            };
-        } catch {
-            return { sceneId: null, stats: null, timeline: null };
+        let sceneId: string | null = null;
+        let stats: Record<string, number> | null = null;
+        if (raw) {
+            try {
+                const story = (JSON.parse(raw) as Record<string, any>)[slug] || {};
+                sceneId = story.sceneId ?? null;
+                stats = story.stats ?? null;
+            } catch { /* cookie corrotto: stato assente */ }
         }
+        return { sceneId, stats, timeline: this.readTimeline(slug) };
     }
 
     private saveStoryState(slug: string, sceneId: string | null, stats: Record<string, number> | null, timeline: StoryTimelineItem[] | null): void {
+        // Parte piccola e critica nel cookie (gated dal service).
         const raw = this.cookies.getCookie('storyPlayerState');
         let all: Record<string, any> = {};
         if (raw) {
             try { all = JSON.parse(raw); } catch { }
         }
-        all[slug] = { sceneId, stats, timeline };
-        const maxAge = 60 * 60 * 24 * 365;
-        this.cookies.setCookie('storyPlayerState', JSON.stringify(all), maxAge);
+        all[slug] = { sceneId, stats };
+        this.cookies.setCookie('storyPlayerState', JSON.stringify(all), StoryPlayerFacade.MAX_AGE);
+        // Parte pesante in localStorage, stesso gate tecnico.
+        this.writeTimeline(slug, timeline);
     }
 
     private clearStoryState(slug: string): void {
         const raw = this.cookies.getCookie('storyPlayerState');
-        if (!raw) return;
+        if (raw) {
+            try {
+                const all = JSON.parse(raw) as Record<string, any>;
+                delete all[slug];
+                if (Object.keys(all).length === 0) {
+                    this.cookies.removeCookie('storyPlayerState');
+                } else {
+                    this.cookies.setCookie('storyPlayerState', JSON.stringify(all), StoryPlayerFacade.MAX_AGE);
+                }
+            } catch { }
+        }
+        this.writeTimeline(slug, null);
+    }
+
+    // ── Timeline su localStorage (gated GDPR, SSR-safe) ──────────────
+
+    private readTimeline(slug: string): StoryTimelineItem[] | null {
+        if (!this.isBrowser) return null;
         try {
-            const all = JSON.parse(raw) as Record<string, any>;
-            delete all[slug];
-            if (Object.keys(all).length === 0) {
-                this.cookies.removeCookie('storyPlayerState');
-            } else {
-                const maxAge = 60 * 60 * 24 * 365;
-                this.cookies.setCookie('storyPlayerState', JSON.stringify(all), maxAge);
+            const raw = localStorage.getItem(StoryPlayerFacade.TIMELINE_KEY);
+            if (!raw) return null;
+            return (JSON.parse(raw) as Record<string, StoryTimelineItem[]>)[slug] ?? null;
+        } catch {
+            return null;
+        }
+    }
+
+    private writeTimeline(slug: string, timeline: StoryTimelineItem[] | null): void {
+        // Stesso gate del cookie tecnico: niente persistenza senza consenso.
+        if (!this.isBrowser || !this.cookies.technicalAccepted()) return;
+        try {
+            let all: Record<string, StoryTimelineItem[]> = {};
+            const raw = localStorage.getItem(StoryPlayerFacade.TIMELINE_KEY);
+            if (raw) {
+                try { all = JSON.parse(raw); } catch { }
             }
-        } catch { }
-    }
-
-    private loadSavedStats(slug: string): Record<string, number> | null {
-        return this.getStoryState(slug).stats;
-    }
-
-    private loadSavedTimeline(slug: string): StoryTimelineItem[] | null {
-        return this.getStoryState(slug).timeline;
-    }
-
-    private saveTimeline(slug: string, items: StoryTimelineItem[]): void {
-        const state = this.getStoryState(slug);
-        this.saveStoryState(slug, state.sceneId, state.stats, items);
+            if (timeline && timeline.length > 0) {
+                all[slug] = timeline;
+            } else {
+                delete all[slug];
+            }
+            if (Object.keys(all).length === 0) {
+                localStorage.removeItem(StoryPlayerFacade.TIMELINE_KEY);
+            } else {
+                localStorage.setItem(StoryPlayerFacade.TIMELINE_KEY, JSON.stringify(all));
+            }
+        } catch { /* quota/Safari privato: degrada senza storico, il resume resta valido */ }
     }
 }

@@ -6,18 +6,7 @@
                 @for (item of links(); track item.path) {
                     <div class="col-12 col-sm-6 col-md-3 col-lg-2 mb-3 text-start">
                         @if (isGroup(item)) {
-                            <div>
-                                <span class="small fw-bold text-uppercase d-block mb-2">
-                                    {{ item.label | translate }}
-                                </span>
-                                <ul class="list-unstyled mb-0">
-                                    @for (sub of item.children; track sub.path) {
-                                        <li>
-                                            <app-nav-link [link]="sub" cssClass="d-block small py-2" />
-                                        </li>
-                                    }
-                                </ul>
-                            </div>
+                            <app-footer-nav-group [group]="item" [level]="0" />
                         } @else {
                             <app-nav-link [link]="item" cssClass="d-block small py-2" />
                         }

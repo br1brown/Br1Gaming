@@ -1,71 +1,77 @@
-<div class="story-shell">
+<div class="d-flex flex-column gap-4 py-3">
+
     @if (facade.error()) {
-    <div class="alert alert-danger mt-3 story-error">
+    <div class="alert alert-danger rounded-4 shadow-sm">
         {{ facade.error() }}
     </div>
     }
 
-    <h1 class="story-title">{{ facade.title() }}</h1>
+    <header class="text-center mb-2">
+        <h1 class="display-5 fw-bold mb-4">{{ facade.title() }}</h1>
 
-    @if (coverAssetId() && coverVisible()) {
-    <img [appAsset]="coverAssetId()!" alt="" class="img-fluid rounded mb-3 story-cover" (error)="coverVisible.set(false)">
-    }
+        @if (coverAssetId() && coverVisible()) {
+        <img [appAsset]="coverAssetId()!"
+             [appAssetWidth]="1024"
+             alt=""
+             class="w-100 object-fit-cover rounded-4 shadow-sm"
+             style="max-height: 350px;"
+             (error)="coverVisible.set(false)">
+        }
+    </header>
 
-    @for (item of facade.timeline(); track $index) {
+    <div class="d-flex flex-column gap-3">
+        @for (item of facade.timeline(); track $index) {
+
         @if (item.type === 'scene') {
-        <div class="story-scene mb-3">
-            @if (getSceneAssetId(item.sceneId); as img) {
-            <img [appAsset]="img" alt="" class="img-fluid story-scene-image mb-3">
-            }
-            <div [innerHTML]="item.text | markdown"></div>
-        </div>
+        <article class="bg-gradient rounded-4 p-4 shadow-sm">
+            <div class="fs-5 text-body" [innerHTML]="item.text | markdown"></div>
+        </article>
         }
 
         @if (item.type === 'choice') {
-        <div class="story-choice-history my-2">
+        <div class="border-start border-3 border-primary ps-3 py-1 ms-2 opacity-75">
             <small class="text-muted fst-italic">{{ 'haiscelta' | translate }}:</small>
-            &nbsp;
-            <strong>{{ item.text }}</strong>
+            <div class="fw-bold text-primary">{{ item.text }}</div>
         </div>
         }
 
         @if (item.type === 'consequence') {
-        <div class="story-consequence mb-1" [innerHTML]="item.text | markdown"></div>
+        <div class="text-center ps-4 ms-2" [innerHTML]="item.text | markdown"></div>
         }
 
         @if (item.type === 'ending') {
-        <div class="story-ending text-center">
-            @if (getSceneAssetId(item.sceneId); as img) {
-            <img [appAsset]="img" [alt]="item.title" class="img-fluid story-ending-image mb-3">
-            }
+        <div class="card rounded-4 p-4 text-center shadow mt-3">
             @if (item.title) {
-            <h2 class="story-ending-title mb-2">{{ item.title }}</h2>
+            <h2 class="fw-bold mb-3">{{ item.title }}</h2>
             }
-            <div [innerHTML]="item.text | markdown"></div>
+            <div class="fs-5" [innerHTML]="item.text | markdown"></div>
         </div>
         }
-    }
+        }
+    </div>
 
     @if (facade.loading()) {
-    <div class="text-center py-2">
-        <div class="spinner-border spinner-border-sm" role="status"></div>
+    <div class="d-flex justify-content-center py-4">
+        <div class="spinner-grow text-primary opacity-50" role="status"></div>
     </div>
     }
 
     @if (facade.snapshot(); as snap) {
-        @if (!snap.isEnding && !facade.loading()) {
-        <div class="story-choices">
-            @for (choice of snap.choices; track choice.id) {
-            <button class="btn btn-primary text-start story-choice-button" (click)="choose(choice.id)">
-                {{ choice.text }}
-            </button>
-            }
-        </div>
+    @if (!snap.isEnding && !facade.loading()) {
+    <div class="d-grid gap-3 mt-3">
+        @for (choice of snap.choices; track choice.id) {
+        <button class="btn btn-outline-primary text-start py-3 px-4 rounded-4 fs-5 shadow-sm"
+                (click)="choose(choice.id)">
+            {{ choice.text }}
+        </button>
         }
+    </div>
     }
+    }
+
     @if (!facade.error()) {
-    <div class="text-center story-restart">
-        <button class="btn btn-outline-secondary btn-sm"
+    <div class="text-center mt-5 pt-3 border-top">
+        <button class="btn btn-link text-muted text-decoration-none px-4"
                 (click)="restart()"
                 [disabled]="facade.loading()">
             {{ 'riavvia' | translate }}

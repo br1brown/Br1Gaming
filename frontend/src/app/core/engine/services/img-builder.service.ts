@@ -162,7 +162,9 @@ export class ImgBuilderService {
             bgColor: opts.bgColor ?? this.theme.colorPrimary(),
             textColor: opts.textColor ?? this.theme.colorPrimaryText(),
             fontSize: opts.fontSize ?? 40,
-            fontFamily: opts.fontFamily ?? FontConfig.DEFAULT_WEB_FONT,
+            // opts.fontFamily è una CHIAVE di WEB_FONTS: va risolta nello stack CSS reale,
+            // altrimenti il canvas riceve la chiave (es. "Times") invece del font stack.
+            fontFamily: opts.fontFamily ? FontConfig.WEB_FONTS[opts.fontFamily] : FontConfig.DEFAULT_WEB_FONT,
             ratio: opts.ratio ?? '4:3',
             maxWidth: opts.maxWidth ?? 1000,
             lineHeight: opts.lineHeight ?? 1.4,

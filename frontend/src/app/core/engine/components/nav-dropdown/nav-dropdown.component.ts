@@ -3,12 +3,13 @@ import { Router } from '@angular/router';
 import { injectCurrentUrl } from '../../../../app.routes';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { NavLinkComponent } from '../nav-link/nav-link.component';
-import { NavLink } from '../../siteBuilder';
+import { NavSubmenuComponent } from '../nav-submenu/nav-submenu.component';
+import { NavLink, isNavGroup } from '../../siteBuilder';
 
 @Component({
     selector: 'app-nav-dropdown',
     standalone: true,
-    imports: [TranslatePipe, NavLinkComponent],
+    imports: [TranslatePipe, NavLinkComponent, NavSubmenuComponent],
     templateUrl: './nav-dropdown.component.html',
 })
 export class NavDropdownComponent {
@@ -21,12 +22,21 @@ export class NavDropdownComponent {
     readonly toggle = output<void>();
     readonly linkClick = output<void>();
 
+    /** Type-guard riusato nel template per ramificare figlio-gruppo / figlio-link. */
+    readonly isGroup = isNavGroup;
+
     readonly isActive = computed(() => {
         this.currentUrl(); // dipendenza signal: re-eval ad ogni navigazione
-        return this.item().children.some(child =>
-            !child.isExternal && this.router.isActive(child.path, {
-                paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored',
-            }),
-        );
+        return this.hasActiveDescendant(this.item().children);
     });
+
+    /** True se una qualsiasi foglia interna del sottoalbero (anche annidata) è la rotta corrente. */
+    private hasActiveDescendant(children: NavLink[]): boolean {
+        return children.some(child =>
+            isNavGroup(child)
+                ? this.hasActiveDescendant(child.children)
+                : !child.isExternal && this.router.isActive(child.path, {
+                    paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored',
+                }));
+    }
 }

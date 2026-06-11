@@ -3,11 +3,9 @@ import { BaseApiService } from '../engine/services/base-api.service';
 import { StorySummary, StorySnapshotDto } from '../dto/story.dto';
 import { GeneratorInfo, GenerateRequest, GenerateResponse } from '../dto/generator.dto';
 import { LoginResult, LoginRequest } from '../dto/auth.dto';
-import { Profile } from '../engine/dto/profile.dto';
 
 /** Endpoint backend. Aggiungere il path qui, poi il metodo pubblico sotto. */
 const API = {
-    profile: 'profile',
     login: 'auth/login',
     blob: (slug: string) => `blob/${encodeURIComponent(slug)}`,
     blobUpload: 'blob/up',
@@ -39,20 +37,6 @@ const API = {
  */
 @Injectable({ providedIn: 'root' })
 export class ApiService extends BaseApiService {
-
-    /** Recupera i dati profilo legale e i contatti pubblici. */
-    getProfile(): Promise<Profile> {
-        return this.api_get<Profile>(API.profile);
-    }
-
-    /**
-     * Versione reattiva di getProfile() basata su httpResource.
-     * Si aggiorna automaticamente al cambio lingua (via Accept-Language nell'header).
-     * Usare nei componenti persistenti come il footer.
-     */
-    getProfileResource() {
-        return this.api_resource<Profile>(API.profile);
-    }
 
     /**
      * Recupera un file dal volume uploads come Blob (immagini, documenti, ecc.).

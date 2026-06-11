@@ -1,13 +1,12 @@
-<div class="radar-screen" appFitViewport>
+<div class="position-relative overflow-hidden bg-dark user-select-none" appFitViewport>
 
-    <div #mapContainer class="radar-map"></div>
-    <div class="radar-scanlines"></div>
+    <div #mapContainer class="position-absolute top-0 start-0 w-100 h-100"></div>
 
     @switch (status()) {
 
         @case ('ready') {
-            <div class="radar-controls">
-                <button type="button" class="radar-ctrl" (click)="recenter()"
+            <div class="position-absolute top-0 end-0 mt-5 me-2 d-flex flex-column gap-2">
+                <button type="button" class="btn btn-light rounded-circle shadow-sm" (click)="recenter()"
                         [title]="'radarRecenter' | translate" [attr.aria-label]="'radarRecenter' | translate">
                     <i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i>
                 </button>
@@ -15,20 +14,20 @@
         }
 
         @case ('error') {
-            <div class="radar-overlay">
-                <div class="scouter-panel error">
-                    <p class="scouter-title">{{ 'radarOffline' | translate }}</p>
-                    <p>{{ errorMsg() | translate }}</p>
-                    <a routerLink="/" class="scouter-btn">{{ 'radarBack' | translate }}</a>
+            <div class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-4 bg-dark bg-opacity-75">
+                <div class="card text-center p-4">
+                    <p class="h5 fw-bold text-danger mb-2">{{ 'radarOffline' | translate }}</p>
+                    <p class="mb-3">{{ errorMsg() | translate }}</p>
+                    <a routerLink="/" class="btn btn-outline-secondary">{{ 'radarBack' | translate }}</a>
                 </div>
             </div>
         }
 
         @default {
-            <div class="radar-overlay">
-                <div class="scouter-panel">
-                    <div class="scouter-spinner"></div>
-                    <p>{{ (status() === 'searching' ? 'radarSearching' : 'radarLocating') | translate }}</p>
+            <div class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-4 bg-dark bg-opacity-75">
+                <div class="card text-center p-4">
+                    <div class="spinner-border mb-3" role="status"></div>
+                    <p class="mb-0">{{ (status() === 'searching' ? 'radarSearching' : 'radarLocating') | translate }}</p>
                 </div>
             </div>
         }

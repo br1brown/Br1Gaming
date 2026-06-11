@@ -24,7 +24,7 @@ import { SpeechActionComponent } from '../../components/shared/action/speech-act
         SpeechActionComponent,
     ],
     templateUrl: './generator-detail.component.html',
-    styleUrl: './generator-detail.component.css'
+    host: { class: 'd-block' },
 })
 export class GeneratorDetailComponent extends PageBaseComponent<GeneratorInfo> {
     private readonly document = inject(DOCUMENT);

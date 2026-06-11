@@ -25,7 +25,7 @@ type RadarStatus = 'init' | 'locating' | 'searching' | 'ready' | 'error';
     selector: 'app-radar',
     imports: [RouterLink, TranslatePipe, FitViewportDirective],
     templateUrl: './radar.component.html',
-    styleUrl: './radar.component.css',
+    host: { class: 'd-block' },
 })
 export class RadarComponent extends PageBaseComponent<void> implements OnDestroy {
     /** Contenitore della mappa Mapbox (ref locale, non id globale: niente collisioni). */
@@ -70,6 +70,12 @@ export class RadarComponent extends PageBaseComponent<void> implements OnDestroy
     }
 
     private async start(): Promise<void> {
+        if (!this.mapboxToken) {
+            // Token assente (manca Custom.MapboxToken in global-settings.local.json): senza
+            // questo guard si arriverebbe a un errore mappa generico, poco diagnosticabile.
+            this.fail('radarErrConfig');
+            return;
+        }
         if (!('geolocation' in navigator)) {
             this.fail('radarErrNoGeo');
             return;
@@ -110,7 +116,9 @@ export class RadarComponent extends PageBaseComponent<void> implements OnDestroy
                 attributionControl: false,
             });
             const el = document.createElement('div');
-            el.className = 'radar-you';
+            // Marker posizione: Bootstrap non ha un "pallino mappa", basta lo stretto
+            // necessario perché sia visibile (è DOM creato da Mapbox, non template).
+            el.style.cssText = 'width:14px;height:14px;border-radius:50%;background:#39ff14;box-shadow:0 0 8px #39ff14';
             this.userMarker = new mb.Marker({ element: el }).setLngLat([lon, lat]).addTo(this.map);
             await this.mapLoaded();
         } catch {
@@ -157,7 +165,7 @@ export class RadarComponent extends PageBaseComponent<void> implements OnDestroy
             const mb = this.mapboxgl!;
             for (const c of churches) {
                 const el = document.createElement('div');
-                el.className = 'church-marker';
+                el.style.cssText = 'font-size:1.6rem;line-height:1;cursor:pointer';
                 el.textContent = '⛪';
                 new mb.Marker({ element: el })
                     .setLngLat([c.lon, c.lat])

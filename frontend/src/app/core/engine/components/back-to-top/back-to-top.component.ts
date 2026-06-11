@@ -1,4 +1,4 @@
-import { Component, PLATFORM_ID, inject, signal } from '@angular/core';
+import { Component, DestroyRef, PLATFORM_ID, inject, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 
@@ -24,6 +24,13 @@ export class BackToTopComponent {
 
   readonly isVisible = signal(false);
   private rafId: number | null = null;
+
+  constructor() {
+    // Annulla il frame in volo allo smontaggio: evita un set() su componente distrutto.
+    inject(DestroyRef).onDestroy(() => {
+      if (this.rafId !== null) cancelAnimationFrame(this.rafId);
+    });
+  }
 
   onScroll(): void {
     if (!this.isBrowser || this.rafId !== null) return;

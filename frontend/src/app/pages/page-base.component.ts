@@ -59,10 +59,15 @@ export abstract class PageBaseComponent<T> {
         });
 
         if (isPlatformBrowser(this.platformId)) {
+            // Guardia di sequenza: a cambi lingua ravvicinati possono esserci più
+            // loadResolved in volo; senza questo, una risposta lenta più VECCHIA potrebbe
+            // arrivare dopo una più nuova e sovrascrivere il contenuto con dati stantii.
+            let reqId = 0;
             effect(() => {
                 const lang = this.translate.currentLang();
+                const id = ++reqId;
                 this.contentResolverService.loadResolved(this.pageType(), lang)
-                    .then(data => this._liveResolved.set(data));
+                    .then(data => { if (id === reqId) this._liveResolved.set(data); });
             });
         }
     }

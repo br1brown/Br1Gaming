@@ -14,7 +14,7 @@ import { PageBaseComponent } from '../page-base.component';
     selector: 'app-story-player',
     imports: [TranslatePipe, MarkdownPipe, AssetDirective],
     templateUrl: './story-player.component.html',
-    styleUrl: './story-player.component.css'
+    host: { class: 'd-block' },
 })
 export class StoryPlayerComponent extends PageBaseComponent<StoryInfo> {
     private readonly router = inject(Router);
@@ -57,12 +57,6 @@ export class StoryPlayerComponent extends PageBaseComponent<StoryInfo> {
     restart(): void {
         this.facade.restart();
         this.document.defaultView?.scrollTo(0, 0);
-    }
-
-    getSceneAssetId(sceneId: string): string | null {
-        // Le scene non hanno asset dedicati: feature disattivata.
-        void sceneId;
-        return null;
     }
 
 }

@@ -16,8 +16,16 @@ const { server: nodeCfg } = serverEnv;
 let proxy: RequestHandler | undefined;
 
 function buildProxy(): RequestHandler {
+    // Fail-fast sull'origin: un valore malformato in configurazione (typo, schema mancante)
+    // emerge qui come errore esplicito, invece che come errore criptico del proxy a ogni richiesta.
+    const origin = serverEnv.backend.origin;
+    const protocol = new URL(origin).protocol; // lancia TypeError se l'origin non è un URL
+    if (protocol !== 'http:' && protocol !== 'https:') {
+        throw new Error(`BACKEND_ORIGIN non valido (atteso http/https): ${origin}`);
+    }
+
     return createProxyMiddleware({
-        target: serverEnv.backend.origin,
+        target: origin,
         // changeOrigin riscrive l'Host verso il backend (come faceva fetch leggendo l'URL).
         changeOrigin: true,
         // Timeout sulla risposta del backend → on.error → 504.
@@ -41,20 +49,32 @@ function buildProxy(): RequestHandler {
                 if (r.ip) proxyReq.setHeader('x-forwarded-for', r.ip);
                 else proxyReq.removeHeader('x-forwarded-for');
 
-                // Proto/host: usa l'header del client se presente (siamo dietro NPM), altrimenti i valori locali.
-                const proto = (r.headers['x-forwarded-proto'] as string) || r.protocol;
-                const host = (r.headers['x-forwarded-host'] as string) || r.get('host');
+                // Proto/host: come l'XFF sopra, usa i valori risolti da Express via `trust proxy`.
+                // r.protocol/r.hostname leggono gli X-Forwarded-* SOLO dagli hop fidati, altrimenti
+                // ricadono sui valori reali della connessione. Leggere gli header grezzi del client
+                // bypasserebbe quel filtro → host/proto header injection da chi colpisce il server in diretta.
+                const proto = r.protocol;
+                const host = r.hostname;
                 if (proto) proxyReq.setHeader('x-forwarded-proto', proto);
+                else proxyReq.removeHeader('x-forwarded-proto');
                 if (host) proxyReq.setHeader('x-forwarded-host', host);
+                else proxyReq.removeHeader('x-forwarded-host');
             },
             error: (err, _req, res) => {
                 console.error('[proxy /api]', err);
                 const response = res as Response;
                 if (!response.headersSent) {
-                    response.status(504).json({
-                        status: 504,
-                        title: 'Gateway Timeout',
-                        detail: 'Il backend non ha risposto in tempo.',
+                    // ECONNRESET/ETIMEDOUT = timeout reale → 504. ECONNREFUSED/ENOTFOUND/EHOSTUNREACH
+                    // = backend non raggiungibile → 502 Bad Gateway (non un timeout).
+                    const code = (err as NodeJS.ErrnoException).code;
+                    const isTimeout = code === 'ECONNRESET' || code === 'ETIMEDOUT';
+                    const status = isTimeout ? 504 : 502;
+                    response.status(status).json({
+                        status,
+                        title: isTimeout ? 'Gateway Timeout' : 'Bad Gateway',
+                        detail: isTimeout
+                            ? 'Il backend non ha risposto in tempo.'
+                            : 'Il backend non è raggiungibile.',
                     });
                 }
             },

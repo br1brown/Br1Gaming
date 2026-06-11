@@ -1,4 +1,4 @@
-<main class="game-shell col-12 col-md-8 offset-md-2" appFitViewport>
+<main class="col-12 col-md-8 offset-md-2 d-flex flex-column justify-content-center gap-3 py-2" appFitViewport>
 
     @if (!gameActive()) {
     <div class="text-center mb-2">
@@ -27,7 +27,7 @@
     }
 
     @if (gameActive()) {
-    <div class="card game-card border-0 shadow-sm">
+    <div class="card border-0 shadow-sm">
         <div class="card-body">
             <div class="d-flex justify-content-around text-center mb-3">
                 <div>
@@ -40,9 +40,9 @@
                 </div>
             </div>
 
-            <div class="text-center mb-3 game-image-container">
+            <div class="mb-3 d-flex align-items-center justify-content-center overflow-hidden" style="height: min(360px, 36vh)">
                 @if (currentImageAssetId(); as assetId) {
-                <img [appAsset]="assetId" alt="" class="img-fluid game-image">
+                <img [appAsset]="assetId" [appAssetWidth]="512" alt="" class="img-fluid mh-100 object-fit-contain">
                 } @else {
                 <div class="d-flex align-items-center justify-content-center h-100">
                     <div class="spinner-border text-muted" role="status"></div>

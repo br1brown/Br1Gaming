@@ -35,7 +35,6 @@ interface RecordEntry { score: number; time: number; }
     standalone: true,
     imports: [AssetDirective, FitViewportDirective],
     templateUrl: './duce-non-duce.component.html',
-    styleUrl: './duce-non-duce.component.css'
 })
 export class DuceNonDuceComponent extends PageBaseComponent<void> implements OnDestroy {
     private readonly cookies = inject(CookieConsentService);
@@ -55,7 +54,8 @@ export class DuceNonDuceComponent extends PageBaseComponent<void> implements OnD
         return r ? this.formatTime(r.time) : null;
     });
 
-    private readonly imageCache = new Set<number>();
+    /** Sacchetto di indici mescolati: pop a ogni immagine, niente ripetizioni finché non si svuota. */
+    private imageBag: number[] = [];
     private timerId: ReturnType<typeof setInterval> | null = null;
 
     constructor() {
@@ -85,7 +85,7 @@ export class DuceNonDuceComponent extends PageBaseComponent<void> implements OnD
     startGame(): void {
         this.gameActive.set(true);
         this.score.set(0);
-        this.imageCache.clear();
+        this.imageBag = [];
         this.nextImage();
         this.startTimer();
     }
@@ -119,11 +119,17 @@ export class DuceNonDuceComponent extends PageBaseComponent<void> implements OnD
     }
 
     private pickIndex(): number {
-        const idx = Math.floor(Math.random() * IMAGES.length);
-        if (this.imageCache.has(idx)) return this.pickIndex();
-        this.imageCache.add(idx);
-        if (this.imageCache.size >= IMAGES.length) this.imageCache.clear();
-        return idx;
+        if (this.imageBag.length === 0) {
+            // Rimescola tutti gli indici (Fisher-Yates): O(n) una tantum, poi pop O(1)
+            // senza ripetizioni — al posto del rejection sampling ricorsivo che degenerava
+            // verso fine ciclo (sempre più collisioni da scartare).
+            this.imageBag = IMAGES.map((_, i) => i);
+            for (let i = this.imageBag.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [this.imageBag[i], this.imageBag[j]] = [this.imageBag[j], this.imageBag[i]];
+            }
+        }
+        return this.imageBag.pop()!;
     }
 
     private startTimer(): void {

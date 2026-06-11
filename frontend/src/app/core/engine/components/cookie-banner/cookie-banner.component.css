@@ -2,7 +2,8 @@ app-cookie-banner .cookie-reopen-btn {
     position: fixed;
     bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
     left: 0.75rem;
-    z-index: 1050;
+    /* Scala z-index del template: vedi base.css §variabili */
+    z-index: var(--z-cookie-banner);
     border: none;
     padding: 0;
     opacity: 0.55;
@@ -20,7 +21,7 @@ app-cookie-banner .cookie-banner {
     bottom: 0;
     left: 0;
     right: 0;
-    z-index: 1050;
+    z-index: var(--z-cookie-banner);
 }
 
 app-cookie-banner .cookie-banner a {

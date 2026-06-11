@@ -1,56 +1,47 @@
-<div class="generator-shell col-12 col-md-8 offset-md-2">
-  <section class="generator-hero">
+<div class="col-12 col-md-8 offset-md-2 py-3">
+
     @if (generator(); as gen) {
-      <div class="generator-hero-inner">
+    <div class="d-flex align-items-center gap-3 mb-4">
         @if (coverAssetId() && coverVisible()) {
-        <img [appAsset]="coverAssetId()!" alt="" class="generator-cover" (error)="coverVisible.set(false)">
+        <img [appAsset]="coverAssetId()!"
+             [appAssetWidth]="320"
+             alt=""
+             class="w-25 rounded-5"
+             (error)="coverVisible.set(false)">
         }
-        <div class="generator-hero-text">
-          <h1 class="generator-title">{{ gen.name }}</h1>
-          <p class="generator-description">{{ gen.description }}</p>
+        <div>
+            <h1 class="h3 fw-bold mb-1">{{ gen.name }}</h1>
+            <p class="text-secondary mb-0">{{ gen.description }}</p>
         </div>
-      </div>
-    } @else {
-      <div class="text-center py-5">
-        <div class="spinner-border text-muted" role="status"></div>
-      </div>
-    }
-  </section>
+    </div>
 
-  @if (result(); as res) {
-  <section>
-      <div class="card generator-card">
-          <div class="card-header generator-actions">
-              <button class="btn btn-primary generator-action-primary" (click)="generate()" [disabled]="loading()">
-                  @if (loading()) {
-                  <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                  }
-                  {{ 'genera' | translate }}!
-              </button>
+    <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
+        <button class="btn btn-primary rounded-pill px-4" (click)="generate()" [disabled]="loading()">
+            @if (loading()) {
+            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+            }
+            {{ 'genera' | translate }}!
+        </button>
 
-              <div class="generator-action-group">
-                  <app-speech-action [action]="speakText" [showLabel]="true"
-                                     label="riproduciAudio" labelStop="fermaAudio" />
-                  <app-copy-action [action]="copyText" [showLabel]="true" />
-                  <app-share-action [action]="buildShareCanvas" [showLabel]="true"
-                                    [title]="shareTitle()" [filename]="shareFilename()" />
-              </div>
-          </div>
-          <div class="card-body generator-output">
-              <div [innerHTML]="res.markdown | markdown"></div>
-          </div>
-      </div>
-  </section>
-  }
-
-  @if (generator() && !result()) {
-    <section class="generator-empty">
-      <button class="btn btn-primary" (click)="generate()" [disabled]="loading()">
-        @if (loading()) {
-          <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+        @if (result()) {
+        <div class="row">
+                <app-speech-action [action]="speakText" class="col" />
+                <app-copy-action [action]="copyText" class="col" [showLabel]="true" />
+                <app-share-action [action]="buildShareCanvas" class="col" [showLabel]="true"
+                                  [title]="shareTitle()" [filename]="shareFilename()" />
+        </div>
         }
-        {{ 'genera' | translate }}!
-      </button>
-    </section>
-  }
+    </div>
+
+    @if (result(); as res) {
+    <div class="p-4 shadow-sm">
+        <div [innerHTML]="res.markdown | markdown"></div>
+    </div>
+    }
+
+    } @else {
+    <div class="d-flex justify-content-center align-items-center py-5">
+        <div class="spinner-grow text-secondary opacity-50" role="status"></div>
+    </div>
+    }
 </div>

@@ -1,7 +1,8 @@
 import { Component, input } from '@angular/core';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { NavLinkComponent } from '../nav-link/nav-link.component';
-import { NavLink } from '../../siteBuilder';
+import { FooterNavGroupComponent } from '../footer-nav-group/footer-nav-group.component';
+import { NavLink, isNavGroup } from '../../siteBuilder';
 
 /**
  * FOOTER NAV COMPONENT
@@ -17,13 +18,12 @@ import { NavLink } from '../../siteBuilder';
 @Component({
     selector: 'app-footer-nav',
     standalone: true,
-    imports: [TranslatePipe, NavLinkComponent],
+    imports: [TranslatePipe, NavLinkComponent, FooterNavGroupComponent],
     templateUrl: './footer-nav.component.html',
 })
 export class FooterNavComponent {
     readonly links = input.required<NavLink[]>();
 
-    isGroup(item: NavLink): item is NavLink & { children: NavLink[] } {
-        return Array.isArray(item.children) && item.children.length > 0;
-    }
+    /** Type-guard riusato nel template per ramificare voce-gruppo / voce-link. */
+    readonly isGroup = isNavGroup;
 }

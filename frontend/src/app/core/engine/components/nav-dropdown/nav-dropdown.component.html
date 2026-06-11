@@ -11,10 +11,14 @@
     <ul class="dropdown-menu list-unstyled" [class.show]="open()">
         @for (child of item().children; track child.path) {
             <li>
-                <app-nav-link [link]="child"
-                              cssClass="dropdown-item"
-                              activeCssClass="dropdown-item nav-current-link active"
-                              (linkClick)="linkClick.emit()" />
+                @if (isGroup(child)) {
+                    <app-nav-submenu [item]="child" (linkClick)="linkClick.emit()" />
+                } @else {
+                    <app-nav-link [link]="child"
+                                  cssClass="dropdown-item"
+                                  activeCssClass="dropdown-item nav-current-link active"
+                                  (linkClick)="linkClick.emit()" />
+                }
             </li>
         }
     </ul>
