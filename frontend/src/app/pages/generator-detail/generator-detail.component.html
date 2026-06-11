@@ -1,0 +1,56 @@
+<div class="generator-shell col-12 col-md-8 offset-md-2">
+  <section class="generator-hero">
+    @if (generator(); as gen) {
+      <div class="generator-hero-inner">
+        @if (coverAssetId() && coverVisible()) {
+        <img [appAsset]="coverAssetId()!" alt="" class="generator-cover" (error)="coverVisible.set(false)">
+        }
+        <div class="generator-hero-text">
+          <h1 class="generator-title">{{ gen.name }}</h1>
+          <p class="generator-description">{{ gen.description }}</p>
+        </div>
+      </div>
+    } @else {
+      <div class="text-center py-5">
+        <div class="spinner-border text-muted" role="status"></div>
+      </div>
+    }
+  </section>
+
+  @if (result(); as res) {
+  <section>
+      <div class="card generator-card">
+          <div class="card-header generator-actions">
+              <button class="btn btn-primary generator-action-primary" (click)="generate()" [disabled]="loading()">
+                  @if (loading()) {
+                  <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                  }
+                  {{ 'genera' | translate }}!
+              </button>
+
+              <div class="generator-action-group">
+                  <app-speech-action [action]="speakText" [showLabel]="true"
+                                     label="riproduciAudio" labelStop="fermaAudio" />
+                  <app-copy-action [action]="copyText" [showLabel]="true" />
+                  <app-share-action [action]="buildShareCanvas" [showLabel]="true"
+                                    [title]="shareTitle()" [filename]="shareFilename()" />
+              </div>
+          </div>
+          <div class="card-body generator-output">
+              <div [innerHTML]="res.markdown | markdown"></div>
+          </div>
+      </div>
+  </section>
+  }
+
+  @if (generator() && !result()) {
+    <section class="generator-empty">
+      <button class="btn btn-primary" (click)="generate()" [disabled]="loading()">
+        @if (loading()) {
+          <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+        }
+        {{ 'genera' | translate }}!
+      </button>
+    </section>
+  }
+</div>

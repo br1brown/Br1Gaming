@@ -30,7 +30,7 @@ import { afterNextRender, Directive, ElementRef, inject, input } from '@angular/
 })
 export class FitViewportDirective {
     /** Altezza minima in px: sotto questa soglia non si scende (schermi molto bassi → si accetta lo scroll). */
-    readonly appFitViewportMin = input(320);
+    readonly minHeight = input(320, { alias: 'appFitViewportMin' });
 
     private readonly el = inject(ElementRef) as ElementRef<HTMLElement>;
 
@@ -41,7 +41,7 @@ export class FitViewportDirective {
     protected fit(): void {
         const node = this.el.nativeElement;
         const others = document.documentElement.scrollHeight - node.getBoundingClientRect().height;
-        const h = Math.max(this.appFitViewportMin(), Math.round(window.innerHeight - others));
+        const h = Math.max(this.minHeight(), Math.round(window.innerHeight - others));
         node.style.height = `${h}px`;
     }
 }

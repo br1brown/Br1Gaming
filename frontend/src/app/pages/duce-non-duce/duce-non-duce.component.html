@@ -1,0 +1,67 @@
+<main class="game-shell col-12 col-md-8 offset-md-2" appFitViewport>
+
+    @if (!gameActive()) {
+    <div class="text-center mb-4">
+        <h1 class="display-5 fw-bold">Duce o Non Duce?</h1>
+        <p class="text-muted fst-italic">Da un'idea di Valerio Lundini</p>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body text-center py-4">
+            @if (record(); as r) {
+            <p class="text-muted mb-1 small">Record personale</p>
+            <p class="display-4 fw-bold mb-1">{{ r.score }}</p>
+            @if (r.time > 0) {
+            <p class="text-muted small mb-3">raggiunto in <span class="fw-semibold font-monospace">{{ formattedRecordTime() }}</span></p>
+            } @else {
+            <p class="mb-3"></p>
+            }
+            <button class="btn btn-sm btn-outline-secondary mb-4" (click)="resetRecord()">
+                Cancella record
+            </button>
+            <hr>
+            }
+            <button class="btn btn-primary btn-lg" (click)="startGame()">
+                Inizia il gioco
+            </button>
+        </div>
+    </div>
+    }
+
+    @if (gameActive()) {
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <div class="d-flex justify-content-around text-center mb-3">
+                <div>
+                    <div class="small text-muted">Tempo</div>
+                    <div class="fs-3 fw-bold font-monospace">{{ formattedTime() }}</div>
+                </div>
+                <div>
+                    <div class="small text-muted">Punti</div>
+                    <div class="fs-3 fw-bold">{{ score() }}</div>
+                </div>
+            </div>
+
+            <div class="text-center mb-3 game-image-container">
+                @if (currentImageAssetId(); as assetId) {
+                <img [appAsset]="assetId" alt="" class="img-fluid game-image">
+                } @else {
+                <div class="d-flex align-items-center justify-content-center h-100">
+                    <div class="spinner-border text-muted" role="status"></div>
+                </div>
+                }
+            </div>
+
+            <div class="d-grid gap-2 d-sm-flex justify-content-sm-center mt-1">
+                <button class="btn btn-success btn-lg flex-sm-fill" (click)="answer(true)">
+                    DUCE
+                </button>
+                <button class="btn btn-danger btn-lg flex-sm-fill" (click)="answer(false)">
+                    NON DUCE
+                </button>
+            </div>
+        </div>
+    </div>
+    }
+
+</main>

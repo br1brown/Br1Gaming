@@ -1,0 +1,131 @@
+:host {
+    display: block;
+}
+
+.generator-shell {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.generator-hero {
+    display: grid;
+    gap: 0.8rem;
+    padding: clamp(1.25rem, 2vw, 2rem);
+    border-radius: 1.5rem;
+    background-color: var(--colorSurface);
+    border: 1px solid var(--colorSurfaceBorder);
+}
+
+.generator-hero-inner {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.generator-cover {
+    height: 125px;
+    width: auto;
+    flex-shrink: 0;
+    border-radius: 0.75rem;
+    object-fit: contain;
+}
+
+.generator-hero-text {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+}
+
+.generator-title {
+    margin: 0;
+    font-size: clamp(2rem, 4vw, 3.4rem);
+}
+
+.generator-description {
+    max-width: 40rem;
+    margin: 0;
+    color: color-mix(in srgb, currentColor 70%, transparent);
+}
+
+.generator-card {
+    border-radius: 1.5rem;
+}
+
+.generator-actions {
+    display: grid;
+    gap: 1rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 0;
+}
+
+.generator-action-primary {
+    justify-self: start;
+    min-width: 10rem;
+}
+
+.generator-action-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.generator-action-secondary {
+    min-width: 8.25rem;
+}
+
+.generator-output {
+    font-size: 1.02rem;
+    line-height: 1.75;
+    padding-top: 0.5rem;
+}
+
+.generator-output :first-child {
+    margin-top: 0;
+}
+
+.generator-empty {
+    display: flex;
+    justify-content: flex-start;
+}
+
+@media (max-width: 767.98px) {
+    .generator-hero-inner {
+        flex-direction: column;
+    }
+
+    .generator-cover {
+        height: auto;
+        width: 100%;
+        max-width: 100%;
+        max-height: 55vw;
+        object-fit: cover;
+    }
+
+    .generator-card {
+        border-radius: 1.25rem;
+    }
+
+    .generator-actions {
+        gap: 0.85rem;
+    }
+
+    .generator-action-primary,
+    .generator-actions .btn {
+        width: 100%;
+    }
+
+    .generator-action-group {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.65rem;
+    }
+
+    .generator-action-group .generator-action-secondary:first-child {
+        grid-column: 1 / -1;
+    }
+
+    .generator-output {
+        padding-top: 0.25rem;
+    }
+}

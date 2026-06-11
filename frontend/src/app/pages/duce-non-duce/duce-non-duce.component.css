@@ -1,0 +1,26 @@
+/* appFitViewport porta .game-shell a riempire esattamente il viewport: centriamo il
+   contenuto e nascondiamo l'overflow, così il gioco è sempre tutto visibile senza scroll. */
+.game-shell {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1rem 0;
+    overflow: hidden;
+}
+
+.game-image-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Altezza legata al viewport (max 360px): sugli schermi bassi l'immagine si
+       rimpicciolisce invece di spingere i bottoni fuori schermo. */
+    height: min(360px, 42vh);
+    overflow: hidden;
+}
+
+.game-image {
+    max-height: 100%;
+    max-width: 100%;
+    object-fit: contain;
+}
