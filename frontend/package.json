@@ -18,6 +18,7 @@
     "prebuild": "npm run clean:preview-cache && npm run generate:statics && npm run generate:icons",
     "build": "ng build",
     "serve:ssr": "node dist/app/server/server.mjs",
+    "predev": "npm run generate:statics && npm run generate:icons",
     "dev": "ng serve --open --ssl false --proxy-config proxy.local.conf.cjs",
     "dev:ssr": "npm run build && cross-env BACKEND_ORIGIN=http://localhost:5000 ASSETS_DIR=src/assets/files node dist/app/server/server.mjs",
     "watch": "ng build --watch --configuration development",
