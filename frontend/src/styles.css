@@ -62,7 +62,7 @@ main#main-content {
     }
 }
 
-.container-fluid {
+main#main-content {
     position: relative;
     z-index: 1;
 }

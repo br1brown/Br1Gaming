@@ -17,7 +17,6 @@ export enum PageType {
     LegalNotice,
     //PERSONALIZZABILI
     Home,
-    GitHub,
     GeneratorIncel,
     GeneratorAuto,
     GeneratorAntiveg,
@@ -65,37 +64,15 @@ function storyPage(
     };
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// CONFIGURAZIONE MASTER DEL SITO
-// ═══════════════════════════════════════════════════════════════════════
-//
-// Definisce la STRUTTURA e il COMPORTAMENTO del sito. Identità ed estetica
-// (nome, versione, lingue, descrizione, tema, smoke) NON stanno qui: vivono in
-// global-settings.json e arrivano al frontend via environment.ts.
-//
+
 export const ContestoSito = buildSite({
 
     // Pagina del brand/logo nel navbar.
     homePage: PageType.Home,
 
-    // Pagine legali: il progetto usa solo la Cookie Policy (obbligatoria perché il sito
-    // usa cookie). Gli altri slot omessi = pagine non create. L'Engine costruisce /policy/*.
     legalPages: {
         cookie: PageType.CookiePolicy,
     },
-
-    // Comportamento della shell (default sensati per ogni flag omesso).
-    shell: {
-        showNav: true,
-        showFooter: true,
-        fixedTopHeader: false,
-        showBrandIconInHeader: true,
-        showLoginInHeader: false,
-        forcedLightPanel: true,
-    },
-
-    isWebApp: true,         // PWA: Service Worker, aggiornamenti, install offline
-    onlyPlainImage: false,  // anteprime social con scritte/favicon sovrapposte
 
     pages: () => [
         {
@@ -124,8 +101,6 @@ export const ContestoSito = buildSite({
             title: `DUCE NON DUCE?`,
             description: 'Indovina se la persona è un duce o non duce',
             pageType: PageType.GameDuceNonDuce,
-            // Niente footer: il gioco riempie lo spazio sotto la navbar (catena flex
-            // dell'app) e col footer visibile verrebbe compresso invece di riempirlo.
             layout: { showPanel: false, showFooter: false },
             otherSEO: { ogImage: 'game.ducenonduce' },
             component: () => import('./pages/duce-non-duce/duce-non-duce.component')
@@ -139,13 +114,27 @@ export const ContestoSito = buildSite({
             pageType: PageType.GameRadar,
             otherSEO: { ogImage: 'game.radar' },
             layout: { showPanel: false, showFooter: false },
-            // 'server' (non 'client'): l'SSR rende la shell e popola il TransferState con
-            // Custom (token Mapbox). La logica GPS/mappa resta client (afterNextRender).
-            renderMode: 'server',
             component: () => import('./pages/radar/radar.component')
                 .then(m => m.RadarComponent),
         },
     ],
+
+    headerNav: (nav) => {
+        nav.addGroup('generatori', (g) => {
+            g.addPage(PageType.GeneratorIncel);
+            g.addPage(PageType.GeneratorAuto);
+            g.addPage(PageType.GeneratorAntiveg);
+            g.addPage(PageType.GeneratorLocali);
+            g.addPage(PageType.GeneratorMbeb);
+        });
+        nav.addGroup('giochi', (g) => {
+            g.addPage(PageType.StoryPoveriMaschi);
+            g.addPage(PageType.StoryMagrogamer09);
+            g.addPage(PageType.StorySurviveUsa);
+            g.addPage(PageType.GameDuceNonDuce);
+            g.addPage(PageType.GameRadar);
+        });
+    },
 
     footerNav: (f) => {
         f.addLink("githubDesc", 'https://github.com/br1brown/Br1Gaming');
