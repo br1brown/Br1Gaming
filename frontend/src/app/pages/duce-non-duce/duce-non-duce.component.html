@@ -1,29 +1,27 @@
 <main class="game-shell col-12 col-md-8 offset-md-2" appFitViewport>
 
     @if (!gameActive()) {
-    <div class="text-center mb-4">
+    <div class="text-center mb-2">
         <h1 class="display-5 fw-bold">Duce o Non Duce?</h1>
-        <p class="text-muted fst-italic">Da un'idea di Valerio Lundini</p>
+        <p class="text-muted fst-italic mb-0">Da un'idea di Valerio Lundini</p>
     </div>
 
     <div class="card border-0 shadow-sm">
-        <div class="card-body text-center py-4">
-            @if (record(); as r) {
-            <p class="text-muted mb-1 small">Record personale</p>
-            <p class="display-4 fw-bold mb-1">{{ r.score }}</p>
-            @if (r.time > 0) {
-            <p class="text-muted small mb-3">raggiunto in <span class="fw-semibold font-monospace">{{ formattedRecordTime() }}</span></p>
-            } @else {
-            <p class="mb-3"></p>
-            }
-            <button class="btn btn-sm btn-outline-secondary mb-4" (click)="resetRecord()">
-                Cancella record
-            </button>
-            <hr>
-            }
+        <div class="card-body text-center py-3">
             <button class="btn btn-primary btn-lg" (click)="startGame()">
                 Inizia il gioco
             </button>
+            @if (record(); as r) {
+            <hr class="my-2">
+            <p class="text-muted mb-1 small">Record personale</p>
+            <p class="fs-3 fw-bold mb-1">{{ r.score }}</p>
+            @if (r.time > 0) {
+            <p class="text-muted small mb-2">raggiunto in <span class="fw-semibold font-monospace">{{ formattedRecordTime() }}</span></p>
+            }
+            <button class="btn btn-sm btn-outline-secondary" (click)="resetRecord()">
+                Cancella record
+            </button>
+            }
         </div>
     </div>
     }
