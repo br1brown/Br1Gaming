@@ -1,0 +1,67 @@
+<div class="radar-screen" appFitViewport>
+
+    <div #mapContainer class="radar-map"></div>
+    <div class="radar-scanlines"></div>
+
+    @switch (status()) {
+
+        @case ('ready') {
+
+            <div class="hud hud-top">
+                <span class="hud-label">{{ 'radarHudLabel' | translate }}</span>
+                <span class="hud-count">{{ foundCount() }} / {{ total() }}</span>
+            </div>
+
+            <div class="radar-controls">
+                <button type="button" class="radar-ctrl" (click)="recenter()"
+                        [title]="'radarRecenter' | translate" [attr.aria-label]="'radarRecenter' | translate">
+                    <i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i>
+                </button>
+                @if (needsCompassPermission()) {
+                    <button type="button" class="radar-ctrl" (click)="enableCompass()"
+                            [title]="'radarCompass' | translate" [attr.aria-label]="'radarCompass' | translate">
+                        <i class="fa-solid fa-compass" aria-hidden="true"></i>
+                    </button>
+                }
+            </div>
+
+            @if (allFound()) {
+                <div class="radar-overlay">
+                    <div class="scouter-panel win">
+                        <p class="scouter-title">{{ 'radarWinTitle' | translate }}</p>
+                        <p>{{ 'radarWinBody' | translate }} <strong>{{ 'radarWinPower' | translate }}</strong></p>
+                        <a routerLink="/" class="scouter-btn">{{ 'radarBack' | translate }}</a>
+                    </div>
+                </div>
+            } @else if (nearestUnfound(); as target) {
+                <div class="hud hud-bottom">
+                    <div class="radar-dish" aria-hidden="true" [style.transform]="'rotate(' + arrowAngle() + 'deg)'">➤</div>
+                    <div class="hud-distance">
+                        <span class="hud-value">{{ target.distance | number:'1.0-0' }} m</span>
+                        <span class="hud-target">{{ target.name }}</span>
+                    </div>
+                </div>
+            }
+        }
+
+        @case ('error') {
+            <div class="radar-overlay">
+                <div class="scouter-panel error">
+                    <p class="scouter-title">{{ 'radarOffline' | translate }}</p>
+                    <p>{{ errorMsg() | translate }}</p>
+                    <a routerLink="/" class="scouter-btn">{{ 'radarBack' | translate }}</a>
+                </div>
+            </div>
+        }
+
+        @default {
+            <div class="radar-overlay">
+                <div class="scouter-panel">
+                    <div class="scouter-spinner"></div>
+                    <p>{{ (status() === 'searching' ? 'radarSearching' : 'radarLocating') | translate }}</p>
+                </div>
+            </div>
+        }
+    }
+
+</div>

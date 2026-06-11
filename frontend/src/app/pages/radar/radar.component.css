@@ -1,0 +1,182 @@
+:host {
+    --scouter: #39ff14;
+    --scouter-dim: rgba(57, 255, 20, 0.55);
+    display: block;
+}
+
+.radar-screen {
+    position: relative;
+    width: 100%;
+    /* ~90% dell'altezza del device: la navbar resta visibile sopra (per tornare indietro). */
+    height: 90dvh;
+    overflow: hidden;
+    background: #05140a;
+    color: var(--scouter);
+    font-family: ui-monospace, "Courier New", monospace;
+    user-select: none;
+}
+
+.radar-map {
+    position: absolute;
+    inset: 0;
+}
+
+/* Scanline/glow da scouter sopra la mappa (non blocca le interazioni) */
+.radar-scanlines {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        repeating-linear-gradient(0deg, rgba(57, 255, 20, 0.06) 0 1px, transparent 1px 3px),
+        radial-gradient(circle at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+    mix-blend-mode: screen;
+    z-index: 2;
+}
+
+/* ── HUD ──────────────────────────────────────────────────────────── */
+
+.hud {
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8rem;
+    padding: 0.7rem 1rem;
+    text-shadow: 0 0 6px var(--scouter-dim);
+    letter-spacing: 0.08em;
+}
+
+.hud-top { top: 0; background: linear-gradient(to bottom, rgba(5, 20, 10, 0.85), transparent); }
+.hud-bottom { bottom: 0; background: linear-gradient(to top, rgba(5, 20, 10, 0.9), transparent); padding-bottom: 1.4rem; }
+
+.hud-label { font-size: 0.72rem; opacity: 0.8; }
+.hud-count { font-size: 1.4rem; font-weight: 700; }
+
+.radar-dish {
+    font-size: 2.4rem;
+    line-height: 1;
+    transition: transform 0.25s ease-out;
+    filter: drop-shadow(0 0 8px var(--scouter));
+}
+
+.hud-distance { display: flex; flex-direction: column; align-items: center; }
+.hud-value { font-size: 1.8rem; font-weight: 700; }
+.hud-target { font-size: 0.74rem; opacity: 0.8; max-width: 70vw; text-align: center; }
+
+/* Controlli laterali (centra-su-di-me + bussola), stile pulsanti tondi da scouter. */
+.radar-controls {
+    position: absolute;
+    top: 3.4rem;
+    right: 0.8rem;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.radar-ctrl {
+    width: 2.8rem;
+    height: 2.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--scouter);
+    border-radius: 50%;
+    background: rgba(5, 20, 10, 0.75);
+    color: var(--scouter);
+    font-size: 1.15rem;
+    cursor: pointer;
+    box-shadow: 0 0 12px rgba(57, 255, 20, 0.25);
+    transition: background 0.15s, color 0.15s, transform 0.1s;
+}
+.radar-ctrl:hover, .radar-ctrl:focus-visible { background: var(--scouter); color: #05140a; }
+.radar-ctrl:active { transform: scale(0.92); }
+
+/* ── Overlay (loading / error / win) ──────────────────────────────── */
+
+.radar-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background: rgba(3, 12, 7, 0.78);
+    backdrop-filter: blur(2px);
+}
+
+.scouter-panel {
+    max-width: 26rem;
+    text-align: center;
+    border: 1px solid var(--scouter-dim);
+    border-radius: 0.8rem;
+    padding: 1.6rem 1.4rem;
+    background: rgba(5, 20, 10, 0.9);
+    box-shadow: 0 0 24px rgba(57, 255, 20, 0.25);
+    text-shadow: 0 0 6px var(--scouter-dim);
+}
+
+.scouter-title { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.1em; margin-bottom: 0.6rem; }
+.scouter-panel.error .scouter-title { color: #ff5a5a; text-shadow: 0 0 6px rgba(255, 90, 90, 0.5); }
+.scouter-panel.win { animation: winpulse 1.2s ease-in-out infinite alternate; }
+
+.scouter-btn {
+    display: inline-block;
+    margin-top: 1rem;
+    padding: 0.5rem 1.1rem;
+    border: 1px solid var(--scouter);
+    border-radius: 999px;
+    color: var(--scouter);
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s;
+}
+.scouter-btn:hover, .scouter-btn:focus-visible { background: var(--scouter); color: #05140a; }
+
+.scouter-spinner {
+    width: 38px;
+    height: 38px;
+    margin: 0 auto 0.9rem;
+    border: 3px solid rgba(57, 255, 20, 0.25);
+    border-top-color: var(--scouter);
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes winpulse { from { box-shadow: 0 0 18px rgba(57, 255, 20, 0.25); } to { box-shadow: 0 0 40px rgba(57, 255, 20, 0.6); } }
+
+/* ── Marker creati da Mapbox (DOM dentro #radar-map) ──────────────── */
+
+:host ::ng-deep .radar-you {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--scouter);
+    box-shadow: 0 0 0 4px rgba(57, 255, 20, 0.3), 0 0 14px var(--scouter);
+    animation: ping 1.6s ease-out infinite;
+}
+
+@keyframes ping {
+    0% { box-shadow: 0 0 0 0 rgba(57, 255, 20, 0.5), 0 0 14px var(--scouter); }
+    100% { box-shadow: 0 0 0 22px rgba(57, 255, 20, 0), 0 0 14px var(--scouter); }
+}
+
+/* Chiesa nascosta finché non la trovi; quando la trovi appare con un glow. */
+:host ::ng-deep .church-marker {
+    display: none;
+    font-size: 1.7rem;
+    line-height: 1;
+    filter: drop-shadow(0 0 8px var(--scouter));
+    animation: reveal 0.5s ease-out;
+}
+:host ::ng-deep .church-marker.found { display: block; }
+
+@keyframes reveal { from { transform: scale(0) rotate(-30deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
