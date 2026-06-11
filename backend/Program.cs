@@ -71,8 +71,12 @@ var localization = builder.Configuration
 // SiteService: logica di business del progetto.
 // AuthService: infrastruttura JWT, registrata solo se LoginEnabled.
 builder.Services.AddMemoryCache();
+
+// GeneratorService: catalogo, info e generazione testo per ogni generatore.
+// StoryService: registro storie, motore narrativo e play per ogni storia.
 builder.Services.AddSingleton<IContentStore, FileContentStore>();
-builder.Services.AddScoped<SiteService>();
+builder.Services.AddScoped<GeneratorService>();
+builder.Services.AddSingleton<StoryService>();
 
 if (security.LoginEnabled)
     builder.Services.AddSingleton<AuthService>();
