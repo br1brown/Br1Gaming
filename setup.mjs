@@ -8,8 +8,9 @@
  *
  * Cosa fa:
  *   1. Imposta project.name in global-settings.json (file committabile: identità del progetto)
- *   2. Crea global-settings.local.json (gitignored) con pubblicazione (porte/deploy) e i
- *      SEGRETI generati (SecretKey JWT + API key)
+ *   2. Crea global-settings.local.json (gitignored) con pubblicazione (porte/deploy) e
+ *      l'API key generata. La SecretKey JWT resta VUOTA: un progetto nasce col login
+ *      spento — si attiva valorizzandola, scelta esplicita e mai un default.
  *   3. Rinomina gli identificatori npm/SW generici "app" → slug del prodotto
  *      (frontend/package.json, frontend/ngsw-config.json)
  *   4. Rinomina App.sln → NomeProgetto.sln
@@ -103,8 +104,10 @@ async function main() {
         src => src.replace(/("name"\s*:\s*)"[^"]*"/, `$1${JSON.stringify(displayName)}`)
     );
 
-    // ── 2. global-settings.local.json: pubblicazione + segreti generati (gitignored) ──
-    // Porte, dominio, CORS e le chiavi (SecretKey JWT, ApiKeys) vivono SOLO qui, fuori dal repo.
+    // ── 2. global-settings.local.json: pubblicazione + API key generata (gitignored) ──
+    // Porte, dominio, CORS e le chiavi vivono SOLO qui, fuori dal repo.
+    // SecretKey resta VUOTA: il login è spento finché non la si valorizza (≥32 char) —
+    // attivarlo deve essere una scelta esplicita, non un effetto collaterale del setup.
     const localPath = join(ROOT, 'global-settings.local.json');
     if (existsSync(localPath)) {
         console.log('  =  global-settings.local.json già presente — non sovrascritto');
@@ -117,11 +120,11 @@ async function main() {
                 ApiKeys: [randomBytes(32).toString('base64')],
                 CorsOrigins: [],
                 BehindProxy: false,
-                Token: { SecretKey: randomBytes(48).toString('base64') },
+                Token: { SecretKey: '' },
             },
         };
         writeFileSync(localPath, JSON.stringify(local, null, 2) + '\n', 'utf-8');
-        console.log('  ✓  creato global-settings.local.json (porte/deploy + SecretKey JWT e API key generate)');
+        console.log('  ✓  creato global-settings.local.json (porte/deploy + API key generata; login spento: SecretKey vuota)');
     }
 
     // ── 3. Nomi npm "app" → slug del prodotto ────────────────────────────
@@ -161,11 +164,13 @@ async function main() {
    • Localization    → lingue del sito
    • site.description / site.colorTema → descrizione e colore del brand
 
- Pubblicazione e segreti in global-settings.local.json (gitignored, già con SecretKey + API key):
+ Pubblicazione e segreti in global-settings.local.json (gitignored, già con l'API key):
    • frontend.hostname    → dominio del sito (es. miodominio.it)
    • frontend.port        → porta esposta dal container (se diversa da 3000)
    • Security.CorsOrigins → ["https://miodominio.it"] se si usa un hostname
    • Security.BehindProxy → true se dietro un reverse proxy
+   • Security.Token.SecretKey → VUOTA = login spento. Per attivarlo: chiave ≥32 char
+     (openssl rand -base64 48) e sostituire la verifica demo in AuthController
 ──────────────────────────────────────────
 `);
 }

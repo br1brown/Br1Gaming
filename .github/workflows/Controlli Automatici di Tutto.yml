@@ -25,9 +25,10 @@ jobs:
           dotnet-version: "9.0.x"
 
       - name: Compila
-        # -warnaserror: il template parte a zero warning e in CI ci resta — un warning nuovo
-        # (XML-doc mancante, nullability) si vede subito invece di accumularsi come rumore.
-        run: dotnet build backend/backend.csproj --configuration Release -warnaserror
+        # Niente -warnaserror: questa CI è ereditata tale e quale dai figli, e i warning del
+        # loro dominio (XML-doc mancanti, nullability) non devono bloccargli la build.
+        # Lo zero-warning resta la disciplina del template, non un gate per i figli.
+        run: dotnet build backend/backend.csproj --configuration Release
 
       - name: Controlla pacchetti vulnerabili
         run: |

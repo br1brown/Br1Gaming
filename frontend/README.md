@@ -600,17 +600,19 @@ Le directive sono type-safe: errori di applicazione su elementi sbagliati vengon
 
 ## 🌍 Internazionalizzazione (i18n)
 
-Le traduzioni vivono in `public/assets/i18n/` in due cataloghi per lingua:
+Le traduzioni vivono in `src/assets/i18n/` (la copia in `public/` è output di build, gitignored) in due cataloghi per lingua:
 
 | File | Ruolo |
 | :--- | :--- |
 | `basic.{lang}.json` | Stringhe dell'Engine: traduzioni per le pagine di errore HTTP (`errore400Titolo`/`Descrizione` … fino al 504), azioni comuni (`clipboardCopied`, `clipboardError`, `shareError`, ecc.) e messaggi di login. **Non aggiungere qui chiavi di dominio** — quelle vanno in `addon.{lang}.json`. Aggiungere invece qui quando si modifica l'Engine stesso o si introduce una nuova notifica/comportamento globale; in quel caso la chiave va aggiunta in *tutti* i file `basic.*.json` — `i18n-check.sh` lo verifica in CI. |
-| `addon.{lang}.json` | Stringhe del **progetto** — qui vanno le chiavi personalizzate |
+| `addon.{lang}.json` | Stringhe del **progetto** — qui vanno le chiavi personalizzate. A parità di chiave **sovrascrive** `basic` (i cataloghi sono fusi con `addon` per ultimo): per cambiare il testo di una stringa dell'Engine si ridefinisce la chiave qui, senza mai toccare `basic.*.json` |
 
 **Aggiungere una lingua:**
 1. In `global-settings.json`: `"Localization.SupportedLanguages": ["it", "en", "fr"]`
-2. Creare `basic.fr.json` e `addon.fr.json` in `public/assets/i18n/`
+2. Creare `basic.fr.json` e `addon.fr.json` in `src/assets/i18n/`
 3. `i18n-check.sh` in CI verifica che nessuna chiave sia mancante
+
+**Togliere una lingua:** basta rimuoverla da `SupportedLanguages`. I file `basic.*.json`/`addon.*.json` della lingua tolta restano orfani — nessun controllo li guarda più, è un limite noto: cancellarli a mano per pulizia.
 
 **Usare le traduzioni nel codice:**
 ```typescript
@@ -1358,6 +1360,8 @@ npm run generate:statics
 | `public/llms.txt` | Indice del sito per i crawler AI (convenzione `llms.txt`): nome, descrizione, elenco pagine |
 | `public/security.txt` | Contatto di sicurezza RFC 9116 (`Expires` rigenerato a ogni build); servito sul percorso canonico `/.well-known/security.txt` dal Node SSR |
 | `src/environments/environment.ts` | `defaultLang`, `availableLanguages` — **file generato automaticamente, non modificare manualmente** |
+
+> **Versionati vs solo-build.** Tre output generati sono **versionati** come seed — `src/index.html`, `src/environments/environment.ts`, `public/manifest.webmanifest` e `public/robots.txt` — così type-check e build funzionano anche prima della prima rigenerazione: lo script li tiene aggiornati e la diff si committa insieme a `global-settings.json`. Gli altri (`sitemap.xml`, `llms.txt`, `security.txt`, `theme-init.js`, `icons/`) sono **solo output di build**, gitignored: non vanno mai committati.
 
 ### Variabili d'Ambiente
 

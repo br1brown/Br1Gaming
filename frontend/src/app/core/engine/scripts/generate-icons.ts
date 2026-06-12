@@ -2,8 +2,8 @@
  * Genera le icone PWA (192x192 e 512x512) a partire dal favicon definito in mapping.json.
  * Output: public/icons/ (file generati, non tracciati da git)
  *
- * Eseguire con:  npx tsx scripts/generate-icons.ts
- * Oppure:        npm run generate:icons
+ * Eseguire con:  npm run generate:icons
+ * (gira già in automatico nei passi prestart/predev/prebuild, insieme a generate:statics)
  */
 
 import { existsSync, copyFileSync, mkdirSync, readFileSync } from 'fs';

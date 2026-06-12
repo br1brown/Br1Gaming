@@ -5,8 +5,8 @@
 Questo è il backend del template Br1WebEngine, una Web API .NET 9 progettata per essere leggera, sicura di default e "production-ready".
 
 L'architettura è divisa in due strati principali:
-1. **L'Engine (`Engine/`, `Security/`)**: Il motore infrastrutturale. Contiene le classi base e i middleware di sicurezza. **Non si tocca** durante lo sviluppo quotidiano delle feature.
-2. **Il Dominio (`Controllers/`, `Services/`, `Models/`)**: dove vive il codice applicativo del progetto.
+1. **L'Engine (`Engine/`, incluso `Engine/Security/`)**: Il motore infrastrutturale. Contiene le classi base e i middleware di sicurezza. **Non si tocca** durante lo sviluppo quotidiano delle feature.
+2. **Il Dominio (`Controllers/`, `Services/`, `Models/`, `Store/`, `Validation/`)**: dove vive il codice applicativo del progetto. Le cartelle sono il punto di partenza, non il perimetro: si parte basici e il dominio si estende con le cartelle che servono (es. un catalogo di contenuti propri).
 
 L'obiettivo di questa separazione è **levarti dai piedi i problemi noiosi** per farti concentrare solo sulla logica.
 
@@ -82,6 +82,10 @@ Dopo la rimozione, ASP.NET non genera rotte, non espone nulla in Swagger e nessu
 ### 4. Il Database Fantasma (`FileContentStore`)
 **Perché è così?** Installare Entity Framework e SQL per un MVP rallenta pesantemente le prime settimane. Spesso servono solo testi legali e di configurazione.
 **Cosa fa l'Engine:** Il `FileContentStore` carica file JSON da `/data/`, li cacha in `IMemoryCache` (con TTL di 1 ora e rispetto della memory pressure del runtime) e, risolvendo la lingua dall'header HTTP `Accept-Language`, restituisce l'oggetto già localizzato. Per gestire la lettura del file usa `try/catch` su `ReadAllTextAsync` invece di un `File.Exists` preventivo: elimina la race condition TOCTOU (il file potrebbe essere rimosso tra il controllo e la lettura effettiva) e converte correttamente la `FileNotFoundException` in `NotFoundException`.
+
+I contenuti di `data/` sono **parte del codice**: in produzione non cambiano mai da soli (vivono nell'immagine, più la cache in RAM) — per modificarli si committa e si rifà il deploy. Ciò che invece deve cambiare a runtime vive nei volumi, ognuno col suo ruolo: `db/` per i dati del DB futuro, `uploads/` per i file caricati.
+
+Il percorso di crescita è già predisposto: la cartella `backend/db/` è il mount point del volume Docker `<progetto>_db-data` (vedi `docker-compose.yml` e `backup.sh`). Quando il progetto migra da `FileContentStore` a un database reale — cioè una nuova implementazione di `IContentStore` — i file del DB vivono lì e sopravvivono ai deploy.
 
 #### `LocalizedJsonDeserializer` — regole dettagliate della risoluzione i18n
 
@@ -322,13 +326,29 @@ foreach (var source in defaultJsonSources)
     builder.Configuration.Sources.Remove(source);
 ```
 
-**Conseguenza pratica:** `appsettings.Development.json` non viene letto. Per override locali, modifica `global-settings.json` direttamente.
+**Conseguenza pratica:** `appsettings.Development.json` non viene letto. L'identità/config di progetto vive in `global-settings.json`; i **segreti** e la pubblicazione (ApiKeys, SecretKey, porte) in `global-settings.local.json`.
 
-Il file viene cercato in due posizioni (ordine):
-1. `../global-settings.json` (dev: `dotnet run` eseguito da `backend/`)
-2. `global-settings.json` (Docker: `cwd=/app`)
+I file vengono cercati e **fusi** in quest'ordine (gli ultimi vincono — lo stesso deep-merge che `scripts/lib/br1-config.sh` fa in prod producendo il file effettivo):
+1. `../global-settings.json` poi `global-settings.json` — base committata (dev `cwd=backend/` → `../`; Docker `cwd=/app`)
+2. `../global-settings.local.json` poi `global-settings.local.json` — override coi segreti (gitignored)
+3. `../security-headers.json` poi `security-headers.json` — header del template (sezione `Security.Headers`)
 
-Entrambe sono `optional: true`: se il file manca, l'app usa i default dei modelli `*Options`.
+Tutte `optional: true` (se un file manca si usano i default dei modelli `*Options`). In **dev locale** è il punto 2 che fa arrivare `Security.ApiKeys` (da `global-settings.local.json`) al backend **senza env var né deploy**: prima del template 2.0.1 il backend leggeva solo `global-settings.json` (privo di `Security`) → `ApiKeys` vuoto → **401 su ogni richiesta**. In Docker/prod il `.local` non esiste (i segreti sono già fusi nel file effettivo montato) → no-op.
+
+### Ordine della pipeline HTTP
+
+L'ordine dei middleware è critico e va mantenuto. I primi 5 vivono dentro `UseTemplateSecurity()` (`Engine/Security/SecurityExtensions.cs`), gli altri in `Program.cs`:
+
+| # | Middleware | Perché in questa posizione |
+| :-- | :--- | :--- |
+| 1 | `UseForwardedHeaders` (solo `BehindProxy`) | Ricostruisce l'IP reale da `X-Forwarded-For` **prima di tutto**: il rate limiter partiziona per IP. Trusted solo da reti private RFC 1918; se `BehindProxy` è `false` il middleware non viene proprio registrato (niente spoofing). |
+| 2 | `UseCors` | I preflight `OPTIONS` che il browser manda prima delle richieste cross-origin vengono gestiti qui e **non consumano il budget del rate limiter**. |
+| 3 | `UseExceptionHandler` + `UseStatusCodePages` | Prima del rate limiter: cattura anche eventuali eccezioni interne del limiter. I 429 di `OnRejected` non passano da qui (non sono eccezioni). |
+| 4 | `UseRateLimiter` | Fail fast: un client abusivo viene bloccato subito, senza sprecare i middleware successivi. |
+| 5 | Security headers (se `Security.Headers` presente) + `UseHsts` | Header browser-facing da `security-headers.json`. CSP esclusa (irrilevante su JSON, gestita dall'SSR), HSTS escluso dal loop perché emesso da `UseHsts()`. |
+| 6 | `UseRequestLocalization` | Da qui in poi `IStringLocalizer` risolve nella lingua di `Accept-Language`. Per questo `OnRejected` del limiter (che sta **prima**) ricava la cultura a mano, e `ApiExceptionHandler` la rilegge da `IRequestCultureFeature`. |
+| 7 | `UseAuthentication` → `UseAuthorization` | API key e JWT validati dopo i filtri "di costo" (CORS, rate limit). |
+| 8 | `MapControllers` + `MapHealthChecks("/health")` | `/health` è `AllowAnonymous`. |
 
 ### Comportamento Serializzazione JSON (Risposte API)
 
@@ -340,6 +360,8 @@ Tutti i controller usano queste opzioni globali, applicate automaticamente a tut
 | Enum | `JsonStringEnumConverter` | Serializzati come stringa, non numero |
 
 Un campo `null` nel DTO non appare nella risposta JSON. Se il frontend si aspetta un campo assente come `null` funziona; se si aspetta un campo assente come un valore di default va gestito lato client.
+
+> Queste sono le opzioni delle **risposte API** (registrate in `AddJsonOptions`, `Program.cs`). Per i **file di contenuto** (`data/*.json`) lo store usa invece l'istanza condivisa `EngineJson.Web` (`Engine/EngineJson.cs`): convenzioni web + enum come stringhe, un'unica istanza così la cache dei metadata di System.Text.Json viene riusata da tutti i consumatori.
 
 ### `Content-Language` nelle Risposte
 
@@ -371,6 +393,8 @@ var nuovaFunzione = builder.Configuration.GetValue<bool>("Custom:FeatureFlags:Nu
 
 **Browser Angular:** disponibile tramite `inject(APP_CUSTOM)` — l'SSR serializza `Custom` in `TransferState` e il browser la rilegge in idratazione (fallback `{}` senza SSR). Usa questo meccanismo per feature flag, limiti applicativi, ID di analytics: è l'escape hatch ufficiale per configurazione progetto-specifica senza aggiungere nuovi `*Options` a livello di schema. ⚠️ `Custom` è committabile e ora visibile al client: non metterci segreti.
 
+I valori **per-ambiente** (chiavi di servizi esterni, ID diversi tra dev e prod) vanno nella stessa sezione `Custom` di `global-settings.local.json`: è un uso previsto, il deep-merge li fonde sopra quelli committati. Restano comunque visibili al client — il `.local` li tiene fuori da git, non fuori dal browser.
+
 ---
 
 ## 🛠️ Developer Journey: Aggiungere un Endpoint
@@ -389,8 +413,10 @@ public class UserResponseDto {
 
 `IContentStore` è già implementato da `FileContentStore`: legge un file JSON da `data/`, lo cacha e lo restituisce localizzato nella lingua della richiesta. Esempio di metodo del contratto:
 ```csharp
-Task<UniversalLegalModel> GetProfileAsync(string language); // dati aziendali localizzati (data/irl.json)
+Task<UniversalLegalModel> GetProfileAsync(string language, CancellationToken cancellationToken = default); // dati aziendali localizzati (data/irl.json)
 ```
+
+Il `CancellationToken` arriva dal controller (basta dichiararlo come parametro dell'action: ASP.NET lo lega a `HttpContext.RequestAborted`) e viene propagato fino alla lettura del file: se il client abbandona la richiesta, l'I/O si interrompe. Mantenerlo nelle nuove firme: per lo store su DB diventa la cancellazione delle query.
 
 #### Schema completo di `UniversalLegalModel` (e `data/irl.json`)
 
@@ -503,6 +529,8 @@ public class UsersController : EngineProtectedController
 
 Il login è **opzionale**: si attiva valorizzando `Security.Token.SecretKey` (≥32 char) in `global-settings.local.json`. Se la chiave è vuota, i controller di autenticazione vengono rimossi fisicamente dalla memoria al boot.
 
+> `setup.mjs` lascia la `SecretKey` **vuota**: un figlio nasce col login spento. Attivarlo è una scelta esplicita — chiave ≥32 char nel `.local.json` e verifica propria al posto della demo (`admin`/`Password1!`) in `AuthController`.
+
 ### Architettura del Payload di Sessione
 
 Il JWT trasporta un payload tipizzato nel claim `"session"`. L'Engine gestisce solo il meccanismo (serializzazione/deserializzazione generica); la forma del payload la definisce il progetto.
@@ -565,7 +593,7 @@ var session = new SessionInfo
 return Ok(new LoginResult(true, Token: Auth.GenerateToken(new[] { SessionPayload.Claim(session) })));
 ```
 
-La verifica delle credenziali è logica di dominio del progetto: `AuthController` è un punto di partenza da sostituire con la propria sorgente di identità (Identity Provider, DB, ecc.). Il meccanismo di emissione del token (`Auth.GenerateToken`, `SessionPayload.Claim`) è invece fornito dall'Engine.
+La verifica delle credenziali è logica di dominio del progetto: `AuthController` è un punto di partenza — il controller resta, si sostituisce solo la verifica con la propria sorgente di identità (Identity Provider, DB, ecc.) — per questo il template non aggiunge file o configurazione dedicati al login. Nella demo le credenziali (`admin`/`Password1!`) vivono hardcoded nel controller e il confronto è in tempo costante, come per le API key. Il meccanismo di emissione del token (`Auth.GenerateToken`, `SessionPayload.Claim`) è invece fornito dall'Engine.
 
 #### `AuthService` — Claim Impliciti in Ogni Token
 
@@ -599,18 +627,16 @@ Il JWT è stateless: il logout sul client (rimozione del token) non invalida il 
 
 ---
 
-## 📦 Controller Template Inclusi
+## 📦 Strumenti HTTP di Fabbrica
 
-Il template include già 4 controller operativi come esempio/punto di partenza:
+> I **controller dimostrativi** del template (profilo/social, login demo, ping protetto) non sono
+> documentati qui: il catalogo vive nella **vetrina della demo** del [README root](../README.md).
+> Sono segnaposto: il figlio li tiene e ne cambia il contenuto (i dati in `data/*.json`, la verifica
+> delle credenziali, i filtri di dominio) o ne lascia non valorizzate le parti che non espone,
+> aggiungendo accanto i controller del proprio dominio. Qui sotto restano gli strumenti che il
+> template fornisce di default e che un figlio usa così come sono.
 
-| Controller | Base class | Endpoint |
-| :--- | :--- | :--- |
-| `BaseController` | `EngineApiController` | `GET /profile` |
-| `AuthController` | `EngineAuthController` | `POST /auth/login` |
-| `ProtectedController` | `EngineProtectedController` | `GET /ping` |
-| `BlobController` | `EngineBlobController` | `GET /blob/{slug}[?webopt=true]`, `POST /blob/up` |
-
-#### `BlobController` — Dettagli Tecnici
+#### `BlobController` — Upload e Download File
 
 Eredita da `EngineBlobController` (helper per il resize immagini), espone download e upload dei file salvati nel volume persistente.
 
@@ -629,7 +655,7 @@ Eredita da `EngineBlobController` (helper per il resize immagini), espone downlo
 
 **Content-Type:** rilevato automaticamente dall'estensione del file tramite `FileExtensionContentTypeProvider`. Se l'estensione non è riconosciuta, viene usato `application/octet-stream`.
 
-> **Nota:** l'upload (`POST /blob/up`) richiede un token JWT valido (utente autenticato). Per validazioni di dominio (tipi MIME consentiti, antivirus, quote) estendi `SaveFileAsync` o il controller nel progetto figlio.
+> **Nota:** l'upload (`POST /blob/up`) richiede un token JWT valido (utente autenticato). Per validazioni di dominio (tipi MIME consentiti, antivirus, quote) estendi `SaveFileAsync` o il controller nel progetto figlio. In un progetto **senza login** (`SecretKey` vuota) l'upload è impossibile per design: il blob store resta in sola lettura e la `GET` serve i file già presenti nel volume.
 
 #### Health Check (`GET /health`)
 
