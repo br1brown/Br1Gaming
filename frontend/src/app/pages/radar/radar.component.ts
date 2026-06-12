@@ -12,7 +12,7 @@ const SEARCH_LIMIT = 25;
 type RadarStatus = 'init' | 'locating' | 'searching' | 'ready' | 'error';
 
 /**
- * DRAGON RADAR — mappa a schermo pieno in stile radar.
+ * CHIESA RADAR — mappa a schermo pieno in stile radar.
  *
  * Apri la pagina, il radar ti localizza e mostra subito le chiese intorno a te
  * (via Mapbox, categoria church). Tap su una chiesa per vederne il nome. Stop.
@@ -25,7 +25,10 @@ type RadarStatus = 'init' | 'locating' | 'searching' | 'ready' | 'error';
     selector: 'app-radar',
     imports: [RouterLink, TranslatePipe, FitViewportDirective],
     templateUrl: './radar.component.html',
-    host: { class: 'd-block' },
+    // NIENTE `d-block` qui: è `display:block !important` e batterebbe il `display:flex`
+    // (inline, non-important) che appFitViewport imposta sull'host per riempire il viewport.
+    // Con d-block l'host resta block → il wrapper non eredita altezza → la mappa è alta 0.
+    // La pagina gemella full-screen (duce-non-duce) infatti non ha alcun host class.
 })
 export class RadarComponent extends PageBaseComponent<void> implements OnDestroy {
     /** Contenitore della mappa Mapbox (ref locale, non id globale: niente collisioni). */

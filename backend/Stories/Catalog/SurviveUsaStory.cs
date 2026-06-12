@@ -1,7 +1,7 @@
 namespace Backend.Stories.Catalog;
 
 /// <summary>
-/// "Sopravvivi agli USA?" — avventura a bivi adattata da un video, in italiano,
+/// "Sopravviveresti agli USA?" — avventura a bivi adattata da un video, in italiano,
 /// mantenendo il registro deadpan/satirico del narratore originale (seconda persona,
 /// niente pistolotti): la satira anti-imperialista sta nei fatti, non nei commenti.
 /// Tocco leftist leggero. Ambientata nella nazione fittizia di Oippaderp.
@@ -11,7 +11,7 @@ public class SurviveUsaStory : IStory
 {
     public string Slug => "sopravvivi-agli-usa";
 
-    public string Title => "Sopravvivi agli USA?";
+    public string Title => "Sopravviveresti agli USA?";
 
     public string? Description =>
         "Sei a capo di Oippaderp. Riesci a governarla senza farti rovesciare dal governo degli Stati Uniti?";

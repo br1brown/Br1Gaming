@@ -98,7 +98,7 @@ export const ContestoSito = buildSite({
 
         {
             path: `ducenonduce`,
-            title: `DUCE NON DUCE?`,
+            title: `ducenonduce`,
             description: 'Indovina se la persona è un duce o non duce',
             pageType: PageType.GameDuceNonDuce,
             layout: { showPanel: false, showFooter: false },
@@ -109,7 +109,7 @@ export const ContestoSito = buildSite({
 
         {
             path: `radar`,
-            title: `Dragon Radar`,
+            title: `radar`,
             description: 'Il radar delle chiese intorno a te',
             pageType: PageType.GameRadar,
             // Esplicito: il token Mapbox arriva via TransferState dall'SSR, quindi /radar
