@@ -4,12 +4,7 @@ export interface GeneratorInfo {
     description: string;
 }
 
-export interface GenerateRequest {
-    includeHtml?: boolean;
-}
-
 export interface GenerateResponse {
     text: string;
     markdown: string;
-    html?: string;
 }

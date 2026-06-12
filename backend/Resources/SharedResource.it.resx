@@ -127,4 +127,10 @@
   <data name="error_gateway_timeout" xml:space="preserve">
     <value>Il servizio upstream non ha risposto in tempo. Riprova più tardi.</value>
   </data>
+  <data name="play_id_length" xml:space="preserve">
+    <value>L'identificativo è troppo lungo</value>
+  </data>
+  <data name="play_stats_too_many" xml:space="preserve">
+    <value>Troppe voci nello stato di gioco</value>
+  </data>
 </root>

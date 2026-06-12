@@ -67,8 +67,9 @@ export class ContentResolver {
 
         try {
             // Le pagine legali sono risolte in modo generico: l'Engine sa quale .md
-            // servire dallo slug dello slot valorizzato in site.ts (legalPages),
-            // senza un case per ogni PageType legale. Le altre pagine restano esplicite.
+            // servire dallo slug dello slot valorizzato in site.ts (legalPages).
+            // Le altre pagine hanno un case esplicito che chiama il wrapper tipizzato
+            // di ApiService — niente slug scritti a mano qui dentro.
             const legalSlug = ContestoSito.getLegalSlug(pageType);
             if (legalSlug) {
                 content = await this.tryLoadPolicy(legalSlug, language);
@@ -82,7 +83,7 @@ export class ContentResolver {
                         content = { generators, stories };
                         break;
                     }
-                    // ── Generatori ───────────────────────────────────────────────────────────────
+                    // ── Generatori ───────────────────────────────────────────────
                     case PageType.GeneratorIncel: {
                         const gen = await this.apiService.getIncel().catch(() => null);
                         content = gen;
@@ -114,7 +115,7 @@ export class ContentResolver {
                         break;
                     }
 
-                    // ── Storie ───────────────────────────────────────────────────────────────────
+                    // ── Storie ───────────────────────────────────────────────────
                     case PageType.StoryPoveriMaschi: {
                         const story = await this.apiService.getStoryPoveriMaschi().catch(() => null);
                         content = story;

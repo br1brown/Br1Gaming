@@ -5,111 +5,111 @@ using System.Text.RegularExpressions;
 namespace Backend.Services;
 
 /// <summary>
-/// Servizio principale per la generazione dinamica di testo. 
-/// Orchesta l'aggregazione di uno o più generatori (JSON), fonde i loro dizionari e regole, 
-/// e compone testi rispettando vincoli strutturali e policy di unicità.
+/// Servizio principale per la generazione dinamica di testo: catalogo, info e generazione.
 /// </summary>
+/// <remarks>
+/// La superficie pubblica è fatta di wrapper tipizzati per generatore (un metodo ciascuno):
+/// i consumer non scrivono mai slug a mano, quindi non possono sbagliarli. Le composizioni
+/// tra generatori (es. mbeb che "ospita" incel) restano un dettaglio interno dei wrapper:
+/// da fuori si sa solo che Incel funziona in un modo e il Maschio Basico in un altro.
+/// La cache dei file JSON vive nello store; qui non c'è stato da invalidare.
+/// </remarks>
 public class GeneratorService(IContentStore store)
 {
     private readonly IContentStore _store = store;
 
-    // ── Cache dei Generatori ─────────────────────────────────────────
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, RuntimeGenerator> _generatorCache = new();
-
-    /// <summary>
-    /// Svuota forzatamente la cache dei generatori (da richiamare quando si ricompilano i file).
-    /// </summary>
-    public static void ClearCache() => _generatorCache.Clear();
-
-    // ── Slug ──────────────────────────────────────────────────────────
+    // ── Slug ── (solo qui: i consumer passano dai wrapper, mai stringhe)
     private const string SlugIncel = "incel";
     private const string SlugMbeb = "mbeb";
     private const string SlugAuto = "auto";
     private const string SlugAntiveg = "antiveg";
     private const string SlugLocali = "locali";
 
-    private static readonly string[] AllSlugs = [SlugIncel, SlugAuto, SlugAntiveg, SlugLocali, SlugMbeb];
-
     /// <summary>
-    /// Ottiene le info di un singolo generatore per slug senza caricare l'intero catalogo.
-    /// Restituisce null se lo slug non è tra quelli gestiti.
+    /// Ottiene il catalogo di tutti i generatori disponibili, già ordinato per <c>Info.Order</c>.
     /// </summary>
-    public Task<GeneratorData?> GetIncelInfoAsync()   => _store.GetGeneratorAsync(SlugIncel);
-    public Task<GeneratorData?> GetMbebInfoAsync()    => _store.GetGeneratorAsync(SlugMbeb);
-    public Task<GeneratorData?> GetAutoInfoAsync()    => _store.GetGeneratorAsync(SlugAuto);
-    public Task<GeneratorData?> GetAntivegInfoAsync() => _store.GetGeneratorAsync(SlugAntiveg);
-    public Task<GeneratorData?> GetLocaliInfoAsync()  => _store.GetGeneratorAsync(SlugLocali);
+    /// <param name="cancellationToken">Token della richiesta HTTP, propagato allo store.</param>
+    /// <returns>Lista dei generatori configurati su disco.</returns>
+    public Task<List<GeneratorData>> GetCatalogAsync(CancellationToken cancellationToken = default)
+        => _store.GetGeneratorsAsync(cancellationToken);
 
-    /// <summary>
-    /// Ottiene il catalogo di tutti i generatori disponibili ordinati secondo le regole Info.
-    /// </summary>
-    /// <returns>Lista di GeneratorData configurati.</returns>
-    public async Task<List<GeneratorData>> GetCatalogAsync()
-    {
-        var all = await _store.GetGeneratorsAsync();
-        // Ordina per l'ordine definito nel record Info
-        return all.Where(i => AllSlugs.Contains(i.Slug))
-                  .OrderBy(i => i.Info?.Order ?? 999)
-                  .ToList();
-    }
+    // ── Info (wrapper per generatore, senza caricare l'intero catalogo) ──
 
-    // ── Metodi Pubblici (Il Controller decide la composizione) ───────
+    /// <summary>Info del generatore Incel, o <c>null</c> se il file manca.</summary>
+    /// <param name="cancellationToken">Token della richiesta HTTP, propagato allo store.</param>
+    public Task<GeneratorData?> GetIncelInfoAsync(CancellationToken cancellationToken = default) => _store.GetGeneratorAsync(SlugIncel, cancellationToken);
+
+    /// <summary>Info del generatore MBEB, o <c>null</c> se il file manca.</summary>
+    /// <param name="cancellationToken">Token della richiesta HTTP, propagato allo store.</param>
+    public Task<GeneratorData?> GetMbebInfoAsync(CancellationToken cancellationToken = default) => _store.GetGeneratorAsync(SlugMbeb, cancellationToken);
+
+    /// <summary>Info del generatore Automobilista, o <c>null</c> se il file manca.</summary>
+    /// <param name="cancellationToken">Token della richiesta HTTP, propagato allo store.</param>
+    public Task<GeneratorData?> GetAutoInfoAsync(CancellationToken cancellationToken = default) => _store.GetGeneratorAsync(SlugAuto, cancellationToken);
+
+    /// <summary>Info del generatore Anti-Vegano, o <c>null</c> se il file manca.</summary>
+    /// <param name="cancellationToken">Token della richiesta HTTP, propagato allo store.</param>
+    public Task<GeneratorData?> GetAntivegInfoAsync(CancellationToken cancellationToken = default) => _store.GetGeneratorAsync(SlugAntiveg, cancellationToken);
+
+    /// <summary>Info del generatore Politiche Locali, o <c>null</c> se il file manca.</summary>
+    /// <param name="cancellationToken">Token della richiesta HTTP, propagato allo store.</param>
+    public Task<GeneratorData?> GetLocaliInfoAsync(CancellationToken cancellationToken = default) => _store.GetGeneratorAsync(SlugLocali, cancellationToken);
+
+    // ── Generazione (wrapper per generatore; la composizione è decisa QUI dentro) ──
 
     /// <summary>
     /// Genera un testo configurato esclusivamente per il Maschio Bianco Etero Basico (MBEB).
     /// </summary>
-    public Task<GenerationResult> GenerateMbebAsync() => GenerateAsync(SlugMbeb);
+    /// <param name="cancellationToken">Token della richiesta HTTP, propagato allo store.</param>
+    public Task<GenerationResult> GenerateMbebAsync(CancellationToken cancellationToken = default)
+        => GenerateAsync([SlugMbeb], cancellationToken);
 
     /// <summary>
-    /// Mbeb "ospita" Incel: Incel viene iniettato obbligatoriamente sfruttando il proprio MinPhrases.
-    /// Il testo è primariamente Maschio Basico ma subirà le interiezioni tipiche Incel.
+    /// Genera un testo Incel. Internamente Mbeb "ospita" Incel: Incel viene iniettato
+    /// obbligatoriamente sfruttando il proprio MinPhrases — il testo è primariamente
+    /// Maschio Basico ma subisce le interiezioni tipiche Incel.
     /// </summary>
-    public Task<GenerationResult> GenerateIncelAsync() => GenerateAsync(SlugMbeb, SlugIncel);
+    /// <param name="cancellationToken">Token della richiesta HTTP, propagato allo store.</param>
+    public Task<GenerationResult> GenerateIncelAsync(CancellationToken cancellationToken = default)
+        => GenerateAsync([SlugMbeb, SlugIncel], cancellationToken);
 
-    /// <summary>
-    /// Genera frasi tematizzate per "Automobilista".
-    /// </summary>
-    public Task<GenerationResult> GenerateAutoAsync() => GenerateAsync(SlugAuto);
+    /// <summary>Genera frasi tematizzate per "Automobilista".</summary>
+    /// <param name="cancellationToken">Token della richiesta HTTP, propagato allo store.</param>
+    public Task<GenerationResult> GenerateAutoAsync(CancellationToken cancellationToken = default)
+        => GenerateAsync([SlugAuto], cancellationToken);
 
-    /// <summary>
-    /// Genera frasi tematizzate per "Anti-Vegano".
-    /// </summary>
-    public Task<GenerationResult> GenerateAntivegAsync() => GenerateAsync(SlugAntiveg);
+    /// <summary>Genera frasi tematizzate per "Anti-Vegano".</summary>
+    /// <param name="cancellationToken">Token della richiesta HTTP, propagato allo store.</param>
+    public Task<GenerationResult> GenerateAntivegAsync(CancellationToken cancellationToken = default)
+        => GenerateAsync([SlugAntiveg], cancellationToken);
 
-    /// <summary>
-    /// Genera frasi tematizzate per le "Politiche Locali".
-    /// </summary>
-    public Task<GenerationResult> GenerateLocaliAsync() => GenerateAsync(SlugLocali);
+    /// <summary>Genera frasi tematizzate per le "Politiche Locali".</summary>
+    /// <param name="cancellationToken">Token della richiesta HTTP, propagato allo store.</param>
+    public Task<GenerationResult> GenerateLocaliAsync(CancellationToken cancellationToken = default)
+        => GenerateAsync([SlugLocali], cancellationToken);
 
     // ══════════════════════════════════════════════════════════════════
     // MOTORE DI GENERAZIONE DINAMICO
     // ══════════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// Unifica uno o più slugs generazionali e formula un testo dinamico aggregato.
+    /// Unifica uno o più slug e formula un testo dinamico aggregato (il primo è il Master).
     /// </summary>
     /// <param name="slugs">Elenco degli slug da aggregare (il primo è il Master).</param>
+    /// <param name="cancellationToken">Token della richiesta HTTP, propagato allo store.</param>
     /// <returns>Il risultato della generazione in triplice formato (Text, Markdown, Html).</returns>
-    private async Task<GenerationResult> GenerateAsync(params string[] slugs)
+    private async Task<GenerationResult> GenerateAsync(string[] slugs, CancellationToken cancellationToken)
     {
         // Dati Iniziali (Caricamento e Merging Architetturale)
-        var generator = await CreateGenerator(slugs);
+        var generator = await CreateGeneratorAsync(slugs, cancellationToken);
 
         //genero e pulisco
         var raw_text = ComposeText(generator);
         string textMD = ArmonizzaTesto(raw_text);
 
-        // Trasforma MD in HTML base (molto leggero)
-        string ToHtml(string md)
-        {
-            var res = md;
-            res = Regex.Replace(res, @"^#\s+(.*)$", "<h1>$1</h1>", RegexOptions.Multiline);
-            res = Regex.Replace(res, @"\*\*(.*)\*\*", "<strong>$1</strong>");
-            res = Regex.Replace(res, @"\[([^\]]+)\]\(([^\)]+)\)", "<a href='$2'>$1</a>");
-            return res.Replace("\n", "<br />");
-        }
-
-        // Pulisce il MD per avere solo testo normale
+        // Pulisce il MD per avere solo testo normale (per speech e condivisione).
+        // La resa HTML non si fa qui: il frontend renderizza il Markdown col pipe
+        // `markdown` dell'engine, che sanifica l'output.
         string ToPlain(string md)
         {
             var res = md;
@@ -119,7 +119,7 @@ public class GeneratorService(IContentStore store)
             return res.Trim();
         }
 
-        return new GenerationResult(ToPlain(textMD), textMD, ToHtml(textMD));
+        return new GenerationResult(ToPlain(textMD), textMD);
     }
     /// <summary>
     /// Struttura transiente (in-memory) che agisce da Super-Generatore dopo il merging di tutti gli slug.
@@ -139,26 +139,21 @@ public class GeneratorService(IContentStore store)
     /// <summary>
     /// Fonde assieme le logiche di n generatori distinti in un unico RuntimeGenerator globale.
     /// </summary>
-    /// <param name="slugs">Identifier dei vari generatori JSON da analizzare e unire.</param>
+    /// <param name="slugs">Identifier dei vari generatori JSON da analizzare e unire (il primo è il Master).</param>
+    /// <param name="cancellationToken">Token della richiesta HTTP, propagato allo store.</param>
     /// <returns>L'istanza astratta di RuntimeGenerator pronta a fornire gli asset al composer.</returns>
-    private async Task<RuntimeGenerator> CreateGenerator(params string[] slugs)
+    private async Task<RuntimeGenerator> CreateGeneratorAsync(string[] slugs, CancellationToken cancellationToken)
     {
-        if (slugs == null || slugs.Length == 0)
-            throw new ArgumentException("Almeno uno slug è richiesto.");
-
-        var cacheKey = string.Join("|", slugs);
-        if (_generatorCache.TryGetValue(cacheKey, out var cachedGenerator))
-            return cachedGenerator;
-
         var instances = new List<GeneratorData>();
         foreach (var slugName in slugs)
         {
-            var generatorData = await _store.GetGeneratorAsync(slugName);
+            var generatorData = await _store.GetGeneratorAsync(slugName, cancellationToken);
             if (generatorData != null) instances.Add(generatorData);
         }
 
+        // Lo slug Master è il NOME della risorsa: finisce in {0} del messaggio localizzato.
         if (instances.Count == 0)
-            throw new NotFoundException($"Generatori non trovati: {string.Join(", ", slugs)}");
+            throw new NotFoundException(slugs[0]);
 
         var master = instances[0];
 
@@ -171,7 +166,7 @@ public class GeneratorService(IContentStore store)
         var settings = masterSettings with { MinPhrases = globalMin, MaxPhrases = globalMax };
 
 
-        var shared = await _store.GetSharedDataAsync();
+        var shared = await _store.GetSharedDataAsync(cancellationToken);
 
         // Estrae tutte le frasi (Core) dai vari generatori rimuovendo i duplicati
         var frasiGlobali = instances.SelectMany(instance => instance.Core).Distinct().ToList();
@@ -258,7 +253,7 @@ public class GeneratorService(IContentStore store)
             ? new Dictionary<string, string>(shared.AgeAliases, StringComparer.OrdinalIgnoreCase)
             : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        var finalGenerator = new RuntimeGenerator(
+        return new RuntimeGenerator(
             Settings: settings,
             Apertura: apertura,
             Chiusura: chiusura,
@@ -269,9 +264,6 @@ public class GeneratorService(IContentStore store)
             UniqueLabels: etichetteUniche,
             AgeAliases: mappaFasceEta
         );
-
-        _generatorCache[cacheKey] = finalGenerator;
-        return finalGenerator;
     }
 
     /// <summary>
@@ -470,10 +462,10 @@ public class GeneratorService(IContentStore store)
     /// Smista la risoluzione reale del singolo placeholder individuato dalle Regex testuali in ExpandAllPlaceholders.
     /// Converte range logici o attinge ai flat dictionary unici.
     /// </summary>
-    /// <param name="placeholder">Il nome del tag esatto inclusi brackets.</param>
-    /// <param name="lists">L'elenco in cui ricercare.</param>
-    /// <param name="ageAliases">La mappa di corrispondenza delle fasce d'età.</param>
-    /// <param name="used">Collezione di riferimento delle estrazioni precedenti per l'unicità.</param>
+    /// <param name="segnaposto">Il nome del tag esatto inclusi brackets.</param>
+    /// <param name="dizionariParole">L'elenco in cui ricercare.</param>
+    /// <param name="mappaFasceEta">La mappa di corrispondenza delle fasce d'età.</param>
+    /// <param name="etichetteUsate">Collezione di riferimento delle estrazioni precedenti per l'unicità.</param>
     /// <returns>La stringa pescata randomicamente.</returns>
     private static string ExpandPlaceholder(string segnaposto, Dictionary<string, List<string>> dizionariParole, Dictionary<string, string> mappaFasceEta, Dictionary<string, HashSet<string>> etichetteUsate)
     {
@@ -555,8 +547,3 @@ public class GeneratorService(IContentStore store)
         return list;
     }
 }
-
-/// <summary>
-/// Prodotto finale di un ciclo di generazione. Invia tre varianti del risultato richiesto all'entrypoint.
-/// </summary>
-public record GenerationResult(string Text, string Markdown, string Html);

@@ -1,54 +1,31 @@
 namespace Backend.Stories.Catalog;
 
+/// <summary>
+/// "Siamo Maschi" — satira sul maschio beta: una giornata di Marco tra
+/// fraintendimenti, ego ferito e scelte di sopravvivenza sociale.
+/// </summary>
 public class PoveriMaschiStory : IStory
 {
-    public string Slug
-    {
-        get
-        {
-            return "poveri-maschi";
-        }
-    }
+    /// <inheritdoc />
+    public string Slug => "poveri-maschi";
 
-    public string Title
-    {
-        get
-        {
-            return "Siamo Maschi";
-        }
-    }
+    /// <inheritdoc />
+    public string Title => "Siamo Maschi";
 
-    public string? Description
-    {
-        get
-        {
-            return "Marco, maschio beta etero di 28 anni incastrato in un mondo che non lo capisce fino in fondo... Riuscirà a sopravvivere?";
-        }
-    }
+    /// <inheritdoc />
+    public string? Description =>
+        "Marco, maschio beta etero di 28 anni incastrato in un mondo che non lo capisce fino in fondo... Riuscirà a sopravvivere?";
 
-    public string StartSceneId
-    {
-        get
-        {
-            return "start";
-        }
-    }
+    /// <inheritdoc />
+    public string StartSceneId => "start";
 
-    public Dictionary<string, object> InitialState
-    {
-        get
-        {
-            var initialState = new Dictionary<string, object>();
-            return initialState;
-        }
-    }
+    /// <inheritdoc />
+    public Dictionary<string, object> InitialState => [];
 
-    public bool HasScene(string id)
-    {
-        var hasScene = _scenes.ContainsKey(id);
-        return hasScene;
-    }
+    /// <inheritdoc />
+    public bool HasScene(string id) => _scenes.ContainsKey(id);
 
+    /// <inheritdoc />
     public SceneDef GetScene(string id, GameState state)
     {
         var hasFactory = _scenes.TryGetValue(id, out var factory);

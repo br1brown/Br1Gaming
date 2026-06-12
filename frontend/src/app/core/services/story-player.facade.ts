@@ -5,7 +5,13 @@ import { ApiError } from '../engine/services/base-api.service';
 import { CookieConsentService } from '../engine/services/cookie-consent.service';
 import { StorySnapshotDto, StoryTimelineItem } from '../dto/story.dto';
 
-/** Firma unica: sceneId e choiceId opzionali decidono start / resume / choose. */
+/** Punto di ripristino di una storia salvato nel cookie `storyPlayerState`. */
+interface SavedStoryState {
+    sceneId: string | null;
+    stats: Record<string, number> | null;
+}
+
+/** Firma unica del passo di gioco: sceneId e choiceId opzionali decidono start / resume / choose. */
 type PlayFn = (sceneId?: string, choiceId?: string, stats?: Record<string, number>) => Promise<StorySnapshotDto>;
 
 @Injectable({ providedIn: 'root' })
@@ -28,16 +34,19 @@ export class StoryPlayerFacade {
     private playFn!: PlayFn;
     private currentSlug = '';
 
-    // ── Named init per storia ─────────────────────────────────────────
+    // ── Init nominati per storia (typo-proof: niente slug nei consumer) ──
 
+    /** Avvia (o riprende) "Siamo Maschi". */
     initPoveriMaschi(): Promise<void> {
         return this.initWithPlay('poveri-maschi', (s, c, st) => this.api.playPoveriMaschi(s, c, st));
     }
 
+    /** Avvia (o riprende) "Magrogamer09". */
     initMagrogamer09(): Promise<void> {
         return this.initWithPlay('magrogamer09', (s, c, st) => this.api.playMagrogamer09(s, c, st));
     }
 
+    /** Avvia (o riprende) "Sopravviveresti agli USA?". */
     initSurviveUsa(): Promise<void> {
         return this.initWithPlay('sopravvivi-agli-usa', (s, c, st) => this.api.playSurviveUsa(s, c, st));
     }
@@ -54,7 +63,7 @@ export class StoryPlayerFacade {
         this.error.set(null);
 
         try {
-            const next = await this.playFn(current.sceneId, choiceId, current.stats);
+            const next = await this.play(current.sceneId, choiceId, current.stats);
 
             const newItems: StoryTimelineItem[] = [];
 
@@ -89,7 +98,7 @@ export class StoryPlayerFacade {
         this.timeline.set([]);
 
         try {
-            const snap = await this.playFn();
+            const snap = await this.play();
             this.applySnapshot(snap);
         } catch {
             this.error.set('Errore nel riavvio.');
@@ -117,7 +126,7 @@ export class StoryPlayerFacade {
             if (savedSceneId && savedStats) {
                 try {
                     // Resume: sceneId presente, nessun choiceId
-                    const snap = await this.playFn(savedSceneId, undefined, savedStats);
+                    const snap = await this.play(savedSceneId, undefined, savedStats);
                     const savedTimeline = state.timeline;
                     if (savedTimeline && savedTimeline.length > 0) {
                         this.timeline.set(savedTimeline);
@@ -130,7 +139,7 @@ export class StoryPlayerFacade {
             }
 
             // Start: nessun parametro → stats vuote → prima esecuzione
-            const snap = await this.playFn();
+            const snap = await this.play();
             this.applySnapshot(snap);
         } catch (error) {
             if (error instanceof ApiError && error.status === 404) {
@@ -140,6 +149,11 @@ export class StoryPlayerFacade {
         } finally {
             this.loading.set(false);
         }
+    }
+
+    // Passo di gioco sulla storia corrente, delegato alla PlayFn scelta dall'init nominato.
+    private play(sceneId?: string, choiceId?: string, stats?: Record<string, number>): Promise<StorySnapshotDto> {
+        return this.playFn(sceneId, choiceId, stats);
     }
 
     // ── Stato interno ─────────────────────────────────────────────────
@@ -168,13 +182,16 @@ export class StoryPlayerFacade {
     // indietro. Per questo la timeline va in localStorage, sotto lo STESSO gate
     // tecnico (`technicalAccepted`) e con guardia SSR.
 
+    /** Forma del punto di ripristino di una storia dentro il cookie `storyPlayerState`. */
+    private static readonly EMPTY_STATE = { sceneId: null, stats: null } as SavedStoryState;
+
     private getStoryState(slug: string): { sceneId: string | null; stats: Record<string, number> | null; timeline: StoryTimelineItem[] | null } {
         const raw = this.cookies.getCookie('storyPlayerState');
         let sceneId: string | null = null;
         let stats: Record<string, number> | null = null;
         if (raw) {
             try {
-                const story = (JSON.parse(raw) as Record<string, any>)[slug] || {};
+                const story = (JSON.parse(raw) as Record<string, SavedStoryState>)[slug] || StoryPlayerFacade.EMPTY_STATE;
                 sceneId = story.sceneId ?? null;
                 stats = story.stats ?? null;
             } catch { /* cookie corrotto: stato assente */ }
@@ -185,7 +202,7 @@ export class StoryPlayerFacade {
     private saveStoryState(slug: string, sceneId: string | null, stats: Record<string, number> | null, timeline: StoryTimelineItem[] | null): void {
         // Parte piccola e critica nel cookie (gated dal service).
         const raw = this.cookies.getCookie('storyPlayerState');
-        let all: Record<string, any> = {};
+        let all: Record<string, SavedStoryState> = {};
         if (raw) {
             try { all = JSON.parse(raw); } catch { }
         }
@@ -199,7 +216,7 @@ export class StoryPlayerFacade {
         const raw = this.cookies.getCookie('storyPlayerState');
         if (raw) {
             try {
-                const all = JSON.parse(raw) as Record<string, any>;
+                const all = JSON.parse(raw) as Record<string, SavedStoryState>;
                 delete all[slug];
                 if (Object.keys(all).length === 0) {
                     this.cookies.removeCookie('storyPlayerState');

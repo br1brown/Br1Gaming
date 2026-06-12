@@ -1,8 +1,7 @@
-using System.Text.Json;
+using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Backend.Models;
 using Backend.Services;
-using Backend.Stories;
 
 namespace Backend.Controllers;
 
@@ -10,27 +9,52 @@ namespace Backend.Controllers;
 /// Controller concreto del progetto per gli endpoint pubblici (API key).
 /// </summary>
 /// <remarks>
-/// Eredita sicurezza e logger da <see cref="EngineApiController"/>.
-/// Aggiungere qui gli endpoint del progetto che non richiedono autenticazione utente.
+/// Eredita sicurezza e logger da <see cref="EngineApiController"/>. Resta "magro": lo slug
+/// arriva dall'URL e l'unico lavoro è lo switch verso il wrapper tipizzato del servizio
+/// (slug sconosciuto → 404). Come i generatori si compongano è affare di GeneratorService.
 /// </remarks>
 [Route("")]
 public class BaseController : EngineApiController
 {
+    private readonly SiteService _site;
     private readonly StoryService _stories;
     private readonly GeneratorService _generators;
+    private readonly IValidator<StoryPlayRequestDto> _playValidator;
 
+    /// <summary>Inizializza il controller con i servizi di dominio, il validator del play e il logger.</summary>
     public BaseController(
+        SiteService site,
         StoryService stories,
         GeneratorService generators,
+        IValidator<StoryPlayRequestDto> playValidator,
         ILogger<BaseController> logger)
         : base(logger)
     {
+        _site = site;
         _stories = stories;
         _generators = generators;
+        _playValidator = playValidator;
     }
 
-    // ── Storie: catalogo ─────────────────────────────────────────────
+    // ── Sito: profilo ────────────────────────────────────────────────
 
+    /// <summary>
+    /// Restituisce il profilo del sito localizzato (dati legali e contatti).
+    /// </summary>
+    [HttpGet("profile")]
+    public async Task<IActionResult> GetProfile(CancellationToken cancellationToken)
+    {
+        Logger.LogInformation(
+            "Richiesta profilo - lingua: {Lang}",
+            System.Globalization.CultureInfo.CurrentCulture);
+
+        var data = await _site.GetProfileAsync(cancellationToken);
+        return Ok(data);
+    }
+
+    // ── Storie ───────────────────────────────────────────────────────
+
+    /// <summary>Catalogo delle storie disponibili.</summary>
     [HttpGet("stories")]
     public IActionResult GetStoriesCatalog()
     {
@@ -40,123 +64,85 @@ public class BaseController : EngineApiController
         return Ok(dtos);
     }
 
-    // ── Storie: info e play per slug ─────────────────────────────────
-
+    /// <summary>Info di una singola storia per slug.</summary>
     [HttpGet("stories/{slug}")]
     public IActionResult GetStory(string slug)
     {
-        switch (slug)
+        var story = slug switch
         {
-            case "poveri-maschi":
-                var pm = _stories.GetPoveriMaschi();
-                return Ok(new StorySummaryDto(pm.Slug, pm.Title, pm.Description));
-            case "magrogamer09":
-                var mg = _stories.GetMagrogamer09();
-                return Ok(new StorySummaryDto(mg.Slug, mg.Title, mg.Description));
-            case "sopravvivi-agli-usa":
-                var su = _stories.GetSurviveUsa();
-                return Ok(new StorySummaryDto(su.Slug, su.Title, su.Description));
-            default:
-                throw new NotFoundException(slug);
-        }
+            "poveri-maschi" => _stories.GetPoveriMaschi(),
+            "magrogamer09" => _stories.GetMagrogamer09(),
+            "sopravvivi-agli-usa" => _stories.GetSurviveUsa(),
+            _ => throw new NotFoundException(slug),
+        };
+        return Ok(new StorySummaryDto(story.Slug, story.Title, story.Description));
     }
 
+    /// <summary>Passo di gioco: start, resume o scelta a seconda dei campi del body.</summary>
     [HttpPost("stories/{slug}/play")]
-    public IActionResult PlayStory(string slug, [FromBody] StoryPlayRequestDto body)
+    public async Task<IActionResult> PlayStory(string slug, [FromBody] StoryPlayRequestDto body)
     {
-        var state = ToGameState(body.Stats);
-        StorySnapshot? snapshot;
-        switch (slug)
+        var validation = await _playValidator.ValidateAsync(body);
+        if (!validation.IsValid)
         {
-            case "poveri-maschi":
-                snapshot = _stories.PlayPoveriMaschi(body.SceneId, body.ChoiceId, state);
-                break;
-            case "magrogamer09":
-                snapshot = _stories.PlayMagrogamer09(body.SceneId, body.ChoiceId, state);
-                break;
-            case "sopravvivi-agli-usa":
-                snapshot = _stories.PlaySurviveUsa(body.SceneId, body.ChoiceId, state);
-                break;
-            default:
-                throw new NotFoundException(slug);
+            foreach (var error in validation.Errors)
+                ModelState.AddModelError(error.PropertyName, error.ErrorMessage);
+            return ValidationProblem();
         }
-        if (snapshot is null) throw new NotFoundException("scena");
+
+        var snapshot = slug switch
+        {
+            "poveri-maschi" => _stories.PlayPoveriMaschi(body.SceneId, body.ChoiceId, body.Stats),
+            "magrogamer09" => _stories.PlayMagrogamer09(body.SceneId, body.ChoiceId, body.Stats),
+            "sopravvivi-agli-usa" => _stories.PlaySurviveUsa(body.SceneId, body.ChoiceId, body.Stats),
+            _ => throw new NotFoundException(slug),
+        };
         return Ok(snapshot);
     }
 
-    // ── Generatori: catalogo ─────────────────────────────────────────
+    // ── Generatori ───────────────────────────────────────────────────
 
+    /// <summary>Catalogo dei generatori disponibili.</summary>
     [HttpGet("generators")]
-    public async Task<IActionResult> GetGeneratorsCatalog()
+    public async Task<IActionResult> GetGeneratorsCatalog(CancellationToken cancellationToken)
     {
-        var items = await _generators.GetCatalogAsync();
-        return Ok(items.Select(i => new GeneratorInfoDto(
-            i.Slug,
-            i.Info?.Name ?? i.Slug,
-            i.Info?.Description)));
+        var items = await _generators.GetCatalogAsync(cancellationToken);
+        return Ok(items.Select(ToInfoDto));
     }
 
-    // ── Generatori: info e genera per slug ───────────────────────────
-
+    /// <summary>Info di un singolo generatore per slug.</summary>
     [HttpGet("generators/{slug}")]
-    public async Task<IActionResult> GetGenerator(string slug)
+    public async Task<IActionResult> GetGenerator(string slug, CancellationToken cancellationToken)
     {
-        Task<GeneratorData?> task;
-        switch (slug)
+        var task = slug switch
         {
-            case "incel":   task = _generators.GetIncelInfoAsync();   break;
-            case "mbeb":    task = _generators.GetMbebInfoAsync();    break;
-            case "auto":    task = _generators.GetAutoInfoAsync();    break;
-            case "antiveg": task = _generators.GetAntivegInfoAsync(); break;
-            case "locali":  task = _generators.GetLocaliInfoAsync();  break;
-            default:        throw new NotFoundException(slug);
-        }
-        var item = await task ?? throw new NotFoundException(slug);
-        return Ok(new GeneratorInfoDto(item.Slug, item.Info?.Name ?? item.Slug, item.Info?.Description));
-    }
-
-    [HttpPost("generators/{slug}/generate")]
-    public async Task<IActionResult> Generate(string slug, [FromBody] GenerateRequestDto? body)
-    {
-        GenerationResult result;
-        switch (slug)
-        {
-            case "incel":   result = await _generators.GenerateIncelAsync();   break;
-            case "mbeb":    result = await _generators.GenerateMbebAsync();    break;
-            case "auto":    result = await _generators.GenerateAutoAsync();    break;
-            case "antiveg": result = await _generators.GenerateAntivegAsync(); break;
-            case "locali":  result = await _generators.GenerateLocaliAsync();  break;
-            default:        throw new NotFoundException(slug);
-        }
-        return Ok(new GenerateResponseDto(result.Text, result.Markdown, result.Html));
-    }
-
-    // ── Helper Privati ───────────────────────────────────────────────
-
-    private static GameState ToGameState(Dictionary<string, object>? dict)
-    {
-        Func<JsonElement, object> UnwrapElement = (JsonElement je) => je.ValueKind switch
-        {
-            JsonValueKind.Number when je.TryGetInt32(out var i) => i,
-            JsonValueKind.Number when je.TryGetInt64(out long l) => l,
-            JsonValueKind.Number => je.GetDouble(),
-            JsonValueKind.String => je.GetString()!,
-            JsonValueKind.True => true,
-            JsonValueKind.False => false,
-            _ => je.GetRawText()
+            "incel" => _generators.GetIncelInfoAsync(cancellationToken),
+            "mbeb" => _generators.GetMbebInfoAsync(cancellationToken),
+            "auto" => _generators.GetAutoInfoAsync(cancellationToken),
+            "antiveg" => _generators.GetAntivegInfoAsync(cancellationToken),
+            "locali" => _generators.GetLocaliInfoAsync(cancellationToken),
+            _ => throw new NotFoundException(slug),
         };
-        if (dict is null) return new GameState();
-        var unwrapped = dict.ToDictionary(
-            kvp => kvp.Key,
-            kvp => kvp.Value is JsonElement je ? UnwrapElement(je) : kvp.Value);
-        return new GameState(unwrapped);
+        var item = await task ?? throw new NotFoundException(slug);
+        return Ok(ToInfoDto(item));
     }
 
-    // ── DTO ──────────────────────────────────────────────────────────
+    /// <summary>Genera un nuovo testo per il generatore richiesto.</summary>
+    [HttpPost("generators/{slug}/generate")]
+    public async Task<IActionResult> Generate(string slug, CancellationToken cancellationToken)
+    {
+        var task = slug switch
+        {
+            "incel" => _generators.GenerateIncelAsync(cancellationToken),
+            "mbeb" => _generators.GenerateMbebAsync(cancellationToken),
+            "auto" => _generators.GenerateAutoAsync(cancellationToken),
+            "antiveg" => _generators.GenerateAntivegAsync(cancellationToken),
+            "locali" => _generators.GenerateLocaliAsync(cancellationToken),
+            _ => throw new NotFoundException(slug),
+        };
+        return Ok(await task);
+    }
 
-    public sealed record StorySummaryDto(string Slug, string Title, string? Description);
-    public sealed record StoryPlayRequestDto(string? SceneId, string? ChoiceId, Dictionary<string, object>? Stats);
-    public sealed record GeneratorInfoDto(string Slug, string Name, string? Description);
-    public sealed record GenerateRequestDto(bool IncludeHtml = false);
-    public sealed record GenerateResponseDto(string Text, string Markdown, string? Html);
+    private static GeneratorInfoDto ToInfoDto(GeneratorData item)
+        => new(item.Slug, item.Info?.Name ?? item.Slug, item.Info?.Description);
 }

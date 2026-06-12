@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Backend.Models;
 using Backend.Stories;
 using Backend.Stories.Catalog;
@@ -6,9 +7,10 @@ namespace Backend.Services;
 
 /// <summary>
 /// Tutto ciò che riguarda le storie: istanze, catalogo, motore narrativo.
-/// Per aggiungere una storia: creare la classe IStory in Stories/Catalog/,
-/// aggiungere il campo statico qui sotto, includerla in GetCatalog()
-/// e aggiungere il metodo PlayXxx.
+/// La superficie pubblica è fatta di wrapper tipizzati per storia (un metodo ciascuno):
+/// i consumer non scrivono mai slug a mano, quindi non possono sbagliarli.
+/// Per aggiungere una storia: creare la classe IStory in Stories/Catalog/, aggiungere
+/// il campo statico qui sotto, includerla in GetCatalog() e aggiungere i wrapper GetXxx/PlayXxx.
 /// </summary>
 public class StoryService
 {
@@ -18,28 +20,51 @@ public class StoryService
     private static readonly Magrogamer09Story Magrogamer09 = new();
     private static readonly SurviveUsaStory SurviveUsa = new();
 
-    // ── Catalogo ─────────────────────────────────────────────────────
-
+    /// <summary>Catalogo delle storie disponibili.</summary>
     public IEnumerable<IStory> GetCatalog() => [PoveriMaschi, Magrogamer09, SurviveUsa];
 
+    // ── Info (wrapper per storia) ─────────────────────────────────────
+
+    /// <summary>La storia "Siamo Maschi".</summary>
     public IStory GetPoveriMaschi() => PoveriMaschi;
+
+    /// <summary>La storia "Magrogamer09".</summary>
     public IStory GetMagrogamer09() => Magrogamer09;
+
+    /// <summary>La storia "Sopravviveresti agli USA?".</summary>
     public IStory GetSurviveUsa() => SurviveUsa;
 
-    // ── Poveri Maschi ─────────────────────────────────────────────────
+    // ── Play (wrapper per storia) ─────────────────────────────────────
 
-    public StorySnapshot? PlayPoveriMaschi(string? sceneId, string? choiceId, GameState state)
-        => Play(PoveriMaschi, sceneId, choiceId, state);
+    /// <summary>Passo di gioco su "Siamo Maschi". Vedi <see cref="Play(IStory, string?, string?, Dictionary{string, object}?)"/>.</summary>
+    /// <param name="sceneId">Scena corrente del client, o <c>null</c> per iniziare da capo.</param>
+    /// <param name="choiceId">Scelta fatta nella scena corrente, o <c>null</c>.</param>
+    /// <param name="stats">Stato di gioco salvato dal client, così come arriva dal JSON.</param>
+    public StorySnapshot PlayPoveriMaschi(string? sceneId, string? choiceId, Dictionary<string, object>? stats)
+        => Play(PoveriMaschi, sceneId, choiceId, stats);
 
-    // ── Magrogamer09 ──────────────────────────────────────────────────
+    /// <summary>Passo di gioco su "Magrogamer09". Vedi <see cref="Play(IStory, string?, string?, Dictionary{string, object}?)"/>.</summary>
+    /// <param name="sceneId">Scena corrente del client, o <c>null</c> per iniziare da capo.</param>
+    /// <param name="choiceId">Scelta fatta nella scena corrente, o <c>null</c>.</param>
+    /// <param name="stats">Stato di gioco salvato dal client, così come arriva dal JSON.</param>
+    public StorySnapshot PlayMagrogamer09(string? sceneId, string? choiceId, Dictionary<string, object>? stats)
+        => Play(Magrogamer09, sceneId, choiceId, stats);
 
-    public StorySnapshot? PlayMagrogamer09(string? sceneId, string? choiceId, GameState state)
-        => Play(Magrogamer09, sceneId, choiceId, state);
+    /// <summary>Passo di gioco su "Sopravviveresti agli USA?". Vedi <see cref="Play(IStory, string?, string?, Dictionary{string, object}?)"/>.</summary>
+    /// <param name="sceneId">Scena corrente del client, o <c>null</c> per iniziare da capo.</param>
+    /// <param name="choiceId">Scelta fatta nella scena corrente, o <c>null</c>.</param>
+    /// <param name="stats">Stato di gioco salvato dal client, così come arriva dal JSON.</param>
+    public StorySnapshot PlaySurviveUsa(string? sceneId, string? choiceId, Dictionary<string, object>? stats)
+        => Play(SurviveUsa, sceneId, choiceId, stats);
 
-    // ── Survive the USA ───────────────────────────────────────────────
-
-    public StorySnapshot? PlaySurviveUsa(string? sceneId, string? choiceId, GameState state)
-        => Play(SurviveUsa, sceneId, choiceId, state);
+    // Passo di gioco: nessun parametro = start, solo scena = resume, scena + scelta =
+    // avanzamento. Lo stato arriva dal client e torna nello snapshot (server stateless).
+    // Scena inesistente → NotFoundException; scelta non valida → InvalidParametersException.
+    private static StorySnapshot Play(IStory story, string? sceneId, string? choiceId, Dictionary<string, object>? stats)
+    {
+        var snapshot = Play(story, sceneId, choiceId, ToGameState(stats));
+        return snapshot ?? throw new NotFoundException("scena");
+    }
 
     // ══════════════════════════════════════════════════════════════════
     // MOTORE NARRATIVO
@@ -99,5 +124,26 @@ public class StoryService
             Consequences: consequence,
             ChosenChoiceText: chosenChoiceText,
             Stats: state.ToDictionary());
+    }
+
+    // Il body JSON deserializza i valori come JsonElement: qui tornano tipi .NET
+    // primitivi, così i lambda delle storie leggono int/bool/string senza sorprese.
+    private static GameState ToGameState(Dictionary<string, object>? dict)
+    {
+        static object UnwrapElement(JsonElement je) => je.ValueKind switch
+        {
+            JsonValueKind.Number when je.TryGetInt32(out var i) => i,
+            JsonValueKind.Number when je.TryGetInt64(out long l) => l,
+            JsonValueKind.Number => je.GetDouble(),
+            JsonValueKind.String => je.GetString()!,
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            _ => je.GetRawText()
+        };
+        if (dict is null) return new GameState();
+        var unwrapped = dict.ToDictionary(
+            kvp => kvp.Key,
+            kvp => kvp.Value is JsonElement je ? UnwrapElement(je) : kvp.Value);
+        return new GameState(unwrapped);
     }
 }

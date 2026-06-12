@@ -9,19 +9,26 @@ namespace Backend.Stories.Catalog;
 /// </summary>
 public class SurviveUsaStory : IStory
 {
+    /// <inheritdoc />
     public string Slug => "sopravvivi-agli-usa";
 
+    /// <inheritdoc />
     public string Title => "Sopravviveresti agli USA?";
 
+    /// <inheritdoc />
     public string? Description =>
         "Sei a capo di Oippaderp. Riesci a governarla senza farti rovesciare dal governo degli Stati Uniti?";
 
+    /// <inheritdoc />
     public string StartSceneId => "petrolio";
 
+    /// <inheritdoc />
     public Dictionary<string, object> InitialState => [];
 
+    /// <inheritdoc />
     public bool HasScene(string id) => _scenes.ContainsKey(id);
 
+    /// <inheritdoc />
     public SceneDef GetScene(string id, GameState state)
     {
         if (!_scenes.TryGetValue(id, out var factory) || factory is null)

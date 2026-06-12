@@ -1,59 +1,35 @@
 namespace Backend.Stories.Catalog;
 
+/// <summary>
+/// "Magrogamer09" — simulatore satirico di gamer/streamer: gestisci live, scandali
+/// e amicizie con due stat nascoste (percezione pubblica e amicizia con Favijanni).
+/// </summary>
 public class Magrogamer09Story : IStory
 {
-    public string Slug
+    /// <inheritdoc />
+    public string Slug => "magrogamer09";
+
+    /// <inheritdoc />
+    public string Title => "Magrogamer09 - Il Simulatore di Gamer";
+
+    /// <inheritdoc />
+    public string? Description =>
+        "Sei un ganer da 50.000 follower, zero scandali. Riuscirai a sopravvivere in questo mondo?";
+
+    /// <inheritdoc />
+    public string StartSceneId => "tono_live";
+
+    /// <inheritdoc />
+    public Dictionary<string, object> InitialState => new()
     {
-        get
-        {
-            return "magrogamer09";
-        }
-    }
+        ["percezionePublica"] = 5,
+        ["amiciziaFavijanni"] = 5
+    };
 
-    public string Title
-    {
-        get
-        {
-            return "Magrogamer09 - Il Simulatore di Gamer";
-        }
-    }
+    /// <inheritdoc />
+    public bool HasScene(string id) => _scenes.ContainsKey(id);
 
-    public string? Description
-    {
-        get
-        {
-            return "Sei un ganer da 50.000 follower, zero scandali. Riuscirai a sopravvivere in questo mondo?";
-        }
-    }
-
-    public string StartSceneId
-    {
-        get
-        {
-            return "tono_live";
-        }
-    }
-
-    public Dictionary<string, object> InitialState
-    {
-        get
-        {
-            var initialState = new Dictionary<string, object>
-            {
-                ["percezionePublica"] = 5,
-                ["amiciziaFavijanni"] = 5
-            };
-
-            return initialState;
-        }
-    }
-
-    public bool HasScene(string id)
-    {
-        var hasScene = _scenes.ContainsKey(id);
-        return hasScene;
-    }
-
+    /// <inheritdoc />
     public SceneDef GetScene(string id, GameState state)
     {
         var hasFactory = _scenes.TryGetValue(id, out var factory);

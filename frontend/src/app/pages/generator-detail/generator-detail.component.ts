@@ -99,15 +99,15 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorInfo> {
         return gen ? `${gen.slug}.png` : 'risultato.png';
     });
 
-    // ── Dispatch per generatore ──────────────────────────────────────
+    // ── Dispatch per generatore (wrapper tipizzati: niente slug a mano) ──
 
     private fetchGeneratedText(): Promise<GenerateResponse> {
         switch (this.pageType()) {
-            case PageType.GeneratorIncel: return this.api.generateIncel({});
-            case PageType.GeneratorAuto: return this.api.generateAuto({});
-            case PageType.GeneratorAntiveg: return this.api.generateAntiveg({});
-            case PageType.GeneratorLocali: return this.api.generateLocali({});
-            case PageType.GeneratorMbeb: return this.api.generateMbeb({});
+            case PageType.GeneratorIncel: return this.api.generateIncel();
+            case PageType.GeneratorAuto: return this.api.generateAuto();
+            case PageType.GeneratorAntiveg: return this.api.generateAntiveg();
+            case PageType.GeneratorLocali: return this.api.generateLocali();
+            case PageType.GeneratorMbeb: return this.api.generateMbeb();
             default: throw new Error(`PageType non è un generatore: ${this.pageType()}`);
         }
     }

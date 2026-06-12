@@ -68,13 +68,13 @@ var localization = builder.Configuration
 
 // ── SERVIZI APPLICATIVI ─────────────────────────────────────────────
 // IContentStore (FileContentStore): accesso dati, sostituibile con DB senza toccare controller.
-// SiteService: logica di business del progetto.
+// SiteService: profilo e social del sito (data/irl.json + social.json).
+// GeneratorService: catalogo e generazione testo (le composizioni sono un suo dettaglio interno).
+// StoryService: registro storie e motore narrativo.
 // AuthService: infrastruttura JWT, registrata solo se LoginEnabled.
 builder.Services.AddMemoryCache();
-
-// GeneratorService: catalogo, info e generazione testo per ogni generatore.
-// StoryService: registro storie, motore narrativo e play per ogni storia.
 builder.Services.AddSingleton<IContentStore, FileContentStore>();
+builder.Services.AddScoped<SiteService>();
 builder.Services.AddScoped<GeneratorService>();
 builder.Services.AddSingleton<StoryService>();
 

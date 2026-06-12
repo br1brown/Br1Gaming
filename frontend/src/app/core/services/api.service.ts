@@ -1,24 +1,22 @@
 import { Injectable } from '@angular/core';
 import { BaseApiService } from '../engine/services/base-api.service';
+import { Profile } from '../engine/dto/profile.dto';
 import { StorySummary, StorySnapshotDto } from '../dto/story.dto';
-import { GeneratorInfo, GenerateRequest, GenerateResponse } from '../dto/generator.dto';
+import { GeneratorInfo, GenerateResponse } from '../dto/generator.dto';
 import { LoginResult, LoginRequest } from '../dto/auth.dto';
 
 /** Endpoint backend. Aggiungere il path qui, poi il metodo pubblico sotto. */
 const API = {
+    profile: 'profile',
     login: 'auth/login',
     blob: (slug: string) => `blob/${encodeURIComponent(slug)}`,
     blobUpload: 'blob/up',
     stories: 'stories',
+    story: (slug: string) => `stories/${encodeURIComponent(slug)}`,
+    storyPlay: (slug: string) => `stories/${encodeURIComponent(slug)}/play`,
     generators: 'generators',
-    generatorIncel: 'generators/incel',
-    generatorAuto: 'generators/auto',
-    generatorAntiveg: 'generators/antiveg',
-    generatorLocali: 'generators/locali',
-    generatorMbeb: 'generators/mbeb',
-    storyPoveriMaschi: 'stories/poveri-maschi',
-    storyMagrogamer09: 'stories/magrogamer09',
-    storySurviveUsa: 'stories/sopravvivi-agli-usa',
+    generator: (slug: string) => `generators/${encodeURIComponent(slug)}`,
+    generate: (slug: string) => `generators/${encodeURIComponent(slug)}/generate`,
 } as const;
 
 /**
@@ -37,6 +35,22 @@ const API = {
  */
 @Injectable({ providedIn: 'root' })
 export class ApiService extends BaseApiService {
+
+    // ─── Sito: profilo ───────────────────────────────────────────────
+
+    /** Recupera i dati del profilo del sito e i contatti pubblici. */
+    getProfile(): Promise<Profile> {
+        return this.api_get<Profile>(API.profile);
+    }
+
+    /**
+     * Versione reattiva di getProfile() basata su httpResource.
+     * Si aggiorna automaticamente al cambio lingua (via Accept-Language nell'header).
+     * Usare nei componenti persistenti come il footer.
+     */
+    getProfileResource() {
+        return this.api_resource<Profile>(API.profile);
+    }
 
     /**
      * Recupera un file dal volume uploads come Blob (immagini, documenti, ecc.).
@@ -93,45 +107,92 @@ export class ApiService extends BaseApiService {
     }
 
     // ─── Storie ──────────────────────────────────────────────
+    // Superficie pubblica = wrapper tipizzati per storia: i consumer non scrivono
+    // mai slug a mano. Le private con lo slug restano l'unico punto che parla REST.
 
+    /** Catalogo delle storie disponibili. */
     getStories(): Promise<StorySummary[]> {
         return this.api_get<StorySummary[]>(API.stories);
     }
 
-    getStoryPoveriMaschi(): Promise<StorySummary> { return this.api_get<StorySummary>(API.storyPoveriMaschi); }
-    getStoryMagrogamer09(): Promise<StorySummary> { return this.api_get<StorySummary>(API.storyMagrogamer09); }
+    /** Info della storia "Siamo Maschi". */
+    getStoryPoveriMaschi(): Promise<StorySummary> { return this.getStory('poveri-maschi'); }
 
+    /** Info della storia "Magrogamer09". */
+    getStoryMagrogamer09(): Promise<StorySummary> { return this.getStory('magrogamer09'); }
+
+    /** Info della storia "Sopravviveresti agli USA?". */
+    getStorySurviveUsa(): Promise<StorySummary> { return this.getStory('sopravvivi-agli-usa'); }
+
+    /** Passo di gioco su "Siamo Maschi". */
+    playPoveriMaschi(sceneId?: string, choiceId?: string, stats?: Record<string, number>): Promise<StorySnapshotDto> {
+        return this.playStory('poveri-maschi', sceneId, choiceId, stats);
+    }
+
+    /** Passo di gioco su "Magrogamer09". */
+    playMagrogamer09(sceneId?: string, choiceId?: string, stats?: Record<string, number>): Promise<StorySnapshotDto> {
+        return this.playStory('magrogamer09', sceneId, choiceId, stats);
+    }
+
+    /** Passo di gioco su "Sopravviveresti agli USA?". */
+    playSurviveUsa(sceneId?: string, choiceId?: string, stats?: Record<string, number>): Promise<StorySnapshotDto> {
+        return this.playStory('sopravvivi-agli-usa', sceneId, choiceId, stats);
+    }
+
+    private getStory(slug: string): Promise<StorySummary> {
+        return this.api_get<StorySummary>(API.story(slug));
+    }
+
+    // Passo di gioco: nessun parametro = start, solo sceneId = resume, sceneId + choiceId = scelta.
     // `silent: true`: lo StoryPlayerFacade ha la propria UI d'errore (signal `error` + redirect
     // a /error/404 sullo story-not-found), quindi niente notifica automatica dall'interceptor.
-    playPoveriMaschi(sceneId?: string, choiceId?: string, stats?: Record<string, number>): Promise<StorySnapshotDto> {
-        return this.api_post<StorySnapshotDto>(`${API.storyPoveriMaschi}/play`, { sceneId, choiceId, stats }, { silent: true });
+    private playStory(slug: string, sceneId?: string, choiceId?: string, stats?: Record<string, number>): Promise<StorySnapshotDto> {
+        return this.api_post<StorySnapshotDto>(API.storyPlay(slug), { sceneId, choiceId, stats }, { silent: true });
     }
 
-    playMagrogamer09(sceneId?: string, choiceId?: string, stats?: Record<string, number>): Promise<StorySnapshotDto> {
-        return this.api_post<StorySnapshotDto>(`${API.storyMagrogamer09}/play`, { sceneId, choiceId, stats }, { silent: true });
-    }
+    // ─── Generatori ─────────────────────────────────────────────────────
+    // Stesso giro delle storie: wrapper tipizzati sopra le private con lo slug.
 
-    getStorySurviveUsa(): Promise<StorySummary> { return this.api_get<StorySummary>(API.storySurviveUsa); }
-
-    playSurviveUsa(sceneId?: string, choiceId?: string, stats?: Record<string, number>): Promise<StorySnapshotDto> {
-        return this.api_post<StorySnapshotDto>(`${API.storySurviveUsa}/play`, { sceneId, choiceId, stats }, { silent: true });
-    }
-
-    // ─── Generators ─────────────────────────────────────────────────────
-
+    /** Catalogo dei generatori disponibili. */
     getGenerators(): Promise<GeneratorInfo[]> {
         return this.api_get<GeneratorInfo[]>(API.generators);
     }
 
-    getIncel(): Promise<GeneratorInfo> { return this.api_get<GeneratorInfo>(API.generatorIncel); }
-    getAuto(): Promise<GeneratorInfo> { return this.api_get<GeneratorInfo>(API.generatorAuto); }
-    getAntiveg(): Promise<GeneratorInfo> { return this.api_get<GeneratorInfo>(API.generatorAntiveg); }
-    getLocali(): Promise<GeneratorInfo> { return this.api_get<GeneratorInfo>(API.generatorLocali); }
-    getMbeb(): Promise<GeneratorInfo> { return this.api_get<GeneratorInfo>(API.generatorMbeb); }
+    /** Info del generatore Incel. */
+    getIncel(): Promise<GeneratorInfo> { return this.getGenerator('incel'); }
 
-    generateIncel(req: GenerateRequest): Promise<GenerateResponse> { return this.api_post<GenerateResponse>(`${API.generatorIncel}/generate`, req); }
-    generateAuto(req: GenerateRequest): Promise<GenerateResponse> { return this.api_post<GenerateResponse>(`${API.generatorAuto}/generate`, req); }
-    generateAntiveg(req: GenerateRequest): Promise<GenerateResponse> { return this.api_post<GenerateResponse>(`${API.generatorAntiveg}/generate`, req); }
-    generateLocali(req: GenerateRequest): Promise<GenerateResponse> { return this.api_post<GenerateResponse>(`${API.generatorLocali}/generate`, req); }
-    generateMbeb(req: GenerateRequest): Promise<GenerateResponse> { return this.api_post<GenerateResponse>(`${API.generatorMbeb}/generate`, req); }
+    /** Info del generatore Automobilista. */
+    getAuto(): Promise<GeneratorInfo> { return this.getGenerator('auto'); }
+
+    /** Info del generatore Anti-Vegano. */
+    getAntiveg(): Promise<GeneratorInfo> { return this.getGenerator('antiveg'); }
+
+    /** Info del generatore Politiche Locali. */
+    getLocali(): Promise<GeneratorInfo> { return this.getGenerator('locali'); }
+
+    /** Info del generatore MBEB. */
+    getMbeb(): Promise<GeneratorInfo> { return this.getGenerator('mbeb'); }
+
+    /** Genera un nuovo testo Incel. */
+    generateIncel(): Promise<GenerateResponse> { return this.generate('incel'); }
+
+    /** Genera un nuovo testo Automobilista. */
+    generateAuto(): Promise<GenerateResponse> { return this.generate('auto'); }
+
+    /** Genera un nuovo testo Anti-Vegano. */
+    generateAntiveg(): Promise<GenerateResponse> { return this.generate('antiveg'); }
+
+    /** Genera un nuovo testo Politiche Locali. */
+    generateLocali(): Promise<GenerateResponse> { return this.generate('locali'); }
+
+    /** Genera un nuovo testo MBEB. */
+    generateMbeb(): Promise<GenerateResponse> { return this.generate('mbeb'); }
+
+    private getGenerator(slug: string): Promise<GeneratorInfo> {
+        return this.api_get<GeneratorInfo>(API.generator(slug));
+    }
+
+    private generate(slug: string): Promise<GenerateResponse> {
+        return this.api_post<GenerateResponse>(API.generate(slug), {});
+    }
 }

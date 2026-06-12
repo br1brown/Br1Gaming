@@ -39,7 +39,7 @@ export class StoryPlayerComponent extends PageBaseComponent<StoryInfo> {
         });
     }
 
-    // ── Dispatch per storia ───────────────────────────────────────────
+    // ── Dispatch per storia (wrapper tipizzati: niente slug a mano) ───
 
     private initStory(): Promise<void> {
         switch (this.pageType()) {

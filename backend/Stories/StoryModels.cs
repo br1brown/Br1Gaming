@@ -8,8 +8,10 @@ public class GameState
 {
     private readonly Dictionary<string, object> _data;
 
+    /// <summary>Stato vuoto.</summary>
     public GameState() => _data = [];
 
+    /// <summary>Stato inizializzato con una copia del dizionario dato.</summary>
     public GameState(Dictionary<string, object> initial) => _data = new(initial);
 
     /// <summary>Legge un valore tipizzato con fallback se assente o tipo errato.</summary>
