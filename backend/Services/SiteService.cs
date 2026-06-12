@@ -72,8 +72,9 @@ public class SiteService
         var social = await _store.GetSocialAsync(cancellationToken);
 
         // Esempio/demo: il profilo pubblico mostra solo un sottoinsieme "principale" di social.
-        // Logica di dominio del progetto, non dell'Engine: adatta o rimuovi questo filtro
-        // (o leggi l'elenco da configurazione) in base a cosa il sito deve esporre su GET /profile.
+        // Logica di dominio del progetto, non dell'Engine: nel figlio si adatta (o si toglie)
+        // il filtro, non il servizio. Se il sito non espone social, lascia Social non
+        // valorizzato: il footer di default nasconde da solo la sezione.
         string[] principali = ["linkedin", "whatsapp", "facebook"];
         profile.Social = social
             .Where(kv => principali.Contains(kv.Key, StringComparer.OrdinalIgnoreCase))

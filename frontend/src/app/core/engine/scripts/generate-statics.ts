@@ -3,12 +3,17 @@
  *
  * Aggiorna:
  * - src/index.html           → lang, title, theme-color, meta PWA
+ * - src/environments/environment.ts → identità/estetica del progetto iniettate nel bundle
  * - public/manifest.webmanifest → nome, descrizione, colori
  * - public/sitemap.xml       → tutte le pagine indicizzabili
  * - public/robots.txt        → user-agent, disallow, sitemap URL
  * - public/llms.txt          → indice del sito per i crawler AI (convenzione llms.txt)
  * - public/security.txt      → contatto di sicurezza RFC 9116 (servito su /.well-known/)
  * - public/theme-init.js     → script anti-flash del tema, referenziato da index.html
+ *
+ * index.html, environment.ts, manifest e robots sono generati MA versionati (seed:
+ * type-check e build passano anche prima della prima esecuzione); il resto è solo
+ * output di build, gitignored.
  *
  * Eseguire con:
  *   npm run generate:statics

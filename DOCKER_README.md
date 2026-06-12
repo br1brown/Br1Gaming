@@ -103,8 +103,9 @@ profondo; gli array come `ApiKeys`/`SupportedLanguages` vengono sostituiti), gen
 > (X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS, Permissions-Policy, CSP) sono
 > uguali per ogni progetto: vivono in `security-headers.json` (file del template, montato in
 > entrambi i container e letto da backend e Node SSR). **Non è roba del progetto figlio**, che
-> non deve scriverla né rischiare di cancellarla; si aggiorna col `git pull`. In `global-settings`
-> resta solo la sicurezza *del progetto*: `ApiKeys`, `CorsOrigins`, `BehindProxy`, `Token`.
+> non deve scriverla né rischiare di cancellarla; si aggiorna col merge dal template — l'unica
+> eccezione è l'override documentato nella `_nota` del file (vedi il README principale). In
+> `global-settings` resta solo la sicurezza *del progetto*: `ApiKeys`, `CorsOrigins`, `BehindProxy`, `Token`.
 
 `BACKEND_ORIGIN` (`http://backend:8080`) resta una variabile d'ambiente del compose: è l'indirizzo Docker-interno del backend, non una scelta di configurazione utente.
 

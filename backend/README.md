@@ -5,8 +5,8 @@
 Questo è il backend del template Br1WebEngine, una Web API .NET 9 progettata per essere leggera, sicura di default e "production-ready".
 
 L'architettura è divisa in due strati principali:
-1. **L'Engine (`Engine/`, `Security/`)**: Il motore infrastrutturale. Contiene le classi base e i middleware di sicurezza. **Non si tocca** durante lo sviluppo quotidiano delle feature.
-2. **Il Dominio (`Controllers/`, `Services/`, `Models/`)**: dove vive il codice applicativo del progetto.
+1. **L'Engine (`Engine/`, incluso `Engine/Security/`)**: Il motore infrastrutturale. Contiene le classi base e i middleware di sicurezza. **Non si tocca** durante lo sviluppo quotidiano delle feature.
+2. **Il Dominio (`Controllers/`, `Services/`, `Models/`, `Store/`, `Validation/`)**: dove vive il codice applicativo del progetto. Le cartelle sono il punto di partenza, non il perimetro: si parte basici e il dominio si estende con le cartelle che servono (es. un catalogo di contenuti propri).
 
 L'obiettivo di questa separazione è **levarti dai piedi i problemi noiosi** per farti concentrare solo sulla logica.
 
@@ -82,6 +82,8 @@ Dopo la rimozione, ASP.NET non genera rotte, non espone nulla in Swagger e nessu
 ### 4. Il Database Fantasma (`FileContentStore`)
 **Perché è così?** Installare Entity Framework e SQL per un MVP rallenta pesantemente le prime settimane. Spesso servono solo testi legali e di configurazione.
 **Cosa fa l'Engine:** Il `FileContentStore` carica file JSON da `/data/`, li cacha in `IMemoryCache` (con TTL di 1 ora e rispetto della memory pressure del runtime) e, risolvendo la lingua dall'header HTTP `Accept-Language`, restituisce l'oggetto già localizzato. Per gestire la lettura del file usa `try/catch` su `ReadAllTextAsync` invece di un `File.Exists` preventivo: elimina la race condition TOCTOU (il file potrebbe essere rimosso tra il controllo e la lettura effettiva) e converte correttamente la `FileNotFoundException` in `NotFoundException`.
+
+I contenuti di `data/` sono **parte del codice**: in produzione non cambiano mai da soli (vivono nell'immagine, più la cache in RAM) — per modificarli si committa e si rifà il deploy. Ciò che invece deve cambiare a runtime vive nei volumi, ognuno col suo ruolo: `db/` per i dati del DB futuro, `uploads/` per i file caricati.
 
 Il percorso di crescita è già predisposto: la cartella `backend/db/` è il mount point del volume Docker `<progetto>_db-data` (vedi `docker-compose.yml` e `backup.sh`). Quando il progetto migra da `FileContentStore` a un database reale — cioè una nuova implementazione di `IContentStore` — i file del DB vivono lì e sopravvivono ai deploy.
 
@@ -391,6 +393,8 @@ var nuovaFunzione = builder.Configuration.GetValue<bool>("Custom:FeatureFlags:Nu
 
 **Browser Angular:** disponibile tramite `inject(APP_CUSTOM)` — l'SSR serializza `Custom` in `TransferState` e il browser la rilegge in idratazione (fallback `{}` senza SSR). Usa questo meccanismo per feature flag, limiti applicativi, ID di analytics: è l'escape hatch ufficiale per configurazione progetto-specifica senza aggiungere nuovi `*Options` a livello di schema. ⚠️ `Custom` è committabile e ora visibile al client: non metterci segreti.
 
+I valori **per-ambiente** (chiavi di servizi esterni, ID diversi tra dev e prod) vanno nella stessa sezione `Custom` di `global-settings.local.json`: è un uso previsto, il deep-merge li fonde sopra quelli committati. Restano comunque visibili al client — il `.local` li tiene fuori da git, non fuori dal browser.
+
 ---
 
 ## 🛠️ Developer Journey: Aggiungere un Endpoint
@@ -525,6 +529,8 @@ public class UsersController : EngineProtectedController
 
 Il login è **opzionale**: si attiva valorizzando `Security.Token.SecretKey` (≥32 char) in `global-settings.local.json`. Se la chiave è vuota, i controller di autenticazione vengono rimossi fisicamente dalla memoria al boot.
 
+> `setup.mjs` lascia la `SecretKey` **vuota**: un figlio nasce col login spento. Attivarlo è una scelta esplicita — chiave ≥32 char nel `.local.json` e verifica propria al posto della demo (`admin`/`Password1!`) in `AuthController`.
+
 ### Architettura del Payload di Sessione
 
 Il JWT trasporta un payload tipizzato nel claim `"session"`. L'Engine gestisce solo il meccanismo (serializzazione/deserializzazione generica); la forma del payload la definisce il progetto.
@@ -587,7 +593,7 @@ var session = new SessionInfo
 return Ok(new LoginResult(true, Token: Auth.GenerateToken(new[] { SessionPayload.Claim(session) })));
 ```
 
-La verifica delle credenziali è logica di dominio del progetto: `AuthController` è un punto di partenza da sostituire con la propria sorgente di identità (Identity Provider, DB, ecc.) — per questo il template non aggiunge file o configurazione dedicati al login. Nella demo le credenziali (`admin`/`Password1!`) vivono hardcoded nel controller e il confronto è in tempo costante, come per le API key. Il meccanismo di emissione del token (`Auth.GenerateToken`, `SessionPayload.Claim`) è invece fornito dall'Engine.
+La verifica delle credenziali è logica di dominio del progetto: `AuthController` è un punto di partenza — il controller resta, si sostituisce solo la verifica con la propria sorgente di identità (Identity Provider, DB, ecc.) — per questo il template non aggiunge file o configurazione dedicati al login. Nella demo le credenziali (`admin`/`Password1!`) vivono hardcoded nel controller e il confronto è in tempo costante, come per le API key. Il meccanismo di emissione del token (`Auth.GenerateToken`, `SessionPayload.Claim`) è invece fornito dall'Engine.
 
 #### `AuthService` — Claim Impliciti in Ogni Token
 
@@ -625,7 +631,9 @@ Il JWT è stateless: il logout sul client (rimozione del token) non invalida il 
 
 > I **controller dimostrativi** del template (profilo/social, login demo, ping protetto) non sono
 > documentati qui: il catalogo vive nella **vetrina della demo** del [README root](../README.md).
-> Sono esempi da sostituire col dominio del progetto. Qui sotto restano gli strumenti che il
+> Sono segnaposto: il figlio li tiene e ne cambia il contenuto (i dati in `data/*.json`, la verifica
+> delle credenziali, i filtri di dominio) o ne lascia non valorizzate le parti che non espone,
+> aggiungendo accanto i controller del proprio dominio. Qui sotto restano gli strumenti che il
 > template fornisce di default e che un figlio usa così come sono.
 
 #### `BlobController` — Upload e Download File
@@ -647,7 +655,7 @@ Eredita da `EngineBlobController` (helper per il resize immagini), espone downlo
 
 **Content-Type:** rilevato automaticamente dall'estensione del file tramite `FileExtensionContentTypeProvider`. Se l'estensione non è riconosciuta, viene usato `application/octet-stream`.
 
-> **Nota:** l'upload (`POST /blob/up`) richiede un token JWT valido (utente autenticato). Per validazioni di dominio (tipi MIME consentiti, antivirus, quote) estendi `SaveFileAsync` o il controller nel progetto figlio.
+> **Nota:** l'upload (`POST /blob/up`) richiede un token JWT valido (utente autenticato). Per validazioni di dominio (tipi MIME consentiti, antivirus, quote) estendi `SaveFileAsync` o il controller nel progetto figlio. In un progetto **senza login** (`SecretKey` vuota) l'upload è impossibile per design: il blob store resta in sola lettura e la `GET` serve i file già presenti nel volume.
 
 #### Health Check (`GET /health`)
 

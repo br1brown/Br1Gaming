@@ -28,10 +28,11 @@ Nessun breaking, nessuna azione richiesta.
   dei metadata riusata; prima erano duplicate in `FileUtils` e `FileContentStore`).
 - Utility **`.cursor-context-menu`** in `base.css`: la classe era già usata nella home demo ma mai
   definita; ora segnala col cursore la presenza del menu contestuale `[appContextMenu]`.
-- **Zero warning, e blindati**: azzerati i 12 warning XML-doc del backend (costruttori delle
+- **Zero warning**: azzerati i 12 warning XML-doc del backend (costruttori delle
   eccezioni, `paramref`/`typeparamref` fuori scope) e il warning ESLint sull'alias di
-  `appFitViewportMin`; la CI ora compila il backend con `-warnaserror`, così un figlio che
-  eredita il template vede solo i *suoi* warning.
+  `appFitViewportMin`. La CI compila **senza** `-warnaserror`: è ereditata tale e quale dai
+  figli, e i warning del loro dominio non devono bloccargli la build — lo zero-warning è
+  disciplina del template, non un gate.
 
 ### Changed
 - **Node 22 → 24 LTS** (`.nvmrc`, `frontend/Dockerfile`; la CI segue `.nvmrc`). Node 22 è in
