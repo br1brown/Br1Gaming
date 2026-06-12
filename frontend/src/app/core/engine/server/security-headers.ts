@@ -1,3 +1,6 @@
+import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { serverEnv } from './server-env';
 
 /**
@@ -33,6 +36,42 @@ export const defaultCsp = configuredHeaders['Content-Security-Policy']
 
 /** CSP per file statici (assets, index.csr.html): placeholder sostituito con 'unsafe-inline'. */
 export const staticCsp = defaultCsp.replace('{SCRIPT_NONCE_PLACEHOLDER}', "'unsafe-inline'");
+
+/**
+ * Hash sha256 dello script event-dispatch di Angular, da aggiungere allo script-src
+ * SOLO nella variante con nonce (SSR).
+ *
+ * Perché serve: con provideClientHydration(withEventReplay()), il build inietta in
+ * <body> uno <script id="ng-event-dispatch-contract"> (definisce __jsaction_bootstrap)
+ * a build-time, quindi SENZA nonce per-request. A render-time Angular nonce-a solo lo
+ * script che lo CHIAMA, non quello che lo definisce (bug noto angular/angular#59886,
+ * #66540). Sotto CSP con nonce e senza 'unsafe-inline' viene bloccato → __jsaction_bootstrap
+ * non esiste → event replay e idratazione si rompono, ma SOLO in prod (in dev lo script-src
+ * usa 'unsafe-inline'). Lo script è statico → lo si autorizza col suo hash.
+ *
+ * Calcolato dal file reale a runtime → si auto-aggiorna a ogni upgrade di Angular, nessuna
+ * costante da mantenere a mano. NB: l'hash va SOLO nella variante nonce: se presente un hash,
+ * la CSP ignora 'unsafe-inline', quindi metterlo in staticCsp romperebbe gli inline statici.
+ * Copre l'unico script inline build-time esistente oggi; se un futuro Angular ne aggiungesse
+ * altri, andrebbero inclusi qui.
+ */
+function computeEventDispatchScriptHash(): string | null {
+    try {
+        const path = createRequire(import.meta.url).resolve('@angular/core/event-dispatch-contract.min.js');
+        const hash = createHash('sha256').update(readFileSync(path)).digest('base64');
+        return `'sha256-${hash}'`;
+    } catch (err) {
+        console.warn('[security-headers] Hash event-dispatch non calcolabile: con CSP nonce in prod '
+            + "l'event replay potrebbe restare bloccato. Dettaglio:", err);
+        return null;
+    }
+}
+
+/** Token extra per lo script-src della variante nonce (stringa con spazio iniziale, o '' se non calcolabile). */
+export const eventReplayScriptSrc = ((): string => {
+    const hash = computeEventDispatchScriptHash();
+    return hash ? ` ${hash}` : '';
+})();
 
 /** Header di sicurezza standard applicati a tutte le risposte non-API.
  *  La CSP usa la variante static (placeholder→'unsafe-inline'); le risposte SSR

@@ -615,6 +615,7 @@ Il template include già 4 controller operativi come esempio/punto di partenza:
 Eredita da `EngineBlobController` (helper per il resize immagini), espone download e upload dei file salvati nel volume persistente.
 
 **`GET /blob/{slug}[?webopt=true]`** — richiede API key, nessuna autenticazione utente. `webopt=true` richiede la versione ottimizzata per il web del file: oggi l'ottimizzazione implementata è il resize delle immagini (lato più lungo max 1920 px), mentre i tipi non ancora gestiti vengono restituiti invariati. È il punto di aggancio per estendere l'ottimizzazione lato API ad altri tipi di contenuto in futuro.
+**Difesa XSS (Stored):** Il controller serve inline (`Content-Disposition: inline`) solo le immagini raster note. Tutti gli altri formati — inclusi file HTML, SVG o XML caricati dagli utenti — sono forzati al download (`Content-Disposition: attachment`) con Content-Type `application/octet-stream`. Questo previene l'esecuzione di script malevoli sull'origin dell'API. Per recuperarli lato client, usare TypeScript/`fetch` per leggere i dati grezzi.
 
 **`POST /blob/up`** — richiede API key **e** token JWT valido (`[Authorize(Policy = RequireLogin)]`). Riceve un `IFormFile`, lo salva e restituisce lo slug univoco: `{ "slug": "abc123.jpg" }`. Limite di dimensione `10 MB` (`[RequestSizeLimit]`, sovrascrivibile nel controller figlio). La logica di salvataggio è nel metodo statico `SaveFileAsync`, riutilizzabile da altri controller che ricevono file nei propri form.
 

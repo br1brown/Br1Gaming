@@ -18,6 +18,15 @@ import { Directive, ElementRef, inject, OnInit, Renderer2 } from '@angular/core'
  * Nota: gli anelli intermedi diventano colonne flex. L'elemento è pensato per viste a
  * tutto schermo (mappe, giochi, dashboard), da solo nella propria gerarchia di pagina.
  *
+ * ⚠️ VINCOLO — niente utility `.d-*` di Bootstrap sull'host (né sugli anelli intermedi):
+ * `d-block`/`d-flex`/... sono `display:… !important` e BATTONO il `display:flex` inline
+ * (non-important) che questa direttiva imposta. La catena flex si spezza in silenzio —
+ * nessun errore — e l'elemento collassa ad altezza 0 (sintomo tipico: una mappa o un canvas
+ * full-screen "nero" perché il container con `h-100` eredita 0). Lasciare l'host SENZA classe
+ * di display: ci pensa la direttiva. (Diagnosi: risali la catena da figlio ad app-root con
+ * `console.table` di `offsetHeight` + `getComputedStyle().display`; l'anello dove il `display`
+ * calcolato ≠ quello inline è il colpevole.)
+ *
  * Uso:
  *   <section appFitViewport>...</section>
  */
