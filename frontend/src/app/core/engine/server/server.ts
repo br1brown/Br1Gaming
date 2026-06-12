@@ -15,7 +15,7 @@ import { browserDistFolder } from './server-paths';
 import { pruneImageCache, CACHE_SWEEP_INTERVAL_MS } from './image-cache';
 import { loadAssetMapping } from './asset-mapping';
 import { immutableAssetPattern } from './asset-handler';
-import { htmlSecurityHeaders, defaultCsp } from './security-headers';
+import { htmlSecurityHeaders, defaultCsp, eventReplayScriptSrc } from './security-headers';
 import { fileExists } from './fs-utils';
 import { apiProxyHandler } from './routes/api-proxy';
 import { cdnAssetHandler } from './routes/cdn-asset';
@@ -259,8 +259,9 @@ app.use(async (request: Request, response: Response, next) => {
             response.setHeader(key, value);
         });
 
-        // CSP: in prod nonce per-request, in dev 'unsafe-inline' (richiesto da HMR)
-        const scriptSrc = nonce ? `'nonce-${nonce}'` : "'unsafe-inline'";
+        // CSP: in prod nonce per-request (+ hash dello script event-dispatch build-time,
+        // vedi eventReplayScriptSrc), in dev 'unsafe-inline' (richiesto da HMR)
+        const scriptSrc = nonce ? `'nonce-${nonce}'${eventReplayScriptSrc}` : "'unsafe-inline'";
         response.setHeader('Content-Security-Policy',
             defaultCsp.replace('{SCRIPT_NONCE_PLACEHOLDER}', scriptSrc));
 
