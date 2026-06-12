@@ -3,11 +3,18 @@
     @if (generator(); as gen) {
     <div class="d-flex align-items-center gap-3 mb-4">
         @if (coverAssetId() && coverVisible()) {
-        <img [appAsset]="coverAssetId()!"
-             [appAssetWidth]="320"
-             alt=""
-             class="w-25 rounded-5"
-             (error)="coverVisible.set(false)">
+        <!-- La cover deve essere alta quanto il blocco testo, non viceversa: l'img è
+             position-absolute così la sua altezza intrinseca NON entra nel calcolo
+             della riga flex (in-flow creerebbe circolarità e vincerebbe l'immagine).
+             Il wrapper stretchato le dà il box: alto come il testo, largo 25%;
+             object-fit-contain mantiene le proporzioni dentro quel box. -->
+        <div class="align-self-stretch position-relative flex-shrink-0 w-25">
+            <img [appAsset]="coverAssetId()!"
+                 [appAssetWidth]="320"
+                 alt=""
+                 class="position-absolute top-0 start-0 w-100 h-100 object-fit-contain rounded-5"
+                 (error)="coverVisible.set(false)">
+        </div>
         }
         <div>
             <h1 class="h3 fw-bold mb-1">{{ gen.name }}</h1>

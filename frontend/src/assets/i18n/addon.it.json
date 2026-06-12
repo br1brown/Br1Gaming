@@ -33,5 +33,6 @@
   "radarErrConfig": "Radar non configurato: manca il token della mappa.",
   "radarErrNoChurch": "Nessuna chiesa nel raggio del radar. O sei un eremita, o sei in mezzo al mare.",
   "radarErrSearch": "Il radar non risponde (ricerca chiese fallita).",
-  "radarChurchUnnamed": "Chiesa senza nome"
+  "radarChurchUnnamed": "Chiesa senza nome",
+  "radarGoogleMaps": "Apri in Google Maps"
 }

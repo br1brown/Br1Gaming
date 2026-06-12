@@ -1,4 +1,4 @@
-import { afterNextRender, Component, effect, ElementRef, inject, OnDestroy, signal, viewChild } from '@angular/core';
+import { afterNextRender, Component, effect, ElementRef, inject, OnDestroy, signal, viewChild, ViewEncapsulation } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { PageBaseComponent } from '../page-base.component';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
@@ -25,6 +25,10 @@ type RadarStatus = 'init' | 'locating' | 'searching' | 'ready' | 'error';
     selector: 'app-radar',
     imports: [RouterLink, TranslatePipe, FitViewportDirective],
     templateUrl: './radar.component.html',
+    styleUrl: './radar.component.css',
+    // None come per cookie-banner: il CSS mira al popup Mapbox, DOM creato dalla
+    // libreria fuori dal template → l'encapsulation emulated non lo raggiungerebbe.
+    encapsulation: ViewEncapsulation.None,
     // NIENTE `d-block` qui: è `display:block !important` e batterebbe il `display:flex`
     // (inline, non-important) che appFitViewport imposta sull'host per riempire il viewport.
     // Con d-block l'host resta block → il wrapper non eredita altezza → la mappa è alta 0.
@@ -48,6 +52,8 @@ export class RadarComponent extends PageBaseComponent<void> implements OnDestroy
     private userMarker?: MbMarker;
     private lastPos: [number, number] | null = null;   // ultima posizione nota [lon, lat]
     private appliedTone: 'light' | 'dark' | null = null;   // tono dello stile mappa attualmente applicato
+    /** Poligono del cerchio di portata: centro = posizione della ricerca, raggio = chiesa più lontana. */
+    private rangeCircle: GeoJSON.Feature<GeoJSON.Polygon> | null = null;
 
     constructor() {
         super();
@@ -59,6 +65,9 @@ export class RadarComponent extends PageBaseComponent<void> implements OnDestroy
             if (!m || tone === this.appliedTone) return;
             this.appliedTone = tone;
             m.setStyle(this.styleForTone(tone));
+            // setStyle azzera source e layer custom: il cerchio di portata va
+            // ri-aggiunto quando il nuovo stile è pronto.
+            m.once('style.load', () => this.addRangeCircle());
         });
         // afterNextRender gira solo nel browser, mai in SSR: nessun isBrowser check.
         // L'altezza senza-scroll è gestita dalla direttiva appFitViewport sul template.
@@ -150,12 +159,18 @@ export class RadarComponent extends PageBaseComponent<void> implements OnDestroy
             const res = await fetch(url);
             if (!res.ok) throw new Error('search failed');
             const data = await res.json() as {
-                features?: Array<{ properties?: { name?: string }; geometry?: { coordinates?: [number, number] } }>;
+                features?: Array<{
+                    properties?: { name?: string; full_address?: string; place_formatted?: string };
+                    geometry?: { coordinates?: [number, number] };
+                }>;
             };
             const churches = (data.features ?? [])
                 .filter(f => f.geometry?.coordinates)
                 .map(f => ({
                     name: f.properties?.name ?? this.translate.t('radarChurchUnnamed'),
+                    // Indirizzo per la ricerca Google: full_address è il più completo,
+                    // place_formatted (città/provincia) il fallback della Search Box API.
+                    address: f.properties?.full_address ?? f.properties?.place_formatted ?? '',
                     lon: f.geometry!.coordinates![0],
                     lat: f.geometry!.coordinates![1],
                 }));
@@ -165,6 +180,13 @@ export class RadarComponent extends PageBaseComponent<void> implements OnDestroy
                 return;
             }
 
+            // Cerchio di portata: la ricerca è "le N più vicine", non ha un raggio fisso —
+            // il confine reale del radar è la chiesa più lontana trovata. Senza il cerchio
+            // sembrerebbe che oltre non ci sia nulla; così si capisce che il radar si ferma lì.
+            const maxDist = Math.max(...churches.map(c => RadarComponent.distanceM(lon, lat, c.lon, c.lat)));
+            this.rangeCircle = RadarComponent.circleFeature(lon, lat, maxDist * 1.05);
+            this.addRangeCircle();
+
             const mb = this.mapboxgl!;
             for (const c of churches) {
                 const el = document.createElement('div');
@@ -172,12 +194,91 @@ export class RadarComponent extends PageBaseComponent<void> implements OnDestroy
                 el.textContent = '⛪';
                 new mb.Marker({ element: el })
                     .setLngLat([c.lon, c.lat])
-                    .setPopup(new mb.Popup({ offset: 18, closeButton: false }).setText(c.name))
+                    .setPopup(new mb.Popup({ offset: 18, closeButton: false })
+                        .setDOMContent(this.buildPopupContent(c)))
                     .addTo(this.map!);
             }
         } catch {
             this.fail('radarErrSearch');
         }
+    }
+
+    /**
+     * Contenuto del popup: nome della chiesa, indirizzo in muted, bottone Google Maps.
+     * Deep link "Maps URLs" ufficiale (`/maps/search/?api=1`): nessuna API key,
+     * su mobile apre direttamente l'app. La query usa nome + indirizzo insieme:
+     * il solo indirizzo fa atterrare Maps sul civico generico (suggerimenti e
+     * domande invece del luogo); il nome lo aggancia al POI giusto.
+     * Senza indirizzo si ripiega sulle coordinate esatte.
+     * DOM costruito a mano via textContent — i dati arrivano dall'API Mapbox e
+     * setDOMContent (a differenza di setHTML) non rischia injection.
+     */
+    private buildPopupContent(c: { name: string; address: string; lon: number; lat: number }): HTMLElement {
+        const root = document.createElement('div');
+        const title = document.createElement('p');
+        title.className = 'fw-bold mb-1';
+        title.textContent = c.name;
+        root.append(title);
+        if (c.address) {
+            const addr = document.createElement('p');
+            addr.className = 'text-secondary small mb-2';
+            addr.textContent = c.address;
+            root.append(addr);
+        }
+        const link = document.createElement('a');
+        link.className = 'btn btn-primary btn-sm w-100';
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.href = 'https://www.google.com/maps/search/?api=1&query='
+            + encodeURIComponent(c.address ? `${c.name} ${c.address}` : `${c.lat},${c.lon}`);
+        link.textContent = this.translate.t('radarGoogleMaps');
+        root.append(link);
+        return root;
+    }
+
+    /**
+     * Disegna il cerchio di portata del radar (fill tenue + bordo tratteggiato,
+     * stesso verde del marker posizione). Idempotente: se il source esiste già non
+     * fa nulla — viene chiamata sia dopo la ricerca sia a ogni cambio di stile.
+     */
+    private addRangeCircle(): void {
+        const m = this.map;
+        if (!m || !this.rangeCircle || m.getSource('radar-range')) return;
+        m.addSource('radar-range', { type: 'geojson', data: this.rangeCircle });
+        m.addLayer({
+            id: 'radar-range-fill', type: 'fill', source: 'radar-range',
+            paint: { 'fill-color': '#39ff14', 'fill-opacity': 0.05 },
+        });
+        m.addLayer({
+            id: 'radar-range-line', type: 'line', source: 'radar-range',
+            paint: { 'line-color': '#39ff14', 'line-opacity': 0.6, 'line-width': 2, 'line-dasharray': [2, 2] },
+        });
+    }
+
+    /** Distanza haversine in metri tra due punti [lon, lat]. */
+    private static distanceM(lon1: number, lat1: number, lon2: number, lat2: number): number {
+        const rad = Math.PI / 180;
+        const dLat = (lat2 - lat1) * rad;
+        const dLon = (lon2 - lon1) * rad;
+        const a = Math.sin(dLat / 2) ** 2
+            + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2;
+        return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    /**
+     * Poligono GeoJSON circolare di raggio `radiusM` metri attorno a [lon, lat].
+     * Approssimazione equirettangolare (64 vertici): più che sufficiente su scala
+     * di quartiere, evita di portarsi dietro una libreria turf per un cerchio.
+     */
+    private static circleFeature(lon: number, lat: number, radiusM: number): GeoJSON.Feature<GeoJSON.Polygon> {
+        const dLat = (radiusM / 6371000) * (180 / Math.PI);
+        const dLon = dLat / Math.cos(lat * Math.PI / 180);
+        const ring: [number, number][] = [];
+        for (let i = 0; i <= 64; i++) {
+            const t = (i / 64) * 2 * Math.PI;
+            ring.push([lon + dLon * Math.cos(t), lat + dLat * Math.sin(t)]);
+        }
+        return { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [ring] } };
     }
 
     private startWatch(): void {

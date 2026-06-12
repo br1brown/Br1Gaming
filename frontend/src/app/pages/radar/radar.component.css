@@ -1,0 +1,36 @@
+/* Popup dei marker chiesa: DOM creato da mapbox-gl fuori dal template Angular,
+ * quindi l'encapsulation emulated non lo raggiunge → ViewEncapsulation.None sul
+ * componente. Selettori scoped sulle classi .mapboxgl-*: nessuna fuga sul resto
+ * della UI (solo /radar monta la mappa).
+ *
+ * Perché serve: mapbox-gl.css fissa il popup su sfondo bianco, ma il testo
+ * eredita --bs-body-color dal tema — in dark è quasi bianco → nome illeggibile.
+ * Si usano le variabili native Bootstrap (già agganciate alla palette dal
+ * ThemeService): il popup segue il tono light/dark come il resto della UI. */
+.mapboxgl-popup-content {
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    border: 1px solid var(--bs-border-color);
+}
+
+/* La "punta" del popup è disegnata coi bordi: il lato colorato dipende
+ * dall'ancoraggio scelto da Mapbox, vanno coperti tutti. */
+.mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip,
+.mapboxgl-popup-anchor-bottom-left .mapboxgl-popup-tip,
+.mapboxgl-popup-anchor-bottom-right .mapboxgl-popup-tip {
+    border-top-color: var(--bs-body-bg);
+}
+
+.mapboxgl-popup-anchor-top .mapboxgl-popup-tip,
+.mapboxgl-popup-anchor-top-left .mapboxgl-popup-tip,
+.mapboxgl-popup-anchor-top-right .mapboxgl-popup-tip {
+    border-bottom-color: var(--bs-body-bg);
+}
+
+.mapboxgl-popup-anchor-left .mapboxgl-popup-tip {
+    border-right-color: var(--bs-body-bg);
+}
+
+.mapboxgl-popup-anchor-right .mapboxgl-popup-tip {
+    border-left-color: var(--bs-body-bg);
+}
