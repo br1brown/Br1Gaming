@@ -1,8 +1,10 @@
 using System.Globalization;
 using System.Text.Json.Serialization;
+using DnsClient;
 using FluentValidation;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.Options;
+using Backend.Mail;
 using Backend.Models.Configuration;
 using Backend.Security;
 using Backend.Services;
@@ -49,6 +51,14 @@ builder.Configuration.AddJsonFile(
     optional: true, reloadOnChange: false);
 builder.Configuration.AddJsonFile("security-headers.json", optional: true, reloadOnChange: false);
 
+// Variabili d'ambiente con PRECEDENZA sul JSON (aggiunte per ultime): permettono di iniettare
+// un segreto dalla piattaforma senza che finisca nel file montato su disco. Convenzione .NET:
+// il separatore di sezione è il doppio underscore, quindi "Mail:Password" → env "Mail__Password",
+// "Security:Token:SecretKey" → "Security__Token__SecretKey". Se la variabile non è impostata,
+// vale il valore del JSON (modello di default invariato). Il passaggio al container è in
+// docker-compose.yml (backend.environment).
+builder.Configuration.AddEnvironmentVariables();
+
 // ── CONFIGURAZIONE ──────────────────────────────────────────────────
 //
 // Ogni sezione di global-settings.json viene registrata come IOptions<T> (DI)
@@ -58,6 +68,8 @@ builder.Services.Configure<SecurityOptions>(
     builder.Configuration.GetSection("Security"));
 builder.Services.Configure<LocalizationOptions>(
     builder.Configuration.GetSection("Localization"));
+builder.Services.Configure<MailOptions>(
+    builder.Configuration.GetSection("Mail"));
 
 var security = builder.Configuration
     .GetSection("Security")
@@ -65,6 +77,9 @@ var security = builder.Configuration
 var localization = builder.Configuration
     .GetSection("Localization")
     .Get<LocalizationOptions>() ?? new LocalizationOptions();
+var mail = builder.Configuration
+    .GetSection("Mail")
+    .Get<MailOptions>() ?? new MailOptions();
 
 // ── SERVIZI APPLICATIVI ─────────────────────────────────────────────
 // IContentStore (FileContentStore): accesso dati, sostituibile con DB senza toccare controller.
@@ -73,6 +88,17 @@ var localization = builder.Configuration
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IContentStore, FileContentStore>();
 builder.Services.AddScoped<SiteService>();
+
+// Mailer: il sender (IEngineMailer) più coda + worker di invio in background. Accodare e
+// rispondere subito evita di bloccare la richiesta HTTP sull'I/O SMTP; l'invio (con retry)
+// avviene in EmailSenderHostedService. Attivo solo se configurato (vedi MailOptions.IsConfigured).
+// ILookupClient: resolver DNS (singleton, con cache) usato dal check MX opzionale del mailer.
+builder.Services.AddSingleton<ILookupClient>(
+    new LookupClient(new LookupClientOptions { Timeout = TimeSpan.FromSeconds(5), UseCache = true }));
+builder.Services.AddSingleton<IEngineMailer, EngineMailer>();
+builder.Services.AddSingleton<ChannelEmailQueue>();
+builder.Services.AddSingleton<IEmailQueue>(sp => sp.GetRequiredService<ChannelEmailQueue>());
+builder.Services.AddHostedService<EmailSenderHostedService>();
 
 if (security.LoginEnabled)
     builder.Services.AddSingleton<AuthService>();
@@ -128,6 +154,13 @@ builder.Services.AddTemplateSecurity(security);
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+
+// ── MAILER ──────────────────────────────────────────────────────────
+// Il mailer è un singleton in DI (IEngineMailer). Come il login si attiva solo se configurato:
+// senza una sezione "Mail" valida IsEnabled resta false e ogni invio risponde 503. Qui si
+// traccia solo lo stato all'avvio (nessun segreto nei log).
+app.Logger.LogInformation("Mailer {State}.",
+    app.Services.GetRequiredService<IEngineMailer>().IsEnabled ? $"attivo (SMTP {mail.Host}:{mail.Port})" : "non configurato");
 
 // ── PIPELINE HTTP ───────────────────────────────────────────────────
 // L'ordine è critico. Vedi README.md → "Ordine della pipeline HTTP".

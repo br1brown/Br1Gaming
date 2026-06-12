@@ -149,6 +149,33 @@ if (( ERRORS > 0 )); then
     exit 1
 fi
 
+# ── MAILER (informativo) ─────────────────────────────────────────────────────
+# Il mailer si attiva se Mail.Host + Mail.FromAddress sono presenti. La password SMTP può
+# arrivare dal JSON montato oppure, meglio, da una variabile d'ambiente (Mail__Password) che
+# il backend legge con precedenza e che NON finisce nel file su disco. Qui mostriamo solo la
+# fonte; non blocchiamo (un relay potrebbe non richiedere autenticazione).
+_mail_state="$(BR1_EFFECTIVE="$BR1_SETTINGS_FILE" node --input-type=module --eval "
+import { readFileSync } from 'fs';
+const s = JSON.parse(readFileSync(process.env.BR1_EFFECTIVE, 'utf-8'));
+const m = s.Mail || {};
+const on = Boolean(String(m.Host||'').trim() && String(m.FromAddress||'').trim());
+const jsonPwd = Boolean(String(m.Password||'').trim());
+process.stdout.write((on?'on':'off') + ' ' + (jsonPwd?'json':'nojson'));
+")"
+read -r _mail_on _mail_pwd <<< "${_mail_state:-off nojson}"
+if [[ "$_mail_on" == "on" ]]; then
+    if [[ -n "${Mail__Password:-}" ]]; then
+        ok "Mailer attivo (password SMTP da variabile d'ambiente: fuori dal file su disco)"
+    elif [[ "$_mail_pwd" == "json" ]]; then
+        ok "Mailer attivo (password SMTP dal JSON montato)"
+        info "Per tenerla fuori dal disco: export Mail__Password='...' prima di ./deploy.sh"
+    else
+        warn "Mailer attivo ma senza password SMTP (né JSON né Mail__Password): ok solo se il relay non la richiede"
+    fi
+else
+    info "Mailer non configurato (sezione Mail assente o incompleta): invio email disattivato"
+fi
+
 # ── CONTROLLO PORTE (solo avviso, nessuna chiusura automatica) ───────────────
 echo
 echo -e "${BOLD}Controllo porte${RESET}"

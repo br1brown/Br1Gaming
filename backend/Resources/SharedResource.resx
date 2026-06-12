@@ -127,4 +127,16 @@
   <data name="error_gateway_timeout" xml:space="preserve">
     <value>The upstream service did not respond in time. Please try again later.</value>
   </data>
+  <data name="error_mail_disabled" xml:space="preserve">
+    <value>Email sending is not configured.</value>
+  </data>
+  <data name="error_mail_send_failed" xml:space="preserve">
+    <value>The message could not be sent. Please try again later.</value>
+  </data>
+  <data name="error_mail_invalid_address" xml:space="preserve">
+    <value>One or more email addresses are not valid.</value>
+  </data>
+  <data name="error_mail_attachment_too_large" xml:space="preserve">
+    <value>The attachments exceed the maximum allowed size.</value>
+  </data>
 </root>

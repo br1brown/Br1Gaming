@@ -17,5 +17,14 @@
     "Token": {
       "SecretKey": "INCOLLA-QUI-openssl-rand-base64-48"
     }
+  },
+  "Mail": {
+    "Host": "ssl0.ovh.net",
+    "Port": 587,
+    "Security": "StartTls",
+    "Username": "noreply@miodominio.it",
+    "Password": "INCOLLA-QUI-LA-PASSWORD-DELLA-CASELLA",
+    "FromAddress": "noreply@miodominio.it",
+    "FromName": "Sito MioDominio"
   }
 }

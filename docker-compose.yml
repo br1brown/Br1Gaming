@@ -52,6 +52,12 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    environment:
+      # Passaggio OPZIONALE di segreti via variabile d'ambiente (precedenza sul JSON montato).
+      # Senza valore = "passthrough": il valore arriva dall'ambiente di chi lancia il deploy; se la
+      # variabile non è impostata non viene passata e resta il valore del JSON. Esempio per tenere
+      # la password SMTP fuori dal file su disco:  export Mail__Password='...'; ./deploy.sh
+      - Mail__Password
     volumes:
       - ${BR1_SETTINGS_FILE:-./global-settings.json}:/app/global-settings.json:ro
       - ./security-headers.json:/app/security-headers.json:ro

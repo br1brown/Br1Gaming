@@ -113,6 +113,56 @@ Un oggetto è considerato un blocco i18n *solo se tutte le sue chiavi sono codic
 
 > **Attenzione:** aggiungere una lingua a `SupportedLanguages` può cambiare come vengono interpretati gli oggetti in `irl.json` già esistenti, se uno di essi ha un campo con la stessa chiave della nuova lingua. Prima di aggiungere una lingua, verifica che nessun campo dati abbia lo stesso nome.
 
+### 5. Mailer (`IEngineMailer`)
+
+Unico punto d'invio email del template, dentro l'Engine e condiviso da ogni progetto. È un **singleton in DI** (`IEngineMailer`, registrato in `Program.cs` accanto a `IContentStore`/`AuthService`): un consumer lo inietta e basta. Superficie minima — `IsEnabled`, `IsValidAddress(...)` e `SendAsync(...)` — tutta la meccanica SMTP (connessione, TLS, autenticazione, costruzione MIME) è privata e basata su **MailKit/MimeKit ≥ 4.17.0** (versione che chiude CVE-2026-30227 e CVE-2026-41319).
+
+**Si attiva da configurazione, come il login.** Senza una sezione `Mail` valida (`Host` + `FromAddress`) `IsEnabled` è `false` e ogni invio lancia `MailNotConfiguredException` (503). Essendo SMTP uno standard, lo stesso codice spedisce con OVH, Brevo, Mailgun, Amazon SES, Gmail o un relay locale: si cambia solo il JSON, mai il codice.
+
+```csharp
+// IEngineMailer iniettato nel costruttore (es. _mailer)
+await _mailer.SendAsync(
+    to:          new[] { "destinatario@dominio.it" }, // array di destinatari
+    subject:     "Oggetto",
+    body:        "Corpo del messaggio",
+    isHtml:      false,                 // true per corpo HTML
+    from:        null,                  // null ⇒ Mail.FromAddress dal JSON (tienilo sul tuo dominio)
+    cc:          null,                  // per conoscenza (nullable)
+    bcc:         null,                  // per conoscenza nascosta (nullable)
+    attachments: null,                  // IReadOnlyCollection<MailAttachment> (nullable)
+    replyTo:     "chi.scrive@altro.it"); // per far rispondere a un altro indirizzo
+```
+
+Esiste anche l'overload `SendAsync(EmailMessage, CancellationToken)`. `MailAttachment(string FileName, byte[] Content, string? ContentType = null)`.
+
+**Hardening di sicurezza (best practice 2026):**
+- **TLS sempre obbligatorio**: `Auto` sceglie in sicurezza dalla porta (465 → `SslOnConnect`, altre → `StartTls`); non usa mai la variante opportunistica di MailKit che potrebbe ricadere in chiaro.
+- **Indirizzi via `MailboxAddress.TryParse` + dominio obbligatorio** → `MailInvalidAddressException` (400) su input malformato o senza dominio, non un 500.
+- **Subject sanitizzato dai CR/LF** (difesa in profondità contro l'header injection).
+- **Allegati limitati** da `Mail.MaxAttachmentBytes` (default 10 MB) → `MailAttachmentTooLargeException` (413).
+- Validazione del certificato server **mai disabilitata**.
+
+**Invio in background.** Per non bloccare la richiesta HTTP, l'uso consigliato è accodare con **`IEmailQueue.TryEnqueue(EmailMessage)`**: ritorna subito, e `EmailSenderHostedService` consegna in background con retry + backoff. `IEngineMailer.SendAsync` resta disponibile per l'invio sincrono diretto. Errori SMTP a monte → `MailSendException` (502), col dettaglio tecnico solo nei log.
+
+#### Riferimento `MailOptions` (`global-settings.local.json` → `Mail.*`)
+
+| Chiave | Tipo | Note |
+|---|---|---|
+| `Host` | string | Host SMTP (es. `ssl0.ovh.net`). |
+| `Port` | int | 587 (STARTTLS) o 465 (SSL/TLS). Default 587. |
+| `Security` | enum | `Auto` \| `None` \| `StartTls` \| `SslOnConnect`. Default `Auto`. |
+| `Username` | string | Utente SMTP. Vuoto = invio senza autenticazione. |
+| `Password` | string | **Segreto**: solo in `global-settings.local.json`. |
+| `FromAddress` | string | Mittente di default. **Deve stare sul tuo dominio** (SPF/DKIM). |
+| `FromName` | string | Nome visualizzato del mittente (opzionale). |
+| `TimeoutSeconds` | int | Timeout connessione/invio. Default 30. |
+| `MaxAttachmentBytes` | long | Dimensione massima totale allegati. Default 10 MB. 0 = nessun limite. |
+| `VerifyRecipientDomain` | bool | Se `true`, check MX via DNS sul dominio dei destinatari prima di inviare: typo/domini inesistenti → 400 (`MailInvalidAddressException`) senza aprire l'SMTP. Default `false`. |
+
+La sezione vive in `global-settings.local.json` perché contiene segreti (gitignored). In produzione è preferibile iniettare `Mail:Password` come **variabile d'ambiente** anziché lasciarla nel file deployato (le variabili `Mail__Password` sovrascrivono il JSON). **Anti-spam:** il mittente deve essere sul tuo dominio e vanno configurati i record DNS SPF, DKIM e DMARC presso il provider. L'invio è una capability **interna alle API**: non c'è un endpoint pubblico dedicato — un servizio o controller dell'applicazione inietta `IEngineMailer` (invio diretto) o accoda via `IEmailQueue` (background con retry). Se mandi un messaggio a partire da input non fidato, validalo prima e metti l'eventuale indirizzo del mittente nel `Reply-To`, mai nel `From`.
+
+**Verifica del destinatario.** `Mail.VerifyRecipientDomain` (default `false`) accende un check DNS sul *dominio* dei destinatari (MX, con fallback A/AAAA per l'MX implicito di RFC 5321): becca i typo (`gmail.con`) e i domini inesistenti prima di aprire l'SMTP, ed è *fail-open* (se il DNS è inconcludente non blocca, l'errore vero emerge come bounce). **Non** verifica l'esistenza della *casella*: quella si sa solo col bounce dopo l'invio o con un doppio opt-in — un probe SMTP `RCPT TO` è inaffidabile (catch-all, greylisting) e dannoso per la reputazione del mittente, quindi non è previsto.
+
 ---
 
 ## 📜 Le Regole del Gioco (cosa impone l'Engine)
