@@ -7,7 +7,7 @@
 
 import { ApplicationConfig, TransferState, inject, isDevMode, provideAppInitializer, provideZonelessChangeDetection } from '@angular/core';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
-import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
+import { provideClientHydration, withEventReplay, withIncrementalHydration } from '@angular/platform-browser';
 import { provideServiceWorker } from '@angular/service-worker';
 import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from '@angular/router';
 import { routes } from './app.routes';
@@ -27,7 +27,7 @@ import { environment } from '../environments/environment';
  * Whitelist delle larghezze consentite per l'ottimizzazione immagini.
  * Condivisa tra il frontend (AssetService) e il backend (server.ts).
  */
-export const ALLOWED_WIDTHS = [125, 320, 512, 480, 640, 768, 1024, 1080, 1366, 1600, 1920] as const;
+export const ALLOWED_WIDTHS = [125, 320, 480, 512, 640, 768, 1024, 1080, 1366, 1600, 1920] as const;
 
 /** Prefisso del proxy API: unica fonte di verità per server.ts (proxy Express) e il DI Angular (browser) */
 export const API_PREFIX = '/api';
@@ -42,7 +42,10 @@ export const appConfig: ApplicationConfig = {
         // Zoneless: niente zone.js. La change detection è guidata dai signal e dagli
         // eventi gestiti da Angular (template/host). L'app è interamente signal-based.
         provideZonelessChangeDetection(),
-        provideClientHydration(withEventReplay()),
+        // Idratazione incrementale: i blocchi `@defer (hydrate ...)` vengono comunque
+        // renderizzati dall'SSR (SEO invariata) ma idratati solo al trigger — sotto,
+        // l'event replay conserva i click avvenuti prima dell'idratazione.
+        provideClientHydration(withEventReplay(), withIncrementalHydration()),
 
         provideRouter(
             routes,

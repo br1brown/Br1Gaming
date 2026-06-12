@@ -58,6 +58,22 @@
     --colorLinkDk: #a8b4c8;
     --colorNavBg: #212529;
     --colorNavText: #ffffff;
+
+    /* ── Scala z-index del template ──────────────────────────────────────
+       Unico punto di verità per lo stacking: i componenti usano SOLO queste
+       variabili, mai valori letterali. La scala è incastrata nei vuoti di
+       quella Bootstrap (dropdown 1000 · sticky 1020 · fixed 1030 ·
+       offcanvas 1045 · modal-backdrop 1050 · modal 1055 · popover 1070 ·
+       toast 1090): i widget persistenti (cookie banner, back-to-top) stanno
+       sopra la navbar fissa ma SOTTO offcanvas e modali, che devono coprirli. */
+    --z-cookie-banner: 1035;
+    --z-fab: 1040;
+    --z-skip-link: 1095;
+    --z-cdk-overlay: 1100;
+
+    /* Ombre di elevazione condivise (.surface-elevated, .fab): stato di riposo e stato attivo. */
+    --shadowElevated: 0 10px 24px rgba(0, 0, 0, 0.18);
+    --shadowElevatedHover: 0 14px 28px rgba(0, 0, 0, 0.24);
 }
 
 /* ── Focus-visible policy globale (WCAG 2.4.7 / 2.4.11) ────────────────────
@@ -373,7 +389,7 @@ code {
 .surface-elevated {
     background-color: var(--bs-body-bg);
     color: var(--bs-body-color);
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18),
+    box-shadow: var(--shadowElevated),
                 0 0 0 1px color-mix(in srgb, currentColor 22%, transparent);
 }
 
@@ -390,7 +406,7 @@ code {
     height: 3rem;
     opacity: 0.85;
     cursor: pointer;
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18),
+    box-shadow: var(--shadowElevated),
                 0 0 0 1px color-mix(in srgb, currentColor 38%, transparent);
     transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
 }
@@ -398,7 +414,7 @@ code {
 .fab:hover {
     opacity: 1;
     transform: translateY(-2px);
-    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.24),
+    box-shadow: var(--shadowElevatedHover),
                 0 0 0 1px color-mix(in srgb, currentColor 48%, transparent);
 }
 
@@ -407,7 +423,7 @@ code {
     opacity: 1;
     transform: translateY(-2px);
     outline: none;
-    box-shadow: 0 0 0 0.25rem color-mix(in srgb, currentColor 22%, transparent), 0 14px 28px rgba(0, 0, 0, 0.24);
+    box-shadow: 0 0 0 0.25rem color-mix(in srgb, currentColor 22%, transparent), var(--shadowElevatedHover);
 }
 
 @media (max-width: 767.98px) {
@@ -416,6 +432,12 @@ code {
         height: 3.25rem;
         opacity: 1;
     }
+}
+
+/* Indica la presenza di un menu contestuale custom ([appContextMenu]):
+   cursore dedicato sugli elementi che lo offrono (es. immagini della demo). */
+.cursor-context-menu {
+    cursor: context-menu;
 }
 
 /* WCAG 2.1 SC 1.4.3 — Forced Colors (Windows High Contrast Mode).
@@ -446,7 +468,7 @@ code {
     top: 0.5rem;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 9999;
+    z-index: var(--z-skip-link);
     padding: 0.5rem 1.5rem;
     background: var(--colorPrimary, #212529);
     color: #fff;
@@ -488,5 +510,5 @@ code {
 
 /* Overlay CDK (es. menu contestuale) sopra navbar fissa, skip-link e contenuti. */
 .cdk-overlay-container {
-    z-index: 10000;
+    z-index: var(--z-cdk-overlay);
 }
