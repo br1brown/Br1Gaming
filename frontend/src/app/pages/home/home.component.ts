@@ -39,6 +39,12 @@ const STATIC_GIOCHI: CardEntry[] = [
         imageId: 'game.radar',
         pageType: PageType.GameRadar,
     },
+    {
+        title: 'Burocrazia',
+        subtitle: 'Attraversa la città a colpi di passaggi in auto e chiudi la pratica prima che chiudano gli sportelli.',
+        imageId: 'game.burocrazia',
+        pageType: PageType.GameBurocrazia,
+    },
 ];
 
 @Component({

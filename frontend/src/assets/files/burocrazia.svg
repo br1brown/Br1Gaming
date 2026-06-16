@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="384" viewBox="0 0 512 384" role="img" aria-label="Burocrazia">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0B0F17"/>
+      <stop offset="1" stop-color="#101A2A"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="384" fill="url(#sky)"/>
+  <!-- strade isometriche -->
+  <g stroke="#2A3445" stroke-width="14" stroke-linecap="round" fill="none">
+    <path d="M40 250 L256 142"/>
+    <path d="M256 142 L472 250"/>
+    <path d="M150 308 L366 200"/>
+    <path d="M256 196 L256 320"/>
+  </g>
+  <!-- scia gialla del percorso -->
+  <path d="M150 290 L256 236 L362 290" stroke="#FFD23F" stroke-width="7" stroke-linecap="round" fill="none" opacity="0.95"/>
+  <!-- edifici iso -->
+  <g>
+    <polygon points="120,210 156,228 156,180 120,162" fill="#26344a"/>
+    <polygon points="156,228 192,210 192,162 156,180" fill="#1b2636"/>
+    <polygon points="120,162 156,180 192,162 156,144" fill="#324162"/>
+    <polygon points="330,210 366,228 366,170 330,152" fill="#2c3a52"/>
+    <polygon points="366,228 402,210 402,152 366,170" fill="#212e41"/>
+    <polygon points="330,152 366,170 402,152 366,134" fill="#3a3550"/>
+  </g>
+  <!-- sportello acceso -->
+  <g>
+    <polygon points="236,250 256,260 256,206 236,196" fill="#1f9e8c"/>
+    <polygon points="256,260 276,250 276,196 256,206" fill="#157c6e"/>
+    <polygon points="236,196 256,206 276,196 256,186" fill="#38E1C6"/>
+  </g>
+  <!-- auto gialla -->
+  <g>
+    <polygon points="186,276 206,286 206,272 186,262" fill="#caa23f"/>
+    <polygon points="206,286 226,276 226,262 206,272" fill="#F2B441"/>
+    <polygon points="186,262 206,272 226,262 206,252" fill="#FFD27A"/>
+  </g>
+  <!-- orologio -->
+  <circle cx="430" cy="64" r="30" fill="rgba(16,22,33,.85)" stroke="#2a3445" stroke-width="3"/>
+  <line x1="430" y1="64" x2="430" y2="46" stroke="#38E1C6" stroke-width="3.4" stroke-linecap="round"/>
+  <line x1="430" y1="64" x2="446" y2="64" stroke="#38E1C6" stroke-width="2.6" stroke-linecap="round"/>
+  <circle cx="430" cy="64" r="2.6" fill="#38E1C6"/>
+  <text x="36" y="360" font-family="ui-sans-serif,Segoe UI,Roboto,sans-serif" font-size="34" font-weight="800" fill="#C9D3E1">Burocrazia</text>
+</svg>

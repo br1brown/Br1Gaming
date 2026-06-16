@@ -27,6 +27,7 @@ export enum PageType {
     StorySurviveUsa,
     GameDuceNonDuce,
     GameRadar,
+    GameBurocrazia,
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -120,6 +121,16 @@ export const ContestoSito = buildSite({
             component: () => import('./pages/radar/radar.component')
                 .then(m => m.RadarComponent),
         },
+
+        {
+            path: `burocrazia`,
+            title: `burocrazia`,
+            description: 'Attraversa la città a colpi di passaggi in auto e chiudi la pratica prima che chiudano gli sportelli.',
+            pageType: PageType.GameBurocrazia,
+            layout: { showPanel: false, showFooter: false },
+            component: () => import('./pages/burocrazia/burocrazia.component')
+                .then(m => m.BurocraziaComponent),
+        },
     ],
 
     headerNav: (nav) => {
@@ -136,6 +147,7 @@ export const ContestoSito = buildSite({
             g.addPage(PageType.StorySurviveUsa);
             g.addPage(PageType.GameDuceNonDuce);
             g.addPage(PageType.GameRadar);
+            g.addPage(PageType.GameBurocrazia);
         });
     },
 

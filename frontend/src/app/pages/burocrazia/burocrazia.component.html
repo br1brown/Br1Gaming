@@ -1,0 +1,145 @@
+<div #stage class="buro-stage position-relative overflow-hidden user-select-none" appFitViewport>
+
+    <!-- la mappa è il fondo, a tutto schermo: niente cornice -->
+    <canvas #cv role="application" tabindex="0"
+            class="buro-canvas position-absolute top-0 start-0 w-100 h-100"
+            [attr.aria-label]="'buroCanvasAria' | translate"></canvas>
+
+    <!-- dissolvenza: i bordi della mappa sfumano nello sfondo della pagina, così i
+         contenuti sopra restano leggibili senza riquadri -->
+    <div class="buro-fade position-absolute top-0 start-0 w-100 h-100" aria-hidden="true"></div>
+
+    <!-- barra superiore: orologio + obiettivo della pratica -->
+    <div class="buro-top position-absolute top-0 start-0 end-0 p-3 d-flex flex-column gap-2">
+        <div class="d-flex align-items-center gap-2">
+            <svg class="buro-aclock flex-shrink-0" [class.warn]="clockTone() === 'warn'" [class.crit]="clockTone() === 'crit'"
+                 viewBox="0 0 44 44" width="38" height="38" aria-hidden="true">
+                <circle cx="22" cy="22" r="19" class="aface" />
+                <line x1="22" y1="22" x2="22" y2="14" class="ahand" [attr.transform]="'rotate(' + hourDeg() + ' 22 22)'" />
+                <line x1="22" y1="22" x2="22" y2="9" class="ahand amin" [attr.transform]="'rotate(' + minDeg() + ' 22 22)'" />
+                <circle cx="22" cy="22" r="1.7" class="acenter" />
+            </svg>
+            <div class="buro-clock font-monospace fw-semibold"
+                 [class.warn]="clockTone() === 'warn'" [class.crit]="clockTone() === 'crit'" [class.flash]="clockFlash()">
+                {{ clockText() }}
+            </div>
+        </div>
+        @if (prat(); as p) {
+        <div class="buro-prat small lh-sm pe-5" aria-live="polite">
+            <span class="fw-bold">{{ 'buroPermessoPer' | translate:p.item }}</span> — {{ 'buroObjectiveDeadline' | translate }}<br>
+            @if (p.nextOffice) {
+            {{ 'buroNextOffice' | translate }} <span class="buro-cur fw-bold">{{ p.nextOffice }}</span>
+            &nbsp;·&nbsp; {{ 'buroStamps' | translate:p.stamps:p.total }}
+            }
+        </div>
+        }
+    </div>
+
+    <button type="button" class="buro-mute btn btn-sm position-absolute top-0 end-0 m-2"
+            [attr.aria-label]="'buroAudioToggle' | translate" [attr.aria-pressed]="muted()" (click)="toggleMute()">
+        <i class="fa-solid" [class.fa-volume-high]="!muted()" [class.fa-volume-xmark]="muted()" aria-hidden="true"></i>
+    </button>
+
+    @if (coach(); as c) {
+    <div class="buro-coach text-center small fw-semibold">
+        <span class="buro-step d-block">{{ c.label }}</span>{{ c.text }}
+    </div>
+    }
+
+    @if (showStart()) {
+    <button type="button" class="buro-startbtn" [class.pulse]="startPulse()" (click)="confirmStart()">
+        {{ 'buroStart' | translate }}
+    </button>
+    }
+
+    <!-- pannello sportello -->
+    @if (serve(); as s) {
+    <div class="buro-overlay position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3">
+        <div class="buro-panel card shadow-lg">
+            <div class="card-body d-flex flex-column gap-2 p-4">
+                <div class="text-uppercase fw-bold small text-warning">{{ 'buroServeHeader' | translate }}</div>
+                <div class="fw-bold">{{ s.office }}</div>
+                <div class="small lh-sm">
+                    @for (line of s.lines; track $index) {
+                    <div [class]="toneClass(line.tone)">{{ line.text }}</div>
+                    }
+                </div>
+                <div class="font-monospace text-danger small">{{ s.cost }}</div>
+                <div class="text-info fw-semibold small">{{ s.next }}</div>
+                <button type="button" class="btn btn-primary btn-sm align-self-end mt-1" (click)="dismissServe()">
+                    {{ 'buroAvanti' | translate }}
+                </button>
+            </div>
+        </div>
+    </div>
+    }
+
+    <!-- esito partita -->
+    @if (result(); as r) {
+    <div class="buro-overlay position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3">
+        <div class="buro-panel card shadow-lg text-center">
+            <div class="card-body d-flex flex-column align-items-center gap-2 p-4">
+                <h2 class="h4 mb-0">{{ r.title }}</h2>
+                <div class="buro-bigtime font-monospace">{{ r.time }}</div>
+                <p class="text-secondary small mb-1">{{ r.flavor }}</p>
+                <div class="buro-recap w-100">
+                    @for (row of r.recap; track row.label) {
+                    <div class="d-flex justify-content-between border-top pt-1 small">
+                        <span class="text-secondary">{{ row.label }}</span>
+                        <b class="font-monospace">{{ row.value }}</b>
+                    </div>
+                    }
+                    <div class="d-flex flex-column border-top pt-1 small text-start">
+                        <span class="text-secondary">{{ 'buroRecapGiro' | translate }}</span>
+                        <em class="buro-giro fst-normal">{{ r.giro }}</em>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-primary mt-2" (click)="restart()">
+                    {{ 'buroNewPratica' | translate }}
+                </button>
+            </div>
+        </div>
+    </div>
+    }
+
+    <!-- scelta della pratica -->
+    @if (intro(); as i) {
+    <div class="buro-overlay position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3">
+        <div class="buro-panel card shadow-lg">
+            <div class="card-body d-flex flex-column gap-2 p-4">
+                <div class="text-uppercase fw-bold small text-warning">{{ i.question }}</div>
+                <p class="small mb-1">{{ i.body }}</p>
+                @for (opt of i.options; track $index) {
+                <button type="button" class="buro-pratbtn btn text-start d-flex justify-content-between align-items-center gap-2 p-3"
+                        (click)="choose($index)">
+                    <span class="fw-bold small">{{ opt.label }}</span>
+                    <span class="badge rounded-pill text-bg-info flex-shrink-0">{{ opt.stamps }}</span>
+                </button>
+                }
+            </div>
+        </div>
+    </div>
+    }
+
+    <!-- comandi: joystick + azioni, in basso sopra alla mappa sfumata -->
+    <div class="buro-bottom position-absolute bottom-0 start-0 end-0 p-3 d-flex align-items-center justify-content-between gap-3">
+        <div #joy class="buro-joy flex-shrink-0 position-relative" [class.buro-pulse]="coach()?.pulse === 'joy'"
+             (pointerdown)="onJoyDown($event)" (pointermove)="onJoyMove($event)"
+             (pointerup)="onJoyEnd($event)" (pointercancel)="onJoyEnd($event)">
+            <div class="buro-knob position-absolute" [style.transform]="knobTransform()"></div>
+        </div>
+        <div class="buro-actcol d-flex flex-column gap-2">
+            <button type="button" class="buro-action" [class.dim]="actDim()" [class.buro-pulse]="coach()?.pulse === 'act'"
+                    [attr.aria-label]="actAria()" (pointerdown)="doAction($event)">
+                {{ actLabel() }}
+            </button>
+            @if (showDismount()) {
+            <button type="button" class="buro-action buro-scendi" [class.buro-pulse]="coach()?.pulse === 'dismount'"
+                    (pointerdown)="doDismount($event)">
+                {{ 'buroScendi' | translate }}
+            </button>
+            }
+        </div>
+    </div>
+
+</div>
