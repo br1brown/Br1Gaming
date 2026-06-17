@@ -199,6 +199,15 @@ export class CookieConsentService {
 
                 // ─── PULIZIA DEI COOKIE REVOCATI ───
                 this.clearRevokedCookies();
+
+                // ─── PULIZIA SW ALL'AVVIO ───
+                // Se la PWA non deve essere attiva (isWebApp:false o consenso tecnico negato) ma un
+                // SW è rimasto da una sessione/configurazione precedente, de-registralo subito: gli
+                // utenti di ritorno già "risposti" non rivedono il banner e non ripassano da
+                // persistConsent, quindi senza questo il SW resterebbe vivo a servire una cache obsoleta.
+                if (!isDevMode() && (!this.siteConfig.isWebApp || !this._technicalAccepted())) {
+                    this.unregisterServiceWorker();
+                }
             } catch { }
         }
     }
@@ -276,13 +285,22 @@ export class CookieConsentService {
         try {
             // ─── SIDE EFFECT DEL CONSENSO ───────────────────────────────────────
 
-            // 1. Service Worker: registra nella sessione corrente se c'è consenso tecnico
-            if (!isDevMode() && this.siteConfig.isWebApp && this._technicalAccepted() && 'serviceWorker' in navigator) {
-                navigator.serviceWorker.getRegistration().then(existing => {
-                    if (!existing) {
-                        navigator.serviceWorker.register(CookieConsentService.NGSW_WORKER, { scope: '/' }).catch(() => { });
-                    }
-                });
+            // 1. Service Worker: allinea lo stato del SW al flag isWebApp e al consenso tecnico.
+            if (!isDevMode() && 'serviceWorker' in navigator) {
+                if (this.siteConfig.isWebApp && this._technicalAccepted()) {
+                    // PWA attiva e consenso dato: registra nella sessione corrente (se non già presente).
+                    navigator.serviceWorker.getRegistration().then(existing => {
+                        if (!existing) {
+                            navigator.serviceWorker.register(CookieConsentService.NGSW_WORKER, { scope: '/' }).catch(() => { });
+                        }
+                    });
+                } else {
+                    // PWA disattivata (isWebApp:false) o consenso tecnico negato: de-registra ogni SW
+                    // residuo e svuota le sue cache, così chi aveva già il SW non resta servito da una
+                    // copia obsoleta. Stessa pulizia gira anche all'avvio (costruttore), per gli utenti
+                    // di ritorno che non ripassano da qui.
+                    this.unregisterServiceWorker();
+                }
             }
 
             // 2. Pulizia: rimuove attivamente tutti i cookie la cui categoria non è approvata
@@ -443,6 +461,24 @@ export class CookieConsentService {
             case CookieCategory.Analytics: return this._analyticsAccepted();
             case CookieCategory.Profiling: return this._profilingAccepted();
             default: return false;
+        }
+    }
+
+    /**
+     * De-registra ogni Service Worker residuo e svuota le sue cache. Idempotente e browser-only:
+     * se non c'è nulla da rimuovere è un no-op. Usato quando la PWA non deve essere attiva
+     * (`isWebApp:false` o consenso tecnico negato), sia all'avvio sia al cambio di consenso, così
+     * un SW registrato in passato non continua a servire una copia in cache obsoleta.
+     */
+    private unregisterServiceWorker(): void {
+        if (!this.isBrowser || !('serviceWorker' in navigator)) return;
+        navigator.serviceWorker.getRegistrations()
+            .then(regs => regs.forEach(r => r.unregister().catch(() => { })))
+            .catch(() => { });
+        if (typeof caches !== 'undefined') {
+            caches.keys()
+                .then(keys => keys.forEach(k => caches.delete(k).catch(() => { })))
+                .catch(() => { });
         }
     }
 

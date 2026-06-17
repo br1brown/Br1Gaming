@@ -314,13 +314,24 @@ body {
    <main> è già flex-grow-1 nella colonna di app-root: qui diventa colonna flex e fa crescere
    l'host del componente instradato (il sibling subito dopo il router-outlet), così il root della
    pagina (es. con .flex-grow-1 o .h-100) eredita tutta l'altezza disponibile, senza scroll di
-   pagina se il contenuto ci sta. Il padding/gutter dello shell sono già tolti lato template
-   (niente container-fluid/py-4 in questo ramo): nessun anello da azzerare qui.
+   pagina se il contenuto ci sta. Qui azzeriamo anche max-width/margin/padding dello shell
+   (li imposta `main#main-content` in styles.css: --shellMaxWidth, margin auto, --shellGutter
+   laterale e un padding-bottom per il cookie banner fisso): in full-bleed devono andare a zero
+   per arrivare davvero ai bordi, senza barre laterali né gap in basso (il banner è fixed e
+   overlaya, non serve riservargli spazio in una vista immersiva).
    !important sull'host: un'eventuale utility .d-* di Bootstrap (display !important) batterebbe
-   altrimenti il display:flex e spezzerebbe in silenzio la catena (contenuto ad altezza 0). */
+   altrimenti il display:flex e spezzerebbe in silenzio la catena (contenuto ad altezza 0).
+   width:100% sull'asse CROSS: in una colonna flex la larghezza dipende da align-items:stretch,
+   che però collassa a 0 se la pagina instradata ha tutto il contenuto in position:absolute (nessuna
+   larghezza in-flow) — es. radar/burocrazia (mappa/canvas assoluti). La larghezza esplicita garantisce
+   la piena larghezza lungo tutta la catena, a prescindere dal contenuto. */
 #main-content.fit-viewport {
     display: flex;
     flex-direction: column;
+    width: 100%;
+    max-width: none;   /* annulla --shellMaxWidth del layout normale */
+    margin: 0;         /* niente centratura: full-bleed */
+    padding: 0;        /* niente gutter laterale né spazio cookie-banner: vista immersiva edge-to-edge */
 }
 #main-content.fit-viewport > router-outlet {
     display: none;   /* anchor del router-outlet: non deve occupare spazio nel flusso flex */
@@ -329,6 +340,7 @@ body {
     display: flex !important;
     flex-direction: column !important;
     flex: 1 1 auto !important;
+    width: 100% !important;   /* cross-axis: vedi nota sopra (contenuto position:absolute) */
     min-height: 0;   /* permette al contenuto di rimpicciolirsi sotto il suo min-content */
 }
 
