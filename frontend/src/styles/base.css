@@ -310,6 +310,40 @@ body {
 
 
 
+/* Vista full-bleed (flag layout.fitViewport → route.data → shell mette .fit-viewport su <main>).
+   <main> è già flex-grow-1 nella colonna di app-root: qui diventa colonna flex e fa crescere
+   l'host del componente instradato (il sibling subito dopo il router-outlet), così il root della
+   pagina (es. con .flex-grow-1 o .h-100) eredita tutta l'altezza disponibile, senza scroll di
+   pagina se il contenuto ci sta. Il padding/gutter dello shell sono già tolti lato template
+   (niente container-fluid/py-4 in questo ramo): nessun anello da azzerare qui.
+   !important sull'host: un'eventuale utility .d-* di Bootstrap (display !important) batterebbe
+   altrimenti il display:flex e spezzerebbe in silenzio la catena (contenuto ad altezza 0). */
+#main-content.fit-viewport {
+    display: flex;
+    flex-direction: column;
+}
+#main-content.fit-viewport > router-outlet {
+    display: none;   /* anchor del router-outlet: non deve occupare spazio nel flusso flex */
+}
+#main-content.fit-viewport > router-outlet + * {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 0;   /* permette al contenuto di rimpicciolirsi sotto il suo min-content */
+}
+
+/* Host di ogni pagina instradata (il sibling subito dopo il router-outlet dello shell):
+   i custom element sono display:inline di default, il che rompe altezze/larghezze/flex/margini
+   nel layout → block come default sano, così le pagine figlie non devono dichiarare
+   host:{class:'d-block'} per ovviare. È SOLO un default a bassa specificità: un host che dichiara
+   la propria display vince comunque (es. la pagina errore con .d-flex, o il ramo .fit-viewport
+   qui sopra che è !important + più specifico) → un eventuale .d-block residuo resta innocuo.
+   `:where()` azzera la specificità dell'id: lo scope resta #main-content ma la regola pesa (0,0,1),
+   così basta un `:host { display: … }` della pagina (o una utility `d-*`) a vincerla. */
+:where(#main-content) router-outlet + * {
+    display: block;
+}
+
 /* Pannello contenuti - si adatta automaticamente al contrasto con lo sfondo tema.
    Su temi scuri: pannello chiaro con testo scuro.
    Su temi chiari: pannello scuro con testo chiaro.

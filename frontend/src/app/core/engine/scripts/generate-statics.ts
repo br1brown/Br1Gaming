@@ -69,7 +69,7 @@ const _fileLoc = (_settings['Localization'] as Record<string, unknown>) ?? {};
 const _fileProject = (_settings['project'] as Record<string, unknown>) ?? {};
 // Config di sito: solo identità/estetica finisce in environment.ts. I flag di
 // COMPORTAMENTO (showNav/showFooter/fixedTopHeader/showBrandIconInHeader/
-// showLoginInHeader/forcedLightPanel/isWebApp/onlyPlainImage) sono migrati in site.ts,
+// showLoginInHeader/showNotifications/forcedLightPanel/isWebApp/onlyPlainImage) sono migrati in site.ts,
 // quindi vengono filtrati via qui anche se un vecchio JSON li contiene ancora.
 const SITE_CONFIG = (_settings['site'] as Record<string, unknown>) ?? {};
 const SITE_AESTHETIC_KEYS = ['description', 'colorTema', 'smoke'];

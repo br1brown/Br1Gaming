@@ -1,0 +1,30 @@
+<button type="button"
+        class="nav-link nav-dropdown-toggle notification-bell-toggle"
+        aria-haspopup="true"
+        [attr.aria-expanded]="open()"
+        [attr.aria-label]="bellLabel()"
+        (click)="toggle()">
+    <i class="fa-solid fa-bell" aria-hidden="true"></i>
+    @if (unread() > 0) {
+    <span class="notification-bell-badge" aria-hidden="true">{{ unread() }}</span>
+    }
+</button>
+
+<div class="dropdown-menu notification-bell-menu" [class.show]="open()"
+     role="region" [attr.aria-label]="'notificheTitolo' | translate">
+    @if (items().length === 0) {
+    <span class="dropdown-item-text notification-bell-empty">{{ 'notificheVuote' | translate }}</span>
+    } @else {
+    <ul class="list-unstyled mb-0">
+        @for (notification of items(); track notification.id) {
+        <li class="dropdown-item notification-bell-item">
+            <i class="fa-solid {{ iconFor(notification) }}" aria-hidden="true"></i>
+            <span>{{ messageOf(notification) }}</span>
+        </li>
+        }
+    </ul>
+    }
+</div>
+
+<!-- Regione live per screen reader: annuncia (polite) l'ultima notifica arrivata dal vivo. -->
+<div class="visually-hidden" role="status" aria-live="polite">{{ liveMessage() }}</div>

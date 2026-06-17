@@ -58,8 +58,12 @@
                 <user-nav ngSkipHydration (navigationClick)="onNavigationLinkClick()" />
             </div>
 
+            @if (showNotifications) {
+            <app-notification-bell />
+            }
+
             @if (languages().length > 1) {
-            <div class="language-picker mt-3 mt-md-0" [class.ms-md-auto]="!hasAuthPage">
+            <div class="language-picker mt-3 mt-md-0">
                 <span class="language-picker-label">{{ 'selezionaLinguaAzione' | translate }}</span>
                 <div class="dropdown language-dropdown" [class.show]="langOpen()">
                     <button type="button"

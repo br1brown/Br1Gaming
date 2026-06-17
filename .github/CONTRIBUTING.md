@@ -29,6 +29,18 @@ Prima di scrivere codice, ti preghiamo di leggere le guide di sviluppo interne:
 4. Aggiorna i file `README.md` se il tuo cambiamento altera significativamente il "Come si usa" dell'engine.
 5. Invia una Pull Request compilando il template fornito.
 
+### Controlli di qualità
+
+I controlli girano in due posti: la **CI** a ogni push/PR (il gate ufficiale) e, **on-demand in locale**, `./scripts/test/run-all.sh` dalla root (i test live a11y/Lighthouse girano solo se è attivo un server da testare).
+
+**In CI** (`.github/workflows/`) ogni push e pull request esegue questi job:
+
+- **Compila backend** — `dotnet build` Release + scan dei pacchetti NuGet vulnerabili (`dotnet list package --vulnerable`)
+- **Compila frontend** — `npm audit` (blocca solo su critical, prod), ESLint, type-check, dipendenze circolari, generazione asset statici/icone, build di produzione Angular
+- **Completezza i18n** — simmetria delle chiavi di traduzione tra tutte le lingue
+- **Sicurezza (gitleaks)** — secret scanning del repo (solo in CI)
+- **Test live** — alza lo stack dietro reverse proxy (`public-test.sh`) ed esegue gli audit di accessibilità e Lighthouse (dipende da backend + frontend verdi)
+
 ## Segnalazioni di Problemi e Bug
 
 Usiamo le issue di GitHub per tracciare bug e richieste pubbliche. Per favore assicurati che la tua descrizione sia chiara e abbia istruzioni sufficienti per poter riprodurre il problema. Utilizza i Template delle Issue forniti per bug e richieste di funzionalità.

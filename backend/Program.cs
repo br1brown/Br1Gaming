@@ -4,9 +4,12 @@ using DnsClient;
 using FluentValidation;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.Options;
+using Backend.Delivery;
 using Backend.Mail;
 using Backend.Models.Configuration;
+using Backend.Notifications;
 using Backend.Security;
+using Backend.Tasks;
 using Backend.Services;
 using Backend.Store;
 
@@ -102,6 +105,17 @@ builder.Services.AddHostedService<EmailSenderHostedService>();
 
 if (security.LoginEnabled)
     builder.Services.AddSingleton<AuthService>();
+
+// Notifiche realtime (SSE): stream singleton + resolver di gruppo di default. Meccanismo
+// dell'engine, indipendente dal login — i figli possono targetizzare per utente registrando
+// il proprio INotificationGroupResolver. Vedi Engine/Notifications/.
+builder.Services.AddTemplateNotifications();
+
+// Task in background generici (coda + hosted service) e delivery degli esiti (notifica/email
+// con switch automatico). Insieme abilitano il pattern "POST ritorna subito → task lungo →
+// notifica a fine lavoro". Vedi Engine/Tasks/ e Engine/Delivery/.
+builder.Services.AddTemplateBackgroundTasks();
+builder.Services.AddTemplateDelivery();
 
 // Registra tutti i validator FluentValidation dell'assembly corrente (Validation/).
 // I controller iniettano IValidator<T> ed eseguono la validazione esplicitamente.

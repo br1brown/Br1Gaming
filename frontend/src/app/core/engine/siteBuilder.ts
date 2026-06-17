@@ -134,6 +134,8 @@ export interface SiteConfig {
     showBrandIconInHeader: boolean;
     /** Mostra il pulsante di login nella navbar. */
     showLoginInHeader: boolean;
+    /** Mostra il campanellino delle notifiche realtime (con storico). Default: false (opt-in). */
+    showNotifications: boolean;
     /** Abilita le funzionalità PWA: Service Worker, aggiornamenti automatici e installazione offline. */
     isWebApp: boolean;
     /** Configurazione finale normalizzata dell'effetto smoke. */
@@ -260,8 +262,21 @@ export type LeafPageInput = BasePageInput & {
          * @remarks Se `site.showNav` (global-settings.json) è `false`, la navbar è sempre nascosta
          * indipendentemente da questo valore — la configurazione globale ha sempre la precedenza. */
         showNav?: boolean;
-        /** Nasconde il footer su questa pagina. */
+        /** Nasconde il footer su questa pagina. Default: mostrato — tranne in full-bleed
+         *  (`fitViewport`), dove è nascosto salvo riattivarlo qui con `showFooter: true`. */
         showFooter?: boolean;
+        /**
+         * Vista a tutto schermo (full-bleed): la pagina riempie il viewport sotto la navbar,
+         * senza padding/gutter dello shell né pannello contenuti, e senza scroll di pagina se
+         * il contenuto ci sta. Per mappe, giochi, dashboard. Default: false.
+         * @remarks A differenza degli altri flag, è puramente per-pagina (nessun gate globale).
+         * Quando attivo prevale sul pannello (`showPanel` viene ignorato) e nasconde il footer di
+         * default — vista immersiva senza decorazioni che le rubano spazio; riattivalo con
+         * `showFooter: true` se lo vuoi comunque. La navbar resta (via d'uscita). Il root del componente
+         * di pagina deve crescere per riempire l'altezza: aggiungi `flex-grow-1` (o `h-100`) sul
+         * suo elemento radice e non mettere utility di display `d-*` sull'host del componente
+         * (batterebbero il flex del full-bleed — vedi la regola `.fit-viewport` in base.css). */
+        fitViewport?: boolean;
     };
 
     /**
@@ -373,6 +388,7 @@ export type LeafPage = Omit<LeafPageInput, 'kind' | 'layout' | 'otherSEO'> & {
     showPanel?: boolean;
     showNav?: boolean;
     showFooter?: boolean;
+    fitViewport?: boolean;
     ogImage?: string | false;
     ogType?: string;
     structuredDataType?: string;
@@ -554,7 +570,11 @@ const normalizeSitePage = (
             kind: 'leaf',
             showPanel: layout?.showPanel,
             showNav: layout?.showNav,
-            showFooter: layout?.showFooter,
+            // Default contestuale: una vista full-bleed (fitViewport) nasconde il footer salvo
+            // riattivarlo esplicitamente con showFooter. Il default universale (mostrato) resta
+            // nello shell; qui il builder risolve solo la coerenza tra i due flag di layout.
+            showFooter: layout?.showFooter ?? (layout?.fitViewport ? false : undefined),
+            fitViewport: layout?.fitViewport,
             ogImage: otherSEO?.ogImage,
             ogType: otherSEO?.ogType,
             structuredDataType: otherSEO?.structuredDataType,
@@ -648,6 +668,10 @@ export interface SiteShellConfig {
     showBrandIconInHeader?: boolean;
     /** Mostra il pulsante di login nella navbar. Default: true. */
     showLoginInHeader?: boolean;
+    /** Mostra il campanellino delle notifiche realtime, con storico. Default: false (opt-in):
+     *  attivalo solo se il sito spinge davvero notizie, così non mostri un'icona mai usata
+     *  né apri una connessione SSE inutile. */
+    showNotifications?: boolean;
     /** Pannello contenuti sempre chiaro, indipendentemente dal tema OS. Default: true. */
     forcedLightPanel?: boolean;
 }
@@ -828,6 +852,7 @@ function buildFinalConfig(definition: SiteDefinition): SiteConfig {
         fixedTopHeader: shell.fixedTopHeader ?? false,
         showBrandIconInHeader: shell.showBrandIconInHeader ?? true,
         showLoginInHeader: shell.showLoginInHeader ?? true,
+        showNotifications: shell.showNotifications ?? false,
         isWebApp: definition.isWebApp ?? true,
         onlyPlainImage: definition.onlyPlainImage ?? false,
         forcedLightPanel: shell.forcedLightPanel ?? true,

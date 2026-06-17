@@ -1,0 +1,69 @@
+/* Il toggle eredita .nav-dropdown-toggle (reset + flex) da nav.css. Qui solo l'ancoraggio
+   del badge e il layout del menu. Il colore segue la navbar via currentColor. */
+
+.notification-bell-toggle {
+    position: relative;
+    background: transparent;
+    color: inherit;
+}
+
+.notification-bell-toggle .fa-bell {
+    font-size: 1.1rem;
+}
+
+/* Badge non lette: pallino in alto a destra sull'icona, colore brand. */
+.notification-bell-badge {
+    position: absolute;
+    top: -0.2rem;
+    right: -0.4rem;
+    min-width: 1.05rem;
+    height: 1.05rem;
+    padding: 0 0.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--colorPrimaryText, #fff);
+    background-color: var(--colorPrimary, #d6336c);
+    border-radius: 999px;
+}
+
+/* Allineato a destra (come il language picker): senza Popper lo posizioniamo noi. */
+.notification-bell-menu {
+    right: 0;
+    left: auto;
+    min-width: 16rem;
+    max-width: min(22rem, 92vw);
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.notification-bell-item {
+    display: flex;
+    gap: 0.55rem;
+    align-items: flex-start;
+    white-space: normal;
+}
+
+.notification-bell-item .fa-solid {
+    margin-top: 0.15rem;
+    flex: 0 0 auto;
+}
+
+.notification-bell-empty {
+    display: block;
+    padding: 0.6rem 1rem;
+    opacity: 0.7;
+}
+
+/* Mobile: il menu è statico dentro il collapse (regola .navbar .dropdown-menu in nav.css),
+   quindi niente ancoraggio a destra e larghezza piena. */
+@media (max-width: 767.98px) {
+    .notification-bell-menu {
+        right: auto;
+        min-width: 0;
+        max-height: none;
+    }
+}

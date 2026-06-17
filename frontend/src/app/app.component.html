@@ -13,20 +13,28 @@
     <app-navbar />
 }
 
-<main id="main-content" class="container-fluid py-4 flex-grow-1">
-    <div class="row">
-        @if (showPanel()) {
-            <div class="col-12 col-lg-10 offset-lg-1 shadow rounded content-panel"
-                 [class.panel-light]="theme.panelForcedLight"
-                 [attr.data-bs-theme]="theme.panelBootstrapTheme">
-                <router-outlet />
-            </div>
-        } @else {
-            <div class="col-12">
-                <router-outlet />
-            </div>
-        }
-    </div>
+<main id="main-content" class="flex-grow-1"
+      [class.container-fluid]="!fitViewport()"
+      [class.py-4]="!fitViewport()"
+      [class.fit-viewport]="fitViewport()">
+    @if (fitViewport()) {
+        <!-- Full-bleed: niente container/pannello; .fit-viewport (base.css) fa riempire l'altezza. -->
+        <router-outlet />
+    } @else {
+        <div class="row">
+            @if (showPanel()) {
+                <div class="col-12 col-lg-10 offset-lg-1 shadow rounded content-panel"
+                     [class.panel-light]="theme.panelForcedLight"
+                     [attr.data-bs-theme]="theme.panelBootstrapTheme">
+                    <router-outlet />
+                </div>
+            } @else {
+                <div class="col-12">
+                    <router-outlet />
+                </div>
+            }
+        </div>
+    }
 </main>
 
 @if (showFooter()) {

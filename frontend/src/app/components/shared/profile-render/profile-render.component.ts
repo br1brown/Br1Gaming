@@ -111,6 +111,10 @@ export class ProfileRenderComponent {
     /**
      * Canali di contatto cliccabili (telefono, email, PEC) estratti dal profilo
      * e resi come badge dai componenti contatto in cima, fuori dalle due colonne.
+     *
+     * `label` è la CHIAVE i18n (non il valore tradotto): il componente contatto
+     * la traduce da sé. Pre-tradurre qui causerebbe un doppio translate (la
+     * stringa già tradotta verrebbe ricercata come chiave → "key not found").
      */
     readonly contacts = computed<ContactChannel[]>(() => {
         const c = this.profile()?.contatti;
@@ -118,13 +122,13 @@ export class ProfileRenderComponent {
 
         const list: ContactChannel[] = [];
         if (this.hasText(c.telefono)) {
-            list.push({ kind: 'phone', key: 'telefono', label: this.label('telefonoAzienda'), number: c.telefono.trim() });
+            list.push({ kind: 'phone', key: 'telefono', label: 'telefonoAzienda', number: c.telefono.trim() });
         }
         if (this.hasText(c.email)) {
-            list.push({ kind: 'mail', key: 'email', label: this.label('emailAzienda'), config: { to: c.email.trim() } });
+            list.push({ kind: 'mail', key: 'email', label: 'emailAzienda', config: { to: c.email.trim() } });
         }
         if (this.hasText(c.pec)) {
-            list.push({ kind: 'mail', key: 'pec', label: this.label('pecAzienda'), config: { to: c.pec.trim() } });
+            list.push({ kind: 'mail', key: 'pec', label: 'pecAzienda', config: { to: c.pec.trim() } });
         }
         return list;
     });

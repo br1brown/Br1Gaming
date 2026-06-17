@@ -4,6 +4,7 @@ import type { HttpResourceRef } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { TranslateService } from './translate.service';
 import { TokenService } from './token.service';
+import { NotificationConnection } from './notification-connection';
 
 /**
  * Interfaccia basata sullo standard RFC 9457 (Problem Details for HTTP APIs)
@@ -101,6 +102,9 @@ export abstract class BaseApiService {
     protected readonly http = inject(HttpClient);
     protected readonly translate = inject(TranslateService);
     protected readonly tokenService = inject(TokenService);
+    // Holder inerte: leggerlo NON apre lo stream SSE (lo popola il NotificationStreamService quando
+    // il campanellino è attivo). Così l'header X-Connection-Id parte solo se le notifiche servono.
+    private readonly connection = inject(NotificationConnection);
 
     /**
      * Contesto HTTP che marca la richiesta come "gestita" per l'`apiErrorInterceptor`:
@@ -249,6 +253,14 @@ export abstract class BaseApiService {
         // Aggiunge il Bearer Token se l'utente ha effettuato l'accesso.
         if (this.tokenService.isLoggedIn()) {
             headers = headers.set('Authorization', `Bearer ${this.tokenService.token()}`);
+        }
+
+        // X-Connection-Id: presente solo se lo stream notifiche è connesso (campanellino attivo).
+        // Permette agli endpoint di notificare "questa scheda" senza che il connectionId entri nelle
+        // loro firme. Assente in SSR e quando le notifiche non sono attive → il backend riceve null.
+        const connectionId = this.connection.id();
+        if (connectionId) {
+            headers = headers.set('X-Connection-Id', connectionId);
         }
 
         // Merge di eventuali header aggiuntivi passati come argomento.

@@ -34,7 +34,7 @@ export class AppComponent {
     readonly smoke = ContestoSito.config.smoke;
 
     readonly showSmoke = computed(() =>
-        (this.showPanel()) && this.smoke.enable && !this.theme.prefersReducedMotion()
+        this.showPanel() && !this.fitViewport() && this.smoke.enable && !this.theme.prefersReducedMotion()
     );
 
     // Espone la route foglia corrente come signal, cosi' il layout globale
@@ -52,6 +52,11 @@ export class AppComponent {
         return value;
     });
 
+    // Vista full-bleed della pagina attiva (flag layout.fitViewport): lo shell rende il
+    // <main> senza container/padding e senza pannello, e .fit-viewport (base.css) fa
+    // riempire l'altezza al contenuto. Quando attivo prevale su showPanel.
+    readonly fitViewport = computed(() => this.currentRoute().data['fitViewport'] ?? false);
+
     readonly showNavbar = computed(() => {
         if (!ContestoSito.config.showNav) return false;
         return this.currentRoute().data['showNav'] ?? true;
@@ -59,6 +64,8 @@ export class AppComponent {
 
     readonly showFooter = computed(() => {
         if (!ContestoSito.config.showFooter) return false;
+        // Il default contestuale "full-bleed → footer off" è già risolto dal builder
+        // (normalizeSitePage): qui resta solo il default universale, come showNav/showPanel.
         return this.currentRoute().data['showFooter'] ?? true;
     });
 

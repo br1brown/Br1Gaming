@@ -250,6 +250,9 @@ export class NotificationService {
 
     toast(message: string, icon: 'success' | 'error' | 'info' | 'warning' = 'success'): void {
         void this.loadThemedSwal()?.then(Swal => {
+            // error/warning → annuncio assertivo (interrompe lo screen reader);
+            // success/info → polite (non interrompe).
+            const assertive = icon === 'error' || icon === 'warning';
             const Toast = Swal.mixin({
                 toast: true,
                 position: 'top-end',
@@ -257,10 +260,22 @@ export class NotificationService {
                 timer: 3000,
                 timerProgressBar: true,
                 didOpen: (toast) => {
+                    // a11y (WCAG 2.2.1 + 4.1.3): il toast deve essere annunciato dagli
+                    // screen reader e il suo timer pausabile sia col mouse sia da tastiera.
+                    toast.setAttribute('role', assertive ? 'alert' : 'status');
+                    toast.setAttribute('aria-live', assertive ? 'assertive' : 'polite');
+                    // tabindex=0 rende il toast raggiungibile e focusabile: senza questo gli
+                    // handler focus/blur sotto non scattavano mai → utente keyboard-only non
+                    // poteva mettere in pausa l'auto-dismiss.
+                    toast.setAttribute('tabindex', '0');
                     toast.addEventListener('mouseenter', Swal.stopTimer);
                     toast.addEventListener('mouseleave', Swal.resumeTimer);
                     toast.addEventListener('focus', Swal.stopTimer);
                     toast.addEventListener('blur', Swal.resumeTimer);
+                    // Escape chiude il toast quando ha il focus.
+                    toast.addEventListener('keydown', (e) => {
+                        if (e.key === 'Escape') void Swal.close();
+                    });
                 }
             });
             void Toast.fire({ icon, title: message });

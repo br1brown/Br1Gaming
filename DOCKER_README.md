@@ -11,7 +11,7 @@ Il template Docker e' progettato per essere **riusabile su piu' progetti sulla s
 La configurazione è divisa in tre file per **proprietario** (tutti validati da `global-settings.schema.json` per l'autocomplete):
 
 - **`global-settings.json`** — del **progetto**, committabile: identità e aspetto (`project`, `Localization`, `site`, `Custom`).
-- **`global-settings.local.json`** — **gitignored**: pubblicazione e segreti del singolo ambiente (`frontend`, `backend`, `Security`).
+- **`global-settings.local.json`** — **gitignored**: pubblicazione e segreti del singolo ambiente (`frontend`, `backend`, `Security`, `Mail`).
 - **`security-headers.json`** — del **template**, non si tocca: header di sicurezza fissi.
 
 `deploy.sh` fonde i primi due e monta il risultato; backend e Node SSR lo leggono. La scorciatoia `node setup.mjs "Nome Progetto"` imposta il nome nel file di progetto e crea il `.local` coi segreti generati.
@@ -65,9 +65,16 @@ sono documentati in `global-settings.schema.json`, quindi l'editor offre autocom
 
 Al deploy, `deploy.sh` **fonde** `global-settings.local.json` sopra `global-settings.json` (merge
 profondo; gli array come `ApiKeys`/`SupportedLanguages` vengono sostituiti), genera
-`.br1-settings.effective.json` (gitignorato) e monta **quello** nei container. La sezione `site`
-(identità/aspetto, senza segreti) viene inoltre passata al build del frontend come ARG
-`BR1_PROJECT_JSON` e iniettata in `environment.ts`.
+`.br1-settings.effective.json` (gitignorato) e monta **quello** nei container. L'intero
+`global-settings.json` del progetto (`project`/`Localization`/`site`/`Custom`, senza segreti) viene
+inoltre passato al build del frontend come ARG `BR1_PROJECT_JSON` e iniettato in `environment.ts`.
+Da questo stesso JSON il generatore di file statici (`generate-statics.ts`) ricava lingua di default e
+lingue supportate (sezione `Localization`) per SEO e `environment.ts`: non servono build-arg dedicati.
+
+> **Primo avvio senza `.local`.** Se `Security.ApiKeys` manca (es. CI, prima esecuzione senza
+> `global-settings.local.json`), `scripts/lib/br1-config.sh` genera una API key **effimera** usa-e-getta
+> così lo stack parte comunque e backend e SSR ne condividono una uguale. In produzione fornisci sempre
+> chiavi reali (≥32 caratteri) nel `.local`.
 
 ### `global-settings.json` — progetto (committabile)
 
@@ -76,20 +83,20 @@ profondo; gli array come `ApiKeys`/`SupportedLanguages` vengono sostituiti), gen
 | `project.name` | `App` | Nome dell'app; mostrato in UI/manifest e slugificato in `COMPOSE_PROJECT_NAME` |
 | `project.version` | `1.0.0` | Versione dell'app: meta `app-version`, manifest, rilevamento aggiornamenti |
 | `project.lastModified` | data del build | Ultima modifica contenuti (`GG/MM/AAAA`): `<lastmod>` sitemap + `og:updated_time`. Bumpala a mano |
-| `Localization.DefaultLanguage` | `it` | Lingua di default (tag BCP-47) |
-| `Localization.SupportedLanguages` | `["it","en"]` | Lingue supportate |
+| `Localization.DefaultLanguage` | `it` | Lingua di default: tag BCP-47 valido e **incluso in `SupportedLanguages`** |
+| `Localization.SupportedLanguages` | `["it","en"]` | Lingue supportate (tag BCP-47, almeno 1 elemento; deve includere `DefaultLanguage`) |
 | `site.description` | — | Descrizione per-lingua `{ it, en, … }` (SEO, footer, social); build usa la lingua default, SSR localizza |
 | `site.colorTema` | — | Colore tema (hex): palette OKLCH + tono testo |
-| `site.smoke` | — | Effetto particellare di sfondo (ometti/`enable:false` per disattivarlo) |
+| `site.smoke` | — | Effetto particellare di sfondo (ometti/`enable:false` per disattivarlo). Sottocampi: `enable`, `color`, `opacity`, `maximumVelocity`, `particleRadius`, `density` |
 | `Custom` | `{}` | Valori liberi leggibili da backend (`IConfiguration["Custom:..."]`) e Node SSR (`getBr1Settings().Custom`) |
 
-> I flag di **comportamento** (`showNav`, `showFooter`, `fixedTopHeader`, `showBrandIconInHeader`, `showLoginInHeader`, `forcedLightPanel`, `isWebApp`, `onlyPlainImage`) non stanno in `global-settings.json`: sono struttura e vivono in `frontend/src/app/site.ts` (`shell` / `isWebApp` / `onlyPlainImage`).
+> I flag di **comportamento** (`showNav`, `showFooter`, `fixedTopHeader`, `showBrandIconInHeader`, `showLoginInHeader`, `showNotifications`, `forcedLightPanel`, `isWebApp`, `onlyPlainImage`) sono struttura e vivono in `frontend/src/app/site.ts` (`shell` / `isWebApp` / `onlyPlainImage`).
 
 ### `global-settings.local.json` — pubblicazione + segreti (gitignored)
 
 | Chiave | Default | Descrizione |
 |---|---|---|
-| `frontend.hostname` | `""` | Dominio pubblico senza schema. Deriva `FRONTEND_BASE_URL` e `NG_ALLOWED_HOSTS` |
+| `frontend.hostname` | `""` | Dominio pubblico senza schema. Deriva `FRONTEND_BASE_URL` e `NG_ALLOWED_HOSTS`. Senza hostname (né `NG_ALLOWED_HOSTS`) il Node SSR accetta solo gli host locali ed è **fail-closed**: in produzione il traffico reale viene rifiutato con **421 Misdirected Request**. Per più domini, imposta direttamente `NG_ALLOWED_HOSTS` (vedi sotto) |
 | `frontend.port` | `3000` | Porta host del frontend |
 | `backend.public` | `false` | `true` espone il backend sull'host (richiede `docker-compose.backend-exposed.yml`) |
 | `backend.publicPort` | `null` | Porta host del backend, solo se `public: true` |
@@ -97,17 +104,30 @@ profondo; gli array come `ApiKeys`/`SupportedLanguages` vengono sostituiti), gen
 | `Security.CorsOrigins` | `[]` | Origini CORS ammesse |
 | `Security.BehindProxy` | `false` | `true` quando si è dietro un reverse proxy (legge `X-Forwarded-For`) |
 | `Security.Token.SecretKey` | `""` | Segreto JWT (≥32 char): se valorizzato attiva il login. Vuoto = login disabilitato |
-| `Security.Token.ExpirationSeconds` | `3000` | Durata dei JWT emessi |
+| `Security.Token.ExpirationSeconds` | `3000` | Durata dei JWT emessi (minimo 60) |
+| `Mail.*` | — | Config SMTP del mailer (`Host`, `Port`, `Security`, `FromAddress`, `FromName`, `Username`, `Password`, più i tuning `TimeoutSeconds`/`MaxAttachmentBytes`/`VerifyRecipientDomain`): contiene segreti, vive qui. Si attiva come il login: con `Host` **e** `FromAddress` presenti il mailer è acceso, altrimenti resta spento e ogni invio risponde `503`. L'esempio (`global-settings.local.example.json`) include già un blocco SMTP attivo: se non usi la posta, svuotalo. Dettaglio dei campi in [backend/README.md](backend/README.md) (sezione Mailer) |
 
 > **Header di sicurezza in `security-headers.json`.** Gli header fissi rivolti al browser
 > (X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS, Permissions-Policy, CSP) sono
 > uguali per ogni progetto: vivono in `security-headers.json` (file del template, montato in
-> entrambi i container e letto da backend e Node SSR). **Non è roba del progetto figlio**, che
-> non deve scriverla né rischiare di cancellarla; si aggiorna col merge dal template — l'unica
+> entrambi i container e letto da backend e Node SSR). **Appartiene al template, non al progetto figlio**: lo riceve e lo aggiorna col merge dal template — l'unica
 > eccezione è l'override documentato nella `_nota` del file (vedi il README principale). In
 > `global-settings` resta solo la sicurezza *del progetto*: `ApiKeys`, `CorsOrigins`, `BehindProxy`, `Token`.
 
 `BACKEND_ORIGIN` (`http://backend:8080`) resta una variabile d'ambiente del compose: è l'indirizzo Docker-interno del backend, non una scelta di configurazione utente.
+
+### Variabili d'ambiente del frontend SSR (opzionali)
+
+Variabili lette al boot dal container Node frontend (`frontend/src/app/core/engine/server/server-env.ts`). Non stanno in `global-settings.json`: si impostano nell'ambiente del container quando servono, altrimenti valgono i default.
+
+| Chiave | Default | Descrizione |
+|---|---|---|
+| `TRUST_PROXY` | `loopback, linklocal, uniquelocal` | Valore di Express `trust proxy`. Lista ristretta (subnet private) per evitare lo spoofing di `X-Forwarded-Host`/`X-Forwarded-For` e il bypass dell'allowlist |
+| `PROXY_TIMEOUT_MS` | `30000` | Timeout (ms) delle chiamate proxy `/api/*` verso il backend |
+| `PREVIEW_CRYPTO_SECRET` | `""` | Chiave AES-GCM per cifrare i payload og:image di `/cdn-cgi/preview`. Se vuota, la chiave ricade sull'**API key server-side** (`Security.ApiKeys[0]`, un segreto → i blob restano non falsificabili) e, solo in sua assenza, su `appName:version`. Impostala per disaccoppiare la firma delle anteprime dalla rotazione delle API key |
+| `NG_ALLOWED_HOSTS` | — | Allowlist host SSR, lista separata da virgole. **Ha precedenza su `frontend.hostname`** (utile per multi-dominio). Se né questa né l'hostname sono valorizzati, fallback fail-closed agli host locali → gli host reali ricevono `421` |
+| `IMAGE_CACHE_DIR` | `<temp di sistema>/…` | Cartella dei thumbnail di `/cdn-cgi/asset` e `/cdn-cgi/preview`. Default nella temp (isolata per progetto), quindi **effimera**: riparte fredda a ogni riavvio. Per una cache **calda tra i deploy**, monta un volume persistente e puntalo qui (dettaglio in [frontend/README.md](frontend/README.md)) |
+| `IMAGE_CACHE_MAX_MB` | `500` | Cap della cache immagini su disco; oltre la soglia uno sweep LRU ogni 6 ore la riporta al 90% del cap |
 
 ## Sviluppo locale
 
@@ -130,16 +150,19 @@ Il frontend si connette al backend tramite proxy. Docker resta per la pubblicazi
 ./deploy.sh                # pubblica frontend + backend
 ./deploy.sh --frontend     # solo il frontend
 ./deploy.sh --backend      # solo il backend
+./deploy.sh --no-cache     # rebuild immagini ignorando la cache Docker (combinabile coi flag sopra)
 ```
 
 In produzione:
 
 - **Frontend** su `http://localhost:FRONTEND_PORT`
-- **Backend** privato per default (per esporlo: `backend.public: true` in `global-settings.json`)
+- **Backend** privato per default (per esporlo: `backend.public: true` in `global-settings.local.json`)
 
 Frontend e backend sono **disaccoppiati**: puoi pubblicarli insieme o uno alla volta (anche su VPS diverse). Il backend è privato o pubblico secondo `backend.public`.
 
 > **Guard segreti (automatico):** al deploy `deploy.sh` verifica che non siano rimasti i segreti segnaposto/deboli di default. Se `Security.Token.SecretKey` è ancora la chiave di sviluppo o è < 32 caratteri, o se `Security.ApiKeys` contiene `frontend` / chiavi < 32 caratteri, il deploy si ferma con un messaggio esplicito (e il comando `openssl` per generarne uno sicuro). I segreti si generano con `openssl rand -base64 48` (JWT) e `openssl rand -base64 32` (API key).
+
+> **Password SMTP fuori dal disco:** `docker-compose.yml` dichiara un passthrough `Mail__Password` (convenzione .NET: `Mail:Password`). Esportandola nell'ambiente prima del deploy — `export Mail__Password='...'; ./deploy.sh` — il backend la legge con **precedenza sul JSON montato** e la password non finisce mai nel file su disco. Se la variabile non è impostata vale il valore (eventuale) di `Mail.Password` nel `.local`.
 
 Il frontend gira su Node SSR: serve l'app Angular e proxya `/api/*` al backend sulla rete Docker interna, iniettando l'API key lato server.
 
@@ -148,7 +171,7 @@ Come funziona `deploy.sh`, in breve:
 2. **Swap**: solo se il preflight è verde, `docker compose up -d --wait` sostituisce i container di produzione (immagini riusate dalla cache, ricontrollo salute sulle porte reali). È un blue/green leggero: zero-downtime se la nuova build parte male.
 3. **Porte**: se una porta è occupata da un altro progetto, `deploy.sh` lo **segnala** soltanto e prosegue (è Docker a riportare l'eventuale errore di bind). Nessun container viene fermato automaticamente.
 
-La suite di qualità (lint, i18n, type checking, dipendenze circolari, accessibilità WCAG, Lighthouse) **non** è rieseguita da `deploy.sh`: gira in CI a ogni push/PR e nel git hook pre-push. In locale: `./scripts/test/run-all.sh`.
+La suite di qualità (lint, i18n, type checking, dipendenze circolari, accessibilità WCAG, Lighthouse) **non** è rieseguita da `deploy.sh`: gira in CI a ogni push/PR. In locale, on-demand: `./scripts/test/run-all.sh`.
 
 ## Test pubblico dietro reverse proxy
 
@@ -192,6 +215,16 @@ PUBLIC_TEST_ALLOWED_HOSTS=miosito.localhost \
 docker compose -f docker-compose.yml -f docker-compose.public-test.yml up -d --build
 ```
 
+In alternativa, `public-test.sh` espone gli stessi parametri come flag (più comodo delle env var `PUBLIC_TEST_*`):
+
+```bash
+bash scripts/test/public-test.sh --public-host miosito.localhost --public-port 9090 --no-cache --down-after
+```
+
+- `--public-host` (default `localhost`) e `--public-port` (default `8088`) impostano host/porta simulati
+- `--no-cache` ricostruisce le immagini da zero
+- `--down-after` spegne lo stack al termine
+
 Per verificare che il problema sia davvero l'host check SSR, si prova intenzionalmente un host non autorizzato:
 
 ```bash
@@ -202,7 +235,7 @@ In quel caso il frontend dovrebbe loggare il rifiuto dell'host e smettere di com
 
 ### Esporre il backend
 
-Imposta `backend.public: true` (e `backend.publicPort`) in `global-settings.json`. `deploy.sh` ne deriva l'esposizione e applica l'overlay `docker-compose.backend-exposed.yml`.
+Imposta `backend.public: true` (e `backend.publicPort`) in `global-settings.local.json`. `deploy.sh` ne deriva l'esposizione e applica l'overlay `docker-compose.backend-exposed.yml`.
 
 Nota: la porta pubblicata controlla solo la porta sull'host. Il container backend continua ad ascoltare internamente su `8080`, quindi l'overlay `docker-compose.backend-exposed.yml` mappa `publicPort:8080`.
 

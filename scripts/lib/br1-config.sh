@@ -21,7 +21,7 @@
 #   BACKEND_PORT          porta host del backend (se esposto)
 #   FRONTEND_BASE_URL     https://<hostname> (se impostato)
 #   NG_ALLOWED_HOSTS      hostname consentito
-#   BR1_PROJECT_JSON      global-settings.json minificato (project/Localization/site, NO segreti),
+#   BR1_PROJECT_JSON      global-settings.json minificato (project/Localization/site/Custom, NO segreti),
 #                         build arg per iniettare l'identità e la config nel bundle frontend
 #
 # Path RELATIVI di proposito: Node li risolve dalla cwd (la root del repo) e
@@ -78,7 +78,7 @@ process.stdout.write([
 ].join('\n') + '\n');
 ")
 
-    # Config di PROGETTO (project/Localization/site) minificata per il build del frontend.
+    # Config di PROGETTO (project/Localization/site/Custom) minificata per il build del frontend.
     # È global-settings.json grezzo: NON contiene segreti (quelli sono in .local, non qui),
     # quindi è sicuro passarlo come build ARG. generate-statics lo legge da BR1_PROJECT_JSON.
     export BR1_PROJECT_JSON="$(node --input-type=module --eval "

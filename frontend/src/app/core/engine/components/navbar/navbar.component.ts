@@ -13,10 +13,11 @@ import { ContestoSito } from '../../../../site';
 import { isNavGroup } from '../../siteBuilder';
 import { AssetDirective } from '../../directives/asset.directive';
 import { UserNavComponent } from '../../../../components/shared/user-nav/user-nav.component';
+import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
 
 @Component({
     selector: 'app-navbar',
-    imports: [TranslatePipe, AssetDirective, UpperCasePipe, NavLinkComponent, NavDropdownComponent, RouterLink, UserNavComponent],
+    imports: [TranslatePipe, AssetDirective, UpperCasePipe, NavLinkComponent, NavDropdownComponent, RouterLink, UserNavComponent, NotificationBellComponent],
     templateUrl: './navbar.component.html',
     styleUrl: './navbar.component.css',
     host: {
@@ -51,6 +52,8 @@ export class NavbarComponent {
     readonly menuItems = ContestoSito.menuNav;
     readonly fixTop = ContestoSito.config.fixedTopHeader;
     readonly showBrandIconInHeader = ContestoSito.config.showBrandIconInHeader;
+    /** Mostra il campanellino delle notifiche realtime (shell.showNotifications, default false). */
+    readonly showNotifications = ContestoSito.config.showNotifications;
     readonly languages = this.translate.availableLangs;
     /** True se l'area login/logout deve essere mostrata nella navbar. */
     readonly hasAuthPage = ContestoSito.config.loginPage != null && ContestoSito.config.showLoginInHeader;
