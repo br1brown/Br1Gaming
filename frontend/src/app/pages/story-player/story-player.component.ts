@@ -14,7 +14,6 @@ import { PageBaseComponent } from '../page-base.component';
     selector: 'app-story-player',
     imports: [TranslatePipe, MarkdownPipe, AssetDirective],
     templateUrl: './story-player.component.html',
-    host: { class: 'd-block' },
 })
 export class StoryPlayerComponent extends PageBaseComponent<StoryInfo> {
     private readonly router = inject(Router);

@@ -68,6 +68,12 @@ function storyPage(
 
 export const ContestoSito = buildSite({
 
+    // PWA disattivata per questo sito: niente Service Worker. Non c'è nulla di realmente
+    // offline (servirebbe censire gli endpoint in config, non previsto dal codice attuale) e
+    // l'unico effetto del SW era costringere gli utenti ad aggiornare la cache a ogni deploy.
+    // Il default del padre resta `true`: è solo questo figlio a fare opt-out.
+    isWebApp: false,
+
     // Pagina del brand/logo nel navbar.
     homePage: PageType.Home,
 
@@ -102,7 +108,7 @@ export const ContestoSito = buildSite({
             title: `ducenonduce`,
             description: 'Indovina se la persona è un duce o non duce',
             pageType: PageType.GameDuceNonDuce,
-            layout: { showPanel: false, showFooter: false },
+            layout: { fitViewport: true },
             otherSEO: { ogImage: 'game.ducenonduce' },
             component: () => import('./pages/duce-non-duce/duce-non-duce.component')
                 .then(m => m.DuceNonDuceComponent),
@@ -117,7 +123,7 @@ export const ContestoSito = buildSite({
             // DEVE essere server-rendered (non dipendere dal default del builder).
             renderMode: 'server',
             otherSEO: { ogImage: 'game.radar' },
-            layout: { showPanel: false, showFooter: false },
+            layout: { fitViewport: true },
             component: () => import('./pages/radar/radar.component')
                 .then(m => m.RadarComponent),
         },
@@ -127,7 +133,7 @@ export const ContestoSito = buildSite({
             title: `burocrazia`,
             description: 'Attraversa la città a colpi di passaggi in auto e chiudi la pratica prima che chiudano gli sportelli.',
             pageType: PageType.GameBurocrazia,
-            layout: { showPanel: false, showFooter: false },
+            layout: { fitViewport: true },
             component: () => import('./pages/burocrazia/burocrazia.component')
                 .then(m => m.BurocraziaComponent),
         },

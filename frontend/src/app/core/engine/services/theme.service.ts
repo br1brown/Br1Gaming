@@ -1,5 +1,5 @@
 import { isPlatformBrowser } from '@angular/common';
-import { Injectable, PLATFORM_ID, Signal, WritableSignal, afterNextRender, computed, inject, signal, DOCUMENT } from '@angular/core';
+import { Injectable, PLATFORM_ID, Signal, WritableSignal, afterNextRender, computed, inject, isDevMode, signal, DOCUMENT } from '@angular/core';
 import { ContestoSito } from '../../../site';
 import { FontConfig } from '../../../../styles/font-config';
 
@@ -147,7 +147,7 @@ export interface PaletteTokens {
  * - _applyPalette inietta CSS vars e attributi su <html> in modo sincrono
  *
  * Metodi statici (puri, usabili da Node/scripts di build):
- *   computePalette, hexToOklch, oklchToHex, calcApcaContrast,
+ *   computePalette, hexToOklch, oklchToHex,
  *   computeThemeTone, computeColorPrimary, prefersDarkText,
  *   getReadableTextColor, mixHexColors, calcContrastRatio, ecc.
  */
@@ -598,10 +598,14 @@ export class ThemeService {
         const baseLtHex = ThemeService.oklchToHex(0.970, Math.min(C_t * 0.03, 0.004), H_t);
         const baseDkHex = ThemeService.oklchToHex(0.140, Math.min(C_t * 0.08, 0.010), H_t);
 
-        // Link Lt = colorPrimary (già WCAG 4.5:1 su bianco).
-        // Link Dk = stessa hue del brand, L sale finché ≥ 4.5:1 su sfondo scuro.
-        // Chroma minima 0.08 per garantire una tinta riconoscibile anche su brand grigi.
-        const colorLinkLt = colorPrimary;
+        // Link Lt/Dk: stessa hue del brand, L cercata finché ≥ 4.5:1 sul rispettivo
+        // sfondo pagina REALE (baseLt/baseDk). Nota: colorPrimary garantisce 4.5:1 su
+        // bianco puro, ma il link vive su baseLt (L=0.970, leggermente più scuro del
+        // bianco) → riusare colorPrimary lasciava il link sotto soglia su ~1 brand su 7.
+        // Chroma minima 0.08 per una tinta riconoscibile anche su brand grigi.
+        const colorLinkLt = ThemeService.findCompliantColor(
+            Math.max(C_t, 0.08), H_t, baseLtHex, 4.5, 0.55, -0.01
+        );
         const colorLinkDk = ThemeService.findCompliantColor(
             Math.max(C_t, 0.08), H_t, baseDkHex, 4.5, 0.55, +0.01
         );
@@ -745,7 +749,17 @@ export class ThemeService {
             const hex = ThemeService.oklchToHex(L, C, H);
             if (ThemeService.calcContrastRatio(hex, bgHex) >= targetRatio) return hex;
         }
-        return ThemeService.oklchToHex(Math.min(0.95, Math.max(0.05, startL + step * 70)), C, H);
+        // Nessuna L a chroma fisso raggiunge il target (tipico con hue molto sature,
+        // clampate al gamut sRGB): si ripiega sul massimo contrasto possibile su bgHex
+        // (nero o bianco puro), sacrificando la tinta brand ma MAI la conformità WCAG.
+        const fallback = ThemeService.getReadableTextColor(bgHex);
+        if (isDevMode()) {
+            console.warn(
+                `[ThemeService] findCompliantColor non converge a ${targetRatio}:1 ` +
+                `(C=${C.toFixed(3)}, H=${H.toFixed(1)}, bg=${bgHex}) → ripiego su ${fallback}.`
+            );
+        }
+        return fallback;
     }
 
     // ── OKLCH ↔ hex pipeline ──────────────────────────────────────────────
@@ -805,40 +819,6 @@ export class ThemeService {
             Math.round(encode(lg) * 255),
             Math.round(encode(lb) * 255),
         );
-    }
-
-    // ── APCA (WCAG 3 candidate) contrast ─────────────────────────────────
-
-    /**
-     * Calcola il contrasto APCA tra testo e sfondo.
-     * Restituisce il valore Lc: |Lc| ≥ 60 per testo corpo, ≥ 45 per testo grande/bold.
-     */
-    static calcApcaContrast(textHex: string, bgHex: string): number {
-        // toY: luminanza relativa APCA con coefficienti ITU-R BT.709 sui canali linearizzati.
-        const toY = (hex: string): number => {
-            const { r, g, b } = ThemeService.hexToRgb(hex);
-            return 0.2126729 * ThemeService.toLinearChannel(r / 255)
-                + 0.7151522 * ThemeService.toLinearChannel(g / 255)
-                + 0.0721750 * ThemeService.toLinearChannel(b / 255);
-        };
-
-        const Ys = toY(textHex); // screen (testo)
-        const Yb = toY(bgHex);   // background (sfondo)
-
-        // Esponenti asimmetrici: testo scuro su chiaro vs testo chiaro su scuro hanno
-        // curve di percettibilità diverse — APCA le modella separatamente.
-        let sapc: number;
-        if (Yb >= Ys) {
-            sapc = (Math.pow(Yb, 0.56) - Math.pow(Ys, 0.57)) * 1.14; // sfondo chiaro
-        } else {
-            sapc = (Math.pow(Yb, 0.65) - Math.pow(Ys, 0.62)) * 1.14; // sfondo scuro
-        }
-
-        // Offset di soglia: valori |sapc| < 0.1 sono percettivamente irrilevanti → restituisce 0.
-        if (Math.abs(sapc) < 0.1) return 0;
-        return sapc > 0
-            ? (sapc - 0.027) * 100
-            : (sapc + 0.027) * 100;
     }
 
     // ── Backward-compat static methods ────────────────────────────────────

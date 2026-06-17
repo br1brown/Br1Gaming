@@ -10,7 +10,8 @@
     --buro-on-accent: #08201c;  /* testo scuro sopra agli accenti chiari (info/warning) */
 }
 
-/* La direttiva appFitViewport dà l'altezza: la mappa riempie tutto lo spazio. */
+/* Il layout fitViewport (flag in site.ts + .fit-viewport in base.css) dà l'altezza al root
+   con flex-grow-1: la mappa riempie tutto lo spazio. */
 .buro-stage { min-height: 0; touch-action: none; }
 .buro-canvas { touch-action: none; }
 

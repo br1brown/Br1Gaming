@@ -34,8 +34,11 @@ jobs:
         run: |
           OUTPUT=$(dotnet list backend/backend.csproj package --vulnerable --include-transitive 2>&1)
           echo "$OUTPUT"
-          if echo "$OUTPUT" | grep -q "has the following vulnerable packages"; then
-            echo "::error::Trovati pacchetti NuGet vulnerabili. Esegui 'dotnet list package --vulnerable' localmente per i dettagli."
+          # Gate ereditato tale e quale dai figli: blocca solo sul davvero urgente
+          # (severità Critical). High/Moderate/Low restano visibili nell'output qui sopra
+          # ma non bloccano, per non imporre a parente e figli di rincorrere ogni advisory.
+          if echo "$OUTPUT" | grep -qw "Critical"; then
+            echo "::error::Trovati pacchetti NuGet con vulnerabilità CRITICAL. Esegui 'dotnet list package --vulnerable' per i dettagli."
             exit 1
           fi
 
@@ -58,7 +61,10 @@ jobs:
 
       - name: Audit di sicurezza
         working-directory: frontend
-        run: npm audit --audit-level=high --omit=dev
+        # Gate ereditato tale e quale dai figli: blocca solo su vulnerabilità "critical".
+        # npm stampa comunque l'intero report (anche high/moderate), ma esce non-zero solo
+        # sul critical, per non imporre a parente e figli di rincorrere ogni advisory di framework.
+        run: npm audit --audit-level=critical --omit=dev
 
       - name: Analisi Lint
         run: bash scripts/test/lint-check.sh
@@ -141,6 +147,6 @@ jobs:
         run: |
           # Stesso project name che public-test.sh deriva da global-settings.json (slug di
           # project.name): derivato e non hardcoded, così il teardown resta corretto anche
-          # nei progetti figli che rinominano il progetto. Stessa one-liner di pre-push.sh.
+          # nei progetti figli che rinominano il progetto.
           COMPOSE_PROJECT_NAME="$(node --input-type=module --eval "import{readFileSync}from'fs';const s=JSON.parse(readFileSync('global-settings.json','utf-8'));process.stdout.write(String(s.project?.name||'app').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+\$/g,''))")" \
           docker compose -f docker-compose.yml -f docker-compose.public-test.yml down

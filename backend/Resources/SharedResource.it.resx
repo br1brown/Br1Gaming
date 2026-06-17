@@ -133,4 +133,16 @@
   <data name="play_stats_too_many" xml:space="preserve">
     <value>Troppe voci nello stato di gioco</value>
   </data>
+  <data name="error_mail_disabled" xml:space="preserve">
+    <value>L'invio email non è configurato.</value>
+  </data>
+  <data name="error_mail_send_failed" xml:space="preserve">
+    <value>Impossibile inviare il messaggio. Riprova più tardi.</value>
+  </data>
+  <data name="error_mail_invalid_address" xml:space="preserve">
+    <value>Uno o più indirizzi email non sono validi.</value>
+  </data>
+  <data name="error_mail_attachment_too_large" xml:space="preserve">
+    <value>Gli allegati superano la dimensione massima consentita.</value>
+  </data>
 </root>

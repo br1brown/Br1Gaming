@@ -102,8 +102,20 @@ app.set('trust proxy', nodeCfg.trustProxy);
  * response). La teniamo a livello applicativo — non solo nel reverse proxy — così la
  * compressione è garantita comunque, anche se il proxy davanti non ricomprime
  * l'upstream: coerente con la filosofia "funziona da solo, senza configurazione".
+ *
+ * ECCEZIONE SSE: gli stream `text/event-stream` (es. il proxy verso /api/notifications/stream)
+ * NON vanno compressi. gzip bufferizza per accumulare dati prima di emettere, quindi i piccoli
+ * frame SSE non arriverebbero MAI al browser in tempo reale (il client manda `Accept-Encoding:
+ * gzip` → senza questa esclusione il campanellino non riceve nulla). Il filtro li lascia non
+ * compressi; tutto il resto usa il filtro di default di `compression`.
  */
-app.use(compression());
+app.use(compression({
+    filter: (request, response) => {
+        const contentType = response.getHeader('Content-Type');
+        if (typeof contentType === 'string' && contentType.includes('text/event-stream')) return false;
+        return compression.filter(request, response);
+    },
+}));
 
 /** Rotta Health: usata dai sistemi di monitoraggio per sapere se il frontend è attivo */
 app.get('/health', (_request, response) => {

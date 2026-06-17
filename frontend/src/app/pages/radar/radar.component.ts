@@ -2,7 +2,6 @@ import { afterNextRender, Component, effect, ElementRef, inject, OnDestroy, sign
 import { RouterLink } from '@angular/router';
 import { PageBaseComponent } from '../page-base.component';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
-import { FitViewportDirective } from '../../core/engine/directives/fit-viewport.directive';
 import { APP_CUSTOM } from '../../core/engine/app-custom';
 import { ThemeService } from '../../core/engine/services/theme.service';
 import type { Map as MbMap, Marker as MbMarker } from 'mapbox-gl';
@@ -23,16 +22,15 @@ type RadarStatus = 'init' | 'locating' | 'searching' | 'ready' | 'error';
  */
 @Component({
     selector: 'app-radar',
-    imports: [RouterLink, TranslatePipe, FitViewportDirective],
+    imports: [RouterLink, TranslatePipe],
     templateUrl: './radar.component.html',
     styleUrl: './radar.component.css',
     // None come per cookie-banner: il CSS mira al popup Mapbox, DOM creato dalla
     // libreria fuori dal template → l'encapsulation emulated non lo raggiungerebbe.
     encapsulation: ViewEncapsulation.None,
-    // NIENTE `d-block` qui: è `display:block !important` e batterebbe il `display:flex`
-    // (inline, non-important) che appFitViewport imposta sull'host per riempire il viewport.
-    // Con d-block l'host resta block → il wrapper non eredita altezza → la mappa è alta 0.
-    // La pagina gemella full-screen (duce-non-duce) infatti non ha alcun host class.
+    // Vista a tutto schermo: la rotta è `layout: { fitViewport: true }` in site.ts. L'altezza
+    // piena la danno l'Engine (regola .fit-viewport in base.css sull'host instradato) e il
+    // `flex-grow-1` sul root del template. Niente direttiva né classi display sull'host.
 })
 export class RadarComponent extends PageBaseComponent<void> implements OnDestroy {
     /** Contenitore della mappa Mapbox (ref locale, non id globale: niente collisioni). */
@@ -70,7 +68,7 @@ export class RadarComponent extends PageBaseComponent<void> implements OnDestroy
             m.once('style.load', () => this.addRangeCircle());
         });
         // afterNextRender gira solo nel browser, mai in SSR: nessun isBrowser check.
-        // L'altezza senza-scroll è gestita dalla direttiva appFitViewport sul template.
+        // L'altezza senza-scroll è gestita dal layout fitViewport (flag in site.ts + .fit-viewport).
         afterNextRender(() => void this.start());
     }
 

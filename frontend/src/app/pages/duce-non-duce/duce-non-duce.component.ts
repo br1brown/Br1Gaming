@@ -2,7 +2,6 @@ import { afterNextRender, Component, OnDestroy, signal, computed, inject } from 
 import { AssetDirective } from '../../core/engine/directives/asset.directive';
 import { CookieConsentService } from '../../core/engine/services/cookie-consent.service';
 import { PageBaseComponent } from '../page-base.component';
-import { FitViewportDirective } from '../../core/engine/directives/fit-viewport.directive';
 
 const IMAGES = [
     'duce1',
@@ -33,7 +32,7 @@ interface RecordEntry { score: number; time: number; }
 @Component({
     selector: 'app-duce-non-duce',
     standalone: true,
-    imports: [AssetDirective, FitViewportDirective],
+    imports: [AssetDirective],
     templateUrl: './duce-non-duce.component.html',
 })
 export class DuceNonDuceComponent extends PageBaseComponent<void> implements OnDestroy {

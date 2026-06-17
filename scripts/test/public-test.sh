@@ -5,7 +5,7 @@
 #                  (a11y / Lighthouse). NON fa deploy in produzione.
 #
 # deploy.sh resta dedicato alla sola pubblicazione; questo harness di test vive qui.
-# Lo usano la CI (job live-tests) e il git hook pre-push (RUN_LIVE_TESTS=1).
+# Lo usa la CI (job live-tests).
 #
 # Uso:
 #   bash scripts/test/public-test.sh                 # alza lo stack su :8088 e lo lascia su

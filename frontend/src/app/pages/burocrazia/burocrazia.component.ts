@@ -1,7 +1,6 @@
 import { afterNextRender, Component, effect, ElementRef, inject, OnDestroy, signal, viewChild } from '@angular/core';
 import { PageBaseComponent } from '../page-base.component';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
-import { FitViewportDirective } from '../../core/engine/directives/fit-viewport.directive';
 import { ThemeService } from '../../core/engine/services/theme.service';
 import {
     ClockTone, CoachData, GameController, IntroData, Palette, PratData, ResultData, ServeData,
@@ -20,10 +19,11 @@ const BUILDINGS_LIGHT = ['#d7deea', '#cdd6e6', '#e0e6ef', '#c4cfe0', '#d2dbe8', 
  * pannelli modali) come signal + template Bootstrap; la simulazione su canvas vive in
  * `burocrazia.engine.ts` (TS puro) e comunica lo stato qui tramite hook → signal.
  *
- * Mobile-friendly: `appFitViewport` riempie lo spazio sotto la navbar senza scroll di
- * pagina (stessa scelta di duce-non-duce / radar); lo stage prende l'altezza residua e
- * il canvas la insegue via ResizeObserver. NIENTE classi `d-*` sull'host: batterebbero il
- * `display:flex` inline della direttiva (vedi nota in fit-viewport.directive.ts).
+ * Mobile-friendly: la rotta è `layout: { fitViewport: true }` in site.ts (stessa scelta di
+ * duce-non-duce / radar) → riempie lo spazio sotto la navbar senza scroll di pagina; lo stage
+ * prende l'altezza residua (root con `flex-grow-1` dentro l'host full-bleed) e il canvas la
+ * insegue via ResizeObserver. NIENTE classi `d-*` sull'host: batterebbero il `display:flex`
+ * della regola .fit-viewport (vedi base.css).
  *
  * I pannelli (scelta pratica, sportello, esito) sono overlay Angular @if: nessun
  * alert/confirm/dialog nativo del browser, nessuna manipolazione diretta del DOM.
@@ -31,7 +31,7 @@ const BUILDINGS_LIGHT = ['#d7deea', '#cdd6e6', '#e0e6ef', '#c4cfe0', '#d2dbe8', 
 @Component({
     selector: 'app-burocrazia',
     standalone: true,
-    imports: [TranslatePipe, FitViewportDirective],
+    imports: [TranslatePipe],
     templateUrl: './burocrazia.component.html',
     styleUrl: './burocrazia.component.css',
     host: {

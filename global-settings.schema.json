@@ -137,9 +137,70 @@
         }
       }
     },
+    "Mail": {
+      "type": "object",
+      "description": "Configurazione SMTP del mailer dell'engine (EngineMailer). Contiene SEGRETI (password) → vive in global-settings.local.json. Si attiva come il login: senza Host e FromAddress il mailer resta spento e ogni invio risponde 503. Volutamente generica (SMTP standard): lo stesso codice spedisce con OVH, Brevo, Mailgun, Amazon SES, Gmail o un relay locale cambiando solo questi valori. Per non finire in spam, FromAddress deve stare sul tuo dominio e vanno configurati i record DNS SPF/DKIM/DMARC.",
+      "additionalProperties": false,
+      "properties": {
+        "Host": {
+          "type": "string",
+          "description": "Host del server SMTP. Es. OVH: 'ssl0.ovh.net'.",
+          "examples": ["ssl0.ovh.net", "smtp-relay.brevo.com", "email-smtp.eu-west-1.amazonaws.com"]
+        },
+        "Port": {
+          "type": "integer",
+          "description": "Porta SMTP. 587 (STARTTLS) o 465 (SSL/TLS) nella maggior parte dei casi.",
+          "default": 587,
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "Security": {
+          "type": "string",
+          "description": "Modalità di cifratura del canale (TLS sempre obbligatorio). 'Auto' sceglie in sicurezza dalla porta: 465 -> SslOnConnect, altre -> StartTls (mai connessione in chiaro). 'StartTls' tipico su 587; 'SslOnConnect' tipico su 465; 'None' SOLO per relay locali fidati.",
+          "enum": ["Auto", "None", "StartTls", "SslOnConnect"],
+          "default": "Auto"
+        },
+        "Username": {
+          "type": "string",
+          "description": "Utente SMTP (di solito l'indirizzo completo della casella). Vuoto = invio senza autenticazione (relay aperti/locali).",
+          "examples": ["", "noreply@miodominio.it"]
+        },
+        "Password": {
+          "type": "string",
+          "description": "Password SMTP della casella. SEGRETO: tienila solo in global-settings.local.json."
+        },
+        "FromAddress": {
+          "type": "string",
+          "description": "Mittente di default (usato quando il chiamante non passa un 'from'). DEVE stare sul tuo dominio: è ciò che fa quadrare SPF/DKIM. Mai l'indirizzo di un visitatore.",
+          "examples": ["", "noreply@miodominio.it"]
+        },
+        "FromName": {
+          "type": "string",
+          "description": "Nome visualizzato di default del mittente (opzionale).",
+          "examples": ["", "Sito MioDominio"]
+        },
+        "TimeoutSeconds": {
+          "type": "integer",
+          "description": "Timeout di connessione/invio in secondi.",
+          "default": 30,
+          "minimum": 1
+        },
+        "MaxAttachmentBytes": {
+          "type": "integer",
+          "description": "Dimensione massima totale degli allegati per messaggio, in byte. Superata -> errore 413. Default 10485760 (10 MB). 0 = nessun limite (sconsigliato su endpoint pubblici).",
+          "default": 10485760,
+          "minimum": 0
+        },
+        "VerifyRecipientDomain": {
+          "type": "boolean",
+          "description": "Se true, prima di inviare verifica via DNS che il dominio dei destinatari possa ricevere posta (record MX, fallback A/AAAA): typo di dominio (gmail.con) e domini inesistenti vengono scartati con 400 senza aprire l'SMTP. NON verifica l'esistenza della casella. Default false: nessuna query DNS se non lo accendi.",
+          "default": false
+        }
+      }
+    },
     "site": {
       "type": "object",
-      "description": "Identità ed estetica del sito (committabile, del progetto). Iniettata nel frontend al build via environment.ts. NB: i flag di COMPORTAMENTO (showNav, showFooter, fixedTopHeader, showBrandIconInHeader, showLoginInHeader, forcedLightPanel, isWebApp, onlyPlainImage) NON stanno qui: sono struttura e vivono in site.ts (`shell` / `isWebApp` / `onlyPlainImage`), insieme a pagine, menu e loginPage.",
+      "description": "Identità ed estetica del sito (committabile, del progetto). Iniettata nel frontend al build via environment.ts. NB: i flag di COMPORTAMENTO (showNav, showFooter, fixedTopHeader, showBrandIconInHeader, showLoginInHeader, showNotifications, forcedLightPanel, isWebApp, onlyPlainImage) NON stanno qui: sono struttura e vivono in site.ts (`shell` / `isWebApp` / `onlyPlainImage`), insieme a pagine, menu e loginPage.",
       "additionalProperties": false,
       "properties": {
         "description": {

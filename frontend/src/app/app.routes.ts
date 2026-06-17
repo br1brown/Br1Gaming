@@ -101,6 +101,7 @@ function toAngularRoute(page: InternalSitePage): Route {
             showPanel: page.showPanel ?? true,
             showNav: page.showNav,
             showFooter: page.showFooter,
+            fitViewport: page.fitViewport ?? false,
             pageDescription: page.description ?? null,
             ogImage: page.ogImage ?? null,
         };
