@@ -119,9 +119,6 @@ export const ContestoSito = buildSite({
             title: `radar`,
             description: 'Il radar delle chiese intorno a te',
             pageType: PageType.GameRadar,
-            // Esplicito: il token Mapbox arriva via TransferState dall'SSR, quindi /radar
-            // DEVE essere server-rendered (non dipendere dal default del builder).
-            renderMode: 'server',
             otherSEO: { ogImage: 'game.radar' },
             layout: { fitViewport: true },
             component: () => import('./pages/radar/radar.component')
