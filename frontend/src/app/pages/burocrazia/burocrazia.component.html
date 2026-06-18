@@ -9,8 +9,12 @@
          contenuti sopra restano leggibili senza riquadri -->
     <div class="buro-fade position-absolute top-0 start-0 w-100 h-100" aria-hidden="true"></div>
 
-    <!-- barra superiore: orologio + obiettivo della pratica -->
+    <!-- barra superiore: titolo (solo pre-gioco) + orologio + obiettivo della pratica -->
     <div class="buro-top position-absolute top-0 start-0 end-0 p-3 d-flex flex-column gap-2">
+        <!-- Titolo della pagina: finché non c'è un obiettivo (prat) il gioco non è partito
+             (tutorial/start/scelta pratica), quindi mostriamo il nome — utile su mobile dove
+             la scheda del browser non si vede. Appena la partita inizia (prat() != null) sparisce. -->
+        <h1 class="buro-title h3 fw-bold mb-0 pe-5">{{ 'burocrazia' | translate }}</h1>
         <div class="d-flex align-items-center gap-2">
             <svg class="buro-aclock flex-shrink-0" [class.warn]="clockTone() === 'warn'" [class.crit]="clockTone() === 'crit'"
                  viewBox="0 0 44 44" width="38" height="38" aria-hidden="true">
@@ -26,19 +30,31 @@
         </div>
         @if (prat(); as p) {
         <div class="buro-prat small lh-sm pe-5" aria-live="polite">
-            <span class="fw-bold">{{ 'buroPermessoPer' | translate:p.item }}</span> — {{ 'buroObjectiveDeadline' | translate }}<br>
+            <div class="fw-bold"><i class="fa-solid fa-file-signature me-1" aria-hidden="true"></i>{{ 'buroPermessoPer' | translate:p.item }}</div>
+            <div class="d-flex align-items-center gap-2 mt-1">
+                <span class="buro-pips d-inline-flex gap-1" role="img" [attr.aria-label]="'buroStamps' | translate:p.stamps:p.total">
+                    @for (i of pips(); track i) {
+                    <span class="buro-pip" [class.on]="i <= p.stamps"></span>
+                    }
+                </span>
+                <span class="text-secondary font-monospace">{{ p.stamps }}/{{ p.total }}</span>
+            </div>
             @if (p.nextOffice) {
-            {{ 'buroNextOffice' | translate }} <span class="buro-cur fw-bold">{{ p.nextOffice }}</span>
-            &nbsp;·&nbsp; {{ 'buroStamps' | translate:p.stamps:p.total }}
+            <div class="mt-1"><i class="fa-solid fa-location-arrow buro-cur me-1" aria-hidden="true"></i>{{ 'buroNextOffice' | translate }} <span class="buro-cur fw-bold">{{ p.nextOffice }}</span></div>
             }
         </div>
         }
     </div>
 
-    <button type="button" class="buro-mute btn btn-sm position-absolute top-0 end-0 m-2"
-            [attr.aria-label]="'buroAudioToggle' | translate" [attr.aria-pressed]="muted()" (click)="toggleMute()">
-        <i class="fa-solid" [class.fa-volume-high]="!muted()" [class.fa-volume-xmark]="muted()" aria-hidden="true"></i>
-    </button>
+    <!-- pulsanti in alto a destra: pausa + audio -->
+    <div class="buro-topbtns position-absolute top-0 end-0 m-2 d-flex gap-2">
+        <button type="button" class="buro-iconbtn" [attr.aria-label]="'buroPause' | translate" (click)="togglePause()">
+            <i class="fa-solid fa-pause" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="buro-iconbtn" [attr.aria-label]="'buroAudioToggle' | translate" [attr.aria-pressed]="muted()" (click)="toggleMute()">
+            <i class="fa-solid" [class.fa-volume-high]="!muted()" [class.fa-volume-xmark]="muted()" aria-hidden="true"></i>
+        </button>
+    </div>
 
     @if (coach(); as c) {
     <div class="buro-coach text-center small fw-semibold">
@@ -108,38 +124,64 @@
         <div class="buro-panel card shadow-lg">
             <div class="card-body d-flex flex-column gap-2 p-4">
                 <div class="text-uppercase fw-bold small text-warning">{{ i.question }}</div>
-                <p class="small mb-1">{{ i.body }}</p>
-                @for (opt of i.options; track $index) {
-                <button type="button" class="buro-pratbtn btn text-start d-flex justify-content-between align-items-center gap-2 p-3"
-                        (click)="choose($index)">
-                    <span class="fw-bold small">{{ opt.label }}</span>
-                    <span class="badge rounded-pill text-bg-info flex-shrink-0">{{ opt.stamps }}</span>
-                </button>
-                }
+                <p class="small mb-2">{{ i.body }}</p>
+                <div class="list-group">
+                    @for (opt of i.options; track $index) {
+                    <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center gap-2"
+                            (click)="choose($index)">
+                        <span class="fw-semibold">{{ opt.label }}</span>
+                        <span class="badge rounded-pill text-bg-primary flex-shrink-0">{{ opt.stamps }}</span>
+                    </button>
+                    }
+                </div>
             </div>
         </div>
     </div>
     }
 
-    <!-- comandi: joystick + azioni, in basso sopra alla mappa sfumata -->
-    <div class="buro-bottom position-absolute bottom-0 start-0 end-0 p-3 d-flex align-items-center justify-content-between gap-3">
-        <div #joy class="buro-joy flex-shrink-0 position-relative" [class.buro-pulse]="coach()?.pulse === 'joy'"
-             (pointerdown)="onJoyDown($event)" (pointermove)="onJoyMove($event)"
-             (pointerup)="onJoyEnd($event)" (pointercancel)="onJoyEnd($event)">
-            <div class="buro-knob position-absolute" [style.transform]="knobTransform()"></div>
-        </div>
-        <div class="buro-actcol d-flex flex-column gap-2">
-            <button type="button" class="buro-action" [class.dim]="actDim()" [class.buro-pulse]="coach()?.pulse === 'act'"
-                    [attr.aria-label]="actAria()" (pointerdown)="doAction($event)">
-                {{ actLabel() }}
-            </button>
-            @if (showDismount()) {
-            <button type="button" class="buro-action buro-scendi" [class.buro-pulse]="coach()?.pulse === 'dismount'"
-                    (pointerdown)="doDismount($event)">
-                {{ 'buroScendi' | translate }}
-            </button>
-            }
+    <!-- finestra di pausa (ESC o pulsante pausa) -->
+    @if (paused()) {
+    <div class="buro-overlay position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3">
+        <div class="buro-panel card shadow-lg text-center">
+            <div class="card-body d-flex flex-column align-items-center gap-3 p-4">
+                <h2 class="h4 mb-0"><i class="fa-solid fa-pause me-2" aria-hidden="true"></i>{{ 'buroPaused' | translate }}</h2>
+                <button type="button" class="btn btn-primary px-4" (click)="togglePause()">{{ 'buroResume' | translate }}</button>
+            </div>
         </div>
     </div>
+    }
+
+    <!-- ZONA MOVIMENTO: metà sinistra. Toccandola, il joystick nasce sotto il dito. -->
+    <div class="buro-movezone" aria-hidden="true"
+         (pointerdown)="onMoveDown($event)" (pointermove)="onMoveMove($event)"
+         (pointerup)="onMoveEnd($event)" (pointercancel)="onMoveEnd($event)"></div>
+
+    <!-- ghost del joystick: hint di scoperta in basso a sinistra finché non si tocca -->
+    @if (!joyVisible()) {
+    <div class="buro-joy-ghost" [class.buro-pulse]="coach()?.pulse === 'joy'" aria-hidden="true">
+        <div class="buro-knob"></div>
+    </div>
+    }
+    <!-- joystick attivo: posizionato sotto il pollice -->
+    <div class="buro-joy" [class.show]="joyVisible()" [style.left.px]="joyX()" [style.top.px]="joyY()" aria-hidden="true">
+        <div class="buro-knob" [style.transform]="knobTransform()"></div>
+    </div>
+
+    <!-- AZIONI: stessi pulsanti su mobile E desktop (continuità). Su desktop mostrano il badge tasto. -->
+    <div class="buro-actzone">
+        @if (showDismount()) {
+        <button type="button" class="buro-scendi" [class.buro-pulse]="coach()?.pulse === 'dismount'"
+                (pointerdown)="doDismount($event)">
+            {{ 'buroScendi' | translate }}<kbd class="buro-key">Shift</kbd>
+        </button>
+        }
+        <button type="button" class="buro-action" [class.dim]="actDim()" [class.buro-pulse]="coach()?.pulse === 'act'"
+                [attr.aria-label]="actAria()" (pointerdown)="doAction($event)">
+            {{ actLabel() }}<kbd class="buro-key">Spazio</kbd>
+        </button>
+    </div>
+
+    <!-- hint movimento: solo desktop (pointer fine), dove si muove con la tastiera -->
+    <div class="buro-movehint" aria-hidden="true"><kbd>WASD</kbd> / <kbd>frecce</kbd> muovi</div>
 
 </div>

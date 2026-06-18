@@ -1,7 +1,9 @@
-import { afterNextRender, Component, effect, ElementRef, inject, OnDestroy, signal, viewChild } from '@angular/core';
+import { Component, computed, effect, ElementRef, inject, OnDestroy, PLATFORM_ID, signal, viewChild } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { PageBaseComponent } from '../page-base.component';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { ThemeService } from '../../core/engine/services/theme.service';
+import { CookieConsentService } from '../../core/engine/services/cookie-consent.service';
 import {
     ClockTone, CoachData, GameController, IntroData, Palette, PratData, ResultData, ServeData,
     createBurocraziaGame,
@@ -35,6 +37,10 @@ const BUILDINGS_LIGHT = ['#d7deea', '#cdd6e6', '#e0e6ef', '#c4cfe0', '#d2dbe8', 
     templateUrl: './burocrazia.component.html',
     styleUrl: './burocrazia.component.css',
     host: {
+        // Componente canvas/imperativo: l'hydration SSR su una vista che disegna a mano causa
+        // mismatch (canvas "morto" da SSR sovrapposto a quello vero) → schermo nero su F5 mentre
+        // via link funziona. ngSkipHydration lo rende fresco sul client, come la navigazione via link.
+        'ngSkipHydration': 'true',
         '(window:keydown)': 'onKeyDown($event)',
         '(window:keyup)': 'onKeyUp($event)',
         '(window:blur)': 'onBlur()',
@@ -42,9 +48,8 @@ const BUILDINGS_LIGHT = ['#d7deea', '#cdd6e6', '#e0e6ef', '#c4cfe0', '#d2dbe8', 
     },
 })
 export class BurocraziaComponent extends PageBaseComponent<void> implements OnDestroy {
-    private readonly canvasRef = viewChild.required<ElementRef<HTMLCanvasElement>>('cv');
-    private readonly stageRef = viewChild.required<ElementRef<HTMLDivElement>>('stage');
-    private readonly joyRef = viewChild.required<ElementRef<HTMLDivElement>>('joy');
+    private readonly canvasRef = viewChild<ElementRef<HTMLCanvasElement>>('cv');
+    private readonly stageRef = viewChild<ElementRef<HTMLDivElement>>('stage');
 
     // ── stato UI guidato dai hook del motore ───────────────────────────────
     readonly clockText = signal('09:00');
@@ -65,16 +70,33 @@ export class BurocraziaComponent extends PageBaseComponent<void> implements OnDe
     readonly intro = signal<IntroData | null>(null);
     readonly knobTransform = signal('translate(0,0)');
     readonly muted = signal(false);
+    readonly paused = signal(false);
+
+    // joystick flottante: visibile mentre si guida, posizionato sotto il pollice (coord. stage)
+    readonly joyVisible = signal(false);
+    readonly joyX = signal(0);
+    readonly joyY = signal(0);
+
+    // pips dei timbri: array 1..total, riempiti fino a `stamps` (progresso pinnato sull'HUD)
+    readonly pips = computed<number[]>(() => {
+        const p = this.prat();
+        return p ? Array.from({ length: p.total }, (_, i) => i + 1) : [];
+    });
 
     private readonly theme = inject(ThemeService);
+    private readonly cookies = inject(CookieConsentService);
+    private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
     private game?: GameController;
+    private gameCanvas?: HTMLCanvasElement;   // canvas su cui il gioco è agganciato: se cambia, si riaggancia
     private resizeObs?: ResizeObserver;
     private flashTimer?: ReturnType<typeof setTimeout>;
 
-    // joystick
+    // joystick flottante
     private joyId: number | null = null;
-    private readonly JOY_R = 42;
+    private joyOriginX = 0;
+    private joyOriginY = 0;
+    private readonly JOY_R = 46;
 
     constructor() {
         super();
@@ -82,26 +104,42 @@ export class BurocraziaComponent extends PageBaseComponent<void> implements OnDe
         // ricalcola la palette al cambio tono. Guard: il game esiste solo dopo il render.
         effect(() => { this.theme.themeTone(); this.applyPalette(); });
 
-        // afterNextRender gira solo nel browser: canvas, rAF e ResizeObserver mai in SSR.
-        afterNextRender(() => {
-            const canvas = this.canvasRef().nativeElement;
-            const stage = this.stageRef().nativeElement;
-            this.game = createBurocraziaGame(canvas, stage, {
-                t: (k, ...a) => this.translate.t(k, ...a),
-                assetUrl: id => this.asset.getUrl(id),
-                onClock: (text, tone, hourDeg, minDeg) => { this.clockText.set(text); this.clockTone.set(tone); this.hourDeg.set(hourDeg); this.minDeg.set(minDeg); },
-                onFlash: () => { this.clockFlash.set(true); clearTimeout(this.flashTimer); this.flashTimer = setTimeout(() => this.clockFlash.set(false), 520); },
-                onPrat: d => this.prat.set(d),
-                onCoach: (d, showStart, startPulse) => { this.coach.set(d); this.showStart.set(showStart); this.startPulse.set(startPulse); },
-                onAct: (label, dim, aria, showDismount) => { this.actLabel.set(label); this.actDim.set(dim); this.actAria.set(aria); this.showDismount.set(showDismount); },
-                onServe: d => this.serve.set(d),
-                onResult: d => this.result.set(d),
-                onIntro: d => this.intro.set(d),
-            });
-            this.applyPalette();   // tono iniziale (l'effect potrebbe essere già scattato prima del game)
-            this.resizeObs = new ResizeObserver(() => this.game?.resize());
-            this.resizeObs.observe(stage);
+        // (Ri)crea il gioco quando il canvas "vivo" cambia. Su F5 (SSR+hydration) il canvas a cui era
+        // legato il gioco viene SOSTITUITO dopo la creazione → il gioco disegnava su un canvas staccato
+        // (schermo nero su F5, mentre via link funzionava). L'effect lo riaggancia al canvas reale.
+        // Solo browser: in SSR esce prima di leggere i viewChild (niente canvas/rAF lato server).
+        effect(() => {
+            if (!this.isBrowser) return;
+            const canvas = this.canvasRef()?.nativeElement;
+            const stage = this.stageRef()?.nativeElement;
+            if (!canvas || !stage || this.gameCanvas === canvas) return;
+            this.gameCanvas = canvas;
+            this.initGame(canvas, stage);
         });
+    }
+
+    /** Crea (o ricrea) il motore sul canvas dato, ricollegando palette e ResizeObserver. */
+    private initGame(canvas: HTMLCanvasElement, stage: HTMLDivElement): void {
+        this.resizeObs?.disconnect();
+        this.game?.dispose();
+        this.game = createBurocraziaGame(canvas, stage, {
+            t: (k, ...a) => this.translate.t(k, ...a),
+            assetUrl: id => this.asset.getUrl(id),
+            onClock: (text, tone, hourDeg, minDeg) => { this.clockText.set(text); this.clockTone.set(tone); this.hourDeg.set(hourDeg); this.minDeg.set(minDeg); },
+            onFlash: () => { this.clockFlash.set(true); clearTimeout(this.flashTimer); this.flashTimer = setTimeout(() => this.clockFlash.set(false), 520); },
+            onPrat: d => this.prat.set(d),
+            onCoach: (d, showStart, startPulse) => { this.coach.set(d); this.showStart.set(showStart); this.startPulse.set(startPulse); },
+            onAct: (label, dim, aria, showDismount) => { this.actLabel.set(label); this.actDim.set(dim); this.actAria.set(aria); this.showDismount.set(showDismount); },
+            onServe: d => this.serve.set(d),
+            onResult: d => this.result.set(d),
+            onIntro: d => this.intro.set(d),
+            tutorialDone: () => this.cookies.getCookie('burocraziaTutorialDone') ?? false,
+            onTutorialDone: () => this.cookies.setCookie('burocraziaTutorialDone', true),
+            onPause: p => this.paused.set(p),
+        });
+        this.applyPalette();
+        this.resizeObs = new ResizeObserver(() => this.game?.resize());
+        this.resizeObs.observe(stage);
     }
 
     ngOnDestroy(): void {
@@ -122,9 +160,10 @@ export class BurocraziaComponent extends PageBaseComponent<void> implements OnDe
             road: v('--bs-border-color', dark ? '#2A3445' : '#ced4da'),
             surfaceOffice: v('--bs-tertiary-bg', dark ? '#5a6a80' : '#dee2e6'),
             surfaceDone: v('--bs-secondary-bg', dark ? '#3a4658' : '#e9ecef'),
+            light: !dark,
             buildings: dark ? BUILDINGS_DARK : BUILDINGS_LIGHT,
             warning: v('--bs-warning', '#ffc107'),
-            info: v('--bs-info', '#0dcaf0'),
+            info: v('--bs-primary', dark ? '#46d8c1' : '#29805c'),   // accento "corrente/obiettivo" sul brand del tema
             success: v('--bs-success', '#198754'),
             danger: v('--bs-danger', '#dc3545'),
             mutedText: v('--bs-secondary-color', dark ? '#9aa6b8' : '#6c757d'),
@@ -136,40 +175,57 @@ export class BurocraziaComponent extends PageBaseComponent<void> implements OnDe
     // ── input inoltrato al motore ──────────────────────────────────────────
     onKeyDown(e: KeyboardEvent): void { this.game?.keydown(e); }
     onKeyUp(e: KeyboardEvent): void { this.game?.keyup(e); }
-    onBlur(): void { this.game?.dropInputs(); this.knobTransform.set('translate(0,0)'); }
-    onVisibility(): void { if (document.hidden) { this.game?.dropInputs(); this.knobTransform.set('translate(0,0)'); } }
+    onBlur(): void { this.game?.dropInputs(); this.resetJoy(); }
+    onVisibility(): void { if (document.hidden) { this.game?.dropInputs(); this.resetJoy(); } }
 
-    // ── pulsanti azione ────────────────────────────────────────────────────
-    doAction(e: Event): void { e.preventDefault(); this.game?.doAction(); }
-    doDismount(e: Event): void { e.preventDefault(); this.game?.doDismount(); }
+    // ── pulsanti azione (pointerdown = reazione immediata, da gioco) ────────
+    doAction(e: Event): void { e.preventDefault(); this.game?.doAction(); this.haptic(); }
+    doDismount(e: Event): void { e.preventDefault(); this.game?.doDismount(); this.haptic(); }
+    /** Micro-feedback tattile su mobile (no-op dove non supportato). */
+    private haptic(): void { try { navigator.vibrate?.(10); } catch { /* non supportato */ } }
     confirmStart(): void { this.game?.confirmStart(); }
     choose(index: number): void { this.game?.choosePratica(index); }
     dismissServe(): void { this.game?.dismissServe(); }
     restart(): void { this.game?.restart(); }
     toggleMute(): void { const m = this.game?.toggleMute() ?? false; this.muted.set(m); }
+    togglePause(): void { this.game?.togglePause(); }
 
-    // ── joystick (la matematica vive qui perché serve il rect dell'elemento) ─
-    onJoyDown(e: PointerEvent): void {
+    // ── joystick flottante: nasce dove il pollice tocca la zona-movimento (sinistra) ─
+    // La leva compare sotto il dito (coord. relative allo stage), così non c'è una
+    // posizione fissa da "cercare". Pointer-capture sull'elemento zona così il dito che
+    // muove non interferisce con l'altro pollice sui tasti azione (multitouch).
+    onMoveDown(e: PointerEvent): void {
+        if (this.joyId !== null) return;            // già in sterzata con un altro dito
         e.preventDefault();
         this.joyId = e.pointerId;
-        this.joyRef().nativeElement.setPointerCapture(e.pointerId);
-        this.onJoyMove(e);
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        this.joyOriginX = e.clientX; this.joyOriginY = e.clientY;
+        const stage = this.stageRef()?.nativeElement; if (!stage) return;
+        const r = stage.getBoundingClientRect();
+        this.joyX.set(e.clientX - r.left); this.joyY.set(e.clientY - r.top);
+        this.knobTransform.set('translate(0,0)');
+        this.joyVisible.set(true);
+        this.game?.setJoy(0, 0);
     }
-    onJoyMove(e: PointerEvent): void {
+    onMoveMove(e: PointerEvent): void {
         if (this.joyId !== e.pointerId) return;
-        const r = this.joyRef().nativeElement.getBoundingClientRect();
-        let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+        let dx = e.clientX - this.joyOriginX, dy = e.clientY - this.joyOriginY;
         const d = Math.hypot(dx, dy);
         if (d > this.JOY_R) { dx = dx / d * this.JOY_R; dy = dy / d * this.JOY_R; }
         this.knobTransform.set(`translate(${dx}px,${dy}px)`);
         this.game?.setJoy(dx / this.JOY_R, dy / this.JOY_R);
     }
-    onJoyEnd(e: PointerEvent): void {
+    onMoveEnd(e: PointerEvent): void {
         if (this.joyId !== e.pointerId) return;
+        try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* già rilasciato */ }
+        this.resetJoy();
+    }
+    /** Riporta il joystick allo stato di riposo (rilascio, blur, tab nascosta). */
+    private resetJoy(): void {
         this.joyId = null;
+        this.joyVisible.set(false);
         this.knobTransform.set('translate(0,0)');
         this.game?.clearJoy();
-        try { this.joyRef().nativeElement.releasePointerCapture(e.pointerId); } catch { /* già rilasciato */ }
     }
 
     /** Mappa il "tone" delle righe sportello su una classe di testo Bootstrap (tema-aware). */

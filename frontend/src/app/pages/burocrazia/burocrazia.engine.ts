@@ -11,6 +11,10 @@
 //   • niente input listener globali: il componente inoltra tastiera/puntatore.
 //   • rimosso l'audio (sorgenti vuote → muto) e il bridge di test headless.
 
+import {
+    BURO_SPRITE_META, BURO_BUILDINGS, BURO_BUILDING_LIGHT, BURO_TREES, BURO_HOME, BURO_CARS, BURO_CAR_DIR,
+} from './burocrazia.sprites';
+
 // ─── tipi condivisi col componente ──────────────────────────────────────────
 export type ClockTone = 'none' | 'warn' | 'crit';
 export type ServeTone = 'normal' | 'muted' | 'amber' | 'red' | 'green' | 'gold';
@@ -36,7 +40,8 @@ export interface Palette {
     road: string;          // strade = --bs-border-color
     surfaceOffice: string; // ufficio "a riposo" = --bs-secondary-bg
     surfaceDone: string;   // ufficio già fatto = --bs-tertiary-bg
-    buildings: string[];   // edifici (per-tono)
+    light: boolean;        // tema chiaro? → sceglie la variante sprite chiara dei palazzi
+    buildings: string[];   // edifici (per-tono) — usati solo dal fallback vettoriale
     warning: string; info: string; success: string; danger: string;  // accenti semantici Bootstrap
     mutedText: string;     // --bs-secondary-color
     body: string;          // --bs-body-color
@@ -54,6 +59,12 @@ export interface GameHooks {
     onServe: (data: ServeData | null) => void;
     onResult: (data: ResultData | null) => void;
     onIntro: (data: IntroData | null) => void;
+    /** Tutorial già completato? (persistito dal componente via il servizio cookie del framework). */
+    tutorialDone: () => boolean;
+    /** Notifica che il tutorial è stato completato (il componente lo salva nei cookie). */
+    onTutorialDone: () => void;
+    /** Notifica lo stato di pausa utente (il componente apre/chiude la finestra "In pausa"). */
+    onPause: (paused: boolean) => void;
 }
 
 export interface GameController {
@@ -71,6 +82,7 @@ export interface GameController {
     clearJoy(): void;
     toggleMute(): boolean;
     isMuted(): boolean;
+    togglePause(): void;
     dropInputs(): void;
     dispose(): void;
 }
@@ -79,9 +91,9 @@ export interface GameController {
 interface Vec { x: number; y: number; }
 interface GNode { ix: number; iy: number; }
 type Dir = Vec;
-interface Car { ix: number; iy: number; dir: Dir; tx: number; ty: number; prog: number; pending: Dir | null; color: string; x: number; y: number; turning: boolean; }
+interface Car { ix: number; iy: number; dir: Dir; tx: number; ty: number; prog: number; pending: Dir | null; color: string; ci: number; x: number; y: number; turning: boolean; }
 interface OfficeGeom { ix: number; iy: number; bx: number; by: number; dx: number; dy: number; }
-interface Building { cx: number; cy: number; s: number; h: number; colIdx: number; lit: boolean; seed: number; }
+interface Building { cx: number; cy: number; s: number; h: number; colIdx: number; lit: boolean; seed: number; typeIdx: number; }
 interface Prop { kind: 'tree' | 'bed' | 'lamp'; x: number; y: number; seed: number; }
 interface Player { x: number; y: number; riding: Car | null; }
 interface FloatTxt { text: string; color: string; x: number; y: number; born: number; }
@@ -103,11 +115,52 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
     // Palette corrente: default scuro, sovrascritta da setPalette() col tema reale del sito.
     let pal: Palette = {
         void: '#080B12', ground: '#101A2A', road: '#2A3445',
-        surfaceOffice: '#5a6a80', surfaceDone: '#3a4658',
+        surfaceOffice: '#5a6a80', surfaceDone: '#3a4658', light: false,
         buildings: ['#1b2636', '#212e41', '#26344a', '#2c3a52', '#1f2a3a', '#324162', '#23344b', '#3a3550', '#2e3a40', '#43352f'],
         warning: '#FFD23F', info: '#38E1C6', success: '#9CE37D', danger: '#FF6B6B', mutedText: '#9aa6b8', body: '#C9D3E1',
     };
     const BUILDING_COUNT = 10;
+
+    // ---- sprite: asset SVG pre-renderizzati UNA volta in canvas offscreen (cache), poi blittati ----
+    // Geometria/anchor arrivano dal manifest generato. Finché un'immagine non è pronta (o se manca),
+    // il disegno ricade sul vecchio vettoriale, così non c'è mai un buco a schermo.
+    interface BakedSprite { canvas: HTMLCanvasElement; ax: number; ay: number; w: number; h: number; }
+    let spriteDpr = Math.min(window.devicePixelRatio || 1, 2);
+    const spriteCache = new Map<string, BakedSprite | null>();   // undefined=mai visto, null=in caricamento/assente
+    function getSprite(id: string): BakedSprite | null {
+        const hit = spriteCache.get(id);
+        if (hit !== undefined) return hit;
+        spriteCache.set(id, null);
+        const meta = BURO_SPRITE_META[id];
+        if (!meta) return null;
+        const img = new Image();
+        img.onload = (): void => {
+            const off = document.createElement('canvas');
+            off.width = Math.max(1, Math.round(meta.w * spriteDpr));
+            off.height = Math.max(1, Math.round(meta.h * spriteDpr));
+            const octx = off.getContext('2d');
+            if (!octx) return;
+            octx.setTransform(spriteDpr, 0, 0, spriteDpr, 0, 0);
+            octx.drawImage(img, 0, 0, meta.w, meta.h);
+            spriteCache.set(id, { canvas: off, ax: meta.ax, ay: meta.ay, w: meta.w, h: meta.h });
+        };
+        img.onerror = (): void => { /* resta null → fallback vettoriale */ };
+        img.src = hooks.assetUrl(id);
+        return null;
+    }
+    /** Disegna lo sprite con il suo anchor centrato sul punto-schermo (sx,sy). True se disegnato. */
+    function blit(id: string, sx: number, sy: number): boolean {
+        const s = getSprite(id);
+        if (!s) return false;
+        ctx.drawImage(s.canvas, sx - s.ax, sy - s.ay, s.w, s.h);
+        return true;
+    }
+    const carSpriteId = (c: Car): string | undefined => {
+        const d = c.dir.x > 0 ? 'e' : c.dir.x < 0 ? 'w' : c.dir.y < 0 ? 'n' : 's';
+        return BURO_CARS[c.ci]?.[BURO_CAR_DIR[d]];
+    };
+    const treeSpriteId = (seed: number): string => BURO_TREES[seed % BURO_TREES.length];
+    const buildingSpriteId = (b: Building): string => BURO_BUILDINGS[b.typeIdx] + (pal.light ? BURO_BUILDING_LIGHT : '');
 
     // ---- audio ----  ogni voce è un ID del mapping asset (src/assets/mapping.json),
     // risolto come le immagini via AssetService → niente file inline. Vuoto = muto: il
@@ -152,6 +205,7 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
     let W = 1000, H = 760;
     function setupCanvas(): void {
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        if (dpr !== spriteDpr) { spriteDpr = dpr; spriteCache.clear(); }   // sprite ri-bancati alla nuova densità
         const bw = Math.max(1, Math.round(stageEl.clientWidth)), bh = Math.max(1, Math.round(stageEl.clientHeight));
         W = bw; H = bh;
         canvas.style.width = bw + 'px'; canvas.style.height = bh + 'px';
@@ -192,8 +246,10 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
         for (let i = 0; i < lastX; i++) for (let j = 0; j < lastY; j++) {
             if (skip.has(i + ',' + j)) continue;
             const cx = gx(i) + CELL / 2, cy = gy(j) + CELL / 2;
-            if (Math.random() < 0.62) {
-                buildings.push({ cx, cy, s: 26 + randInt(13), h: Math.random() < 0.22 ? 11 + randInt(7) : 5 + randInt(6), colIdx: randInt(BUILDING_COUNT), lit: Math.random() < 0.32, seed: randInt(1 << 20) });
+            if (Math.random() < 0.55) {   // un filo meno densità: più strade libere → si vedono le auto
+                const typeIdx = randInt(BURO_BUILDINGS.length);
+                const foot = BURO_SPRITE_META[BURO_BUILDINGS[typeIdx]].foot;   // footprint dello sprite → collisione/ombra coerenti
+                buildings.push({ cx, cy, s: foot, h: Math.random() < 0.22 ? 11 + randInt(7) : 5 + randInt(6), colIdx: typeIdx % BUILDING_COUNT, lit: Math.random() < 0.32, seed: randInt(1 << 20), typeIdx });
             } else {
                 const n = 1 + randInt(3);
                 for (let tt = 0; tt < n; tt++) { const ox = (Math.random() - 0.5) * CELL * 0.62, oy = (Math.random() - 0.5) * CELL * 0.62, r = Math.random(); props.push({ kind: r < 0.72 ? 'tree' : r < 0.9 ? 'bed' : 'lamp', x: cx + ox, y: cy + oy, seed: randInt(1 << 16) }); }
@@ -234,13 +290,14 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
     function camFollow(x: number, y: number, dt: number): void { const r = raw(x, y), tx = r.x * ZOOM - W / 2, ty = r.y * ZOOM - H / 2, k = 1 - Math.exp(-dt * 11); camX += (tx - camX) * k; camY += (ty - camY) * k; }
     const onScreen = (p: Vec, m: number): boolean => p.x >= -m && p.x <= W + m && p.y >= -m && p.y <= H + m;
 
-    const CAR_SPEED = 155, WALK_SPEED = 36, LANE = 38, REACH = 120, LURE_R = 240, LANE_OFF = 9, MAX_BOARD = 100, JUMP_SCREEN = 122;
+    const CAR_SPEED = 128, WALK_SPEED = 36, LANE = 38, REACH = 120, LURE_R = 240, LANE_OFF = 9, MAX_BOARD = 100, JUMP_SCREEN = 122;
     const carColors = ['#F2B441', '#FF6B6B', '#B084F5', '#5BC0EB', '#9CE37D', '#F58CC1', '#FF9F5B'];
     function makeCar(s: number): Car {
         let tries = 0, ix = 0, iy = 0, opts: Dir[] = [];
         do { ix = randInt(COLS); iy = randInt(ROWS); opts = DIR_LIST.filter(d => neighbor(ix, iy, d)); tries++; } while (!opts.length && tries < 80);
         const dir = opts[randInt(opts.length)], tt = neighbor(ix, iy, dir)!;
-        return { ix, iy, dir, tx: tt.ix, ty: tt.iy, prog: Math.random() * 0.4, pending: null, color: carColors[s % carColors.length], x: gx(ix), y: gy(iy), turning: false };
+        const ci = s % carColors.length;
+        return { ix, iy, dir, tx: tt.ix, ty: tt.iy, prog: Math.random() * 0.4, pending: null, color: carColors[ci], ci, x: gx(ix), y: gy(iy), turning: false };
     }
     function decide(ix: number, iy: number, cur: Dir, toward: GNode | null): Dir {
         const valid = DIR_LIST.filter(d => d !== rev(cur) && neighbor(ix, iy, d));
@@ -282,8 +339,8 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
             for (let i = g.length - 1; i > 0; i--) { const ahead = g[i], behind = g[i - 1]; if (behind.prog > ahead.prog - 0.32) { behind.prog = Math.max(0, ahead.prog - 0.32); placeCar(behind); } }
         });
     }
-    function desiredCars(min: number): number { const tt = clamp((min - 540) / 540, 0, 1); return Math.round(44 + tt * 26); }
-    function setCarCount(n: number): void { n = Math.min(n, 78); while (cars.length < n) cars.push(makeCar(cars.length)); if (cars.length > n) cars.length = n; }
+    function desiredCars(min: number): number { const tt = clamp((min - 540) / 540, 0, 1); return Math.round(56 + tt * 32); }   // più auto: il saltare tra le macchine è il cuore
+    function setCarCount(n: number): void { n = Math.min(n, 100); while (cars.length < n) cars.push(makeCar(cars.length)); if (cars.length > n) cars.length = n; }
 
     function nearestNode(x: number, y: number): GNode { return { ix: clamp(Math.round(x / CELL), 0, lastX), iy: clamp(Math.round(y / CELL), 0, lastY) }; }
     function bfsField(goal: GNode): Map<string, number> {
@@ -331,7 +388,7 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
     let bounceFlag!: Record<number, boolean>, bounceCount!: number, closedCount!: number, item!: number;
     let highlight = new Set<string>(), recalc = 0, waitT = 0, lure: GNode | null = null, routeNext = new Map<string, GNode>();
     let hops = 0, ridingMin = 0, footMin = 0, queueMin = 0, routeLog: number[] = [];
-    let tut = 0, tutorialSeen = false, movedDist = 0, rodeOnce = false;
+    let tut = 0, tutorialSeen = hooks.tutorialDone(), movedDist = 0, rodeOnce = false;   // tutorial già fatto? (cookie) → si salta
     let floats: FloatTxt[] = [], ring: Ring | null = null;
     let walkPhase = 0, walkAmt = 0, walkDir = { x: 1, y: 0 };
     let jumpAnim: { fx: number; fy: number; fromBase: number; toBase: number; born: number; dur: number } | null = null;
@@ -340,7 +397,7 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
     let pendingOptions: Pratica[] = [];
 
     // flag dei pannelli (il motore è la fonte di verità: il componente renderizza da onServe/onIntro/onResult)
-    let introOpen = false, serveOpen = false, overlayOpen = false;
+    let introOpen = false, serveOpen = false, overlayOpen = false, userPaused = false;
 
     // tracking per emettere i hook UI solo al cambio (no spam di signal a 60fps)
     let lastActLabel = '', lastActDim = false, lastDismount = false, lastClockText = '', lastClockTone: ClockTone = 'none';
@@ -348,7 +405,7 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
     const MOVE_HINT = matchMedia('(pointer:fine)').matches ? t('buroMoveHintFine') : t('buroMoveHintCoarse');
 
     function setCoach(step: number): void {
-        if (step >= 4) { hooks.onCoach(null, false, false); tutorialSeen = true; return; }
+        if (step >= 4) { hooks.onCoach(null, false, false); tutorialSeen = true; hooks.onTutorialDone(); return; }
         const map: Record<number, CoachData & { showStart: boolean; startPulse: boolean }> = {
             0: { label: t('buroTutorial') + ' ' + t('buroStep', 1, 3), text: MOVE_HINT, pulse: 'joy', showStart: false, startPulse: false },
             1: { label: t('buroTutorial') + ' ' + t('buroStep', 2, 3), text: t('buroCoach1'), pulse: 'act', showStart: false, startPulse: false },
@@ -456,7 +513,7 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
     function startJump(fx: number, fy: number, fromBase: number, toBase: number): void { jumpAnim = { fx, fy, fromBase, toBase, born: performance.now(), dur: 0.34 }; }
 
     function doAction(): void {
-        if (paused || won || lost) return;
+        if (userPaused || paused || won || lost) return;
         const ox = player.x, oy = player.y;
         if (player.riding) {
             const tgt = aimTarget;
@@ -473,10 +530,17 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
         }
     }
     function doDismount(): void {
-        if (paused || won || lost || !player.riding) return;
+        if (userPaused || paused || won || lost || !player.riding) return;
         const ox = player.x, oy = player.y;
         player.x = player.riding.x; player.y = player.riding.y; player.riding = null; startJump(ox, oy, 16, 0); Sound.play('dismount');
         const ps = iso(player.x, player.y, 22); ring = { x: ps.x, y: ps.y, born: performance.now() }; addFloat(t('buroFloatFoot'), pal.mutedText, ps.x, ps.y - 26);
+    }
+    /** Pausa/riprendi a comando dell'utente (ESC o pulsante): congela tutto e avvisa il componente. */
+    function togglePause(): void {
+        if (won || lost || introOpen || serveOpen || overlayOpen) return;   // niente pausa su pannelli o partita finita
+        userPaused = !userPaused;
+        if (userPaused) dropInputs();   // niente movimento residuo alla ripresa
+        hooks.onPause(userPaused);
     }
 
     // ---- flow ----
@@ -569,6 +633,7 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
     }
 
     function update(dt: number): void {
+        if (userPaused) return;   // pausa utente: tutto fermo (auto, orologio, player)
         cars.forEach(c => updateCar(c, dt)); spaceCars();
         if (paused || won || lost) { aimTarget = pickBoardable(player ? player.riding : null); emitAct(); return; }
         let moved = false, footStep = 0;
@@ -700,7 +765,7 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
         ctx.fillStyle = pal.void; ctx.fillRect(0, 0, W, H);
         ctx.fillStyle = pal.ground;
         for (let i = 0; i < lastX; i++) for (let j = 0; j < lastY; j++) { const c = iso(gx(i) + CELL / 2, gy(j) + CELL / 2, 0); if (onScreen(c, CELL)) { diamond(gx(i) + CELL / 2, gy(j) + CELL / 2, CELL / 2 - 22, 0); ctx.fill(); } }
-        const RW = Math.max(9, 24 * ZOOM);
+        const RW = Math.max(12, 32 * ZOOM);   // strade più larghe: più respiro per vedere/seguire le auto
         edgeArr.forEach(([a, b]) => isoLine({ x: gx(a.ix), y: gy(a.iy) }, { x: gx(b.ix), y: gy(b.iy) }, RW, pal.road));
         edgeArr.forEach(([a, b]) => { if (highlight.has(eKey(a, b))) isoLine({ x: gx(a.ix), y: gy(a.iy) }, { x: gx(b.ix), y: gy(b.iy) }, RW * 0.66, pal.warning); });
 
@@ -711,11 +776,11 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
             const r = iso(o.dx, o.dy, 0); if (onScreen(r, 60)) { const pulse = 27 + Math.sin(performance.now() / 250) * 4; ctx.strokeStyle = pal.info; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(r.x, r.y, pulse, pulse * 0.5, 0, 0, 7); ctx.stroke(); }
         }
 
+        // Ombre a terra: solo uffici (procedurali), lampioni e player. Palazzi/auto/alberi
+        // sono sprite con l'ombra già cotta dentro — qui le ridisegneremmo doppie.
         ctx.fillStyle = 'rgba(0,0,0,.35)';
-        buildings.forEach(b => { const c = iso(b.cx, b.cy, 0); if (onScreen(c, b.s + CELL)) { diamond(b.cx, b.cy, b.s + 4, 0); ctx.fill(); } });
         OFFICES.forEach(o => { const c = iso(o.bx, o.by, 0); if (onScreen(c, 60)) { diamond(o.bx, o.by, 18, 0); ctx.fill(); } });
-        cars.forEach(c => { const p = iso(c.x, c.y, 0); if (onScreen(p, 40)) { diamond(c.x, c.y, 15, 0); ctx.fill(); } });
-        props.forEach(p => { if (p.kind === 'bed') return; const q = iso(p.x, p.y, 0); if (onScreen(q, 30)) { diamond(p.x, p.y, p.kind === 'tree' ? 9 : 3, 0); ctx.fill(); } });
+        props.forEach(p => { if (p.kind !== 'lamp') return; const q = iso(p.x, p.y, 0); if (onScreen(q, 30)) { diamond(p.x, p.y, 3, 0); ctx.fill(); } });
         diamond(player.x, player.y, 11, 0); ctx.fill();
 
         const tgt = aimTarget, word = player.riding ? t('buroSalta') : t('buroSali');
@@ -732,14 +797,24 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
         sprites.push({ k: player.x + player.y + (player.riding ? 0.5 : 0), kind: 'player' });
         sprites.sort((a, b) => a.k - b.k);
         for (const sp of sprites) {
-            if (sp.kind === 'car') drawCar(sp.o);
-            else if (sp.kind === 'prop') drawProp(sp.p);
-            else if (sp.kind === 'build') { const b = sp.b, bcol = pal.buildings[b.colIdx]; box(b.cx, b.cy, b.s, b.h, bcol); buildingDetails(b, bcol); if (b.lit) { ctx.fillStyle = 'rgba(255,201,92,.5)'; diamond(b.cx, b.cy, b.s * 0.42, b.h); ctx.fill(); } }
+            if (sp.kind === 'car') {
+                const c = sp.o, p = iso(c.x, c.y, 0), id = carSpriteId(c);
+                if (!(id && blit(id, p.x, p.y))) drawCar(c);                       // fallback finché lo sprite carica
+            }
+            else if (sp.kind === 'prop') {
+                const p = sp.p;
+                if (p.kind === 'tree') { const s = iso(p.x, p.y, 0); if (!blit(treeSpriteId(p.seed), s.x, s.y)) drawProp(p); }
+                else drawProp(p);                                                  // lampioni/aiuole restano vettoriali
+            }
+            else if (sp.kind === 'build') { const b = sp.b, p = iso(b.cx, b.cy, 0); if (!blit(buildingSpriteId(b), p.x, p.y)) { const bcol = pal.buildings[b.colIdx]; box(b.cx, b.cy, b.s, b.h, bcol); buildingDetails(b, bcol); } }
             else if (sp.kind === 'home') {
-                const cx = HOME.bx, cy = HOME.by, s = 20, h = 22, rh = 15;
-                box(cx, cy, s, h, '#C2703B');
-                const ap = iso(cx, cy, h + rh), t0 = iso(cx - s, cy - s, h), t1 = iso(cx + s, cy - s, h), t2 = iso(cx + s, cy + s, h), t3 = iso(cx - s, cy + s, h);
-                poly([ap, t0, t1], '#5F231A'); poly([ap, t1, t2], '#9B3A2A'); poly([ap, t2, t3], '#7E2F22'); poly([ap, t3, t0], '#5F231A');
+                const hp = iso(HOME.bx, HOME.by, 0);
+                if (!blit(BURO_HOME, hp.x, hp.y)) {
+                    const cx = HOME.bx, cy = HOME.by, s = 20, h = 22, rh = 15;
+                    box(cx, cy, s, h, '#C2703B');
+                    const ap = iso(cx, cy, h + rh), t0 = iso(cx - s, cy - s, h), t1 = iso(cx + s, cy - s, h), t2 = iso(cx + s, cy + s, h), t3 = iso(cx - s, cy + s, h);
+                    poly([ap, t0, t1], '#5F231A'); poly([ap, t1, t2], '#9B3A2A'); poly([ap, t2, t3], '#7E2F22'); poly([ap, t3, t0], '#5F231A');
+                }
             }
             else if (sp.kind === 'office') { const o = sp.o, id = sp.id, isCur = id === cur, done = served.has(id); const col = isCur ? pal.info : done ? pal.surfaceDone : (id === SPORTELLO ? pal.warning : pal.surfaceOffice); const h = isCur ? 52 : 34; box(o.bx, o.by, 20, h, col); }
             else {
@@ -795,6 +870,54 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
             ctx.fillStyle = pal.warning; ctx.fillText(t('buroLabelOffRoute'), hp.x, hp.y - 14);
         }
 
+        // Direzione: ogni auto ha una freccia DAVANTI AL MUSO che punta dove va — sempre in cima
+        // (leggibile anche dietro un palazzo). Sostituisce la vecchia freccia "sopra" poco chiara.
+        for (const c of cars) {
+            const ap = iso(c.x + c.dir.x * 30, c.y + c.dir.y * 30, 7); if (!onScreen(ap, 24)) continue;
+            isoArrow(ap.x, ap.y, c.dir, 11, 'rgba(6,9,15,.65)');   // contorno scuro per leggibilità
+            isoArrow(ap.x, ap.y, c.dir, 8, '#FFE08A');
+        }
+        // Virata: glow laterale "che copre il lato" sulle auto in curva (lampeggia), in cima a tutto.
+        if (Math.floor(performance.now() / 280) % 2 === 0) {
+            for (const c of cars) {
+                if (!c.turning || !c.pending) continue;
+                const ap = iso(c.x, c.y, 0); if (!onScreen(ap, 60)) continue;
+                const horiz = c.dir.x !== 0, hx = horiz ? 23 : 12, hy = horiz ? 12 : 23, pd = c.pending;
+                let e1: Vec, e2: Vec;
+                if (horiz) { const sy = c.y + pd.y * hy; e1 = iso(c.x - hx, sy, 9); e2 = iso(c.x + hx, sy, 9); }
+                else { const sx = c.x + pd.x * hx; e1 = iso(sx, c.y - hy, 9); e2 = iso(sx, c.y + hy, 9); }
+                ctx.save(); ctx.strokeStyle = '#FFC83A'; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.shadowColor = '#FFC83A'; ctx.shadowBlur = 12;
+                ctx.beginPath(); ctx.moveTo(e1.x, e1.y); ctx.lineTo(e2.x, e2.y); ctx.stroke(); ctx.restore();
+            }
+        }
+
+        // Bussola: se lo sportello corrente è fuori schermo, una freccia sul bordo punta verso di esso.
+        if (cur != null && tut >= 4) {
+            const o = OFFICES[cur], tp = iso(o.dx, o.dy, 0);
+            if (tp.x < 40 || tp.x > W - 40 || tp.y < 104 || tp.y > H - 40) {
+                const cx = W / 2, cy = H / 2 + 20;
+                let dx = tp.x - cx, dy = tp.y - cy; const dd = Math.hypot(dx, dy) || 1; dx /= dd; dy /= dd;
+                const halfW = W / 2 - 34, halfH = (H - 138) / 2;
+                const tt = Math.min(halfW / Math.max(Math.abs(dx), 1e-3), halfH / Math.max(Math.abs(dy), 1e-3));
+                const ax = cx + dx * tt, ay = cy + dy * tt;
+                ctx.fillStyle = 'rgba(6,9,15,.5)'; ctx.beginPath(); ctx.arc(ax, ay, 16, 0, 7); ctx.fill();
+                ctx.save(); ctx.translate(ax, ay); ctx.rotate(Math.atan2(dy, dx));
+                ctx.fillStyle = pal.info; ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(-8, -8); ctx.lineTo(-8, 8); ctx.closePath(); ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // Beacon del giocatore: marcatore bianco SEMPRE in cima sopra l'avatar, così non lo perdi mai
+        // dietro i palazzi (bianco = distinto dalle frecce gialle delle auto).
+        {
+            const bob = Math.sin(performance.now() / 320) * 2;
+            const bp = iso(player.x, player.y, (player.riding ? 44 : 32) + bob);
+            ctx.fillStyle = 'rgba(6,9,15,.55)'; ctx.beginPath(); ctx.ellipse(bp.x, bp.y - 5, 8, 4.5, 0, 0, 7); ctx.fill();
+            ctx.fillStyle = '#eef4ff'; ctx.strokeStyle = 'rgba(6,9,15,.7)'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(bp.x - 7, bp.y - 12); ctx.lineTo(bp.x + 7, bp.y - 12); ctx.lineTo(bp.x, bp.y - 1); ctx.closePath();
+            ctx.fill(); ctx.stroke();
+        }
+
         drawRing(); drawFloats();
     }
 
@@ -802,6 +925,9 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
     let last = performance.now(); let rafId = 0; let disposed = false, prevCrit = false;
     function frame(now: number): void {
         if (disposed) return;
+        // Auto-riparazione: se una race SSR/hydration ha lasciato il canvas non dimensionato
+        // (stage cresciuto ma ResizeObserver non scattato), ridimensiona qui invece di disegnare nel nulla.
+        if (stageEl.clientWidth !== W || stageEl.clientHeight !== H) setupCanvas();
         const dt = Math.min(0.05, (now - last) / 1000); last = now; update(dt); render();
         const crit = clockMin >= CLOSE_MIN - 60;
         if (crit && !prevCrit && !won && !lost) Sound.play('warn');   // tocco sonoro all'ultima ora
@@ -833,10 +959,11 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
         dismissServe,
         restart: () => reset(),
         keydown: (e: KeyboardEvent) => {
-            if (introOpen || serveOpen || overlayOpen) return;
+            if (e.code === 'Escape') { e.preventDefault(); Sound.unlock(); togglePause(); return; }   // ESC: pausa / riprendi
+            if (introOpen || serveOpen || overlayOpen || userPaused) return;
             Sound.unlock();   // l'audio si sblocca al primo gesto (regola mobile)
             if (e.code === 'Space' || e.code === 'Tab') { e.preventDefault(); if (tut === 3) openIntro(); else doAction(); return; }
-            if (e.code === 'KeyX' || e.code === 'Escape') { e.preventDefault(); doDismount(); return; }
+            if (e.code === 'KeyX' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') { e.preventDefault(); doDismount(); return; }
             if (MOVE[e.code]) { pressed.add(e.code); syncHeld(); e.preventDefault(); }
         },
         keyup: (e: KeyboardEvent) => { if (pressed.delete(e.code)) syncHeld(); },
@@ -844,6 +971,7 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
         clearJoy: () => { joyActive = false; joyVec.x = 0; joyVec.y = 0; },
         toggleMute: () => Sound.toggle(),
         isMuted: () => Sound.isMuted(),
+        togglePause: () => { Sound.unlock(); togglePause(); },
         dropInputs,
         dispose: () => { disposed = true; if (rafId) cancelAnimationFrame(rafId); },
     };

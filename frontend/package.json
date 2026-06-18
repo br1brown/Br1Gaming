@@ -14,6 +14,7 @@
     "prestart:docker": "npm run generate:statics && npm run generate:icons",
     "generate:statics": "tsx src/app/core/engine/scripts/generate-statics.ts",
     "generate:icons": "tsx src/app/core/engine/scripts/generate-icons.ts",
+    "generate:sprites": "tsx src/app/core/engine/scripts/generate-burocrazia-sprites.ts",
     "prebuild": "npm run generate:statics && npm run generate:icons",
     "build": "ng build",
     "serve:ssr": "node dist/app/server/server.mjs",
