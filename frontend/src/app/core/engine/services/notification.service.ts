@@ -11,6 +11,14 @@ export interface ValidationResult {
     errors?: string[];
 }
 
+/**
+ * Esito di un dialogo a tre vie {@link NotificationService.choose}:
+ *  - `confirm` → bottone principale (es. "Salva")
+ *  - `deny`    → rifiuto esplicito (es. "Non salvare"): scelta diversa dall'annullare
+ *  - `cancel`  → annullato (bottone Annulla, ESC o clic fuori): l'utente non decide
+ */
+export type ConfirmChoice = 'confirm' | 'deny' | 'cancel';
+
 
 export interface InteractContext {
     popup: HTMLElement;
@@ -28,9 +36,26 @@ export interface InteractConfig<T> {
     mapResult?: (ctx: InteractContext) => T;
 }
 
+export interface ToastOptions {
+    /** Durata ms prima dell'auto-dismiss. `null` = persistente (niente timer, mostra il pulsante di chiusura). Default 3000. */
+    durationMs?: number | null;
+    /** Bottone d'azione nel toast (es. "Ripristina"): se premuto esegue `run()`. */
+    action?: { text: string; run: () => void };
+}
+
+/** Configurazione di {@link NotificationService.promise}: messaggi del ciclo di vita async. */
+export interface PromiseToastConfig<T> {
+    /** Testo dello spinner bloccante mentre il lavoro è in corso. */
+    loading?: string;
+    /** Toast di successo a lavoro riuscito (stringa o funzione del risultato). */
+    success?: string | ((value: T) => string);
+    /** Toast d'errore se il lavoro fallisce. L'eccezione viene comunque rilanciata. */
+    error?: string;
+}
+
 /**
  * Notifiche utente via SweetAlert2.
- * Metodi: success(), error(), loading(), close(), confirm(), prompt(), toast(), validationErrors(), handleApiError().
+ * Metodi: success(), error(), alert(), loading(), close(), promise(), confirm(), choose(), prompt(), interact(), toast(), toastOnce(), validationErrors(), handleApiError().
  * handleApiError() legge ProblemDetails (RFC 9457) dal backend o traduce il codice HTTP via i18n.
  */
 @Injectable({ providedIn: 'root' })
@@ -39,6 +64,7 @@ export class NotificationService {
     private theme = inject(ThemeService);
     private platformId = inject(PLATFORM_ID);
     private swalPromise?: Promise<SwalType>;
+    private shownOnceKeys = new Set<string>();   // chiavi già mostrate da toastOnce() in questa sessione
 
     private loadSwal(): Promise<SwalType> | null {
         if (!isPlatformBrowser(this.platformId)) return null;
@@ -100,6 +126,32 @@ export class NotificationService {
         }
     }
 
+    /**
+     * Dialogo generico a UN SOLO bottone (niente "Annulla"): titolo + testo + icona opzionale.
+     * Risolve quando l'utente chiude (bottone / ESC / clic fuori) → comodo come `await` e poi agisci
+     * (es. pausa di gioco: mostra "In pausa" e alla chiusura riprendi). Per esiti specifici usa success()/error().
+     */
+    async alert(title: string, text = '', opts?: {
+        icon?: 'success' | 'error' | 'info' | 'warning' | 'question';
+        confirmText?: string;
+        allowOutsideClick?: boolean;
+    }): Promise<void> {
+        const swal = this.loadThemedSwal();
+        if (!swal) {
+            if (isPlatformBrowser(this.platformId)) window.alert(text ? `${title}\n${text}` : title);
+            return;
+        }
+        const Swal = await swal;
+        await Swal.fire({
+            title,
+            text: text || undefined,
+            icon: opts?.icon,
+            confirmButtonText: opts?.confirmText ?? this.translate.translate('chiudiAzione'),
+            allowOutsideClick: opts?.allowOutsideClick ?? true,
+            // un bottone solo: showCancelButton/showDenyButton restano false (default di Swal.fire)
+        });
+    }
+
     // --- LOADING ---
 
     openLoading(message?: string): void {
@@ -114,6 +166,30 @@ export class NotificationService {
 
     closeLoading(): void {
         void this.loadThemedSwal()?.then(Swal => Swal.close());
+    }
+
+    /**
+     * Esegue un lavoro asincrono mostrandone il ciclo di vita: spinner bloccante → toast di esito.
+     * Toglie il boilerplate `openLoading`/`await`/`closeLoading`/try-catch ripetuto ovunque.
+     * Rilancia SEMPRE l'eccezione (il toast d'errore è solo UX): il chiamante decide il resto (es.
+     * `handleApiError`). In SSR esegue il lavoro senza UI (loading/toast no-op) e ne ritorna il valore.
+     */
+    async promise<T>(work: Promise<T> | (() => Promise<T>), config: PromiseToastConfig<T> = {}): Promise<T> {
+        const run = typeof work === 'function' ? work() : work;
+        this.openLoading(config.loading);
+        try {
+            const value = await run;
+            this.closeLoading();
+            if (config.success != null) {
+                const msg = typeof config.success === 'function' ? config.success(value) : config.success;
+                this.toast(msg, 'success');
+            }
+            return value;
+        } catch (err) {
+            this.closeLoading();
+            if (config.error != null) this.toast(config.error, 'error');
+            throw err;
+        }
     }
 
     // --- INTERAZIONE ---
@@ -138,6 +214,40 @@ export class NotificationService {
             allowOutsideClick: options?.allowOutsideClick ?? true,
         });
         return result.isConfirmed;
+    }
+
+    /**
+     * Dialogo a TRE vie: conferma / rifiuto esplicito / annulla. Il caso classico delle
+     * "modifiche non salvate" → Salva / Non salvare / Annulla, dove "No" (rifiuto) e "Annulla"
+     * (ripensamento) sono esiti DIVERSI — distinzione che {@link confirm} (booleano) non coglie.
+     * Usa il `denyButton` già stilato dal tema (btn-danger). Default Sì / No / Annulla (i18n).
+     * Ritorna 'cancel' anche su ESC / clic fuori e in SSR (nessuna azione presa).
+     */
+    async choose(title: string, text: string, options?: {
+        confirmText?: string;
+        denyText?: string;
+        cancelText?: string;
+        icon?: 'question' | 'info' | 'warning';
+        allowOutsideClick?: boolean;
+    }): Promise<ConfirmChoice> {
+        const swal = this.loadThemedSwal();
+        if (!swal) return 'cancel';
+
+        const Swal = await swal;
+        const result = await Swal.fire({
+            title,
+            text,
+            icon: options?.icon ?? 'question',
+            showDenyButton: true,
+            showCancelButton: true,
+            confirmButtonText: options?.confirmText ?? this.translate.translate('siAzione'),
+            denyButtonText:    options?.denyText    ?? this.translate.translate('noAzione'),
+            cancelButtonText:  options?.cancelText  ?? this.translate.translate('annullaAzione'),
+            allowOutsideClick: options?.allowOutsideClick ?? true,
+        });
+        if (result.isConfirmed) return 'confirm';
+        if (result.isDenied) return 'deny';
+        return 'cancel';
     }
 
     async prompt(title: string, inputLabel: string,
@@ -248,17 +358,22 @@ export class NotificationService {
 
     // --- TOAST ---
 
-    toast(message: string, icon: 'success' | 'error' | 'info' | 'warning' = 'success'): void {
+    toast(message: string, icon: 'success' | 'error' | 'info' | 'warning' = 'success', opts?: ToastOptions): void {
         void this.loadThemedSwal()?.then(Swal => {
             // error/warning → annuncio assertivo (interrompe lo screen reader);
             // success/info → polite (non interrompe).
             const assertive = icon === 'error' || icon === 'warning';
+            const timer = opts?.durationMs === undefined ? 3000 : opts.durationMs;   // undefined → 3s; null → persistente
+            const persistent = timer == null;
+            const action = opts?.action;
             const Toast = Swal.mixin({
                 toast: true,
                 position: 'top-end',
-                showConfirmButton: false,
-                timer: 3000,
-                timerProgressBar: true,
+                showConfirmButton: !!action,
+                confirmButtonText: action?.text,
+                showCloseButton: persistent,                       // persistente → serve comunque un modo per chiuderlo
+                timer: persistent ? undefined : timer,
+                timerProgressBar: !persistent,
                 didOpen: (toast) => {
                     // a11y (WCAG 2.2.1 + 4.1.3): il toast deve essere annunciato dagli
                     // screen reader e il suo timer pausabile sia col mouse sia da tastiera.
@@ -268,18 +383,33 @@ export class NotificationService {
                     // handler focus/blur sotto non scattavano mai → utente keyboard-only non
                     // poteva mettere in pausa l'auto-dismiss.
                     toast.setAttribute('tabindex', '0');
-                    toast.addEventListener('mouseenter', Swal.stopTimer);
-                    toast.addEventListener('mouseleave', Swal.resumeTimer);
-                    toast.addEventListener('focus', Swal.stopTimer);
-                    toast.addEventListener('blur', Swal.resumeTimer);
+                    if (!persistent) {                              // solo se c'è un timer da mettere in pausa
+                        toast.addEventListener('mouseenter', Swal.stopTimer);
+                        toast.addEventListener('mouseleave', Swal.resumeTimer);
+                        toast.addEventListener('focus', Swal.stopTimer);
+                        toast.addEventListener('blur', Swal.resumeTimer);
+                    }
                     // Escape chiude il toast quando ha il focus.
                     toast.addEventListener('keydown', (e) => {
                         if (e.key === 'Escape') void Swal.close();
                     });
                 }
             });
-            void Toast.fire({ icon, title: message });
+            void Toast.fire({ icon, title: message }).then(result => {
+                if (result.isConfirmed) action?.run();              // click sul bottone d'azione
+            });
         });
+    }
+
+    /**
+     * Come toast(), ma mostrato al massimo UNA volta per sessione per ciascun `key` (dedup interna).
+     * Per avvisi di sistema / hint che non devono ripetersi (es. "grafica alleggerita", suggerimenti onboarding),
+     * senza che il chiamante debba tenersi un flag.
+     */
+    toastOnce(key: string, message: string, icon: 'success' | 'error' | 'info' | 'warning' = 'info', opts?: ToastOptions): void {
+        if (this.shownOnceKeys.has(key)) return;
+        this.shownOnceKeys.add(key);
+        this.toast(message, icon, opts);
     }
 
     // --- VALIDAZIONE ---
