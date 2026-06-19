@@ -686,9 +686,11 @@ Non c'è nulla da attivare: i due meccanismi sono parte della pipeline di build 
 | `success(msg, onClose?)` | Popup di conferma operazione riuscita |
 | `error(title, msg)` | Popup di errore con titolo esplicito |
 | `confirm(title, text, opts?)` | Modale Sì/No → restituisce `Promise<boolean>` |
+| `choose(title, text, opts?)` | Modale a 3 vie Sì/No/Annulla (rifiuto ≠ annullamento) → restituisce `Promise<'confirm' \| 'deny' \| 'cancel'>` |
 | `prompt(title, label, ...)` | Modale con input testuale → restituisce `Promise<string \| null>` |
 | `interact<T>(config)` | Modale con HTML custom, validazione e mappatura del risultato |
 | `openLoading(msg?)` / `closeLoading()` | Spinner bloccante (es. durante upload) |
+| `promise(work, cfg?)` | Esegue un lavoro async con spinner + toast di esito; **rilancia sempre** l'eccezione → `Promise<T>` |
 | `validationErrors(title, errors)` | Popup con lista di errori di validazione |
 | `handleApiError(status, problem, ...)` | Legge il `ProblemDetails` del backend e mostra il messaggio corretto; fallback automatico a i18n per i codici HTTP standard tramite le chiavi `errore{status}Titolo` / `errore{status}Descrizione` da `basic.{lang}.json` — copertura completa per: 400, 401, 403, 404, 405, 406, 408, 409, 410, 422, 429, 500, 501, 502, 503, 504 |
 
@@ -704,6 +706,11 @@ if (!ok) return;
 this.notify.openLoading('Caricamento...');
 await this.api.getProfile();
 this.notify.closeLoading();
+
+// Lavoro async con spinner + toast di esito (rilancia l'errore: gestiscilo tu)
+const profile = await this.notify.promise(this.api.getProfile(), {
+    loading: 'Caricamento...', success: 'Profilo caricato',
+});
 
 // Gestione errore API (legge ProblemDetails RFC 9457)
 try { ... } catch (err) {

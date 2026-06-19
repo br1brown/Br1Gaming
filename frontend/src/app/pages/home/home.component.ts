@@ -253,6 +253,16 @@ const ok = await notify.confirm(
   'Titolo', 'Sei sicuro?'
 );
 
+// Scelta a 3 vie ('confirm'|'deny'|'cancel')
+const c = await notify.choose(
+  'Modifiche', 'Salvare?'
+);
+
+// Lavoro async: spinner → toast esito
+await notify.promise(api.save(), {
+  loading: 'Salvo…', success: 'Salvato'
+});
+
 // Prompt
 const val = await notify.prompt(
   'Titolo', 'Campo', 'OK', 'Annulla'
@@ -475,6 +485,23 @@ wa = { phone: '+39...', text: 'Ciao' };
         this.modalResult.set(this.translate.translate(confirmed ? 'confermatoStato' : 'annullatoStato'));
     }
 
+    /** Dialogo a 3 vie: "Salva / Non salvare / Annulla" — deny e cancel sono esiti distinti. */
+    async showChoose(): Promise<void> {
+        const choice = await this.notify.choose(
+            this.translate.translate('modalChooseTitle'),
+            this.translate.translate('modalChooseBody'),
+            {
+                confirmText: this.translate.translate('modalChooseSave'),
+                denyText: this.translate.translate('modalChooseDiscard'),
+                icon: 'warning',
+            }
+        );
+        const key = choice === 'confirm' ? 'modalChooseSaved'
+                  : choice === 'deny'    ? 'modalChooseDiscarded'
+                  : 'annullatoStato';
+        this.modalResult.set(this.translate.translate(key));
+    }
+
     async showFormModal(): Promise<void> {
         const value = await this.notify.prompt(
             this.translate.translate('modalFormTitle'),
@@ -486,6 +513,16 @@ wa = { phone: '+39...', text: 'Ciao' };
             this.modalResult.set(`${this.translate.translate('modalResultSubmitted')}: ${value}`);
             this.notify.toast(this.translate.translate('modalResultSubmitted'), 'success');
         }
+    }
+
+    /** notify.promise: spinner → toast di esito automatico attorno a un lavoro async. */
+    async showPromiseToast(): Promise<void> {
+        const work = new Promise<string>(resolve => setTimeout(() => resolve('ok'), 900));
+        await this.notify.promise(work, {
+            loading: this.translate.translate('modalPromiseSaving'),
+            success: this.translate.translate('modalPromiseSuccess'),
+        });
+        this.modalResult.set(this.translate.translate('modalPromiseSuccess'));
     }
 
     // ==================== Sistema & API ====================
