@@ -3,7 +3,8 @@
     <!-- la mappa è il fondo, a tutto schermo: niente cornice -->
     <canvas #cv role="application" tabindex="0"
             class="buro-canvas position-absolute top-0 start-0 w-100 h-100"
-            [attr.aria-label]="'buroCanvasAria' | translate"></canvas>
+            [attr.aria-label]="'buroCanvasAria' | translate"
+            (wheel)="onWheel($event)"></canvas>
 
     <!-- dissolvenza: i bordi della mappa sfumano nello sfondo della pagina, così i
          contenuti sopra restano leggibili senza riquadri -->
@@ -48,6 +49,12 @@
 
     <!-- pulsanti in alto a destra: pausa + audio -->
     <div class="buro-topbtns position-absolute top-0 end-0 m-2 d-flex gap-2">
+        <button type="button" class="buro-iconbtn" [attr.aria-label]="'buroZoomOut' | translate" (pointerdown)="zoomOut($event)">
+            <i class="fa-solid fa-magnifying-glass-minus" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="buro-iconbtn" [attr.aria-label]="'buroZoomIn' | translate" (pointerdown)="zoomIn($event)">
+            <i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i>
+        </button>
         <button type="button" class="buro-iconbtn" [attr.aria-label]="'buroPause' | translate" (click)="togglePause()">
             <i class="fa-solid fa-pause" aria-hidden="true"></i>
         </button>
@@ -68,10 +75,27 @@
     </button>
     }
 
+    <!-- schermata iniziale: micro-contesto (cos'è il gioco, l'obiettivo) prima del tutorial -->
+    @if (welcome(); as w) {
+    <div class="buro-overlay position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3">
+        <div class="buro-panel card shadow-lg text-center" role="dialog" aria-modal="true" [attr.aria-label]="w.title">
+            <div class="card-body d-flex flex-column align-items-center gap-3 p-4">
+                <h2 class="h3 fw-bold mb-0">{{ w.title }}</h2>
+                <div class="small lh-sm text-start">
+                    @for (line of w.lines; track $index) {
+                    <p class="mb-2">{{ line }}</p>
+                    }
+                </div>
+                <button type="button" class="btn btn-primary px-4" (click)="dismissWelcome()">{{ w.cta }}</button>
+            </div>
+        </div>
+    </div>
+    }
+
     <!-- pannello sportello -->
     @if (serve(); as s) {
     <div class="buro-overlay position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3">
-        <div class="buro-panel card shadow-lg">
+        <div class="buro-panel card shadow-lg" role="dialog" aria-modal="true" [attr.aria-label]="'buroServeHeader' | translate">
             <div class="card-body d-flex flex-column gap-2 p-4">
                 <div class="text-uppercase fw-bold small text-warning">{{ 'buroServeHeader' | translate }}</div>
                 <div class="fw-bold">{{ s.office }}</div>
@@ -93,7 +117,7 @@
     <!-- esito partita -->
     @if (result(); as r) {
     <div class="buro-overlay position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3">
-        <div class="buro-panel card shadow-lg text-center">
+        <div class="buro-panel card shadow-lg text-center" role="dialog" aria-modal="true" [attr.aria-label]="r.title">
             <div class="card-body d-flex flex-column align-items-center gap-2 p-4">
                 <h2 class="h4 mb-0">{{ r.title }}</h2>
                 <div class="buro-bigtime font-monospace">{{ r.time }}</div>
@@ -121,7 +145,7 @@
     <!-- scelta della pratica -->
     @if (intro(); as i) {
     <div class="buro-overlay position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3">
-        <div class="buro-panel card shadow-lg">
+        <div class="buro-panel card shadow-lg" role="dialog" aria-modal="true" [attr.aria-label]="i.question">
             <div class="card-body d-flex flex-column gap-2 p-4">
                 <div class="text-uppercase fw-bold small text-warning">{{ i.question }}</div>
                 <p class="small mb-2">{{ i.body }}</p>
@@ -134,18 +158,6 @@
                     </button>
                     }
                 </div>
-            </div>
-        </div>
-    </div>
-    }
-
-    <!-- finestra di pausa (ESC o pulsante pausa) -->
-    @if (paused()) {
-    <div class="buro-overlay position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3">
-        <div class="buro-panel card shadow-lg text-center">
-            <div class="card-body d-flex flex-column align-items-center gap-3 p-4">
-                <h2 class="h4 mb-0"><i class="fa-solid fa-pause me-2" aria-hidden="true"></i>{{ 'buroPaused' | translate }}</h2>
-                <button type="button" class="btn btn-primary px-4" (click)="togglePause()">{{ 'buroResume' | translate }}</button>
             </div>
         </div>
     </div>

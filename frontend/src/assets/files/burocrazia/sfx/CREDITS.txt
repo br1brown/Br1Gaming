@@ -1,0 +1,15 @@
+Audio di burocrazia — collegato via mapping.json (id "buro.sfx.*") e SOUND_SRC in
+burocrazia.engine.ts. Tutti i file sono MP3 (standard web universale: si decodifica
+su tutti i browser, Safari/iOS inclusi).
+
+SFX (board, jump, dismount, stamp, bounce, closed, shortcut, win, lose, warn):
+  Kenney (https://kenney.nl) — licenza CC0 (pubblico dominio), nessuna attribuzione
+  richiesta. Pack: Interface Sounds, UI Audio, Digital Audio, Impact Sounds.
+  Rinominati per slot di gioco e convertiti da OGG a MP3.
+
+ambient (sottofondo città in loop):
+  Mixkit (https://mixkit.co) — Mixkit Sound Effects Free License: uso gratuito anche
+  commerciale, nessuna attribuzione richiesta; NON ridistribuire come file standalone
+  (qui è incorporato nel gioco, uso consentito).
+
+Questa nota è solo per tracciabilità: nessuna licenza qui richiede attribuzione.

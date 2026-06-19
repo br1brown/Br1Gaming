@@ -5,7 +5,7 @@ import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { ThemeService } from '../../core/engine/services/theme.service';
 import { CookieConsentService } from '../../core/engine/services/cookie-consent.service';
 import {
-    ClockTone, CoachData, GameController, IntroData, Palette, PratData, ResultData, ServeData,
+    ClockTone, CoachData, GameController, IntroData, Palette, PratData, ResultData, ServeData, WelcomeData,
     createBurocraziaGame,
 } from './burocrazia.engine';
 
@@ -68,6 +68,7 @@ export class BurocraziaComponent extends PageBaseComponent<void> implements OnDe
     readonly serve = signal<ServeData | null>(null);
     readonly result = signal<ResultData | null>(null);
     readonly intro = signal<IntroData | null>(null);
+    readonly welcome = signal<WelcomeData | null>(null);
     readonly knobTransform = signal('translate(0,0)');
     readonly muted = signal(false);
     readonly paused = signal(false);
@@ -104,6 +105,11 @@ export class BurocraziaComponent extends PageBaseComponent<void> implements OnDe
         // ricalcola la palette al cambio tono. Guard: il game esiste solo dopo il render.
         effect(() => { this.theme.themeTone(); this.applyPalette(); });
 
+        // Accessibilità: rispetta la preferenza "meno movimento" del sistema. Il segnale è
+        // reattivo (ThemeService), così attivando/disattivando la preferenza il canvas si adegua
+        // senza reload — stesso schema dell'effetto palette qui sopra.
+        effect(() => { this.game?.setReduceMotion(this.theme.prefersReducedMotion()); });
+
         // (Ri)crea il gioco quando il canvas "vivo" cambia. Su F5 (SSR+hydration) il canvas a cui era
         // legato il gioco viene SOSTITUITO dopo la creazione → il gioco disegnava su un canvas staccato
         // (schermo nero su F5, mentre via link funzionava). L'effect lo riaggancia al canvas reale.
@@ -133,19 +139,35 @@ export class BurocraziaComponent extends PageBaseComponent<void> implements OnDe
             onServe: d => this.serve.set(d),
             onResult: d => this.result.set(d),
             onIntro: d => this.intro.set(d),
+            onWelcome: d => this.welcome.set(d),
             tutorialDone: () => this.cookies.getCookie('burocraziaTutorialDone') ?? false,
             onTutorialDone: () => this.cookies.setCookie('burocraziaTutorialDone', true),
-            onPause: p => this.paused.set(p),
+            onPause: p => { this.paused.set(p); if (p) void this.openPauseDialog(); },
+            savedZoom: () => this.cookies.getCookie('burocraziaZoom'),
+            onZoom: z => this.persistZoom(z),
+            // FUTURO: il padre (Br1WebEngine) ha già toastOnce()+ToastOptions; al prossimo merge sostituire con
+            //   this.notify.toastOnce('buro-lite', this.translate.translate('buroPerfNotice'), 'warning', { durationMs: 6000 })
+            // così la dedup "una volta" la fa il servizio e si può togliere il flag one-way `lite` dal motore.
+            onPerfNotice: () => this.notify.toast(this.translate.translate('buroPerfNotice'), 'warning'),
         });
         this.applyPalette();
+        this.game.setReduceMotion(this.theme.prefersReducedMotion());   // stato iniziale (l'effect copre i cambi successivi)
         this.resizeObs = new ResizeObserver(() => this.game?.resize());
         this.resizeObs.observe(stage);
     }
 
     ngOnDestroy(): void {
         clearTimeout(this.flashTimer);
+        clearTimeout(this.zoomSaveTimer);
         this.resizeObs?.disconnect();
         this.game?.dispose();
+    }
+
+    /** Salva lo zoom scelto nei cookie (debounce: la rotella emette molti eventi ravvicinati). */
+    private zoomSaveTimer?: ReturnType<typeof setTimeout>;
+    private persistZoom(z: number): void {
+        clearTimeout(this.zoomSaveTimer);
+        this.zoomSaveTimer = setTimeout(() => this.cookies.setCookie('burocraziaZoom', Math.round(z * 100) / 100, 60 * 60 * 24 * 365), 400);
     }
 
     /** Costruisce la palette del canvas leggendo le CSS var del tema corrente. */
@@ -157,7 +179,11 @@ export class BurocraziaComponent extends PageBaseComponent<void> implements OnDe
         const palette: Palette = {
             void: v('--bs-body-bg', dark ? '#080B12' : '#ffffff'),
             ground: v('--bs-secondary-bg', dark ? '#101A2A' : '#e9ecef'),
-            road: v('--bs-border-color', dark ? '#2A3445' : '#ced4da'),
+            // Marciapiede (spazio pedonale) che fiancheggia l'asfalto: concrete chiaro, tono-aware.
+            sidewalk: v('--bs-tertiary-bg', dark ? '#3b4654' : '#cfd4dc'),
+            // Asfalto volutamente scuro (non --bs-border-color, troppo chiaro): è ciò che fa risaltare
+            // la segnaletica BIANCA (mezzeria + strisce) — look realistico tipo mappa isometrica.
+            road: dark ? '#2b3340' : '#7e858f',
             surfaceOffice: v('--bs-tertiary-bg', dark ? '#5a6a80' : '#dee2e6'),
             surfaceDone: v('--bs-secondary-bg', dark ? '#3a4658' : '#e9ecef'),
             light: !dark,
@@ -183,12 +209,25 @@ export class BurocraziaComponent extends PageBaseComponent<void> implements OnDe
     doDismount(e: Event): void { e.preventDefault(); this.game?.doDismount(); this.haptic(); }
     /** Micro-feedback tattile su mobile (no-op dove non supportato). */
     private haptic(): void { try { navigator.vibrate?.(10); } catch { /* non supportato */ } }
+    // ── zoom mappa (regolabile dall'utente) ─────────────────────────────────
+    onWheel(e: WheelEvent): void { e.preventDefault(); this.game?.zoomBy(e.deltaY < 0 ? 1.12 : 1 / 1.12); }
+    zoomIn(e: Event): void { e.preventDefault(); this.game?.zoomBy(1.18); this.haptic(); }
+    zoomOut(e: Event): void { e.preventDefault(); this.game?.zoomBy(1 / 1.18); this.haptic(); }
     confirmStart(): void { this.game?.confirmStart(); }
     choose(index: number): void { this.game?.choosePratica(index); }
     dismissServe(): void { this.game?.dismissServe(); }
+    dismissWelcome(): void { this.game?.dismissWelcome(); }
     restart(): void { this.game?.restart(); }
     toggleMute(): void { const m = this.game?.toggleMute() ?? false; this.muted.set(m); }
     togglePause(): void { this.game?.togglePause(); }
+    /** Pausa = notifica standard (SweetAlert) bloccante; alla chiusura (Riprendi / ESC / clic fuori) riprende il gioco.
+     *  FUTURO: il padre (Br1WebEngine) ha già notify.alert() a UN bottone solo; al prossimo merge sostituire
+     *  confirm() con: await this.notify.alert(t('buroPaused'), '', { icon:'info', confirmText:t('buroResume') })
+     *  così sparisce il pulsante "Annulla" che confirm() impone. */
+    private async openPauseDialog(): Promise<void> {
+        await this.notify.confirm(this.translate.translate('buroPaused'), '', { confirmText: this.translate.translate('buroResume'), icon: 'info' });
+        if (this.paused()) this.game?.togglePause();   // riprendi se non già ripreso (es. via tasto pausa nascosto)
+    }
 
     // ── joystick flottante: nasce dove il pollice tocca la zona-movimento (sinistra) ─
     // La leva compare sotto il dito (coord. relative allo stage), così non c'è una

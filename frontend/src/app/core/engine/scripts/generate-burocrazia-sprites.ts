@@ -24,6 +24,7 @@ const MAPPING_PATH = join(ROOT, 'src', 'assets', 'mapping.json');
 const MANIFEST_PATH = join(ROOT, 'src', 'app', 'pages', 'burocrazia', 'burocrazia.sprites.ts');
 
 const Z = 0.9;   // === ZOOM del motore: footprint in px-schermo = (wx-wy)*Z ===
+const BODY = '__BODY__';   // segnaposto del colore carrozzeria: il motore lo sostituisce a runtime col colore scelto
 
 // ── colore: scurisci/schiarisci moltiplicando l'rgb ──────────────────────────
 function shade(hex: string, f: number): string {
@@ -63,12 +64,21 @@ class Canvas {
         this.bx(x - rx, y - ry); this.bx(x + rx, y + ry);
         this.parts.push(`<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${fill}"${opacity != null ? ` opacity="${opacity}"` : ''}/>`);
     }
-    /** Box isometrico: footprint ±(sx,sy) world-px, da z0 a z1 px-schermo. */
-    box(cx: number, cy: number, sx: number, sy: number, z0: number, z1: number, col: string): void {
+    /** Box isometrico: footprint ±(sx,sy) world-px, da z0 a z1 px-schermo.
+     *  overlay=true → facce a colore-BASE + velo nero semitrasparente per l'ombra (così un singolo
+     *  colore ricolora tutto il volume a runtime); false → ombreggiatura "cotta" via shade() (palazzi/casa). */
+    box(cx: number, cy: number, sx: number, sy: number, z0: number, z1: number, col: string, overlay = false): void {
         const x0 = cx - sx, x1 = cx + sx, y0 = cy - sy, y1 = cy + sy;
-        this.poly([[x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0]], shade(col, 0.62)); // +y
-        this.poly([[x1, y0, z1], [x1, y1, z1], [x1, y1, z0], [x1, y0, z0]], shade(col, 0.80)); // +x
-        this.poly([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], col);              // top
+        const yF: [number, number, number][] = [[x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0]];   // +y
+        const xF: [number, number, number][] = [[x1, y0, z1], [x1, y1, z1], [x1, y1, z0], [x1, y0, z0]];   // +x
+        const top: [number, number, number][] = [[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]];
+        if (overlay) {
+            this.poly(yF, col); this.poly(yF, 'rgba(0,0,0,0.38)');   // 0.38 ≈ shade 0.62
+            this.poly(xF, col); this.poly(xF, 'rgba(0,0,0,0.20)');   // 0.20 ≈ shade 0.80
+            this.poly(top, col);
+        } else {
+            this.poly(yF, shade(col, 0.62)); this.poly(xF, shade(col, 0.80)); this.poly(top, col);
+        }
     }
     /** Quad verticale su una faccia (finestre/parabrezza/porte). side: +1 faccia +, -1 faccia -. */
     facePane(cx: number, cy: number, sx: number, sy: number, face: 'x' | 'y', side: number, u0: number, u1: number, z0: number, z1: number, fill: string, opacity?: number): void {
@@ -127,22 +137,38 @@ function building(id: string, file: string, sx: number, sy: number, z: number, c
 }
 
 // ── AUTO (axis 'x'|'y', front +1/-1 = lato muso) ─────────────────────────────
-function car(id: string, file: string, color: string, axis: 'x' | 'y', front: number): Built {
+// Una sola forma per CARROZZERIA, disegnata col token BODY (tintabile a runtime). I parametri sotto
+// (CarShape) cambiano proporzioni/altezze → berlina, utilitaria, coupé, monovolume, camion.
+interface CarShape {
+    len: number;                         // semilunghezza lungo l'asse di marcia (world)
+    wid: number;                         // semilarghezza (world)
+    cz: [number, number];                // z telaio (px-schermo)
+    cab: { foot: number; z: [number, number]; off: number };    // cabina: frazione del corpo, z, offset (+ verso muso)
+    cargo?: { foot: number; z: [number, number]; off: number }; // cassone (camion): box dietro, sopra il pianale
+}
+function car(id: string, file: string, axis: 'x' | 'y', front: number, shape: CarShape): Built {
     const c = new Canvas();
-    const sx = axis === 'x' ? 23 : 12, sy = axis === 'x' ? 12 : 23;
+    const sx = axis === 'x' ? shape.len : shape.wid;
+    const sy = axis === 'x' ? shape.wid : shape.len;
     c.ellipse(0, 0, 0, sx * Z + 6, sy * Z + 3, 'rgba(0,0,0,0.30)');           // ombra
-    // ruote (agli angoli opposti, in coord-schermo)
-    c.ellipse(-sx * 0.6, -sy * 0.6, 1, 4, 2.3, '#15181d');
+    c.ellipse(-sx * 0.6, -sy * 0.6, 1, 4, 2.3, '#15181d');                    // ruote (angoli opposti, coord-schermo)
     c.ellipse(sx * 0.6, sy * 0.6, 1, 4, 2.3, '#15181d');
-    c.box(0, 0, sx, sy, 3, 12, color);                                        // telaio
-    const cbx = axis === 'x' ? -front * 3 : 0, cby = axis === 'y' ? -front * 3 : 0;
-    c.box(cbx, cby, sx * 0.62, sy * 0.62, 12, 20, shade(color, 1.0));         // cabina
-    // parabrezza sul lato muso
-    if (axis === 'x') c.facePane(cbx, cby, sx * 0.62, sy * 0.62, 'x', front, -sy * 0.5, sy * 0.5, 13, 19, '#bfe8f5', 0.85);
-    else c.facePane(cbx, cby, sx * 0.62, sy * 0.62, 'y', front, -sx * 0.5, sx * 0.5, 13, 19, '#bfe8f5', 0.85);
-    // fari sul muso
-    const fx = axis === 'x' ? front * sx : 0, fy = axis === 'y' ? front * sy : 0;
-    c.ellipse(fx, fy, 7, 3.2, 1.8, '#fff3c4');
+    c.box(0, 0, sx, sy, shape.cz[0], shape.cz[1], BODY, true);                // telaio/pianale (tintabile)
+    if (shape.cargo) {                                                        // cassone (camion)
+        const gx = axis === 'x' ? front * shape.cargo.off : 0, gy = axis === 'y' ? front * shape.cargo.off : 0;
+        c.box(gx, gy, sx * shape.cargo.foot, sy * shape.cargo.foot, shape.cargo.z[0], shape.cargo.z[1], BODY, true);
+    }
+    const cbx = axis === 'x' ? front * shape.cab.off : 0, cby = axis === 'y' ? front * shape.cab.off : 0;
+    const cabX = sx * shape.cab.foot, cabY = sy * shape.cab.foot;
+    c.box(cbx, cby, cabX, cabY, shape.cab.z[0], shape.cab.z[1], BODY, true);  // cabina (tintabile)
+    // FINESTRINO sulla faccia VISIBILE (+x/+y): parabrezza a est/sud (muso verso camera), lunotto a ovest/nord.
+    const gz0 = shape.cab.z[0] + 1, gz1 = shape.cab.z[1] - 1;
+    if (axis === 'x') c.facePane(cbx, cby, cabX, cabY, 'x', 1, -cabY * 0.8, cabY * 0.8, gz0, gz1, '#bfe8f5', 0.85);
+    else c.facePane(cbx, cby, cabX, cabY, 'y', 1, -cabX * 0.8, cabX * 0.8, gz0, gz1, '#bfe8f5', 0.85);
+    // luce all'estremità VISIBILE: faro chiaro se il muso guarda la camera, fanale ROSSO se si allontana
+    const frontVisible = front > 0;
+    const lx = axis === 'x' ? sx : 0, ly = axis === 'y' ? sy : 0;
+    c.ellipse(lx, ly, 7, 5.2, 3.0, frontVisible ? '#fff3c4' : '#d23a3a');   // luce ingrandita: il verso si legge a colpo d'occhio
     return finish(id, file, c, sx);
 }
 
@@ -180,6 +206,30 @@ function home(id: string, file: string): Built {
     return finish(id, file, c, s);
 }
 
+// ── GIOCATORE (impiegato con cartellina) ───────────────────────────────────────
+// 3 pose: 'a'/'b' = camminata (alternate sul passo dal motore), 'ride' = seduto sull'auto.
+// NIENTE ombra cotta: l'avatar si solleva quando cavalca/salta, quindi il motore disegna l'ombra a terra.
+function player(id: string, file: string, pose: 'a' | 'b' | 'ride'): Built {
+    const c = new Canvas();
+    const skin = '#e6b58c', shirt = '#1f9e8c', trouser = '#2c3e52', folder = '#caa23f', paper = '#fdfdf5';
+    const ride = pose === 'ride';
+    if (ride) {
+        c.box(1.8, 1.8, 2.4, 2.4, 0, 6, trouser);                 // gambe piegate (seduto)
+        c.box(0, 0, 4.4, 4.4, 5, 15, shirt);                      // busto
+        c.box(0, 0, 3.2, 3.2, 15, 22, skin);                      // testa
+    } else {
+        const fwd = pose === 'a' ? 1 : -1;                        // quale gamba è avanti (frame di passo)
+        c.box(fwd * 1.7, fwd * 1.7, 1.9, 1.9, 0, 9, trouser);     // gamba avanti
+        c.box(-fwd * 1.7, -fwd * 1.7, 1.9, 1.9, 0, 9, shade(trouser, 0.82)); // gamba dietro
+        c.box(0, 0, 4.2, 4.2, 9, 19, shirt);                      // busto
+        c.box(0, 0, 3.2, 3.2, 19, 26, skin);                      // testa
+    }
+    const fz0 = ride ? 8 : 11, fz1 = fz0 + 6;                     // cartellina di documenti tenuta davanti (lato camera)
+    c.box(3.4, 3.4, 2.5, 1.3, fz0, fz1, folder);
+    c.box(3.4, 3.4, 2.1, 1.0, fz1, fz1 + 0.8, paper);            // foglio sopra la cartella
+    return finish(id, file, c, 5);
+}
+
 // ── definizione del set ────────────────────────────────────────────────────────
 // id-suffix, sx, sy, z(px), piani, seed-finestre, colore-SCURO, colore-CHIARO
 const BUILDINGS: [string, number, number, number, number, number, string, string][] = [
@@ -195,7 +245,15 @@ const WIN_DARK: WinPal = { on: 'rgba(255,221,160,0.92)', off: 'rgba(10,16,26,0.5
 const WIN_LIGHT: WinPal = { on: 'rgba(250,228,160,0.85)', off: 'rgba(110,128,155,0.42)' };
 /** Suffisso della variante palazzo per tema chiaro (stesso geometria/anchor, solo colori). */
 const LIGHT_SUFFIX = '.lt';
-const CAR_COLORS = ['#F2B441', '#FF6B6B', '#B084F5', '#5BC0EB', '#9CE37D', '#F58CC1', '#FF9F5B'];
+// Carrozzerie: una forma ciascuna, colore applicato a runtime. off in world-px lungo l'asse di marcia (+ = verso il muso).
+const CAR_TYPE_ORDER = ['sedan', 'citycar', 'coupe', 'minivan', 'truck'];
+const CAR_SHAPES: Record<string, CarShape> = {
+    sedan:   { len: 23, wid: 12,   cz: [3, 12], cab: { foot: 0.62, z: [12, 20], off: -3 } },
+    citycar: { len: 18, wid: 12,   cz: [3, 11], cab: { foot: 0.76, z: [11, 20], off: -1 } },
+    coupe:   { len: 24, wid: 12,   cz: [3, 10], cab: { foot: 0.50, z: [10, 17], off: -5 } },
+    minivan: { len: 23, wid: 12.5, cz: [3, 12], cab: { foot: 0.84, z: [12, 24], off:  0 } },
+    truck:   { len: 27, wid: 12.5, cz: [3, 8],  cab: { foot: 0.30, z: [8, 25],  off: 17 }, cargo: { foot: 0.60, z: [8, 21], off: -8 } },
+};
 const CAR_DIRS: [string, 'x' | 'y', number][] = [['e', 'x', 1], ['w', 'x', -1], ['n', 'y', -1], ['s', 'y', 1]];
 const TREES: [string, number, number][] = [['a', 1.0, 0b011], ['b', 0.8, 0b101], ['c', 1.2, 0b110]];
 
@@ -207,22 +265,23 @@ function main(): void {
         built.push(building(`buro.bld.${suf}`, `burocrazia/bld-${suf}.svg`, sx, sy, z, dark, fl, seed, WIN_DARK));
         built.push(building(`buro.bld.${suf}${LIGHT_SUFFIX}`, `burocrazia/bld-${suf}-lt.svg`, sx, sy, z, light, fl, seed, WIN_LIGHT));
     }
-    CAR_COLORS.forEach((col, i) => { for (const [d, axis, front] of CAR_DIRS) built.push(car(`buro.car.${i}.${d}`, `burocrazia/car-${i}-${d}.svg`, col, axis, front)); });
+    for (const type of CAR_TYPE_ORDER) for (const [d, axis, front] of CAR_DIRS) built.push(car(`buro.car.${type}.${d}`, `burocrazia/car-${type}-${d}.svg`, axis, front, CAR_SHAPES[type]));
     for (const [suf, sc, sd] of TREES) built.push(tree(`buro.tree.${suf}`, `burocrazia/tree-${suf}.svg`, sc, sd));
     built.push(home('buro.home', 'burocrazia/home.svg'));
+    (['a', 'b', 'ride'] as const).forEach(p => built.push(player(`buro.player.${p}`, `burocrazia/player-${p}.svg`, p)));
 
     // scrivi gli SVG
     for (const b of built) writeFileSync(join(ROOT, 'src', 'assets', 'files', b.file), b.svg);
 
     // fondi mapping.json (preserva tutte le altre voci)
     const mapping = JSON.parse(readFileSync(MAPPING_PATH, 'utf-8')) as Record<string, string>;
+    for (const k of Object.keys(mapping)) if (k.startsWith('buro.car.')) delete mapping[k];   // schema auto cambiato (tipo×dir, non più colore×dir): via le voci vecchie
     for (const b of built) mapping[b.id] = b.file;
     writeFileSync(MAPPING_PATH, JSON.stringify(mapping, null, 2) + '\n');
 
     // scrivi il manifest TS
     const meta: Record<string, Meta> = {};
     for (const b of built) meta[b.id] = b.meta;
-    const carIds = CAR_COLORS.map((_, i) => CAR_DIRS.map(d => `'buro.car.${i}.${d[0]}'`).join(', '));
     const manifest = `// GENERATO da scripts/generate-burocrazia-sprites.ts — non modificare a mano.
 // Metadati degli sprite isometrici: dimensioni px, anchor (offset del centro-a-terra
 // dall'angolo alto-sx dell'immagine) e footprint world-px (collisione/ombra).
@@ -236,11 +295,12 @@ export const BURO_BUILDINGS: readonly string[] = [${BUILDINGS.map(b => `'buro.bl
 export const BURO_BUILDING_LIGHT = '${LIGHT_SUFFIX}';
 export const BURO_TREES: readonly string[] = [${TREES.map(t => `'buro.tree.${t[0]}'`).join(', ')}];
 export const BURO_HOME = 'buro.home';
+/** Giocatore (impiegato): 2 frame di camminata (alternati sul passo) + posa seduta quando cavalca. */
+export const BURO_PLAYER = { walkA: 'buro.player.a', walkB: 'buro.player.b', ride: 'buro.player.ride' };
 
-/** Auto: [indiceColore][direzione e|w|n|s] → id sprite. L'indice combacia con carColors nel motore. */
-export const BURO_CARS: readonly (readonly string[])[] = [
-    ${carIds.map(row => `[${row}]`).join(',\n    ')},
-];
+/** Carrozzerie: id sprite = 'buro.car.<tipo>.<dir>'. Il colore è applicato a RUNTIME (token __BODY__ nel
+ *  markup SVG), così bastano <tipi>×4 sprite e ogni colore in più è gratis (nessun file aggiuntivo). */
+export const BURO_CAR_TYPES: readonly string[] = [${CAR_TYPE_ORDER.map(t => `'${t}'`).join(', ')}];
 export const BURO_CAR_DIR: Record<string, number> = { e: 0, w: 1, n: 2, s: 3 };
 `;
     writeFileSync(MANIFEST_PATH, manifest);

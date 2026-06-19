@@ -89,201 +89,145 @@ export const BURO_SPRITE_META: Record<string, BuroSpriteMeta> = {
         "ay": 71,
         "foot": 35
     },
-    "buro.car.0.e": {
+    "buro.car.sedan.e": {
         "w": 66,
         "h": 48,
         "ax": 33,
         "ay": 33,
         "foot": 23
     },
-    "buro.car.0.w": {
+    "buro.car.sedan.w": {
         "w": 66,
         "h": 45,
         "ax": 33,
         "ay": 30,
         "foot": 23
     },
-    "buro.car.0.n": {
+    "buro.car.sedan.n": {
         "w": 66,
         "h": 55,
         "ax": 33,
         "ay": 30,
         "foot": 12
     },
-    "buro.car.0.s": {
+    "buro.car.sedan.s": {
         "w": 66,
         "h": 58,
         "ax": 33,
         "ay": 33,
         "foot": 12
     },
-    "buro.car.1.e": {
-        "w": 66,
-        "h": 48,
-        "ax": 33,
-        "ay": 33,
-        "foot": 23
+    "buro.car.citycar.e": {
+        "w": 56,
+        "h": 47,
+        "ax": 28,
+        "ay": 32,
+        "foot": 18
     },
-    "buro.car.1.w": {
-        "w": 66,
-        "h": 45,
-        "ax": 33,
-        "ay": 30,
-        "foot": 23
+    "buro.car.citycar.w": {
+        "w": 56,
+        "h": 46,
+        "ax": 28,
+        "ay": 31,
+        "foot": 18
     },
-    "buro.car.1.n": {
+    "buro.car.citycar.n": {
+        "w": 56,
+        "h": 52,
+        "ax": 28,
+        "ay": 31,
+        "foot": 12
+    },
+    "buro.car.citycar.s": {
+        "w": 56,
+        "h": 53,
+        "ax": 28,
+        "ay": 32,
+        "foot": 12
+    },
+    "buro.car.coupe.e": {
+        "w": 68,
+        "h": 44,
+        "ax": 34,
+        "ay": 29,
+        "foot": 24
+    },
+    "buro.car.coupe.w": {
+        "w": 68,
+        "h": 43,
+        "ax": 34,
+        "ay": 28,
+        "foot": 24
+    },
+    "buro.car.coupe.n": {
+        "w": 68,
+        "h": 54,
+        "ax": 34,
+        "ay": 28,
+        "foot": 12
+    },
+    "buro.car.coupe.s": {
+        "w": 68,
+        "h": 55,
+        "ax": 34,
+        "ay": 29,
+        "foot": 12
+    },
+    "buro.car.minivan.e": {
         "w": 66,
         "h": 55,
         "ax": 33,
-        "ay": 30,
-        "foot": 12
-    },
-    "buro.car.1.s": {
-        "w": 66,
-        "h": 58,
-        "ax": 33,
-        "ay": 33,
-        "foot": 12
-    },
-    "buro.car.2.e": {
-        "w": 66,
-        "h": 48,
-        "ax": 33,
-        "ay": 33,
+        "ay": 39,
         "foot": 23
     },
-    "buro.car.2.w": {
-        "w": 66,
-        "h": 45,
-        "ax": 33,
-        "ay": 30,
-        "foot": 23
-    },
-    "buro.car.2.n": {
+    "buro.car.minivan.w": {
         "w": 66,
         "h": 55,
         "ax": 33,
-        "ay": 30,
-        "foot": 12
-    },
-    "buro.car.2.s": {
-        "w": 66,
-        "h": 58,
-        "ax": 33,
-        "ay": 33,
-        "foot": 12
-    },
-    "buro.car.3.e": {
-        "w": 66,
-        "h": 48,
-        "ax": 33,
-        "ay": 33,
+        "ay": 39,
         "foot": 23
     },
-    "buro.car.3.w": {
+    "buro.car.minivan.n": {
         "w": 66,
-        "h": 45,
+        "h": 64,
         "ax": 33,
-        "ay": 30,
-        "foot": 23
+        "ay": 39,
+        "foot": 12.5
     },
-    "buro.car.3.n": {
+    "buro.car.minivan.s": {
         "w": 66,
+        "h": 64,
+        "ax": 33,
+        "ay": 39,
+        "foot": 12.5
+    },
+    "buro.car.truck.e": {
+        "w": 74,
+        "h": 53,
+        "ax": 37,
+        "ay": 37,
+        "foot": 27
+    },
+    "buro.car.truck.w": {
+        "w": 74,
         "h": 55,
-        "ax": 33,
-        "ay": 30,
-        "foot": 12
+        "ax": 37,
+        "ay": 39,
+        "foot": 27
     },
-    "buro.car.3.s": {
-        "w": 66,
-        "h": 58,
-        "ax": 33,
-        "ay": 33,
-        "foot": 12
+    "buro.car.truck.n": {
+        "w": 74,
+        "h": 68,
+        "ax": 37,
+        "ay": 39,
+        "foot": 12.5
     },
-    "buro.car.4.e": {
-        "w": 66,
-        "h": 48,
-        "ax": 33,
-        "ay": 33,
-        "foot": 23
-    },
-    "buro.car.4.w": {
-        "w": 66,
-        "h": 45,
-        "ax": 33,
-        "ay": 30,
-        "foot": 23
-    },
-    "buro.car.4.n": {
-        "w": 66,
-        "h": 55,
-        "ax": 33,
-        "ay": 30,
-        "foot": 12
-    },
-    "buro.car.4.s": {
-        "w": 66,
-        "h": 58,
-        "ax": 33,
-        "ay": 33,
-        "foot": 12
-    },
-    "buro.car.5.e": {
-        "w": 66,
-        "h": 48,
-        "ax": 33,
-        "ay": 33,
-        "foot": 23
-    },
-    "buro.car.5.w": {
-        "w": 66,
-        "h": 45,
-        "ax": 33,
-        "ay": 30,
-        "foot": 23
-    },
-    "buro.car.5.n": {
-        "w": 66,
-        "h": 55,
-        "ax": 33,
-        "ay": 30,
-        "foot": 12
-    },
-    "buro.car.5.s": {
-        "w": 66,
-        "h": 58,
-        "ax": 33,
-        "ay": 33,
-        "foot": 12
-    },
-    "buro.car.6.e": {
-        "w": 66,
-        "h": 48,
-        "ax": 33,
-        "ay": 33,
-        "foot": 23
-    },
-    "buro.car.6.w": {
-        "w": 66,
-        "h": 45,
-        "ax": 33,
-        "ay": 30,
-        "foot": 23
-    },
-    "buro.car.6.n": {
-        "w": 66,
-        "h": 55,
-        "ax": 33,
-        "ay": 30,
-        "foot": 12
-    },
-    "buro.car.6.s": {
-        "w": 66,
-        "h": 58,
-        "ax": 33,
-        "ay": 33,
-        "foot": 12
+    "buro.car.truck.s": {
+        "w": 74,
+        "h": 66,
+        "ax": 37,
+        "ay": 37,
+        "foot": 12.5
     },
     "buro.tree.a": {
         "w": 36,
@@ -312,6 +256,27 @@ export const BURO_SPRITE_META: Record<string, BuroSpriteMeta> = {
         "ax": 37,
         "ay": 41,
         "foot": 20
+    },
+    "buro.player.a": {
+        "w": 18,
+        "h": 35,
+        "ax": 9,
+        "ay": 30,
+        "foot": 5
+    },
+    "buro.player.b": {
+        "w": 18,
+        "h": 35,
+        "ax": 9,
+        "ay": 30,
+        "foot": 5
+    },
+    "buro.player.ride": {
+        "w": 18,
+        "h": 31,
+        "ax": 9,
+        "ay": 26,
+        "foot": 5
     }
 };
 
@@ -320,15 +285,10 @@ export const BURO_BUILDINGS: readonly string[] = ['buro.bld.a', 'buro.bld.b', 'b
 export const BURO_BUILDING_LIGHT = '.lt';
 export const BURO_TREES: readonly string[] = ['buro.tree.a', 'buro.tree.b', 'buro.tree.c'];
 export const BURO_HOME = 'buro.home';
+/** Giocatore (impiegato): 2 frame di camminata (alternati sul passo) + posa seduta quando cavalca. */
+export const BURO_PLAYER = { walkA: 'buro.player.a', walkB: 'buro.player.b', ride: 'buro.player.ride' };
 
-/** Auto: [indiceColore][direzione e|w|n|s] → id sprite. L'indice combacia con carColors nel motore. */
-export const BURO_CARS: readonly (readonly string[])[] = [
-    ['buro.car.0.e', 'buro.car.0.w', 'buro.car.0.n', 'buro.car.0.s'],
-    ['buro.car.1.e', 'buro.car.1.w', 'buro.car.1.n', 'buro.car.1.s'],
-    ['buro.car.2.e', 'buro.car.2.w', 'buro.car.2.n', 'buro.car.2.s'],
-    ['buro.car.3.e', 'buro.car.3.w', 'buro.car.3.n', 'buro.car.3.s'],
-    ['buro.car.4.e', 'buro.car.4.w', 'buro.car.4.n', 'buro.car.4.s'],
-    ['buro.car.5.e', 'buro.car.5.w', 'buro.car.5.n', 'buro.car.5.s'],
-    ['buro.car.6.e', 'buro.car.6.w', 'buro.car.6.n', 'buro.car.6.s'],
-];
+/** Carrozzerie: id sprite = 'buro.car.<tipo>.<dir>'. Il colore è applicato a RUNTIME (token __BODY__ nel
+ *  markup SVG), così bastano <tipi>×4 sprite e ogni colore in più è gratis (nessun file aggiuntivo). */
+export const BURO_CAR_TYPES: readonly string[] = ['sedan', 'citycar', 'coupe', 'minivan', 'truck'];
 export const BURO_CAR_DIR: Record<string, number> = { e: 0, w: 1, n: 2, s: 3 };
