@@ -145,10 +145,9 @@ export class BurocraziaComponent extends PageBaseComponent<void> implements OnDe
             onPause: p => { this.paused.set(p); if (p) void this.openPauseDialog(); },
             savedZoom: () => this.cookies.getCookie('burocraziaZoom'),
             onZoom: z => this.persistZoom(z),
-            // FUTURO: il padre (Br1WebEngine) ha già toastOnce()+ToastOptions; al prossimo merge sostituire con
-            //   this.notify.toastOnce('buro-lite', this.translate.translate('buroPerfNotice'), 'warning', { durationMs: 6000 })
-            // così la dedup "una volta" la fa il servizio e si può togliere il flag one-way `lite` dal motore.
-            onPerfNotice: () => this.notify.toast(this.translate.translate('buroPerfNotice'), 'warning'),
+            // Avviso "grafica alleggerita": toastOnce → la dedup "una volta per sessione" la fa il servizio.
+            // (Il flag `lite` nel motore resta perché governa la qualità di rendering, non solo l'avviso.)
+            onPerfNotice: () => this.notify.toastOnce('buro-lite', this.translate.translate('buroPerfNotice'), 'warning', { durationMs: 6000 }),
         });
         this.applyPalette();
         this.game.setReduceMotion(this.theme.prefersReducedMotion());   // stato iniziale (l'effect copre i cambi successivi)
@@ -220,12 +219,10 @@ export class BurocraziaComponent extends PageBaseComponent<void> implements OnDe
     restart(): void { this.game?.restart(); }
     toggleMute(): void { const m = this.game?.toggleMute() ?? false; this.muted.set(m); }
     togglePause(): void { this.game?.togglePause(); }
-    /** Pausa = notifica standard (SweetAlert) bloccante; alla chiusura (Riprendi / ESC / clic fuori) riprende il gioco.
-     *  FUTURO: il padre (Br1WebEngine) ha già notify.alert() a UN bottone solo; al prossimo merge sostituire
-     *  confirm() con: await this.notify.alert(t('buroPaused'), '', { icon:'info', confirmText:t('buroResume') })
-     *  così sparisce il pulsante "Annulla" che confirm() impone. */
+    /** Pausa = notifica standard (SweetAlert) bloccante a UN solo bottone (niente "Annulla");
+     *  alla chiusura (Riprendi / ESC / clic fuori) riprende il gioco. */
     private async openPauseDialog(): Promise<void> {
-        await this.notify.confirm(this.translate.translate('buroPaused'), '', { confirmText: this.translate.translate('buroResume'), icon: 'info' });
+        await this.notify.alert(this.translate.translate('buroPaused'), '', { icon: 'info', confirmText: this.translate.translate('buroResume') });
         if (this.paused()) this.game?.togglePause();   // riprendi se non già ripreso (es. via tasto pausa nascosto)
     }
 
