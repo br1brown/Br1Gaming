@@ -96,12 +96,28 @@
 
 html {
     position: relative;
+    /* Mobile: l'altezza minima segue il viewport DINAMICO (dvh) invece del "large viewport"
+       (100vh = lvh, l'altezza con le barre del browser RITRATTE). Così, quando la barra del
+       browser è visibile, html non eccede l'area realmente visibile e non genera overflow/
+       rubber-band. 100vh resta come fallback per i browser senza dvh (pre-2022). */
     min-height: 100vh;
+    min-height: 100dvh;
 }
 
 body {
     font-family: var(--fontFamily);
     background-color: var(--colorBase);
+}
+
+/* Lo shell (app-root) riempie almeno il viewport. Rimpiazza l'utility Bootstrap .min-vh-100
+   (bloccata su 100vh = lvh) con l'altezza DINAMICA dvh: su mobile segue le barre del browser
+   che entrano/escono, così le viste full-bleed (radar/burocrazia/ducenonduce) misurano l'altezza
+   VISIBILE e non spingono i comandi ancorati in basso sotto la chrome del browser. Bootstrap non
+   espone un'utility min-dvh; 100vh resta come fallback pre-dvh. La regola pesa (0,0,1) e non ha
+   bisogno di !important: è l'unica a impostare min-height su app-root. */
+app-root {
+    min-height: 100vh;
+    min-height: 100dvh;
 }
 
 /* Link - esclude .btn per non sovrascrivere i colori del testo dei bottoni Bootstrap */
