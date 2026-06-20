@@ -26,7 +26,11 @@ html {
 }
 
 body {
+    /* Altezza minima = viewport DINAMICO (dvh), allineato a html/app-root (base.css): su mobile
+       evita che il body ecceda l'area visibile quando la barra del browser è mostrata (causa del
+       rubber-band e dei comandi full-bleed finiti sotto la chrome). 100vh = fallback pre-dvh. */
     min-height: 100vh;
+    min-height: 100dvh;
     background: linear-gradient(180deg, color-mix(in srgb, var(--colorBase) 92%, white 8%), color-mix(in srgb, var(--colorBase) 84%, black 16%));
     color: var(--colorSurfaceText);
 }

@@ -25,7 +25,11 @@ import { TranslatePipe } from './core/engine/pipes/translate.pipe';
     selector: 'app-root',
     imports: [RouterOutlet, NavbarComponent, FooterComponent, SmokeEffectComponent, BackToTopComponent, CookieBannerComponent, TranslatePipe],
     templateUrl: './app.component.html',
-    host: { class: 'd-flex flex-column min-vh-100' }
+    // L'altezza minima (viewport) NON è più l'utility .min-vh-100: Bootstrap la fissa a 100vh
+    // (= large viewport, barre ritratte), che su mobile spinge le viste full-bleed sotto la
+    // chrome del browser. Ora la dà base.css su `app-root` con `min-height: 100dvh` (+ fallback
+    // 100vh), che segue l'altezza visibile dinamica. Vedi base.css (regola `app-root`).
+    host: { class: 'd-flex flex-column' }
 })
 export class AppComponent {
     private readonly router = inject(Router);
