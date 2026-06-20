@@ -625,7 +625,7 @@ private readonly theme = inject(ThemeService);
 
 // Brand e derivati (Signal<string>)
 this.theme.colorTema();         // colore brand esatto (--colorTema)
-this.theme.colorPrimary();      // brand scurito a 4.5:1 su bianco — per link, CTA, bottoni
+this.theme.colorPrimary();      // brand scurito a 4.5:1 sullo sfondo pagina chiaro — per link, CTA, bottoni
 this.theme.colorPrimaryText();  // '#000000' | '#ffffff' — testo leggibile su colorPrimary
 this.theme.colorPrimaryRgb();   // "31, 64, 255" — tripla RGB per le rgba() di Bootstrap/CSS
 this.theme.colorTemaText();     // '#000000' | '#ffffff' — testo a contrasto massimo su colorTema
@@ -673,6 +673,27 @@ Il tema corretto è in pagina **prima** che Angular si avvii: nessun lampo di te
 - **SSR per-richiesta** — `app.config.server.ts` inietta in ogni risposta i due `<meta name="theme-color">` (light/dark, dal `colorBase` della palette, per il chrome del browser e la PWA) e lo `<style id="theme-init">` con tutte le CSS vars del tema per entrambi i toni. Così la pagina server-rendered esce già coi colori giusti; `ThemeService` poi "conferma" la palette post-idratazione in `afterNextRender`.
 
 Non c'è nulla da attivare: i due meccanismi sono parte della pipeline di build e dell'SSR.
+
+### Font
+
+I font del sito hanno un'unica fonte di verità: [`frontend/src/styles/font-config.ts`](src/styles/font-config.ts). Nessun valore di font è hardcoded altrove — `ThemeService` legge da qui e inietta `--fontFamily` / `--bs-body-font-family`, e `ImgBuilderService` / `PreviewBuilder` lo usano per Canvas e immagini OG.
+
+Due dizionari, due contesti distinti:
+
+- `WEB_FONTS` → **browser e Canvas.** Stack di font di sistema (System, Georgia, Arial, Verdana…), zero dipendenze esterne: ogni OS usa il suo font nativo, niente file da scaricare.
+- `SERVER_FONTS` → **immagini OG generate da Sharp.** Font fisicamente installati nel container Docker (Roboto, DejaVu, Noto, Liberation).
+
+```typescript
+// font-config.ts — cambiare il default è una riga
+static readonly DEFAULT_WEB_FONT    = FontConfig.WEB_FONTS.System;        // browser + Canvas
+static readonly DEFAULT_SERVER_FONT = FontConfig.SERVER_FONTS.Liberation; // immagini OG
+```
+
+- **Cambiare il font di default:** modifica `DEFAULT_WEB_FONT` e/o `DEFAULT_SERVER_FONT`.
+- **Aggiungere un font web:** aggiungilo a `WEB_FONTS` (nessuna installazione richiesta).
+- **Aggiungere un font server:** aggiungilo a `SERVER_FONTS` **e** installalo nel `Dockerfile`, altrimenti Sharp non lo trova e ripiega sul fallback.
+
+I due default sono volutamente separati perché web e server vivono in ambienti diversi: lo stack di sistema del browser non esiste dentro il container, e i font del container non servono al browser.
 
 ---
 
@@ -1971,6 +1992,27 @@ In produzione (`node server.mjs`), ogni risposta SSR ottiene un nonce casuale a 
 - Rimpiazza `{SCRIPT_NONCE_PLACEHOLDER}` nell'header `Content-Security-Policy`
 - Angular inietta `nonce="..."` su tutti gli `<script>` inline generati in SSR
 - In development (HMR attivo) viene usato `unsafe-inline` (richiesto da webpack HMR)
+
+### Estendere la CSP (domini esterni: mappe, analytics, CDN)
+
+La Content-Security-Policy non è hardcoded nel server: vive in [`security-headers.json`](../security-headers.json) alla radice — **unica sorgente condivisa** letta sia dal backend .NET sia dal Node SSR (il layer che la invia al browser, `security-headers.ts`). La default è restrittiva: `default-src 'self'`, nessun dominio esterno.
+
+Quando integri un servizio di terze parti (tile di una mappa, analytics, font da CDN) il browser blocca le richieste finché non autorizzi il dominio nella direttiva giusta. Si modifica **direttamente `security-headers.json`** — è l'override eccezionale previsto dalla sua `_nota`:
+
+| Cosa integri | Direttiva da estendere |
+| :--- | :--- |
+| fetch/XHR/WebSocket (API esterne, tile mappa) | `connect-src` |
+| `<script>` da CDN | `script-src` (lascia intatto `{SCRIPT_NONCE_PLACEHOLDER}`) |
+| Immagini da host esterni | `img-src` |
+| Font da CDN (es. Google Fonts) | `font-src` (+ `style-src` per il CSS del font) |
+
+Esempio — abilitare Mapbox:
+```json
+"connect-src 'self' https://api.mapbox.com https://events.mapbox.com",
+"script-src 'self' {SCRIPT_NONCE_PLACEHOLDER} https://api.mapbox.com"
+```
+
+Due avvertenze: **non rimuovere `{SCRIPT_NONCE_PLACEHOLDER}`** da `script-src` (è ciò che l'SSR sostituisce col nonce per-request), e `security-headers.json` è un file del **template** — di norma si aggiorna col merge dall'upstream, e l'estensione della CSP è l'unica modifica di progetto attesa al suo interno.
 
 ### Server Fingerprinting Nascosto
 

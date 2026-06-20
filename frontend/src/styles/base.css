@@ -8,7 +8,7 @@
  * Token di colore:
  *   --colorTema          Colore principale del brand (impostato runtime)
  *   --colorBase          Sfondo body
- *   --colorPrimary       Variante scura/WCAG-safe per bottoni/CTA (4.5:1 su bianco)
+ *   --colorPrimary       Variante scura/WCAG-safe per bottoni/CTA (4.5:1 su sfondo pagina chiaro)
  *   --colorPrimaryRgb    Versione RGB di --colorPrimary (per Bootstrap opacity)
  *   --colorPrimaryText   Testo su sfondo --colorPrimary (#fff o #000 per a11y)
  *   --colorLink          Colore link tone-adaptive (Lt: scuro su bianco, Dk: chiaro su scuro)

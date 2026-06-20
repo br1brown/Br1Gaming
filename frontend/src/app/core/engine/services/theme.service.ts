@@ -37,7 +37,7 @@ export interface PaletteTokens {
     colorTema: string;
     /** `#000000` o `#ffffff` — testo a massimo contrasto su `colorTema`. CSS: `--colorTemaText` */
     colorTemaText: '#000000' | '#ffffff';
-    /** Brand scurito finché il contrasto WCAG 4.5:1 su bianco è garantito. Usato per link, bottoni, CTA. CSS: `--colorPrimary` */
+    /** Brand scurito in OKLCH (hue e chroma preservate) finché il contrasto WCAG 4.5:1 sullo sfondo pagina chiaro (`baseLt`) è garantito. Usato per link, bottoni, CTA. CSS: `--colorPrimary` */
     colorPrimary: string;
     /** Tripla RGB di `colorPrimary` (es. `"31, 64, 255"`), per le utility `rgba()` di Bootstrap. CSS: `--colorPrimaryRgb` */
     colorPrimaryRgb: string;
@@ -172,7 +172,7 @@ export class ThemeService {
     /** Signal `#000000` o `#ffffff` — testo a contrasto massimo su `--colorTema`. CSS: `--colorTemaText` */
     readonly colorTemaText: Signal<'#000000' | '#ffffff'>;
     /**
-     * Signal della variante scurita del brand con contrasto WCAG 4.5:1 su sfondo bianco.
+     * Signal della variante scurita del brand con contrasto WCAG 4.5:1 sullo sfondo pagina chiaro reale.
      * Usare per bottoni, CTA e link. CSS: `--colorPrimary`
      */
     readonly colorPrimary: Signal<string>;
@@ -595,7 +595,7 @@ export class ThemeService {
 
         // Sfondo base precomputato — serve come riferimento per i check di contrasto
         // dei colori semantici (findCompliantColor li usa per garantire WCAG 4.5:1).
-        const baseLtHex = ThemeService.oklchToHex(0.970, Math.min(C_t * 0.03, 0.004), H_t);
+        const baseLtHex = ThemeService.computeBaseLt(C_t, H_t);
         const baseDkHex = ThemeService.oklchToHex(0.140, Math.min(C_t * 0.08, 0.010), H_t);
 
         // Link Lt/Dk: stessa hue del brand, L cercata finché ≥ 4.5:1 sul rispettivo
@@ -721,6 +721,17 @@ export class ThemeService {
         };
     }
 
+    /**
+     * Sfondo pagina chiaro reale: off-white con micro-tinta brand (L=0.970, chroma minima).
+     * È il riferimento di contrasto per i token che vi compaiono come testo (`colorPrimary`,
+     * `colorLink`, `mutedText`): più scuro del bianco puro, quindi il caso peggiore in light mode.
+     * Fonte unica della formula — usato sia da `computePalette` (token `colorBaseLt`) sia da
+     * `computeColorPrimary`, così il primary si tara sullo stesso fondo su cui poi vive.
+     */
+    private static computeBaseLt(C: number, H: number): string {
+        return ThemeService.oklchToHex(0.970, Math.min(C * 0.03, 0.004), H);
+    }
+
     // Calcola le 3 varianti subtle/emphasis per un colore semantico dato C e H OKLCH.
     // bg-subtle: sfondo pastello (L alto/basso, C molto bassa) per .alert-*, .bg-*-subtle
     // border-subtle: bordo intermedio per .alert-* border
@@ -823,11 +834,28 @@ export class ThemeService {
 
     // ── Backward-compat static methods ────────────────────────────────────
 
-    /** Scurisce il brand mescolando con nero finché raggiunge WCAG 4.5:1 su sfondo bianco. Fallback `#1a1a1a` se non convergente. */
+    /**
+     * Variante del brand con contrasto WCAG 4.5:1 (AA, testo normale) sullo sfondo pagina chiaro
+     * reale `baseLt`, per bottoni/CTA/link e testo `.text-primary`. Scurisce in OKLCH a hue e
+     * chroma invariati — abbassa solo la luminanza L, partendo da quella del brand, il minimo
+     * indispensabile per raggiungere 4.5:1. A differenza del mix con nero in RGB, NON desatura:
+     * un brand chiaro (es. `#bfffff`) resta una tinta viva invece di virare al grigio spento, e
+     * un brand già conforme viene restituito pressoché intatto invece di essere sovra-scurito.
+     *
+     * Il riferimento è `baseLt` (off-white con micro-tinta brand, L=0.970), NON il bianco puro:
+     * il primary compare anche come testo su quel fondo, che essendo più scuro del bianco
+     * abbassa il contrasto reale (~0.4 in meno) — tararlo sul bianco lascerebbe il testo più
+     * piccolo sotto la soglia AA sulla pagina vera. Stesso ragionamento già applicato a
+     * `colorLink`. Il contrasto WCAG dipende dalla luminanza, non dalla chroma: preservare la
+     * saturazione non costa accessibilità.
+     * Fallback `#1a1a1a` se nessuna L conforme (hue al limite del gamut sRGB).
+     */
     static computeColorPrimary(colorTema: string): string {
-        for (let w = 0.4; w < 0.95; w += 0.05) {
-            const candidate = ThemeService.mixHexColors(colorTema, '#000000', w);
-            if (ThemeService.calcContrastRatio(candidate, '#ffffff') >= 4.5) return candidate;
+        const [L0, C, H] = ThemeService.hexToOklch(colorTema);
+        const bg = ThemeService.computeBaseLt(C, H);
+        for (let L = L0; L >= 0.05; L -= 0.01) {
+            const candidate = ThemeService.oklchToHex(L, C, H);
+            if (ThemeService.calcContrastRatio(candidate, bg) >= 4.5) return candidate;
         }
         return '#1a1a1a';
     }
