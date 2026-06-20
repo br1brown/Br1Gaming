@@ -4,7 +4,7 @@
   "project": {
     "name": "Br1Gaming",
     "version": "2.1.2",
-    "lastModified": "17/06/2026"
+    "lastModified": "20/06/2026"
   },
   "Localization": {
     "DefaultLanguage": "it",
@@ -14,7 +14,7 @@
     "description": {
       "it": "Generatori ignoranti, avventure interattive, universo Br1."
     },
-    "colorTema": "#52ffb7"
+    "colorTema": "#bfffff"
   },
   "Custom": {
     "MapboxToken": ""
