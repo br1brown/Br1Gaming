@@ -285,6 +285,9 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
     };
     const Sound = (() => {
         let ac: AudioContext | null = null, gSfx: GainNode | null = null, gAmb: GainNode | null = null, amb: AudioBufferSourceNode | null = null, muted = false;
+        // Pausa di gioco (ESC/pulsante): sospende l'INTERO contesto audio (ambiente incluso) e
+        // impedisce a unlock() di riattivarlo finché dura la pausa (ESC richiama unlock()).
+        let paused = false;
         const buf: Record<string, AudioBuffer> = {};
         async function dec(name: string, id: string): Promise<void> {
             if (!id || !ac) return;
@@ -292,7 +295,7 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
         }
         function startAmbient(): void { if (!ac || !gAmb || muted || amb || !buf['ambient']) return; amb = ac.createBufferSource(); amb.buffer = buf['ambient']; amb.loop = true; amb.connect(gAmb); amb.start(); }
         function unlock(): void {                                    // va chiamato dentro un gesto (tap): sblocca l'audio su mobile
-            if (ac) { if (ac.state === 'suspended') void ac.resume(); return; }
+            if (ac) { if (ac.state === 'suspended' && !paused) void ac.resume(); return; }   // in pausa NON riattivare
             const AC = (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext }).AudioContext
                 || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
             if (!AC) return;
@@ -302,7 +305,13 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
         }
         function play(name: string): void { if (!ac || muted || !gSfx || !buf[name]) return; const s = ac.createBufferSource(); s.buffer = buf[name]; s.connect(gSfx); s.start(); }
         function toggle(): boolean { muted = !muted; if (gSfx) gSfx.gain.value = muted ? 0 : 0.9; if (gAmb) gAmb.gain.value = muted ? 0 : 0.05; if (!muted) startAmbient(); return muted; }
-        return { unlock, play, toggle, isMuted: (): boolean => muted };
+        // Pausa/ripresa di gioco: sospende o riprende tutto il grafo audio (ambiente + sfx). Idempotente.
+        function setPaused(p: boolean): void { paused = p; if (!ac) return; if (p) { if (ac.state === 'running') void ac.suspend(); } else if (ac.state === 'suspended') void ac.resume(); }
+        // Teardown all'uscita dalla pagina: ferma l'ambiente e CHIUDE il contesto audio. Senza questo
+        // il loop continua dopo aver lasciato la pagina e ogni rientro creerebbe un nuovo AudioContext
+        // (leak + limite del browser sul numero di contesti).
+        function dispose(): void { paused = false; try { amb?.stop(); } catch { /* già fermo */ } amb = null; if (ac) { void ac.close().catch(() => { /* già chiuso */ }); ac = null; } gSfx = null; gAmb = null; }
+        return { unlock, play, toggle, isMuted: (): boolean => muted, setPaused, dispose };
     })();
 
     // ---- canvas ----
@@ -760,6 +769,7 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
         if (won || lost || introOpen || serveOpen || overlayOpen || welcomeOpen) return;   // niente pausa su pannelli o partita finita
         userPaused = !userPaused;
         if (userPaused) dropInputs();   // niente movimento residuo alla ripresa
+        Sound.setPaused(userPaused);    // in pausa tace anche l'ambiente sonoro; alla ripresa torna
         hooks.onPause(userPaused);
     }
 
@@ -1252,6 +1262,6 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
         isMuted: () => Sound.isMuted(),
         togglePause: () => { Sound.unlock(); togglePause(); },
         dropInputs,
-        dispose: () => { disposed = true; if (rafId) cancelAnimationFrame(rafId); },
+        dispose: () => { disposed = true; if (rafId) cancelAnimationFrame(rafId); Sound.dispose(); },
     };
 }
