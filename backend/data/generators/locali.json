@@ -6,57 +6,198 @@
   },
   "flatLists": {
     "titoli": [
-      "Baretto",
-      "Chiosco",
-      "Café",
-      "Caffetteria",
-      "Pizzeria",
-      "Bottega",
-      "Bar",
-      "Bookique"
+      {
+        "text": "Baretto",
+        "score": 2
+      },
+      {
+        "text": "Chiosco",
+        "score": 2
+      },
+      {
+        "text": "Café",
+        "score": 2
+      },
+      {
+        "text": "Caffetteria",
+        "score": 2
+      },
+      {
+        "text": "Pizzeria",
+        "score": 2
+      },
+      {
+        "text": "Bottega",
+        "score": 2
+      },
+      {
+        "text": "Bar",
+        "score": 2
+      },
+      {
+        "text": "Bookique",
+        "score": 2
+      }
     ],
     "locali-core": [
-      "al crocevia",
-      "D'Azeglio [3-180]",
-      "Dolomiti",
-      "Garibaldi",
-      "Il Sultano",
-      "Il marcio",
-      "Italia mia",
-      "Italia",
-      "LUME",
-      "Mazzini",
-      "Moderno",
-      "Roxy",
-      "Tolomeo",
-      "Venezia",
-      "Viva Italia",
-      "all'angolo",
-      "braci e abbracci",
-      "braciami ancora",
-      "carpe diem",
-      "cavour",
-      "centrale",
-      "civico [3-180]",
-      "da [nome]",
-      "del Corso",
-      "delle Bontà",
-      "e non solo",
-      "enigmi",
-      "experience cocktail",
-      "il bivio",
-      "il profano",
-      "il ritrovo",
-      "jolly",
-      "l'angolo",
-      "mille idee",
-      "sapori antichi",
-      "sapori autentici",
-      "sport",
-      "spuntino"
+      {
+        "text": "al crocevia",
+        "score": 2
+      },
+      {
+        "text": "D'Azeglio [3-180]",
+        "score": 3
+      },
+      {
+        "text": "Dolomiti",
+        "score": 2
+      },
+      {
+        "text": "Garibaldi",
+        "score": 2
+      },
+      {
+        "text": "Il Sultano",
+        "score": 2
+      },
+      {
+        "text": "Il marcio",
+        "score": 2
+      },
+      {
+        "text": "Italia mia",
+        "score": 2
+      },
+      {
+        "text": "Italia",
+        "score": 2
+      },
+      {
+        "text": "LUME",
+        "score": 2
+      },
+      {
+        "text": "Mazzini",
+        "score": 2
+      },
+      {
+        "text": "Moderno",
+        "score": 2
+      },
+      {
+        "text": "Roxy",
+        "score": 2
+      },
+      {
+        "text": "Tolomeo",
+        "score": 2
+      },
+      {
+        "text": "Venezia",
+        "score": 2
+      },
+      {
+        "text": "Viva Italia",
+        "score": 2
+      },
+      {
+        "text": "all'angolo",
+        "score": 2
+      },
+      {
+        "text": "braci e abbracci",
+        "score": 3
+      },
+      {
+        "text": "braciami ancora",
+        "score": 2
+      },
+      {
+        "text": "carpe diem",
+        "score": 2
+      },
+      {
+        "text": "cavour",
+        "score": 2
+      },
+      {
+        "text": "centrale",
+        "score": 2
+      },
+      {
+        "text": "civico [3-180]",
+        "score": 3
+      },
+      {
+        "text": "da [nome]",
+        "score": 3
+      },
+      {
+        "text": "del Corso",
+        "score": 2
+      },
+      {
+        "text": "delle Bontà",
+        "score": 2
+      },
+      {
+        "text": "e non solo",
+        "score": 3
+      },
+      {
+        "text": "enigmi",
+        "score": 2
+      },
+      {
+        "text": "experience cocktail",
+        "score": 2
+      },
+      {
+        "text": "il bivio",
+        "score": 2
+      },
+      {
+        "text": "il profano",
+        "score": 2
+      },
+      {
+        "text": "il ritrovo",
+        "score": 2
+      },
+      {
+        "text": "jolly",
+        "score": 2
+      },
+      {
+        "text": "l'angolo",
+        "score": 2
+      },
+      {
+        "text": "mille idee",
+        "score": 2
+      },
+      {
+        "text": "sapori antichi",
+        "score": 2
+      },
+      {
+        "text": "sapori autentici",
+        "score": 2
+      },
+      {
+        "text": "sport",
+        "score": 2
+      },
+      {
+        "text": "spuntino",
+        "score": 2
+      }
     ]
   },
   "core": [
-    "[titoli] [locali-core]"
+    {
+      "text": "[titoli] [locali-core]",
+      "score": 2
+    }
   ]
 }

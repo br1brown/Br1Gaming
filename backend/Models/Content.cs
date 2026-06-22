@@ -62,17 +62,22 @@ public sealed record GeneratorInfoDto(string Slug, string Name, string? Descript
 /// </summary>
 /// <param name="Text">Testo piano, senza formattazione (per speech e condivisione).</param>
 /// <param name="Markdown">Testo in Markdown.</param>
-public sealed record GenerationResult(string Text, string Markdown);
+/// <param name="Score">
+/// Peso del testo (rarità/notabilità): somma, su ogni frase, del punteggio base della frase
+/// più il prodotto dei valori degli elementi che ne hanno riempito i segnaposto. Il significato
+/// dipende dal generatore (per incel/mbeb quanto è estremo; per i locali quanto è raro un nome).
+/// </param>
+public sealed record GenerationResult(string Text, string Markdown, double Score);
 
 // ── Modello dati dei generatori ───────────────────────────────────────
 
 /// <summary>Dati condivisi tra tutti i generatori (caricati da <c>data/generators/shared.json</c>).</summary>
-/// <param name="FlatLists">Dizionari di parole comuni, riusati dai placeholder di ogni generatore.</param>
+/// <param name="FlatLists">Dizionari di parole comuni (con punteggio opzionale), riusati dai placeholder di ogni generatore.</param>
 /// <param name="PolicyGroups">Gruppi di tag mutuamente esclusivi referenziabili per nome.</param>
 /// <param name="ComposedLists">Liste derivate, composte concatenando altre FlatLists.</param>
 /// <param name="AgeAliases">Mappa alias → range d'età (es. <c>bambino</c> → <c>[5-12]</c>).</param>
 public record SharedData(
-    Dictionary<string, List<string>> FlatLists,
+    Dictionary<string, List<ScoredItem>> FlatLists,
     Dictionary<string, List<string>> PolicyGroups,
     Dictionary<string, List<string>> ComposedLists,
     Dictionary<string, string> AgeAliases);
@@ -106,6 +111,13 @@ public class GeneratorData
 
         /// <summary>Separatori estratti a caso tra una frase e l'altra.</summary>
         public List<string>? Separators { get; init; }
+
+        /// <summary>
+        /// Soglia minima di peso/rarità per orchestrare le generazioni: se il testo non raggiunge
+        /// questo punteggio viene rigenerato, fino a un tetto di tentativi (poi si tiene il migliore).
+        /// Assente o 0 = nessuna soglia. In una composizione vince la soglia più alta tra i generatori.
+        /// </summary>
+        public double? MinScore { get; init; }
     }
 
     /// <summary>Quota di frasi "identitarie" da garantire quando il generatore è ospite di un altro.</summary>
@@ -117,8 +129,8 @@ public class GeneratorData
         /// <summary>Numero massimo di frasi da iniettare.</summary>
         public int Max { get; init; }
 
-        /// <summary>Frasi candidate all'iniezione.</summary>
-        public List<string> Phrases { get; init; } = [];
+        /// <summary>Frasi candidate all'iniezione (con punteggio opzionale).</summary>
+        public List<ScoredItem> Phrases { get; init; } = [];
 
         /// <summary>Costruttore per la deserializzazione JSON.</summary>
         public RequiredInjectData() { }
@@ -127,7 +139,7 @@ public class GeneratorData
         /// <param name="min">Numero minimo di frasi da iniettare.</param>
         /// <param name="max">Numero massimo di frasi da iniettare.</param>
         /// <param name="phrases">Frasi candidate all'iniezione.</param>
-        public RequiredInjectData(int min, int max, List<string> phrases)
+        public RequiredInjectData(int min, int max, List<ScoredItem> phrases)
         {
             Min = min;
             Max = max;
@@ -153,11 +165,11 @@ public class GeneratorData
     /// <summary>Frase di chiusura del testo (template con placeholder), o null.</summary>
     public string? Chiusura { get; set; }
 
-    /// <summary>Frasi centrali del generatore (template con placeholder).</summary>
-    public List<string> Core { get; set; } = [];
+    /// <summary>Frasi centrali del generatore (template con placeholder, con punteggio opzionale).</summary>
+    public List<ScoredItem> Core { get; set; } = [];
 
-    /// <summary>Dizionari di parole locali del generatore, fusi con quelli condivisi.</summary>
-    public Dictionary<string, List<string>> FlatLists { get; set; } = [];
+    /// <summary>Dizionari di parole locali del generatore (con punteggio opzionale), fusi con quelli condivisi.</summary>
+    public Dictionary<string, List<ScoredItem>> FlatLists { get; set; } = [];
 
     /// <summary>Gruppi di tag mutuamente esclusivi propri del generatore.</summary>
     public Dictionary<string, List<string>>? PolicyGroups { get; set; }

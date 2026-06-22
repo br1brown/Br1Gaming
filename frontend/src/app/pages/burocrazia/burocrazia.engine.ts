@@ -109,7 +109,7 @@ export interface GameController {
 interface Vec { x: number; y: number; }
 interface GNode { ix: number; iy: number; }
 type Dir = Vec;
-interface Car { ix: number; iy: number; dir: Dir; tx: number; ty: number; prog: number; pending: Dir | null; color: string; ci: number; ti: number; x: number; y: number; turning: boolean; lane: number; spd: number; }
+interface Car { ix: number; iy: number; dir: Dir; pdir: Dir; tx: number; ty: number; prog: number; pending: Dir | null; color: string; ci: number; ti: number; x: number; y: number; turning: boolean; lane: number; spd: number; }
 interface OfficeGeom { ix: number; iy: number; bx: number; by: number; dx: number; dy: number; }
 interface Building { cx: number; cy: number; s: number; h: number; colIdx: number; lit: boolean; seed: number; typeIdx: number; }
 interface Prop { kind: 'tree' | 'bed' | 'lamp'; x: number; y: number; seed: number; }
@@ -139,6 +139,9 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
         carScale: 0.85,            // dimensione sprite auto
         carTypeSpd: { sedan: 0.86, citycar: 0.94, coupe: 1.05, minivan: 0.78, truck: 0.68 } as Record<string, number>,
         lanes: 2, laneOff: 15, laneGap: 26, carHalf: 12, sidewalkW: 10,   // geometria carreggiata → larghezza strada
+        turnSmooth: 0.22,          // frazione di segmento usata per arrotondare le svolte (curva fluida agli incroci)
+        roundaboutCount: 5,        // quanti incroci a 4 vie diventano mini-rotonde (0 = disattiva)
+        roundaboutIsland: 30,      // raggio (world) dell'isola centrale della rotonda
         gapSame: 0.34,             // distanza di sicurezza front-to-back (frazione di segmento)
         intersectApproachPad: 36,  // zona di "contesa" incrocio (oltre ROAD_HALF)
         intersectHoldPad: 6,       // margine linea di stop (oltre ROAD_HALF + carHalf)
@@ -343,6 +346,7 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
     const eKey = (a: GNode, b: GNode): string => { const A = kk(a.ix, a.iy), B = kk(b.ix, b.iy); return A < B ? A + '|' + B : B + '|' + A; };
 
     let edgeSet!: Set<string>, edgeArr!: [GNode, GNode][], buildings!: Building[], props!: Prop[];
+    let roundabouts = new Set<string>();   // chiavi "ix,iy" dei nodi che sono mini-rotonde
     function generateCity(): void {
         const N = COLS * ROWS, par = [...Array(N).keys()];
         const find = (x: number): number => { while (par[x] !== x) { par[x] = par[par[x]]; x = par[x]; } return x; };
@@ -416,6 +420,19 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
         };
         OFFICES.forEach(o => { const r = place(o.ix, o.iy); o.bx = r.bx; o.by = r.by; o.dx = r.dx; o.dy = r.dy; });
         { const r = place(HOME.ix, HOME.iy); HOME.bx = r.bx; HOME.by = r.by; HOME.dx = r.dx; HOME.dy = r.dy; }
+
+        // Mini-rotonde: scegli alcuni incroci a 4 vie (interni, lontani da uffici/casa), distribuiti uniformemente.
+        roundabouts = new Set();
+        if (TUNING.roundaboutCount > 0) {
+            const busy = new Set<string>([HOME.ix + ',' + HOME.iy, ...OFFICES.map(o => o.ix + ',' + o.iy)]);
+            const fourWay: string[] = [];
+            for (let i = 2; i < lastX - 1; i++) for (let j = 2; j < lastY - 1; j++) {
+                if (busy.has(i + ',' + j)) continue;
+                if (DIR_LIST.every(d => neighbor(i, j, d))) fourWay.push(i + ',' + j);
+            }
+            const step = Math.max(1, Math.floor(fourWay.length / TUNING.roundaboutCount));
+            for (let k = 0; k < fourWay.length && roundabouts.size < TUNING.roundaboutCount; k += step) roundabouts.add(fourWay[k]);
+        }
     }
     const neighbor = (ix: number, iy: number, d: Dir): GNode | null => {
         const nx = ix + d.x, ny = iy + d.y;
@@ -481,7 +498,7 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
         do { ix = randInt(COLS); iy = randInt(ROWS); opts = DIR_LIST.filter(d => neighbor(ix, iy, d)); tries++; } while (!opts.length && tries < 80);
         const dir = opts[randInt(opts.length)], tt = neighbor(ix, iy, dir)!;
         const ci = s % carColors.length, ti = randInt(BURO_CAR_TYPES.length);
-        return { ix, iy, dir, tx: tt.ix, ty: tt.iy, prog: Math.random() * 0.4, pending: null, color: carColors[ci], ci, ti, x: gx(ix), y: gy(iy), turning: false, lane: randInt(LANES), spd: CAR_TYPE_SPD[BURO_CAR_TYPES[ti]] ?? 0.9 };
+        return { ix, iy, dir, pdir: dir, tx: tt.ix, ty: tt.iy, prog: Math.random() * 0.4, pending: null, color: carColors[ci], ci, ti, x: gx(ix), y: gy(iy), turning: false, lane: randInt(LANES), spd: CAR_TYPE_SPD[BURO_CAR_TYPES[ti]] ?? 0.9 };
     }
     function decide(ix: number, iy: number, cur: Dir, toward: GNode | null, away = false): Dir {
         const valid = DIR_LIST.filter(d => d !== rev(cur) && neighbor(ix, iy, d));
@@ -494,11 +511,53 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
         if (valid.includes(cur) && Math.random() < 0.45) return cur;
         const turns = valid.filter(d => d !== cur); return turns.length ? turns[randInt(turns.length)] : cur;
     }
+    // Offset di corsia: normale DESTRA al senso di marcia (-dir.y, +dir.x) → guida a destra.
+    const perpOff = (d: Dir, off: number): Vec => ({ x: -d.y * off, y: d.x * off });
+    const TURN_SMOOTH = TUNING.turnSmooth;   // metà curva su questo segmento, metà sul successivo
+    // Rotonde: raggio dell'isola centrale e raggio dell'anello su cui scorrono le auto attorno ad essa.
+    const RB_ISLAND = TUNING.roundaboutIsland, RB_RING = Math.min(ROAD_HALF - 2, RB_ISLAND + CAR_HALF + 6);
+    // Spinge la posizione dell'auto FUORI dall'isola, lungo il raggio (cioè sul lato in cui già viaggia per
+    // via dell'offset destro): così l'auto gira intorno all'isola tenendola a sinistra, senza salti (la
+    // correzione è continua: al bordo dell'anello lo spostamento è nullo). Solo posizione, nessuna logica.
+    function roundaboutClamp(c: Car): void {
+        const check = (ix: number, iy: number): void => {
+            if (!roundabouts.has(ix + ',' + iy)) return;
+            const nx = gx(ix), ny = gy(iy), dx = c.x - nx, dy = c.y - ny, d = Math.hypot(dx, dy);
+            if (d < RB_RING && d > 0.01) { const k = RB_RING / d; c.x = nx + dx * k; c.y = ny + dy * k; }
+        };
+        check(c.ix, c.iy); check(c.tx, c.ty);
+    }
+    // Raccordo della svolta: Bézier quadratica E→C→X attorno al nodo (nodeX,nodeY), dal verso d al verso d2.
+    // I due capi giacciono sulle corsie dritte (offset perpendicolare); il controllo C è l'angolo interno
+    // (somma dei due offset), così la curva passa raso all'incrocio invece di "saltare".
+    function cornerPos(c: Car, nodeX: number, nodeY: number, d: Dir, d2: Dir, u: number, off: number): void {
+        const s = TURN_SMOOTH * CELL, pa = perpOff(d, off), pb = perpOff(d2, off);
+        const ex = nodeX - d.x * s + pa.x, ey = nodeY - d.y * s + pa.y;     // capo in entrata
+        const xx = nodeX + d2.x * s + pb.x, xy = nodeY + d2.y * s + pb.y;   // capo in uscita
+        const cx = nodeX + pa.x + pb.x, cy = nodeY + pa.y + pb.y;           // controllo = angolo interno
+        const w = (1 - u) * (1 - u), m = 2 * (1 - u) * u, e = u * u;
+        c.x = w * ex + m * cx + e * xx;
+        c.y = w * ey + m * cy + e * xy;
+    }
     function placeCar(c: Car): void {
-        const ax = gx(c.ix), ay = gy(c.iy), p = clamp(c.prog, 0, 1);
+        const ax = gx(c.ix), ay = gy(c.iy), bx = gx(c.tx), by = gy(c.ty), p = clamp(c.prog, 0, 1);
         const off = LANE_OFF + c.lane * LANE_GAP;   // corsie impilate verso l'esterno sul proprio lato di marcia
-        c.x = ax + (gx(c.tx) - ax) * p + c.dir.y * off;
-        c.y = ay + (gy(c.ty) - ay) * p - c.dir.x * off;
+        // USCITA dalla curva: ultimo tratto prima del nodo, con svolta a 90° già decisa (pending) → arrotonda.
+        if (c.pending && c.pending !== c.dir && c.pending !== rev(c.dir) && p > 1 - TURN_SMOOTH && neighbor(c.tx, c.ty, c.pending)) {
+            cornerPos(c, bx, by, c.dir, c.pending, (p - (1 - TURN_SMOOTH)) / (2 * TURN_SMOOTH), off);   // u: 0 → 0.5
+        }
+        // ENTRATA nella curva: primo tratto dopo aver svoltato (pdir ≠ dir a 90°) → completa l'arco.
+        else if (c.pdir !== c.dir && c.pdir !== rev(c.dir) && p < TURN_SMOOTH) {
+            cornerPos(c, ax, ay, c.pdir, c.dir, 0.5 + p / (2 * TURN_SMOOTH), off);                      // u: 0.5 → 1
+        }
+        // Tratto dritto.
+        else {
+            const pp = perpOff(c.dir, off);
+            c.x = ax + (bx - ax) * p + pp.x;
+            c.y = ay + (by - ay) * p + pp.y;
+        }
+        // Mini-rotonde: se l'auto è vicino a un nodo-rotonda, scansa l'isola centrale.
+        if (roundabouts.size) roundaboutClamp(c);
     }
     function updateCar(c: Car, dt: number): void {
         let ax = gx(c.ix), ay = gy(c.iy); const seg = Math.hypot(gx(c.tx) - ax, gy(c.ty) - ay) || 1;
@@ -513,7 +572,7 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
         if (c.prog >= 1) {
             c.ix = c.tx; c.iy = c.ty; let nd = c.pending || decide(c.ix, c.iy, c.dir, toward, away);
             if (!neighbor(c.ix, c.iy, nd)) nd = decide(c.ix, c.iy, c.dir, toward, away);
-            c.dir = nd; const tt = (neighbor(c.ix, c.iy, nd) || neighbor(c.ix, c.iy, rev(nd)))!;
+            c.pdir = c.dir; c.dir = nd; const tt = (neighbor(c.ix, c.iy, nd) || neighbor(c.ix, c.iy, rev(nd)))!;
             c.tx = tt.ix; c.ty = tt.iy; c.prog -= 1; c.pending = null; ax = gx(c.ix); ay = gy(c.iy);
         }
         placeCar(c);
@@ -525,6 +584,22 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
     function spaceCars(): void {
         const lanes = new Map<string, Car[]>();
         for (const c of cars) { const key = c.ix + ',' + c.iy + '>' + c.tx + ',' + c.ty + '#' + c.lane; const g = lanes.get(key); if (g) g.push(c); else lanes.set(key, [c]); }
+        
+        for (const c of cars) {
+            if (c.prog > 1 - GAP_SAME && c.pending) {
+                const nextKey = c.tx + ',' + c.ty + '>' + (c.tx + c.pending.x) + ',' + (c.ty + c.pending.y) + '#' + c.lane;
+                const nextGroup = lanes.get(nextKey);
+                if (nextGroup) {
+                    let firstAhead: Car | null = null;
+                    for (const nc of nextGroup) { if (!firstAhead || nc.prog < firstAhead.prog) firstAhead = nc; }
+                    if (firstAhead) {
+                        const dist = (1 - c.prog) + firstAhead.prog;
+                        if (dist < GAP_SAME) { c.prog = Math.max(0, 1 - (GAP_SAME - firstAhead.prog)); placeCar(c); }
+                    }
+                }
+            }
+        }
+
         lanes.forEach(g => {
             if (g.length < 2) return;
             g.sort((a, b) => a.prog - b.prog);
@@ -1005,6 +1080,14 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
         const BAND = RW + 2 * SIDEWALK_W * zoom;                 // + marciapiedi ai lati
         edgeArr.forEach(([a, b]) => isoLine({ x: gx(a.ix), y: gy(a.iy) }, { x: gx(b.ix), y: gy(b.iy) }, BAND, pal.sidewalk));
         edgeArr.forEach(([a, b]) => isoLine({ x: gx(a.ix), y: gy(a.iy) }, { x: gx(b.ix), y: gy(b.iy) }, RW, pal.road));
+        // Isole delle mini-rotonde: cordolo + verde al centro del nodo (sotto auto e sprite).
+        roundabouts.forEach(key => {
+            const [ix, iy] = key.split(',').map(Number);
+            const c = iso(gx(ix), gy(iy), 0); if (!onScreen(c, 80)) return;
+            const rx = RB_ISLAND * zoom, ry = rx * 0.5;
+            ctx.fillStyle = pal.sidewalk; ctx.beginPath(); ctx.ellipse(c.x, c.y, rx, ry, 0, 0, 7); ctx.fill();
+            ctx.fillStyle = vis('#24502c'); ctx.beginPath(); ctx.ellipse(c.x, c.y, rx * 0.68, ry * 0.68, 0, 0, 7); ctx.fill();
+        });
         const MARK = 'rgba(255,255,255,0.85)';
         // Mezzeria: linea bianca SOTTILE e TRATTEGGIATA al centro della carreggiata, accorciata agli
         // estremi così non invade gli incroci. Tratteggio + sottigliezza evitano il groviglio di righe
@@ -1144,13 +1227,17 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
             const sf = zoom / ZOOM_BASE, NEAR2 = ARROW_NEAR * ARROW_NEAR;
             ctx.save(); ctx.lineCap = 'round';
             for (const c of cars) {
-                if (!c.turning || !c.pending) continue;
+                let pd: Dir | null = null;
+                if (c.pending && c.pending !== c.dir) pd = c.pending;
+                else if (c.pdir !== c.dir && c.pdir !== rev(c.dir) && c.prog < TURN_SMOOTH) pd = rev(c.pdir);
+
+                if (!pd) continue;
                 if (c !== player.riding && c !== aimTarget) {
                     const dx = c.x - player.x, dy = c.y - player.y;
                     if (dx * dx + dy * dy > NEAR2) continue;            // solo auto a tiro di salto
                 }
                 if (!onScreen(iso(c.x, c.y, 0), 60)) continue;
-                const horiz = c.dir.x !== 0, hx = horiz ? 23 : 12, hy = horiz ? 12 : 23, pd = c.pending;
+                const horiz = c.dir.x !== 0, hx = horiz ? 23 : 12, hy = horiz ? 12 : 23;
                 let e1: Vec, e2: Vec;
                 if (horiz) { const sy = c.y + pd.y * hy; e1 = iso(c.x - hx, sy, 9); e2 = iso(c.x + hx, sy, 9); }
                 else { const sx = c.x + pd.x * hx; e1 = iso(sx, c.y - hy, 9); e2 = iso(sx, c.y + hy, 9); }

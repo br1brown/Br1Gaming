@@ -36,123 +36,438 @@
   ],
   "flatLists": {
     "epiteti": [
-      "[parolaccie-m] di aspirante pilota",
-      "[parolaccie-m] di guidatore folle",
-      "pilota da corsa mancato",
-      "[parolaccie-m] di spericolato",
-      "amante della velocità",
-      "aspirante stuntman",
-      "[parolaccie-m] di apprendista autista",
-      "[parolaccie-m] di pilota improvvisato",
-      "[parolaccie-m] di distratto",
-      "[parolaccie-m] di pezzo di merda",
-      "coglione",
-      "bimbominkia [parolaccie-m]",
-      "cafone",
-      "figlio di mignotta",
-      "quaquaraquà",
-      "imbecille cronico",
-      "disastro su gomma",
-      "[parolaccie-m] di cervello in panne... altro che la macchina",
-      "pericolo ambulante",
-      "pericolo pubblico",
-      "[parolaccie-m] di pirata della strada",
-      "folle",
-      "[parolaccie-m] di ritardato mentale",
-      "[parolaccie-m] di assassino",
-      "caos su ruote",
-      "[parolaccie-m] di terrorista del traffico"
+      {
+        "text": "[parolaccie-m] di aspirante pilota",
+        "score": 4
+      },
+      {
+        "text": "[parolaccie-m] di guidatore folle",
+        "score": 4
+      },
+      {
+        "text": "pilota da corsa mancato",
+        "score": 3
+      },
+      {
+        "text": "[parolaccie-m] di spericolato",
+        "score": 4
+      },
+      {
+        "text": "amante della velocità",
+        "score": 3
+      },
+      {
+        "text": "aspirante stuntman",
+        "score": 2
+      },
+      {
+        "text": "[parolaccie-m] di apprendista autista",
+        "score": 4
+      },
+      {
+        "text": "[parolaccie-m] di pilota improvvisato",
+        "score": 4
+      },
+      {
+        "text": "[parolaccie-m] di distratto",
+        "score": 4
+      },
+      {
+        "text": "[parolaccie-m] di pezzo di merda",
+        "score": 4
+      },
+      {
+        "text": "coglione",
+        "score": 2
+      },
+      {
+        "text": "bimbominkia [parolaccie-m]",
+        "score": 3
+      },
+      {
+        "text": "cafone",
+        "score": 2
+      },
+      {
+        "text": "figlio di mignotta",
+        "score": 3
+      },
+      {
+        "text": "quaquaraquà",
+        "score": 2
+      },
+      {
+        "text": "imbecille cronico",
+        "score": 2
+      },
+      {
+        "text": "disastro su gomma",
+        "score": 3
+      },
+      {
+        "text": "[parolaccie-m] di cervello in panne... altro che la macchina",
+        "score": 4
+      },
+      {
+        "text": "pericolo ambulante",
+        "score": 2
+      },
+      {
+        "text": "pericolo pubblico",
+        "score": 2
+      },
+      {
+        "text": "[parolaccie-m] di pirata della strada",
+        "score": 4
+      },
+      {
+        "text": "folle",
+        "score": 2
+      },
+      {
+        "text": "[parolaccie-m] di ritardato mentale",
+        "score": 4
+      },
+      {
+        "text": "[parolaccie-m] di assassino",
+        "score": 4
+      },
+      {
+        "text": "caos su ruote",
+        "score": 3
+      },
+      {
+        "text": "[parolaccie-m] di terrorista del traffico",
+        "score": 4
+      }
     ],
     "luoghi": [
-      "in una [parolaccie-m] di lotteria",
-      "al [parolaccie-m] di mercato",
-      "in un [parolaccie-m] di circo",
-      "in un [parolaccie-m] di videogame",
-      "in una pista da corsa",
-      "in un [parolaccie-m] di parco giochi",
-      "in un [parolaccie-m] di film d'azione",
-      "nei simulatori di guida",
-      "in un [parolaccie-m] di gioco di realtà virtuale",
-      "da un [parolaccie-m] di venditore di tappeti volanti",
-      "in un [parolaccie-m] di mercatino dell'usato",
-      "in un [parolaccie-m] di tendone da circo",
-      "in una [parolaccie-m] di pista da corsa fatta in casa",
-      "in un [parolaccie-m] di girone infernale",
-      "nelle quinte di un [parolaccie-m] di film d'azione di terza categoria",
-      "in un [parolaccie-m] di simulatore di guida con il volante storto",
-      "in un [parolaccie-m] di arcade degli anni '80"
+      {
+        "text": "in una [parolaccie-m] di lotteria",
+        "score": 4
+      },
+      {
+        "text": "al [parolaccie-m] di mercato",
+        "score": 4
+      },
+      {
+        "text": "in un [parolaccie-m] di circo",
+        "score": 4
+      },
+      {
+        "text": "in un [parolaccie-m] di videogame",
+        "score": 4
+      },
+      {
+        "text": "in una pista da corsa",
+        "score": 3
+      },
+      {
+        "text": "in un [parolaccie-m] di parco giochi",
+        "score": 4
+      },
+      {
+        "text": "in un [parolaccie-m] di film d'azione",
+        "score": 4
+      },
+      {
+        "text": "nei simulatori di guida",
+        "score": 3
+      },
+      {
+        "text": "in un [parolaccie-m] di gioco di realtà virtuale",
+        "score": 4
+      },
+      {
+        "text": "da un [parolaccie-m] di venditore di tappeti volanti",
+        "score": 4
+      },
+      {
+        "text": "in un [parolaccie-m] di mercatino dell'usato",
+        "score": 4
+      },
+      {
+        "text": "in un [parolaccie-m] di tendone da circo",
+        "score": 4
+      },
+      {
+        "text": "in una [parolaccie-m] di pista da corsa fatta in casa",
+        "score": 4
+      },
+      {
+        "text": "in un [parolaccie-m] di girone infernale",
+        "score": 4
+      },
+      {
+        "text": "nelle quinte di un [parolaccie-m] di film d'azione di terza categoria",
+        "score": 4
+      },
+      {
+        "text": "in un [parolaccie-m] di simulatore di guida con il volante storto",
+        "score": 4
+      },
+      {
+        "text": "in un [parolaccie-m] di arcade degli anni '80",
+        "score": 4
+      }
     ],
     "dimenticati": [
-      "il [parolaccie-m] di buonsenso",
-      "la [parolaccie-m] di vista",
-      "il [parolaccie-m] di cervello"
+      {
+        "text": "il [parolaccie-m] di buonsenso",
+        "score": 4
+      },
+      {
+        "text": "la [parolaccie-f] di vista",
+        "score": 4
+      },
+      {
+        "text": "il [parolaccie-m] di cervello",
+        "score": 4
+      }
     ],
     "azioni": [
-      "ritornare alla [parolaccie-f] di scuola guida",
-      "aver voglia prendere qualche [parolaccie-m] di lezione in più",
-      "smettere di guidare quella [parolaccie-m] di macchina",
-      "scendere dalla [parolaccie-m] di macchina e farti investire",
-      "aver invertito il [parolaccie-m] di acceleratore con il fottuto freno"
+      {
+        "text": "ritornare alla [parolaccie-f] di scuola guida",
+        "score": 4
+      },
+      {
+        "text": "aver voglia prendere qualche [parolaccie-m] di lezione in più",
+        "score": 4
+      },
+      {
+        "text": "smettere di guidare quella [parolaccie-m] di macchina",
+        "score": 4
+      },
+      {
+        "text": "scendere dalla [parolaccie-m] di macchina e farti investire",
+        "score": 4
+      },
+      {
+        "text": "aver invertito il [parolaccie-m] di acceleratore con il fottuto freno",
+        "score": 4
+      }
     ],
     "parolaccie-m": [
-      "cazzo",
-      "fottuto",
-      "schifoso",
-      "merdoso",
-      "merda",
-      "stronzo",
-      "porco",
-      "coglione",
-      "minchia",
-      "testa di cazzo",
-      "bastardo",
-      "figlio di p-",
-      "pezzo",
-      "schifo",
-      "cacato",
-      "incazzato",
-      "rompicazzo",
-      "cazzone",
-      "po-c--io",
-      "maledetto"
+      {
+        "text": "cazzo",
+        "score": 2
+      },
+      {
+        "text": "fottuto",
+        "score": 2
+      },
+      {
+        "text": "schifoso",
+        "score": 2
+      },
+      {
+        "text": "merdoso",
+        "score": 2
+      },
+      {
+        "text": "merda",
+        "score": 2
+      },
+      {
+        "text": "stronzo",
+        "score": 2
+      },
+      {
+        "text": "porco",
+        "score": 2
+      },
+      {
+        "text": "coglione",
+        "score": 2
+      },
+      {
+        "text": "minchia",
+        "score": 2
+      },
+      {
+        "text": "testa di cazzo",
+        "score": 3
+      },
+      {
+        "text": "bastardo",
+        "score": 2
+      },
+      {
+        "text": "figlio di p-",
+        "score": 3
+      },
+      {
+        "text": "pezzo",
+        "score": 2
+      },
+      {
+        "text": "schifo",
+        "score": 2
+      },
+      {
+        "text": "cacato",
+        "score": 2
+      },
+      {
+        "text": "rincoglionito",
+        "score": 2
+      },
+      {
+        "text": "rompicazzo",
+        "score": 2
+      },
+      {
+        "text": "cazzone",
+        "score": 2
+      },
+      {
+        "text": "po-c--io",
+        "score": 2
+      },
+      {
+        "text": "maledetto",
+        "score": 2
+      }
     ],
     "parolaccie-f": [
-      "fottuta",
-      "schifosa",
-      "merdosa",
-      "cazzo",
-      "merda",
-      "stronza",
-      "porca",
-      "minchia",
-      "figlia di puttana",
-      "testa di cazzo",
-      "bastarda",
-      "schifo",
-      "cacata",
-      "maledetta"
+      {
+        "text": "fottuta",
+        "score": 2
+      },
+      {
+        "text": "schifosa",
+        "score": 2
+      },
+      {
+        "text": "merdosa",
+        "score": 2
+      },
+      {
+        "text": "cazzo",
+        "score": 2
+      },
+      {
+        "text": "merda",
+        "score": 2
+      },
+      {
+        "text": "stronza",
+        "score": 2
+      },
+      {
+        "text": "porca",
+        "score": 2
+      },
+      {
+        "text": "minchia",
+        "score": 2
+      },
+      {
+        "text": "figlia di puttana",
+        "score": 3
+      },
+      {
+        "text": "testa di cazzo",
+        "score": 3
+      },
+      {
+        "text": "bastarda",
+        "score": 2
+      },
+      {
+        "text": "schifo",
+        "score": 2
+      },
+      {
+        "text": "cacata",
+        "score": 2
+      },
+      {
+        "text": "maledetta",
+        "score": 2
+      }
     ]
   },
   "core": [
-    "ma sei serio, [epiteti]? sembra che tu abbia preso la patente [luoghi]!",
-    "questo è il colmo, [epiteti]! stai guidando come se fossimo [luoghi]!",
-    "[epiteti], hai trasformato la strada [luoghi]! sei fuori di testa?",
-    "incredibile, [epiteti]! la tua guida è peggio di stare [luoghi]!",
-    "[epiteti], sei un [epiteti]! smettila di [azioni]",
-    "sei completamente pazzo, [epiteti]! dove hai lasciato [dimenticati]? [luoghi]?",
-    "[epiteti], è ora di smetterla! smettila di [azioni]!",
-    "chi diavolo ti ha dato la patente, [epiteti]? sembra un lavoro da uno senza [dimenticati]!",
-    "svegliati, [epiteti]! guidi come se fossi [luoghi]!",
-    "sei un disastro ambulante, [epiteti]! vedi cosa succede [azioni]!",
-    "ehi tu, [epiteti]! dove hai preso la patente, [luoghi]?",
-    "ehi [epiteti], attenzione! qui non siamo [luoghi]!",
-    "[epiteti], non siamo [luoghi]!",
-    "spero che tu, [epiteti], guidi meglio [luoghi]!",
-    "fai attenzione [epiteti], cerca di [azioni]!",
-    "hai dimenticato [dimenticati], [epiteti]?",
-    "forse dovresti, [epiteti], [azioni]!",
-    "chi ti ha dato la patente? [epiteti]?",
-    "[epiteti], guidi come [luoghi]!",
-    "[epiteti], sei sicuro di non [azioni]?"
+    {
+      "text": "ma sei serio, [epiteti]? sembra che tu abbia preso la patente [luoghi]!",
+      "score": 6
+    },
+    {
+      "text": "questo è il colmo, [epiteti]! stai guidando come se fossimo [luoghi]!",
+      "score": 7
+    },
+    {
+      "text": "[epiteti], hai trasformato la strada [luoghi]! sei fuori di testa?",
+      "score": 6
+    },
+    {
+      "text": "incredibile, [epiteti]! la tua guida è peggio di stare [luoghi]!",
+      "score": 7
+    },
+    {
+      "text": "[epiteti], sei un [epiteti]! smettila di [azioni]",
+      "score": 4
+    },
+    {
+      "text": "sei completamente pazzo, [epiteti]! dove hai lasciato [dimenticati]? [luoghi]?",
+      "score": 6
+    },
+    {
+      "text": "[epiteti], è ora di smetterla! smettila di [azioni]!",
+      "score": 5
+    },
+    {
+      "text": "chi diavolo ti ha dato la patente, [epiteti]? sembra un lavoro da uno senza [dimenticati]!",
+      "score": 7
+    },
+    {
+      "text": "svegliati, [epiteti]! guidi come se fossi [luoghi]!",
+      "score": 6
+    },
+    {
+      "text": "sei un disastro ambulante, [epiteti]! vedi cosa succede [azioni]!",
+      "score": 6
+    },
+    {
+      "text": "ehi tu, [epiteti]! dove hai preso la patente, [luoghi]?",
+      "score": 6
+    },
+    {
+      "text": "ehi [epiteti], attenzione! qui non siamo [luoghi]!",
+      "score": 6
+    },
+    {
+      "text": "[epiteti], non siamo [luoghi]!",
+      "score": 4
+    },
+    {
+      "text": "spero che tu, [epiteti], guidi meglio [luoghi]!",
+      "score": 5
+    },
+    {
+      "text": "fai attenzione [epiteti], cerca di [azioni]!",
+      "score": 4
+    },
+    {
+      "text": "hai dimenticato [dimenticati], [epiteti]?",
+      "score": 3
+    },
+    {
+      "text": "forse dovresti, [epiteti], [azioni]!",
+      "score": 3
+    },
+    {
+      "text": "chi ti ha dato la patente? [epiteti]?",
+      "score": 3
+    },
+    {
+      "text": "[epiteti], guidi come [luoghi]!",
+      "score": 4
+    },
+    {
+      "text": "[epiteti], sei sicuro di non [azioni]?",
+      "score": 3
+    }
   ]
 }

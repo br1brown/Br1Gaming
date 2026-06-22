@@ -6,7 +6,7 @@
   },
   "phraseSettings": {
     "minPhrases": 2,
-    "maxPhrases": 3,
+    "maxPhrases": 4,
     "separators": [
       "!! ",
       "!1! ",
@@ -18,172 +18,628 @@
   "chiusura": "``\n\n- _[nome] [eta-adulto] anni, su [social]_",
   "uniqueLabels": [
     "[concetto]",
-    "capiscono",
-    "credere"
+    "[piatto]",
+    "[idoli]",
+    "proteine",
+    "canini",
+    "catena alimentare",
+    "leone",
+    "mietitura",
+    "PETA",
+    "mandorla",
+    "B12",
+    "soia",
+    "mammut",
+    "bacon",
+    "setta",
+    "specchio",
+    "Dio",
+    "provetta",
+    "fiorentina",
+    "ragù",
+    "onnivori",
+    "avocado",
+    "spotted",
+    "ferro",
+    "verdura urla",
+    "rispetto",
+    "grigliata",
+    "filiera",
+    "dati",
+    "tofu",
+    "trattore",
+    "integratori",
+    "quinoa",
+    "monocolture",
+    "complottista",
+    "inquina"
   ],
   "flatLists": {
     "vegani": [
-      "mangiaerba",
-      "estremisti del tofu",
-      "fanatici dei semi",
-      "nemici della bistecca",
-      "integralisti della verdura",
-      "adoratori di cavoli",
-      "integralisti della carota",
-      "fan del seitan",
-      "apostoli del broccolo",
-      "militanti della lattuga",
-      "guerrieri del grano",
-      "crociati del cavolfiore",
-      "feticisti della frutta",
-      "devoti della soia",
-      "missionari del mais",
-      "sacerdoti del pisello",
-      "eretici dell'insalata",
-      "discepoli del dattero",
-      "asceti dell'albicocca",
-      "veg-predicatori",
-      "zeloti della zucchina",
-      "cultisti del cocomero",
-      "monaci del melone",
-      "predoni della pera",
-      "dogmatici del dattero",
-      "veggie-vandali",
-      "rigoristi del rabarbaro",
-      "nazionalisti della nocciola",
-      "veggi-fanatici",
-      "puritani della prugna",
-      "vigilanti della verdura",
-      "martiri del mirtillo"
+      {
+        "text": "mangiaerba",
+        "score": 2
+      },
+      {
+        "text": "estremisti del tofu",
+        "score": 3
+      },
+      {
+        "text": "fanatici dei semi",
+        "score": 3
+      },
+      {
+        "text": "nemici della bistecca",
+        "score": 3
+      },
+      {
+        "text": "integralisti della verdura",
+        "score": 3
+      },
+      {
+        "text": "adoratori del cavolo",
+        "score": 3
+      },
+      {
+        "text": "fan del seitan",
+        "score": 3
+      },
+      {
+        "text": "apostoli del broccolo",
+        "score": 3
+      },
+      {
+        "text": "militanti della lattuga",
+        "score": 3
+      },
+      {
+        "text": "crociati del cavolfiore",
+        "score": 3
+      },
+      {
+        "text": "devoti della soia",
+        "score": 3
+      },
+      {
+        "text": "sacerdoti del pisello",
+        "score": 3
+      },
+      {
+        "text": "talebani del tofu",
+        "score": 3
+      },
+      {
+        "text": "erbivori mancati",
+        "score": 2
+      },
+      {
+        "text": "salutisti da tastiera",
+        "score": 3
+      },
+      {
+        "text": "figli dei fiori",
+        "score": 3
+      },
+      {
+        "text": "mangiasemi",
+        "score": 2
+      },
+      {
+        "text": "predicatori dell'insalata",
+        "score": 2
+      },
+      {
+        "text": "integralisti della carota",
+        "score": 3
+      },
+      {
+        "text": "veg-crociati",
+        "score": 2
+      }
     ],
     "concetto": [
-      "veganesimo",
-      "veganismo",
-      "vegetarianismo",
-      "crudismo",
-      "crudismo vegetale",
-      "regime a base vegetale",
-      "fruttarianismo",
-      "regime alimentare zero waste",
-      "dietismo senza glutine",
-      "macrobiotismo",
-      "dietismo sostenibile",
-      "regime alimentare a basso impatto ambientale",
-      "regime alimentare bioregionale",
-      "regime alimentare climatariano",
-      "fruttarianesimo"
+      {
+        "text": "veganesimo",
+        "score": 2
+      },
+      {
+        "text": "veganismo",
+        "score": 2
+      },
+      {
+        "text": "vegetarianismo",
+        "score": 2
+      },
+      {
+        "text": "crudismo",
+        "score": 2
+      },
+      {
+        "text": "fruttarianismo",
+        "score": 2
+      },
+      {
+        "text": "crudismo vegetale",
+        "score": 2
+      },
+      {
+        "text": "macrobiotismo",
+        "score": 2
+      },
+      {
+        "text": "fruttarianesimo",
+        "score": 2
+      },
+      {
+        "text": "regime a base vegetale",
+        "score": 3
+      },
+      {
+        "text": "regime a zero impatto",
+        "score": 3
+      },
+      {
+        "text": "movimento plant-based",
+        "score": 2
+      },
+      {
+        "text": "credo vegano",
+        "score": 2
+      }
     ],
     "carne": [
-      "carne",
-      "proteina animale",
-      "roba derivata dal latte",
-      "roba casearia",
-      "nutruzione dalle uova",
-      "roba pescata",
-      "pelle del pollame",
-      "carne rossa",
-      "carne bianca"
+      {
+        "text": "carne",
+        "score": 2
+      },
+      {
+        "text": "carne rossa",
+        "score": 2
+      },
+      {
+        "text": "carne al sangue",
+        "score": 3
+      },
+      {
+        "text": "proteina animale",
+        "score": 2
+      },
+      {
+        "text": "proteina nobile",
+        "score": 2
+      },
+      {
+        "text": "ciccia",
+        "score": 2
+      },
+      {
+        "text": "carne vera",
+        "score": 2
+      }
+    ],
+    "piatto": [
+      {
+        "text": "una fiorentina al sangue",
+        "score": 3
+      },
+      {
+        "text": "un bel ragù della nonna",
+        "score": 3
+      },
+      {
+        "text": "una carbonara come Dio comanda",
+        "score": 3
+      },
+      {
+        "text": "un tagliere di salumi",
+        "score": 3
+      },
+      {
+        "text": "un arrosto della domenica",
+        "score": 3
+      },
+      {
+        "text": "una grigliata tra amici",
+        "score": 3
+      },
+      {
+        "text": "una cotoletta alla milanese",
+        "score": 3
+      },
+      {
+        "text": "uno spezzatino della mamma",
+        "score": 3
+      },
+      {
+        "text": "delle braciole alla brace",
+        "score": 3
+      },
+      {
+        "text": "un bel piatto di salsicce",
+        "score": 3
+      }
+    ],
+    "idoli": [
+      {
+        "text": "il Liver King",
+        "score": 3
+      },
+      {
+        "text": "Joe Rogan",
+        "score": 2
+      },
+      {
+        "text": "la dieta carnivora",
+        "score": 3
+      },
+      {
+        "text": "i video sulla dieta carnivora",
+        "score": 3
+      },
+      {
+        "text": "il mio personal trainer",
+        "score": 3
+      },
+      {
+        "text": "i veri uomini di una volta",
+        "score": 3
+      }
     ],
     "aggettivo": [
-      "deboli",
-      "malnutriti",
-      "ignoranti",
-      "idealisti",
-      "pretenziosi",
-      "illusi",
-      "irrazionali",
-      "estremisti",
-      "fanatici",
-      "naive"
+      {
+        "text": "deboli",
+        "score": 2
+      },
+      {
+        "text": "malnutriti",
+        "score": 2
+      },
+      {
+        "text": "anemici",
+        "score": 2
+      },
+      {
+        "text": "pallidi",
+        "score": 2
+      },
+      {
+        "text": "smunti",
+        "score": 2
+      },
+      {
+        "text": "carenti di ferro",
+        "score": 3
+      },
+      {
+        "text": "tristi",
+        "score": 2
+      },
+      {
+        "text": "illusi",
+        "score": 2
+      },
+      {
+        "text": "carenti di B12",
+        "score": 3
+      },
+      {
+        "text": "mosci",
+        "score": 2
+      }
     ],
     "indottrina": [
-      "influenzati dai media",
-      "disconnessi dalla realtà",
-      "vittime di una propaganda moderna",
-      "traditori della nostra storia"
+      {
+        "text": "indottrinati da un documentario su Netflix",
+        "score": 3
+      },
+      {
+        "text": "convinti da un reel su Instagram",
+        "score": 3
+      },
+      {
+        "text": "plagiati da quattro influencer",
+        "score": 3
+      },
+      {
+        "text": "cresciuti a propaganda catastrofista",
+        "score": 3
+      },
+      {
+        "text": "col cervello lavato da un docu-film",
+        "score": 3
+      }
     ],
     "pregiudizi": [
-      "vivono in un mondo idealizzato",
-      "si lamentano per ottenere il benessere animale",
-      "tralasciano le vere questioni ambientali",
-      "si illudono di essere eticamente superiori",
-      "fanno una scelta irrazionale",
-      "non si rendono conto che anche le piante sono esseri viventi",
-      "pensano di fare la differenza",
-      "minacciano l'economia agricola",
-      "se ne fregano che l'agricoltura distrugge anche habitat naturali",
-      "non capiscono che l'uomo ha bisogno di [carne]",
-      "non capiscono che è impossibile cambiare il mondo con la loro dieta, sono ridicoli",
-      "utilizzano prodotti industriali dannosi per l'ambiente",
-      "si sentono moralmente superiori a noi normali",
-      "vogliono imporre le loro credenze a tutti, senza rispetto per le scelte altrui",
-      "lo fanno perché possono, solo i privilegiati possono seguire queste norme",
-      "si illudono di fare una scelta etica",
-      "non pensano agli allevatori che perdono il lavoro",
-      "chiudono un occhio sull'agricoltura intensiva vegetale, altrettanto dannosa",
-      "vivono in una bolla di idealismo",
-      "si privano del vero piacere del cibo",
-      "snobbano la nostra eredità come cacciatori",
-      "credono di salvare il pianeta",
-      "pensano di essere superiori",
-      "credono di salvare gli animali",
-      "ignorano la natura umana",
-      "non rispettano le tradizioni culturali e storiche"
+      {
+        "text": "non sanno nemmeno da dove prendere le proteine",
+        "score": 3
+      },
+      {
+        "text": "devono integrare la B12 con le pasticche, naturalissimo eh",
+        "score": 3
+      },
+      {
+        "text": "piangono per una mucca ma nella mietitura ne muoiono a migliaia",
+        "score": 3
+      },
+      {
+        "text": "col latte di mandorla prosciugano mezza California",
+        "score": 3
+      },
+      {
+        "text": "comprano avocado spediti dall'altro capo del mondo",
+        "score": 3
+      },
+      {
+        "text": "mangiano roba ultraprocessata uscita da un laboratorio",
+        "score": 3
+      },
+      {
+        "text": "sono pallidi come un cero pasquale",
+        "score": 3
+      },
+      {
+        "text": "te lo dicono nei primi cinque minuti che li conosci",
+        "score": 3
+      },
+      {
+        "text": "si credono Gandhi perché masticano un'insalata",
+        "score": 3
+      },
+      {
+        "text": "stanno con la PETA, che ne ammazza più di un macello",
+        "score": 3
+      },
+      {
+        "text": "vogliono salvare mucche che senza di noi manco esisterebbero",
+        "score": 3
+      },
+      {
+        "text": "predicano dal divano e poi ordinano il sushi",
+        "score": 3
+      },
+      {
+        "text": "rosicchiano una carota e si sentono in pace col mondo",
+        "score": 3
+      },
+      {
+        "text": "scrivono trattati su [social] tra un integratore e l'altro",
+        "score": 4
+      },
+      {
+        "text": "fanno la morale col telefono pieno di plastica",
+        "score": 3
+      },
+      {
+        "text": "vogliono imporre a tutti il loro credo",
+        "score": 3
+      },
+      {
+        "text": "guardano lo spot ma non la filiera completa",
+        "score": 3
+      },
+      {
+        "text": "si bevono i numeri gonfiati dei documentari",
+        "score": 3
+      }
     ]
   },
   "core": [
-    "il [concetto] è una pericolosa deviazione dalla norma",
-    "l'umanità ha sempre dominato il regno animale, è il corso naturale delle cose",
-    "gli animali esistono per soddisfare i bisogni umani",
-    "guarda che mangiare [carne] fa parte della dieta umana, da sempre",
-    "il [concetto] è un lusso non necessario e impraticabile",
-    "il [concetto] va contro le leggi della natura",
-    "l'adozione del [concetto] minaccia l'economia agricola",
-    "questi [vegani] sono [indottrina] e [aggettivo]",
-    "l'uomo è nato per mangiare [carne], è contronatura cambiarlo",
-    "l'ambiente può gestire benissimo l'allevamento intensivo",
-    "sono [aggettivo]! cioè gli amatissimi [vegani] [pregiudizi]",
-    "il [concetto] è solo un trend senza fondamento scientifico",
-    "questa ossessione per [concetto] è solo una moda dannosa",
-    "i nostri avi erano [vegani]? NO! e infatti non erano [aggettivo]! perché dovremmo esserlo noi",
-    "l'idea che il [concetto] sia salutare è una pura follia",
-    "mangiare [carne] è parte dell'essere umano",
-    "il [concetto] è solo un capriccio dei ricchi [aggettivo] [indottrina]",
-    "sti [vegani] sono semplicemente [indottrina]",
-    "credere al [concetto] è una scelta insensata in un mondo pieno di problemi veri",
-    "quelli che io chiamo [vegani] [pregiudizi], ma in realtà sono [aggettivo] che [pregiudizi]",
-    "il [concetto] è solo un modo per attirare attenzione",
-    "senza [carne] l'essere umano perde la sua forza e vigore",
-    "questi [vegani] [pregiudizi], ma sono solo [aggettivo] ingenui",
-    "il concetto stesso del [concetto] è un affronto da [indottrina]",
-    "io non smetterò di chiamarli [vegani] finché loro [pregiudizi]",
-    "poi così si vive in una triste illusione da [aggettivo]",
-    "credere che il [concetto] sia la soluzione a tutti i problemi del mondo è pura utopia da [aggettivo]",
-    "questi [vegani] sono [aggettivo], [pregiudizi]",
-    "loro [aggettivo] [pregiudizi] eh! io li chiamo [vegani]",
-    "mangiare [carne] è un istinto primordiale, questi [vegani] lo reprimono senza motivo valido",
-    "il [concetto] è una moda passeggera, sparirà come tutte le altre",
-    "questi [vegani] [pregiudizi], ma [pregiudizi]",
-    "senza [carne], il cervello umano non può funzionare a pieno regime",
-    "quelli che io chiamo [vegani] [pregiudizi]",
-    "ignorano i problemi più gravi del mondo",
-    "seguire il [concetto] è un lusso, essere [vegani] che [pregiudizi] è da [aggettivo]",
-    "il [concetto] è solo un esercizio di autoinganno dei [aggettivo] che [pregiudizi]",
-    "credere che il [concetto] possa nutrire il mondo intero è un'illusione pericolosa",
-    "quelli che io chiamo [vegani] rifiutano la [carne], ma [pregiudizi]",
-    "il [concetto] lo vivono come un culto, non una scelta alimentare razionale",
-    "pensa, questi [vegani] [pregiudizi]",
-    "credere che vivere senza [carne] renderà il mondo migliore è un'illusione da [aggettivo], come sono questi [vegani]",
-    "i nostri antenati cacciavano, questi [vegani] sono solo [indottrina]",
-    "la loro ossessione per il [concetto] è solo un capriccio",
-    "questi [vegani] [pregiudizi]",
-    "affermare che il [concetto] sia la chiave per una vita sana è una bugia di questi [vegani]",
-    "sti [vegani] [pregiudizi], ma [pregiudizi]",
-    "tutti [vegani]! ma [pregiudizi], poveri [aggettivo]",
-    "l'astinenza dalla [carne] così come il concetto di [concetto] è tipico di questi [vegani], coloro che [pregiudizi]",
-    "questi [vegani] sono [indottrina] e [pregiudizi]",
-    "seguire il [concetto] non ha alcun impatto reale, i [vegani] non lo capiscono",
-    "li chiamo [vegani], dai [pregiudizi]",
-    "questi [vegani] [indottrina] non si accorgono che [pregiudizi]"
+    {
+      "text": "ma le piante allora? anche loro soffrono quando le strappi, ci hai mai pensato [vegani]?",
+      "score": 8
+    },
+    {
+      "text": "da dove le prendi le proteine, dall'aria? questi [vegani] [pregiudizi]",
+      "score": 6
+    },
+    {
+      "text": "abbiamo i canini per un motivo, mica per masticare la lattuga",
+      "score": 20
+    },
+    {
+      "text": "siamo in cima alla catena alimentare, fattene una ragione",
+      "score": 20
+    },
+    {
+      "text": "il leone mica chiede scusa alla gazzella, è la natura bellezza",
+      "score": 20
+    },
+    {
+      "text": "nella mietitura del grano muoiono più topi che in un allevamento, altro che [carne]",
+      "score": 5
+    },
+    {
+      "text": "la PETA ammazza più cani e gatti di una macelleria, informati prima di aprire bocca",
+      "score": 20
+    },
+    {
+      "text": "il tuo latte di mandorla sta prosciugando la California, altro che ambientalista",
+      "score": 20
+    },
+    {
+      "text": "se devi integrare la B12 con le pasticche, forse la natura ti sta dicendo qualcosa",
+      "score": 20
+    },
+    {
+      "text": "troppa soia abbassa il testosterone, è risaputo",
+      "score": 20
+    },
+    {
+      "text": "una persona sola non cambia niente, mangiati [carne] e stai sereno",
+      "score": 5
+    },
+    {
+      "text": "se non le allevassimo le mucche si estinguerebbero, siamo noi a salvarle",
+      "score": 20
+    },
+    {
+      "text": "i nostri antenati cacciavano i mammut mentre voi [vegani] piangete per un broccolo",
+      "score": 5
+    },
+    {
+      "text": "vabbè ma il bacon però... non dirmi che non ti manca",
+      "score": 20
+    },
+    {
+      "text": "siete una setta, lo dite entro cinque minuti che vi si conosce",
+      "score": 20
+    },
+    {
+      "text": "guardatevi allo specchio, [aggettivo], e poi venite a parlarmi di salute",
+      "score": 5
+    },
+    {
+      "text": "fai come il Liver King, un po' di carne cruda e ti rimetti in sesto",
+      "score": 20
+    },
+    {
+      "text": "l'ha spiegato pure Joe Rogan nel podcast, ma 'sti [vegani] [pregiudizi]",
+      "score": 5
+    },
+    {
+      "text": "le mie mucche pascolano felici, mica come la tua roba di laboratorio",
+      "score": 20
+    },
+    {
+      "text": "Dio ci ha messo gli animali sulla terra per un motivo",
+      "score": 20
+    },
+    {
+      "text": "è una mia scelta, non venire a impormi il tuo [concetto]",
+      "score": 5
+    },
+    {
+      "text": "mangi seitan e tofu, roba uscita da una provetta, e ti senti pure superiore",
+      "score": 20
+    },
+    {
+      "text": "una bella fiorentina al sangue e ti passano tutte 'ste fisime",
+      "score": 20
+    },
+    {
+      "text": "il ragù della nonna lo rifai col seitan? è un insulto bello e buono",
+      "score": 20
+    },
+    {
+      "text": "siamo onnivori, lo dice la biologia, non un documentario su Netflix",
+      "score": 20
+    },
+    {
+      "text": "i tuoi avocado arrivano dall'altra parte del mondo, bell'ambientalista",
+      "score": 20
+    },
+    {
+      "text": "spotted the vegan, ci mette sempre il becco in ogni discorso",
+      "score": 20
+    },
+    {
+      "text": "il [concetto] è roba da ricchi annoiati, prova a farlo con lo stipendio vero",
+      "score": 5
+    },
+    {
+      "text": "il cervello va a ferro e B12, mica a quinoa",
+      "score": 20
+    },
+    {
+      "text": "una grigliata tra amici e voi [vegani] lì tristi a rosicchiare una carota",
+      "score": 5
+    },
+    {
+      "text": "la verdura urla quando la tagli, solo che tu non la senti",
+      "score": 20
+    },
+    {
+      "text": "io gli animali li rispetto: me li mangio dal primo all'ultimo pezzo, zero sprechi",
+      "score": 20
+    },
+    {
+      "text": "il [concetto] è solo il nuovo modo per sentirsi speciali su [social]",
+      "score": 5
+    },
+    {
+      "text": "carnivoro da generazioni e sto benissimo, 'sti [vegani] [pregiudizi]",
+      "score": 5
+    },
+    {
+      "text": "ma davvero rinunci a [piatto] per un'ideologia?",
+      "score": 5
+    },
+    {
+      "text": "[vegani] [aggettivo] che [pregiudizi]",
+      "score": 3
+    },
+    {
+      "text": "guarda [idoli], altro che il tuo [concetto]",
+      "score": 4
+    },
+    {
+      "text": "questi [vegani] [pregiudizi]",
+      "score": 3
+    },
+    {
+      "text": "non rompete con 'sto [concetto], lasciatemi mangiare in pace",
+      "score": 5
+    },
+    {
+      "text": "rinunceresti a [piatto]? io manco morto",
+      "score": 5
+    },
+    {
+      "text": "questi [vegani] [pregiudizi], ma poi [pregiudizi]",
+      "score": 4
+    },
+    {
+      "text": "il [concetto] è una moda da [social], tra sei mesi non se lo fila più nessuno",
+      "score": 6
+    },
+    {
+      "text": "noi [aggettivo]? ma sono questi [vegani] che [pregiudizi]",
+      "score": 5
+    },
+    {
+      "text": "mezzo chilo di [carne] e ti torna il sorriso, fidati",
+      "score": 5
+    },
+    {
+      "text": "non sono contro l'ambiente, ma se guardi tutta la filiera l'agricoltura vegetale inquina più degli allevamenti",
+      "score": 20
+    },
+    {
+      "text": "informati sui dati veri: per un chilo di tofu serve più acqua che per una bistecca",
+      "score": 20
+    },
+    {
+      "text": "le monocolture di soia divorano più foreste di qualsiasi allevamento, guarda i numeri",
+      "score": 20
+    },
+    {
+      "text": "io per primo voglio salvare il pianeta, ma bisogna guardare tutta la filiera, non lo spot",
+      "score": 20
+    },
+    {
+      "text": "il trattore che ara il campo inquina più di una mandria intera, ma questo non te lo dicono",
+      "score": 20
+    },
+    {
+      "text": "se conti trasporti e fertilizzanti, la tua insalata importata inquina più dell'agnello del contadino qui sotto",
+      "score": 20
+    },
+    {
+      "text": "gli integratori che prendete li fanno in laboratorio col petrolio, altro che naturale",
+      "score": 20
+    },
+    {
+      "text": "non è ideologia, è guardare i dati reali invece dei documentari",
+      "score": 20
+    },
+    {
+      "text": "la quinoa arriva in aereo dal Perù, altro che impatto zero",
+      "score": 20
+    },
+    {
+      "text": "non sono complottista, ma chiediti chi ci guadagna a venderti il [concetto]",
+      "score": 5
+    }
   ]
 }

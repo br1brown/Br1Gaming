@@ -1,12 +1,14 @@
 {
   "ageAliases": {
-    "eta-giovane": "[15-26]",
+    "eta-giovane": "[18-26]",
     "eta-cresciuto": "[24-44]",
     "eta-adulto": "[35-65]",
-    "eta-anziano": "[46-76]"
+    "eta-anziano": "[46-76]",
+    "eta-minorenne": "[12-17]"
   },
   "policyGroups": {
     "eta": [
+      "eta-minorenne",
       "eta-giovane",
       "eta-cresciuto",
       "eta-adulto",

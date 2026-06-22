@@ -7,6 +7,7 @@
   "phraseSettings": {
     "minPhrases": 3,
     "maxPhrases": 5,
+    "minScore": 36,
     "separators": [
       ". ",
       "; ",
@@ -26,273 +27,1136 @@
   ],
   "flatLists": {
     "idoli": [
-      "Andrew Tate",
-      "Rollo Tomassi",
-      "Joe Rogan",
-      "Jordan Peterson",
-      "Ben Shapiro",
-      "Tucker Carlson",
-      "Marco Crepaldi",
-      "Alex Jones",
-      "Elliot Rodger",
-      "Nick Fuentes",
-      "Tommy Robinson"
+      {
+        "text": "Andrew Tate",
+        "score": 2
+      },
+      {
+        "text": "Rollo Tomassi",
+        "score": 2
+      },
+      {
+        "text": "Joe Rogan",
+        "score": 2
+      },
+      {
+        "text": "Jordan Peterson",
+        "score": 2
+      },
+      {
+        "text": "Ben Shapiro",
+        "score": 2
+      },
+      {
+        "text": "Tucker Carlson",
+        "score": 2
+      },
+      {
+        "text": "Marco Crepaldi",
+        "score": 2
+      },
+      {
+        "text": "Alex Jones",
+        "score": 2
+      },
+      {
+        "text": "Elliot Rodger",
+        "score": 2
+      },
+      {
+        "text": "Nick Fuentes",
+        "score": 2
+      },
+      {
+        "text": "Tommy Robinson",
+        "score": 2
+      }
     ],
     "ossessioni": [
-      "aspetto fisico",
-      "ipergamia femminile",
-      "status",
-      "inutili dating app",
-      "looksmaxxing",
-      "declino dell'Occidente"
+      {
+        "text": "aspetto fisico",
+        "score": 2
+      },
+      {
+        "text": "ipergamia femminile",
+        "score": 2
+      },
+      {
+        "text": "status",
+        "score": 2
+      },
+      {
+        "text": "inutili dating app",
+        "score": 3
+      },
+      {
+        "text": "looksmaxxing",
+        "score": 2
+      },
+      {
+        "text": "declino dell'Occidente",
+        "score": 2
+      }
     ],
     "hating": [
-      "le femministe",
-      "le ragazze _«che la danno a tutti»_",
-      "le femmine di oggi",
-      "OnlyFans",
-      "tutte le donne",
-      "le _«tipe di Tinder»_",
-      "donne che cercano solo soldi",
-      "i chad",
-      "i simp",
-      "i normie",
-      "quelli che vanno in palestra",
-      "le coppie felici",
-      "i maschi alfa",
-      "gli uomini che hanno successo con le donne",
-      "i cuck",
-      "le relazioni moderne",
-      "il femminismo",
-      "la società moderna",
-      "gli uomini che difendono le donne",
-      "i maschi che piacciono alle ragazze",
-      "quelli che non capiscono la Red Pill",
-      "i white pillati",
-      "chi non ha sofferto come lui"
+      {
+        "text": "le femministe",
+        "score": 2
+      },
+      {
+        "text": "le ragazze _«che la danno a tutti»_",
+        "score": 3
+      },
+      {
+        "text": "le femmine di oggi",
+        "score": 3
+      },
+      {
+        "text": "OnlyFans",
+        "score": 2
+      },
+      {
+        "text": "tutte le donne",
+        "score": 3
+      },
+      {
+        "text": "le _«tipe di Tinder»_",
+        "score": 3
+      },
+      {
+        "text": "donne che cercano solo soldi",
+        "score": 3
+      },
+      {
+        "text": "i chad",
+        "score": 2
+      },
+      {
+        "text": "i simp",
+        "score": 2
+      },
+      {
+        "text": "i normie",
+        "score": 2
+      },
+      {
+        "text": "quelli che vanno in palestra",
+        "score": 3
+      },
+      {
+        "text": "le coppie felici",
+        "score": 3
+      },
+      {
+        "text": "i maschi alfa",
+        "score": 3
+      },
+      {
+        "text": "gli uomini che hanno successo con le donne",
+        "score": 3
+      },
+      {
+        "text": "i cuck",
+        "score": 2
+      },
+      {
+        "text": "le relazioni moderne",
+        "score": 3
+      },
+      {
+        "text": "il femminismo",
+        "score": 2
+      },
+      {
+        "text": "la società moderna",
+        "score": 3
+      },
+      {
+        "text": "gli uomini che difendono le donne",
+        "score": 3
+      },
+      {
+        "text": "i maschi che piacciono alle ragazze",
+        "score": 3
+      },
+      {
+        "text": "quelli che non capiscono la Red Pill",
+        "score": 3
+      },
+      {
+        "text": "i white pillati",
+        "score": 3
+      },
+      {
+        "text": "chi non ha sofferto come lui",
+        "score": 3
+      }
     ],
     "donne": [
-      "ragazza che lo friendzona",
-      "ragazza che lo ha rifiutato",
-      "ragazza che non gli risponde ai messaggi",
-      "sua crush che sta con un altro",
-      "ragazza che lo ha ghostato",
-      "ragazza che _«va con i chad»_ ",
-      "ragazza che lo respinge"
+      {
+        "text": "ragazza che lo friendzona",
+        "score": 3
+      },
+      {
+        "text": "ragazza che lo ha rifiutato",
+        "score": 3
+      },
+      {
+        "text": "ragazza che non gli risponde ai messaggi",
+        "score": 3
+      },
+      {
+        "text": "sua crush che sta con un altro",
+        "score": 3
+      },
+      {
+        "text": "ragazza che lo ha ghostato",
+        "score": 3
+      },
+      {
+        "text": "ragazza che _«va con i chad»_ ",
+        "score": 3
+      },
+      {
+        "text": "ragazza che lo respinge",
+        "score": 3
+      }
     ],
     "frasi_tipiche": [
-      "non sono sessista, è biologia",
-      "io sono un [percezione] e il mondo mi ha ridotto a un guscio vuoto",
-      "quando morirò sarà colpa sai di chi? dico solo una cosa: [hating]",
-      "diventeranno vecchie, rugose e inutili, mentre io riderò dalla mia tomba sapendo che le ho superate tutte",
-      "l'unica cosa che mi tiene vivo è l'idea di vederle tutte infelici, grasse e abbandonate a [40-80] anni",
-      "sai cosa ha creato una generazione di gente senza valore che meritano solo sofferenza eterna? [hating]!",
-      "mi hanno trasformato in un [percezione]",
-      "Diventeranno tutte zitelle depressive con [2-15] gatti e zero rimpianti... toh",
-      "Mi hanno rifiutato solo perché non sono egemone e apprezzo [hating]",
-      "L'amore vero non esiste più, è stato ucciso da una cosa: [hating]",
-      "diventeranno tutte gattare",
-      "resteranno tutte da sole e pentite",
-      "si pentiranno di avermi rifiutato",
-      "tradiranno tutti, come hanno fatto con me",
-      "essere gentile non serve a niente con le donne",
-      "essere un bravo ragazzo non paga mai",
-      "il femminismo ha distrutto la società",
-      "il loro amore è solo un'illusione",
-      "il loro rifiuto mi ha reso più forte",
-      "il romanticismo è morto grazie alle donne",
-      "l'amore è una bugia inventata dalle femministe",
-      "l'unica cosa che le donne vogliono è attenzione",
-      "la società favorisce solo le donne, non gli uomini",
-      "la società è contro gli uomini come me",
-      "le donne amano solo i bastardi",
-      "le donne fanno solo drammi inutili",
-      "le donne fingono interesse solo per usarti",
-      "le donne hanno distrutto la mia vita",
-      "le donne moderne non sanno cosa vogliono",
-      "le donne non sanno cosa sia la vera fedeltà",
-      "le donne sono attratte solo dai soldi e dal potere",
-      "le donne usano gli uomini come atm",
-      "loro non possono capire il mio dolore",
-      "mi rifiutano solo perché non sono un modello",
-      "mi sono arreso, non ci proverò più",
-      "nessuna donna merita il mio tempo o la mia attenzione",
-      "non c'è speranza per gli uomini come me",
-      "non ci sono più vere donne oggi",
-      "non ho bisogno di nessuna di loro per essere felice",
-      "non ho bisogno di nessuna, loro hanno bisogno di me",
-      "non sarò mai abbastanza per loro",
-      "non sprecherò più energie per loro",
-      "non vedono l'uomo dietro i miei difetti",
-      "non voglio essere un simp, preferisco stare solo",
-      "ogni volta che sono gentile, mi trattano come uno zerbino",
-      "perché dovrei rispettare chi non mi rispetta?",
-      "prima o poi capiranno il loro errore",
-      "se non hai i muscoli, non esisti per loro",
-      "se non mi avessero rifiutato, non sarei così",
-      "se non sei alto 1.[80-95] non hai speranza",
-      "se non sei un alfa, sei invisibile per loro",
-      "se solo avessi i soldi, tutte le donne mi vorrebbero",
-      "sono loro che hanno perso, non io",
-      "sono stufo delle loro bugie e dei loro giochi mentali",
-      "sono troppo buono per loro",
-      "sono troppo intelligente per essere capito dalle donne",
-      "sono tutte troie",
-      "tanto alla fine cercano sempre il più cattivo",
-      "tanto finiscono per essere infelici con quel chad",
-      "tutte le ragazze vogliono solo i chad",
-      "le donne si offendono per niente, ormai",
-      "tutte quelle che mi rifiutano finiranno sole"
+      {
+        "text": "non sono sessista, è biologia",
+        "score": 3
+      },
+      {
+        "text": "io sono un [percezione] e il mondo mi ha ridotto a un guscio vuoto",
+        "score": 4
+      },
+      {
+        "text": "quando morirò sarà colpa sai di chi? dico solo una cosa: [hating]",
+        "score": 4
+      },
+      {
+        "text": "diventeranno vecchie, rugose e inutili, mentre io riderò dalla mia tomba sapendo che le ho superate tutte",
+        "score": 3
+      },
+      {
+        "text": "l'unica cosa che mi tiene vivo è l'idea di vederle tutte infelici, grasse e abbandonate a [40-80] anni",
+        "score": 4
+      },
+      {
+        "text": "sai cosa ha creato una generazione di gente senza valore che meritano solo sofferenza eterna? [hating]!",
+        "score": 4
+      },
+      {
+        "text": "mi hanno trasformato in un [percezione]",
+        "score": 4
+      },
+      {
+        "text": "Diventeranno tutte zitelle depressive con [2-15] gatti e zero rimpianti... toh",
+        "score": 4
+      },
+      {
+        "text": "Mi hanno rifiutato solo perché non sono egemone e apprezzo [hating]",
+        "score": 4
+      },
+      {
+        "text": "L'amore vero non esiste più, è stato ucciso da una cosa: [hating]",
+        "score": 4
+      },
+      {
+        "text": "diventeranno tutte gattare",
+        "score": 3
+      },
+      {
+        "text": "resteranno tutte da sole e pentite",
+        "score": 3
+      },
+      {
+        "text": "si pentiranno di avermi rifiutato",
+        "score": 3
+      },
+      {
+        "text": "tradiranno tutti, come hanno fatto con me",
+        "score": 3
+      },
+      {
+        "text": "essere gentile non serve a niente con le donne",
+        "score": 3
+      },
+      {
+        "text": "essere un bravo ragazzo non paga mai",
+        "score": 3
+      },
+      {
+        "text": "il femminismo ha distrutto la società",
+        "score": 3
+      },
+      {
+        "text": "il loro amore è solo un'illusione",
+        "score": 3
+      },
+      {
+        "text": "il loro rifiuto mi ha reso più forte",
+        "score": 3
+      },
+      {
+        "text": "il romanticismo è morto grazie alle donne",
+        "score": 3
+      },
+      {
+        "text": "l'amore è una bugia inventata dalle femministe",
+        "score": 3
+      },
+      {
+        "text": "l'unica cosa che le donne vogliono è attenzione",
+        "score": 3
+      },
+      {
+        "text": "la società favorisce solo le donne, non gli uomini",
+        "score": 3
+      },
+      {
+        "text": "la società è contro gli uomini come me",
+        "score": 3
+      },
+      {
+        "text": "le donne amano solo i bastardi",
+        "score": 3
+      },
+      {
+        "text": "le donne fanno solo drammi inutili",
+        "score": 3
+      },
+      {
+        "text": "le donne fingono interesse solo per usarti",
+        "score": 3
+      },
+      {
+        "text": "le donne hanno distrutto la mia vita",
+        "score": 3
+      },
+      {
+        "text": "le donne moderne non sanno cosa vogliono",
+        "score": 3
+      },
+      {
+        "text": "le donne non sanno cosa sia la vera fedeltà",
+        "score": 3
+      },
+      {
+        "text": "le donne sono attratte solo dai soldi e dal potere",
+        "score": 3
+      },
+      {
+        "text": "le donne usano gli uomini come atm",
+        "score": 3
+      },
+      {
+        "text": "loro non possono capire il mio dolore",
+        "score": 3
+      },
+      {
+        "text": "mi rifiutano solo perché non sono un modello",
+        "score": 3
+      },
+      {
+        "text": "mi sono arreso, non ci proverò più",
+        "score": 3
+      },
+      {
+        "text": "nessuna donna merita il mio tempo o la mia attenzione",
+        "score": 3
+      },
+      {
+        "text": "non c'è speranza per gli uomini come me",
+        "score": 3
+      },
+      {
+        "text": "non ci sono più vere donne oggi",
+        "score": 3
+      },
+      {
+        "text": "non ho bisogno di nessuna di loro per essere felice",
+        "score": 3
+      },
+      {
+        "text": "non ho bisogno di nessuna, loro hanno bisogno di me",
+        "score": 3
+      },
+      {
+        "text": "non sarò mai abbastanza per loro",
+        "score": 3
+      },
+      {
+        "text": "non sprecherò più energie per loro",
+        "score": 3
+      },
+      {
+        "text": "non vedono l'uomo dietro i miei difetti",
+        "score": 3
+      },
+      {
+        "text": "non voglio essere un simp, preferisco stare solo",
+        "score": 3
+      },
+      {
+        "text": "ogni volta che sono gentile, mi trattano come uno zerbino",
+        "score": 3
+      },
+      {
+        "text": "perché dovrei rispettare chi non mi rispetta?",
+        "score": 3
+      },
+      {
+        "text": "prima o poi capiranno il loro errore",
+        "score": 3
+      },
+      {
+        "text": "se non hai i muscoli, non esisti per loro",
+        "score": 3
+      },
+      {
+        "text": "se non mi avessero rifiutato, non sarei così",
+        "score": 3
+      },
+      {
+        "text": "se non sei alto 1.[80-95] non hai speranza",
+        "score": 4
+      },
+      {
+        "text": "se non sei un alfa, sei invisibile per loro",
+        "score": 3
+      },
+      {
+        "text": "se solo avessi i soldi, tutte le donne mi vorrebbero",
+        "score": 3
+      },
+      {
+        "text": "sono loro che hanno perso, non io",
+        "score": 3
+      },
+      {
+        "text": "sono stufo delle loro bugie e dei loro giochi mentali",
+        "score": 3
+      },
+      {
+        "text": "sono troppo buono per loro",
+        "score": 3
+      },
+      {
+        "text": "sono troppo intelligente per essere capito dalle donne",
+        "score": 3
+      },
+      {
+        "text": "sono tutte troie",
+        "score": 3
+      },
+      {
+        "text": "tanto alla fine cercano sempre il più cattivo",
+        "score": 3
+      },
+      {
+        "text": "tanto finiscono per essere infelici con quel chad",
+        "score": 3
+      },
+      {
+        "text": "tutte le ragazze vogliono solo i chad",
+        "score": 3
+      },
+      {
+        "text": "le donne si offendono per niente, ormai",
+        "score": 3
+      },
+      {
+        "text": "tutte quelle che mi rifiutano finiranno sole",
+        "score": 3
+      }
     ],
     "difetti_sociali": [
-      "misogino",
-      "nichilista",
-      "violento",
-      "pervertito",
-      "incontenibile",
-      "indisponente",
-      "manipolatore",
-      "narcisista",
-      "passivo-aggressivo",
-      "scontroso",
-      "vendicativo",
-      "feticista dei piedi"
+      {
+        "text": "misogino",
+        "score": 2
+      },
+      {
+        "text": "nichilista",
+        "score": 2
+      },
+      {
+        "text": "violento",
+        "score": 2
+      },
+      {
+        "text": "pervertito",
+        "score": 2
+      },
+      {
+        "text": "incontenibile",
+        "score": 2
+      },
+      {
+        "text": "indisponente",
+        "score": 2
+      },
+      {
+        "text": "manipolatore",
+        "score": 2
+      },
+      {
+        "text": "narcisista",
+        "score": 2
+      },
+      {
+        "text": "passivo-aggressivo",
+        "score": 2
+      },
+      {
+        "text": "scontroso",
+        "score": 2
+      },
+      {
+        "text": "vendicativo",
+        "score": 2
+      },
+      {
+        "text": "feticista dei piedi",
+        "score": 3
+      }
     ],
     "vibes": [
-      "arrabbiato",
-      "deluso",
-      "disilluso",
-      "disperato",
-      "insicuro",
-      "invidioso",
-      "paranoico",
-      "rancoroso",
-      "scontento",
-      "scoraggiato",
-      "triste",
-      "autocommiserante",
-      "vittimista",
-      "autodistruttivo",
-      "rassegnato"
+      {
+        "text": "arrabbiato",
+        "score": 2
+      },
+      {
+        "text": "deluso",
+        "score": 2
+      },
+      {
+        "text": "disilluso",
+        "score": 2
+      },
+      {
+        "text": "disperato",
+        "score": 2
+      },
+      {
+        "text": "insicuro",
+        "score": 2
+      },
+      {
+        "text": "invidioso",
+        "score": 2
+      },
+      {
+        "text": "paranoico",
+        "score": 2
+      },
+      {
+        "text": "rancoroso",
+        "score": 2
+      },
+      {
+        "text": "scontento",
+        "score": 2
+      },
+      {
+        "text": "scoraggiato",
+        "score": 2
+      },
+      {
+        "text": "triste",
+        "score": 2
+      },
+      {
+        "text": "autocommiserante",
+        "score": 2
+      },
+      {
+        "text": "vittimista",
+        "score": 2
+      },
+      {
+        "text": "autodistruttivo",
+        "score": 2
+      },
+      {
+        "text": "rassegnato",
+        "score": 2
+      }
     ],
     "percezione": [
-      "genio incompreso",
-      "emarginato dalla società",
-      "unico uomo vero rimasto",
-      "troppo puro per questo mondo",
-      "ribelle contro il sistema",
-      "lupo solitario",
-      "redpillato",
-      "blackpillato",
-      "eroe tragico",
-      "anima tormentata",
-      "vero uomo",
-      "isolato",
-      "elemento superiore",
-      "abbandonato",
-      "non convenzionale",
-      "immortale",
-      "ribelle",
-      "solitario estremo",
-      "disperato perenne",
-      "intoccabile",
-      "eccentrico",
-      "malinconico eroe",
-      "eternamente giovane",
-      "mentore tormentato",
-      "invisibile",
-      "saggio sofferente",
-      "infallibile",
-      "nemico del sistema",
-      "paladino perduto",
-      "combattente solitario",
-      "individuo fuori dal coro",
-      "giustiziere silenzioso",
-      "solitario by choice",
-      "martire del femminismo",
-      "poveraccio vittima del sistema",
-      "paladino della verità",
-      "oppressore autodifeso"
+      {
+        "text": "genio incompreso",
+        "score": 2
+      },
+      {
+        "text": "emarginato dalla società",
+        "score": 3
+      },
+      {
+        "text": "unico uomo vero rimasto",
+        "score": 3
+      },
+      {
+        "text": "troppo puro per questo mondo",
+        "score": 3
+      },
+      {
+        "text": "ribelle contro il sistema",
+        "score": 3
+      },
+      {
+        "text": "lupo solitario",
+        "score": 2
+      },
+      {
+        "text": "redpillato",
+        "score": 2
+      },
+      {
+        "text": "blackpillato",
+        "score": 2
+      },
+      {
+        "text": "eroe tragico",
+        "score": 2
+      },
+      {
+        "text": "anima tormentata",
+        "score": 2
+      },
+      {
+        "text": "vero uomo",
+        "score": 2
+      },
+      {
+        "text": "isolato",
+        "score": 2
+      },
+      {
+        "text": "elemento superiore",
+        "score": 2
+      },
+      {
+        "text": "abbandonato",
+        "score": 2
+      },
+      {
+        "text": "non convenzionale",
+        "score": 2
+      },
+      {
+        "text": "immortale",
+        "score": 2
+      },
+      {
+        "text": "ribelle",
+        "score": 2
+      },
+      {
+        "text": "solitario estremo",
+        "score": 2
+      },
+      {
+        "text": "disperato perenne",
+        "score": 2
+      },
+      {
+        "text": "intoccabile",
+        "score": 2
+      },
+      {
+        "text": "eccentrico",
+        "score": 2
+      },
+      {
+        "text": "malinconico eroe",
+        "score": 2
+      },
+      {
+        "text": "eternamente giovane",
+        "score": 2
+      },
+      {
+        "text": "mentore tormentato",
+        "score": 2
+      },
+      {
+        "text": "invisibile",
+        "score": 2
+      },
+      {
+        "text": "saggio sofferente",
+        "score": 2
+      },
+      {
+        "text": "infallibile",
+        "score": 2
+      },
+      {
+        "text": "nemico del sistema",
+        "score": 3
+      },
+      {
+        "text": "paladino perduto",
+        "score": 2
+      },
+      {
+        "text": "combattente solitario",
+        "score": 2
+      },
+      {
+        "text": "individuo fuori dal coro",
+        "score": 3
+      },
+      {
+        "text": "giustiziere silenzioso",
+        "score": 2
+      },
+      {
+        "text": "solitario by choice",
+        "score": 3
+      },
+      {
+        "text": "martire del femminismo",
+        "score": 3
+      },
+      {
+        "text": "poveraccio vittima del sistema",
+        "score": 3
+      },
+      {
+        "text": "paladino della verità",
+        "score": 3
+      },
+      {
+        "text": "oppressore autodifeso",
+        "score": 2
+      }
     ],
     "hobby": [
-      "creatore di nft",
-      "youtuber specializzato in criptovalute",
-      "blogger di tecnologia blockchain",
-      "truffatore di minorenni su [social]",
-      "consulente blockchain",
-      "sviluppatore di giochi basati su blockchain",
-      "ricercatore di sicurezza blockchain",
-      "influencer nel campo delle criptovalute"
+      {
+        "text": "creatore di nft",
+        "score": 3
+      },
+      {
+        "text": "youtuber specializzato in criptovalute",
+        "score": 3
+      },
+      {
+        "text": "blogger di tecnologia blockchain",
+        "score": 3
+      },
+      {
+        "text": "truffatore di minorenni su [social]",
+        "score": 4
+      },
+      {
+        "text": "consulente blockchain",
+        "score": 2
+      },
+      {
+        "text": "sviluppatore di giochi basati su blockchain",
+        "score": 3
+      },
+      {
+        "text": "ricercatore di sicurezza blockchain",
+        "score": 3
+      },
+      {
+        "text": "influencer nel campo delle criptovalute",
+        "score": 3
+      }
     ],
     "professioni": [
-      "esperto in criptovalute",
-      "web developer",
-      "programmatore",
-      "programmatore di videogiochi",
-      "analista di dati",
-      "analista di marketing",
-      "imprenditore",
-      "ingegnere del software",
-      "trader di criptovalute",
-      "sviluppatore di smart contract",
-      "analista di mercato cripto",
-      "consulente per investimenti in criptovalute",
-      "amministratore di piattaforme di scambio cripto",
-      "consulente per la tokenizzazione di asset"
+      {
+        "text": "esperto in criptovalute",
+        "score": 3
+      },
+      {
+        "text": "web developer",
+        "score": 2
+      },
+      {
+        "text": "programmatore",
+        "score": 2
+      },
+      {
+        "text": "programmatore di videogiochi",
+        "score": 3
+      },
+      {
+        "text": "analista di dati",
+        "score": 3
+      },
+      {
+        "text": "analista di marketing",
+        "score": 3
+      },
+      {
+        "text": "imprenditore",
+        "score": 2
+      },
+      {
+        "text": "ingegnere del software",
+        "score": 3
+      },
+      {
+        "text": "trader di criptovalute",
+        "score": 3
+      },
+      {
+        "text": "sviluppatore di smart contract",
+        "score": 3
+      },
+      {
+        "text": "analista di mercato cripto",
+        "score": 3
+      },
+      {
+        "text": "consulente per investimenti in criptovalute",
+        "score": 3
+      },
+      {
+        "text": "amministratore di piattaforme di scambio cripto",
+        "score": 3
+      },
+      {
+        "text": "consulente per la tokenizzazione di asset",
+        "score": 3
+      }
+    ],
+    "strumenti_misura": [
+      {
+        "text": "un righello di plastica dei Power Rangers delle elementari",
+        "score": 3
+      },
+      {
+        "text": "un calibro digitale comprato su Wish",
+        "score": 3
+      },
+      {
+        "text": "un'app per lo smartphone scaricata da siti russi",
+        "score": 3
+      },
+      {
+        "text": "un metro da sarto rubato a sua nonna",
+        "score": 3
+      }
+    ],
+    "abbigliamento_scadente": [
+      {
+        "text": "completi in poliestere scadente",
+        "score": 3
+      },
+      {
+        "text": "magliette con grafiche cringe",
+        "score": 3
+      },
+      {
+        "text": "camicie hawaiane plasticose",
+        "score": 3
+      },
+      {
+        "text": "felpe con scritte pseudo-filosofiche",
+        "score": 3
+      }
+    ],
+    "oggetti_status": [
+      {
+        "text": "il suo orologio in acciaio",
+        "score": 3
+      },
+      {
+        "text": "il suo G-Shock enorme",
+        "score": 3
+      },
+      {
+        "text": "il suo bracciale in finta pelle",
+        "score": 3
+      }
+    ],
+    "commenti_sprezzanti_generici": [
+      {
+        "text": "peccato non abbia ancora imparato ad avviare la lavatrice da solo",
+        "score": 3
+      },
+      {
+        "text": "ma va nel panico se il cameriere gli chiede se l'acqua la vuole liscia o gassata",
+        "score": 3
+      },
+      {
+        "text": "alle [2-5] di notte, illuminato solo dal monitor mentre mangia merendine sottomarca al buio",
+        "score": 3
+      },
+      {
+        "text": "nella sua testa sta pensando a [idoli]",
+        "score": 3
+      },
+      {
+        "text": "ma in realtà è palesemente [vibes]",
+        "score": 3
+      },
+      {
+        "text": "la sua ultima interazione umana risale al [2019-2025]",
+        "score": 3
+      },
+      {
+        "text": "mentre la madre gli prepara la merenda nella stanza accanto",
+        "score": 3
+      },
+      {
+        "text": "e lo hanno capito tutti tranne lui",
+        "score": 3
+      }
+    ],
+    "commenti_sprezzanti_pene": [
+      {
+        "text": "misura che ha calcolato usando [strumenti_misura]",
+        "score": 3
+      },
+      {
+        "text": "calcolata partendo rigorosamente dalla spina dorsale",
+        "score": 3
+      },
+      {
+        "text": "un'evidente sovrastima dovuta a un uso improprio del righello",
+        "score": 3
+      },
+      {
+        "text": "o almeno così scrive nel suo profilo di [social] per compensare",
+        "score": 3
+      },
+      {
+        "text": "anche se la [donne] avrebbe molto da ridire in proposito",
+        "score": 3
+      }
     ]
   },
   "core": [
-    "[idoli] è la sua guida spirituale (forse gli ha dato dei soldi in un corso non ho capito)",
-    "[professioni] che odia [hating]",
-    "odia solo [hating], per il resto ok, gode persino [hating]",
-    "è convinto di non essere più giovane per la riproduzione (anche se ha solo [eta-giovane] anni)",
-    "[professioni] che non apprezza [hating]",
-    "ha un tatuaggio con scritto _«[percezione]»_ (fatto nello scantinato di un tizio a [city] e rigorosamente con un errore di battitura)",
-    "ha [eta-giovane] anni, ma già malsopporta [hating] e lo dimostra lamentandosi con frasi di circostanza tipo _«[frasi_tipiche]»_",
-    "fa commenti da [difetti_sociali] su [social], sempre con frasi tipo _«[frasi_tipiche]»_",
-    "fa commenti da [difetti_sociali] sul suo [social] (da un profilo rigorosamente con l'avatar di un personaggio degli anime)",
-    "cerca di emulare lo stile di [idoli] (comprando online completi in poliestere scadente di [2-3] taglie più grandi)",
-    "[difetti_sociali] nei commenti ai post su [hating]",
-    "ha [eta-giovane] anni e si comporta sempre da [difetti_sociali], dicendo cose tipo _«[frasi_tipiche]»_, o comunque un concetto simile",
-    "ha [eta-giovane] anni e una tendenza a essere [vibes]",
-    "ha un modo distorto di vedere [hating], in realtà è solo [difetti_sociali]",
-    "il perfetto ritratto di un [eta-giovane]enne [vibes]",
-    "considera l'uso quotidiano del deodorante un'inutile imposizione indovinate di chi?... Esatto, [hating]!",
-    "la prima cosa sulla sua lista nera è: [hating]",
-    "se c'è una cosa che crede di aver imparato da [idoli] è che: _«[frasi_tipiche]»_ (peccato non abbia ancora imparato ad avviare la lavatrice da solo)",
-    "non ha mai avuto successo con la [donne] (non mi sorprende dato che dice sempre _«[frasi_tipiche]»_)",
-    "non si è mai fidanzato, lui è un _«[percezione]»_",
-    "nonostante i suoi [eta-giovane] anni è ancora [difetti_sociali]",
-    "nonostante i suoi [eta-giovane] anni, è sempre [difetti_sociali] e la sua frase distintiva è _«[frasi_tipiche]»_ (ultimamente ha il coraggio di dirlo persino davanti a [hating])",
-    "odia [hating] oltre che se stesso",
-    "odia oltre ogni limite [hating]",
-    "odia tutto ciò che riguarda [hating] e lo dice sommessamente su [social] (alle [2-5] di notte, illuminato solo dal monitor mentre mangia merendine sottomarca al buio)",
-    "sempre e comunque [difetti_sociali]",
-    "si autodefinisce un _«[percezione]»_ su [social] (ma va nel panico se il cameriere gli chiede se l'acqua la vuole liscia o gassata)",
-    "si definisce un _«[percezione]»_ e su [social] continua a dire cose tipo _«[frasi_tipiche]»_",
-    "si definisce un _«[percezione]»_ ma è solo [vibes]",
-    "si dimostra sempre [difetti_sociali] su [social]",
-    "è un _«[percezione] di [eta-giovane] anni e [percezione]»_ (ma in realtà è palesemente [vibes])",
-    "si vanta su [social] di essere un _«[percezione]»_ e ripete _«[frasi_tipiche]»_ con un tono da [vibes]",
-    "si vanta su [social] di essere un _«[percezione]»_ (nella sua testa sta pensando a [idoli])",
-    "[vibes] di [eta-giovane] anni che su [social] ripete sempre cose strane tipo _«[frasi_tipiche]»_",
-    "[vibes] di [eta-giovane] anni",
-    "[professioni] [difetti_sociali]",
-    "non si fida di nessuno e su [social] ripete a pappagallo _«[frasi_tipiche]»_",
-    "ascolta le OST dei videogiochi perché _«la musica commerciale è in mano a...? Esatto, [hating]!»_)",
-    "con complessi sulle dimensioni del suo pene",
-    "il suo profilo [social] è pieno di citazioni di [idoli] (ma poi è stra attivo, tipo [5-8] post al giorno)",
-    "[eta-giovane]enne [vibes] che si lamenta spesso dicendo cose tipo _«[frasi_tipiche]»_",
-    "[eta-giovane]enne [vibes] che su [social] dice _«[frasi_tipiche]»_ ogni giorno",
-    "[eta-giovane]enne che si definisce un _«[percezione] che ha capito come gira il mondo: [frasi_tipiche]»_",
-    "su [social] ha la bio _«[percezione] - [frasi_tipiche]»_ te lo ricordi perché è [difetti_sociali]",
-    "[eta-giovane]enne che su [social] si lamenta con argomenti riassumibili in una frase: _«[frasi_tipiche]»_",
-    "[eta-giovane]enne con una tendenza a essere [vibes]",
-    "è contro: [hating], [hating], [hating], [hating], [hating] e sorpresa sorpresa... [hating]!",
-    "[vibes] di [eta-giovane] anni che ama dire _«[frasi_tipiche]»_ su [social]",
-    "si vanta del pene sopra i [6-12] cm (misura che ha calcolato usando un righello di plastica dei Power Rangers delle elementari)",
-    "con complessi sulle dimensioni del suo pene",
-    "ha fondato il fanclub _«A Morte [hating]»_ (che attualmente conta l'incredibile cifra di [4-25] membri)",
-    "ha uno strano feticcio per i piedi (che si aggrava quando pensa alla [donne]), forse dovuto al suo essere [vibes]"
+    {
+      "text": "[idoli] è la sua guida spirituale (forse gli ha dato dei soldi in un corso non ho capito)",
+      "score": 8
+    },
+    {
+      "text": "[professioni] che odia [hating]",
+      "score": 2
+    },
+    {
+      "text": "odia solo [hating], per il resto ok, gode persino [hating]",
+      "score": 4
+    },
+    {
+      "text": "è convinto di non essere più giovane per la riproduzione (anche se ha solo [eta-minorenne] anni)",
+      "score": 7
+    },
+    {
+      "text": "[professioni] che non apprezza [hating]",
+      "score": 3
+    },
+    {
+      "text": "ha un tatuaggio con scritto _«[percezione]»_ (fatto nello scantinato di un tizio a [city] e rigorosamente con un errore di battitura)",
+      "score": 25
+    },
+    {
+      "text": "ha [eta-giovane] anni, ma già malsopporta [hating] e lo dimostra lamentandosi con frasi di circostanza tipo _«[frasi_tipiche]»_",
+      "score": 7
+    },
+    {
+      "text": "fa commenti da [difetti_sociali] su [social], sempre con frasi tipo _«[frasi_tipiche]»_",
+      "score": 6
+    },
+    {
+      "text": "fa commenti da [difetti_sociali] sul suo [social] (da un profilo rigorosamente con l'avatar di un personaggio degli anime)",
+      "score": 8
+    },
+    {
+      "text": "cerca di emulare lo stile di [idoli] (comprando online [abbigliamento_scadente] di [2-3] taglie più grandi)",
+      "score": 25
+    },
+    {
+      "text": "[difetti_sociali] nei commenti ai post su [hating]",
+      "score": 3
+    },
+    {
+      "text": "ha [eta-giovane] anni e si comporta sempre da [difetti_sociali], dicendo cose tipo _«[frasi_tipiche]»_, o comunque un concetto simile",
+      "score": 7
+    },
+    {
+      "text": "ha [eta-giovane] anni e una tendenza a essere [vibes]",
+      "score": 4
+    },
+    {
+      "text": "ha un modo distorto di vedere [hating], in realtà è solo [difetti_sociali]",
+      "score": 4
+    },
+    {
+      "text": "il perfetto ritratto di un [eta-giovane]enne [vibes]",
+      "score": 3
+    },
+    {
+      "text": "considera l'uso quotidiano del deodorante un'inutile imposizione indovinate di chi?... Esatto, [hating]!",
+      "score": 4
+    },
+    {
+      "text": "la prima cosa sulla sua lista nera è: [hating]",
+      "score": 4
+    },
+    {
+      "text": "se c'è una cosa che crede di aver imparato da [idoli] è che: _«[frasi_tipiche]»_ ([commenti_sprezzanti_generici])",
+      "score": 10
+    },
+    {
+      "text": "non ha mai avuto successo con la [donne] (non mi sorprende dato che dice sempre _«[frasi_tipiche]»_)",
+      "score": 9
+    },
+    {
+      "text": "non si è mai fidanzato, lui è un _«[percezione]»_",
+      "score": 6
+    },
+    {
+      "text": "nonostante i suoi [eta-giovane] anni è ancora [difetti_sociali]",
+      "score": 3
+    },
+    {
+      "text": "nonostante i suoi [eta-giovane] anni, è sempre [difetti_sociali] e la sua frase distintiva è _«[frasi_tipiche]»_ (ultimamente ha il coraggio di dirlo persino davanti a [hating])",
+      "score": 10
+    },
+    {
+      "text": "odia [hating] oltre che se stesso",
+      "score": 3
+    },
+    {
+      "text": "odia oltre ogni limite [hating]",
+      "score": 3
+    },
+    {
+      "text": "odia tutto ciò che riguarda [hating] e lo dice sommessamente su [social] ([commenti_sprezzanti_generici])",
+      "score": 10
+    },
+    {
+      "text": "sempre e comunque [difetti_sociali]",
+      "score": 2
+    },
+    {
+      "text": "si autodefinisce un _«[percezione]»_ su [social] ([commenti_sprezzanti_generici])",
+      "score": 9
+    },
+    {
+      "text": "si definisce un _«[percezione]»_ e su [social] continua a dire cose tipo _«[frasi_tipiche]»_",
+      "score": 6
+    },
+    {
+      "text": "si definisce un _«[percezione]»_ ma è solo [vibes]",
+      "score": 5
+    },
+    {
+      "text": "si dimostra sempre [difetti_sociali] su [social]",
+      "score": 4
+    },
+    {
+      "text": "è un _«[percezione] di [eta-giovane] anni e [percezione]»_ ([commenti_sprezzanti_generici])",
+      "score": 8
+    },
+    {
+      "text": "si vanta su [social] di essere un _«[percezione]»_ e ripete _«[frasi_tipiche]»_ con un tono da [vibes]",
+      "score": 7
+    },
+    {
+      "text": "si vanta su [social] di essere un _«[percezione]»_ ([commenti_sprezzanti_generici])",
+      "score": 9
+    },
+    {
+      "text": "[vibes] di [eta-giovane] anni che su [social] ripete sempre cose strane tipo _«[frasi_tipiche]»_",
+      "score": 6
+    },
+    {
+      "text": "[vibes] di [eta-giovane] anni",
+      "score": 2
+    },
+    {
+      "text": "[professioni] [difetti_sociali]",
+      "score": 2
+    },
+    {
+      "text": "non si fida di nessuno e su [social] ripete a pappagallo _«[frasi_tipiche]»_",
+      "score": 6
+    },
+    {
+      "text": "ascolta le OST dei videogiochi perché _«la musica commerciale è in mano a...? Esatto, [hating]!»_)",
+      "score": 6
+    },
+    {
+      "text": "con complessi sulle dimensioni del suo pene ([commenti_sprezzanti_pene])",
+      "score": 15
+    },
+    {
+      "text": "il suo profilo [social] è pieno di citazioni di [idoli] (ma poi è stra attivo, tipo [5-8] post al giorno)",
+      "score": 9
+    },
+    {
+      "text": "[eta-giovane]enne [vibes] che si lamenta spesso dicendo cose tipo _«[frasi_tipiche]»_",
+      "score": 6
+    },
+    {
+      "text": "[eta-giovane]enne [vibes] che su [social] dice _«[frasi_tipiche]»_ ogni giorno",
+      "score": 6
+    },
+    {
+      "text": "[eta-minorenne]enne che si definisce un _«[percezione] che ha capito come gira il mondo: [frasi_tipiche]»_",
+      "score": 6
+    },
+    {
+      "text": "su [social] ha la bio _«[percezione] - [frasi_tipiche]»_ te lo ricordi perché è [difetti_sociali]",
+      "score": 6
+    },
+    {
+      "text": "[eta-giovane]enne che su [social] si lamenta con argomenti riassumibili in una frase: _«[frasi_tipiche]»_",
+      "score": 6
+    },
+    {
+      "text": "[eta-giovane]enne con una tendenza a essere [vibes]",
+      "score": 3
+    },
+    {
+      "text": "è contro: [hating], [hating], [hating], [hating], [hating] e sorpresa sorpresa... [hating]!",
+      "score": 4
+    },
+    {
+      "text": "[vibes] di [eta-giovane] anni che ama dire _«[frasi_tipiche]»_ su [social]",
+      "score": 6
+    },
+    {
+      "text": "si vanta del pene sopra i [6-12] cm ([commenti_sprezzanti_pene])",
+      "score": 25
+    },
+    {
+      "text": "con complessi sulle dimensioni del suo pene ([commenti_sprezzanti_pene])",
+      "score": 15
+    },
+    {
+      "text": "ha fondato il fanclub _«A Morte [hating]»_ (che attualmente conta l'incredibile cifra di [4-25] membri)",
+      "score": 9
+    },
+    {
+      "text": "ha uno strano feticcio per i piedi (che si aggrava quando pensa alla [donne]), forse dovuto al suo essere [vibes]",
+      "score": 8
+    },
+    {
+      "text": "misura i polsi ogni mattina per controllare di non aver perso circonferenza ossea (ed è terrorizzato che [oggetti_status] preso a [city] sembri troppo grande)",
+      "score": 25
+    },
+    {
+      "text": "ha calcolato l'angolo perfetto della sua mandibola usando un goniometro comprato dai cinesi e lo paragona a quello dei modelli su Instagram",
+      "score": 35
+    },
+    {
+      "text": "conserva una cartella criptata sul pc con le foto delle mani di altri uomini per fare confronti ossessivi",
+      "score": 35
+    },
+    {
+      "text": "ha comprato delle solette rialzanti da [2-5] cm su Amazon per sembrare più alto, ma quando si toglie le scarpe cammina in punta di piedi",
+      "score": 20
+    }
   ]
 }
