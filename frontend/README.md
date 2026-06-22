@@ -562,6 +562,8 @@ Tutti i colori di testo su sfondo sono calcolati per garantire contrasto WCAG AA
 - Funziona sia in light che dark mode per i colori brand-derived
 - I colori semantici fissi delegano a Bootstrap che li calibra per entrambi i toni
 
+**Primary: fill vs foreground.** `colorPrimary` è scurito in OKLCH (hue e chroma preservate) finché garantisce 4.5:1 sul fondo pagina chiaro reale (`baseLt`), e alimenta i **fill** (`--bs-primary`: bottoni, `.bg-primary`, badge) dove il testo sopra si contrasta su `colorPrimaryText`. Quando invece il primary è usato come **foreground** sulla pagina (`.text-primary`, `.border-primary`), un valore tarato sul chiaro risulterebbe scuro-su-scuro in dark mode: per questo esiste la gemella `colorPrimaryDk`, schiarita in OKLCH finché garantisce 4.5:1 sul fondo scuro reale (`baseDk`). Le utility risolvono alla variante giusta via `--colorPrimaryFg`, tone-adaptive come `--colorLink`. Entrambe preservano la chroma del brand: il contrasto WCAG dipende dalla luminanza, non dalla saturazione, quindi una tinta viva resta viva senza costare accessibilità.
+
 ### Cambio Tema a Runtime
 
 `colorTema` è un `WritableSignal` — cambiarlo aggiorna immediatamente palette, CSS vars e tutti i componenti che leggono i signal del tema.
@@ -625,7 +627,7 @@ private readonly theme = inject(ThemeService);
 
 // Brand e derivati (Signal<string>)
 this.theme.colorTema();         // colore brand esatto (--colorTema)
-this.theme.colorPrimary();      // brand scurito a 4.5:1 su bianco — per link, CTA, bottoni
+this.theme.colorPrimary();      // brand scurito a 4.5:1 sullo sfondo pagina chiaro — per link, CTA, bottoni
 this.theme.colorPrimaryText();  // '#000000' | '#ffffff' — testo leggibile su colorPrimary
 this.theme.colorPrimaryRgb();   // "31, 64, 255" — tripla RGB per le rgba() di Bootstrap/CSS
 this.theme.colorTemaText();     // '#000000' | '#ffffff' — testo a contrasto massimo su colorTema
@@ -673,6 +675,27 @@ Il tema corretto è in pagina **prima** che Angular si avvii: nessun lampo di te
 - **SSR per-richiesta** — `app.config.server.ts` inietta in ogni risposta i due `<meta name="theme-color">` (light/dark, dal `colorBase` della palette, per il chrome del browser e la PWA) e lo `<style id="theme-init">` con tutte le CSS vars del tema per entrambi i toni. Così la pagina server-rendered esce già coi colori giusti; `ThemeService` poi "conferma" la palette post-idratazione in `afterNextRender`.
 
 Non c'è nulla da attivare: i due meccanismi sono parte della pipeline di build e dell'SSR.
+
+### Font
+
+I font del sito hanno un'unica fonte di verità: [`frontend/src/styles/font-config.ts`](src/styles/font-config.ts). Nessun valore di font è hardcoded altrove — `ThemeService` legge da qui e inietta `--fontFamily` / `--bs-body-font-family`, e `ImgBuilderService` / `PreviewBuilder` lo usano per Canvas e immagini OG.
+
+Due dizionari, due contesti distinti:
+
+- `WEB_FONTS` → **browser e Canvas.** Stack di font di sistema (System, Georgia, Arial, Verdana…), zero dipendenze esterne: ogni OS usa il suo font nativo, niente file da scaricare.
+- `SERVER_FONTS` → **immagini OG generate da Sharp.** Font fisicamente installati nel container Docker (Roboto, DejaVu, Noto, Liberation).
+
+```typescript
+// font-config.ts — cambiare il default è una riga
+static readonly DEFAULT_WEB_FONT    = FontConfig.WEB_FONTS.System;        // browser + Canvas
+static readonly DEFAULT_SERVER_FONT = FontConfig.SERVER_FONTS.Liberation; // immagini OG
+```
+
+- **Cambiare il font di default:** modifica `DEFAULT_WEB_FONT` e/o `DEFAULT_SERVER_FONT`.
+- **Aggiungere un font web:** aggiungilo a `WEB_FONTS` (nessuna installazione richiesta).
+- **Aggiungere un font server:** aggiungilo a `SERVER_FONTS` **e** installalo nel `Dockerfile`, altrimenti Sharp non lo trova e ripiega sul fallback.
+
+I due default sono volutamente separati perché web e server vivono in ambienti diversi: lo stack di sistema del browser non esiste dentro il container, e i font del container non servono al browser.
 
 ---
 
@@ -1765,12 +1788,13 @@ Componente presentazionale di basso livello: un `<a>` (apre in nuova scheda) con
 
 ### Componenti di Azione
 
-Famiglia di bottoni icon-first per operazioni asincrone su contenuto (testo, Blob, PDF). Tutti condividono lo stesso pattern e includono uno spinner automatico durante l'esecuzione:
+Famiglia di bottoni icon-first per operazioni asincrone su contenuto (testo, Blob, PDF). Tutti includono uno spinner automatico durante l'esecuzione e condividono questi input di base:
 
-- `action` (required) — funzione sincrona o asincrona che produce il contenuto
 - `label` — chiave i18n per il testo del bottone (default predefinito per ogni componente)
 - `showLabel` — `false` per sola icona (default), `true` per icona + testo
 - `fullWidth` — `false` (default): l'host resta inline-block; `true`: l'host diventa `display: block` a tutta larghezza, così il bottone interno (`w-100`) riempie davvero il contenitore senza che il padre debba aggiungere CSS
+
+La maggior parte richiede anche `action` (required) — funzione sincrona o asincrona che produce il contenuto; fanno eccezione `app-pdf-action` (usa `config`) e `app-print-action` (nessun input di contenuto: stampa la pagina corrente).
 
 ```html
 <!-- Solo icona (default) -->
@@ -1787,22 +1811,39 @@ Famiglia di bottoni icon-first per operazioni asincrone su contenuto (testo, Blo
 ```
 
 #### `app-copy-action`
-Copia il testo restituito da `action` negli appunti tramite `ShareService`.
+Copia il testo restituito da `action` negli appunti tramite `ShareService`. (`action` deve restituire `string | Promise<string>`.)
 
 #### `app-share-action`
-Condivide il testo tramite Web Share API (con fallback automatico a copia su browser non supportati).
+Condivide il contenuto tramite Web Share API (con fallback automatico a copia su browser non supportati). `action` può restituire `string`, `Blob` o `HTMLCanvasElement`: il componente smista da solo verso il canale corretto.
+
+| Input aggiuntivo | Tipo | Descrizione |
+| :--- | :--- | :--- |
+| `title` | `string` | Titolo passato alla Web Share API (default `''`) |
+| `filename` | `string` | Nome file per la condivisione di `Blob`/Canvas |
 
 #### `app-speech-action`
 Legge il testo ad alta voce tramite `SpeechService`. Bottone toggle: in riproduzione mostra lo stato "stop" e si interrompe automaticamente alla distruzione del componente.
 
+| Input aggiuntivo | Tipo | Descrizione |
+| :--- | :--- | :--- |
+| `labelStop` | `string` | Chiave i18n per la label in stato "in riproduzione" (default `'speechStop'`) |
+
 #### `app-download-action`
-Scarica il `Blob` restituito da `action` con il nome file specificato. 
+Scarica il `Blob` restituito da `action` con il nome file specificato. (`action` deve restituire `Blob | Promise<Blob>`.)
+
+| Input aggiuntivo | Tipo | Descrizione |
+| :--- | :--- | :--- |
+| `filename` | `string` (required) | Nome del file scaricato |
 
 #### `app-pdf-action`
-Apre o scarica un PDF tramite `PdfActionConfig`. `openInTab: true` apre in una nuova scheda, `false` forza il download.
+Apre o scarica un PDF. Usa `config` al posto di `action`: lavora direttamente sull'URL senza produrre un Blob in-memory. `openInTab: true` apre in nuova scheda; `false` forza il download via `fetch` (con fallback a `window.open` per PDF cross-origin senza CORS).
+
+| Input | Tipo | Descrizione |
+| :--- | :--- | :--- |
+| `config` | `PdfActionConfig` (required) | `{ url: string; openInTab: boolean }` — URL del PDF e modalità di apertura |
 
 #### `app-print-action`
-Stampa il testo, PDF o HTML restituito dall'action. Apre la finestra di stampa nativa del browser.
+Apre la finestra di stampa nativa del browser tramite `window.print()`. Non richiede `action` né altri input aggiuntivi: stampa il contenuto della pagina corrente così com'è.
 
 ### Componenti di Contatto
 
@@ -1971,6 +2012,27 @@ In produzione (`node server.mjs`), ogni risposta SSR ottiene un nonce casuale a 
 - Rimpiazza `{SCRIPT_NONCE_PLACEHOLDER}` nell'header `Content-Security-Policy`
 - Angular inietta `nonce="..."` su tutti gli `<script>` inline generati in SSR
 - In development (HMR attivo) viene usato `unsafe-inline` (richiesto da webpack HMR)
+
+### Estendere la CSP (domini esterni: mappe, analytics, CDN)
+
+La Content-Security-Policy non è hardcoded nel server: vive in [`security-headers.json`](../security-headers.json) alla radice — **unica sorgente condivisa** letta sia dal backend .NET sia dal Node SSR (il layer che la invia al browser, `security-headers.ts`). La default è restrittiva: `default-src 'self'`, nessun dominio esterno.
+
+Quando integri un servizio di terze parti (tile di una mappa, analytics, font da CDN) il browser blocca le richieste finché non autorizzi il dominio nella direttiva giusta. Si modifica **direttamente `security-headers.json`** — è l'override eccezionale previsto dalla sua `_nota`:
+
+| Cosa integri | Direttiva da estendere |
+| :--- | :--- |
+| fetch/XHR/WebSocket (API esterne, tile mappa) | `connect-src` |
+| `<script>` da CDN | `script-src` (lascia intatto `{SCRIPT_NONCE_PLACEHOLDER}`) |
+| Immagini da host esterni | `img-src` |
+| Font da CDN (es. Google Fonts) | `font-src` (+ `style-src` per il CSS del font) |
+
+Esempio — abilitare Mapbox:
+```json
+"connect-src 'self' https://api.mapbox.com https://events.mapbox.com",
+"script-src 'self' {SCRIPT_NONCE_PLACEHOLDER} https://api.mapbox.com"
+```
+
+Due avvertenze: **non rimuovere `{SCRIPT_NONCE_PLACEHOLDER}`** da `script-src` (è ciò che l'SSR sostituisce col nonce per-request), e `security-headers.json` è un file del **template** — di norma si aggiorna col merge dall'upstream, e l'estensione della CSP è l'unica modifica di progetto attesa al suo interno.
 
 ### Server Fingerprinting Nascosto
 

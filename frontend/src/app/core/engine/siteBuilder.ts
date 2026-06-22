@@ -973,7 +973,7 @@ function sanitizePageRefs(config: SiteConfig, pageMap: Map<PageType, PageInfo>):
  * Limiti di profondità della navigazione (header e footer condividono la stessa struttura).
  * Livello 1 = voci di primo livello; ogni discesa in `children` aggiunge un livello.
  */
-const NAV_DEPTH_WARN = 3; // da questo livello in poi: avviso di usabilità (dev)
+const NAV_DEPTH_WARN = 4; // da questo livello in poi: avviso di usabilità (dev). 3 livelli (voce → dropdown → sottomenu) è la profondità dimostrata dal template ed è ok.
 const NAV_DEPTH_MAX = 5;  // livelli oltre questo: errore bloccante a build/avvio
 
 /**

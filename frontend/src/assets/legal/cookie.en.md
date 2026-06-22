@@ -9,5 +9,3 @@ We believe that the user should have total control over the data saved on their 
 {{cookieList}}
 
 You can manage or revoke your preferences at any time through the site's banner.
-
-**Last updated:** May 25, 2026
