@@ -3,7 +3,7 @@
     "short_name": "Br1Gaming",
     "description": "Generatori ignoranti, avventure interattive, universo Br1.",
     "lang": "it",
-    "theme_color": "#567373",
+    "theme_color": "#3c7a7a",
     "background_color": "#f4f5f5",
     "display": "standalone",
     "scope": "./",

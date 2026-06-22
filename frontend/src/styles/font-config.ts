@@ -42,7 +42,7 @@ export class FontConfig {
     } as const;
 
     /** Font di default per il browser e Canvas.. */
-    static readonly DEFAULT_WEB_FONT = FontConfig.WEB_FONTS.Georgia;
+    static readonly DEFAULT_WEB_FONT = FontConfig.WEB_FONTS.Verdana;
 
     /** Font di default per le immagini OG. */
     static readonly DEFAULT_SERVER_FONT = FontConfig.SERVER_FONTS.Liberation;
