@@ -265,7 +265,7 @@ export class PageMetaService {
      * Costruisce un canonical stabile: niente query/hash e, in SSR, origin forzato
      * a FRONTEND_BASE_URL. Evita canonical divergenti tra HTML iniziale e idratazione.
      */
-    private getCanonicalUrl(): string {
+    public getCanonicalUrl(): string {
         try {
             const parsed = new URL(this.document.URL);
             parsed.search = '';

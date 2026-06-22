@@ -22,7 +22,7 @@ import { ContentResolver, ResolvedPage } from './content.resolver';
 @Directive()
 export abstract class PageBaseComponent<T> {
     private readonly contentResolverService = inject(ContentResolver);
-    private readonly pageMeta = inject(PageMetaService);
+    protected readonly pageMeta = inject(PageMetaService);
     private readonly platformId = inject(PLATFORM_ID);
     readonly translate = inject(TranslateService);
     readonly api = inject(ApiService);
