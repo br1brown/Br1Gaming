@@ -562,6 +562,8 @@ Tutti i colori di testo su sfondo sono calcolati per garantire contrasto WCAG AA
 - Funziona sia in light che dark mode per i colori brand-derived
 - I colori semantici fissi delegano a Bootstrap che li calibra per entrambi i toni
 
+**Primary: fill vs foreground.** `colorPrimary` è scurito in OKLCH (hue e chroma preservate) finché garantisce 4.5:1 sul fondo pagina chiaro reale (`baseLt`), e alimenta i **fill** (`--bs-primary`: bottoni, `.bg-primary`, badge) dove il testo sopra si contrasta su `colorPrimaryText`. Quando invece il primary è usato come **foreground** sulla pagina (`.text-primary`, `.border-primary`), un valore tarato sul chiaro risulterebbe scuro-su-scuro in dark mode: per questo esiste la gemella `colorPrimaryDk`, schiarita in OKLCH finché garantisce 4.5:1 sul fondo scuro reale (`baseDk`). Le utility risolvono alla variante giusta via `--colorPrimaryFg`, tone-adaptive come `--colorLink`. Entrambe preservano la chroma del brand: il contrasto WCAG dipende dalla luminanza, non dalla saturazione, quindi una tinta viva resta viva senza costare accessibilità.
+
 ### Cambio Tema a Runtime
 
 `colorTema` è un `WritableSignal` — cambiarlo aggiorna immediatamente palette, CSS vars e tutti i componenti che leggono i signal del tema.
@@ -1786,12 +1788,13 @@ Componente presentazionale di basso livello: un `<a>` (apre in nuova scheda) con
 
 ### Componenti di Azione
 
-Famiglia di bottoni icon-first per operazioni asincrone su contenuto (testo, Blob, PDF). Tutti condividono lo stesso pattern e includono uno spinner automatico durante l'esecuzione:
+Famiglia di bottoni icon-first per operazioni asincrone su contenuto (testo, Blob, PDF). Tutti includono uno spinner automatico durante l'esecuzione e condividono questi input di base:
 
-- `action` (required) — funzione sincrona o asincrona che produce il contenuto
 - `label` — chiave i18n per il testo del bottone (default predefinito per ogni componente)
 - `showLabel` — `false` per sola icona (default), `true` per icona + testo
 - `fullWidth` — `false` (default): l'host resta inline-block; `true`: l'host diventa `display: block` a tutta larghezza, così il bottone interno (`w-100`) riempie davvero il contenitore senza che il padre debba aggiungere CSS
+
+La maggior parte richiede anche `action` (required) — funzione sincrona o asincrona che produce il contenuto; fanno eccezione `app-pdf-action` (usa `config`) e `app-print-action` (nessun input di contenuto: stampa la pagina corrente).
 
 ```html
 <!-- Solo icona (default) -->
@@ -1808,22 +1811,39 @@ Famiglia di bottoni icon-first per operazioni asincrone su contenuto (testo, Blo
 ```
 
 #### `app-copy-action`
-Copia il testo restituito da `action` negli appunti tramite `ShareService`.
+Copia il testo restituito da `action` negli appunti tramite `ShareService`. (`action` deve restituire `string | Promise<string>`.)
 
 #### `app-share-action`
-Condivide il testo tramite Web Share API (con fallback automatico a copia su browser non supportati).
+Condivide il contenuto tramite Web Share API (con fallback automatico a copia su browser non supportati). `action` può restituire `string`, `Blob` o `HTMLCanvasElement`: il componente smista da solo verso il canale corretto.
+
+| Input aggiuntivo | Tipo | Descrizione |
+| :--- | :--- | :--- |
+| `title` | `string` | Titolo passato alla Web Share API (default `''`) |
+| `filename` | `string` | Nome file per la condivisione di `Blob`/Canvas |
 
 #### `app-speech-action`
 Legge il testo ad alta voce tramite `SpeechService`. Bottone toggle: in riproduzione mostra lo stato "stop" e si interrompe automaticamente alla distruzione del componente.
 
+| Input aggiuntivo | Tipo | Descrizione |
+| :--- | :--- | :--- |
+| `labelStop` | `string` | Chiave i18n per la label in stato "in riproduzione" (default `'speechStop'`) |
+
 #### `app-download-action`
-Scarica il `Blob` restituito da `action` con il nome file specificato. 
+Scarica il `Blob` restituito da `action` con il nome file specificato. (`action` deve restituire `Blob | Promise<Blob>`.)
+
+| Input aggiuntivo | Tipo | Descrizione |
+| :--- | :--- | :--- |
+| `filename` | `string` (required) | Nome del file scaricato |
 
 #### `app-pdf-action`
-Apre o scarica un PDF tramite `PdfActionConfig`. `openInTab: true` apre in una nuova scheda, `false` forza il download.
+Apre o scarica un PDF. Usa `config` al posto di `action`: lavora direttamente sull'URL senza produrre un Blob in-memory. `openInTab: true` apre in nuova scheda; `false` forza il download via `fetch` (con fallback a `window.open` per PDF cross-origin senza CORS).
+
+| Input | Tipo | Descrizione |
+| :--- | :--- | :--- |
+| `config` | `PdfActionConfig` (required) | `{ url: string; openInTab: boolean }` — URL del PDF e modalità di apertura |
 
 #### `app-print-action`
-Stampa il testo, PDF o HTML restituito dall'action. Apre la finestra di stampa nativa del browser.
+Apre la finestra di stampa nativa del browser tramite `window.print()`. Non richiede `action` né altri input aggiuntivi: stampa il contenuto della pagina corrente così com'è.
 
 ### Componenti di Contatto
 

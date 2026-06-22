@@ -9,5 +9,3 @@ Crediamo che l'utente debba avere il controllo totale sui dati salvati sul propr
 {{cookieList}}
 
 Puoi gestire o revocare le tue preferenze in qualsiasi momento tramite il banner del sito.
-
-**Ultimo aggiornamento:** 25 maggio 2026

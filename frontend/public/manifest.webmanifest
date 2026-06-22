@@ -3,7 +3,7 @@
     "short_name": "App",
     "description": "Template di base che serve per fare vedere le funzionalità base",
     "lang": "it",
-    "theme_color": "#0b1233",
+    "theme_color": "#131e55",
     "background_color": "#08090c",
     "display": "standalone",
     "scope": "./",
