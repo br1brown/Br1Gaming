@@ -1,0 +1,22 @@
+// app/ — la casa degli stili globali del progetto figlio.
+//
+// Metti qui i tuoi partial (es. _nav.scss, _hero.scss) e importali dall'entry
+// `src/styles.scss` con  @use 'app/<nome>';  (grazie ai loadPaths di angular.json
+// il path è stabile da qualsiasi .scss, niente catene ../../).
+//
+// Questo file è solo un segnaposto/esempio: rinominalo o sostituiscilo. Finché
+// non è importato da styles.scss non produce alcun CSS.
+//
+// ── Esempio: ridare stile alla navbar dopo aver tolto `@use 'engine/nav'` ────
+// Usa SEMPRE i token del tema (tone-adaptive, WCAG-safe) e gli strumenti `lib`,
+// mai colori/breakpoint hardcoded.
+//
+// @use 'engine/base/lib' as lib;
+//
+// .navbar .nav-link {
+//     color: inherit;
+//     &.active { font-weight: 700; text-decoration: underline; }
+// }
+// @media (max-width: #{lib.$bp-md - 0.02px}) {
+//     .navbar .nav-link { min-height: 2.75rem; }
+// }

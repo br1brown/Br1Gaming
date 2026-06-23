@@ -1,3 +1,5 @@
+@use 'engine/base/lib' as lib;
+
 
 
 .navbar {
@@ -115,7 +117,7 @@
     letter-spacing: 0.04em;
 }
 
-@media (min-width: 768px) {
+@media (min-width: #{lib.$bp-md}) {
     .language-dropdown-menu {
         width: max-content;
         max-width: min(14rem, calc(100vw - 1rem));
@@ -126,7 +128,7 @@
     }
 }
 
-@media (max-width: 767.98px) {
+@media (max-width: #{lib.$bp-md - 0.02px}) {
     .user-nav-wrapper {
         padding-top: 0.9rem;
         border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
@@ -187,7 +189,7 @@
 
 @media (prefers-reduced-motion: reduce) {
     /* Lo stato finale (X) resta come indizio statico: disattiviamo solo il
-       movimento animato, in linea con i caret in nav.css. */
+       movimento animato, in linea con i caret in nav.scss. */
     .language-toggle,
     .navbar-toggler-icon,
     .navbar-toggler-icon::before,

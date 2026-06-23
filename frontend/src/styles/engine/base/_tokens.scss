@@ -1,0 +1,78 @@
+/* base/_tokens.scss — Design token del tema (--color*), scala z-index, ombre.
+ * Le custom properties sono impostate da ThemeService.
+ *
+ * ── Design Token Reference ───────────────────────────────────────────────────
+ * Tutte le variabili --color* sono "design token" gestiti da ThemeService.
+ * Non usare valori di colore hardcoded nei componenti: usa sempre i token qui
+ * sotto per garantire coerenza, dark-mode e accessibilità automatici.
+ *
+ * Token di colore:
+ *   --colorTema          Colore principale del brand (impostato runtime)
+ *   --colorBase          Sfondo body
+ *   --colorPrimary       Variante scura/WCAG-safe per bottoni/CTA (4.5:1 su sfondo pagina chiaro)
+ *   --colorPrimaryRgb    Versione RGB di --colorPrimary (per Bootstrap opacity)
+ *   --colorPrimaryText   Testo su sfondo --colorPrimary (#fff o #000 per a11y)
+ *   --colorLink          Colore link tone-adaptive (Lt: scuro su bianco, Dk: chiaro su scuro)
+ *   --colorSurface       Sfondo pannelli/card
+ *   --colorSurfaceHover  Sfondo pannelli on hover
+ *   --colorSurfaceBorder Bordo pannelli (≥ 3:1 WCAG 1.4.11)
+ *   --colorSurfaceText   Testo su --colorSurface
+ *
+ * Token di focus (WCAG 2.4.7 / 2.4.11):
+ *   --focusRingColor     Colore dell'anello di focus (default: --colorPrimary)
+ *   --focusRingWidth     Spessore dell'anello (default: 3px)
+ *   --focusRingOffset    Offset dall'elemento (default: 2px)
+ *
+ * Uso tipico nei componenti:
+ *   background: var(--colorSurface);
+ *   color: var(--colorSurfaceText);
+ *   border: 1px solid var(--colorSurfaceBorder);
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/* §5 — Variabili CSS tema. Convenzione: --colorXxx (Italian camelCase).
+   ThemeService imposta i valori a runtime tramite inline style su <html>
+   (priorità massima). I valori qui in :root sono i fallback pre-idratazione /
+   no-JS, coperti anche da <style id="theme-init"> iniettato da server.ts per-request. */
+:root {
+    --fontFamily: inherit;
+    --colorTema: #212529;
+    --colorBase: #1a1d20;
+    --colorPrimary: #141619;
+    --colorPrimaryRgb: 20, 22, 25;
+    --colorPrimaryText: #ffffff;
+    --colorLink: #141619;
+    --colorSurface: #1e2124;
+    --colorSurfaceHover: #24282c;
+    --colorSurfaceBorder: #2e3338;
+    --colorSurfaceText: #e9ecef;
+
+    /* Focus tokens — WCAG 2.4.7 / 2.4.11 */
+    /* --focusRingColor usa --colorLink: stesso token tone-adaptive del link,
+       così focus ring e link hanno coerenza cromatica e contrasto garantito. */
+    --focusRingColor: var(--colorLink, #141619);
+    --focusRingWidth: 3px;
+    --focusRingOffset: 2px;
+    /* Bootstrap body-color-rgb — usato da utility rgba() di Bootstrap 5.3 */
+    --bs-body-color-rgb: 233, 236, 239;
+    /* Link lt/dk fallback — ThemeService sovrascrive questi a runtime */
+    --colorLinkLt: #141619;
+    --colorLinkDk: #a8b4c8;
+    --colorNavBg: #212529;
+    --colorNavText: #ffffff;
+
+    /* ── Scala z-index del template ──────────────────────────────────────
+       Unico punto di verità per lo stacking: i componenti usano SOLO queste
+       variabili, mai valori letterali. La scala è incastrata nei vuoti di
+       quella Bootstrap (dropdown 1000 · sticky 1020 · fixed 1030 ·
+       offcanvas 1045 · modal-backdrop 1050 · modal 1055 · popover 1070 ·
+       toast 1090): i widget persistenti (cookie banner, back-to-top) stanno
+       sopra la navbar fissa ma SOTTO offcanvas e modali, che devono coprirli. */
+    --z-cookie-banner: 1035;
+    --z-fab: 1040;
+    --z-skip-link: 1095;
+    --z-cdk-overlay: 1100;
+
+    /* Ombre di elevazione condivise (.surface-elevated, .fab): stato di riposo e stato attivo. */
+    --shadowElevated: 0 10px 24px rgba(0, 0, 0, 0.18);
+    --shadowElevatedHover: 0 14px 28px rgba(0, 0, 0, 0.24);
+}

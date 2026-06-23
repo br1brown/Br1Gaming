@@ -1,0 +1,90 @@
+@use 'engine/base/lib' as lib;
+
+/* ── Sottomenu multilivello (dal 2º livello in giù) ───────────────────
+   Il pannello `.submenu-panel` è anch'esso una `.dropdown-menu`, quindi
+   eredita colori/ombra dal tema. Trigger button `.submenu-toggle` reso
+   come riga del menu (eredita `.dropdown-item`) con caret laterale. */
+
+.submenu-toggle {
+    border: 0;
+    background: transparent;
+    font: inherit;
+    width: 100%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+/* Breadcrumb: ogni gruppo-antenato che contiene la rotta corrente resta in
+   grassetto+sottolineato, così anche da un sottolivello si capisce l'ubicazione.
+   Stesso trattamento del toggle dropdown di 1º livello (`.dropdown.active`). */
+.navbar .dropdown-submenu.active > .submenu-toggle {
+    font-weight: 700;
+    text-decoration: underline;
+    text-decoration-thickness: 0.14rem;
+    text-underline-offset: 0.2rem;
+    color: inherit;
+}
+
+@media (min-width: #{lib.$bp-md}) {
+    /* Desktop: flyout laterale ancorato alla riga, apre a destra di default. */
+    .dropdown-submenu {
+        position: relative;
+    }
+
+    .dropdown-submenu > .submenu-panel {
+        position: absolute;
+        top: 0;
+        left: 100%;
+        margin: 0 0 0 0.15rem;
+        min-width: 11rem;
+        max-width: min(16rem, 90vw);
+    }
+
+    /* Ribalta a sinistra quando non c'è spazio a destra (classe decisa in TS). */
+    .dropdown-submenu.flip-left > .submenu-panel {
+        left: auto;
+        right: 100%;
+        margin: 0 0.15rem 0 0;
+    }
+
+    /* Rivela il flyout su hover, focus da tastiera, o stato aperto. */
+    .dropdown-submenu:hover > .submenu-panel,
+    .dropdown-submenu:focus-within > .submenu-panel,
+    .dropdown-submenu.expanded > .submenu-panel {
+        display: block;
+        animation: navDropdownEnter 0.15s ease both;
+    }
+
+    /* Caret rivolto a destra (o a sinistra se il pannello è ribaltato). */
+    .submenu-caret {
+        transform: rotate(-45deg);
+    }
+
+    .dropdown-submenu.flip-left > .submenu-toggle .submenu-caret {
+        transform: rotate(135deg);
+    }
+}
+
+@media (max-width: #{lib.$bp-md - 0.02px}) {
+    /* Mobile: accordion indentato. Il pannello è statico (regola .navbar
+       .dropdown-menu sopra) e l'indentazione cresce a ogni annidamento. */
+    .dropdown-submenu.expanded > .submenu-panel {
+        display: block;
+    }
+
+    .submenu-toggle {
+        padding-inline: 0 0.25rem;
+    }
+
+    /* Caret rivolto in basso, ruota verso l'alto quando il gruppo è aperto. */
+    .submenu-caret {
+        transform: rotate(45deg);
+    }
+
+    .dropdown-submenu.expanded > .submenu-toggle .submenu-caret {
+        transform: rotate(225deg);
+    }
+}

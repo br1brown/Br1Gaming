@@ -1,0 +1,164 @@
+@use 'engine/base/lib' as lib;
+
+/* ── Override Bootstrap dropdown nel contesto navbar ─────────────── */
+
+/* Senza fixed-top/sticky-top Bootstrap non assegna z-index alla navbar, lasciando
+   il dropdown vulnerabile a contenuti di pagina con z-index positivo. Questa regola
+   crea un contesto di stacking sulla navbar (z-index: 100) così il dropdown galleggia
+   sopra il contenuto qualunque z-index abbiano gli elementi dei progetti figli.
+   fixed-top (z-index: 1030) e sticky-top (z-index: 1020) sono esclusi: Bootstrap li
+   gestisce già con valori più alti. */
+.navbar:not(.fixed-top):not(.sticky-top) {
+    z-index: 100;
+}
+
+/* Il dropdown desktop usa gli stessi colori della navbar,
+   mantenendo l'ombra per dare senso di elevazione. */
+.navbar .dropdown-menu {
+    margin-top: 0.35rem;
+    border-radius: 0.85rem;
+    background-color: var(--colorNavBg);
+    color: var(--colorNavText);
+    border-color: var(--colorNavBorder);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14), 0 0 0 1px var(--colorNavBorder);
+}
+
+/* Colore e padding degli item: Bootstrap userebbe --bs-dropdown-link-color
+   (spesso blu); qui ereditiamo dal tema. */
+.navbar .dropdown-item {
+    position: relative;
+    padding: 0.7rem 1rem;
+    line-height: 1.35;
+    font-weight: 500;
+    color: inherit;
+}
+
+.navbar .dropdown-item:hover,
+.navbar .dropdown-item:focus-visible {
+    background-color: color-mix(in srgb, currentColor 10%, transparent);
+    color: inherit;
+    outline: none;
+}
+
+/* Bootstrap .dropdown-item.active usa --bs-dropdown-link-active-bg (primary).
+   Lo sostituiamo con il nostro stile: bold + sfondo tenue + barra laterale. */
+.navbar .dropdown-item.active,
+.navbar .nav-current-link.dropdown-item {
+    background-color: color-mix(in srgb, currentColor 18%, transparent);
+    color: inherit;
+    font-weight: 700;
+    padding-left: 1.35rem;
+}
+
+.navbar .dropdown-item.active::before,
+.navbar .nav-current-link.dropdown-item::before {
+    content: '';
+    position: absolute;
+    left: 0.7rem;
+    top: 0.55rem;
+    bottom: 0.55rem;
+    width: 0.22rem;
+    border-radius: 999px;
+    background-color: currentColor;
+}
+
+/* Toggle underline quando un figlio è la rotta corrente o il menu è aperto */
+.navbar .dropdown.active > .nav-dropdown-toggle,
+.navbar .dropdown.show > .nav-dropdown-toggle {
+    font-weight: 700;
+    text-decoration: underline;
+    text-decoration-thickness: 0.14rem;
+    text-underline-offset: 0.2rem;
+    color: inherit;
+}
+
+/* ── Colori navbar ────────────────────────────────────────────────── */
+
+.navbar .nav-link,
+.navbar .nav-current-link,
+.navbar .nav-dropdown-toggle {
+    color: inherit;
+}
+
+.navbar .nav-link:hover,
+.navbar .nav-link:focus-visible,
+.navbar .nav-dropdown-toggle:hover,
+.navbar .nav-dropdown-toggle:focus-visible {
+    color: inherit;
+}
+
+.navbar .nav-link.active,
+.navbar .nav-current-link.nav-link {
+    color: inherit;
+}
+
+/* ── Animazione apertura dropdown (desktop) ───────────────────────
+   Bootstrap toglie display:none solo quando aggiunge .show — l'exit
+   non è animabile in CSS puro senza JS extra. Animiamo l'entrance. */
+@keyframes navDropdownEnter {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (min-width: #{lib.$bp-md}) {
+    .navbar .dropdown-menu.show {
+        animation: navDropdownEnter 0.15s ease both;
+    }
+}
+
+/* ── Responsive ───────────────────────────────────────────────────── */
+
+@media (max-width: #{lib.$bp-md - 0.02px}) {
+    .nav-link,
+    .nav-current-link,
+    .nav-dropdown-toggle {
+        min-height: 2.75rem;
+    }
+
+    .navbar .dropdown {
+        display: block;
+        width: 100%;
+    }
+
+    .nav-dropdown-toggle {
+        width: 100%;
+        padding: 0.7rem 0.25rem 0.7rem 0;
+        justify-content: space-between;
+    }
+
+    /* Mobile: Bootstrap standard (display:none/block), stili desktop azzerati */
+    .navbar .dropdown-menu {
+        position: static;
+        margin-top: 0;
+        padding: 0 0 0 0.95rem;
+        border-radius: 0;
+        border: none;
+        box-shadow: none;
+        background-color: transparent;
+        color: inherit;
+    }
+
+    .navbar .dropdown-item {
+        padding: 0.5rem 0;
+        font-weight: 400;
+        white-space: normal;
+    }
+
+    .navbar .dropdown-item.active,
+    .navbar .nav-current-link.dropdown-item {
+        background-color: transparent;
+        font-weight: 700;
+        padding-left: 0;
+    }
+
+    .navbar .dropdown-item.active::before,
+    .navbar .nav-current-link.dropdown-item::before {
+        display: none;
+    }
+
+    .navbar .dropdown-item:hover,
+    .navbar .dropdown-item:focus-visible {
+        background-color: transparent;
+        text-decoration: underline;
+    }
+}

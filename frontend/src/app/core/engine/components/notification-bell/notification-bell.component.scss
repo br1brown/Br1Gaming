@@ -1,4 +1,6 @@
-/* Il toggle eredita .nav-dropdown-toggle (reset + flex) da nav.css. Qui solo l'ancoraggio
+@use 'engine/base/lib' as lib;
+
+/* Il toggle eredita .nav-dropdown-toggle (reset + flex) da nav.scss. Qui solo l'ancoraggio
    del badge e il layout del menu. Il colore segue la navbar via currentColor. */
 
 .notification-bell-toggle {
@@ -58,9 +60,9 @@
     opacity: 0.7;
 }
 
-/* Mobile: il menu è statico dentro il collapse (regola .navbar .dropdown-menu in nav.css),
+/* Mobile: il menu è statico dentro il collapse (regola .navbar .dropdown-menu in nav.scss),
    quindi niente ancoraggio a destra e larghezza piena. */
-@media (max-width: 767.98px) {
+@media (max-width: #{lib.$bp-md - 0.02px}) {
     .notification-bell-menu {
         right: auto;
         min-width: 0;

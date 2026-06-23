@@ -16,7 +16,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
   selector: 'app-back-to-top',
   imports: [TranslatePipe],
   templateUrl: './back-to-top.component.html',
-  styleUrl: './back-to-top.component.css',
+  styleUrl: './back-to-top.component.scss',
   host: { '(window:scroll)': 'onScroll()' }
 })
 export class BackToTopComponent {
