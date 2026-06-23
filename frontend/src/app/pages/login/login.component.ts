@@ -1,7 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
-import { PageBaseComponent } from '../page-base.component';
+import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { LoginFormComponent } from '../../components/shared/login-form/login-form.component';
 import { ContestoSito, PageType } from '../../site';
 

@@ -1,7 +1,7 @@
 import { Component, ElementRef, PLATFORM_ID, computed, inject, input, output, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { Router } from '@angular/router';
-import { injectCurrentUrl } from '../../../../app.routes';
+import { injectCurrentUrl } from '../../routing';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { NavLinkComponent } from '../nav-link/nav-link.component';
 import { NavLink, isNavGroup } from '../../siteBuilder';

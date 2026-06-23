@@ -1,5 +1,5 @@
 import type { Type } from '@angular/core';
-import type { PageBaseComponent } from '../../../pages/page-base.component';
+import type { PageBaseComponent } from '../pages/page-base.component';
 import type { PageType } from '../../../site';
 import type { LegalPagesConfig, ParentPageInput, ResolvedLegalPages, SitePageInput } from '../siteBuilder';
 

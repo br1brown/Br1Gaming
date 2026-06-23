@@ -27,8 +27,8 @@ import { TranslatePipe } from './core/engine/pipes/translate.pipe';
     templateUrl: './app.component.html',
     // L'altezza minima (viewport) NON è più l'utility .min-vh-100: Bootstrap la fissa a 100vh
     // (= large viewport, barre ritratte), che su mobile spinge le viste full-bleed sotto la
-    // chrome del browser. Ora la dà base.css su `app-root` con `min-height: 100dvh` (+ fallback
-    // 100vh), che segue l'altezza visibile dinamica. Vedi base.css (regola `app-root`).
+    // chrome del browser. Ora la dà base.scss su `app-root` con `min-height: 100dvh` (+ fallback
+    // 100vh), che segue l'altezza visibile dinamica. Vedi base.scss (regola `app-root`).
     host: { class: 'd-flex flex-column' }
 })
 export class AppComponent {
@@ -57,7 +57,7 @@ export class AppComponent {
     });
 
     // Vista full-bleed della pagina attiva (flag layout.fitViewport): lo shell rende il
-    // <main> senza container/padding e senza pannello, e .fit-viewport (base.css) fa
+    // <main> senza container/padding e senza pannello, e .fit-viewport (base.scss) fa
     // riempire l'altezza al contenuto. Quando attivo prevale su showPanel.
     readonly fitViewport = computed(() => this.currentRoute().data['fitViewport'] ?? false);
 

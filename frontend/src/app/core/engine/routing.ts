@@ -2,12 +2,12 @@ import { CanActivateFn, NavigationEnd, Route, Router, Routes } from '@angular/ro
 import { inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs';
-import { ContestoSito } from './site';
-import { AuthService } from './core/services/auth.service';
-import { contentLoaderResolver } from './pages/content.resolver';
-import { InternalSitePage, isInternalPage, isParentPage } from './core/engine/siteBuilder';
-import { NotificationService } from './core/engine/services/notification.service';
-import { TranslateService } from './core/engine/services/translate.service';
+import { ContestoSito } from '../../site';
+import { AuthService } from '../services/auth.service';
+import { contentLoaderResolver } from '../../pages/content.resolver';
+import { InternalSitePage, isInternalPage, isParentPage } from './siteBuilder';
+import { NotificationService } from './services/notification.service';
+import { TranslateService } from './services/translate.service';
 
 export function injectCurrentUrl() {
     const router = inject(Router);
@@ -133,7 +133,7 @@ function buildErrorRoutes(): Routes {
         {
             path: 'error/:errorCode',
             title: 'erroreGenerico',
-            loadComponent: () => import('./pages/error/error.component').then(m => m.ErrorComponent),
+            loadComponent: () => import('../../pages/error/error.component').then(m => m.ErrorComponent),
             data: { showPanel: false }
         },
         {
