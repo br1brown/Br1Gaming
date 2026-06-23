@@ -49,7 +49,7 @@ Risultato:
 
 - **`docker-compose.yml`** — base: servizi, build, rete, volumi. Usato in produzione.
 - **`docker-compose.backend-exposed.yml`** — opzionale: espone il backend verso l'host su `BACKEND_PORT` (quando `backend.public: true`)
-- **`docker-compose.public-test.yml`** — overlay per simulare un reverse proxy pubblico davanti al frontend SSR (usato dai test a11y/Lighthouse via `scripts/test/public-test.sh`)
+- **`docker-compose.public-test.yml`** — overlay per simulare un reverse proxy pubblico davanti al frontend SSR (usato dai test a11y/Lighthouse via `scripts/test/public-test.sh`). Indicizzazione lasciata attiva (il test SEO/Lighthouse misura la pagina reale); per un'anteprima non-indicizzabile avviala con `PUBLIC_TEST_NOINDEX=true`
 
 > Lo sviluppo locale non passa da Docker: si usa lo script del frontend (Angular dev server) + Visual Studio per il backend.
 
@@ -128,6 +128,7 @@ Variabili lette al boot dal container Node frontend (`frontend/src/app/core/engi
 | `NG_ALLOWED_HOSTS` | — | Allowlist host SSR, lista separata da virgole. **Ha precedenza su `frontend.hostname`** (utile per multi-dominio). Se né questa né l'hostname sono valorizzati, fallback fail-closed agli host locali → gli host reali ricevono `421` |
 | `IMAGE_CACHE_DIR` | `<temp di sistema>/…` | Cartella dei thumbnail di `/cdn-cgi/asset` e `/cdn-cgi/preview`. Default nella temp (isolata per progetto), quindi **effimera**: riparte fredda a ogni riavvio. Per una cache **calda tra i deploy**, monta un volume persistente e puntalo qui (dettaglio in [frontend/README.md](frontend/README.md)) |
 | `IMAGE_CACHE_MAX_MB` | `500` | Cap della cache immagini su disco; oltre la soglia uno sweep LRU ogni 6 ore la riporta al 90% del cap |
+| `SEO_NOINDEX` | `false` | Se `true` (`1`/`yes`/`on`), rende l'intero deploy **non indicizzabile**: `X-Robots-Tag: noindex, nofollow` su ogni risposta + `robots.txt` dinamico `Disallow: /`. Per staging/anteprima dietro lo stesso reverse proxy della produzione. **Lascialo spento in produzione (default).** Su un deploy si imposta come passthrough prima del comando: `export SEO_NOINDEX=true; ./deploy.sh` (stessa convenzione di `Mail__Password`). L'overlay `docker-compose.public-test.yml` lo lascia spento (così il test SEO/Lighthouse è significativo); per un'anteprima non indicizzabile avviala con `PUBLIC_TEST_NOINDEX=true` |
 
 ## Sviluppo locale
 
@@ -161,6 +162,10 @@ In produzione:
 Frontend e backend sono **disaccoppiati**: puoi pubblicarli insieme o uno alla volta (anche su VPS diverse). Il backend è privato o pubblico secondo `backend.public`.
 
 > **Guard segreti (automatico):** al deploy `deploy.sh` verifica che non siano rimasti i segreti segnaposto/deboli di default. Se `Security.Token.SecretKey` è ancora la chiave di sviluppo o è < 32 caratteri, o se `Security.ApiKeys` contiene `frontend` / chiavi < 32 caratteri, il deploy si ferma con un messaggio esplicito (e il comando `openssl` per generarne uno sicuro). I segreti si generano con `openssl rand -base64 48` (JWT) e `openssl rand -base64 32` (API key).
+
+> **Guard pubblicazione (automatico):** due errori silenziosi tipici dietro reverse proxy, intercettati prima della build:
+> - **`frontend.hostname` mancante** → il deploy si **ferma**. Senza hostname l'SSR è fail-closed e risponderebbe **421** al dominio reale (e sitemap/canonical/og userebbero `example.com`); insidioso perché l'healthcheck del preflight gira su `localhost` e *passerebbe* — il deploy sembrerebbe riuscito mentre il sito è irraggiungibile dal dominio vero.
+> - **`Security.BehindProxy` non `true`** → **avviso** (non bloccante): dietro nginx il rate limiter conterebbe tutti gli utenti come un solo IP (l'IP del proxy), condividendo lo stesso budget di 100 req/min. Impostalo a `true` se usi un proxy; ignora l'avviso se esponi il sito senza proxy.
 
 > **Password SMTP fuori dal disco:** `docker-compose.yml` dichiara un passthrough `Mail__Password` (convenzione .NET: `Mail:Password`). Esportandola nell'ambiente prima del deploy — `export Mail__Password='...'; ./deploy.sh` — il backend la legge con **precedenza sul JSON montato** e la password non finisce mai nel file su disco. Se la variabile non è impostata vale il valore (eventuale) di `Mail.Password` nel `.local`.
 

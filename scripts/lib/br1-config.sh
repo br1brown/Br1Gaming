@@ -21,6 +21,7 @@
 #   BACKEND_PORT          porta host del backend (se esposto)
 #   FRONTEND_BASE_URL     https://<hostname> (se impostato)
 #   NG_ALLOWED_HOSTS      hostname consentito
+#   BEHIND_PROXY          yes|no (da Security.BehindProxy)
 #   BR1_PROJECT_JSON      global-settings.json minificato (project/Localization/site/Custom, NO segreti),
 #                         build arg per iniettare l'identità e la config nel bundle frontend
 #
@@ -75,6 +76,7 @@ process.stdout.write([
     'BACKEND_PORT=' + String(s.backend?.publicPort || ''),
     'FRONTEND_BASE_URL=' + (h ? 'https://' + h : ''),
     'NG_ALLOWED_HOSTS=' + h,
+    'BEHIND_PROXY=' + (s.Security?.BehindProxy ? 'yes' : 'no'),
 ].join('\n') + '\n');
 ")
 

@@ -46,6 +46,7 @@ Prima di scrivere una riga, tieni a mente una sola linea di confine. Tutto ciò 
 | `core/services/**` | Tuo | `api.service.ts` (il client API che estendi con i tuoi endpoint), `auth.service.ts`, `cookie-registry.ts` (`COOKIE_MAP`) |
 | `core/dto/**` | Tuo | I contratti dati (`session.dto.ts`, `auth.dto.ts`) allineati a mano ai record C# |
 | `pages/**` | Tuo | Le schermate, ognuna estende `PageBaseComponent` |
+| `styles/**` | Tuo (entry `styles.scss`) | Stili globali: parti da `styles.scss`, i tuoi partial in `styles/app/`. `styles/engine/` è dell'Engine e non si tocca |
 
 Il confine non è arbitrario: `app.component.ts` (che è *tuo*) importa `FooterComponent` da `./components/shared/footer/...`, legge `ContestoSito.config.smoke` e chiama `VersionCheckService` — orchestra cioè i pezzi dell'Engine montandoli nella shell, senza farne parte. La distinzione operativa è questa: gli oggetti sotto `core/engine/**` non si aprono per modificarli, si **consumano** (un `inject(...)`, una direttiva, un signal); tutto il resto è codice di progetto che adatti al tuo dominio. Quando un capitolo qui sotto dice "estendi" o "aggiungi un metodo", parla sempre di file fuori da `core/engine/**`; quando dice "consuma" o "leggi il signal", parla dell'Engine.
 
@@ -86,6 +87,8 @@ Comportamento:
 
 La home demo lo applica alle sezioni QR, Notifiche e Sistema — esempio vivo, finché un progetto figlio non la riscrive.
 
+**Transizioni di pagina.** L'Engine registra `withViewTransitions()` nel router: i cambi pagina usano la View Transitions API del browser (cross-fade) come *progressive enhancement* — i browser senza supporto navigano senza animazione, e il movimento è disattivato sotto `prefers-reduced-motion` (regola in `engine/base/_a11y.scss`). Nessuna configurazione richiesta.
+
 ### 4. CSS: Bootstrap First, Custom Solo Se Necessario
 Il progetto usa **Bootstrap 5** come sistema di design principale: per layout, tipografia, form e componenti parti sempre dalle classi Bootstrap, e tieni il CSS custom per ciò che Bootstrap non copre.
 
@@ -96,22 +99,32 @@ Il progetto usa **Bootstrap 5** come sistema di design principale: per layout, t
 - Componenti (`card`, `alert`, `btn`, `spinner-border`, `badge`, `list-group`)
 - Responsive (`col-md-6`, `d-none d-lg-block`)
 
-**Cosa va nel file `styles.css` globale:**
-- Stili specifici del progetto finale che sovrascrivono il tema o Bootstrap.
-- Import di CSS di terze parti non gestiti dal framework.
-- Classi di utilità globali non previste da Bootstrap.
-*Nota bene: `base.css` è riservato all'engine e alla gestione avanzata del tema OKLCH, non va modificato con stili di progetto.*
+**Gli stili sono in SCSS, e hai un solo punto di partenza: `src/styles.scss`.** Le **fondamenta** dell'Engine (token del tema, ponte Bootstrap, layout, accessibilità: `styles/engine/base`) sono cablate dalla build — `angular.json → "styles"` — e caricate sempre: non le vedi e non puoi romperle per sbaglio. A te restano `src/styles.scss` (l'entry), `src/styles/app/` (i tuoi partial, importati con `@use 'app/...'`) e lo strato **opzionale** dell'Engine. (`styles/engine/` è dell'Engine e si aggiorna dal template; `font-config.ts`, i font, resta tuo come già visto.)
 
-**Cosa va nel file `.css` del componente (solo ciò che Bootstrap non può esprimere):**
+In `styles.scss`:
+- `@use 'engine/nav'` — **strato opzionale** dell'Engine: navbar/footer/dropdown. Vuoi una navigazione con un tuo stile grafico? **Commenta questa riga** e scrivi il tuo (es. in `styles/app/_nav.scss`): gli stili nav agiscono su classi globali (`.nav-link`, `.navbar .dropdown-menu`…) rese dal componente, quindi le ridipingi dai tuoi file. *(L'opt-out è a livello di CSS: il markup della navbar resta del componente Engine.)*
+- I tuoi stili globali, gli override di tema/Bootstrap e le utility vanno in `styles.scss` o in partial sotto `styles/app/` importati da lì.
+
+**Riusare gli strumenti SCSS dell'Engine.** Grazie ai loadPaths (`angular.json → stylePreprocessorOptions.includePaths`), da qualsiasi `.scss` — globale o di componente — importi gli helper con un path stabile, senza catene `../../../`:
+```scss
+@use 'engine/base/lib' as lib;
+.cta { background: lib.shade(var(--bs-primary), 12%); }      // scurisce un colore via color-mix
+@media (max-width: #{lib.$bp-md - 0.02px}) { /* mobile */ }  // breakpoint md condiviso
+```
+`lib` espone solo strumenti (variabili/funzioni/mixin), nessun CSS: importarlo non duplica nulla.
+
+*Nota: `src/styles/engine/` è riservato all'Engine (tema OKLCH, ponte Bootstrap, a11y) e si aggiorna dal template — non modificarlo; i CSS di terze parti (Bootstrap, FontAwesome, SweetAlert2) stanno in `angular.json → "styles"`, non con `@import`.*
+
+**Cosa va nel file `.scss` del componente (solo ciò che Bootstrap non può esprimere):**
 - Posizionamento fisso con `safe-area-inset` (cookie banner, back-to-top)
 - Animazioni CSS (`@keyframes`, transizioni custom)
 - Effetti visivi avanzati (glassmorphism con `backdrop-filter`, gradienti complessi)
 - Override di tema via `color-mix()` e custom properties (`--color*`)
 - Layout a griglia complesso (`grid-template-rows: 0fr → 1fr` per accordion)
 
-**z-index e ombre: solo variabili, mai letterali.** `base.css` definisce la scala z-index del template (`--z-cookie-banner`, `--z-fab`, `--z-skip-link`, `--z-cdk-overlay`), incastrata nei vuoti della scala Bootstrap così i widget persistenti restano **sotto** offcanvas e modali (che devono coprirli). Un nuovo elemento fisso usa una di queste variabili o ne aggiunge una alla scala, così resta coerente con l'ordine di sovrapposizione di Bootstrap. Stesso principio per le ombre di elevazione: `--shadowElevated` / `--shadowElevatedHover`.
+**z-index e ombre: solo variabili, mai letterali.** `base.scss` (partial `base/_tokens.scss`) definisce la scala z-index del template (`--z-cookie-banner`, `--z-fab`, `--z-skip-link`, `--z-cdk-overlay`), incastrata nei vuoti della scala Bootstrap così i widget persistenti restano **sotto** offcanvas e modali (che devono coprirli). Un nuovo elemento fisso usa una di queste variabili o ne aggiunge una alla scala, così resta coerente con l'ordine di sovrapposizione di Bootstrap. Stesso principio per le ombre di elevazione: `--shadowElevated` / `--shadowElevatedHover`.
 
-**Componenti senza CSS:** crea il file `.css` di un componente solo quando ti serve qualcosa fra i casi sopra. Il footer, ad esempio, è 100% classi Bootstrap nel template e non ne ha uno.
+**Componenti senza CSS:** crea il file `.scss` di un componente solo quando ti serve qualcosa fra i casi sopra. Il footer, ad esempio, è 100% classi Bootstrap nel template e non ne ha uno.
 
 ---
 
@@ -137,7 +150,7 @@ Il colore del brand è `colorTema`, modificabile a runtime con `ThemeService.set
 
 Estendi il client API aggiungendo path e metodo pubblico in `api.service.ts` (con `{ silent: true }` quando vuoi gestire l'errore con una UI tua); abiliti le notifiche realtime con il campanellino via `shell: { showNotifications: true }`; registri un cookie aggiungendo una voce a `COOKIE_MAP`; adatti i DTO di sessione e login in `core/dto/` (`session.dto.ts` e `auth.dto.ts`, allineati ai record C#).
 
-Per comporre le UI riusi le direttive dichiarative (`[appPage]` per i link interni, `[imgRender]`/`[qrContent]` per immagini e QR generati, `[appContextMenu]` per i menu contestuali), la pipe `markdown` (sanitizzata) e i componenti pronti (`app-link-badge` e le famiglie azione/contatto). La PWA si attiva con `isWebApp`. *Vedi «Aggiungere un Endpoint», «Errori Silenziosi per UI Custom», «NotificationStreamService», «Aggiungere un Nuovo Cookie», «DTO di Sessione e Login», «[appPage]», «Directive di Rendering Dichiarativo», «Componenti di Azione/Contatto».*
+Per comporre le UI riusi le direttive dichiarative (`[appPage]` per i link interni, `[appImgRender]`/`[appQrContent]` per immagini e QR generati, `[appContextMenu]` per i menu contestuali), la pipe `markdown` (sanitizzata) e i componenti pronti (`app-link-badge` e le famiglie azione/contatto). La PWA si attiva con `isWebApp`. *Vedi «Aggiungere un Endpoint», «Errori Silenziosi per UI Custom», «NotificationStreamService», «Aggiungere un Nuovo Cookie», «DTO di Sessione e Login», «[appPage]», «Directive di Rendering Dichiarativo», «Componenti di Azione/Contatto».*
 
 ---
 
@@ -186,6 +199,7 @@ export default class NuovaPaginaComponent extends PageBaseComponent<MioContenuto
     // this.notify     → NotificationService (toast/alert)
     // this.pageContent → Signal<MioContenuto | null> (dati dalla pagina)
     // this.pageType   → input<PageType> (tipo corrente della pagina)
+    // this.getCurrentUrl() → string (URL canonico della pagina corrente)
 }
 ```
 
@@ -272,6 +286,8 @@ Estendere `PageBaseComponent<T>` non dà solo l'accesso rapido ai servizi (`api`
 
 Gli input che la base legge per te — `pageType` e `contentByResolve` — sono `protected`: li consumi dentro il componente (es. via `pageContent()`), non li ridichiari.
 
+Se ti serve l'URL canonico della pagina corrente (per condivisioni, link assoluti, `<link rel="canonical">` custom) chiama `this.getCurrentUrl(): string`. È un wrapper sottile che la base espone al figlio: dietro le quinte interroga `PageMetaService`, che resta `private` all'Engine — il componente ottiene "dove si è" senza dipendere dal servizio meta né poterne alterare lo stato.
+
 ---
 
 ## 🔐 Sistema di Autenticazione (JWT)
@@ -288,7 +304,7 @@ loginPage: PageType.Login,       // pagina dove redirigere gli utenti non autent
 
 In `pages`, imposta `requiresAuth: true` sulla pagina da proteggere. L'Engine aggiunge automaticamente `renderMode: 'client'` (disabilita SSR per quella pagina) e attiva l'auth guard.
 
-**Cosa fa il guard quando l'utente non è loggato** (`authGuard` in `app.routes.ts`): se in `site.ts` è dichiarata una `loginPage`, redirige lì con i query param `returnPageType` (la pagina di partenza, per tornarci dopo il login) e `reason=auth` (la pagina di login mostra un avviso inline invece di una modale). Senza `loginPage`, resta sulla pagina corrente e mostra la modale di errore 401.
+**Cosa fa il guard quando l'utente non è loggato** (`authGuard` in `core/engine/routing.ts`): se in `site.ts` è dichiarata una `loginPage`, redirige lì con i query param `returnPageType` (la pagina di partenza, per tornarci dopo il login) e `reason=auth` (la pagina di login mostra un avviso inline invece di una modale). Senza `loginPage`, resta sulla pagina corrente e mostra la modale di errore 401.
 
 ```typescript
 pages: (ctx) => [
@@ -333,7 +349,7 @@ Aggiungere un campo al profilo di sessione (es. `brandColor`) è quindi un'unica
 | Componente | Selector | Ruolo |
 | :--- | :--- | :--- |
 | `LoginFormComponent` | `app-login-form` | Form username/password riusabile; emette `(loggedIn)` al successo. Non naviga da solo. |
-| `UserNavComponent` | `user-nav` | Area Login/Logout nella navbar. Appare solo se `showLoginInHeader: true`. Gestisce il logout con modale di conferma. |
+| `UserNavComponent` | `app-user-nav` | Area Login/Logout nella navbar. Appare solo se `showLoginInHeader: true`. Gestisce il logout con modale di conferma. |
 | `UploadFormComponent` | `app-upload-form` | Componente "dumb" per drag-and-drop e selezione file. Emette il `File` nativo delegando la chiamata API al componente genitore. |
 
 ### Ciclo di Vita del Token
@@ -361,7 +377,7 @@ Il template include una pagina d'errore generica (`ErrorComponent`) che copre qu
 
 ### Come ci si arriva
 
-Le rotte d'errore sono generate automaticamente (`app.routes.ts`):
+Le rotte d'errore sono generate automaticamente (`core/engine/routing.ts`):
 
 | Rotta | Comportamento |
 | :--- | :--- |
@@ -805,7 +821,7 @@ L'holder è **inerte di proposito**: leggerlo (lato `BaseApiService`) NON iniett
 
 ```typescript
 // URL di un asset gestito dal server (con resize on-the-fly)
-// width è un tipo configurabile in app.config (es. 320 | 640 | 1280)
+// width è un tipo (`AssetWidth`) definito in core/engine/asset-config (es. 320 | 640 | 1280)
 const url = this.asset.getUrl('id-immagine', 640);
 // → /cdn-cgi/asset?id=id-immagine&w=640
 
@@ -837,12 +853,16 @@ L'endpoint `/cdn-cgi/asset` effettua il resize lato server e cacha il risultato:
 ```
 GET /cdn-cgi/asset?id=hero&w=640
 → Legge mapping.json (asset ID → percorso fisico)
-→ Ridimensiona a 640px (se la larghezza è in whitelist)
-→ Caches il risultato
-→ Restituisce PNG/JPEG ottimizzato
+→ Ridimensiona a 640px (se la larghezza è in whitelist, mai oltre l'originale)
+→ Converte in AVIF o WebP a seconda dell'header Accept del browser
+→ Caches il risultato (cache key per-formato)
+→ Restituisce l'immagine ottimizzata (con Vary: Accept)
 ```
 
-Larghezze supportate (whitelist in `app.config.ts`): `125, 320, 480, 512, 640, 768, 1024, 1080, 1366, 1600, 1920`.
+Larghezze supportate (whitelist `ALLOWED_WIDTHS` in `core/engine/asset-config.ts`): `125, 320, 480, 512, 640, 768, 1024, 1080, 1366, 1600, 1920`.
+La whitelist è anche il tetto anti-4k (max 1920) e il limite alla cardinalità della cache: una `w` arbitraria viene rifiutata, così non si possono generare varianti illimitate.
+
+**Negoziazione formato.** Il server sceglie il formato dall'header `Accept`: se il browser dichiara `image/avif` riceve AVIF (compressione migliore a parità di qualità), altrimenti WebP. Il formato fa parte della cache key e la risposta porta `Vary: Accept`, così cache/CDN intermedie non servono il formato sbagliato a un client diverso. Trasparente per il client: la directive `appAsset` non cambia.
 Formati non-raster (video, PDF, SVG) sono serviti senza modifica.
 
 ### Directive `appAsset` / `appAssetHref`
@@ -860,6 +880,14 @@ Invece di costruire gli URL manualmente, usa le directive dichiarative:
 ```
 
 Le directive sono type-safe: errori di applicazione su elementi sbagliati vengono rilevati a compile-time.
+
+**Immagini responsive + hint moderni (solo `<img>`).** Su ogni `<img appAsset>` la directive aggiunge in automatico `decoding="async"` e `loading="lazy"`. Per l'immagine **LCP** above-the-fold passa `[appAssetPriority]="true"` (diventa `loading="eager"` + `fetchpriority="high"`). Per servire la **misura giusta per viewport/DPR** (meno banda su mobile) valorizza `appAssetSizes`: la directive emette allora un `srcset` con tutte le larghezze whitelisted (`ALLOWED_WIDTHS`) + l'attributo `sizes`. È opt-in: senza `appAssetSizes` resta una sola sorgente; `appAssetWidth` (misura fissa) ha la precedenza e disattiva lo `srcset`.
+
+```html
+<!-- Responsive: il browser sceglie la larghezza in base a layout e densità schermo -->
+<img appAsset="hero" appAssetSizes="100vw" [appAssetPriority]="true" alt="Hero" class="img-fluid">
+<img appAsset="card" appAssetSizes="(min-width: 768px) 50vw, 100vw" alt="..." class="img-fluid">
+```
 
 **Non solo `<img>` e `<a>`.** `appAsset` accetta tutti i tag con `src` — `img`, `video`, `audio`, `source`, `iframe`, `embed` — mentre `appAssetHref` vale su `a` e `link` (utile per un `<link rel="preload">`). `appAssetWidth` ha senso solo per le immagini raster: il server lo ignora automaticamente per video / PDF / SVG (restituisce lo stream originale), quindi è sicuro lasciarlo non valorizzato su quei tag.
 
@@ -1006,7 +1034,7 @@ Usata internamente da `PolicyComponent` per le pagine legali. Disponibile in qua
 | :--- | :--- | :--- |
 | `getProfile()` | `Promise<Profile>` | Caricamento una-tantum del profilo aziendale |
 | `getProfileResource()` | `httpResource<Profile>` | Profilo reattivo (si aggiorna col Signal) |
-| `getSocial(nomi?)` | `Promise<Record<string, string>>` | Link ai social del profilo; `nomi` opzionale filtra (es. `['facebook','instagram']`) generando query a chiavi ripetute (`?nomi=facebook&nomi=instagram`) |
+| `getSocial(nomi?)` *(demo)* | `Promise<Record<string, string>>` | Link ai social del profilo; `nomi` opzionale filtra (es. `['facebook','instagram']`) generando query a chiavi ripetute (`?nomi=facebook&nomi=instagram`). **Metodo dimostrativo: il `setup.mjs` lo rimuove dal progetto figlio (con l'endpoint `/social`).** |
 | `getBlobUrl(slug, webopt?)` | `string` | URL relativo del file (`/api/blob/{slug}`) per `<img src>` / `<a href>` — senza download in memoria. Anche in GET passa dal proxy `/api` protetto da API key |
 | `getBlob(slug)` | `Promise<Blob>` | File scaricato in memoria (anteprima locale, download forzato) |
 | `uploadBlob(file)` | `Promise<{ slug }>` | Carica un file nel volume uploads (richiede JWT) |
@@ -1314,18 +1342,19 @@ L'app controlla automaticamente se è disponibile una nuova versione e notifica 
 
 ### Fonti di Versione
 
-La versione è dichiarata in `global-settings.json` (`project.version`) e distribuita in tre posti tramite `generate-statics.ts` al build:
-1. Meta tag `app-version` — baseline in memoria
-2. `manifest.webmanifest` — usato dal polling ogni 10 minuti
-3. Hash NGSW — usato da SwUpdate nelle PWA installate
+La versione è dichiarata in `global-settings.json` (`project.version`) e distribuita in due posti tramite `generate-statics.ts` al build:
+1. Meta tag `app-version` in `index.html` — baseline in memoria **e** sorgente del polling ogni 10 minuti
+2. Hash NGSW — usato da SwUpdate nelle PWA installate
+
+> Il polling legge il meta `app-version` da `index.html` (non dal manifest): `index.html` è sempre presente, anche con `isWebApp:false`, quando il manifest non viene generato né servito.
 
 ### Meccanica
 
-**Browser normale:** polling ogni 10 minuti su `/manifest.webmanifest` → se version cambia → dialog "Nuova versione disponibile" → hard reload attiva la nuova versione.
+**Tab senza Service Worker** (sempre con `isWebApp:false`)**:** polling ogni 10 minuti che scarica `/index.html` e confronta il meta `app-version` → se cambia → dialog "Nuova versione disponibile" → hard reload attiva la nuova versione.
 
-**PWA installata:** SwUpdate intercetta il manifest (Service Worker) → emette `VERSION_READY` quando la nuova versione è scaricata → l'utente conferma → `activateUpdate()` + reload.
+**PWA / tab con SW attivo:** il SW serve `index.html` dalla cache (versione stabile per il polling) e a decidere è SwUpdate, che emette `VERSION_READY` quando la nuova versione è scaricata → l'utente conferma → `activateUpdate()` + reload.
 
-**Prerequisito:** il controllo versione è **disabilitato finché `isTechnicalConsentGiven()` è false**. Una volta accettato il consenso tecnico, il servizio si attiva al reload successivo.
+**Prerequisito (consenso tecnico):** se sul sito un consenso tecnico **serve** (multilingua, PWA, o cookie tecnici di progetto) il controllo versione è disabilitato finché l'utente non l'accetta; si attiva al reload successivo. Se invece il consenso tecnico **non serve affatto** (sito mono-lingua, non-PWA, senza cookie tecnici) non c'è nulla da accettare e il polling parte comunque: legge solo il meta `app-version` via `fetch`, non scrive cookie. Senza questa distinzione un sito così — tipicamente con `isWebApp:false` — resterebbe senza controllo versione per sempre.
 
 ---
 
@@ -1378,6 +1407,8 @@ legalPages: { /* … */ },           // pagine legali → vedi sotto
 ```
 
 > `description` (mappa per-lingua `{ it, en, … }`), `colorTema` e l'effetto `smoke` non stanno qui: sono identità/estetica e vivono in `global-settings.json → site`.
+
+> **`isWebApp: false` rende il sito non installabile.** Oltre a non registrare il Service Worker (e a de-registrarlo a runtime, vedi *Service Worker e Consenso Tecnico*), `generate-statics.ts` non genera il `manifest.webmanifest` e rimuove da `index.html` i trigger di installabilità (`<link rel="manifest">`, `mobile-web-app-capable`, i meta `apple-mobile-web-app-*`); il server SSR risponde `404` al manifest. Così non compare il prompt "Aggiungi a schermata Home" (su Chrome Android il Service Worker non è più requisito di installabilità dal 2021). Con `isWebApp: true` la PWA è completa.
 
 ### Effetto smoke: il contratto `SmokeSettings`
 
@@ -1580,12 +1611,12 @@ La directive `PageDirective` traduce un `PageType` nel path corrispondente e lo 
 
 ## 🖼️ Directive di Rendering Dichiarativo
 
-### `img[imgRender]`: Rendering Immagine Generata
+### `img[appImgRender]`: Rendering Immagine Generata
 
 Applica `ImgBuilderService` direttamente su un `<img>`. Il `src` viene aggiornato automaticamente con il data URL PNG ogni volta che la config cambia. Niente wrapper, niente classi proprie — l'elemento accetta tutti gli attributi `<img>` standard.
 
 ```html
-<img [imgRender]="imgConfig"
+<img [appImgRender]="imgConfig"
      (canvasChange)="canvas.set($event)"
      alt="Anteprima social"
      class="img-fluid rounded">
@@ -1609,14 +1640,14 @@ readonly canvas = signal<HTMLCanvasElement | null>(null);
 - **Output `canvasChange`**: emette il `HTMLCanvasElement` raw per pilotare `share.downloadCanvas()` da altri rami del template
 - **SSR-safe**: `src = null` server-side → il browser mostra `alt`
 - **Race condition**: token monotono evita che render asincroni sovrapposti mostrino un'immagine obsoleta
-- **Selector vincolato**: `img[imgRender]` → errore TypeScript a compile-time su elementi diversi da `<img>`
+- **Selector vincolato**: `img[appImgRender]` → errore TypeScript a compile-time su elementi diversi da `<img>`
 
-### `img[qrContent]`: Rendering QR Code
+### `img[appQrContent]`: Rendering QR Code
 
 Applica `QrCodeService` direttamente su un `<img>`. Il `src` viene aggiornato automaticamente con il blob URL del QR generato.
 
 ```html
-<img [qrContent]="qrConfig"
+<img [appQrContent]="qrConfig"
      (blobChange)="qrBlob.set($event)"
      (errorChange)="qrError.set($event)"
      alt="QR Code WhatsApp"
@@ -1643,7 +1674,7 @@ downloadQr() {
 - **Output `blobChange`**: blob raw per `share.downloadBlob()` / `share.shareText()`
 - **Output `errorChange`**: messaggio localizzato (o `null` se generazione ok)
 - **SSR-safe**: `src = null` server-side
-- **Selector vincolato**: `img[qrContent]` → errore TypeScript a compile-time su elementi diversi da `<img>`
+- **Selector vincolato**: `img[appQrContent]` → errore TypeScript a compile-time su elementi diversi da `<img>`
 
 ---
 
@@ -1921,13 +1952,13 @@ npm run generate:statics
 | `src/index.html` | `<html lang>`, `<title>`, tutti i meta OpenGraph/Twitter, favicon |
 | `public/manifest.webmanifest` | `name`, `description`, `theme_color`, `background_color`, `lang`, `version` |
 | `public/sitemap.xml` | URL di tutte le pagine indicizzabili con `priority`, `changefreq` e `lastmod` automatici |
-| `public/robots.txt` | `Disallow` per le pagine `requiresAuth: true`, URL sitemap |
+| `public/robots.txt` | `Allow: /` + URL sitemap. Le pagine protette **non** sono elencate (un robots.txt è pubblico e ne rivelerebbe i path): la loro non-indicizzazione è gestita a runtime dal server SSR con `X-Robots-Tag: noindex` |
 | `public/llms.txt` | Indice del sito per i crawler AI (convenzione `llms.txt`): nome, descrizione, elenco pagine |
 | `public/security.txt` | Contatto di sicurezza RFC 9116 (`Expires` rigenerato a ogni build); servito sul percorso canonico `/.well-known/security.txt` dal Node SSR |
 | `public/theme-init.js` | Script anti-flash del tema (vedi *Tema → Anti-flash*): sincrono nel `<head>`, imposta `data-bs-theme` da `prefers-color-scheme` prima che Bootstrap carichi gli stili |
 | `src/environments/environment.ts` | `defaultLang`, `availableLanguages` — **file generato automaticamente, non modificare manualmente** |
 
-> **Versionati vs solo-build.** Tre output generati sono **versionati** come seed — `src/index.html`, `src/environments/environment.ts`, `public/manifest.webmanifest` e `public/robots.txt` — così type-check e build funzionano anche prima della prima rigenerazione: lo script li tiene aggiornati e la diff si committa insieme a `global-settings.json`. Gli altri (`sitemap.xml`, `llms.txt`, `security.txt`, `theme-init.js`, `icons/`) sono **solo output di build**, gitignored: non vanno mai committati.
+> **Versionati vs solo-build.** Solo due output generati sono **versionati** come seed — `src/index.html` e `src/environments/environment.ts` — perché servono al type-check e alla build prima della prima rigenerazione (`index.html` è il documento di build, `environment.ts` è importato dal TS): lo script li tiene aggiornati e la diff si committa insieme a `global-settings.json`. Tutto ciò che finisce in `public/` (`manifest.webmanifest`, `robots.txt`, `sitemap.xml`, `llms.txt`, `security.txt`, `theme-init.js`, `icons/`) è **solo output di build**, gitignored (`public/` è ignorata per intero): viene rigenerato dal pre-hook `prebuild` e non va mai committato.
 
 ### Icone PWA automatiche (`generate-icons.ts`)
 
@@ -1943,13 +1974,15 @@ Il punto pratico: **un solo asset, `favIcon`, alimenta tutto** — favicon del s
 
 Lingua di default e lingue supportate **non** sono variabili d'ambiente: lo script le ricava dalla sezione `Localization` del progetto. Su host/CI legge direttamente `global-settings.json`; nelle immagini Docker (dove il file non è nel build context) legge gli stessi dati da `BR1_PROJECT_JSON`, il JSON di progetto che `deploy.sh` passa come build-arg.
 
-### Esclusioni Automatiche da Sitemap e robots.txt
+### Esclusioni Automatiche da Sitemap e Indicizzazione
 
 | Condizione sulla pagina | Effetto |
 | :--- | :--- |
 | `enabled: false` | Esclusa dalla sitemap |
 | `externalUrl` presente | Esclusa dalla sitemap |
-| `requiresAuth: true` | Esclusa dalla sitemap + riga `Disallow` in robots.txt |
+| `requiresAuth: true` | Esclusa dalla sitemap **e** marcata `noindex` dal server SSR (`X-Robots-Tag: noindex, nofollow`), senza comparire in robots.txt |
+
+> **Deploy non indicizzabile (staging).** Per un'anteprima/staging dietro lo stesso reverse proxy della produzione, imposta l'env var `SEO_NOINDEX=true` sul container Node SSR: il server emette `X-Robots-Tag: noindex, nofollow` su ogni risposta e serve un `robots.txt` dinamico `Disallow: /`. Default off → in produzione il sito resta indicizzabile. Vedi [DOCKER_README.md](../DOCKER_README.md).
 
 ### Priority e Changefreq Automatici
 
@@ -2048,7 +2081,7 @@ Il server dichiara una lista esplicita di header proxy fidati, incluso `x-forwar
 | :--- | :--- | :--- |
 | Asset con hash nel nome (JS/CSS Angular) | `public, max-age=31536000, immutable` | Il contenuto non cambia mai — l'hash nel nome garantisce unicità |
 | `ngsw-worker.js`, `ngsw.json` | `no-store` | Il Service Worker deve scaricare sempre la versione più recente |
-| `manifest.webmanifest` | `public, max-age=86400` | Il polling versione avviene ogni 10 min — massimo 1 giorno stale |
+| `manifest.webmanifest` | `public, max-age=86400` | Solo con `isWebApp:true`. Con `isWebApp:false` non viene generato e il server risponde `404` (sito non installabile) |
 | Traduzioni, icone, altri statici | `no-cache` | Rivalidati a ogni richiesta |
 | Pagine SSR | `no-cache` | Contenuto dinamico per-request |
 

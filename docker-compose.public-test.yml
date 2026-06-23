@@ -3,6 +3,11 @@ services:
     environment:
       FRONTEND_BASE_URL: "${PUBLIC_TEST_BASE_URL:-http://localhost:8088}"
       NG_ALLOWED_HOSTS: "${PUBLIC_TEST_ALLOWED_HOSTS:-localhost}"
+      # Indicizzazione: di DEFAULT spenta (false) perché questo overlay è il banco di prova
+      # del CI (test SEO/Lighthouse): con noindex l'audit SEO fallirebbe ("blocked from
+      # indexing"). Per un'anteprima pubblica reale che NON deve finire su Google, avviala
+      # con PUBLIC_TEST_NOINDEX=true. In produzione (compose base) vale sempre SEO_NOINDEX (off).
+      SEO_NOINDEX: "${PUBLIC_TEST_NOINDEX:-false}"
 
   public-proxy:
     image: nginx:1.27-alpine

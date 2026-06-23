@@ -18,7 +18,7 @@ L'Engine si estende **dall'esterno**: si eredita da una classe base, si registra
 
 **Aggiungere endpoint.** Erediti una classe base e scrivi solo i tuoi metodi: `EngineApiController` (pubblico, solo API key), `EngineProtectedController` (richiede login JWT), `EngineAuthController` (login ed emissione del token), `EngineBlobController` (file binari: upload, PDF, export). La base ti consegna già pronta l'infrastruttura *ambient* — notifiche, coda di task, delivery, `connectionId`, cultura corrente — come proprietà, senza iniettare nulla. *Vedi «Eredita sempre dalle classi base dell'Engine», «Il contesto "ambient" del controller base», «Sistema di Login e Sessioni JWT», «BlobController».*
 
-**Sostituire un servizio dell'Engine.** Lo storage dati (`IContentStore`, es. per passare a un database), il mailer (`IEngineMailer`), lo stream delle notifiche (`INotificationStream`, es. un backplane Redis), la policy di consegna (`IDeliveryService`) e il targeting per utente/tenant (`INotificationGroupResolver`) si rimpiazzano registrando la propria implementazione in DI nel blocco `── SERVIZI APPLICATIVI ──`: vince l'ultima registrazione, quindi la tua. *Vedi «Sostituire un servizio dell'Engine (override via DI)».*
+**Sostituire un servizio dell'Engine.** Lo storage dati (`IContentStore`, es. per passare a un database), il mailer (`IEngineMailer`), lo stream delle notifiche (`INotificationStream`, es. un backplane Redis), la policy di consegna (`IDeliveryService`) e il targeting per utente/tenant (`INotificationGroupResolver`) si rimpiazzano registrando la propria implementazione in DI nel blocco `── SERVIZI APPLICATIVI ──`: vince l'ultima registrazione, quindi la tua. *Vedi «Sostituire un servizio dell'Engine (override via DI)».* (Lo storage dei file caricati è invece la classe concreta `BlobStore` in `Store/`, che apri e modifichi direttamente — vedi «BlobController».)
 
 **Validazione, errori e sessione.** La validazione degli input è un `AbstractValidator<T>` (auto-registrato); un nuovo tipo d'errore è una sottoclasse di `ApiException` con la sua chiave nei `.resx`; la forma del payload di sessione è il record `SessionInfo` incapsulato nel claim del JWT. *Vedi «Usa FluentValidation per gli Input», «Lancia Eccezioni per gli Errori», «Sistema di Login e Sessioni JWT».*
 
@@ -98,6 +98,8 @@ Dopo la rimozione, ASP.NET non genera rotte, non espone nulla in Swagger e nessu
 **Cosa fa l'Engine:** Il `FileContentStore` carica file JSON da `/data/`, li cacha in `IMemoryCache` (con TTL di 1 ora e rispetto della memory pressure del runtime) e, risolvendo la lingua dall'header HTTP `Accept-Language`, restituisce l'oggetto già localizzato. Per gestire la lettura del file usa `try/catch` su `ReadAllTextAsync` invece di un `File.Exists` preventivo: elimina la race condition TOCTOU (il file potrebbe essere rimosso tra il controllo e la lettura effettiva) e converte correttamente la `FileNotFoundException` in `NotFoundException`.
 
 I contenuti di `data/` sono **parte del codice**: in produzione non cambiano mai da soli (vivono nell'immagine, più la cache in RAM) — per modificarli si committa e si rifà il deploy. Ciò che invece deve cambiare a runtime vive nei volumi, ognuno col suo ruolo: `db/` per i dati del DB futuro, `uploads/` per i file caricati.
+
+> **Git e dati di runtime.** Le cartelle `db/` e `uploads/` sono tracciate nel repo (la struttura serve ai mount point), ma il loro **contenuto** no: ognuna ha un `.gitignore` che ignora tutto tranne se stesso (`*` + `!.gitignore`). È il pattern "keep-the-folder, ignore-the-data" — sostituisce il vecchio `.gitkeep`, facendo committare la cartella e scartare i dati runtime in un colpo solo. Lo stesso vale per il build context Docker, dove `.dockerignore` esclude `db/*` e `uploads/*`.
 
 Il percorso di crescita è già predisposto: la cartella `backend/db/` è il mount point del volume Docker `<progetto>_db-data` (vedi `docker-compose.yml` e `backup.sh`). Quando il progetto migra da `FileContentStore` a un database reale — cioè una nuova implementazione di `IContentStore` — i file del DB vivono lì e sopravvivono ai deploy.
 
@@ -778,6 +780,8 @@ Le registrazioni vivono in `Program.cs`; il blocco **`── SERVIZI APPLICATIVI
 Concretamente, servizio per servizio:
 
 - **`IContentStore`** — default `FileContentStore`. Registri `AddSingleton<IContentStore, EfContentStore>()` per migrare a un database senza toccare controller né `SiteService`.
+
+> Nota: lo **storage dei file caricati** non è un'interfaccia ma la classe concreta **`BlobStore`** (`Store/BlobStore.cs`): file di progetto che modifichi direttamente o estendi via `override`. È deliberatamente tenuto separato da `IContentStore` (binari in volume runtime vs contenuti localizzati read-only). Diventerebbe un'interfaccia solo il giorno in cui servisse davvero lo swap a runtime (es. S3) — estrarla è un attimo.
 - **`IEngineMailer`** — default `EngineMailer` (SMTP). Lo sostituisci con una tua implementazione di `IsEnabled`/`IsValidAddress`/`SendAsync` (es. l'API HTTP di un provider); coda e worker restano invariati.
 - **`INotificationStream`** — default in-memory. Una tua implementazione (es. un backplane Redis) lo fa scalare oltre il singolo processo.
 - **`IDeliveryService`** e **`INotificationGroupResolver`** — registrati con `TryAddSingleton`: basta registrare la tua versione (`AddSingleton<IDeliveryService, MiaPolicy>()` per una policy di consegna propria, `AddSingleton<…, UserGroupResolver>()` per il targeting per utente/tenant).
@@ -1074,33 +1078,55 @@ Il JWT è stateless: il logout sul client (rimozione del token) non invalida il 
 
 > I **controller dimostrativi** del template (profilo/social, login demo, ping protetto) non sono
 > documentati qui: il catalogo vive nella **vetrina della demo** del [README root](../README.md).
-> Sono segnaposto: il figlio li tiene e ne cambia il contenuto (i dati in `data/*.json`, la verifica
-> delle credenziali, i filtri di dominio) o ne lascia non valorizzate le parti che non espone,
-> aggiungendo accanto i controller del proprio dominio. Qui sotto restano gli strumenti che il
-> template fornisce di default e che un figlio usa così come sono.
+> Sono segnaposto: al `setup` scegli tra **riusarli** (rispondi `N`) — li tieni e ne cambi il
+> contenuto (i dati in `data/*.json`, la verifica delle credenziali, i filtri di dominio) o ne lasci
+> non valorizzate le parti che non esponi — o l'**eject** (rispondi `s`), che li rimuove lasciando il
+> solo `GetProfile`. In entrambi i casi aggiungi accanto i controller del tuo dominio. Qui sotto
+> restano gli strumenti che il template fornisce di default e che un figlio usa così come sono.
+
+#### `BlobStore` — lo storage dei file caricati
+
+`BlobStore` (`Store/BlobStore.cs`, accanto a `FileContentStore`) è un `File`/`Directory` **in stile nostro sistema**: una utility concreta che possiede la cartella `uploads/` e centralizza in un punto solo **tutte** le casistiche del ciclo di vita di un file caricato, con le policy già cablate dentro (slug immutabile, guardia path-traversal, deduzione del content-type). Il codice di dominio che riceve file in altri form la usa direttamente — `_blobs.SaveAsync(...)` — invece di reimplementare slug e sicurezza.
+
+| Metodo | Analogo `System.IO` | Cosa fa in più |
+|---|---|---|
+| `SaveAsync(stream/IFormFile, ext)` | `File.Create` | conia lo slug `{GUID}.{ext}`, crea `uploads/` se manca |
+| `OpenRead(slug)` | `File.OpenRead` | risolve+valida lo slug, `null` se assente |
+| `GetInfo(slug)` | `FileInfo` | restituisce `mtime`/`size`/`content-type`/`IsImage` (per servire + ETag) |
+| `Exists(slug)` / `Delete(slug)` | `File.Exists` / `File.Delete` | passano sempre dalla guardia path-traversal |
+| `TryResolve(slug, out path)` | `Path.GetFullPath` | rifiuta gli slug che escono da `uploads/` |
+
+**È un file di progetto che possiedi.** Come `AuthController`/`BlobController`, lo apri e lo modifichi: per aggiungere validazioni MIME, quote o antivirus tocchi `SaveAsync`, oppure — se preferisci non editare il default — ne ridefinisci un metodo `virtual` in una sottoclasse e registri quella. Non ci sono "implementazioni" separate da piazzare: ce n'è **una**, ed è tua. È registrato come singleton in DI solo per ricevere la content root (`AddSingleton<BlobStore>()`).
+
+> **Perché una classe concreta e non un'interfaccia.** A differenza di `IContentStore` (che ha una traiettoria reale verso il DB e una forma specifica del progetto), lo storage dei file è I/O generico con un'unica implementazione plausibile: per un'app su filesystem l'interfaccia sarebbe cerimonia (YAGNI). I metodi sono `virtual` e la classe non è `sealed`, quindi override per i test e per i comportamenti custom restano possibili — il vantaggio *esclusivo* di un'interfaccia (iniettare un backend completamente diverso, es. S3) si recupera con un *extract interface* di due minuti il giorno in cui servirà davvero.
+
+> **Perché separato da `IContentStore` e non fuso dentro.** Sono responsabilità diverse (ISP): i contenuti sono read-only, localizzati, in cache, parte del codice e deployati con l'immagine — con traiettoria di swap verso un **DB**; i blob sono binari mutevoli in un **volume runtime** (`uploads/`), con traiettoria verso un **object storage** (S3). Fonderli costringerebbe chi migra i contenuti su DB a reimplementare anche lo storage dei file nella stessa classe. Stessa cartella (`Store/`) e stesso stile per coerenza, contratti separati per coesione.
 
 #### `BlobController` — Upload e Download File
 
-Eredita da `EngineBlobController` (helper per il resize immagini), espone download e upload dei file salvati nel volume persistente.
+Espone download e upload dei file gestiti da `BlobStore` (vedi sopra). È un **thin controller**: tutto lo storage vive nello store; qui resta solo il wiring HTTP (resize on-demand, difesa XSS, cache). Eredita da `EngineBlobController` per il solo helper di resize immagini.
 
-> **`EngineBlobController` come base riusabile.** Un controller figlio che serve altri binari (PDF firmati, export) eredita da `EngineBlobController` per riusarne gli helper `protected static` — `ResizeImageForWeb`, `GenerateBlobSlug`, `IsImage` — senza riscrivere resize né generazione dello slug.
+> **`EngineBlobController` come base riusabile.** Un controller figlio che serve altri binari (PDF firmati, export) eredita da `EngineBlobController` per riusarne l'helper `protected static ResizeImageForWeb` senza riscrivere il resize. La generazione slug e il riconoscimento immagine non sono più qui: sono responsabilità di `BlobStore`.
 
-**`GET /blob/{slug}[?webopt=true]`** — richiede API key, nessuna autenticazione utente. `webopt=true` richiede la versione ottimizzata per il web del file: oggi l'ottimizzazione implementata è il resize delle immagini (lato più lungo max 1920 px), mentre i tipi non ancora gestiti vengono restituiti invariati. È il punto di aggancio per estendere l'ottimizzazione lato API ad altri tipi di contenuto in futuro.
-**Difesa XSS (Stored):** Il controller serve inline (`Content-Disposition: inline`) solo le immagini raster note. Tutti gli altri formati — inclusi file HTML, SVG o XML caricati dagli utenti — sono forzati al download (`Content-Disposition: attachment`) con Content-Type `application/octet-stream`. Questo previene l'esecuzione di script malevoli sull'origin dell'API. Per recuperarli lato client, usare TypeScript/`fetch` per leggere i dati grezzi.
+**`GET /blob/{slug}[?webopt=true]`** — richiede API key, nessuna autenticazione utente. `webopt=true` richiede la versione ottimizzata per il web del file: oggi l'ottimizzazione implementata è il resize delle immagini (lato più lungo max 1920 px → WebP), mentre i tipi non ancora gestiti vengono restituiti invariati. È il punto di aggancio per estendere l'ottimizzazione lato API ad altri tipi di contenuto in futuro.
 
-**`POST /blob/up`** — richiede API key **e** token JWT valido (`[Authorize(Policy = RequireLogin)]`). Riceve un `IFormFile`, lo salva e restituisce lo slug univoco: `{ "slug": "abc123.jpg" }`. Limite di dimensione `10 MB` (`[RequestSizeLimit]`, sovrascrivibile nel controller figlio). La logica di salvataggio è nel metodo statico `SaveFileAsync`, riutilizzabile da altri controller che ricevono file nei propri form.
+**Cache HTTP:** lo slug è **immutabile** (ogni upload conia un nuovo GUID, mai sovrascritto), quindi la risposta è cacheabile a lungo: `Cache-Control: public, max-age=31536000, immutable`. In più viene emesso un **ETag** (da `mtime`+`size`+variante `r`/`w`, dove `w` è l'originale ottimizzato): se il client rimanda `If-None-Match` la GET risponde **304** *senza riaprire né ridecodificare nulla*, evitando il resize SkiaSharp sui re-hit. L'ETag è anche la cintura di sicurezza per cache condivise e per eventuali evoluzioni — se un domani si introducesse l'overwrite dello *stesso* slug, andrebbe rimosso `immutable` (il browser non rivalida durante `max-age`).
 
-**Slug:** identificativo univoco del file **inclusa l'estensione** (es. `abc123.jpg`), assegnato al momento dell'upload. L'estensione è necessaria alla GET per determinare il content-type.
+**Difesa XSS (Stored):** il controller serve inline solo le immagini raster note (`BlobStore` le marca via `BlobInfo.IsImage`). Tutti gli altri formati — inclusi file HTML, SVG o XML caricati dagli utenti — sono forzati al download (`Content-Disposition: attachment`) con Content-Type `application/octet-stream`. Questo previene l'esecuzione di script malevoli sull'origin dell'API; `nosniff` resta attivo dagli header di sicurezza. Per recuperarli lato client, usare TypeScript/`fetch` per leggere i dati grezzi.
 
-**Percorso fisico:** `{ContentRootPath}/uploads/{slug}`. In Docker (`cwd=/app`) diventa `/app/uploads`. In dev locale è `backend/uploads/`. La directory viene **creata automaticamente** al primo upload (`Directory.CreateDirectory`), quindi non serve predisporla a mano.
+**`POST /blob/up`** — richiede API key **e** token JWT valido (`[Authorize(Policy = RequireLogin)]`). Riceve un `IFormFile`, delega a `BlobStore.SaveAsync` e restituisce lo slug univoco: `{ "slug": "abc123.jpg" }`. Limite di dimensione `10 MB` (`[RequestSizeLimit]`, sovrascrivibile nel controller figlio).
 
-**Protezione path traversal:** prima di aprire il file, il controller risolve il percorso assoluto con `Path.GetFullPath` e verifica che inizi con `_uploadsPath` (con trailing separator). Un slug tipo `../../etc/passwd` produce `InvalidParametersException` (400) senza esporre il filesystem.
+**Slug:** identificativo univoco del file **inclusa l'estensione** (es. `abc123.jpg`), assegnato dallo store al momento dell'upload (`{GUID}.{ext}`). L'estensione è necessaria alla GET per determinare il content-type; il GUID rende lo slug immutabile (→ la cache di cui sopra).
+
+**Percorso fisico:** `{ContentRootPath}/uploads/{slug}`. In Docker (`cwd=/app`) diventa `/app/uploads`. In dev locale è `backend/uploads/`. La directory viene **creata automaticamente** al primo `SaveAsync` (`Directory.CreateDirectory`), quindi non serve predisporla a mano.
+
+**Protezione path traversal:** è dentro `BlobStore.TryResolve` — risolve il percorso assoluto con `Path.GetFullPath` e verifica che resti sotto la cartella upload (con trailing separator). Uno slug tipo `../../etc/passwd` non risolve: `GetInfo` torna `null` → 404, senza esporre il filesystem.
 
 **Range requests:** il file è servito con `enableRangeProcessing: true` — supporta l'header HTTP `Range` per lo streaming di video/audio e i download riprendibili.
 
-**Content-Type:** rilevato automaticamente dall'estensione del file tramite `FileExtensionContentTypeProvider`. Se l'estensione non è riconosciuta, viene usato `application/octet-stream`.
+**Content-Type:** dedotto dallo store dall'estensione del file (`FileExtensionContentTypeProvider`). Se l'estensione non è riconosciuta, viene usato `application/octet-stream`.
 
-> **Nota:** l'upload (`POST /blob/up`) richiede un token JWT valido (utente autenticato). Per validazioni di dominio (tipi MIME consentiti, antivirus, quote) estendi `SaveFileAsync` o il controller nel progetto figlio. In un progetto **senza login** (`SecretKey` vuota) l'upload è impossibile per design: il blob store resta in sola lettura e la `GET` serve i file già presenti nel volume.
+> **Nota:** l'upload (`POST /blob/up`) richiede un token JWT valido (utente autenticato). Per validazioni di dominio (tipi MIME consentiti, antivirus, quote) estendi il controller nel progetto figlio o avvolgi `BlobStore.SaveAsync`. In un progetto **senza login** (`SecretKey` vuota) l'upload è impossibile per design: il blob store resta in sola lettura e la `GET` serve i file già presenti nel volume.
 
 #### Health Check (`GET /health`)
 

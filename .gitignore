@@ -50,7 +50,9 @@ global-settings.local.json
 ehthumbs.db
 Thumbs.db
 frontend/public/
-frontend/src/environments/environment.ts
+# environment.ts è generato da generate-statics MA resta committato di proposito
+# (non ignorato): il generatore importa site.ts → environment.ts, quindi serve un
+# "seed" per farlo partire (chicken-and-egg). Si rigenera identico, niente rumore in git.
 .claude
 frontend/lh-report.json
 frontend/ssr-server*.log
