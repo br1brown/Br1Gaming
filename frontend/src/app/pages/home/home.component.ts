@@ -18,9 +18,9 @@ import { ContextMenuDirective } from '../../core/engine/directives/context-menu.
 import { QrRenderDirective } from '../../core/engine/directives/qr-render.directive';
 import { ImgRenderDirective, ImgRenderConfig } from '../../core/engine/directives/img-render.directive';
 import { AssetDirective } from '../../core/engine/directives/asset.directive';
-import { PageBaseComponent } from '../page-base.component';
+import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { ContestoSito } from '../../site';
-import { ALLOWED_WIDTHS, type AssetWidth } from '../../app.config';
+import { ALLOWED_WIDTHS, type AssetWidth } from '../../core/engine/asset-config';
 import { CopyActionComponent } from '../../components/shared/action/copy-action/copy-action.component';
 import { SpeechActionComponent } from '../../components/shared/action/speech-action/speech-action.component';
 import { DownloadActionComponent } from '../../components/shared/action/download-action/download-action.component';
@@ -62,7 +62,7 @@ export class HomeComponent extends PageBaseComponent<void> {
     readonly appName = ContestoSito.config.appName;
     readonly auth = inject(AuthService);
 
-    /** Canvas raw emesso dalla [imgRender] directive: serve a download/share. */
+    /** Canvas raw emesso dalla [appImgRender] directive: serve a download/share. */
     readonly imgCanvas = signal<HTMLCanvasElement | null>(null);
 
     constructor() {
@@ -114,7 +114,7 @@ export class HomeComponent extends PageBaseComponent<void> {
     imgFontSize = 60;
 
     /** Config corrente del builder: aggiornata da ngModelChange e letta dalla
-     *  directive [imgRender] sull'<img> di anteprima. */
+     *  directive [appImgRender] sull'<img> di anteprima. */
     readonly imgConfig = signal<ImgRenderConfig>(this.buildImgConfig());
 
     // --- QR Code playground ---
@@ -134,7 +134,7 @@ export class HomeComponent extends PageBaseComponent<void> {
     qrRemittance = '';
 
     /** Config corrente del QR: settata da `generateQr()`. La directive
-     *  [qrContent] sull'<img> reagisce a questa signal e emette blob/error. */
+     *  [appQrContent] sull'<img> reagisce a questa signal e emette blob/error. */
     readonly qrConfig = signal<QrConfig | null>(null);
     readonly qrBlob = signal<Blob | null>(null);
     readonly qrError = signal<string | null>(null);
@@ -206,7 +206,7 @@ config: ImgRenderConfig = {
 // (come in un click), ma il valore emesso direttamente
 // dalla directive — qui HTMLCanvasElement|null.
 // Ometti (canvasChange) se non ti serve il canvas raw.
-<img [imgRender]="config"
+<img [appImgRender]="config"
      (canvasChange)="canvas.set($event)"
      alt="Immagine generata">`,
 
@@ -223,7 +223,7 @@ config: QrConfig = {
 // dalla directive — qui Blob|null o string|null.
 // Entrambi gli output sono opzionali: omettili se non
 // hai bisogno di download/condivisione o messaggi errore.
-<img [qrContent]="config"
+<img [appQrContent]="config"
      (blobChange)="blob.set($event)"
      (errorChange)="err.set($event)"
      alt="QR Code">`,
@@ -404,7 +404,7 @@ wa = { phone: '+39...', text: 'Ciao' };
 
     // ==================== Demo immagini ====================
 
-    /** Riemette `imgConfig`: la directive [imgRender] vede il signal cambiare
+    /** Riemette `imgConfig`: la directive [appImgRender] vede il signal cambiare
      *  e rigenera il canvas. Chiamato da ngModelChange / range input. */
     onImageInputChange(): void {
         this.imgConfig.set(this.buildImgConfig());

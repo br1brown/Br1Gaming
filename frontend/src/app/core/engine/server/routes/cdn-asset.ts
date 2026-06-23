@@ -1,18 +1,23 @@
 import type { Request, Response } from 'express';
 import { join } from 'node:path';
 import sharp from 'sharp';
-import { ALLOWED_WIDTHS } from '../../../../app.config';
+import { ALLOWED_WIDTHS } from '../../asset-config';
 import { cacheDir } from '../server-paths';
 import { resolveAssetPath } from '../asset-mapping';
 import { AssetHandler } from '../asset-handler';
-import { inProgress } from '../image-cache';
+import { inProgress, runImageJob } from '../image-cache';
 import { fileExists } from '../fs-utils';
 
 /**
  * Endpoint CDN Asset: gestisce il recupero e l'ottimizzazione delle immagini al volo.
  * Risolve l'ID nel file sorgente, valida la larghezza contro la whitelist, e serve
- * (o genera al volo) una miniatura WebP in cache. Le richieste concorrenti per la
+ * (o genera al volo) una miniatura in cache. Le richieste concorrenti per la
  * stessa chiave riusano lo stesso job sharp (mappa inProgress).
+ *
+ * Negoziazione formato: se il browser dichiara `image/avif` nell'header `Accept`
+ * serve AVIF (compressione migliore), altrimenti WebP. Il formato entra nella cache
+ * key (varianti distinte) e la risposta porta `Vary: Accept` perché cache/CDN
+ * intermedie non servano il formato sbagliato a un client diverso.
  */
 export async function cdnAssetHandler(req: Request, res: Response): Promise<void> {
     try {
@@ -26,8 +31,12 @@ export async function cdnAssetHandler(req: Request, res: Response): Promise<void
         const filename = absolutePath.split(/[\\/]/).pop()!;
         if (!AssetHandler.isSharpCompatible(filename)) { AssetHandler.serveFile(res, absolutePath); return; }
 
+        // Formato: AVIF se il browser lo supporta (Accept), altrimenti WebP. La risposta
+        // varia in base ad Accept, quindi le cache intermedie devono distinguerla.
+        const format = (req.headers['accept'] ?? '').includes('image/avif') ? 'avif' : 'webp';
+        res.setHeader('Vary', 'Accept');
+
         // Larghezza: usa il massimo consentito se non specificata; rifiuta valori fuori whitelist
-        const format = 'webp';
         let requestedWidth = parseInt(req.query['w'] as string);
 
         /** Gestione larghezza: usa il massimo consentito se omessa, valida contro la whitelist */
@@ -58,11 +67,13 @@ export async function cdnAssetHandler(req: Request, res: Response): Promise<void
          */
         let job = inProgress.get(cacheKey);
         if (!job) {
-            job = sharp(absolutePath)
+            // AVIF rende qualità equivalente a WebP con quality più bassa (file più piccoli).
+            // runImageJob limita la concorrenza globale dei job sharp (CPU/RAM).
+            job = runImageJob(() => sharp(absolutePath)
                 .resize(finalWidth, null, { withoutEnlargement: true, fastShrinkOnLoad: true })
-                .toFormat(format, { quality: 80 })
+                .toFormat(format, { quality: format === 'avif' ? 55 : 80 })
                 .toFile(cacheFile)
-                .finally(() => inProgress.delete(cacheKey));
+            ).finally(() => inProgress.delete(cacheKey));
             inProgress.set(cacheKey, job);
         }
         await job;

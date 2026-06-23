@@ -14,13 +14,14 @@ export class AssetHandler {
         return false;
     }
 
-    /** Spedisce l'immagine al browser impostando il tipo WebP e cache eterna (1 anno). */
+    /** Spedisce l'immagine al browser deducendo il Content-Type dall'estensione
+     *  (WebP o AVIF) e impostando cache eterna (1 anno). */
     static serveImage(res: Response, path: string): void {
         // Rinfresca mtime (fire-and-forget) per la politica LRU dello sweep: un hit
         // marca il file come "caldo" e lo protegge dall'eviction. L'errore è ininfluente.
         const now = new Date();
         utimes(path, now, now, () => { /* best-effort */ });
-        res.setHeader('Content-Type', 'image/webp');
+        res.setHeader('Content-Type', path.endsWith('.avif') ? 'image/avif' : 'image/webp');
         res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
         res.sendFile(path);
     }
