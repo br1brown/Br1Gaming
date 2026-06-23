@@ -11,7 +11,7 @@ import { PreviewBuilder } from '../preview-builder';
 import { cacheDir } from '../server-paths';
 import { resolveAssetPath } from '../asset-mapping';
 import { AssetHandler } from '../asset-handler';
-import { inProgress } from '../image-cache';
+import { inProgress, runImageJob } from '../image-cache';
 import { fileExists } from '../fs-utils';
 
 /**
@@ -66,7 +66,7 @@ async function renderPreviewText(res: Response, title: string, subtitle: string)
 
     let job = inProgress.get(cacheKey);
     if (!job) {
-        job = (async () => {
+        job = runImageJob(async () => {
             let faviconDataUrl = '';
             const faviconPath = await resolveAssetPath('favIcon');
             if (faviconPath) {
@@ -74,7 +74,7 @@ async function renderPreviewText(res: Response, title: string, subtitle: string)
             }
             const { svg } = PreviewBuilder.buildPreview({ ...r, faviconDataUrl });
             await sharp(Buffer.from(svg, 'utf-8')).webp({ quality: 85 }).toFile(cacheFile);
-        })().finally(() => inProgress.delete(cacheKey));
+        }).finally(() => inProgress.delete(cacheKey));
         inProgress.set(cacheKey, job);
     }
     await job;
@@ -99,7 +99,7 @@ async function renderPreviewWithImage(res: Response, ogImageId: string, title: s
 
     let job = inProgress.get(cacheKey);
     if (!job) {
-        job = (async () => {
+        job = runImageJob(async () => {
             const OG_W = 1200, OG_H = 630;
 
             const bgBuffer = await sharp(absolutePath)
@@ -147,7 +147,7 @@ async function renderPreviewWithImage(res: Response, ogImageId: string, title: s
                 .composite(composites)
                 .webp({ quality: 85 })
                 .toFile(cacheFile);
-        })().finally(() => inProgress.delete(cacheKey));
+        }).finally(() => inProgress.delete(cacheKey));
         inProgress.set(cacheKey, job);
     }
     await job;

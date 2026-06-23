@@ -139,6 +139,11 @@ export interface SiteEnv {
     /** Chiave per cifrare i payload di preview social. Impostato da PREVIEW_CRYPTO_SECRET.
      *  Se vuota, viene usato il fallback pubblico `appName:version`. */
     readonly previewCryptoSecret: string;
+    /** Se `true`, l'intero deploy è non-indicizzabile: il server emette `X-Robots-Tag:
+     *  noindex, nofollow` su ogni risposta e serve un `robots.txt` che vieta tutto.
+     *  Impostato da SEO_NOINDEX (1/true/yes). Default `false` (sito indicizzabile).
+     *  Pensato per ambienti di staging/anteprima dietro lo stesso reverse proxy della prod. */
+    readonly noindex: boolean;
 }
 
 /** Header di sicurezza condivisi col backend, letti da security-headers.json (file del template). */
@@ -161,6 +166,10 @@ const parsePositiveInt = (value: string | undefined, fallback: number): number =
     const n = Number(value);
     return Number.isFinite(n) && n > 0 ? n : fallback;
 };
+
+/** Interpreta una env var booleana: `1`, `true`, `yes`, `on` (case-insensitive) → true. */
+const parseBool = (value: string | undefined): boolean =>
+    ['1', 'true', 'yes', 'on'].includes((value ?? '').trim().toLowerCase());
 
 /** Host locali usati come fallback quando frontend.hostname e NG_ALLOWED_HOSTS sono entrambi vuoti.
  *  @angular/ssr NON riconosce '*' come wildcard globale (fa match solo letterale o '*.dominio'),
@@ -217,6 +226,7 @@ export const serverEnv: ServerEnv = {
             baseUrl:             process.env['FRONTEND_BASE_URL'] || (hostname ? `https://${hostname}` : ''),
             assetsDir:           process.env['ASSETS_DIR'] ?? '',
             previewCryptoSecret: process.env['PREVIEW_CRYPTO_SECRET'] ?? '',
+            noindex:             parseBool(process.env['SEO_NOINDEX']),
         };
     },
     get security(): SecurityEnv {

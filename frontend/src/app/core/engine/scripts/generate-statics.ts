@@ -11,9 +11,10 @@
  * - public/security.txt      → contatto di sicurezza RFC 9116 (servito su /.well-known/)
  * - public/theme-init.js     → script anti-flash del tema, referenziato da index.html
  *
- * index.html, environment.ts, manifest e robots sono generati MA versionati (seed:
- * type-check e build passano anche prima della prima esecuzione); il resto è solo
- * output di build, gitignored.
+ * Solo index.html ed environment.ts sono generati MA versionati (seed: type-check e build
+ * passano anche prima della prima esecuzione). Tutto ciò che finisce in public/ (manifest,
+ * robots, sitemap, llms, security.txt, theme-init, icons) è solo output di build, gitignored
+ * (public/ è ignorata per intero): lo rigenera il pre-hook prebuild.
  *
  * Eseguire con:
  *   npm run generate:statics
@@ -30,11 +31,11 @@
 // Necessario: carica il JIT compiler di Angular così i decoratori @Injectable
 // funzionano quando Node.js importa site.ts e il suo grafo di dipendenze.
 import '@angular/compiler';
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'fs';
 import { join } from 'path';
 import { ContestoSito } from '../../../site';
 import { ThemeService } from '../services/theme.service';
-import { SitemapEntry, SitePage, isParentPage, isExternalPage } from '../siteBuilder';
+import { SitemapEntry } from '../siteBuilder';
 
 const ROOT = join(__dirname, '../../../../../');
 
@@ -78,6 +79,14 @@ const SITE_AESTHETIC_KEYS = ['description', 'colorTema', 'smoke'];
 const APP_NAME = (_fileProject['name'] as string | undefined) || 'App';
 const APP_VERSION = (_fileProject['version'] as string | undefined) || '1.0.0';
 const COLOR_TEMA = (SITE_CONFIG['colorTema'] as string | undefined) ?? '#888888';
+
+// PWA on/off — fonte unica: ContestoSito.config.isWebApp (site.ts). Guida la generazione
+// dei TRIGGER di installabilità: il manifest e, in index.html, <link rel="manifest"> più i
+// meta mobile-web-app-capable / apple-mobile-web-app-*. Quando è false il sito non deve
+// essere installabile (nessun prompt "Aggiungi a schermata Home"), quindi questi elementi
+// non vengono scritti. La de-registrazione runtime del Service Worker è già gestita da
+// cookie-consent.service.ts; qui agiamo solo sul lato generazione statici.
+const IS_WEBAPP = ContestoSito.config.isWebApp;
 
 const _normLang = (tag: unknown): string | null => {
     if (typeof tag !== 'string' || !tag.trim()) return null;
@@ -239,8 +248,9 @@ function updateIndexHtml(): void {
         ['name', 'app-version', APP_VERSION],
         ['property', 'og:updated_time', updatedTime],
         ['name', 'description', description],
-        ['name', 'apple-mobile-web-app-title', appName],
-        ['name', 'apple-mobile-web-app-status-bar-style', iosStatusBar],
+        // I meta apple-mobile-web-app-* NON stanno qui: sono trigger PWA e vivono nel
+        // blocco PWA condizionato da IS_WEBAPP (vedi più sotto), così spariscono quando
+        // il sito non è installabile invece di restare sempre presenti.
         ['name', 'application-name', appName],
         ['name', 'twitter:title', appName],
         ['name', 'twitter:description', description],
@@ -326,6 +336,27 @@ export const environment: AppEnvironment = {
         '<script theme-init>'
     );
 
+    // ── Blocco PWA deterministico ────────────────────────────────────────────
+    // I trigger di installabilità (manifest + meta) vivono in un blocco delimitato da
+    // marker, rigenerato per intero da qui: con IS_WEBAPP vengono iniettati, altrimenti
+    // rimossi del tutto. Così l'installabilità non dipende mai da tag hardcoded nel seed.
+    const pwaBlock = IS_WEBAPP
+        ? [
+            '<meta name="mobile-web-app-capable" content="yes">',
+            `<meta name="apple-mobile-web-app-status-bar-style" content="${iosStatusBar}">`,
+            `<meta name="apple-mobile-web-app-title" content="${appName}">`,
+            '<link rel="apple-touch-icon" href="icons/icon-512x512.png">',
+            '<link rel="manifest" href="manifest.webmanifest">',
+        ].join('\n    ')
+        : '<!-- PWA disattivata (isWebApp:false in site.ts): nessun manifest né meta di installabilità -->';
+
+    html = replaceTag(
+        html,
+        /<!-- PWA:START[\s\S]*?PWA:END -->/,
+        `<!-- PWA:START — blocco generato da scripts/generate-statics.ts (guidato da isWebApp in site.ts) -->\n    ${pwaBlock}\n    <!-- PWA:END -->`,
+        'blocco PWA'
+    );
+
     writeFileSync(INDEX, html, 'utf8');
     console.log(`[statics] index.html aggiornato`);
 }
@@ -333,6 +364,20 @@ export const environment: AppEnvironment = {
 // ── Aggiornamento manifest.webmanifest ────────────────────────────────────
 
 function updateManifest(): void {
+    // PWA disattivata: nessun manifest installabile. Se un manifest era stato generato da
+    // un build precedente (toggle isWebApp da true a false) lo rimuoviamo, così il sito non
+    // resta installabile via un file residuo. public/ è gitignored: il manifest vive solo
+    // come artefatto di build, mai nel repo — niente da versionare in questo ramo.
+    if (!IS_WEBAPP) {
+        if (existsSync(MANIFEST)) {
+            rmSync(MANIFEST);
+            console.log('[statics] manifest.webmanifest rimosso (isWebApp:false → sito non installabile)');
+        } else {
+            console.log('[statics] manifest.webmanifest non generato (isWebApp:false)');
+        }
+        return;
+    }
+
     const palette = ThemeService.computePalette(COLOR_TEMA);
 
     const manifest: Record<string, unknown> = {
@@ -410,29 +455,14 @@ function updateSitemap(): void {
 
 // ── Generazione robots.txt ────────────────────────────────────────────────
 
-function collectProtectedPaths(pages: SitePage[], parentPath = ''): string[] {
-    return pages.flatMap(page => {
-        if (!page.enabled) return [];
-        if (isExternalPage(page)) return [];
-
-        const fullPath = `/${[parentPath, page.path].filter(Boolean).join('/')}`.replace(/\/+/g, '/');
-
-        if (isParentPage(page)) {
-            return collectProtectedPaths(page.children, fullPath);
-        }
-
-        return page.requiresAuth ? [fullPath] : [];
-    });
-}
-
 function updateRobots(): void {
-    const protectedPaths = collectProtectedPaths(ContestoSito.pages);
-
-    const lines = ['User-agent: *', 'Allow: /'];
-    for (const path of protectedPaths) {
-        lines.push(`Disallow: ${path}`);
-    }
-    lines.push('', `Sitemap: ${BASE_URL}/sitemap.xml`);
+    // Le pagine protette (`requiresAuth`) NON vengono più elencate come `Disallow`: un
+    // `robots.txt` è pubblico, quindi enumerarle ne rivelerebbe i path. La non-indicizzazione
+    // è ottenuta in modo più solido a runtime dal server SSR con `X-Robots-Tag: noindex` su
+    // quelle rotte (vedi server.ts), che vale anche per i crawler che ignorano robots.txt.
+    // La disattivazione globale dell'indicizzazione (staging) è gestita dal server via
+    // SEO_NOINDEX, che serve un robots.txt dinamico `Disallow: /` sovrascrivendo questo file.
+    const lines = ['User-agent: *', 'Allow: /', '', `Sitemap: ${BASE_URL}/sitemap.xml`];
 
     writeFileSync(ROBOTS, lines.join('\n') + '\n', 'utf8');
     console.log(`[statics] robots.txt aggiornato`);

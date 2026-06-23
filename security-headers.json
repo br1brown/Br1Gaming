@@ -5,6 +5,7 @@
       "X-Frame-Options": "SAMEORIGIN",
       "X-Content-Type-Options": "nosniff",
       "Referrer-Policy": "strict-origin-when-cross-origin",
+      "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
       "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
       "Permissions-Policy": "camera=(), microphone=(), geolocation=(), browsing-topics=()",
       "Content-Security-Policy": "default-src 'self'; script-src 'self' {SCRIPT_NONCE_PLACEHOLDER}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
