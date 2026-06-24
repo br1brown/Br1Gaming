@@ -30,6 +30,10 @@ services:
       BACKEND_ORIGIN: "http://backend:8080"
       GLOBAL_SETTINGS_PATH: /app/global-settings.json
       SECURITY_HEADERS_PATH: /app/security-headers.json
+      # Passthrough OPZIONALE: se NON imposti la variabile nell'ambiente, resta vuota = sito
+      # indicizzabile (default di produzione). Per una copia di staging che NON deve finire su
+      # Google:  export SEO_NOINDEX=true; ./deploy.sh
+      SEO_NOINDEX: "${SEO_NOINDEX:-}"
     ports:
       - "${FRONTEND_PORT:?ERRORE: impostare frontend.port in global-settings.json}:3000"
     volumes:
@@ -39,6 +43,12 @@ services:
       backend:
         condition: service_healthy
         required: false
+    # Hardening: nessun nuovo privilegio + zero capability Linux. Sicuro qui perché il
+    # container gira già come utente non-root (vedi Dockerfile) e ascolta su porta > 1024.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     logging:
       driver: json-file
       options:
@@ -63,6 +73,12 @@ services:
       - ./security-headers.json:/app/security-headers.json:ro
       - uploads-data:/app/uploads
       - db-data:/app/db
+    # Hardening: nessun nuovo privilegio + zero capability Linux. Sicuro qui perché il
+    # container gira già come utente non-root (vedi Dockerfile) e ascolta su porta > 1024.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     logging:
       driver: json-file
       options:

@@ -39,10 +39,15 @@
               "node_modules/@fortawesome/fontawesome-free/css/solid.min.css",
               "node_modules/@fortawesome/fontawesome-free/css/brands.min.css",
               "node_modules/@angular/cdk/overlay-prebuilt.css",
+              "node_modules/sweetalert2/themes/bootstrap-5.css",
               "node_modules/mapbox-gl/dist/mapbox-gl.css",
-              "src/styles.css"
+              "src/styles/engine/base.scss",
+              "src/styles.scss"
             ],
             "scripts": [],
+            "stylePreprocessorOptions": {
+              "includePaths": ["src/styles"]
+            },
             "polyfills": [],
             "allowedCommonJsDependencies": [
               "qrcode",
@@ -102,7 +107,8 @@
   },
   "schematics": {
     "@schematics/angular:component": {
-      "type": "component"
+      "type": "component",
+      "style": "scss"
     },
     "@schematics/angular:directive": {
       "type": "directive"

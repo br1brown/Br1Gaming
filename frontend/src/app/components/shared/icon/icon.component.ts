@@ -31,7 +31,7 @@ function coerce<T extends string>(allowed: readonly T[], fallback: T, value: str
     imports: [],
     changeDetection: ChangeDetectionStrategy.OnPush,
     templateUrl: './icon.component.html',
-    styleUrl: './icon.component.css',
+    styleUrl: './icon.component.scss',
     host: { class: 'd-inline-block' }
 })
 export class IconComponent {

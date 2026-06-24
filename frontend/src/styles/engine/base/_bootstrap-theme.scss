@@ -1,0 +1,171 @@
+@use 'lib';
+
+/* Mappatura token → variabili Bootstrap.
+   ThemeService imposta queste via inline style su <html> (priorità massima).
+   Questo blocco CSS è il fallback per i discendenti con data-bs-theme proprio
+   (es. <div data-bs-theme="light"> dentro un tema globale dark) che Bootstrap
+   reinizializza coi suoi default — senza questo override cadrebbero sui valori
+   statici Bootstrap. I valori var(--color*) si risolvono sempre correttamente
+   perché ThemeService/theme-init li ha già impostati su :root. */
+:root,
+[data-bs-theme="light"],
+[data-bs-theme="dark"] {
+    --bs-primary:                  var(--colorPrimary);
+    --bs-primary-rgb:              var(--colorPrimaryRgb);
+    --bs-secondary:                var(--colorSecondary);
+    --bs-secondary-rgb:            var(--colorSecondaryRgb);
+    --bs-border-color:             var(--colorSurfaceBorder);
+    --bs-emphasis-color:           var(--colorHeading);
+    --bs-emphasis-color-rgb:       var(--colorHeadingRgb);
+    --bs-heading-color:            var(--colorHeading);
+    --bs-secondary-bg:             var(--colorMutedBg);
+    --bs-tertiary-bg:              var(--colorSubtleBg);
+    --bs-secondary-color:          var(--colorMutedText);
+    /* Subtle/emphasis — .alert-*, .bg-*-subtle, .text-*-emphasis */
+    --bs-primary-bg-subtle:        var(--colorPrimaryBgSubtle);
+    --bs-primary-border-subtle:    var(--colorPrimaryBorderSubtle);
+    --bs-primary-text-emphasis:    var(--colorPrimaryTextEmphasis);
+    --bs-secondary-bg-subtle:      var(--colorSecondaryBgSubtle);
+    --bs-secondary-border-subtle:  var(--colorSecondaryBorderSubtle);
+    --bs-secondary-text-emphasis:  var(--colorSecondaryTextEmphasis);
+}
+
+/* Correzione subtheme: le variabili --color* tone-adattive su :root si risolvono
+   con il tone corrente dell'OS. Quando un elemento figlio ha [data-bs-theme="light"]
+   (es. pannello forzato-chiaro dentro pagina dark), il ponte sopra mapperebbe
+   --bs-heading-color → var(--colorHeading) = valore scuro = testo bianco su bianco.
+   I blocchi qui sotto usano le varianti Lt/Dk esposte da ThemeService, che sono fisse
+   e garantiscono il valore corretto indipendentemente dal tone globale. */
+:root,
+[data-bs-theme="light"] { @include lib.theme-bridge('Lt', 'black', '--colorPrimary', '--colorPrimaryRgb'); }
+
+[data-bs-theme="dark"] { @include lib.theme-bridge('Dk', 'white', '--colorPrimaryDk', '--colorPrimaryRgbDk'); }
+
+/* I bottoni .btn-primary / .btn-outline-primary hanno --bs-btn-* hardcoded al
+   colore default Bootstrap (#0d6efd): vanno ridiretti a --bs-primary. */
+.btn-primary {
+    --bs-btn-bg:               var(--bs-primary);
+    --bs-btn-border-color:     var(--bs-primary);
+    --bs-btn-color:            var(--colorPrimaryText, #fff);
+    --bs-btn-hover-bg:         #{lib.shade(var(--bs-primary), 12%)};
+    --bs-btn-hover-border-color: #{lib.shade(var(--bs-primary), 16%)};
+    --bs-btn-hover-color:      var(--colorPrimaryText, #fff);
+    --bs-btn-active-bg:        #{lib.shade(var(--bs-primary), 18%)};
+    --bs-btn-active-border-color: #{lib.shade(var(--bs-primary), 22%)};
+    --bs-btn-active-color:     var(--colorPrimaryText, #fff);
+    --bs-btn-disabled-bg:      var(--bs-primary);
+    --bs-btn-disabled-border-color: var(--bs-primary);
+    --bs-btn-disabled-color:   var(--colorPrimaryText, #fff);
+}
+
+.btn-outline-primary {
+    --bs-btn-color:            var(--bs-link-color);
+    --bs-btn-border-color:     var(--bs-link-color);
+    --bs-btn-hover-bg:         var(--bs-link-color);
+    --bs-btn-hover-border-color: var(--bs-link-color);
+    --bs-btn-hover-color:      var(--bs-body-bg);
+    --bs-btn-active-bg:        var(--bs-link-color);
+    --bs-btn-active-border-color: var(--bs-link-color);
+    --bs-btn-active-color:     var(--bs-body-bg);
+    --bs-btn-disabled-color:   var(--bs-link-color);
+    --bs-btn-disabled-border-color: var(--bs-link-color);
+}
+
+/* Primary come FOREGROUND (testo/bordo sulla pagina) — tone-adaptive WCAG 4.5:1.
+   Le utility .text-primary / .border-primary di Bootstrap risolvono a --bs-primary, che è
+   tarato per 4.5:1 sul fondo CHIARO (baseLt): su pagina scura sarebbe scuro-su-scuro, sotto soglia.
+   Qui le ridirigiamo a --colorPrimaryFg (= colorPrimary in light, colorPrimaryDk in dark), così il
+   primary-come-testo resta AA in entrambi i toni. I FILL (.btn-primary, .bg-primary, .text-bg-primary)
+   restano su --bs-primary = colorPrimary: lì il testo si contrasta su --colorPrimaryText, non sulla pagina.
+   Stesso ragionamento già applicato a link e bottoni outline via --bs-link-color. */
+.text-primary {
+    color: rgba(var(--colorPrimaryFgRgb), var(--bs-text-opacity, 1)) !important;
+}
+.border-primary {
+    border-color: rgba(var(--colorPrimaryFgRgb), var(--bs-border-opacity, 1)) !important;
+}
+
+/* ── Token colori semantici ──────────────────────────────────────────────────
+   --colorSecondary è calcolato da ThemeService.computePalette() in OKLCH
+   (derivato dal brand, WCAG 4.5:1 garantito) e iniettato via inline style;
+   il tag <style id="theme-init"> ne fa il bake per la fase pre-idratazione SSR.
+   I valori qui sotto sono fallback last-resort per ambienti senza JS/theme-init.
+
+   I colori warning/info/success/danger NON sono gestiti da ThemeService:
+   Bootstrap 5.3 fornisce già varianti WCAG-safe tone-adaptive nei blocchi
+   [data-bs-theme="light/dark"] del suo CSS. ThemeService imposta data-bs-theme
+   su <html> in base a prefers-color-scheme, quindi --bs-warning-text-emphasis
+   ecc. si risolvono correttamente senza alcun calcolo aggiuntivo. */
+:root {
+    --colorSecondary:     #495057;
+    --colorSecondaryRgb:  73, 80, 87;
+    --colorSecondaryText: #ffffff;
+}
+
+.btn-outline-secondary {
+    --bs-btn-color:               var(--bs-secondary);
+    --bs-btn-border-color:        var(--bs-secondary);
+    --bs-btn-hover-bg:            var(--bs-secondary);
+    --bs-btn-hover-color:         var(--bs-body-bg);
+    --bs-btn-hover-border-color:  var(--bs-secondary);
+    --bs-btn-active-bg:           var(--bs-secondary);
+    --bs-btn-active-color:        var(--bs-body-bg);
+    --bs-btn-active-border-color: var(--bs-secondary);
+    --bs-btn-disabled-color:      var(--bs-secondary);
+    --bs-btn-disabled-border-color: var(--bs-secondary);
+}
+
+/* WCAG 1.4.3 — btn-outline-warning/info/success/danger: Bootstrap usa i colori
+   vivaci (es. #ffc107, #0dcaf0) come testo degli outline button, che non superano
+   4.5:1 su sfondi chiari. Bootstrap 5.3 fornisce già --bs-*-text-emphasis come
+   varianti WCAG-safe tone-adaptive nei blocchi [data-bs-theme]; ThemeService
+   imposta data-bs-theme su <html>, quindi questi token si risolvono correttamente
+   senza alcun calcolo aggiuntivo. */
+.btn-outline-warning,
+.btn-outline-info,
+.btn-outline-success,
+.btn-outline-danger {
+    --bs-btn-color:               var(--bs-btn-color-emphasis);
+    --bs-btn-border-color:        var(--bs-btn-color-emphasis);
+    --bs-btn-hover-bg:            var(--bs-btn-color-emphasis);
+    --bs-btn-hover-border-color:  var(--bs-btn-color-emphasis);
+    --bs-btn-hover-color:         var(--bs-body-bg);
+    --bs-btn-active-bg:           var(--bs-btn-color-emphasis);
+    --bs-btn-active-border-color: var(--bs-btn-color-emphasis);
+    --bs-btn-active-color:        var(--bs-body-bg);
+    --bs-btn-disabled-color:      var(--bs-btn-color-emphasis);
+    --bs-btn-disabled-border-color: var(--bs-btn-color-emphasis);
+}
+
+@each $name in (warning, info, success, danger) {
+    .btn-outline-#{$name} { --bs-btn-color-emphasis: var(--bs-#{$name}-text-emphasis); }
+}
+
+/* I form controls (checkbox/toggle/range/input focus) restano coi default
+   Bootstrap, che si adattano già al tono chiaro/scuro via data-bs-theme.
+   Sovrascriverli ogni volta complicherebbe la cascata senza guadagno utente. */
+
+/* Riempimento dello sfondo tema */
+.theme-bg {
+    background-color: var(--colorTema);
+    color: var(--colorTemaText);
+}
+
+.navbar.theme-bg,
+.site-footer.theme-bg {
+    background-color: var(--colorNavBg);
+    color: var(--colorNavText);
+}
+
+.navbar.theme-bg {
+    border-bottom: 2.5px solid var(--colorTema);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.site-footer.theme-bg {
+    border-top: 2.5px solid var(--colorTema);
+}
+
+.dropdown-menu .dropdown-item.theme-bg:hover {
+    background-color: var(--colorBase);
+}

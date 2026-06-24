@@ -38,7 +38,7 @@ import { SmokeSettings } from '../../../../site';
 @Component({
     selector: 'app-smoke-effect',
     templateUrl: './smoke-effect.component.html',
-    styleUrl: './smoke-effect.component.css',
+    styleUrl: './smoke-effect.component.scss',
 })
 export class SmokeEffectComponent {
     readonly config = input.required<SmokeSettings>();

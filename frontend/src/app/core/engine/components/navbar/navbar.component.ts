@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { UpperCasePipe } from '@angular/common';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter } from 'rxjs/operators';
-import { injectCurrentUrl } from '../../../../app.routes';
+import { injectCurrentUrl } from '../../routing';
 import { ThemeService } from '../../services/theme.service';
 import { TranslateService } from '../../services/translate.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
@@ -19,7 +19,7 @@ import { NotificationBellComponent } from '../notification-bell/notification-bel
     selector: 'app-navbar',
     imports: [TranslatePipe, AssetDirective, UpperCasePipe, NavLinkComponent, NavDropdownComponent, RouterLink, UserNavComponent, NotificationBellComponent],
     templateUrl: './navbar.component.html',
-    styleUrl: './navbar.component.css',
+    styleUrl: './navbar.component.scss',
     host: {
         class: 'd-block',
         '(document:click)': 'onDocumentClick($event)',

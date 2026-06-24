@@ -1,6 +1,6 @@
 import { Component, computed, inject, input, output } from '@angular/core';
 import { Router } from '@angular/router';
-import { injectCurrentUrl } from '../../../../app.routes';
+import { injectCurrentUrl } from '../../routing';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { NavLinkComponent } from '../nav-link/nav-link.component';
 import { NavSubmenuComponent } from '../nav-submenu/nav-submenu.component';

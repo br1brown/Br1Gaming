@@ -4,7 +4,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { Router, NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs';
-import { type AssetWidth } from '../../../app.config';
+import { type AssetWidth } from '../asset-config';
 
 /** Endpoint CDN CGI esposti dal server. Aggiungere qui nuovi path, poi il metodo statico sotto. */
 export const CdnCgi = {

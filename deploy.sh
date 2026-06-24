@@ -87,6 +87,13 @@ ok "Configurazione letta (${BR1_SETTINGS_FILE})"
 if [[ "${EXPOSE_BACKEND:-no}" == "yes" && -z "${BACKEND_PORT:-}" ]]; then
     fail "backend.public=true richiede backend.publicPort"
 fi
+# Hostname obbligatorio quando pubblichi il frontend. Senza, l'SSR è fail-closed: accetta solo
+# gli host locali, quindi al dominio reale risponde 421 (e sitemap/canonical/og userebbero
+# example.com). Insidioso: l'healthcheck del preflight gira su localhost e PASSEREBBE, quindi
+# il deploy sembrerebbe riuscito mentre il sito è irraggiungibile dal dominio vero.
+if [[ "$DEPLOY_FRONTEND" == true && -z "${FRONTEND_BASE_URL:-}" ]]; then
+    fail "frontend.hostname non impostato in global-settings.local.json: il sito risponderebbe 421 al dominio reale e gli URL SEO userebbero example.com. Imposta es. \"frontend\": { \"hostname\": \"miodominio.it\" }."
+fi
 if (( ERRORS > 0 )); then
     echo
     echo -e "  ${RED}ERR${RESET} Correggi la configurazione in global-settings.json prima di pubblicare" >&2
@@ -94,6 +101,12 @@ if (( ERRORS > 0 )); then
 fi
 ok "COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}"
 ok "FRONTEND_PORT=${FRONTEND_PORT}"
+# Avviso (non bloccante): dietro un reverse proxy serve BehindProxy=true, altrimenti il rate
+# limiter del backend vede l'IP del proxy per OGNI utente → li conta come uno solo → 100 req/min
+# condivise da tutti (429 intermittenti sotto traffico modesto). Se NON usi un proxy, ignora.
+if [[ "$DEPLOY_BACKEND" == true && "${BEHIND_PROXY:-no}" != "yes" ]]; then
+    warn "Security.BehindProxy non è true: se pubblichi dietro un reverse proxy (es. nginx) il rate limiter conterà tutti gli utenti come un solo IP. Imposta \"Security\": { \"BehindProxy\": true } in global-settings.local.json."
+fi
 
 # File compose: base + (se il backend è pubblico) l'override che lo espone sull'host.
 compose_files=(-f docker-compose.yml)
@@ -246,6 +259,6 @@ ok "Immagini orfane rimosse"
 
 echo
 echo -e "  ${GREEN}OK${RESET} Pubblicazione completata (${services[*]})"
-echo "  Log:   docker compose -f docker-compose.yml logs -f"
-echo "  Stato: docker compose -f docker-compose.yml ps"
+echo "  Log:   docker compose ${compose_files[*]} logs -f"
+echo "  Stato: docker compose ${compose_files[*]} ps"
 echo

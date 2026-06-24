@@ -25,10 +25,10 @@ import { NavLink } from '../../../core/engine/siteBuilder';
  * (loginPage è null).
  */
 @Component({
-    selector: 'user-nav',
+    selector: 'app-user-nav',
     imports: [TranslatePipe, NavLinkComponent],
     templateUrl: './user-nav.component.html',
-    styleUrl: './user-nav.component.css',
+    styleUrl: './user-nav.component.scss',
     host: { class: 'contents' }
 })
 export class UserNavComponent {

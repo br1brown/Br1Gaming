@@ -1,6 +1,6 @@
 import { InjectionToken, isDevMode, type Type } from '@angular/core';
 import type { PageType } from '../../site';
-import type { PageBaseComponent } from '../../pages/page-base.component';
+import type { PageBaseComponent } from './pages/page-base.component';
 import { environment } from '../../../environments/environment';
 import { hasCookiesConfigured } from './services/cookie/cookie-utils';
 import { buildPolicySection, legalSlugFor } from './legal/legal-pages';
@@ -275,7 +275,7 @@ export type LeafPageInput = BasePageInput & {
          * `showFooter: true` se lo vuoi comunque. La navbar resta (via d'uscita). Il root del componente
          * di pagina deve crescere per riempire l'altezza: aggiungi `flex-grow-1` (o `h-100`) sul
          * suo elemento radice e non mettere utility di display `d-*` sull'host del componente
-         * (batterebbero il flex del full-bleed — vedi la regola `.fit-viewport` in base.css). */
+         * (batterebbero il flex del full-bleed — vedi la regola `.fit-viewport` in base.scss). */
         fitViewport?: boolean;
     };
 
@@ -713,6 +713,10 @@ export type ServerRenderEntry = {
     path: string;
     /** Strategia di rendering finale da esporre al layer server. */
     renderMode: SiteRenderMode;
+    /** `true` se la pagina richiede login (`requiresAuth`). Il layer server la marca
+     *  `noindex` (header `X-Robots-Tag`): così le pagine protette non finiscono nell'indice
+     *  senza doverle elencare in `robots.txt` (che ne rivelerebbe i path pubblicamente). */
+    requiresAuth: boolean;
 };
 
 /**
@@ -950,7 +954,7 @@ function processPages(
                 structuredDataType: page.structuredDataType ?? 'WebPage',
             });
             // requiresAuth → 'client' (i bot non loggano, l'SSR è inutile); altrimenti renderMode esplicito o 'server'.
-            serverRenderEntries.push({ path: fullPath, renderMode: page.requiresAuth ? 'client' : (page.renderMode ?? 'server') });
+            serverRenderEntries.push({ path: fullPath, renderMode: page.requiresAuth ? 'client' : (page.renderMode ?? 'server'), requiresAuth: !!page.requiresAuth });
 
             // Le pagine protette restano fuori dalla sitemap (un crawler non può accedervi).
             return page.requiresAuth ? [] : [{ path: fullPath, description: page.description }];

@@ -1,6 +1,6 @@
 import { Component, computed, inject, input, output } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { injectCurrentUrl } from '../../../../app.routes';
+import { injectCurrentUrl } from '../../routing';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { NavLink } from '../../siteBuilder';
 

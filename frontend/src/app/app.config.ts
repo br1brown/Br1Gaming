@@ -9,8 +9,8 @@ import { ApplicationConfig, TransferState, inject, isDevMode, provideAppInitiali
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideClientHydration, withEventReplay, withIncrementalHydration } from '@angular/platform-browser';
 import { provideServiceWorker } from '@angular/service-worker';
-import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from '@angular/router';
-import { routes } from './app.routes';
+import { provideRouter, withComponentInputBinding, withInMemoryScrolling, withViewTransitions } from '@angular/router';
+import { routes } from './core/engine/routing';
 import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/engine/services/theme.service';
 import { TranslateService } from './core/engine/services/translate.service';
@@ -21,21 +21,8 @@ import { ContestoSito } from './site';
 import { SITE_CONFIG } from './core/engine/siteBuilder';
 import { LOCALE_CONFIG, LOCALE_STATE_KEY, type LocaleConfig } from './core/engine/services/translate.service';
 import { APP_CUSTOM, CUSTOM_STATE_KEY, type AppCustom } from './core/engine/app-custom';
+import { API_PREFIX } from './core/engine/asset-config';
 import { environment } from '../environments/environment';
-
-/**
- * Whitelist delle larghezze consentite per l'ottimizzazione immagini.
- * Condivisa tra il frontend (AssetService) e il backend (server.ts).
- */
-export const ALLOWED_WIDTHS = [125, 320, 480, 512, 640, 768, 1024, 1080, 1366, 1600, 1920] as const;
-
-/** Prefisso del proxy API: unica fonte di verità per server.ts (proxy Express) e il DI Angular (browser) */
-export const API_PREFIX = '/api';
-
-/**
- * Tipo derivato dalla whitelist per l'utilizzo nei parametri dei componenti/servizi.
- */
-export type AssetWidth = typeof ALLOWED_WIDTHS[number];
 
 export const appConfig: ApplicationConfig = {
     providers: [
@@ -55,7 +42,11 @@ export const appConfig: ApplicationConfig = {
             withInMemoryScrolling({
                 scrollPositionRestoration: 'enabled',
                 anchorScrolling: 'enabled'
-            })
+            }),
+            // Transizioni di pagina con la View Transitions API (cross-fade del browser).
+            // Progressive enhancement: i browser senza supporto navigano senza animazione.
+            // Il movimento è disattivato sotto prefers-reduced-motion (vedi base/_a11y.scss).
+            withViewTransitions()
         ),
 
         // HttpClient con supporto fetch (migliore performance/compatibilità) e l'interceptor

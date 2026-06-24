@@ -101,7 +101,7 @@ export class PageMetaService {
         this.meta.updateTag({ property: 'og:title', content: browserTitle });
 
         // Se presente, aggiorna la descrizione ovunque
-        if (!!description) {
+        if (description) {
             this.meta.updateTag({ name: 'description', content: description });
             this.meta.updateTag({ property: 'og:description', content: description });
             this.meta.updateTag({ name: 'twitter:description', content: description });

@@ -1,7 +1,7 @@
 import { Component, computed } from '@angular/core';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { ContentCardComponent } from '../../components/shared/content-card/content-card.component';
-import { PageBaseComponent } from '../page-base.component';
+import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { HomeContent } from '../content.resolver';
 import { PageType } from '../../site';
 

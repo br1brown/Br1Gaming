@@ -1,0 +1,18 @@
+// nav — stili globali di navigazione dell'Engine, divisi in partial tematici.
+//
+// Globali (non scoped): le classi (.nav-link, .nav-dropdown-toggle,
+// .dropdown-item) sono rese da componenti standalone separati, che la view
+// encapsulation di Angular non raggiungerebbe con stili scoped.
+// L'ordine di @use riproduce la sequenza originale (la cascata dipende
+// dall'ordine sorgente): non riordinare.
+//   links    → footer link, .nav-link/stato attivo, trigger dropdown + caret
+//   dropdown → override Bootstrap del dropdown in navbar, colori, responsive
+//   submenu  → sottomenu multilivello (flyout desktop, accordion mobile)
+//   footer   → sottogruppi annidati del footer
+//   motion   → preferenza prefers-reduced-motion
+
+@use 'nav/links';
+@use 'nav/dropdown';
+@use 'nav/submenu';
+@use 'nav/footer';
+@use 'nav/motion';

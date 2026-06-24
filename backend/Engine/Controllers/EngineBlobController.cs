@@ -6,44 +6,22 @@ namespace Backend.Controllers;
 
 /// <summary>
 /// Base astratta per i controller che servono file binari.
-/// Aggiunge a <see cref="EngineApiController"/> la capacità di ottimizzare immagini per il web.
+/// Aggiunge a <see cref="EngineApiController"/> la sola capacita' di ottimizzare immagini per il web:
+/// lo storage (salvataggio, risoluzione, metadati, cancellazione) vive in <see cref="Backend.Store.BlobStore"/>.
 /// </summary>
 public abstract class EngineBlobController : EngineApiController
 {
-    // image/gif escluso: SkiaSharp decodifica solo il primo frame e produce un WebP statico,
-    // perdendo l'animazione senza errore. Le GIF vengono servite così come sono.
-    private static readonly HashSet<string> _imageContentTypes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "image/jpeg", "image/png", "image/webp", "image/bmp", "image/avif"
-    };
-
     /// <inheritdoc cref="EngineBlobController"/>
     protected EngineBlobController(ILogger logger) : base(logger) { }
 
     /// <summary>
-    /// Indica se il content-type corrisponde a un formato immagine gestito.
-    /// </summary>
-    protected static bool IsImage(string contentType) => _imageContentTypes.Contains(contentType);
-
-    /// <summary>
-    /// Genera uno slug univoco per un file da caricare, includendo l'estensione originale.
-    /// </summary>
-    /// <param name="extension">Estensione del file, con o senza punto iniziale (es. <c>.jpg</c> o <c>jpg</c>).</param>
-    protected static string GenerateBlobSlug(string extension)
-    {
-        var dot = extension.StartsWith('.') ? string.Empty : ".";
-        return $"{Guid.NewGuid():N}{dot}{extension}";
-    }
-
-    /// <summary>
     /// Dato uno stream immagine, restituisce un <see cref="FileContentResult"/> con il lato più lungo
-    /// ridimensionato a <paramref name="maxSide"/> pixel mantenendo le proporzioni originali.
-    /// Se l'immagine è già entro i limiti non viene riscalata.
+    /// ridimensionato a <paramref name="maxSide"/> pixel mantenendo le proporzioni originali e
+    /// convertito in WebP. Se l'immagine è già entro i limiti non viene riscalata.
     /// </summary>
     /// <param name="imageStream">Stream del file immagine da elaborare.</param>
-    /// <param name="contentType">MIME type dell'immagine; determina il formato di output.</param>
     /// <param name="maxSide">Dimensione massima in pixel del lato più lungo (default 1920).</param>
-    protected static FileContentResult ResizeImageForWeb(Stream imageStream, string contentType, int maxSide = 1920)
+    protected static FileContentResult ResizeImageForWeb(Stream imageStream, int maxSide = 1920)
     {
         using var original = SKBitmap.Decode(imageStream);
         // Decode restituisce null se i byte non sono un'immagine decodificabile (estensione

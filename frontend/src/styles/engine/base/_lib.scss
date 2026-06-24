@@ -1,0 +1,45 @@
+// lib — strumenti Sass condivisi dai partial dell'Engine. Nessun output CSS:
+// solo @function / @mixin / variabili. La palette resta in custom properties
+// CSS iniettate a runtime da ThemeService (vedi base/_tokens.scss): qui sotto
+// si compone soltanto il "cablaggio" build-time attorno a quei token.
+
+@use 'sass:string';
+
+/// Breakpoint Bootstrap `md`. Fonte unica per le media query dell'Engine.
+$bp-md: 768px;
+
+/// Scurisce un colore CSS miscelandolo con nero (CSS Color 5 `color-mix`).
+/// Accetta `var()` e qualsiasi colore: la miscela è risolta dal browser a runtime.
+/// @example  --bs-btn-hover-bg: shade(var(--bs-primary), 12%);
+@function shade($color, $amount) {
+    @return string.unquote('color-mix(in srgb, #{$color}, #000 #{$amount})');
+}
+
+/// Ponte tone-adattivo token Engine → variabili Bootstrap.
+/// Le varianti chiara/scura erano due liste parallele identiche salvo il suffisso:
+/// qui sono un solo blocco, con le poche asimmetrie reali come parametri espliciti.
+/// @param {String} $s      suffisso palette: `Lt` (chiaro) | `Dk` (scuro)
+/// @param {String} $mix    colore per l'hover del link: `black` in light, `white` in dark
+/// @param {String} $pfg    sorgente di `--colorPrimaryFg`    (base in light, variante Dk in dark)
+/// @param {String} $pfgRgb sorgente di `--colorPrimaryFgRgb` (idem, tripla RGB)
+@mixin theme-bridge($s, $mix, $pfg, $pfgRgb) {
+    --bs-link-color:          var(--colorLink#{$s});
+    --bs-link-hover-color:    color-mix(in srgb, var(--colorLink#{$s}), #{$mix} 15%);
+    --focusRingColor:         var(--colorLink#{$s});
+    --colorPrimaryFg:         var(#{$pfg});
+    --colorPrimaryFgRgb:      var(#{$pfgRgb});
+    --bs-body-bg:             var(--colorBase#{$s});
+    --bs-body-color:          var(--colorSurfaceText#{$s});
+    --bs-body-color-rgb:      var(--colorSurfaceTextRgb#{$s});
+    --bs-emphasis-color:      var(--colorHeading#{$s});
+    --bs-emphasis-color-rgb:  var(--colorHeadingRgb#{$s});
+    --bs-heading-color:       var(--colorHeading#{$s});
+    --bs-border-color:        var(--colorSurfaceBorder#{$s});
+    --bs-secondary:           var(--colorSecondary#{$s});
+    --bs-secondary-rgb:       var(--colorSecondaryRgb#{$s});
+    --bs-secondary-bg:        var(--colorMutedBg#{$s});
+    --bs-tertiary-bg:         var(--colorSubtleBg#{$s});
+    --bs-secondary-color:     var(--colorMutedText#{$s});
+    --colorNavBg:             var(--colorNavBg#{$s});
+    --colorNavText:           var(--colorNavText#{$s});
+}

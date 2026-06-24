@@ -20,7 +20,7 @@ export interface ImgRenderConfig extends ImgBuildOptions {
  * classi proprie — l'<img> e' l'immagine e accetta tutti gli attributi
  * standard (alt, class, style…).
  *
- *   <img [imgRender]="config"
+ *   <img [appImgRender]="config"
  *        (canvasChange)="canvas.set($event)"
  *        alt="Anteprima logo"
  *        class="img-fluid rounded">
@@ -32,12 +32,12 @@ export interface ImgRenderConfig extends ImgBuildOptions {
  * Su SSR e quando la generazione fallisce, l'attributo `src` viene rimosso:
  * il browser mostra il testo `alt` come fallback HTML standard.
  *
- * Selector vincolato a img[imgRender]: errore a compile time se usata su
+ * Selector vincolato a img[appImgRender]: errore a compile time se usata su
  * altro elemento. Un token monotono evita che build asincrone sovrapposte
  * si "sorpassino" lasciando in mostra un'immagine ormai obsoleta.
  */
 @Directive({
-    selector: 'img[imgRender]',
+    selector: 'img[appImgRender]',
     standalone: true,
     host: { '[src]': 'src()' },
 })
@@ -45,7 +45,7 @@ export class ImgRenderDirective {
     private readonly imgBuilder = inject(ImgBuilderService);
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
-    readonly imgRender = input<ImgRenderConfig | null>(null);
+    readonly appImgRender = input<ImgRenderConfig | null>(null);
 
     readonly canvasChange = output<HTMLCanvasElement | null>();
 
@@ -55,7 +55,7 @@ export class ImgRenderDirective {
 
     constructor() {
         effect(() => {
-            const cfg = this.imgRender();
+            const cfg = this.appImgRender();
             if (!this.isBrowser || !cfg) {
                 this.reset();
                 return;

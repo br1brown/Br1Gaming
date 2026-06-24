@@ -1,32 +1,29 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.StaticFiles;
 using Backend.Models;
 using Backend.Security;
+using Backend.Store;
 
 namespace Backend.Controllers;
 
 /// <summary>
-/// Espone i file caricati dagli utenti, salvati nel volume persistente <c>/app/uploads</c>.
+/// Espone i file caricati dagli utenti tramite <see cref="BlobStore"/> (volume persistente <c>uploads/</c>).
 /// </summary>
 /// <remarks>
-/// L'accesso richiede API key (ereditata da <see cref="EngineApiController"/>), ma nessuna autenticazione utente.
-/// Il file viene identificato dal suo slug univoco assegnato al momento dell'upload.
+/// L'accesso in lettura richiede API key (ereditata da <see cref="EngineApiController"/>), ma nessuna
+/// autenticazione utente. Lo storage e la sua sicurezza vivono nello store; qui resta solo il wiring HTTP
+/// (resize on-demand, difesa XSS, cache).
 /// </remarks>
 [Route("blob")]
 public class BlobController : EngineBlobController
 {
-    private readonly string _uploadsPath;
-    private static readonly FileExtensionContentTypeProvider _contentTypeProvider = new();
+    private readonly BlobStore _blobs;
 
-    /// <summary>
-    /// Inizializza una nuova istanza di <see cref="BlobController"/>.
-    /// </summary>
-    public BlobController(IWebHostEnvironment env, ILogger<BlobController> logger)
+    /// <summary>Inizializza una nuova istanza di <see cref="BlobController"/>.</summary>
+    public BlobController(BlobStore blobs, ILogger<BlobController> logger)
         : base(logger)
     {
-        // Trailing separator: senza, "/app/uploads-public/x" supererebbe il check StartsWith("/app/uploads").
-        _uploadsPath = Path.Combine(env.ContentRootPath, "uploads") + Path.DirectorySeparatorChar;
+        _blobs = blobs;
     }
 
     /// <summary>
@@ -36,86 +33,88 @@ public class BlobController : EngineBlobController
     /// <param name="webopt">
     /// Se <c>true</c> richiede la versione ottimizzata per il web del file. Flag generico, non
     /// legato alle immagini: oggi l'unica ottimizzazione implementata è il resize delle immagini
-    /// (lato più lungo max 1920 px), mentre i tipi non ancora gestiti vengono restituiti invariati.
-    /// È il punto di aggancio per estendere l'ottimizzazione ad altri tipi di contenuto in futuro.
+    /// (lato più lungo max 1920 px, WebP), mentre i tipi non ancora gestiti vengono restituiti invariati.
     /// </param>
     [HttpGet("{slug}")]
     public IActionResult Get(string slug, [FromQuery] bool webopt = false)
     {
-        var filePath = Path.GetFullPath(Path.Combine(_uploadsPath, slug));
-
-        if (!filePath.StartsWith(_uploadsPath, StringComparison.Ordinal))
-            throw new InvalidParametersException();
-
-        if (!System.IO.File.Exists(filePath))
+        var info = _blobs.GetInfo(slug);
+        if (info is null)
             throw new NotFoundException("blob");
+        var blob = info.Value;
 
         Logger.LogInformation("Blob richiesto: {Slug}", slug);
 
-        if (!_contentTypeProvider.TryGetContentType(filePath, out var contentType))
-            contentType = "application/octet-stream";
+        // Cache HTTP: lo slug è immutabile (ogni upload conia un nuovo GUID), quindi la risposta è
+        // cacheabile a lungo. L'ETag (mtime+size+variante) è la cintura di sicurezza per cache
+        // condivise e per eventuali evoluzioni: se un domani si introducesse l'overwrite dello STESSO
+        // slug, andrebbe rimosso `immutable` (il browser non rivalida durante max-age). La variante
+        // r/w distingue l'originale dalla versione ottimizzata, che hanno corpo diverso.
+        var variant = webopt ? "w" : "r";
+        var etag = $"\"{blob.LastModified.ToUnixTimeSeconds():x}-{blob.Length:x}-{variant}\"";
+        Response.Headers.ETag = etag;
+        Response.Headers.CacheControl = "public, max-age=31536000, immutable";
 
-        // webopt richiede la versione ottimizzata per il web: oggi l'unica pipeline è il resize
-        // delle immagini. I tipi non gestiti cadono al passthrough sotto e sono serviti invariati.
-        // Per estendere l'ottimizzazione ad altri content-type, aggiungere qui un ramo dedicato.
-        if (webopt && IsImage(contentType))
+        // If-None-Match → 304 senza riaprire né ridecodificare nulla: è ciò che evita il resize
+        // SkiaSharp sui re-hit (prima ogni richiesta webopt ricodificava da capo).
+        if (RequestMatchesETag(etag))
+            return StatusCode(StatusCodes.Status304NotModified);
+
+        // webopt + immagine raster gestita: resize al volo (lato lungo max 1920 px → WebP).
+        if (webopt && blob.IsImage)
         {
-            using var imageStream = System.IO.File.OpenRead(filePath);
-            return ResizeImageForWeb(imageStream, contentType);
+            using var imageStream = _blobs.OpenRead(slug) ?? throw new NotFoundException("blob");
+            return ResizeImageForWeb(imageStream);
         }
 
-        var stream = System.IO.File.OpenRead(filePath);
+        var stream = _blobs.OpenRead(slug) ?? throw new NotFoundException("blob");
 
-        // Difesa XSS stored: solo i formati immagine raster noti (IsImage) vengono serviti
-        // inline col loro content-type. Tutto il resto — inclusi .html/.svg/.xml che un utente
-        // autenticato potrebbe caricare (l'upload non filtra l'estensione) — è forzato a download
-        // (Content-Disposition: attachment) con application/octet-stream, così non viene mai
-        // interpretato/eseguito sull'origin del backend. nosniff resta attivo dagli header di sicurezza.
-        if (IsImage(contentType))
-            return File(stream, contentType, enableRangeProcessing: true);
+        // Difesa XSS stored: solo i formati immagine raster noti vengono serviti inline col loro
+        // content-type. Tutto il resto — inclusi .html/.svg/.xml che un utente autenticato potrebbe
+        // caricare (l'upload non filtra l'estensione) — è forzato a download (attachment) con
+        // application/octet-stream, così non viene mai interpretato/eseguito sull'origin del backend.
+        // nosniff resta attivo dagli header di sicurezza.
+        if (blob.IsImage)
+            return File(stream, blob.ContentType, enableRangeProcessing: true);
 
         return File(stream, "application/octet-stream", fileDownloadName: slug, enableRangeProcessing: true);
     }
 
     /// <summary>
-    /// Utility statica per salvare un file nel volume persistente e restituire lo slug.
-    /// Utilizzabile da altri controller che ricevono file nei loro form.
+    /// Verifica se l'header <c>If-None-Match</c> della richiesta corrisponde all'<paramref name="etag"/> corrente.
     /// </summary>
-    public static async Task<string> SaveFileAsync(IFormFile file, string uploadsPath, ILogger? logger = null)
+    private bool RequestMatchesETag(string etag)
     {
-        if (file.Length == 0)
-            throw new InvalidParametersException();
+        var ifNoneMatch = Request.Headers.IfNoneMatch;
+        if (ifNoneMatch.Count == 0)
+            return false;
 
-        var extension = Path.GetExtension(file.FileName);
-        if (string.IsNullOrEmpty(extension))
-            throw new InvalidParametersException();
-
-        Directory.CreateDirectory(uploadsPath);
-
-        var slug = GenerateBlobSlug(extension);
-        var filePath = Path.Combine(uploadsPath, slug);
-
-        await using var destination = System.IO.File.Create(filePath);
-        await file.CopyToAsync(destination);
-
-        logger?.LogInformation("Blob caricato: {Slug}", slug);
-
-        return slug;
+        foreach (var value in ifNoneMatch)
+        {
+            if (string.IsNullOrEmpty(value))
+                continue;
+            // "*" = qualunque rappresentazione; altrimenti il client rimanda l'ETag che gli abbiamo dato.
+            if (value == "*" || value.Contains(etag, StringComparison.Ordinal))
+                return true;
+        }
+        return false;
     }
 
     /// <summary>
     /// Carica un file nel volume persistente e restituisce lo slug univoco con cui recuperarlo.
     /// </summary>
     /// <remarks>
-    /// Richiede API key valida e token JWT (utente autenticato).
-    /// Lo slug include l'estensione originale del file, necessaria alla GET per determinare il content-type.
+    /// Richiede API key valida e token JWT (utente autenticato). Lo slug include l'estensione
+    /// originale del file, necessaria alla GET per determinare il content-type. Il codice di dominio
+    /// che riceve file in altri form usa direttamente <see cref="BlobStore.SaveAsync(IFormFile,System.Threading.CancellationToken)"/>.
     /// </remarks>
     [HttpPost("up")]
     [Authorize(Policy = SecurityDefaults.RequireLoginPolicy)]
     [RequestSizeLimit(10 * 1024 * 1024)] // 10 MB — i progetti figli possono sovrascrivere con [RequestSizeLimit] sul proprio controller
-    public async Task<IActionResult> Upload(IFormFile file)
+    public async Task<IActionResult> Upload(IFormFile file, CancellationToken ct)
     {
-        var slug = await SaveFileAsync(file, _uploadsPath, Logger);
+        var slug = await _blobs.SaveAsync(file, ct);
+        Logger.LogInformation("Blob caricato: {Slug}", slug);
         return Ok(new { slug });
     }
 }

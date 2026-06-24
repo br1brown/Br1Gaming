@@ -7,3 +7,9 @@ obj/
 .DS_Store
 Dockerfile
 .dockerignore
+
+# Dati di runtime nei volumi (db/, uploads/): non entrano nel contesto di build (solo .gitignore)
+db/*
+!db/.gitignore
+uploads/*
+!uploads/.gitignore

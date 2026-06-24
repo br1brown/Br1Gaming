@@ -1,7 +1,7 @@
 import { afterNextRender, Component, OnDestroy, signal, computed, inject } from '@angular/core';
 import { AssetDirective } from '../../core/engine/directives/asset.directive';
 import { CookieConsentService } from '../../core/engine/services/cookie-consent.service';
-import { PageBaseComponent } from '../page-base.component';
+import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 
 const IMAGES = [
     'duce1',

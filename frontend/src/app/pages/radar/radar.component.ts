@@ -1,6 +1,6 @@
 import { afterNextRender, Component, effect, ElementRef, inject, OnDestroy, signal, viewChild, ViewEncapsulation } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { PageBaseComponent } from '../page-base.component';
+import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { APP_CUSTOM } from '../../core/engine/app-custom';
 import { ThemeService } from '../../core/engine/services/theme.service';

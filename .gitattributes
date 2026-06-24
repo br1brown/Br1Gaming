@@ -9,6 +9,8 @@ frontend/src/assets/mapping.json merge=ours
 frontend/src/app/core/services/api.service.ts merge=ours
 frontend/src/app/pages/home/home.component.ts merge=ours
 frontend/src/app/pages/home/home.component.html merge=ours
+frontend/src/styles.scss merge=ours
+frontend/src/styles/app/** merge=ours
 
 # Backend: file interamente del figlio.
 backend/Controllers/BaseController.cs merge=ours

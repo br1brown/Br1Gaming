@@ -1,12 +1,12 @@
 import { computed, Directive, effect, inject, input, PLATFORM_ID, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { ApiService } from '../core/services/api.service';
-import { AssetService } from '../core/engine/services/asset.service';
-import { NotificationService } from '../core/engine/services/notification.service';
-import { TranslateService } from '../core/engine/services/translate.service';
-import { PageMetaService } from '../core/engine/services/page-meta.service';
-import { PageType } from '../site';
-import { ContentResolver, ResolvedPage } from './content.resolver';
+import { ApiService } from '../../services/api.service';
+import { AssetService } from '../services/asset.service';
+import { NotificationService } from '../services/notification.service';
+import { TranslateService } from '../services/translate.service';
+import { PageMetaService } from '../services/page-meta.service';
+import { PageType } from '../../../site';
+import { ContentResolver, ResolvedPage } from '../../../pages/content.resolver';
 
 /**
  * Base comune per tutte le pagine.
@@ -22,7 +22,7 @@ import { ContentResolver, ResolvedPage } from './content.resolver';
 @Directive()
 export abstract class PageBaseComponent<T> {
     private readonly contentResolverService = inject(ContentResolver);
-    protected readonly pageMeta = inject(PageMetaService);
+    private readonly pageMeta = inject(PageMetaService);
     private readonly platformId = inject(PLATFORM_ID);
     readonly translate = inject(TranslateService);
     readonly api = inject(ApiService);
@@ -48,6 +48,15 @@ export abstract class PageBaseComponent<T> {
     protected readonly pageContent = computed<T | null>(() =>
         (this._resolved()?.content ?? null) as T | null
     );
+
+    /**
+     * URL canonico della pagina corrente (senza query/hash, con origin forzato a
+     * FRONTEND_BASE_URL in SSR). Espone alle pagine figlie solo "dove si è",
+     * senza dare loro accesso all'intero PageMetaService.
+     */
+    protected getCurrentUrl(): string {
+        return this.pageMeta.getCanonicalUrl();
+    }
 
     constructor() {
         effect(() => {

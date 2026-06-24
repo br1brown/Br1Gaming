@@ -1,0 +1,11 @@
+/* ── Footer: sottogruppi annidati ────────────────────────────────────
+   Liste statiche: la gerarchia è resa con indentazione e barra laterale. */
+.footer-subgroup {
+    margin-top: 0.5rem;
+    padding-left: 0.75rem;
+    border-left: 2px solid color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.footer-subgroup-title {
+    opacity: 0.85;
+}

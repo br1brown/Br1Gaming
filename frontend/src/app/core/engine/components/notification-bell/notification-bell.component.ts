@@ -18,7 +18,7 @@ import { NotificationStreamService, type StreamNotification } from '../../servic
     selector: 'app-notification-bell',
     imports: [TranslatePipe],
     templateUrl: './notification-bell.component.html',
-    styleUrl: './notification-bell.component.css',
+    styleUrl: './notification-bell.component.scss',
     host: {
         class: 'dropdown notification-bell',
         '[class.show]': 'open()',

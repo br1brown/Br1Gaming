@@ -1,0 +1,17 @@
+// base — stili globali dell'Engine, divisi in partial tematici.
+//
+// L'ordine di @use riproduce la sequenza originale di base.scss: la cascata CSS
+// dipende dall'ordine sorgente, quindi NON riordinare i partial qui sotto.
+//   tokens          → :root design token (--color*), scala z-index, ombre
+//   base            → focus-visible, html/body/app-root (viewport dvh), link
+//   bootstrap-theme → ponte token→Bootstrap, subtheme light/dark, bottoni, .theme-bg
+//   layout          → vista full-bleed (.fit-viewport), host pagina, .content-panel
+//   utilities       → effetti (shake/zoom/carosello), .surface-elevated, .fab, code
+//   a11y            → forced-colors, reduced-motion, skip-link, safe-area, touch target
+
+@use 'base/tokens';
+@use 'base/base';
+@use 'base/bootstrap-theme';
+@use 'base/layout';
+@use 'base/utilities';
+@use 'base/a11y';

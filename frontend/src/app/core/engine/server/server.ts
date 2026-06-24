@@ -10,7 +10,7 @@ import {
     isMainModule,
 } from '@angular/ssr/node';
 import { serverEnv, assertRequiredEnv } from './server-env';
-import { API_PREFIX } from '../../../app.config';
+import { API_PREFIX } from '../asset-config';
 import { browserDistFolder } from './server-paths';
 import { pruneImageCache, CACHE_SWEEP_INTERVAL_MS } from './image-cache';
 import { loadAssetMapping } from './asset-mapping';
@@ -42,10 +42,23 @@ const knownPagePaths = new Set(
     ContestoSito.serverRenderEntries.map(entry => normalizePagePath(entry.path))
 );
 
+/** Path delle pagine protette (`requiresAuth`): il server le marca `noindex` così non
+ *  finiscono nell'indice, senza elencarle in robots.txt (che ne rivelerebbe i path). */
+const noindexPagePaths = new Set(
+    ContestoSito.serverRenderEntries
+        .filter(entry => entry.requiresAuth)
+        .map(entry => normalizePagePath(entry.path))
+);
+
 function getSeoStatusForPath(path: string): number | null {
     const normalized = normalizePagePath(path);
     const errorMatch = /^\/error\/(\d{3})$/.exec(normalized);
-    if (errorMatch) return Number(errorMatch[1]);
+    if (errorMatch) {
+        // Solo status HTTP di errore reali (4xx/5xx): un /error/200 o /error/999
+        // non deve produrre uno status fuori standard, cade su 404 come pagina ignota.
+        const code = Number(errorMatch[1]);
+        if (code >= 400 && code <= 599) return code;
+    }
     if (normalized === '/error') return 500;
     return knownPagePaths.has(normalized) ? null : 404;
 }
@@ -201,6 +214,36 @@ app.get('/.well-known/security.txt', (_req, res) => {
     });
 });
 
+/**
+ * PWA disattivata (isWebApp:false): il manifest non deve essere servito, altrimenti il
+ * sito resterebbe installabile anche dopo aver tolto link/meta PWA da index.html. 404
+ * esplicito davanti allo static handler — fail-safe anche se un manifest fosse rimasto
+ * in dist da un build precedente. Con isWebApp:true questa rotta non è registrata e il
+ * manifest viene servito (con la sua cache) dallo static handler qui sotto.
+ */
+if (!ContestoSito.config.isWebApp) {
+    app.get('/manifest.webmanifest', (_req, res) => { res.status(404).end(); });
+}
+
+/**
+ * Deploy non indicizzabile (SEO_NOINDEX): tipico di staging/anteprima dietro lo stesso
+ * reverse proxy della produzione. Vieta l'indicizzazione in modo solido su due fronti:
+ * - `X-Robots-Tag: noindex, nofollow` su OGNI risposta (header, vale anche se un crawler
+ *   ignora robots.txt e copre asset/SSR indistintamente);
+ * - un `robots.txt` dinamico `Disallow: /` che sovrascrive quello statico generato al build.
+ * Entrambi i blocchi stanno davanti allo static handler. Default OFF: in produzione "as-is"
+ * il sito resta indicizzabile, nessun impatto sullo sviluppo locale.
+ */
+if (site.noindex) {
+    app.use((_req, res, next) => {
+        res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+        next();
+    });
+    app.get('/robots.txt', (_req, res) => {
+        res.type('text/plain').send('User-agent: *\nDisallow: /\n');
+    });
+}
+
 /** Serve tutti i restanti file statici (JS, CSS, Immagini del template) */
 app.use(
     express.static(browserDistFolder, {
@@ -264,6 +307,12 @@ app.use(async (request: Request, response: Response, next) => {
         response.status(seoStatus ?? renderedResponse.status);
         response.setHeader('Cache-Control', 'no-cache');
 
+        // Pagine protette (requiresAuth): mai indicizzate. Sono client-rendered, quindi un bot
+        // riceverebbe lo shell con meta `index,follow`; l'header noindex (autoritativo) lo evita.
+        if (noindexPagePaths.has(normalizePagePath(request.path))) {
+            response.setHeader('X-Robots-Tag', 'noindex, nofollow');
+        }
+
         // Inoltra gli header Angular, escludendo quelli che gestiamo noi
         renderedResponse.headers.forEach((value, key) => {
             const lk = key.toLowerCase();
@@ -280,7 +329,16 @@ app.use(async (request: Request, response: Response, next) => {
         // Streaming diretto: nessun buffer RAM — la risposta arriva al browser man mano che Angular la produce
         if (renderedResponse.body) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            Readable.fromWeb(renderedResponse.body as any).pipe(response);
+            const stream = Readable.fromWeb(renderedResponse.body as any);
+            // Senza questo handler un errore sullo stream durante il piping emette un evento
+            // 'error' non gestito sull'EventEmitter → crash del processo: il try/catch sopra è
+            // già passato (il piping è asincrono) e .pipe() non distrugge la destinazione sul
+            // fallimento della sorgente. Abbattiamo la response per chiudere la connessione.
+            stream.on('error', (err) => {
+                console.error('[SSR stream]', err);
+                response.destroy(err);
+            });
+            stream.pipe(response);
         } else {
             response.end();
         }
