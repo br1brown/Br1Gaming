@@ -28,6 +28,7 @@ export enum PageType {
     GameDuceNonDuce,
     GameRadar,
     GameBurocrazia,
+    Galleria,
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -86,7 +87,8 @@ export const ContestoSito = buildSite({
             path: '',
             title: 'homeNav',
             pageType: PageType.Home,
-            layout: { showPanel: false },
+            // La home espone già Generatori/Storie/Giochi come sezioni: la navbar sarebbe ridondante.
+            layout: { showPanel: false, showNav: false },
             description: 'Generatori casuali, avventure interattive e tanto altro da Br1.',
             component: () => import('./pages/home/home.component').then(m => m.HomeComponent),
         },
@@ -131,23 +133,46 @@ export const ContestoSito = buildSite({
             description: 'Attraversa la città a colpi di passaggi in auto e chiudi la pratica prima che chiudano gli sportelli.',
             pageType: PageType.GameBurocrazia,
             layout: { fitViewport: true },
+            otherSEO: { ogImage: 'game.burocrazia' },
             component: () => import('./pages/burocrazia/burocrazia.component')
                 .then(m => m.BurocraziaComponent),
+        },
+
+        // ── Galleria pubblica delle generazioni salvate ──────────────
+        // Path figlio dei generatori (`generatori/galleria`): ne raccoglie gli output, quindi
+        // sta sotto di loro anche nell'URL, non accanto ai giochi. Resta comunque una pagina a sé
+        // (stesso rango delle altre): il sotto-path è solo gerarchia logica, non un embed.
+        {
+            path: `generatori/galleria`,
+            title: `galleria`,
+            description: 'Le frasi più belle salvate dagli utenti: la galleria pubblica dei generatori.',
+            pageType: PageType.Galleria,
+            layout: { showPanel: false },
+            component: () => import('./pages/galleria/galleria.component')
+                .then(m => m.GalleriaComponent),
         },
     ],
 
     headerNav: (nav) => {
         nav.addGroup('generatori', (g) => {
-            g.addPage(PageType.GeneratorIncel);
-            g.addPage(PageType.GeneratorAuto);
-            g.addPage(PageType.GeneratorAntiveg);
-            g.addPage(PageType.GeneratorLocali);
-            g.addPage(PageType.GeneratorMbeb);
+            // I generatori veri e propri stanno in un sottogruppo annidato, così la Galleria
+            // (che raccoglie i loro output) vive accanto a loro senza sembrare un generatore.
+            g.addGroup('tuttiIGeneratori', (gg) => {
+                gg.addPage(PageType.GeneratorIncel);
+                gg.addPage(PageType.GeneratorAuto);
+                gg.addPage(PageType.GeneratorAntiveg);
+                gg.addPage(PageType.GeneratorLocali);
+                gg.addPage(PageType.GeneratorMbeb);
+            });
+            g.addPage(PageType.Galleria);
         });
         nav.addGroup('giochi', (g) => {
-            g.addPage(PageType.StoryPoveriMaschi);
-            g.addPage(PageType.StoryMagrogamer09);
-            g.addPage(PageType.StorySurviveUsa);
+            // Le storie (avventure a bivi) in un sottogruppo annidato; gli altri giochi restano fuori.
+            g.addGroup('storie', (gg) => {
+                gg.addPage(PageType.StoryPoveriMaschi);
+                gg.addPage(PageType.StoryMagrogamer09);
+                gg.addPage(PageType.StorySurviveUsa);
+            });
             g.addPage(PageType.GameDuceNonDuce);
             g.addPage(PageType.GameRadar);
             g.addPage(PageType.GameBurocrazia);

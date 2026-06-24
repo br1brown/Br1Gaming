@@ -20,7 +20,8 @@ export const COOKIE_MAP = {
     'storyPlayerState': { category: CookieCategory.Technical, descriptionKey: 'gamingCookieDescStoryPlayerState' },
     'duceNonDuceRecord': { category: CookieCategory.Technical, descriptionKey: 'gamingCookieDescDuceNonDuceRecord' },
     'burocraziaTutorialDone': { category: CookieCategory.Technical, valueType: 'boolean', descriptionKey: 'gamingCookieDescBurocraziaTutorial' },
-    'burocraziaZoom': { category: CookieCategory.Technical, valueType: 'number', descriptionKey: 'gamingCookieDescBurocraziaZoom' }
+    'burocraziaZoom': { category: CookieCategory.Technical, valueType: 'number', descriptionKey: 'gamingCookieDescBurocraziaZoom' },
+    'burocraziaRun': { category: CookieCategory.Technical, valueType: 'json', descriptionKey: 'gamingCookieDescBurocraziaRun' }
 } as const satisfies Readonly<Record<string, CookieConfig>>;
 
 export type CookieKey = keyof typeof COOKIE_MAP;

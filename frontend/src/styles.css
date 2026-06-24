@@ -11,6 +11,10 @@
 
 /* QUI METTERE Stili specifici del progetto -> sovrascrive tutto */
 
+/* Transizione leggera all'ingresso delle pagine (fade-in del contenuto). */
+.page-fade { animation: pageFade .25s ease-out; }
+@keyframes pageFade { from { opacity: 0; } to { opacity: 1; } }
+
 :root {
     --colorPrimaryContrast: #f8fafc;
     --shellMaxWidth: 1440px;
@@ -144,8 +148,16 @@ main#main-content {
     border-width: 0.16em;
 }
 
+/* Reduce-motion: policy UNICA e centralizzata (WCAG 2.3.3). Invece di una guardia
+   per ogni animazione (facile da dimenticare), qui azzeriamo a tappeto animazioni e
+   transizioni di TUTTO l'app — componenti attuali e futuri, incluso lo shimmer degli
+   skeleton (Bootstrap .placeholder-glow, non gated nativamente). Durata ~0 invece di
+   `none` per non rompere gli stati finali di eventuali animazioni con fill. */
 @media (prefers-reduced-motion: reduce) {
-    html {
-        scroll-behavior: auto;
+    *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+        scroll-behavior: auto !important;
     }
 }
