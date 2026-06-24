@@ -87,7 +87,7 @@ Comportamento:
 
 La home demo lo applica alle sezioni QR, Notifiche e Sistema — esempio vivo, finché un progetto figlio non la riscrive.
 
-**Transizioni di pagina.** L'Engine registra `withViewTransitions()` nel router: i cambi pagina usano la View Transitions API del browser (cross-fade) come *progressive enhancement* — i browser senza supporto navigano senza animazione, e il movimento è disattivato sotto `prefers-reduced-motion` (regola in `engine/base/_a11y.scss`). Nessuna configurazione richiesta.
+**Transizioni di pagina.** L'Engine registra `withViewTransitions()` nel router: i cambi pagina usano la View Transitions API del browser (cross-fade) come *progressive enhancement* — i browser senza supporto navigano senza animazione, e il movimento è disattivato sotto `prefers-reduced-motion` (regola in `engine/base/_a11y.scss`). Nessuna configurazione richiesta. In più, ogni pagina che estende `PageBaseComponent` riceve un **fade-in d'ingresso** del contenuto (classe `.page-fade` applicata via host binding, attiva di default da `shell.pageFade`), che si somma alla cross-fade. È un gate come gli altri flag shell — col globale a `false` nessuna pagina può riattivarlo — e rispetta anch'esso `prefers-reduced-motion`.
 
 ### 4. CSS: Bootstrap First, Custom Solo Se Necessario
 Il progetto usa **Bootstrap 5** come sistema di design principale: per layout, tipografia, form e componenti parti sempre dalle classi Bootstrap, e tieni il CSS custom per ciò che Bootstrap non copre.
@@ -1373,6 +1373,7 @@ Oltre a `path`, `title` e `description`, ogni pagina in `pages` accetta:
         showFooter: false,    // nasconde il footer (default: mostrato, ma off se fitViewport)
         showPanel: false,     // nasconde il pannello laterale
         fitViewport: true,    // vista full-bleed immersiva: riempie il viewport; di default niente padding/pannello/smoke/footer (navbar sì)
+        pageFade: false,      // spegne il fade-in d'ingresso solo su questa pagina (il globale shell.pageFade fa da gate)
     },
 
     // Meta tag OpenGraph aggiuntivi
@@ -1398,6 +1399,7 @@ shell: {                           // comportamento di navbar / footer / header 
     showLoginInHeader: true,       // link Login / pulsante Logout nella navbar
     showNotifications: false,      // campanellino notifiche realtime con storico (default false, opt-in)
     forcedLightPanel: true,        // pannello contenuti sempre chiaro, a prescindere dal tema OS
+    pageFade: true,                // fade-in d'ingresso pagina (gate: col globale off nessuna pagina può riattivarlo)
 },
 
 isWebApp: true,                    // funzionalità PWA (Service Worker, aggiornamenti, install offline)
@@ -1564,11 +1566,14 @@ const site = inject(SITE_CONFIG);
 site.appName;     // nome applicativo
 site.version;     // versione canonica
 site.colorTema;   // colore brand di default (usato anche da ThemeService, vedi sopra)
-site.showNav;     // flag shell appiattiti al top-level di SiteConfig: showNav, showFooter,
-site.showFooter;  //   fixedTopHeader, showBrandIconInHeader, showLoginInHeader, showNotifications, forcedLightPanel
 site.legalPages;  // slot legali risolti (PageType o null per ciascuno)
 site.homePage;    // PageType del brand (o null)
 site.loginPage;   // PageType di redirect non-auth (o null)
+
+// Flag di shell appiattiti al top-level di SiteConfig (boolean; significato di ciascuno nel
+// blocco `shell` sopra): showNav, showFooter, fixedTopHeader, showBrandIconInHeader,
+// showLoginInHeader, showNotifications, forcedLightPanel, pageFade
+site.showNav;     // es. lettura di un singolo flag
 ```
 
 ---

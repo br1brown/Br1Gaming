@@ -1,0 +1,19 @@
+/* page-fade — fade-in d'ingresso del contenuto di pagina. La classe `.page-fade` è applicata
+   sull'host della pagina da PageBaseComponent (@HostBinding), gated dal flag pageFade (config sito).
+   Sta in `base` (sempre caricato): senza questo CSS la classe messa dall'host binding sarebbe inerte.
+   Si somma alla crossfade globale del router (withViewTransitions). */
+
+@keyframes pageFade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.page-fade {
+    animation: pageFade 0.25s ease-out;
+}
+
+/* WCAG 2.2 — niente movimento se l'utente preferisce ridurlo. Guardia engine-side, così è
+   garantita per ogni figlio senza che debba ricordarsene. */
+@media (prefers-reduced-motion: reduce) {
+    .page-fade { animation: none; }
+}

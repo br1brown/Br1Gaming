@@ -73,6 +73,7 @@ export const ContestoSito = buildSite({
         showBrandIconInHeader: true,
         showLoginInHeader: true,
         forcedLightPanel: true,
+        pageFade: true,
     },
 
     isWebApp: true,        // funzionalità PWA (Service Worker, aggiornamenti, install offline)

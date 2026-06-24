@@ -7,6 +7,7 @@
 //   bootstrap-theme → ponte token→Bootstrap, subtheme light/dark, bottoni, .theme-bg
 //   layout          → vista full-bleed (.fit-viewport), host pagina, .content-panel
 //   utilities       → effetti (shake/zoom/carosello), .surface-elevated, .fab, code
+//   motion          → .page-fade (fade-in d'ingresso pagina) + guardia reduced-motion
 //   a11y            → forced-colors, reduced-motion, skip-link, safe-area, touch target
 
 @use 'base/tokens';
@@ -14,4 +15,5 @@
 @use 'base/bootstrap-theme';
 @use 'base/layout';
 @use 'base/utilities';
+@use 'base/motion';
 @use 'base/a11y';

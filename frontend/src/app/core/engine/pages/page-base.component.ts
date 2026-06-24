@@ -1,4 +1,4 @@
-import { computed, Directive, effect, inject, input, PLATFORM_ID, signal } from '@angular/core';
+import { computed, Directive, effect, HostBinding, inject, input, PLATFORM_ID, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { ApiService } from '../../services/api.service';
 import { AssetService } from '../services/asset.service';
@@ -34,6 +34,23 @@ export abstract class PageBaseComponent<T> {
 
     /** Dati grezzi dal resolver al momento della navigazione (SSR + client). */
     protected readonly contentByResolve = input<ResolvedPage<T> | null>(null);
+
+    /**
+     * Flag pageFade già risolto in routing.ts (gate: globale `shell.pageFade` + override per-pagina
+     * `layout.pageFade`), iniettato via route.data come `pageType`. L'alias tiene libero il nome
+     * `pageFade` per il getter @HostBinding sotto.
+     */
+    protected readonly pageFadeEnabled = input<boolean>(false, { alias: 'pageFade' });
+
+    /**
+     * Applica `.page-fade` sull'host quando il flag è attivo. DEVE essere @HostBinding, non
+     * `host: {}` del decoratore: solo il primo si eredita nelle sottoclassi @Component — è ciò che
+     * rende il fade automatico per ogni pagina. CSS e guardia reduced-motion in `base/_motion.scss`.
+     */
+    @HostBinding('class.page-fade')
+    protected get pageFade(): boolean {
+        return this.pageFadeEnabled();
+    }
 
     /** Aggiornato dal browser ad ogni cambio lingua tramite ContentResolverService. */
     private readonly _liveResolved = signal<ResolvedPage<unknown> | null>(null);

@@ -7,6 +7,16 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "backend", "backend\backend.
 EndProject
 Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "frontend", "frontend\frontend.esproj", "{87F683BE-E7BB-4823-AA13-A94396197793}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "config", "config", "{53003BE2-D85F-4D0D-930A-197C4DD96D51}"
+	ProjectSection(SolutionItems) = preProject
+		global-settings.json = global-settings.json
+		global-settings.local.json = global-settings.local.json
+		global-settings.local.example.json = global-settings.local.example.json
+		global-settings.schema.json = global-settings.schema.json
+		global.json = global.json
+		security-headers.json = security-headers.json
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
