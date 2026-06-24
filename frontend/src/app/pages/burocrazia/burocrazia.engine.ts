@@ -26,12 +26,36 @@ export type CoachPulse = 'joy' | 'act' | 'dismount' | null;
 export interface PratData { item: string; nextOffice: string | null; stamps: number; total: number; }
 export interface CoachData { label: string; text: string; pulse: CoachPulse; }
 export interface ServeLine { text: string; tone: ServeTone; }
-export interface ServeData { office: string; lines: ServeLine[]; cost: string; next: string; }
+export interface ServeData { header: string; office: string; lines: ServeLine[]; cost: string; next: string; }
 export interface ResultRecap { label: string; value: string; }
 export interface ResultData { won: boolean; title: string; time: string; flavor: string; recap: ResultRecap[]; giro: string; }
 export interface IntroOption { label: string; stamps: string; }
 export interface IntroData { question: string; body: string; options: IntroOption[]; }
 export interface WelcomeData { title: string; lines: string[]; cta: string; }
+
+/**
+ * Istantanea di una partita in corso, salvata nei cookie a ogni timbro per poterla riprendere.
+ * Cattura solo lo stato logico della pratica (non la simulazione live: alla ripresa il giocatore
+ * riparte da casa, le auto si rigenerano), abbastanza per restituire timbri, coda e orario.
+ */
+export interface SavedRun {
+    item: number;          // pratica scelta (indice dell'oggetto del permesso)
+    queue: number[];       // uffici ancora da fare (il primo è il prossimo)
+    served: number[];      // uffici già timbrati
+    stamps: number;        // timbri ottenuti
+    total: number;         // timbri totali della pratica
+    clockMin: number;      // orario corrente (minuti dalla mezzanotte)
+    bounceFlag: Record<number, boolean>;
+    bounceCount: number;
+    closedCount: number;
+    homeFlag?: Record<number, boolean>;   // uffici che ti hanno già rimandato a casa (anti-loop); opzionale per retro-compatibilità
+    homeCount?: number;
+    hops: number;          // auto prese (per il recap finale)
+    ridingMin: number;
+    footMin: number;
+    queueMin: number;
+    routeLog: number[];    // ordine degli uffici timbrati (per il recap "il giro")
+}
 
 /**
  * Palette del canvas. Superfici e accenti arrivano dalle CSS var di Bootstrap/tema
@@ -78,6 +102,14 @@ export interface GameHooks {
     onZoom: (zoom: number) => void;
     /** Il device è risultato troppo lento: la grafica è stata alleggerita → avvisa l'utente (una volta). */
     onPerfNotice: () => void;
+    /** Partita in corso salvata in precedenza (cookie), o null. Letta all'avvio per riprenderla. */
+    savedRun: () => SavedRun | null;
+    /** Salva lo stato della partita (il componente lo scrive nei cookie). Chiamato a ogni timbro. */
+    onRunSave: (run: SavedRun) => void;
+    /** La partita è finita o abbandonata: cancella lo stato salvato (il componente rimuove il cookie). */
+    onRunClear: () => void;
+    /** Una partita salvata è stata ripresa (il componente può avvisare l'utente). */
+    onResumed: () => void;
 }
 
 export interface GameController {
@@ -457,12 +489,25 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
     }
 
     const ZOOM_BASE = 0.9, ZOOM_MIN = 0.5, ZOOM_MAX = 1.5;   // 0.9 = zoom a cui sono tarati gli sprite
+    // Estensione isometrica del mondo (coord. raw): raw.x = x−y ∈ [−worldH, worldW], raw.y = (x+y)/2 ∈ [0, (worldW+worldH)/2].
+    const RAW_MIN_X = -worldH, RAW_MAX_X = worldW, RAW_MIN_Y = 0, RAW_MAX_Y = (worldW + worldH) * 0.5;
+    // Zoom che fa entrare TUTTA la mappa nel viewport (vista d'insieme), con un filo di margine ai bordi.
+    // Dipende da W/H → si ricalcola al volo (resize compreso). È il limite di zoom-out.
+    const fitAllZoom = (): number => Math.min(W / (RAW_MAX_X - RAW_MIN_X), H / (RAW_MAX_Y - RAW_MIN_Y)) * 0.94;
     let zoom = clamp(hooks.savedZoom() ?? 1.05, ZOOM_MIN, ZOOM_MAX);   // ripristina lo zoom salvato (cookie); default ravvicinato e giocabile
     const raw = (x: number, y: number): Vec => ({ x: (x - y), y: (x + y) * 0.5 });
     let camX = 0, camY = 0;
     const iso = (x: number, y: number, lift = 0): Vec => { const r = raw(x, y); return { x: r.x * zoom - camX, y: r.y * zoom - camY - lift }; };
-    function centerOn(x: number, y: number): void { const r = raw(x, y); camX = r.x * zoom - W / 2; camY = r.y * zoom - H / 2; }
-    function camFollow(x: number, y: number, dt: number): void { const r = raw(x, y), tx = r.x * zoom - W / 2, ty = r.y * zoom - H / 2, k = reduceMotion ? 1 : 1 - Math.exp(-dt * 11); camX += (tx - camX) * k; camY += (ty - camY) * k; }
+    // Tiene la camera dentro i bordi della mappa; se la mappa è più piccola del viewport (zoom-out
+    // massimo) la centra, così si vede tutta. Va chiamata dopo ogni spostamento camera e cambio zoom.
+    function clampCamera(): void {
+        const loX = RAW_MIN_X * zoom, hiX = RAW_MAX_X * zoom;
+        camX = (hiX - loX) <= W ? (loX + hiX) / 2 - W / 2 : clamp(camX, loX, hiX - W);
+        const loY = RAW_MIN_Y * zoom, hiY = RAW_MAX_Y * zoom;
+        camY = (hiY - loY) <= H ? (loY + hiY) / 2 - H / 2 : clamp(camY, loY, hiY - H);
+    }
+    function centerOn(x: number, y: number): void { const r = raw(x, y); camX = r.x * zoom - W / 2; camY = r.y * zoom - H / 2; clampCamera(); }
+    function camFollow(x: number, y: number, dt: number): void { const r = raw(x, y), tx = r.x * zoom - W / 2, ty = r.y * zoom - H / 2, k = reduceMotion ? 1 : 1 - Math.exp(-dt * 11); camX += (tx - camX) * k; camY += (ty - camY) * k; clampCamera(); }
     const onScreen = (p: Vec, m: number): boolean => p.x >= -m && p.x <= W + m && p.y >= -m && p.y <= H + m;
     // Lampeggio temporizzato → luce fissa (sempre acceso) quando si preferisce meno movimento;
     // wob() azzera le piccole oscillazioni sinusoidali (pulse/bob) nello stesso caso.
@@ -658,12 +703,19 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
     const officeFull = (id: number): string => t(`buroOffice${id}Full`);
     const officeShort = (id: number): string => t(`buroOffice${id}Short`);
     const officeClerk = (id: number): string => t(`buroOffice${id}Clerk`);
+    // Casa come TAPPA della coda (sentinel ≠ indice ufficio e ≠ -1 di "nessun obiettivo"): quando un
+    // ufficio ti rimanda a casa per il documento, si infila HOME_ID davanti e poi si torna all'ufficio.
+    const HOME_ID = 99;
+    const isHome = (id: number): boolean => id === HOME_ID;
+    const targetGeom = (id: number): OfficeGeom => isHome(id) ? HOME : OFFICES[id];
+    const targetFull = (id: number): string => isHome(id) ? t('buroLabelHome') : officeFull(id);
 
     const EVENTS: OfficeEvent[] = [
         { idx: 0, m: 10 }, { idx: 1, m: 12 }, { idx: 2, m: 8 }, { idx: 3, m: 14 },
         { idx: 4, m: 10 }, { idx: 5, m: 2, shortcut: true }, { idx: 6, m: 12 }, { idx: 7, m: 4, closed: true },
     ];
     const ITEM_COUNT = 8;
+    const DOC_COUNT = 8;   // documenti "mancanti" (buroDoc0..N) pescati a caso quando ti rimandano a casa
 
     function queueWait(min: number): { lo: number; hi: number; label: string } {
         const h = min / 60;
@@ -685,6 +737,7 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
     let cars!: Car[], player!: Player, clockMin!: number, paused!: boolean, won!: boolean, lost!: boolean, winPending!: boolean;
     let queue!: number[], served!: Set<number>, atCounter!: boolean, stamps!: number, totalStamps = 9;
     let bounceFlag!: Record<number, boolean>, bounceCount!: number, closedCount!: number, item!: number;
+    let homeFlag!: Record<number, boolean>, homeCount!: number;   // "torna a casa a prendere il documento": una volta per ufficio, con tetto
     let highlight = new Set<string>(), recalc = 0, lure: GNode | null = null, routeNext = new Map<string, GNode>();
     let hops = 0, ridingMin = 0, footMin = 0, queueMin = 0, routeLog: number[] = [];
     let tut = 0, tutorialSeen = hooks.tutorialDone(), movedDist = 0, rodeOnce = false;   // tutorial già fatto? (cookie) → si salta
@@ -732,7 +785,7 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
     function choosePratica(index: number): void {
         const opt = pendingOptions[index]; if (!opt) return;
         item = opt.item; queue = opt.q.slice(); totalStamps = opt.q.length;
-        served = new Set(); stamps = 0; bounceFlag = {}; bounceCount = 0; closedCount = 0; routeLog = [];
+        served = new Set(); stamps = 0; bounceFlag = {}; bounceCount = 0; closedCount = 0; homeFlag = {}; homeCount = 0; routeLog = [];
         introOpen = false; hooks.onIntro(null);
         startGame();
     }
@@ -743,21 +796,55 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
         tut = 4; setCoach(4); updatePrat();
     }
 
-    function reset(): void {
+    function reset(resume = false): void {
         generateCity();
-        cars = []; setCarCount(Math.round(desiredCars(START_MIN) * perfScale)); distGoalKey = -1;
+        cars = []; distGoalKey = -1;
         player = { x: HOME.dx, y: HOME.dy, riding: null };
-        clockMin = START_MIN; paused = false; won = false; lost = false; winPending = false;
-        queue = [0, 1, 2, 3, 4, 5, 6, 7, SPORTELLO]; served = new Set(); atCounter = false; stamps = 0;
-        bounceFlag = {}; bounceCount = 0; closedCount = 0; item = randInt(ITEM_COUNT); highlight = new Set(); recalc = 0; routeNext = new Map();
-        hops = 0; ridingMin = 0; footMin = 0; queueMin = 0; routeLog = [];
-        floats = []; ring = null; movedDist = 0; rodeOnce = false; tut = tutorialSeen ? 3 : 0;
+        paused = false; won = false; lost = false; winPending = false;
+        atCounter = false; highlight = new Set(); recalc = 0; routeNext = new Map();
+        floats = []; ring = null; movedDist = 0; rodeOnce = false;
         centerOn(player.x, player.y);
         introOpen = false; serveOpen = false; overlayOpen = false;
-        welcomeOpen = !welcomeSeen;   // micro-contesto: una volta per sessione (non si ripete a ogni "nuova pratica")
         hooks.onServe(null); hooks.onResult(null); hooks.onIntro(null);
+
+        // RIPRESA: se c'è una partita salvata ancora valida (timbri rimasti e sportelli non chiusi),
+        // ripristina la pratica e va dritto in gioco — niente welcome/tutorial/scelta pratica.
+        // Il giocatore riparte da casa e le auto si rigenerano: si conserva il PROGRESSO, non la scena.
+        const sr = resume ? hooks.savedRun() : null;
+        if (sr && sr.queue.length > 0 && sr.clockMin < CLOSE_MIN) {
+            item = sr.item; queue = sr.queue.slice(); totalStamps = sr.total;
+            served = new Set(sr.served); stamps = sr.stamps;
+            bounceFlag = { ...sr.bounceFlag }; bounceCount = sr.bounceCount; closedCount = sr.closedCount;
+            homeFlag = { ...(sr.homeFlag ?? {}) }; homeCount = sr.homeCount ?? 0;
+            hops = sr.hops; ridingMin = sr.ridingMin; footMin = sr.footMin; queueMin = sr.queueMin; routeLog = sr.routeLog.slice();
+            clockMin = sr.clockMin;
+            setCarCount(Math.round(desiredCars(clockMin) * perfScale));
+            tut = 4; tutorialSeen = true; welcomeOpen = false; welcomeSeen = true;
+            hooks.onWelcome(null); hooks.onCoach(null, false, false);
+            const ps = iso(player.x, player.y, 22); ring = { x: ps.x, y: ps.y, born: performance.now() }; addFloat(t('buroFloatCasa'), pal.warning, ps.x, ps.y - 26);
+            updatePrat(); emitClock(true); hooks.onResumed();
+            return;
+        }
+
+        // PARTITA NUOVA
+        setCarCount(Math.round(desiredCars(START_MIN) * perfScale));
+        clockMin = START_MIN;
+        queue = [0, 1, 2, 3, 4, 5, 6, 7, SPORTELLO]; served = new Set(); stamps = 0;
+        bounceFlag = {}; bounceCount = 0; closedCount = 0; homeFlag = {}; homeCount = 0; item = randInt(ITEM_COUNT);
+        hops = 0; ridingMin = 0; footMin = 0; queueMin = 0; routeLog = [];
+        tut = tutorialSeen ? 3 : 0;
+        welcomeOpen = !welcomeSeen;   // micro-contesto: una volta per sessione (non si ripete a ogni "nuova pratica")
         hooks.onWelcome(welcomeOpen ? { title: t('burocrazia'), lines: [t('buroWelcome1'), t('buroWelcome2')], cta: t('buroWelcomeCta') } : null);
         updatePrat(); setCoach(tut); emitClock(true);
+    }
+
+    // Istantanea della partita in corso → cookie (il componente la scrive). Chiamata a ogni timbro.
+    function saveRun(): void {
+        hooks.onRunSave({
+            item, queue: queue.slice(), served: Array.from(served), stamps, total: totalStamps,
+            clockMin, bounceFlag: { ...bounceFlag }, bounceCount, closedCount, homeFlag: { ...homeFlag }, homeCount,
+            hops, ridingMin, footMin, queueMin, routeLog: routeLog.slice(),
+        });
     }
 
     const hhmm = (m: number): string => { m = Math.round(m); const h = Math.floor(m / 60), mm = m % 60; return String(h).padStart(2, '0') + ':' + String(mm).padStart(2, '0'); };
@@ -765,7 +852,7 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
     function updatePrat(): void {
         if (tut < 4) { hooks.onPrat(null); return; }
         const cur = queue[0];
-        hooks.onPrat({ item: t(`buroItem${item}`), nextOffice: cur != null ? officeFull(cur) : null, stamps, total: totalStamps });
+        hooks.onPrat({ item: t(`buroItem${item}`), nextOffice: cur != null ? targetFull(cur) : null, stamps, total: totalStamps });
     }
 
     function addFloat(text: string, color: string, sx: number, sy: number): void { floats.push({ text, color, x: sx, y: sy, born: performance.now() }); }
@@ -782,7 +869,9 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
     function pickBoardable(except: Car | null): Car | null {
         let ax = 0, ay = 0; const jm = Math.hypot(joyVec.x, joyVec.y);
         if (joyActive && jm > 0.2) { ax = joyVec.x; ay = joyVec.y; }
-        else { const vx = (held.E ? 1 : 0) - (held.W ? 1 : 0), vy = (held.S ? 1 : 0) - (held.N ? 1 : 0); if (vx || vy) { ax = vx - vy; ay = (vx + vy) * 0.5; } }
+        // Mira "imbarco" da tastiera nello stesso sistema dello schermo del joystick (sopra): la
+        // direzione premuta è già quella visiva, niente conversione iso (coerente col movimento).
+        else { ax = (held.E ? 1 : 0) - (held.W ? 1 : 0); ay = (held.S ? 1 : 0) - (held.N ? 1 : 0); }
         const am = Math.hypot(ax, ay), aiming = am > 0.0001; if (aiming) { ax /= am; ay /= am; }
         const pp = iso(player.x, player.y);
         const inRange = (c: Car, sd: number): boolean => except ? sd < JUMP_SCREEN : canBoard(c);
@@ -843,7 +932,10 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
     function togglePause(): void {
         if (won || lost || introOpen || serveOpen || overlayOpen || welcomeOpen) return;   // niente pausa su pannelli o partita finita
         userPaused = !userPaused;
-        if (userPaused) dropInputs();   // niente movimento residuo alla ripresa
+        if (userPaused) {
+            dropInputs();                 // niente movimento residuo alla ripresa
+            if (tut >= 4) saveRun();      // mettere in pausa salva lo stato attuale (solo a pratica avviata)
+        }
         Sound.setPaused(userPaused);    // in pausa tace anche l'ambiente sonoro; alla ripresa torna
         hooks.onPause(userPaused);
     }
@@ -854,13 +946,13 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
         paused = true; serveOpen = true;
         const lunch = clockMin >= LUNCH_START && clockMin < LUNCH_END ? LUNCH_END - clockMin : 0;
         const qw = queueWait(clockMin + lunch), wait = lunch + qw.lo + randInt(qw.hi - qw.lo + 1);
-        let next = '', cost: number; const lines: ServeLine[] = [];
+        let next = '', cost: number; const lines: ServeLine[] = []; let gotStamp = false;
         if (lunch) lines.push({ text: t('buroLunch'), tone: 'amber' });
         if (served.has(oid)) {
             cost = wait; queue.shift();
             lines.push({ text: t('buroAlreadyStamped'), tone: 'normal' });
             addFloat(t('buroFloatPass'), pal.mutedText, W / 2, H / 2 - 60);
-            next = queue.length === 0 ? t('buroPraticaDone') : t('buroNextGoto', officeFull(queue[0]));
+            next = queue.length === 0 ? t('buroPraticaDone') : t('buroNextGoto', targetFull(queue[0]));
             if (queue.length === 0) winPending = true;
         } else {
             let ev = EVENTS[randInt(EVENTS.length)];
@@ -870,6 +962,13 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
             lines.push({ text: t('buroQueueInfo', qw.label), tone: 'muted' });
             lines.push({ text: t(`buroEvent${ev.idx}`), tone: 'normal' });
             if (ev.closed) { closedCount++; next = t('buroClosedMsg'); addFloat(t('buroFloatClosed'), pal.warning, W / 2, H / 2 - 60); Sound.play('closed'); }
+            else if (homeCount < 2 && !homeFlag[oid] && Math.random() < 0.2) {
+                // Documento sbagliato: torna a CASA a prenderlo, poi rientra in QUESTO ufficio (oid resta in coda dopo HOME).
+                homeFlag[oid] = true; homeCount++;
+                queue.unshift(HOME_ID);
+                lines.push({ text: t('buroWrongDoc', t(`buroDoc${randInt(DOC_COUNT)}`)), tone: 'red' });
+                addFloat(t('buroFloatHome'), pal.warning, W / 2, H / 2 - 60); next = t('buroNextGoHome'); Sound.play('bounce');
+            }
             else if (served.size > 0 && bounceCount < 2 && !bounceFlag[oid] && Math.random() < (oid === 7 ? 0.5 : 0.25)) {
                 bounceFlag[oid] = true; bounceCount++;
                 const doneList = Array.from(served), back = doneList[randInt(doneList.length)];
@@ -877,16 +976,30 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
                 lines.push({ text: oid === 7 ? t('buroCommissionBounce') : t(`buroBounce${randInt(4)}`), tone: 'red' });
                 addFloat(t('buroFloatBounced'), pal.danger, W / 2, H / 2 - 60); next = t('buroNextBackFirst', officeFull(queue[0])); Sound.play('bounce');
             } else {
-                stamps++; served.add(oid); queue.shift(); routeLog.push(oid);
+                stamps++; served.add(oid); queue.shift(); routeLog.push(oid); gotStamp = true;
                 addFloat(t('buroFloatStamp', stamps, totalStamps), pal.success, W / 2, H / 2 - 60); Sound.play('stamp');
                 if (oid === SPORTELLO) lines.push({ text: t('buroFinalStamp'), tone: 'gold' });
                 if (ev.shortcut && queue.length > 1) { const sk = queue.shift()!; lines.push({ text: t('buroShortcut', officeShort(sk)), tone: 'green' }); Sound.play('shortcut'); }
-                next = queue.length === 0 ? t('buroPraticaDone') : t('buroNextGoto', officeFull(queue[0]));
+                next = queue.length === 0 ? t('buroPraticaDone') : t('buroNextGoto', targetFull(queue[0]));
                 if (queue.length === 0) winPending = true;
             }
         }
         clockMin += cost; queueMin += cost; hooks.onFlash(); emitClock();
-        hooks.onServe({ office: officeFull(oid), lines, cost: t('buroCost', Math.round(cost), hhmm(clockMin)), next });
+        // Salva il progresso a ogni timbro (non all'ultimo: lì la pratica è conclusa e endGame pulisce).
+        if (gotStamp && !winPending) saveRun();
+        hooks.onServe({ header: t('buroServeHeader'), office: officeFull(oid), lines, cost: t('buroCost', Math.round(cost), hhmm(clockMin)), next });
+    }
+    // Tappa a casa: recuperi il documento mancante e torni all'ufficio. Nessun timbro, piccolo costo.
+    function serveHome(): void {
+        if (player.riding) player.riding = null;
+        paused = true; serveOpen = true;
+        queue.shift();   // tolto HOME dalla coda → il prossimo obiettivo è di nuovo l'ufficio
+        const cost = 5 + randInt(6);
+        clockMin += cost; queueMin += cost; hooks.onFlash(); emitClock();
+        addFloat(t('buroFloatDocFetched'), pal.info, W / 2, H / 2 - 60); Sound.play('board');
+        saveRun();   // tappa raggiunta: aggiorna l'orario salvato
+        const next = queue.length === 0 ? t('buroPraticaDone') : t('buroNextGoto', targetFull(queue[0]));
+        hooks.onServe({ header: t('buroHomeHeader'), office: t('buroLabelHome'), lines: [{ text: t('buroHomePickup'), tone: 'normal' }], cost: t('buroCost', cost, hhmm(clockMin)), next });
     }
     function dismissServe(): void {
         if (!serveOpen) return;
@@ -901,6 +1014,8 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
     }
     function endGame(win: boolean): void {
         won = win; lost = !win; paused = true; overlayOpen = true; Sound.play(win ? 'win' : 'lose');
+        hooks.onRunClear();   // partita conclusa: niente ripresa
+
         const dur = (m: number): string => { m = Math.round(m); return m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : `${m}m`; };
         const giro = routeLog.length ? routeLog.map(id => officeShort(id)).join(' → ') : '—';
         const flav = win
@@ -953,7 +1068,10 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
         else {
             let wx = 0, wy = 0, mag = 0; const jm = Math.hypot(joyVec.x, joyVec.y);
             if (joyActive && jm > 0.12) { const gxd = joyVec.x + 2 * joyVec.y, gyd = 2 * joyVec.y - joyVec.x, m = Math.hypot(gxd, gyd) || 1; wx = gxd / m; wy = gyd / m; mag = Math.min(1, jm); }
-            else { const vx = (held.E ? 1 : 0) - (held.W ? 1 : 0), vy = (held.S ? 1 : 0) - (held.N ? 1 : 0); if (vx || vy) { const m = Math.hypot(vx, vy); wx = vx / m; wy = vy / m; mag = 1; } }
+            // Tastiera screen-relative come il joystick: W=su, S=giù, A=sinistra, D=destra.
+            // (sx,sy) è la direzione voluta SULLO SCHERMO; stesso inverso-iso del ramo joystick sopra,
+            // così W va dritto in alto invece che in diagonale (coerenza tastiera↔joystick).
+            else { const sx = (held.E ? 1 : 0) - (held.W ? 1 : 0), sy = (held.S ? 1 : 0) - (held.N ? 1 : 0); if (sx || sy) { const gxd = sx + 2 * sy, gyd = 2 * sy - sx, m = Math.hypot(gxd, gyd) || 1; wx = gxd / m; wy = gyd / m; mag = 1; } }
             if (mag > 0) {
                 const step = WALK_SPEED * mag * dt, ox = player.x, oy = player.y;
                 let nx = clamp(ox + wx * step, 0, worldW); if (blocked(nx, oy)) nx = ox;
@@ -981,9 +1099,9 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
             else if (tut === 2 && rodeOnce && !player.riding) { tut = 3; setCoach(3); }
         }
         const cur = queue[0];
-        if (cur != null) { const o = OFFICES[cur]; const inR = Math.hypot(player.x - o.dx, player.y - o.dy) < 46 || Math.hypot(player.x - gx(o.ix), player.y - gy(o.iy)) < 40; if (inR && !atCounter && tut >= 4) { atCounter = true; serve(cur); } if (!inR) atCounter = false; }
-        // BFS verso lo sportello: ricalcola SOLO quando cambia l'ufficio obiettivo (prima era ogni frame → grosso spreco)
-        if (cur != null && tut >= 4) { if (cur !== distGoalKey) { distGoal = bfsField({ ix: OFFICES[cur].ix, iy: OFFICES[cur].iy }); distGoalKey = cur; } }
+        if (cur != null) { const o = targetGeom(cur); const inR = Math.hypot(player.x - o.dx, player.y - o.dy) < 46 || Math.hypot(player.x - gx(o.ix), player.y - gy(o.iy)) < 40; if (inR && !atCounter && tut >= 4) { atCounter = true; if (isHome(cur)) serveHome(); else serve(cur); } if (!inR) atCounter = false; }
+        // BFS verso l'obiettivo (ufficio o casa): ricalcola SOLO quando cambia (prima era ogni frame → grosso spreco)
+        if (cur != null && tut >= 4) { if (cur !== distGoalKey) { const g = targetGeom(cur); distGoal = bfsField({ ix: g.ix, iy: g.iy }); distGoalKey = cur; } }
         else if (distGoalKey !== -1) { distGoal = new Map(); distGoalKey = -1; }
         recalc -= dt;
         if (recalc <= 0) {
@@ -1109,10 +1227,10 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
         ctx.globalAlpha = 0.5;
         edgeArr.forEach(([a, b]) => { if (highlight.has(eKey(a, b))) isoLine({ x: gx(a.ix), y: gy(a.iy) }, { x: gx(b.ix), y: gy(b.iy) }, RW * 0.66, pal.warning); });
         const cur = queue[0];
-        if (cur != null && tut >= 4) isoLine({ x: gx(OFFICES[cur].ix), y: gy(OFFICES[cur].iy) }, { x: OFFICES[cur].dx, y: OFFICES[cur].dy }, RW * 0.66, pal.warning);
+        if (cur != null && tut >= 4) { const g = targetGeom(cur); isoLine({ x: gx(g.ix), y: gy(g.iy) }, { x: g.dx, y: g.dy }, RW * 0.66, pal.warning); }
         ctx.restore();
         if (cur != null && tut >= 4) {
-            const o = OFFICES[cur];
+            const o = targetGeom(cur);
             const r = iso(o.dx, o.dy, 0); if (onScreen(r, 60)) { const sf = zoom / ZOOM_BASE, pulse = (27 + wob(Math.sin(performance.now() / 250) * 4)) * sf; ctx.strokeStyle = pal.info; ctx.lineWidth = 3 * sf; ctx.beginPath(); ctx.ellipse(r.x, r.y, pulse, pulse * 0.5, 0, 0, 7); ctx.stroke(); }
         }
 
@@ -1320,20 +1438,21 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
     function dropInputs(): void { pressed.clear(); syncHeld(); joyActive = false; joyVec.x = 0; joyVec.y = 0; }
 
     // avvio
-    setupCanvas(); reset(); rafId = requestAnimationFrame(frame);
+    setupCanvas(); reset(true); rafId = requestAnimationFrame(frame);   // all'avvio: riprende la partita salvata se presente
 
     return {
         resize: () => setupCanvas(),
         setPalette: (p: Palette) => { pal = p; visCache.clear(); },   // i colori "visibili" dei prop dipendono dal terreno → ricalcolo al cambio tema
         setReduceMotion: (v: boolean) => { reduceMotion = v; },
-        zoomBy: (factor: number) => { zoom = clamp(zoom * factor, ZOOM_MIN, ZOOM_MAX); hooks.onZoom(zoom); },
+        // Limite di zoom-out = "mappa intera" (fitAllZoom, sotto ZOOM_MIN); zoom-in fino a ZOOM_MAX.
+        zoomBy: (factor: number) => { zoom = clamp(zoom * factor, Math.min(ZOOM_MIN, fitAllZoom()), ZOOM_MAX); clampCamera(); hooks.onZoom(zoom); },
         doAction: () => { Sound.unlock(); doAction(); },
         doDismount: () => { Sound.unlock(); doDismount(); },
         confirmStart: () => { Sound.unlock(); if (tut === 3) openIntro(); },
         choosePratica: (i: number) => { Sound.unlock(); choosePratica(i); },
         dismissServe,
         dismissWelcome: () => { Sound.unlock(); dismissWelcome(); },
-        restart: () => reset(),
+        restart: () => { hooks.onRunClear(); reset(false); },   // "Nuova pratica": abbandona la partita salvata
         keydown: (e: KeyboardEvent) => {
             if (e.code === 'Escape') { e.preventDefault(); Sound.unlock(); if (!userPaused) togglePause(); return; }   // ESC METTE in pausa; la ripresa la guida il dialogo (niente doppio-toggle)
             if (welcomeOpen || introOpen || serveOpen || overlayOpen || userPaused) return;
