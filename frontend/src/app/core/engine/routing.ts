@@ -102,6 +102,8 @@ function toAngularRoute(page: InternalSitePage): Route {
             showNav: page.showNav,
             showFooter: page.showFooter,
             fitViewport: page.fitViewport ?? false,
+            // Fade-in: subordinato al globale come showNav/footer — off globale vince, la pagina può solo spegnere.
+            pageFade: ContestoSito.config.pageFade && (page.pageFade ?? true),
             pageDescription: page.description ?? null,
             ogImage: page.ogImage ?? null,
         };

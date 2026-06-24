@@ -145,6 +145,12 @@ export interface SiteConfig {
      * indipendentemente dalla preferenza OS. Default: `true`.
      */
     forcedLightPanel: boolean;
+    /**
+     * Fade-in d'ingresso pagina risolto (classe `.page-fade` sull'host, via `PageBaseComponent`).
+     * Default: `true`. Fa da GATE come showNav/showFooter: se `false` nessuna pagina può riattivarlo.
+     * Si somma alla crossfade del router (`withViewTransitions`); azzerato da `prefers-reduced-motion`.
+     */
+    pageFade: boolean;
     /** Pagina a cui reindirizzare l'utente se non autenticato (se null o non impostata fa redirect a /error/401) */
     loginPage?: PageType | null;
     /** Pagina "home" usata dal navbar per brand/logo. Se non valorizzata, il brand non è un link. */
@@ -277,6 +283,11 @@ export type LeafPageInput = BasePageInput & {
          * suo elemento radice e non mettere utility di display `d-*` sull'host del componente
          * (batterebbero il flex del full-bleed — vedi la regola `.fit-viewport` in base.scss). */
         fitViewport?: boolean;
+        /**
+         * Override per-pagina del fade-in d'ingresso, SUBORDINATO al globale `shell.pageFade`
+         * (come showNav/showFooter): se il globale è off nessuna pagina può riattivarlo; se è on,
+         * qui puoi solo spegnerlo (`pageFade: false`) su una singola pagina pesante. Default: eredita il globale. */
+        pageFade?: boolean;
     };
 
     /**
@@ -389,6 +400,7 @@ export type LeafPage = Omit<LeafPageInput, 'kind' | 'layout' | 'otherSEO'> & {
     showNav?: boolean;
     showFooter?: boolean;
     fitViewport?: boolean;
+    pageFade?: boolean;
     ogImage?: string | false;
     ogType?: string;
     structuredDataType?: string;
@@ -575,6 +587,7 @@ const normalizeSitePage = (
             // nello shell; qui il builder risolve solo la coerenza tra i due flag di layout.
             showFooter: layout?.showFooter ?? (layout?.fitViewport ? false : undefined),
             fitViewport: layout?.fitViewport,
+            pageFade: layout?.pageFade,
             ogImage: otherSEO?.ogImage,
             ogType: otherSEO?.ogType,
             structuredDataType: otherSEO?.structuredDataType,
@@ -674,6 +687,9 @@ export interface SiteShellConfig {
     showNotifications?: boolean;
     /** Pannello contenuti sempre chiaro, indipendentemente dal tema OS. Default: true. */
     forcedLightPanel?: boolean;
+    /** Fade-in d'ingresso pagina (`.page-fade` via PageBaseComponent). Default: true. Gate come
+     *  showNav: il globale off vince, la pagina spegne solo col proprio `layout.pageFade: false`. */
+    pageFade?: boolean;
 }
 
 /**
@@ -860,6 +876,7 @@ function buildFinalConfig(definition: SiteDefinition): SiteConfig {
         isWebApp: definition.isWebApp ?? true,
         onlyPlainImage: definition.onlyPlainImage ?? false,
         forcedLightPanel: shell.forcedLightPanel ?? true,
+        pageFade: shell.pageFade ?? true,
         smoke: { ...DEFAULT_SMOKE, ...(cfg.smoke ?? {}) },
         loginPage: definition.loginPage ?? null,
         homePage: definition.homePage ?? null,

@@ -307,19 +307,6 @@ export const environment: AppEnvironment = {
 
     html = replaceTag(
         html,
-        /<!-- Meta Open Graph[\s\S]*?-->/,
-        '<!-- Meta Open Graph di base, sincronizzati da scripts/generate-statics.ts -->',
-        'commento Open Graph'
-    );
-    html = replaceTag(
-        html,
-        /<!-- Meta Twitter[\s\S]*?-->/,
-        '<!-- Meta Twitter di base, sincronizzati da scripts/generate-statics.ts -->',
-        'commento Twitter'
-    );
-
-    html = replaceTag(
-        html,
         /<link rel="icon" type="image\/png" href="[^"]*">/,
         '<link rel="icon" type="image/png" href="icons/icon-192x192.png">',
         '<link rel="icon">'
@@ -340,20 +327,23 @@ export const environment: AppEnvironment = {
     // I trigger di installabilità (manifest + meta) vivono in un blocco delimitato da
     // marker, rigenerato per intero da qui: con IS_WEBAPP vengono iniettati, altrimenti
     // rimossi del tutto. Così l'installabilità non dipende mai da tag hardcoded nel seed.
+    // Solo marker nudi (PWA:START/END) nell'HTML servito: nessun path di build né nome di
+    // flag di config nel sorgente pubblico. Quando IS_WEBAPP è false il blocco resta vuoto
+    // (niente manifest né meta di installabilità), senza commenti che ne spieghino il perché.
     const pwaBlock = IS_WEBAPP
-        ? [
+        ? '\n    ' + [
             '<meta name="mobile-web-app-capable" content="yes">',
             `<meta name="apple-mobile-web-app-status-bar-style" content="${iosStatusBar}">`,
             `<meta name="apple-mobile-web-app-title" content="${appName}">`,
             '<link rel="apple-touch-icon" href="icons/icon-512x512.png">',
             '<link rel="manifest" href="manifest.webmanifest">',
-        ].join('\n    ')
-        : '<!-- PWA disattivata (isWebApp:false in site.ts): nessun manifest né meta di installabilità -->';
+        ].join('\n    ') + '\n    '
+        : '';
 
     html = replaceTag(
         html,
         /<!-- PWA:START[\s\S]*?PWA:END -->/,
-        `<!-- PWA:START — blocco generato da scripts/generate-statics.ts (guidato da isWebApp in site.ts) -->\n    ${pwaBlock}\n    <!-- PWA:END -->`,
+        `<!-- PWA:START -->${pwaBlock}<!-- PWA:END -->`,
         'blocco PWA'
     );
 
@@ -495,7 +485,6 @@ function updateSecurityTxt(): void {
     const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
     const lines = [
         '# security.txt — RFC 9116',
-        '# Generato automaticamente da scripts/generate-statics.ts',
         `Contact: ${BASE_URL}`,
         `Expires: ${expires}`,
         `Preferred-Languages: ${AVAILABLE_LANGS.join(', ')}`,
@@ -511,9 +500,11 @@ function updateSecurityTxt(): void {
 function updateThemeInit(): void {
     // Script anti-flash: imposta data-bs-theme / data-theme-tone su <html> prima che
     // Bootstrap carichi qualsiasi stile. Referenziato da <script src="theme-init.js"> in
-    // index.html (eseguito sincrono nel <head>). È un asset statico servito da
-    // express.static: va materializzato qui perché public/ è gitignored, altrimenti
-    // mancherebbe su un checkout/build pulito (404 + MIME error a ogni full load).
+    // index.html, eseguito sincrono (no defer/async) nel <head> così non c'è un ciclo di
+    // rendering col tono sbagliato. È uno script esterno, non inline: coperto da
+    // script-src 'self' nella CSP, quindi non serve né hash né nonce. È un asset statico
+    // servito da express.static: va materializzato qui perché public/ è gitignored,
+    // altrimenti mancherebbe su un checkout/build pulito (404 + MIME error a ogni full load).
     const script = `(function () {
     var t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     var el = document.documentElement;

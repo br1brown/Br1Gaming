@@ -22,11 +22,7 @@
 //   @use 'engine/base/lib' as lib;   →  lib.$bp-md, lib.shade(var(--bs-primary), 12%)
 // @use 'app/example';
 
-/* Transizione leggera all'ingresso delle pagine (fade-in del contenuto). */
-.page-fade { animation: pageFade .25s ease-out; }
-@keyframes pageFade { from { opacity: 0; } to { opacity: 1; } }
 :root {
-    --colorPrimaryContrast: #f8fafc;
     --shellMaxWidth: 1440px;
     --shellGutter: clamp(1rem, 2vw, 2rem);
     --shadowSoft: 0 4px 16px rgba(15, 23, 42, 0.10);
@@ -51,7 +47,8 @@ body {
 
 ::selection {
     background: color-mix(in srgb, var(--colorPrimary) 72%, white 28%);
-    color: var(--colorPrimaryContrast);
+    /* Testo leggibile su --colorPrimary: token dell'engine (#000/#fff scelto da ThemeService per WCAG). */
+    color: var(--colorPrimaryText);
 }
 
 h1, h2, h3, h4, h5, h6,
@@ -104,7 +101,9 @@ main#main-content {
 }
 
 .btn-primary {
-    color: var(--colorPrimaryContrast);
+    /* Il colore del testo lo dà già l'engine via --bs-btn-color = --colorPrimaryText
+       (tone-adaptive WCAG, riposo/hover/active), vedi engine/base/_bootstrap-theme.scss.
+       Qui solo l'elevazione di brand. */
     box-shadow: 0 14px 35px color-mix(in srgb, var(--colorPrimary) 28%, transparent);
 }
 

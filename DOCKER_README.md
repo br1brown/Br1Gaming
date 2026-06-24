@@ -255,8 +255,8 @@ Con `--no-cache` forza la ricostruzione delle immagini partendo da zero.
 I dati che sopravvivono ai deploy vivono in due volumi Docker: `<progetto>_uploads-data` (file caricati) e `<progetto>_db-data`. Lo script `backup.sh` ne crea archivi `.tar.gz` datati con retention automatica.
 
 ```bash
-./backup.sh                  # backup in ./backups, tiene gli ultimi 14
-RETENTION=30 ./backup.sh     # cambia la retention
+./backup.sh                  # backup in ./backups, tiene i 14 archivi più recenti (per volume)
+RETENTION=30 ./backup.sh     # cambia quanti archivi tenere (è un conteggio, non giorni)
 BACKUP_DIR=/mnt/dati ./backup.sh
 ```
 
