@@ -14,4 +14,30 @@ export interface GenerateResponse {
      * Calcolato dal backend; al momento non mostrato in UI (riservato a usi futuri).
      */
     score: number;
+    /**
+     * Firma HMAC della generazione rilasciata dal backend. Va rimandata indietro per salvare la
+     * generazione in galleria: il server accetta solo testi con firma valida (output genuini).
+     */
+    sig: string;
+}
+
+/** Una generazione salvata nella galleria pubblica (corrisponde al record C# `GalleryEntry`). */
+export interface GalleryEntry {
+    /** Id content-addressed: generazioni identiche condividono lo stesso id. */
+    id: string;
+    /** Slug del generatore che l'ha prodotta. */
+    slug: string;
+    /** Testo senza formattazione (copia/voce/immagine). */
+    text: string;
+    /** Testo in Markdown (resa a schermo). */
+    markdown: string;
+    /** Peso/rarità della generazione. */
+    score: number;
+    /** Istante di primo salvataggio (ISO 8601). */
+    createdUtc: string;
+}
+
+/** Esito del salvataggio in galleria: l'id con cui recuperare/condividere la generazione. */
+export interface GallerySaveResult {
+    id: string;
 }

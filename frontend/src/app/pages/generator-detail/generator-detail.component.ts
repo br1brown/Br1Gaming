@@ -1,10 +1,12 @@
 import { DOCUMENT } from '@angular/common';
-import { afterNextRender, Component, computed, inject, signal } from '@angular/core';
+import { afterNextRender, Component, computed, inject, input, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { GeneratorInfo, GenerateResponse } from '../../core/dto/generator.dto';
-import { PageType } from '../../site';
+import { ContestoSito, PageType } from '../../site';
 import { SpeechService } from '../../core/engine/services/speech.service';
 import { ImgBuilderService } from '../../core/engine/services/img-builder.service';
 import { AssetDirective } from '../../core/engine/directives/asset.directive';
+import { PageDirective } from '../../core/engine/directives/page.directive';
 import { MarkdownPipe } from '../../core/engine/pipes/markdown.pipe';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { PageBaseComponent } from '../page-base.component';
@@ -19,13 +21,30 @@ import { SpeechActionComponent } from '../../components/shared/action/speech-act
         TranslatePipe,
         MarkdownPipe,
         AssetDirective,
+        PageDirective,
+        RouterLink,
         CopyActionComponent,
         ShareActionComponent,
         SpeechActionComponent,
     ],
     templateUrl: './generator-detail.component.html',
+    // Il risultato viene ricreato a ogni generazione (@if su result()): l'animazione
+    // si riavvia da sola a ogni "Ancora!", dando un feedback visivo allo spam.
+    styles: [`
+        .gen-result { animation: genPop .28s ease-out; }
+        @keyframes genPop {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: none; }
+        }
+    `],
 })
 export class GeneratorDetailComponent extends PageBaseComponent<GeneratorInfo> {
+    /** Esposto al template per i link interni via [appPage] (es. verso la galleria). */
+    protected readonly PageType = PageType;
+    /** Path della pagina galleria, per il link "Galleria di questo generatore" (con `?gen=`). */
+    protected readonly galleriaPath = ContestoSito.getPath(PageType.Galleria) ?? '/';
+    /** Arrotonda il punteggio per il badge rarità. */
+    protected readonly rounded = (n: number): number => Math.round(n);
     private readonly document = inject(DOCUMENT);
     private readonly speech = inject(SpeechService);
     private readonly imgBuilder = inject(ImgBuilderService);
@@ -37,29 +56,113 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorInfo> {
     });
     readonly coverVisible = signal(true);
 
+    /** Query param `?g=<id>`: se presente, all'avvio si recupera quella generazione salvata
+     *  invece di generarne una nuova (link condivisibile della galleria). Bind automatico via
+     *  withComponentInputBinding. */
+    readonly g = input<string>();
+
     readonly result = signal<GenerateResponse | null>(null);
     readonly loading = signal(false);
+    readonly saving = signal(false);
+    /** Id pubblico dell'ultima generazione salvata in galleria (per il link condivisibile). */
+    readonly savedId = signal<string | null>(null);
+    /** true quando il risultato mostrato proviene dalla galleria (recupero `?g=`), non da una generazione. */
+    readonly recovered = signal(false);
     private allaFine = '';
 
     constructor() {
         super();
-        afterNextRender(() => void this.generate());
+        // All'avvio: con `?g=` recupera la generazione salvata, altrimenti ne genera una nuova.
+        // Niente scroll: la pagina è appena arrivata.
+        afterNextRender(() => {
+            const id = this.g();
+            if (id) void this.recover(id);
+            else void this.generate();
+        });
     }
 
-    async generate(): Promise<void> {
+    /**
+     * Genera un nuovo testo. <paramref name="scrollToResult"/> = true (click utente su "Ancora!")
+     * porta il risultato in vista su mobile; false (auto al primo render) non muove la pagina.
+     */
+    async generate(scrollToResult = false): Promise<void> {
         this.speech.stop();
         this.loading.set(true);
         this.result.set(null);
-        this.allaFine = `\n\nDal ${this.generator()?.name ?? ''}\n${this.document.URL}`;
+        this.savedId.set(null);
+        this.recovered.set(false);
+        this.allaFine = `\n\nDal ${this.generator()?.name ?? ''}\n${this.shareBaseUrl()}`;
         try {
             const res = await this.fetchGeneratedText();
             this.result.set(res);
+            if (scrollToResult) this.scrollToResult();
         } catch {
             // L'apiErrorInterceptor ha già notificato l'utente: qui resettiamo solo lo stato UI.
             this.result.set(null);
         } finally {
             this.loading.set(false);
         }
+    }
+
+    /**
+     * Recupera dalla galleria la generazione con l'id dato e la mostra. Id assente o non valido →
+     * si ricade su una generazione normale, così il link resta sempre utilizzabile.
+     */
+    private async recover(id: string): Promise<void> {
+        this.speech.stop();
+        this.loading.set(true);
+        this.result.set(null);
+        this.savedId.set(null);
+        try {
+            const entry = await this.api.getGeneration(id);
+            this.allaFine = `\n\nDal ${this.generator()?.name ?? ''}\n${this.shareBaseUrl()}?g=${id}`;
+            // sig vuota: un risultato recuperato è già in galleria, non si ri-salva.
+            this.result.set({ text: entry.text, markdown: entry.markdown, score: entry.score, sig: '' });
+            this.recovered.set(true);
+        } catch {
+            await this.generate();
+        } finally {
+            this.loading.set(false);
+        }
+    }
+
+    /**
+     * Salva il risultato corrente nella galleria pubblica e copia negli appunti il link
+     * condivisibile (`?g=<id>`). Disponibile solo per generazioni genuine (con firma HMAC).
+     */
+    async save(): Promise<void> {
+        const res = this.result();
+        const slug = this.generator()?.slug;
+        if (!res || !res.sig || !slug || this.saving()) return;
+        this.saving.set(true);
+        try {
+            const { id } = await this.api.saveGeneration(slug, { markdown: res.markdown, score: res.score, sig: res.sig });
+            this.savedId.set(id);
+            const url = `${this.shareBaseUrl()}?g=${id}`;
+            try {
+                await this.document.defaultView?.navigator.clipboard.writeText(url);
+                this.notify.toast(this.translate.translate('galleriaSalvataLinkCopiato'), 'success');
+            } catch {
+                // Clipboard non disponibile (permessi/contesto non sicuro): il salvataggio è comunque riuscito.
+                this.notify.toast(this.translate.translate('galleriaSalvata'), 'success');
+            }
+        } catch {
+            // L'apiErrorInterceptor ha già notificato l'utente.
+        } finally {
+            this.saving.set(false);
+        }
+    }
+
+    // URL della pagina senza query string: base per i link condivisibili della galleria.
+    private shareBaseUrl(): string {
+        return this.document.URL.split('?')[0];
+    }
+
+    // Porta in vista il risultato appena rigenerato (block: 'nearest' = non si muove se già visibile).
+    private scrollToResult(): void {
+        const win = this.document.defaultView;
+        win?.requestAnimationFrame(() =>
+            this.document.querySelector('.gen-result')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
     }
 
     // ── Sorgenti dati per i bottoni azione (copy / share / speech) ───────
