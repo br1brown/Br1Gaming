@@ -1,4 +1,4 @@
-<div class="col-12 col-md-8 offset-md-2 py-3">
+<div class="page-fade col-12 col-md-8 offset-md-2 py-3">
 
     @if (generator(); as gen) {
     <div class="d-flex align-items-center gap-3 mb-4">
@@ -23,26 +23,61 @@
     </div>
 
     <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
-        <button class="btn btn-primary rounded-pill px-4" (click)="generate()" [disabled]="loading()">
+        <button class="btn btn-primary rounded-pill px-4" (click)="generate(true)" [disabled]="loading()">
             @if (loading()) {
             <span class="spinner-border spinner-border-sm me-2" role="status"></span>
             }
-            {{ 'genera' | translate }}!
+            {{ (result() ? 'ancora' : 'genera') | translate }}!
         </button>
 
-        @if (result()) {
+        @if (result(); as res) {
         <div class="row">
                 <app-speech-action [action]="speakText" class="col" />
                 <app-copy-action [action]="copyText" class="col" [showLabel]="true" />
                 <app-share-action [action]="buildShareCanvas" class="col" [showLabel]="true"
                                   [title]="shareTitle()" [filename]="shareFilename()" />
+                @if (res.sig) {
+                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3 col"
+                        (click)="save()" [disabled]="saving() || savedId() !== null">
+                    @if (saving()) {
+                    <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                    }
+                    {{ (savedId() ? 'galleriaSalvataBadge' : 'galleriaSalva') | translate }}
+                </button>
+                }
         </div>
         }
     </div>
 
+    <p class="mb-4">
+        <a class="small text-decoration-none" [routerLink]="galleriaPath" [queryParams]="{ gen: gen.slug }">
+            {{ 'galleriaDiQuesto' | translate }}
+        </a>
+    </p>
+
+    @if (recovered()) {
+    <p class="text-secondary small mb-3">
+        {{ 'galleriaDaGalleria' | translate }}
+        <a [appPage]="PageType.Galleria" class="ms-1">{{ 'galleriaVaiAllaGalleria' | translate }}</a>
+    </p>
+    }
+
     @if (result(); as res) {
-    <div class="p-4 shadow-sm">
+    <div class="gen-result p-4 shadow-sm">
         <div [innerHTML]="res.markdown | markdown"></div>
+        <!-- Rarità: il backend calcola un peso (quanto è estrema/rara la frase). Mostrarlo
+             trasforma "Ancora!" in una caccia alla frase rara; stesso badge ★ della galleria. -->
+        <div class="text-end mt-3">
+            <span class="badge rounded-pill text-bg-primary" [title]="'galleriaPunteggio' | translate">
+                ★ {{ rounded(res.score) }}
+            </span>
+        </div>
+    </div>
+    } @else if (loading()) {
+    <div class="gen-result p-4 shadow-sm placeholder-glow" aria-hidden="true">
+        <span class="placeholder col-9 mb-2 d-block"></span>
+        <span class="placeholder col-12 mb-2 d-block"></span>
+        <span class="placeholder col-7 d-block"></span>
     </div>
     }
 

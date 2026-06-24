@@ -1,3 +1,24 @@
+# 🎮 Br1Gaming
+
+> **Cos'è questa repo (leggimi prima).**
+> **Br1Gaming** è un progetto concreto: un sito di intrattenimento italiano — *«universo Br1»* — fatto di
+> **generatori di testo demenziali** (Maschio Basico, Incel, Invettive automobilistiche, Rant anti-vegani,
+> Nomi di locali), **avventure interattive a bivi** e qualche **mini-gioco**.
+>
+> È costruito **sopra il template Br1WebEngine** (il *"padre"*), da cui eredita tutta l'infrastruttura
+> (Angular + ASP.NET Core + SSR + Docker, sicurezza, i18n, ecc.).
+>
+> ⚠️ **Tutta la documentazione qui sotto è quella del template Br1WebEngine, non di Br1Gaming.**
+> Spiega *come usare l'engine*, non le singole feature di questo sito. Il codice specifico del progetto vive in:
+> - `backend/Generators/` — i generatori di testo (uno per classe);
+> - `backend/Stories/` — le avventure interattive;
+> - `frontend/src/app/` — l'app Angular e la configurazione del sito (`site.ts`).
+>
+> 🔞 **Nota sui contenuti:** satira e umorismo demenziale in italiano, con turpiloquio e toni volutamente sopra
+> le righe. I testi dei generatori sono parodie e **non rappresentano le opinioni dell'autore**.
+
+---
+
 # 🚀 Br1WebEngine
 
 <div align="center">

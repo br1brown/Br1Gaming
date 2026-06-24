@@ -1,61 +1,49 @@
 using System.Text.Json;
 using Backend.Models;
 using Backend.Stories;
-using Backend.Stories.Catalog;
 
 namespace Backend.Services;
 
 /// <summary>
-/// Tutto ciò che riguarda le storie: istanze, catalogo, motore narrativo.
-/// La superficie pubblica è fatta di wrapper tipizzati per storia (un metodo ciascuno):
-/// i consumer non scrivono mai slug a mano, quindi non possono sbagliarli.
-/// Per aggiungere una storia: creare la classe IStory in Stories/Catalog/, aggiungere
-/// il campo statico qui sotto, includerla in GetCatalog() e aggiungere i wrapper GetXxx/PlayXxx.
+/// Tutto ciò che riguarda le storie: catalogo, lookup per slug e motore narrativo.
+/// Le storie sono iniettate dal container DI (auto-registrate dall'assembly in <c>Program.cs</c>,
+/// come i generatori). La superficie pubblica è indicizzata per slug: aggiungere una storia =
+/// creare la classe <see cref="IStory"/> in <c>Stories/Catalog/</c>, nient'altro da toccare.
 /// </summary>
 public class StoryService
 {
-    // ── Istanze storie — una per storia, slug incapsulato nella classe ──
+    private readonly IReadOnlyList<IStory> _catalog;
+    private readonly Dictionary<string, IStory> _bySlug;
 
-    private static readonly PoveriMaschiStory PoveriMaschi = new();
-    private static readonly Magrogamer09Story Magrogamer09 = new();
-    private static readonly SurviveUsaStory SurviveUsa = new();
+    /// <summary>Riceve le storie dal container DI e ne costruisce catalogo (ordinato per <c>Order</c>) e lookup per slug.</summary>
+    /// <param name="stories">Tutte le istanze di <see cref="IStory"/> registrate in DI.</param>
+    public StoryService(IEnumerable<IStory> stories)
+    {
+        var all = stories.ToList();
+        _bySlug = all.ToDictionary(story => story.Slug, StringComparer.OrdinalIgnoreCase);
+        _catalog = all.OrderBy(story => story.Order).ToList();
+    }
 
-    /// <summary>Catalogo delle storie disponibili.</summary>
-    public IEnumerable<IStory> GetCatalog() => [PoveriMaschi, Magrogamer09, SurviveUsa];
+    /// <summary>Catalogo delle storie disponibili, ordinato per <c>Order</c>.</summary>
+    public IReadOnlyList<IStory> GetCatalog() => _catalog;
 
-    // ── Info (wrapper per storia) ─────────────────────────────────────
+    /// <summary>Recupera una storia per slug.</summary>
+    /// <param name="slug">Slug della storia (es. <c>magrogamer09</c>).</param>
+    /// <exception cref="NotFoundException">Se nessuna storia ha quello slug.</exception>
+    public IStory Get(string slug) =>
+        _bySlug.TryGetValue(slug, out var story) ? story : throw new NotFoundException(slug);
 
-    /// <summary>La storia "Siamo Maschi".</summary>
-    public IStory GetPoveriMaschi() => PoveriMaschi;
-
-    /// <summary>La storia "Magrogamer09".</summary>
-    public IStory GetMagrogamer09() => Magrogamer09;
-
-    /// <summary>La storia "Sopravviveresti agli USA?".</summary>
-    public IStory GetSurviveUsa() => SurviveUsa;
-
-    // ── Play (wrapper per storia) ─────────────────────────────────────
-
-    /// <summary>Passo di gioco su "Siamo Maschi". Vedi <see cref="Play(IStory, string?, string?, Dictionary{string, object}?)"/>.</summary>
+    /// <summary>
+    /// Passo di gioco sulla storia con lo slug indicato: nessun parametro = start, solo scena = resume,
+    /// scena + scelta = avanzamento.
+    /// </summary>
+    /// <param name="slug">Slug della storia.</param>
     /// <param name="sceneId">Scena corrente del client, o <c>null</c> per iniziare da capo.</param>
     /// <param name="choiceId">Scelta fatta nella scena corrente, o <c>null</c>.</param>
     /// <param name="stats">Stato di gioco salvato dal client, così come arriva dal JSON.</param>
-    public StorySnapshot PlayPoveriMaschi(string? sceneId, string? choiceId, Dictionary<string, object>? stats)
-        => Play(PoveriMaschi, sceneId, choiceId, stats);
-
-    /// <summary>Passo di gioco su "Magrogamer09". Vedi <see cref="Play(IStory, string?, string?, Dictionary{string, object}?)"/>.</summary>
-    /// <param name="sceneId">Scena corrente del client, o <c>null</c> per iniziare da capo.</param>
-    /// <param name="choiceId">Scelta fatta nella scena corrente, o <c>null</c>.</param>
-    /// <param name="stats">Stato di gioco salvato dal client, così come arriva dal JSON.</param>
-    public StorySnapshot PlayMagrogamer09(string? sceneId, string? choiceId, Dictionary<string, object>? stats)
-        => Play(Magrogamer09, sceneId, choiceId, stats);
-
-    /// <summary>Passo di gioco su "Sopravviveresti agli USA?". Vedi <see cref="Play(IStory, string?, string?, Dictionary{string, object}?)"/>.</summary>
-    /// <param name="sceneId">Scena corrente del client, o <c>null</c> per iniziare da capo.</param>
-    /// <param name="choiceId">Scelta fatta nella scena corrente, o <c>null</c>.</param>
-    /// <param name="stats">Stato di gioco salvato dal client, così come arriva dal JSON.</param>
-    public StorySnapshot PlaySurviveUsa(string? sceneId, string? choiceId, Dictionary<string, object>? stats)
-        => Play(SurviveUsa, sceneId, choiceId, stats);
+    /// <exception cref="NotFoundException">Se nessuna storia ha quello slug.</exception>
+    public StorySnapshot Play(string slug, string? sceneId, string? choiceId, Dictionary<string, object>? stats)
+        => Play(Get(slug), sceneId, choiceId, stats);
 
     // Passo di gioco: nessun parametro = start, solo scena = resume, scena + scelta =
     // avanzamento. Lo stato arriva dal client e torna nello snapshot (server stateless).

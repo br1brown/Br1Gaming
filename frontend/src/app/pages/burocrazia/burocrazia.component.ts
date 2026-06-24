@@ -5,9 +5,12 @@ import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { ThemeService } from '../../core/engine/services/theme.service';
 import { CookieConsentService } from '../../core/engine/services/cookie-consent.service';
 import {
-    ClockTone, CoachData, GameController, IntroData, Palette, PratData, ResultData, ServeData, WelcomeData,
+    ClockTone, CoachData, GameController, IntroData, Palette, PratData, ResultData, SavedRun, ServeData, WelcomeData,
     createBurocraziaGame,
 } from './burocrazia.engine';
+
+// Durata di vita della partita salvata: una settimana basta a riprenderla "più tardi" senza accumularla per sempre.
+const SAVED_RUN_TTL = 60 * 60 * 24 * 7;
 
 // Tinte "artistiche" degli edifici per tono: il resto della palette arriva dalle CSS var
 // di Bootstrap/tema, queste danno alla città il colpo d'occhio chiaro o scuro.
@@ -145,6 +148,11 @@ export class BurocraziaComponent extends PageBaseComponent<void> implements OnDe
             onPause: p => { this.paused.set(p); if (p) void this.openPauseDialog(); },
             savedZoom: () => this.cookies.getCookie('burocraziaZoom'),
             onZoom: z => this.persistZoom(z),
+            // Progresso partita ↔ cookie (categoria Technical, gating GDPR gestito dal servizio del framework).
+            savedRun: () => (this.cookies.getCookie('burocraziaRun') as SavedRun | null),
+            onRunSave: run => this.cookies.setCookie('burocraziaRun', run, SAVED_RUN_TTL),
+            onRunClear: () => this.cookies.removeCookie('burocraziaRun'),
+            onResumed: () => this.notify.toast(this.translate.translate('buroRunResumed'), 'info'),
             // Avviso "grafica alleggerita": toastOnce → la dedup "una volta per sessione" la fa il servizio.
             // (Il flag `lite` nel motore resta perché governa la qualità di rendering, non solo l'avviso.)
             onPerfNotice: () => this.notify.toastOnce('buro-lite', this.translate.translate('buroPerfNotice'), 'warning', { durationMs: 6000 }),

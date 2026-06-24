@@ -10,6 +10,9 @@ public class PoveriMaschiStory : IStory
     public string Slug => "poveri-maschi";
 
     /// <inheritdoc />
+    public int Order => 1;
+
+    /// <inheritdoc />
     public string Title => "Siamo Maschi";
 
     /// <inheritdoc />

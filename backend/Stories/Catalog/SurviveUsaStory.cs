@@ -13,6 +13,9 @@ public class SurviveUsaStory : IStory
     public string Slug => "sopravvivi-agli-usa";
 
     /// <inheritdoc />
+    public int Order => 3;
+
+    /// <inheritdoc />
     public string Title => "Sopravviveresti agli USA?";
 
     /// <inheritdoc />

@@ -1,9 +1,11 @@
-import { Component, computed } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { ContentCardComponent } from '../../components/shared/content-card/content-card.component';
+import { PageDirective } from '../../core/engine/directives/page.directive';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { HomeContent } from '../content.resolver';
 import { PageType } from '../../site';
+import { SITE_CONFIG } from '../../core/engine/siteBuilder';
 
 interface CardEntry {
     title: string;
@@ -26,6 +28,7 @@ const STORY_PAGE_TYPES: Partial<Record<string, PageType>> = {
     'sopravvivi-agli-usa': PageType.StorySurviveUsa,
 };
 
+// I giochi "non-storia": stanno fuori dal gruppo Storie, come nel menu.
 const STATIC_GIOCHI: CardEntry[] = [
     {
         title: 'Duce o Non Duce?',
@@ -49,10 +52,16 @@ const STATIC_GIOCHI: CardEntry[] = [
 
 @Component({
     selector: 'app-home',
-    imports: [TranslatePipe, ContentCardComponent],
+    imports: [TranslatePipe, ContentCardComponent, PageDirective],
     templateUrl: './home.component.html',
 })
 export class HomeComponent extends PageBaseComponent<HomeContent> {
+    /** Per i link interni nel template (es. CTA verso la Galleria). */
+    protected readonly PageType = PageType;
+    /** Nome del sito dalla config (niente stringhe hardcoded nell'hero). */
+    protected readonly appName = inject(SITE_CONFIG).appName;
+    /** Slot per lo scheletro del @placeholder (idratazione incrementale delle sezioni sotto la piega). */
+    protected readonly skeletonSlots = [0, 1, 2];
 
     readonly generatori = computed<CardEntry[]>(() => {
         const content = this.pageContent();
@@ -67,18 +76,18 @@ export class HomeComponent extends PageBaseComponent<HomeContent> {
             }));
     });
 
-    readonly giochi = computed<CardEntry[]>(() => {
+    readonly storie = computed<CardEntry[]>(() => {
         const content = this.pageContent();
-        const fromApi: CardEntry[] = content
-            ? content.stories
-                .filter(s => s.slug in STORY_PAGE_TYPES)
-                .map(s => ({
-                    title: s.title,
-                    subtitle: s.description ?? null,
-                    imageId: `story.${s.slug}`,
-                    pageType: STORY_PAGE_TYPES[s.slug]!,
-                }))
-            : [];
-        return [...STATIC_GIOCHI, ...fromApi];
+        if (!content) return [];
+        return content.stories
+            .filter(s => s.slug in STORY_PAGE_TYPES)
+            .map(s => ({
+                title: s.title,
+                subtitle: s.description ?? null,
+                imageId: `story.${s.slug}`,
+                pageType: STORY_PAGE_TYPES[s.slug]!,
+            }));
     });
+
+    readonly giochi: CardEntry[] = STATIC_GIOCHI;
 }
