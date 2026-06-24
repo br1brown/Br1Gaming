@@ -91,7 +91,7 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorInfo> {
         this.result.set(null);
         this.savedId.set(null);
         this.recovered.set(false);
-        this.allaFine = `\n\nDal ${this.generator()?.name ?? ''}\n${this.shareBaseUrl()}`;
+        this.allaFine = `\n\nDal ${this.generator()?.name ?? ''}\n${this.getCurrentUrl()}`;
         try {
             const res = await this.fetchGeneratedText();
             this.result.set(res);
@@ -115,7 +115,7 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorInfo> {
         this.savedId.set(null);
         try {
             const entry = await this.api.getGeneration(id);
-            this.allaFine = `\n\nDal ${this.generator()?.name ?? ''}\n${this.shareBaseUrl()}?g=${id}`;
+            this.allaFine = `\n\nDal ${this.generator()?.name ?? ''}\n${this.getCurrentUrl()}?g=${id}`;
             // sig vuota: un risultato recuperato è già in galleria, non si ri-salva.
             this.result.set({ text: entry.text, markdown: entry.markdown, score: entry.score, sig: '' });
             this.recovered.set(true);
@@ -138,7 +138,7 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorInfo> {
         try {
             const { id } = await this.api.saveGeneration(slug, { markdown: res.markdown, score: res.score, sig: res.sig });
             this.savedId.set(id);
-            const url = `${this.shareBaseUrl()}?g=${id}`;
+            const url = `${this.getCurrentUrl()}?g=${id}`;
             try {
                 await this.document.defaultView?.navigator.clipboard.writeText(url);
                 this.notify.toast(this.translate.translate('galleriaSalvataLinkCopiato'), 'success');
@@ -151,11 +151,6 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorInfo> {
         } finally {
             this.saving.set(false);
         }
-    }
-
-    // URL della pagina senza query string: base per i link condivisibili della galleria.
-    private shareBaseUrl(): string {
-        return this.document.URL.split('?')[0];
     }
 
     // Porta in vista il risultato appena rigenerato (block: 'nearest' = non si muove se già visibile).
@@ -192,7 +187,7 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorInfo> {
     /** Titolo per la Web Share API. */
     readonly shareTitle = computed(() => {
         const gen = this.generator();
-        return gen ? `${gen.name}: ${this.document.URL}` : '';
+        return gen ? `${gen.name}: ${this.getCurrentUrl()}` : '';
     });
 
     /** Nome del file immagine condiviso. */

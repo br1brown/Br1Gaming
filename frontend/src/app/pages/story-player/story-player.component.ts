@@ -123,7 +123,7 @@ export class StoryPlayerComponent extends PageBaseComponent<StoryInfo> {
     }
 
     private endingFooter(): string {
-        return `\n\nDa «${this.facade.title()}»\n${this.document.URL}`;
+        return `\n\nDa «${this.facade.title()}»\n${this.getCurrentUrl()}`;
     }
 
     /** Testo del finale letto ad alta voce. */
@@ -140,7 +140,7 @@ export class StoryPlayerComponent extends PageBaseComponent<StoryInfo> {
     };
 
     /** Titolo per la Web Share API. */
-    readonly shareTitle = computed(() => `${this.facade.title()}: ${this.document.URL}`);
+    readonly shareTitle = computed(() => `${this.facade.title()}: ${this.getCurrentUrl()}`);
 
     /** Nome del file immagine condiviso. */
     readonly shareFilename = computed(() => `${this.facade.snapshot()?.storySlug ?? 'storia'}.png`);
