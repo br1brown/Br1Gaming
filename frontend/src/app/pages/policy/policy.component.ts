@@ -1,6 +1,6 @@
 import { Component, computed, inject } from '@angular/core';
 import { MarkdownPipe } from '../../core/engine/pipes/markdown.pipe';
-import { PageBaseComponent } from '../page-base.component';
+import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { CookieConsentService, buildPhysicalCookieKey } from '../../core/engine/services/cookie-consent.service';
 import { CookieCategory, CookieConfig, EngineCookieKey } from '../../core/engine/services/cookie/cookie-type';
 import { COOKIE_MAP, type CookieKey } from '../../core/services/cookie-registry';

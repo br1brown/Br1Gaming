@@ -368,7 +368,7 @@ export class ThemeService {
             ['--bs-secondary-bg-subtle', lt ? p.subtleSecondary.bgSubtleLt : p.subtleSecondary.bgSubtleDk],
             ['--bs-secondary-border-subtle', lt ? p.subtleSecondary.borderSubtleLt : p.subtleSecondary.borderSubtleDk],
             ['--bs-secondary-text-emphasis', lt ? p.subtleSecondary.textEmphasisLt : p.subtleSecondary.textEmphasisDk],
-            // Bridge vars — esposti come --color* su :root così base.css può propagarli
+            // Bridge vars — esposti come --color* su :root così base.scss può propagarli
             // ai subtheme [data-bs-theme] nested via var(--color*) senza dipendere dall'inline style
             ['--colorHeading', lt ? p.colorHeadingLt : p.colorHeadingDk],
             ['--colorHeadingRgb', ThemeService.hexToRgbTriplet(lt ? p.colorHeadingLt : p.colorHeadingDk)],
@@ -384,7 +384,7 @@ export class ThemeService {
             // Varianti Lt/Dk separate — necessarie per il ponte CSS dei subtheme [data-bs-theme]
             // nidificati (es. pannello forced-light dentro pagina dark). Le variabili tone-adattive
             // sopra si risolvono sempre dal tone corrente dell'OS; questi token fissi permettono
-            // a [data-bs-theme="light/dark"] in base.css di usare il valore corretto
+            // a [data-bs-theme="light/dark"] in base.scss di usare il valore corretto
             // indipendentemente dal tone globale. Stesso pattern già usato per --colorLinkLt/Dk.
             ['--colorSecondaryLt', p.colorSecondaryLt],
             ['--colorSecondaryDk', p.colorSecondaryDk],
@@ -541,10 +541,10 @@ export class ThemeService {
             `--colorPrimaryText:${p.colorPrimaryText};` +
             `--bs-primary:${p.colorPrimary};` +
             `--bs-primary-rgb:${p.colorPrimaryRgb};` +
-            // Varianti fisse Dk del primary FOREGROUND — per il ponte CSS subtheme in base.css
+            // Varianti fisse Dk del primary FOREGROUND — per il ponte CSS subtheme in base.scss
             `--colorPrimaryDk:${p.colorPrimaryDk};` +
             `--colorPrimaryRgbDk:${p.colorPrimaryDkRgb};` +
-            // Varianti Lt/Dk fisse — per il ponte CSS subtheme in base.css
+            // Varianti Lt/Dk fisse — per il ponte CSS subtheme in base.scss
             `--colorHeadingLt:${p.colorHeadingLt};` +
             `--colorHeadingDk:${p.colorHeadingDk};` +
             `--colorHeadingRgbLt:${ThemeService.hexToRgbTriplet(p.colorHeadingLt)};` +

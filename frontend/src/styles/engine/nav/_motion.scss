@@ -1,0 +1,13 @@
+@media (prefers-reduced-motion: reduce) {
+    .nav-dropdown-caret,
+    .submenu-caret {
+        transition: none;
+    }
+    /* Desktop: nessuna animazione entrance (dropdown di 1º livello e flyout). */
+    .navbar .dropdown-menu.show,
+    .dropdown-submenu:hover > .submenu-panel,
+    .dropdown-submenu:focus-within > .submenu-panel,
+    .dropdown-submenu.expanded > .submenu-panel {
+        animation: none;
+    }
+}

@@ -1,0 +1,97 @@
+@use 'lib';
+
+code {
+    font-weight: bold;
+    color: inherit;
+    background-color: transparent;
+}
+
+/* Schermi piccoli */
+@media only screen and (max-width: #{lib.$bp-md}) {
+    .container-fluid {
+        overflow-x: hidden;
+    }
+}
+
+/* Effetto shake al passaggio */
+.shake-on-hover:hover {
+    animation: shake 0.5s;
+    animation-iteration-count: infinite;
+}
+
+@keyframes shake {
+    0%, 30%, 50%, 70%, 100% { transform: translate(1px, 1px) rotate(0deg); }
+    10%, 40%, 60%, 90% { transform: translate(-1px, -2px) rotate(-1deg); }
+    20%, 80% { transform: translate(-3px, 0px) rotate(1deg); }
+}
+
+/* Carosello */
+.carousel-item { height: 80vh; }
+.carousel-item img { height: 100%; object-fit: cover; width: 100%; }
+
+/* Zoom su schermi ampi */
+@media only screen and (min-width: #{lib.$bp-md}) {
+    .zoom-on-hover { transition: transform .2s; }
+    .zoom-on-hover:hover { transform: scale(1.5); }
+}
+
+/* Surface elevata — utility per overlay che galleggiano sopra la pagina
+   (cookie banner, context menu, FAB, modali custom future). Volutamente
+   NEUTRA: usa --bs-body-bg invece del colore tema, così gli overlay non
+   raddoppiano il "weight" del colore principale, e il primary resta
+   percepito come accento riservato alle CTA. L'inner ring + ombra danno
+   la sensazione di elevazione contro il body. Si adatta light/dark grazie
+   alle variabili Bootstrap. */
+.surface-elevated {
+    background-color: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    box-shadow: var(--shadowElevated),
+                0 0 0 1px color-mix(in srgb, currentColor 22%, transparent);
+}
+
+/* FAB — Floating Action Button condiviso (back-to-top, cookie-reopen, ecc.).
+   Layout/shape sono delegati alle utility Bootstrap nell'HTML:
+     rounded-circle d-flex align-items-center justify-content-center fs-5
+   Qui restano solo proprietà che Bootstrap non copre: dimensione fissa,
+   ombra con inner ring theme-aware, opacità di riposo, hover/focus state.
+   L'inner ring usa currentColor così funziona su sfondi scuri o chiari:
+   chi monta il .fab garantisce un `color` con buon contrasto rispetto al
+   `background-color` (es. .theme-bg usa --colorTemaText, garantito 4.5:1 su --colorTema). */
+.fab {
+    width: 3rem;
+    height: 3rem;
+    opacity: 0.85;
+    cursor: pointer;
+    box-shadow: var(--shadowElevated),
+                0 0 0 1px color-mix(in srgb, currentColor 38%, transparent);
+    transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+.fab:hover {
+    opacity: 1;
+    transform: translateY(-2px);
+    box-shadow: var(--shadowElevatedHover),
+                0 0 0 1px color-mix(in srgb, currentColor 48%, transparent);
+}
+
+/* Focus-ring marcato per navigazione tastiera (WCAG 2.4.7) */
+.fab:focus-visible {
+    opacity: 1;
+    transform: translateY(-2px);
+    outline: none;
+    box-shadow: 0 0 0 0.25rem color-mix(in srgb, currentColor 22%, transparent), var(--shadowElevatedHover);
+}
+
+@media (max-width: #{lib.$bp-md - 0.02px}) {
+    .fab {
+        width: 3.25rem;
+        height: 3.25rem;
+        opacity: 1;
+    }
+}
+
+/* Indica la presenza di un menu contestuale custom ([appContextMenu]):
+   cursore dedicato sugli elementi che lo offrono (es. immagini della demo). */
+.cursor-context-menu {
+    cursor: context-menu;
+}

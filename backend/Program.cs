@@ -18,6 +18,13 @@ using Backend.Store;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Non rivelare il server software nell'header `Server` (banner grabbing): Kestrel emette
+// "Server: Kestrel" di default. È l'equivalente del `x-powered-by` disattivato sul Node SSR
+// (server.ts): conta quando `backend.public` espone Kestrel direttamente al browser, ma resta
+// una buona pratica a prescindere. Impostato qui sull'host perché AddServerHeader è un'opzione
+// di build di Kestrel, non un middleware.
+builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
+
 // global-settings.json è l'unica sorgente di verità per la configurazione del deployment.
 // Rimuoviamo esplicitamente le configurazioni di default (global-settings.json e simili)
 var defaultJsonSources = builder.Configuration.Sources.OfType<Microsoft.Extensions.Configuration.Json.JsonConfigurationSource>().ToList();
@@ -95,6 +102,7 @@ var mail = builder.Configuration
 // AuthService: infrastruttura JWT, registrata solo se LoginEnabled.
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IContentStore, FileContentStore>();
+builder.Services.AddSingleton<BlobStore>();
 builder.Services.AddScoped<SiteService>();
 // Generatori: factory di registrazione che auto-scopre gli IGenerator dell'assembly e li indicizza
 // (vedi GeneratorRegistration). Aggiungere un generatore = creare la classe.

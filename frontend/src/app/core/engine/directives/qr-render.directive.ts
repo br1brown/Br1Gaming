@@ -12,7 +12,7 @@ import { AssetService } from '../services/asset.service';
  * automaticamente. Niente wrapper, niente classi proprie — l'<img> e' il
  * QR e accetta tutte le classi/attributi standard.
  *
- *   <img [qrContent]="config"
+ *   <img [appQrContent]="config"
  *        (blobChange)="qrBlob.set($event)"
  *        (errorChange)="qrError.set($event)"
  *        alt="QR Code WhatsApp"
@@ -26,12 +26,12 @@ import { AssetService } from '../services/asset.service';
  * Su SSR e quando la generazione fallisce, l'attributo `src` viene rimosso:
  * il browser mostra il testo `alt` come fallback HTML standard.
  *
- * Selector vincolato a img[qrContent]: errore a compile time se usata su
+ * Selector vincolato a img[appQrContent]: errore a compile time se usata su
  * altro elemento. Un token monotono evita che build asincrone sovrapposte
  * si "sorpassino" lasciando in mostra un QR ormai obsoleto.
  */
 @Directive({
-    selector: 'img[qrContent]',
+    selector: 'img[appQrContent]',
     standalone: true,
     host: { '[src]': 'src()' },
 })
@@ -40,7 +40,7 @@ export class QrRenderDirective {
     private readonly asset = inject(AssetService);
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
-    readonly qrContent = input<QrConfig | null>(null);
+    readonly appQrContent = input<QrConfig | null>(null);
 
     readonly blobChange = output<Blob | null>();
     readonly errorChange = output<string | null>();
@@ -51,7 +51,7 @@ export class QrRenderDirective {
 
     constructor() {
         effect(() => {
-            const cfg = this.qrContent();
+            const cfg = this.appQrContent();
             if (!this.isBrowser || !cfg) {
                 this.reset();
                 return;

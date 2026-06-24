@@ -133,10 +133,10 @@ sul **dominio vince il figlio**. Sui path engine prendi sempre la versione del t
 
 | Proprietà | Path | Al merge |
 | :--- | :--- | :--- |
-| **Engine** | `backend/Engine/`, `frontend/src/app/core/engine/`, `frontend/src/assets/i18n/basic.*.json` | vince il template |
-| **Scaffold** (infrastruttura e documentazione del template fuori dall'Engine) | `scripts/`, `deploy.sh`, `backup.sh`, `docker-compose*.yml`, `.github/workflows/`, `.nvmrc`, `global.json`, `setup.mjs`, `global-settings.schema.json`, `security-headers.json`*, `CHANGELOG.md`, `DOCKER_README.md`, `backend/README.md`, `frontend/README.md`, `backend/backend.csproj`, i due `Dockerfile`, `frontend/proxy*.cjs`, `frontend/tsconfig.json`, `frontend/eslint.config.mjs`, `main.ts`/`main.server.ts`, `app.config.ts`/`app.config.server.ts`, `src/styles/base.css`, `src/app/pages/page-base.component.ts` | vince il template |
+| **Engine** | `backend/Engine/`, `frontend/src/app/core/engine/`, `frontend/src/styles/engine/`, `frontend/src/assets/i18n/basic.*.json` | vince il template |
+| **Scaffold** (infrastruttura e documentazione del template fuori dall'Engine) | `scripts/`, `deploy.sh`, `backup.sh`, `docker-compose*.yml`, `.github/workflows/`, `.nvmrc`, `global.json`, `setup.mjs`, `global-settings.schema.json`, `security-headers.json`*, `CHANGELOG.md`, `DOCKER_README.md`, `backend/README.md`, `frontend/README.md`, `backend/backend.csproj`, i due `Dockerfile`, `frontend/proxy*.cjs`, `frontend/tsconfig.json`, `frontend/eslint.config.mjs`, `main.ts`/`main.server.ts`, `app.config.ts`/`app.config.server.ts` | vince il template |
 | **Condivisi con punti di contatto** (il template li evolve; il figlio tocca solo i punti indicati) | `backend/Program.cs` (solo il blocco "SERVIZI APPLICATIVI"), `frontend/angular.json` (assets/styles del progetto, budget, `allowedCommonJsDependencies`), `frontend/package.json` (dipendenze del progetto), `backend/Resources/*.resx` (chiavi aggiunte), `.gitignore`/`.dockerignore` (righe aggiunte) | si fondono riga per riga |
-| **Dominio** (la demo riusata + il codice del progetto) | `backend/Controllers|Services|Models|Store|Validation|data`, `site.ts`, `pages/`, `components/`, `core/services` e `core/dto`, `assets/` (i18n `addon`, legal, files), `styles.css` e gli altri stili non-base, `public/`, `global-settings.json`, la `.sln` rinominata | vince il figlio |
+| **Dominio** (la demo riusata + il codice del progetto) | `backend/Controllers|Services|Models|Store|Validation|data`, `site.ts`, `pages/`, `components/`, `core/services` e `core/dto`, `assets/` (i18n `addon`, legal, files), `styles.scss` + `styles/app/` (gli stili del progetto, non `styles/engine/`), `public/`, `global-settings.json`, la `.sln` rinominata | vince il figlio |
 
 \* `security-headers.json`: unica eccezione, l'override documentato nella `_nota` (vedi sopra).
 
@@ -201,6 +201,12 @@ Senza scrivere codice infrastrutturale, il template fornisce già:
 
 Tutto ciò che il template mostra "di fabbrica" è **demo**: esiste per far vedere il giro completo (UI → servizi → API → store) e il progetto figlio la **riusa, non la cancella** — tiene la struttura (file, servizi, endpoint) e ne cambia il contenuto. La regola di lettura è semplice: ciò che non va modificato sta nell'Engine; tutto il resto sta nel template proprio perché il figlio lo faccia suo. Il catalogo degli esempi vive qui, non nei README di progetto: quelli sono direttive di implementazione e documentano solo ciò che i figli ereditano e usano.
 
+> **Riusare o partire puliti — lo decidi al `setup`.** La cerimonia di init (`node setup.mjs "Nome"`) chiede `[s/N]`:
+> - **`N` → riusi la demo** (la via descritta qui sopra): tieni struttura, file, servizi ed endpoint e ne cambi il contenuto. La demo resta un esempio vivo finché vuoi.
+> - **`s` → parti pulito** (*eject*): il setup rimuove la demo (pagina Social, home svuotata, `addon` azzerati, controller backend ridotti al solo profilo), elimina **questa vetrina** e fa un commit `init <Nome>`. Resta lo scheletro Home + pagine legali, login spento, pronto a crescere.
+>
+> In entrambi i casi l'**Engine resta intatto**: cambia solo *da dove* parte il tuo dominio — demo riusabile o foglio bianco. La demo non è un peso da subire: è il banco di prova del template (esercita ogni feature) e, finché la tieni, il tuo esempio di riferimento.
+
 ### La home (`frontend/src/app/pages/home/`)
 
 Una pagina-vetrina che esercita i componenti e i servizi dell'Engine, sezione per sezione:
@@ -208,8 +214,8 @@ Una pagina-vetrina che esercita i componenti e i servizi dell'Engine, sezione pe
 | Sezione | Cosa fa vedere |
 | :--- | :--- |
 | **Azioni** | Componenti autonomi di azione (copia, condivisione, sintesi vocale, download, stampa, PDF) e di contatto (mail, telefono, WhatsApp, Telegram, social) |
-| **Generatori** | Anteprima Markdown live (pipe `markdown`) e generazione immagini da testo (`[imgRender]`) con menu contestuale custom (`[appContextMenu]`) |
-| **QR Code** | QR multi-formato: testo, WhatsApp, email, Wi-Fi, bonifico SEPA (`[qrContent]`) |
+| **Generatori** | Anteprima Markdown live (pipe `markdown`) e generazione immagini da testo (`[appImgRender]`) con menu contestuale custom (`[appContextMenu]`) |
+| **QR Code** | QR multi-formato: testo, WhatsApp, email, Wi-Fi, bonifico SEPA (`[appQrContent]`) |
 | **Notifiche** | Modali alert / conferma / form di `NotificationService` |
 | **Sistema** | Palette tema OKLCH a runtime, i18n, chiamata API con filtro (`GET /social`), asset resolver con resize server-side |
 
@@ -269,6 +275,8 @@ Per i riferimenti completi si veda la **Mappa della documentazione** in cima a q
 node setup.mjs "Nome Progetto"
 ```
 *Battezza il progetto: imposta `project.name` in `global-settings.json`, crea `global-settings.local.json` con porte e **API key generata**, rinomina gli identificatori npm/Service Worker e `App.sln`. La `SecretKey` JWT resta **vuota**: un figlio nasce col **login spento** e attivarlo è una scelta esplicita (chiave ≥32 char + verifica propria in `AuthController`). Dettagli in [DOCKER_README.md](DOCKER_README.md).*
+
+Poi `setup.mjs` chiede conferma `[s/N]` per la **cerimonia "da template a progetto"** (distruttiva): rimuove la demo (pagina Social, home svuotata a placeholder, `addon.*.json` → `{}`, `BaseController`/`SiteService` minimi e `site.ts` riscritto allo scheletro Home + pagine legali, con **login spento di default** — coerente con `SecretKey` vuota — da riattivare quando imposti il segreto), elimina **questo README** (la vetrina del template), esegue i controlli statici (lint/tsc/i18n/cicli) come gate, **auto-cancella `setup.mjs`** e crea un commit locale `init <Nome>`. Rispondendo `N` resti sul template completo (demo inclusa) e puoi rilanciarlo quando sei pronto.
 
 La versione Node di riferimento è dichiarata in `.nvmrc` (Node 24 LTS): con nvm basta `nvm install && nvm use`; la CI legge lo stesso file.
 

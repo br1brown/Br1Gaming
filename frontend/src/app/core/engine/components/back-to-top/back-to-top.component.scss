@@ -3,7 +3,7 @@
     bottom: 2rem;
     right: 2rem;
     /* Sopra il cookie banner e il suo pulsante di riapertura, sotto offcanvas
-       e modali Bootstrap. Scala z-index del template: vedi base.css §variabili. */
+       e modali Bootstrap. Scala z-index del template: vedi base.scss §variabili. */
     z-index: var(--z-fab);
 }
 

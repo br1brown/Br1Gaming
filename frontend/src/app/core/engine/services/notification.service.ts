@@ -74,8 +74,8 @@ export class NotificationService {
     /**
      * SwAl pre-configurato col tema del template:
      *  - theme 'bootstrap-5-light' o '-dark' a seconda di themeTone, così che il
-     *    popup segua sempre lo schema chiaro/scuro corrente (richiede l'import di
-     *    'sweetalert2/themes/bootstrap-5.css' in styles.css);
+     *    popup segua sempre lo schema chiaro/scuro corrente (il tema CSS
+     *    'sweetalert2/themes/bootstrap-5.css' è caricato da angular.json → "styles");
      *  - confirmButton: btn-success (verde universale, segnale positivo)
      *  - cancelButton:  btn-outline-secondary (neutro adattivo via --colorSecondary)
      *  - denyButton:    btn-danger (rosso per azioni distruttive)

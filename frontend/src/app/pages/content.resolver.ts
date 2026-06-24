@@ -160,6 +160,6 @@ export class ContentResolver {
     }
 }
 
-/* Factory ResolveFn per app.routes.ts */
+/* Factory ResolveFn per core/engine/routing.ts */
 export const contentLoaderResolver = (pageType: PageType): ResolveFn<ResolvedPage> =>
     () => inject(ContentResolver).loadResolved(pageType);

@@ -1,0 +1,4 @@
+# Volume di dati a runtime: ignora tutto il contenuto della cartella,
+# versiona solo la cartella stessa (tramite questo file).
+*
+!.gitignore

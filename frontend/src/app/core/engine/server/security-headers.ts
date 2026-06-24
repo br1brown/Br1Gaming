@@ -17,6 +17,10 @@ export const FALLBACK_SECURITY_HEADERS: Record<string, string> = {
     'X-Frame-Options': 'SAMEORIGIN',
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
+    // COOP: isola il browsing context da altre origini (anti tab-nabbing / cross-window).
+    // 'same-origin-allow-popups' tiene i benefici ma non rompe i popup che la pagina apre
+    // (es. eventuali flussi OAuth aggiunti da un figlio). Allineato a security-headers.json.
+    'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
     // HSTS: i browser lo applicano solo su HTTPS e lo ignorano su HTTP (RFC 6797),
     // quindi è sicuro anche in locale. È il layer SSR a parlare col browser, non il backend.
     // includeSubDomains: estende la policy a tutti i sottodomini (assume deploy all-HTTPS).

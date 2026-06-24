@@ -1,70 +1,4 @@
-/* nav.css — Stili condivisi di navigazione.
-
-   Globale (non scoped) perche' le classi usate (`.nav-link`, `.nav-dropdown-toggle`,
-   `.dropdown-item`) compaiono in componenti standalone separati: con la view
-   encapsulation di Angular gli stili scoped sul contenitore non raggiungerebbero
-   le classi rese dai figli. */
-
-footer a {
-    color: inherit;
-}
-
-/* ── Link e stato attivo ──────────────────────────────────────────── */
-
-.nav-link,
-.nav-current-link {
-    display: inline-flex;
-    align-items: center;
-    text-decoration: none;
-}
-
-.nav-link.active,
-.nav-current-link.nav-link {
-    font-weight: 700;
-    text-decoration: underline;
-    text-decoration-thickness: 0.14rem;
-    text-underline-offset: 0.2rem;
-}
-
-.nav-current-link {
-    cursor: default;
-}
-
-/* ── Pulsante trigger dropdown ────────────────────────────────────── */
-
-/* Button reset + layout flex. Non usiamo .dropdown-toggle di Bootstrap
-   perché aggiunge un ::after caret CSS che sostituiamo con .nav-dropdown-caret */
-.nav-dropdown-toggle {
-    border: 0;
-    background: transparent;
-    font: inherit;
-    padding: 0;
-    text-align: left;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-}
-
-.nav-dropdown-toggle:focus-visible {
-    outline: 2px solid currentColor;
-    outline-offset: 2px;
-}
-
-.nav-dropdown-caret {
-    flex: 0 0 auto;
-    width: 0.55rem;
-    height: 0.55rem;
-    border-right: 2px solid currentColor;
-    border-bottom: 2px solid currentColor;
-    transform: rotate(45deg) translateY(-0.08rem);
-    transform-origin: center;
-    transition: transform 0.2s ease;
-}
-
-.dropdown.show > .nav-dropdown-toggle .nav-dropdown-caret {
-    transform: rotate(225deg) translateY(-0.02rem);
-}
+@use 'engine/base/lib' as lib;
 
 /* ── Override Bootstrap dropdown nel contesto navbar ─────────────── */
 
@@ -166,7 +100,7 @@ footer a {
     to   { opacity: 1; transform: translateY(0); }
 }
 
-@media (min-width: 768px) {
+@media (min-width: #{lib.$bp-md}) {
     .navbar .dropdown-menu.show {
         animation: navDropdownEnter 0.15s ease both;
     }
@@ -174,7 +108,7 @@ footer a {
 
 /* ── Responsive ───────────────────────────────────────────────────── */
 
-@media (max-width: 767.98px) {
+@media (max-width: #{lib.$bp-md - 0.02px}) {
     .nav-link,
     .nav-current-link,
     .nav-dropdown-toggle {
@@ -226,15 +160,5 @@ footer a {
     .navbar .dropdown-item:focus-visible {
         background-color: transparent;
         text-decoration: underline;
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .nav-dropdown-caret {
-        transition: none;
-    }
-    /* Desktop: nessuna animazione entrance */
-    .navbar .dropdown-menu.show {
-        animation: none;
     }
 }

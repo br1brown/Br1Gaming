@@ -18,7 +18,7 @@ import { ContextMenuOption } from './context-menu.models';
     standalone: true,
     imports: [TranslatePipe],
     templateUrl: './context-menu-overlay.component.html',
-    styleUrl: './context-menu.component.css',
+    styleUrl: './context-menu-overlay.component.scss',
     host: { '(keydown)': 'onKeydown($event)' }
 })
 export class ContextMenuOverlayComponent {

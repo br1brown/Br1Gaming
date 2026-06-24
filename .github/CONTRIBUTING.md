@@ -16,7 +16,7 @@ Prima di scrivere codice, ti preghiamo di leggere le guide di sviluppo interne:
 
 ### Regole d'Oro
 
-1. **L'Engine è Sacro**: Le directory `backend/Engine/` e `frontend/src/app/core/engine/` contengono le astrazioni centrali (sicurezza, parser DSL, routing). Non aggiungere logica di business o funzionalità specifiche del cliente in queste cartelle.
+1. **L'Engine è Sacro**: Le directory `backend/Engine/`, `frontend/src/app/core/engine/` e `frontend/src/styles/engine/` contengono le astrazioni centrali (sicurezza, parser DSL, routing, tema). Non aggiungere logica di business o funzionalità specifiche del cliente in queste cartelle. La regola pratica è il path: se è sotto un `engine/`, lo consumi, non lo modifichi.
 2. **Guidato dalla Configurazione (Frontend)**: Non aggiungere rotte manualmente in Angular. Tutte le nuove pagine, i metadati SEO e gli elementi di navigazione devono essere pilotati da `site.ts` usando l'enum `PageType`.
 3. **Guidato dall'Ereditarietà (Backend)**: Non ereditare dai controller standard di ASP.NET. Usa `EngineApiController` o `EngineProtectedController` per attivare automaticamente le funzionalità di sicurezza e rate-limiting.
 4. **Nessuna Manipolazione Diretta del DOM**: Il frontend è costruito rigorosamente con il Server-Side Rendering (SSR) in mente. Modifiche stile `document.getElementById` o manipolazioni jQuery-like romperanno il processo di Idratazione (Hydration) di Angular.

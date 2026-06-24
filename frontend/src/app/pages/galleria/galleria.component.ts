@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { MarkdownPipe } from '../../core/engine/pipes/markdown.pipe';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { PageDirective } from '../../core/engine/directives/page.directive';
-import { PageBaseComponent } from '../page-base.component';
+import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { GalleryEntry, GeneratorInfo } from '../../core/dto/generator.dto';
 import { ContestoSito, PageType } from '../../site';
 

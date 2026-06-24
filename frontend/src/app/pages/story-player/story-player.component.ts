@@ -10,7 +10,7 @@ import { StoryInfo } from '../../core/dto/story.dto';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { MarkdownPipe } from '../../core/engine/pipes/markdown.pipe';
 import { AssetDirective } from '../../core/engine/directives/asset.directive';
-import { PageBaseComponent } from '../page-base.component';
+import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { CopyActionComponent } from '../../components/shared/action/copy-action/copy-action.component';
 import { ShareActionComponent } from '../../components/shared/action/share-action/share-action.component';
 import { SpeechActionComponent } from '../../components/shared/action/speech-action/speech-action.component';

@@ -6,7 +6,7 @@
  *   node setup.mjs "Nome Progetto"
  *   node setup.mjs          ← chiede il nome in modo interattivo
  *
- * Cosa fa:
+ * Cosa fa SEMPRE (battesimo):
  *   1. Imposta project.name in global-settings.json (file committabile: identità del progetto)
  *   2. Crea global-settings.local.json (gitignored) con pubblicazione (porte/deploy) e
  *      l'API key generata. La SecretKey JWT resta VUOTA: un progetto nasce col login
@@ -14,10 +14,19 @@
  *   3. Rinomina gli identificatori npm/SW generici "app" → slug del prodotto
  *      (frontend/package.json, frontend/ngsw-config.json)
  *   4. Rinomina App.sln → NomeProgetto.sln
+ *
+ * Poi CHIEDE conferma [s/N] per la "cerimonia" da template a progetto (DISTRUTTIVA):
+ *   5. Rimuove la demo (frontend + backend): pagina Social, home → placeholder,
+ *      addon i18n → {}, BaseController/SiteService minimi, site.ts riscritto.
+ *   6. Elimina il README.md vetrina del template.
+ *   7. Esegue i controlli statici disponibili (lint/tsc/i18n/cicli) come gate.
+ *   8. Auto-cancella questo setup.mjs.
+ *   9. Fa un commit locale "init <Nome>".
  */
 
-import { readFileSync, writeFileSync, existsSync, renameSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, renameSync, rmSync } from 'fs';
 import { randomBytes } from 'node:crypto';
+import { execSync } from 'node:child_process';
 import { join, dirname } from 'path';
 import { createInterface } from 'readline';
 import { fileURLToPath } from 'url';
@@ -65,12 +74,301 @@ function editFile(filePath, transform) {
     const before = readFileSync(filePath, 'utf-8');
     const after = transform(before);
     if (before === after) {
-        console.log(`  =  già aggiornato: ${filePath}`);
+        console.log(`  =  invariato: ${filePath}`);
         return false;
     }
     writeFileSync(filePath, after, 'utf-8');
     console.log(`  ✓  aggiornato: ${filePath}`);
     return true;
+}
+
+function writeNew(filePath, content) {
+    writeFileSync(filePath, content, 'utf-8');
+    console.log(`  ✓  riscritto: ${filePath}`);
+}
+
+function removeChunk(src, chunk, label) {
+    if (!src.includes(chunk)) {
+        console.warn(`  ⚠  blocco non trovato (${label}): salto`);
+        return src;
+    }
+    return src.replace(chunk, '');
+}
+
+// ── Contenuti minimi del "progetto vuoto" (scritti dall'eject) ───────────────
+
+const MINIMAL_SITE_TS = `import { buildSite } from './core/engine/siteBuilder';
+
+export type {
+    SiteConfig,
+    SitePageInput,
+    SmokeSettings
+} from './core/engine/siteBuilder';
+
+// ═══════════════════════════════════════════════════════════════════════
+// ENUM PageType — identità di ogni pagina
+// ═══════════════════════════════════════════════════════════════════════
+// Ogni pagina DEVE avere un valore qui. Aggiungine uno e usalo in
+// pages / headerNav / footerNav: rotte, menu e sitemap si aggiornano da soli.
+export enum PageType {
+    PrivacyPolicy,
+    CookiePolicy,
+    TermsOfService,
+    LegalNotice,
+    Home,
+}
+
+// Struttura del sito: opzioni globali, pagine e menu. Identità ed estetica
+// (nome, versione, lingue, descrizione, tema) vivono in global-settings.json.
+//
+// LOGIN SPENTO di default, coerente con Security.Token.SecretKey vuota.
+// Per attivarlo: valorizza la SecretKey (>=32 char), poi qui aggiungi
+// PageType.Login + la sua pagina in pages, imposta loginPage: PageType.Login
+// e shell.showLoginInHeader: true. I pezzi pronti (pagina login, app-login-form,
+// app-user-nav) sono gia' nel progetto: vanno solo ricablati.
+export const ContestoSito = buildSite({
+    homePage: PageType.Home,
+
+    legalPages: {
+        privacy: PageType.PrivacyPolicy,
+        cookie: PageType.CookiePolicy,
+        tos: PageType.TermsOfService,
+        legal: PageType.LegalNotice,
+    },
+
+    shell: {
+        showNav: true,
+        showFooter: true,
+        fixedTopHeader: true,
+        showBrandIconInHeader: true,
+        showLoginInHeader: false,
+        forcedLightPanel: true,
+    },
+
+    isWebApp: true,
+    onlyPlainImage: false,
+
+    pages: () => [
+        {
+            path: '',
+            title: '',
+            pageType: PageType.Home,
+            component: () => import('./pages/home/home.component').then(m => m.HomeComponent),
+            // Skeleton pulito: la home parte senza navbar. Togli questo layout
+            // (o metti showNav: true) quando vuoi la shell anche qui.
+            layout: { showNav: false },
+        },
+    ],
+
+    headerNav: (h) => {
+        h.addGroup('menuPolicy', g => {
+            g.addPage(PageType.PrivacyPolicy);
+            g.addPage(PageType.CookiePolicy);
+            g.addGroup('menuLegale', sg => {
+                sg.addPage(PageType.TermsOfService);
+                sg.addPage(PageType.LegalNotice);
+            });
+        });
+    },
+
+    footerNav: (f) => {
+        f.addGroup('menuPolicy', g => {
+            g.addPage(PageType.PrivacyPolicy);
+            g.addPage(PageType.CookiePolicy);
+            g.addGroup('menuLegale', sg => {
+                sg.addPage(PageType.TermsOfService);
+                sg.addPage(PageType.LegalNotice);
+            });
+        });
+    },
+});
+`;
+
+const MINIMAL_HOME_TS = `import { Component } from '@angular/core';
+import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
+
+/** Home del progetto — punto di partenza vuoto. Riempila col tuo contenuto. */
+@Component({
+    selector: 'app-home',
+    templateUrl: './home.component.html',
+})
+export class HomeComponent extends PageBaseComponent<void> {}
+`;
+
+const MINIMAL_HOME_HTML = `<!-- La home del tuo progetto: parti da qui. -->
+`;
+
+const MINIMAL_BASECONTROLLER_CS = `using Microsoft.AspNetCore.Mvc;
+using Backend.Services;
+
+namespace Backend.Controllers;
+
+/// <summary>
+/// Controller concreto del progetto per gli endpoint pubblici (API key).
+/// Eredita sicurezza e logger da <see cref="EngineApiController"/>.
+/// Aggiungi qui gli endpoint pubblici del progetto.
+/// </summary>
+[Route("")]
+public class BaseController : EngineApiController
+{
+    private readonly SiteService _service;
+
+    /// <summary>Inizializza il controller col servizio di dominio e il logger ereditato dall'Engine.</summary>
+    public BaseController(SiteService service, ILogger<BaseController> logger)
+        : base(logger)
+    {
+        _service = service;
+    }
+
+    /// <summary>Profilo aziendale localizzato (usato dal footer e dalle pagine legali).</summary>
+    [HttpGet("profile")]
+    public async Task<IActionResult> GetProfile(CancellationToken cancellationToken)
+    {
+        var data = await _service.GetProfileAsync(cancellationToken);
+        return Ok(data);
+    }
+}
+`;
+
+const MINIMAL_SITESERVICE_CS = `using System.Globalization;
+using Backend.Models.Legal;
+using Backend.Store;
+
+namespace Backend.Services;
+
+/// <summary>
+/// Casi d'uso applicativi del sito esposti dalle API pubbliche.
+/// Orchestra logica leggera sopra <see cref="IContentStore"/>.
+/// </summary>
+public class SiteService
+{
+    private readonly IContentStore _store;
+
+    /// <summary>Inizializza il servizio con lo store da cui leggere i contenuti del sito.</summary>
+    public SiteService(IContentStore store)
+    {
+        _store = store;
+    }
+
+    /// <summary>Profilo aziendale nella lingua corrente (per footer e pagine legali).</summary>
+    public async Task<UniversalLegalModel> GetProfileAsync(CancellationToken cancellationToken = default)
+    {
+        var language = CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
+        return await _store.GetProfileAsync(language, cancellationToken);
+    }
+}
+`;
+
+// ── Eject: da template a progetto ────────────────────────────────────────────
+
+function ejectDemo() {
+    console.log('\n  Rimozione demo (template → progetto)...');
+    const fe = join(ROOT, 'frontend/src');
+    const be = join(ROOT, 'backend');
+
+    // Riscrittura dei file "di partenza" (dominio del figlio).
+    writeNew(join(fe, 'app/site.ts'), MINIMAL_SITE_TS);
+    writeNew(join(fe, 'app/pages/home/home.component.ts'), MINIMAL_HOME_TS);
+    writeNew(join(fe, 'app/pages/home/home.component.html'), MINIMAL_HOME_HTML);
+    writeNew(join(fe, 'assets/i18n/addon.it.json'), '{}\n');
+    writeNew(join(fe, 'assets/i18n/addon.en.json'), '{}\n');
+    writeNew(join(be, 'Controllers/BaseController.cs'), MINIMAL_BASECONTROLLER_CS);
+    writeNew(join(be, 'Services/SiteService.cs'), MINIMAL_SITESERVICE_CS);
+
+    // content.resolver: via il case Social (e la dipendenza ApiService, ora inutile).
+    // Rimozioni mirate perché il file contiene template-literal (${...}) non incorporabili.
+    editFile(join(fe, 'app/pages/content.resolver.ts'), src => {
+        src = removeChunk(src, `import { ApiService } from '../core/services/api.service';\n`, 'resolver ApiService import');
+        src = removeChunk(src, `    private readonly apiService = inject(ApiService);\n`, 'resolver ApiService field');
+        src = src.replace(
+            `            if (legalSlug) {
+                content = await this.tryLoadPolicy(legalSlug, language);
+            } else {
+                switch (pageType) {
+                    case PageType.Social:
+                        content = await this.apiService.getSocial();
+                        break;
+                }
+            }`,
+            `            if (legalSlug) {
+                content = await this.tryLoadPolicy(legalSlug, language);
+            }`
+        );
+        return src;
+    });
+
+    // api.service: via getSocial + path + import HttpParams (usato solo lì).
+    editFile(join(fe, 'app/core/services/api.service.ts'), src => {
+        src = removeChunk(src, `import { HttpParams } from '@angular/common/http';\n`, 'api HttpParams import');
+        src = removeChunk(src, `    social: 'social',\n`, 'api social path');
+        src = removeChunk(src,
+`    /**
+     * Recupera i link ai social network.
+     * @param nomi  Filtro opzionale: array di nomi (es. ['facebook','instagram']).
+     * Genera query string con chiavi ripetute: ?nomi=facebook&nomi=instagram
+     */
+    getSocial(nomi?: string[]): Promise<Record<string, string>> {
+        let params = new HttpParams();
+        if (nomi?.length) {
+            nomi.forEach(n => params = params.append('nomi', n));
+        }
+        return this.api_get<Record<string, string>>(API.social, params);
+    }
+
+`, 'api getSocial method');
+        return src;
+    });
+
+    // Cancella la pagina demo Social.
+    rmSync(join(fe, 'app/pages/social'), { recursive: true, force: true });
+    console.log('  ✓  rimossa: frontend/src/app/pages/social');
+
+    // Asset demo 4K (usato dal playground di resize nella home demo): via il file e la voce
+    // dal mapping. Nel progetto resta solo la favicon; la home placeholder non lo referenzia.
+    // Robusto: legge il nome reale del file da mapping.json (chiave img4k), così non è hardcoded.
+    const mappingPath = join(fe, 'assets/mapping.json');
+    if (existsSync(mappingPath)) {
+        try {
+            const mapping = JSON.parse(readFileSync(mappingPath, 'utf-8'));
+            if (mapping.img4k) {
+                rmSync(join(fe, 'assets/files', mapping.img4k), { force: true });
+                delete mapping.img4k;
+                writeFileSync(mappingPath, JSON.stringify(mapping, null, 4) + '\n', 'utf-8');
+                console.log('  ✓  rimosso asset demo 4K (file + voce mapping; resta la favicon)');
+            }
+        } catch {
+            console.warn('  ⚠  mapping.json non leggibile: salto la rimozione dell\'asset 4K');
+        }
+    }
+}
+
+/**
+ * Controlli statici disponibili come gate pre-commit. Ritorna true se si può committare.
+ * Senza node_modules i controlli che richiedono i tool vengono saltati (non bloccano).
+ */
+function runChecks() {
+    if (!existsSync(join(ROOT, 'frontend/node_modules'))) {
+        console.warn('  ⚠  frontend/node_modules assente: salto i controlli statici (lancia `npm install` e ri-verifica).');
+        return true;
+    }
+    const checks = [
+        ['lint', 'bash scripts/test/lint-check.sh'],
+        ['tsc', 'bash scripts/test/tsc-check.sh'],
+        ['i18n', 'bash scripts/test/i18n-check.sh'],
+        ['cicli', 'bash scripts/test/circular-deps-check.sh'],
+    ];
+    let ok = true;
+    for (const [name, cmd] of checks) {
+        console.log(`\n  ▶ ${name}`);
+        try {
+            execSync(cmd, { cwd: ROOT, stdio: 'inherit' });
+        } catch (e) {
+            if (e && e.status === 2) { console.warn(`  ⚠  ${name}: saltato (tool non disponibile)`); continue; }
+            console.error(`  ✗  ${name}: FALLITO`);
+            ok = false;
+        }
+    }
+    return ok;
 }
 
 // ── Main ───────────────────────────────────────────────────────────────────
@@ -154,25 +452,52 @@ async function main() {
         console.log(`  ✓  rinominato: App.sln → ${pascalName}.sln`);
     }
 
-    // ── Promemoria per il resto ──────────────────────────────────────────
-    console.log(`
-──────────────────────────────────────────
- ✅  Completato!
+    // ── 5. Cerimonia "da template a progetto" (DISTRUTTIVA, su conferma) ──
+    console.log('\n──────────────────────────────────────────');
+    console.log(' Cerimonia: da TEMPLATE a PROGETTO');
+    console.log('──────────────────────────────────────────');
+    console.log(' Rimuove la demo (Social + home svuotata + addon + backend minimo),');
+    console.log(' elimina il README vetrina, esegue i controlli, AUTO-CANCELLA setup.mjs');
+    console.log(` e fa un commit locale "init ${displayName}".`);
+    const answer = (await ask('\n  Procedo? [s/N]: ')).toLowerCase();
 
- Identità e config del progetto in global-settings.json (committabile). Da personalizzare lì:
-   • project.version → versione iniziale (se diversa da 1.0.0)
-   • Localization    → lingue del sito
-   • site.description / site.colorTema → descrizione e colore del brand
+    if (answer !== 's' && answer !== 'si' && answer !== 'sì') {
+        console.log('\n  Cerimonia saltata: resta il template completo (demo inclusa).');
+        console.log('  Puoi rilanciare `node setup.mjs` quando sei pronto.\n');
+        return;
+    }
 
- Pubblicazione e segreti in global-settings.local.json (gitignored, già con l'API key):
-   • frontend.hostname    → dominio del sito (es. miodominio.it)
-   • frontend.port        → porta esposta dal container (se diversa da 3000)
-   • Security.CorsOrigins → ["https://miodominio.it"] se si usa un hostname
-   • Security.BehindProxy → true se dietro un reverse proxy
-   • Security.Token.SecretKey → VUOTA = login spento. Per attivarlo: chiave ≥32 char
-     (openssl rand -base64 48) e sostituire la verifica demo in AuthController
-──────────────────────────────────────────
-`);
+    ejectDemo();
+
+    // README vetrina: il template stesso dice "nel figlio si elimina solo questo README".
+    rmSync(join(ROOT, 'README.md'), { force: true });
+    console.log('  ✓  rimosso: README.md (vetrina del template)');
+
+    // Gate: i controlli devono passare prima del commit.
+    console.log('\n  Controlli pre-commit...');
+    if (!runChecks()) {
+        console.error('\n  ✗  Controlli falliti: NIENTE commit. Correggi gli errori e committa a mano.');
+        process.exit(1);
+    }
+
+    // ── Commit "init" + auto-rimozione dello script ─────────────────────
+    // Lo script esce dal versionamento con `git rm --cached`: entra UNA sola volta
+    // nel commit di init (come rimozione) e il file fisico si cancella DOPO il commit.
+    // Cancellare lo script mentre gira è sicuro: Node lo ha già letto in memoria.
+    // (Il commit mostrerà comunque la rimozione di setup.mjs: il figlio conserva la
+    //  storia del template per i merge, quindi non si può nascondere del tutto.)
+    const selfPath = fileURLToPath(import.meta.url);
+    try {
+        execSync('git add -A', { cwd: ROOT, stdio: 'inherit' });
+        try {
+            execSync('git rm --cached --quiet -- setup.mjs', { cwd: ROOT, stdio: 'ignore' });
+        } catch { /* già non tracciato: ok */ }
+        execSync(`git commit -m ${JSON.stringify(`init ${displayName}`)}`, { cwd: ROOT, stdio: 'inherit' });
+        rmSync(selfPath, { force: true });
+        console.log(`\n  ✅  Progetto inizializzato — commit "init ${displayName}" creato, setup.mjs rimosso. Buon lavoro!\n`);
+    } catch {
+        console.warn('\n  ⚠  Commit non riuscito (git assente o niente da committare): setup.mjs lasciato sul posto, committa a mano.\n');
+    }
 }
 
 main().catch(err => {

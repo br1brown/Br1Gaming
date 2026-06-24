@@ -2,7 +2,7 @@ import { Component, computed, inject } from '@angular/core';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { ContentCardComponent } from '../../components/shared/content-card/content-card.component';
 import { PageDirective } from '../../core/engine/directives/page.directive';
-import { PageBaseComponent } from '../page-base.component';
+import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { HomeContent } from '../content.resolver';
 import { PageType } from '../../site';
 import { SITE_CONFIG } from '../../core/engine/siteBuilder';

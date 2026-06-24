@@ -1,6 +1,6 @@
 import { Component, computed, effect, ElementRef, inject, OnDestroy, PLATFORM_ID, signal, viewChild } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { PageBaseComponent } from '../page-base.component';
+import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { ThemeService } from '../../core/engine/services/theme.service';
 import { CookieConsentService } from '../../core/engine/services/cookie-consent.service';

@@ -10,7 +10,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     selector: 'app-cookie-banner',
     imports: [TranslatePipe, MarkdownPipe],
     templateUrl: './cookie-banner.component.html',
-    styleUrl: './cookie-banner.component.css',
+    styleUrl: './cookie-banner.component.scss',
     encapsulation: ViewEncapsulation.None
 })
 export class CookieBannerComponent {
