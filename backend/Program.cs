@@ -5,12 +5,15 @@ using FluentValidation;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.Options;
 using Backend.Delivery;
+using Backend.Gallery;
+using Backend.Generators;
 using Backend.Mail;
 using Backend.Models.Configuration;
 using Backend.Notifications;
 using Backend.Security;
 using Backend.Tasks;
 using Backend.Services;
+using Backend.Stories;
 using Backend.Store;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -87,14 +90,19 @@ var mail = builder.Configuration
 // ── SERVIZI APPLICATIVI ─────────────────────────────────────────────
 // IContentStore (FileContentStore): accesso dati, sostituibile con DB senza toccare controller.
 // SiteService: profilo e social del sito (data/irl.json + social.json).
-// GeneratorService: catalogo e generazione testo (le composizioni sono un suo dettaglio interno).
+// GeneratorService: catalogo e generazione testo (generatori come istanze di classi, composizioni via ereditarietà).
 // StoryService: registro storie e motore narrativo.
 // AuthService: infrastruttura JWT, registrata solo se LoginEnabled.
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IContentStore, FileContentStore>();
 builder.Services.AddScoped<SiteService>();
-builder.Services.AddScoped<GeneratorService>();
-builder.Services.AddSingleton<StoryService>();
+// Generatori: factory di registrazione che auto-scopre gli IGenerator dell'assembly e li indicizza
+// (vedi GeneratorRegistration). Aggiungere un generatore = creare la classe.
+builder.Services.AddGenerators();
+// StoryService: registro storie e motore narrativo (auto-registrazione come i generatori).
+builder.Services.AddStories();
+// Galleria pubblica: store file-based in db/ + firmatario HMAC delle generazioni.
+builder.Services.AddGallery();
 
 // Mailer: il sender (IEngineMailer) più coda + worker di invio in background. Accodare e
 // rispondere subito evita di bloccare la richiesta HTTP sull'I/O SMTP; l'invio (con retry)
