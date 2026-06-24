@@ -9,6 +9,9 @@ public interface IStory
     /// <summary>Slug univoco della storia (usato nell'URL e nel registro).</summary>
     string Slug { get; }
 
+    /// <summary>Posizione nel catalogo (crescente).</summary>
+    int Order { get; }
+
     /// <summary>Titolo della storia.</summary>
     string Title { get; }
 

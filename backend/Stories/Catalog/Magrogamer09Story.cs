@@ -10,6 +10,9 @@ public class Magrogamer09Story : IStory
     public string Slug => "magrogamer09";
 
     /// <inheritdoc />
+    public int Order => 2;
+
+    /// <inheritdoc />
     public string Title => "Magrogamer09 - Il Simulatore di Gamer";
 
     /// <inheritdoc />
