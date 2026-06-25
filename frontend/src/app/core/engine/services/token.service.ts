@@ -64,8 +64,13 @@ export class TokenService implements OnDestroy {
 
         this._token.set(token);
 
-        // Persistenza: usiamo sessionStorage affinché il login resti attivo al refresh
-        // ma venga rimosso alla chiusura della scheda (tab) del browser.
+        // Persistenza in sessionStorage: il login resta al refresh ma sparisce alla chiusura tab.
+        // È l'UNICO accesso diretto al Web Storage fuori da CookieConsentService (allowlist ESLint),
+        // ECCEZIONE DELIBERATA: TokenService è un modulo foglia che rompe il ciclo
+        // api→base-api→auth→api (accoppiarlo al consenso lo re-introdurrebbe), e il bearerToken è
+        // auth strettamente necessaria → bypasserebbe comunque il gate del consenso. È comunque
+        // censito in ENGINE_COOKIE_MAP, quindi compare in policy ed è escluso dalla pulizia: la
+        // compliance è già coperta, migrarlo all'API darebbe solo purezza marginale.
         if (this.isBrowser) sessionStorage.setItem('bearerToken', token);
 
         this.scheduleExpiration(expiration);

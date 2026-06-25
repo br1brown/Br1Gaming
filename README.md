@@ -141,7 +141,7 @@ Regola generale: il **Dominio** si tocca; l'**Engine** (`backend/Engine/`, `fron
 - `global-settings.local.json` (**gitignored**): pubblicazione e segreti del singolo ambiente — hostname e porte, chiavi API, origini CORS, chiave di firma JWT.
 - `security-headers.json` (**del template, non toccare**): header di sicurezza fissi. "Non toccare" vale per il concetto, non in assoluto: se il progetto pretende un'estensione (es. domini extra in CSP per un servizio di mappe), l'override eccezionale si fa modificando il file e annotandolo nella `_nota` interna — e a ogni aggiornamento dal template l'override va rifatto a mano.
 
-**Login e sessione.** La forma del payload di sessione si cambia in due posti speculari: `backend/Models/SessionInfo.cs` e `frontend/src/app/core/dto/session.dto.ts`. I cookie si registrano in `frontend/src/app/core/services/cookie-registry.ts`.
+**Login e sessione.** La forma del payload di sessione si cambia in due posti speculari: `backend/Models/SessionInfo.cs` e `frontend/src/app/core/dto/session.dto.ts`. I cookie e le voci di Web Storage si registrano — stessa API gated dal consenso — in `frontend/src/app/core/services/cookie-registry.ts`.
 
 > Questa è la mappa del *dove*, niente di più. Il **come** passo-passo vive nelle sezioni **"Developer Journey"** di [frontend/README.md](frontend/README.md) e [backend/README.md](backend/README.md): front-end e back-end sono disaccoppiati, ciascuno si racconta per conto suo.
 

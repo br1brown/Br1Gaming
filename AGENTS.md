@@ -45,6 +45,19 @@ getArticolo(id: string): Promise<Articolo> {
 }
 ```
 
+**Persistere dati lato client (cookie o Web Storage)** — UN registro, UN'API, gated dal consenso.
+```typescript
+// core/services/cookie-registry.ts — registra la voce; storage:'local'|'session' = Web Storage (omesso = cookie)
+export const COOKIE_MAP = {
+  'mioSalvataggio': { category: ConsentCategory.Technical, storage: 'local', valueType: 'json',
+                      descriptionKey: 'mioSalvataggioDescrizioneListaCookie' },
+} as const satisfies Readonly<Record<string, CookieConfig>>;
+// nel componente/service — instrada sul mezzo, tipizzato su valueType
+this.consent.set('mioSalvataggio', { x: 1 });   // gated dal consenso; in SSR è no-op (Web Storage browser-only)
+const v = this.consent.get('mioSalvataggio');    // → tipo da valueType | null
+```
+Registrare la voce basta per: toggle nel banner, riga in policy (col mezzo), pulizia alla revoca. **MAI `localStorage`/`sessionStorage` diretti** (lo vieta una regola ESLint, eccetto il `CookieConsentService` e `TokenService`): tutto passa dal gate, l'inventario in policy resta completo. `setCookie/getCookie/removeCookie` sono alias deprecati di `set/get/remove`.
+
 ## Ricette — backend
 
 **Aggiungere un endpoint** (DTO in `Models/`, logica in `Services/`, thin controller)

@@ -1,5 +1,6 @@
-/** Categoria GDPR/ePrivacy del cookie, usata per abbinare il cookie al consenso dell'utente. */
-export enum CookieCategory {
+/** Categoria di consenso (GDPR/ePrivacy) di una voce di archiviazione — vale per cookie E Web
+ *  Storage. Abbina la voce al consenso dell'utente; indipendente dal mezzo (`storage`). */
+export enum ConsentCategory {
     /** Strettamente necessari al funzionamento del sito (lingua, SW, sessione). */
     Technical,
     /** Raccolta dati aggregati per misurare l'utilizzo del sito. */
@@ -10,14 +11,21 @@ export enum CookieCategory {
 
 export type CookieValueType = 'string' | 'number' | 'boolean' | 'json';
 
-/** Metadati di un cookie registrato in `COOKIE_MAP`. */
+/** Mezzo di archiviazione di una voce censita. Default `'cookie'`. `'local'`/`'session'` =
+ *  Web Storage: NON passano da `setCookie`/`getCookie` (che restano cookie-only e tipizzati),
+ *  ma sono comunque elencate nella policy automatica e pulite alla revoca del consenso. */
+export type StorageMedium = 'cookie' | 'local' | 'session';
+
+/** Metadati di una voce registrata in `COOKIE_MAP`/`ENGINE_COOKIE_MAP` (cookie o Web Storage, secondo `storage`). */
 export interface CookieConfig {
-    /** Categoria di consenso a cui appartiene il cookie. */
-    category: CookieCategory;
+    /** Categoria di consenso a cui appartiene la voce. */
+    category: ConsentCategory;
     /** Chiave i18n per la descrizione nella pagina Cookie Policy (opzionale). */
     descriptionKey?: string;
-    /** Tipo primitivo per il cast automatico. Se omesso, di default è 'string' */
+    /** Tipo primitivo per il cast automatico (solo cookie). Se omesso, di default è 'string' */
     valueType?: CookieValueType;
+    /** Mezzo di archiviazione. Omesso = `'cookie'`. */
+    storage?: StorageMedium;
 }
 
 export const CONSENT_KEYS = {
@@ -29,36 +37,59 @@ export const CONSENT_KEYS = {
 export const CONSENT_COOKIE_MAP = {
     /** Memorizza le preferenze dell'utente sui cookie tecnici */
     [CONSENT_KEYS.technical]: {
-        category: CookieCategory.Technical,
+        category: ConsentCategory.Technical,
         descriptionKey: 'consentTechnicalDescrizioneListaCookie',
         valueType: 'boolean'
     },
     /** Memorizza le preferenze dell'utente sui cookie analitici */
     [CONSENT_KEYS.analytics]: {
-        category: CookieCategory.Technical,
+        category: ConsentCategory.Technical,
         descriptionKey: 'consentAnalyticsDescrizioneListaCookie',
         valueType: 'boolean'
     },
     /** Memorizza le preferenze dell'utente sui cookie di profilazione */
     [CONSENT_KEYS.profiling]: {
-        category: CookieCategory.Technical,
+        category: ConsentCategory.Technical,
         descriptionKey: 'consentProfilingDescrizioneListaCookie',
         valueType: 'boolean'
     }
 } as const satisfies Readonly<Record<string, CookieConfig>>;
 
+/**
+ * Voci built-in del MOTORE, su qualsiasi mezzo (`storage`): cookie (lingua, SW, memorie del
+ * consenso) e Web Storage (consent_log, bearerToken). Mappa unica → la stessa logica di policy,
+ * gate e pulizia le tratta tutte; il mezzo lo decide il campo `storage` di ogni voce.
+ */
 export const ENGINE_COOKIE_MAP = {
-    /** Incluso nella lista cookie pubblica solo se `localeConfig.availableLanguages.length > 1` */
+    /** Cookie. Incluso nella lista pubblica solo se `localeConfig.availableLanguages.length > 1` */
     lang: {
-        category: CookieCategory.Technical,
+        category: ConsentCategory.Technical,
         descriptionKey: 'linguaDescrizioneListaCookie',
     },
-    /** Incluso nella lista cookie pubblica solo se `isWebApp` è `true` in site.ts */
+    /** Cookie. Incluso nella lista pubblica solo se `isWebApp` è `true` in site.ts */
     'ngsw-worker.js': {
-        category: CookieCategory.Technical,
+        category: ConsentCategory.Technical,
         descriptionKey: 'swDescrizioneListaCookie',
+    },
+    /** localStorage. Log della scelta di consenso (accountability GDPR). Scritto da CookieConsentService.
+     *  ESSENZIALE → elencato in policy ma mai cancellato dalla revoca. */
+    consent_log: {
+        category: ConsentCategory.Technical,
+        storage: 'local',
+        descriptionKey: 'consentLogDescrizioneListaCookie',
+    },
+    /** sessionStorage. Token di autenticazione (TokenService). Incluso solo se è configurato un login.
+     *  ESSENZIALE → elencato in policy ma mai cancellato dalla revoca. */
+    bearerToken: {
+        category: ConsentCategory.Technical,
+        storage: 'session',
+        descriptionKey: 'bearerTokenDescrizioneListaCookie',
     },
     ...CONSENT_COOKIE_MAP
 } as const satisfies Readonly<Record<string, CookieConfig>>;
 
 export type EngineCookieKey = keyof typeof ENGINE_COOKIE_MAP;
+
+/** Chiavi delle voci essenziali del motore su Web Storage: elencate in policy ma MAI cancellate
+ *  alla revoca (prova del consenso + autenticazione). */
+export const ESSENTIAL_ENGINE_STORAGE_KEYS = ['consent_log', 'bearerToken'] as const;

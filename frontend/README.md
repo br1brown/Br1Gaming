@@ -148,7 +148,7 @@ Il colore del brand è `colorTema`, modificabile a runtime con `ThemeService.set
 
 ### Servizi & componenti
 
-Estendi il client API aggiungendo path e metodo pubblico in `api.service.ts` (con `{ silent: true }` quando vuoi gestire l'errore con una UI tua); abiliti le notifiche realtime con il campanellino via `shell: { showNotifications: true }`; registri un cookie aggiungendo una voce a `COOKIE_MAP`; adatti i DTO di sessione e login in `core/dto/` (`session.dto.ts` e `auth.dto.ts`, allineati ai record C#).
+Estendi il client API aggiungendo path e metodo pubblico in `api.service.ts` (con `{ silent: true }` quando vuoi gestire l'errore con una UI tua); abiliti le notifiche realtime con il campanellino via `shell: { showNotifications: true }`; registri un cookie o una voce di Web Storage aggiungendo una riga a `COOKIE_MAP`; adatti i DTO di sessione e login in `core/dto/` (`session.dto.ts` e `auth.dto.ts`, allineati ai record C#).
 
 Per comporre le UI riusi le direttive dichiarative (`[appPage]` per i link interni, `[appImgRender]`/`[appQrContent]` per immagini e QR generati, `[appContextMenu]` per i menu contestuali), la pipe `markdown` (sanitizzata) e i componenti pronti (`app-link-badge` e le famiglie azione/contatto). La PWA si attiva con `isWebApp`. *Vedi «Aggiungere un Endpoint», «Errori Silenziosi per UI Custom», «NotificationStreamService», «Aggiungere un Nuovo Cookie», «DTO di Sessione e Login», «[appPage]», «Directive di Rendering Dichiarativo», «Componenti di Azione/Contatto».*
 
@@ -311,7 +311,7 @@ Così un 404 di navigazione e un 404 di una `GET` falliscono con parole appropri
 
 ## 🔒 Consenso Cookie e Privacy (GDPR/ePrivacy)
 
-`CookieConsentService` implementa una strategia "Privacy by Default": nessun cookie viene scritto finché l'utente non esprime consenso esplicito per quella categoria.
+`CookieConsentService` gestisce in modo **unificato cookie e Web Storage** (localStorage/sessionStorage) con strategia "Privacy by Default": nessuna voce viene scritta finché l'utente non esprime consenso esplicito per quella categoria. Un'unica mappa, un'unica API (`set`/`get`/`remove`) che instrada sul mezzo giusto, un unico elenco in policy. Conforme al modello "cookie e altri strumenti di tracciamento" delle Linee guida del Garante (2021).
 
 ### Tre Categorie di Consenso
 
@@ -321,30 +321,37 @@ Così un 404 di navigazione e un 404 di una `GET` falliscono con parole appropri
 | **Analytics** | Tracciamento e analytics (Google Analytics, ecc.) |
 | **Profiling** | Pubblicità comportamentale e profilazione |
 
-### Aggiungere un Nuovo Cookie
+### Aggiungere un cookie o una voce di Web Storage
 
-Registra il cookie nel `COOKIE_MAP` (in `src/app/core/services/cookie-registry.ts`), specifica la categoria e il banner mostrerà automaticamente il toggle corrispondente. I tipi (`CookieCategory`, `CookieConfig`) vivono in `src/app/core/engine/services/cookie/cookie-type.ts`:
+Registra la voce nel `COOKIE_MAP` (in `src/app/core/services/cookie-registry.ts`): specifica la categoria e il banner mostra il toggle, la policy la elenca e la pulizia alla revoca la gestisce — automaticamente. **La stessa mappa descrive cookie e Web Storage**: il campo `storage` decide il mezzo (omesso = cookie; `'local'`/`'session'` = Web Storage). I tipi (`ConsentCategory`, `CookieConfig`) vivono in `src/app/core/engine/services/cookie/cookie-type.ts`:
 
 ```typescript
-import { CookieCategory, type CookieConfig } from '../engine/services/cookie/cookie-type';
+import { ConsentCategory, type CookieConfig } from '../engine/services/cookie/cookie-type';
 
 export const COOKIE_MAP = {
     'mioTracker': {
-        category: CookieCategory.Analytics,        // categoria di consenso
+        category: ConsentCategory.Analytics,       // categoria di consenso
         descriptionKey: 'mioTrackerDescrizioneListaCookie', // chiave i18n per la Cookie Policy
         valueType: 'boolean',                       // opzionale: 'string' (default) | 'number' | 'boolean' | 'json'
-    }
+    },
+    'mioSalvataggio': {
+        category: ConsentCategory.Technical,
+        storage: 'local',                           // → localStorage (omesso = cookie; 'session' = sessionStorage)
+        valueType: 'json',
+        descriptionKey: 'mioSalvataggioDescrizioneListaCookie',
+    },
 } as const satisfies Readonly<Record<string, CookieConfig>>;
 ```
 
-`CookieConfig` accetta tre campi: `category`, `descriptionKey?` (chiave i18n per la descrizione mostrata nella Cookie Policy) e `valueType?` (usato per il cast automatico di `getCookie`/`setCookie`). La descrizione è risolta da `descriptionKey` tramite i18n, così resta localizzata in tutte le lingue.
+`CookieConfig`: `category`, `descriptionKey?` (i18n per la Cookie Policy), `valueType?` (cast automatico) e `storage?` (mezzo: cookie / local / session). La descrizione è localizzata tramite `descriptionKey`.
 
 Nel componente:
 ```typescript
-this.consent.setCookie('mioTracker', true, 60 * 60 * 24); // 1 giorno — tipo inferito da valueType
+this.consent.set('mioTracker', true, 60 * 60 * 24); // 1 giorno — tipo inferito da valueType
+this.consent.set('mioSalvataggio', { livello: 3 }); // → localStorage, serializzato in JSON
 ```
 
-Il cookie viene scritto solo se la categoria corrispondente è stata accettata. Il nome fisico del cookie nel browser è prefissato con la categoria (`{category}_{rawKey}`, es. `analytics_mioTracker`); `buildPhysicalCookieKey()` calcola questo nome a partire dalla chiave raw.
+La voce è scritta solo se la categoria è accettata. Per i **cookie** il nome fisico è prefissato con la categoria (`{category}_{rawKey}`, es. `analytics_mioTracker`, via `buildPhysicalCookieKey()`); per il **Web Storage** la chiave è raw (`mioSalvataggio`).
 
 ### Stato del Consenso e Azioni (reattivo)
 
@@ -380,22 +387,24 @@ constructor() {
 }
 ```
 
-### Accessori Cookie Tipizzati
+### Accessori tipizzati — `set` / `get` / `remove`
 
-`getCookie` / `setCookie` / `removeCookie` sono **tipizzati** sulla chiave: il tipo del valore (`boolean` / `number` / `json` / `string`) è inferito da `valueType` nel `CookieConfig` tramite `InferCookieType`, quindi niente cast a mano. La scrittura resta gated dal consenso (e bloccata per chiavi non censite); la lettura no — è di sola lettura, privacy-safe.
+`set` / `get` / `remove` sono **tipizzati** sulla chiave e **instradano da soli** sul mezzo giusto (cookie o Web Storage, secondo `storage`). Il tipo del valore (`boolean` / `number` / `json` / `string`) è inferito da `valueType` tramite `InferCookieType`, quindi niente cast a mano. La scrittura resta gated dal consenso (e bloccata per chiavi non censite) ed è robusta a valori non serializzabili (li salta senza crashare); le letture no — sono privacy-safe. `setCookie`/`getCookie`/`removeCookie` restano come **alias deprecati**.
 
 ```typescript
-this.consent.setCookie('mioTracker', true, 60 * 60 * 24); // value: boolean (da valueType), Max-Age 1 giorno
-const v = this.consent.getCookie('mioTracker');           // → boolean | null, già castato
-this.consent.removeCookie('mioTracker');                  // sempre permesso, anche a consenso revocato
+this.consent.set('mioTracker', true, 60 * 60 * 24); // boolean (da valueType); Max-Age vale solo per i cookie
+const v = this.consent.get('mioTracker');            // → boolean | null, già castato
+this.consent.remove('mioTracker');                   // sempre permesso, anche a consenso revocato
 ```
+
+> ⚠️ **Niente storage diretto.** Una regola ESLint (`no-restricted-globals`) vieta `localStorage`/`sessionStorage` grezzi fuori da `CookieConsentService` e `TokenService` (infra auth). Così *ogni* persistenza passa dal gate del consenso ed è garantita nell'inventario della policy — privacy by default per costruzione, non per memoria. In SSR il Web Storage non è leggibile: `get` torna `null` lato server (non usarlo per contenuto renderizzato SSR — per quello servono i cookie, leggibili dall'header `Cookie`).
 
 ### Service Worker e Consenso Tecnico
 
 Il Service Worker è registrato **solo dopo che l'utente accetta il consenso tecnico**. Questo include:
 - Registrazione `provideServiceWorker()` all'avvio
 - `VersionCheckService` inizia il polling degli aggiornamenti
-- La preferenza lingua viene salvata su `localStorage`
+- La preferenza lingua viene salvata nel cookie `lang`
 
 ### Persistenza Lingua e Consenso
 
@@ -413,7 +422,7 @@ La pagina Cookie Policy deve elencare categorie e cookie usati dal sito (richies
 | Placeholder | Cosa rende |
 | :--- | :--- |
 | `{{cookieCategories}}` | Card delle categorie effettivamente presenti nel sito (Technical / Analytics / Profiling) |
-| `{{cookieList}}` | Tabella dei singoli cookie con nome fisico, categoria e descrizione |
+| `{{cookieList}}` | Tabella delle singole voci (cookie **e Web Storage**) con nome fisico, categoria, **mezzo** e descrizione |
 
 I dati provengono direttamente da `CookieConsentService`: il `PolicyComponent` legge i signal reattivi e costruisce le liste localizzate.
 
@@ -425,14 +434,14 @@ this.cookieConsent.isTechnicalNeeded();  // include lingua (multilingua) e SW (i
 this.cookieConsent.isAnalyticsNeeded();
 this.cookieConsent.isProfilingNeeded();
 
-// Cookie "engine" attivi (lang, ngsw-worker.js, consenso) — già filtrati per configurazione
-this.cookieConsent.activeEngineCookies(); // → Record<string, CookieConfig>
+// Voci "engine" attive (lang, ngsw-worker.js, consenso, consent_log, bearerToken) — filtrate per configurazione
+this.cookieConsent.activeEngine(); // → Record<string, CookieConfig>
 
 // Nome fisico del cookie nel browser (es. 'technical_lang')
 buildPhysicalCookieKey(rawKey, config);
 ```
 
-La lista finale è l'unione di `activeEngineCookies()` (cookie built-in: lingua se multilingua, Service Worker se `isWebApp`, cookie di consenso) e `COOKIE_MAP` (cookie del progetto). Le descrizioni usano le `descriptionKey` di ogni `CookieConfig`; le etichette di categoria usano le chiavi `*CategoriaCookie` / `*DescrizioneCategoriaCookie` in `basic.{lang}.json`.
+La lista finale è l'unione di `activeEngine()` (voci built-in: lingua se multilingua, Service Worker se `isWebApp`, memorie del consenso, più `consent_log` e `bearerToken` su Web Storage) e `COOKIE_MAP` (voci del progetto). Per ogni voce il `PolicyComponent` mostra anche il **mezzo** (Cookie / Archiviazione locale / di sessione). Le descrizioni usano le `descriptionKey`; le etichette di categoria e mezzo le chiavi i18n in `basic.{lang}.json`.
 
 ---
 

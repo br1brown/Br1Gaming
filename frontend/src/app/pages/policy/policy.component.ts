@@ -2,7 +2,7 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { MarkdownPipe } from '../../core/engine/pipes/markdown.pipe';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { CookieConsentService, buildPhysicalCookieKey } from '../../core/engine/services/cookie-consent.service';
-import { CookieCategory, CookieConfig, EngineCookieKey } from '../../core/engine/services/cookie/cookie-type';
+import { ConsentCategory, CookieConfig, EngineCookieKey, StorageMedium } from '../../core/engine/services/cookie/cookie-type';
 import { COOKIE_MAP, type CookieKey } from '../../core/services/cookie-registry';
 import { ProfileRenderComponent } from '../../components/shared/profile-render/profile-render.component';
 import type { Profile } from '../../core/engine/dto/profile.dto';
@@ -15,7 +15,7 @@ import type { Profile } from '../../core/engine/dto/profile.dto';
 export class PolicyComponent extends PageBaseComponent<string> {
     private readonly cookieConsent = inject(CookieConsentService);
 
-    readonly CookieCategory = CookieCategory;
+    readonly ConsentCategory = ConsentCategory;
 
     /** Profilo originale per il ProfileRenderComponent */
     readonly rawProfile = signal<Profile | null>(null);
@@ -24,24 +24,24 @@ export class PolicyComponent extends PageBaseComponent<string> {
     private readonly profileLoaded = signal(false);
 
     readonly cookieCategories = computed(() => {
-        const categories: { key: CookieCategory; name: string; description: string }[] = [];
+        const categories: { key: ConsentCategory; name: string; description: string }[] = [];
         if (this.cookieConsent.isTechnicalNeeded()) {
             categories.push({
-                key: CookieCategory.Technical,
+                key: ConsentCategory.Technical,
                 name: this.translate.translate('tecniciCategoriaCookie'),
                 description: this.translate.translate('tecniciDescrizioneCategoriaCookie')
             });
         }
         if (this.cookieConsent.isAnalyticsNeeded()) {
             categories.push({
-                key: CookieCategory.Analytics,
+                key: ConsentCategory.Analytics,
                 name: this.translate.translate('analyticsCategoriaCookie'),
                 description: this.translate.translate('analyticsDescrizioneCategoriaCookie')
             });
         }
         if (this.cookieConsent.isProfilingNeeded()) {
             categories.push({
-                key: CookieCategory.Profiling,
+                key: ConsentCategory.Profiling,
                 name: this.translate.translate('profilazioneCategoriaCookie'),
                 description: this.translate.translate('profilazioneDescrizioneCategoriaCookie')
             });
@@ -49,30 +49,46 @@ export class PolicyComponent extends PageBaseComponent<string> {
         return categories;
     });
 
+    /** Etichetta tradotta della categoria di consenso. */
+    private categoryLabel(category: ConsentCategory): string {
+        switch (category) {
+            case ConsentCategory.Analytics: return this.translate.translate('analyticsCategoriaCookie');
+            case ConsentCategory.Profiling: return this.translate.translate('profilazioneCategoriaCookie');
+            case ConsentCategory.Technical: return this.translate.translate('tecniciCategoriaCookie');
+            default: return '';
+        }
+    }
+
+    /** Etichetta tradotta del mezzo di archiviazione (cookie / local / session). */
+    private mediumLabel(medium: StorageMedium): string {
+        switch (medium) {
+            case 'local': return this.translate.translate('mezzoLocalStorageListaCookie');
+            case 'session': return this.translate.translate('mezzoSessionStorageListaCookie');
+            default: return this.translate.translate('mezzoCookieListaCookie');
+        }
+    }
+
     readonly cookieList = computed(() => {
-        const allCookies: Record<string, CookieConfig> = {
-            ...this.cookieConsent.activeEngineCookies(),
+        // Mappa UNICA: built-in del motore attivi + voci del progetto. Il mezzo (cookie / local /
+        // session) lo decide `config.storage`; il nome fisico è namespaced per i cookie, raw per lo storage.
+        const all: Record<string, CookieConfig> = {
+            ...this.cookieConsent.activeEngine(),
             ...COOKIE_MAP,
         };
 
-        const list: { name: string; category: CookieCategory; categoryName: string; description: string }[] = [];
-        
-        for (const [rawKey, config] of Object.entries(allCookies) as [string, CookieConfig][]) {
-            const desc = config.descriptionKey ? this.translate.translate(config.descriptionKey) : '';
-            const fullKey = buildPhysicalCookieKey(rawKey as CookieKey | EngineCookieKey, config) ?? rawKey;
-            
-            let categoryName = '';
-            switch (config.category) {
-                case CookieCategory.Analytics: categoryName = this.translate.translate('analyticsCategoriaCookie'); break;
-                case CookieCategory.Profiling: categoryName = this.translate.translate('profilazioneCategoriaCookie'); break;
-                case CookieCategory.Technical: categoryName = this.translate.translate('tecniciCategoriaCookie'); break;
-            }
+        const list: { name: string; category: ConsentCategory; categoryName: string; description: string; medium: StorageMedium; mediumLabel: string }[] = [];
 
+        for (const [rawKey, config] of Object.entries(all) as [string, CookieConfig][]) {
+            const medium = config.storage ?? 'cookie';
             list.push({
-                name: fullKey,
+                name: medium === 'cookie'
+                    ? buildPhysicalCookieKey(rawKey as CookieKey | EngineCookieKey, config) ?? rawKey
+                    : rawKey,
                 category: config.category,
-                categoryName,
-                description: desc
+                categoryName: this.categoryLabel(config.category),
+                description: config.descriptionKey ? this.translate.translate(config.descriptionKey) : '',
+                medium,
+                mediumLabel: this.mediumLabel(medium),
             });
         }
         return list;
