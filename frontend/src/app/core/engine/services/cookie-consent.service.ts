@@ -3,7 +3,7 @@ import { Injectable, computed, inject, isDevMode, PLATFORM_ID, REQUEST, signal, 
 import { COOKIE_MAP, type CookieKey } from '../../services/cookie-registry';
 import { LOCALE_CONFIG } from '../services/translate.service';
 import { SITE_CONFIG } from '../siteBuilder';
-import { CookieCategory, CookieConfig, ENGINE_COOKIE_MAP, EngineCookieKey, CONSENT_COOKIE_MAP, CONSENT_KEYS } from './cookie/cookie-type';
+import { ConsentCategory, CookieConfig, CookieValueType, ENGINE_COOKIE_MAP, EngineCookieKey, ESSENTIAL_ENGINE_STORAGE_KEYS, CONSENT_COOKIE_MAP, CONSENT_KEYS, StorageMedium } from './cookie/cookie-type';
 
 export type { CookieKey } from '../../services/cookie-registry';
 
@@ -21,7 +21,7 @@ export type InferCookieType<K extends CookieKey | EngineCookieKey> =
  * Controlla se il consenso tecnico è stato già salvato nei cookie fisici del browser.
  * Fonte unica della chiave — usata anche da app.config.ts per decidere
  * se abilitare il Service Worker all'avvio dell'app prima del bootstrap di Angular.
- * 
+ *
  * @returns {boolean} True se il cookie di consenso tecnico è presente e vale '1'.
  */
 export function isTechnicalConsentGiven(): boolean {
@@ -68,7 +68,7 @@ export function buildPhysicalCookieKey(rawKey: CookieKey | EngineCookieKey, conf
     // Sanitizzazione sicura (sottobanco): rimuove qualsiasi carattere che non sia
     // alfanumerico, trattino o underscore per evitare problemi nel parser nativo
     const safeKey = rawKey.replace(/[^a-zA-Z0-9_-]/g, '');
-    const prefix = CookieCategory[cfg.category].toLowerCase();
+    const prefix = ConsentCategory[cfg.category].toLowerCase();
     return `${prefix}_${safeKey}`;
 }
 
@@ -110,15 +110,15 @@ export class CookieConsentService {
     readonly isTechnicalNeeded = computed(() =>
         this.localeConfig.availableLanguages.length > 1
         || this.siteConfig.isWebApp
-        || (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === CookieCategory.Technical)
+        || (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === ConsentCategory.Technical)
     );
 
     readonly isAnalyticsNeeded = computed(() =>
-        (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === CookieCategory.Analytics)
+        (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === ConsentCategory.Analytics)
     );
 
     readonly isProfilingNeeded = computed(() =>
-        (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === CookieCategory.Profiling)
+        (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === ConsentCategory.Profiling)
     );
 
     /** True se almeno una categoria richiede il consenso.
@@ -142,43 +142,55 @@ export class CookieConsentService {
     private readonly _responded = signal(false);
     readonly responded = this._responded.asReadonly();
 
-    private readonly _activeEngineCookies = signal<Record<string, CookieConfig>>({});
-    readonly activeEngineCookies = this._activeEngineCookies.asReadonly();
+    /** Voci built-in del motore attive per questa configurazione (cookie lingua/SW/memorie del
+     *  consenso + Web Storage consent_log/bearerToken). Esposte alla policy per l'elenco unico. */
+    private readonly _activeEngine = signal<Record<string, CookieConfig>>({});
+    readonly activeEngine = this._activeEngine.asReadonly();
     private readonly _cm: Readonly<Record<string, CookieConfig | undefined>>;
 
     constructor() {
-        // Popoliamo i cookie "engine" (built-in) dinamicamente in base alla configurazione.
-        const engineCookies: Record<string, CookieConfig> = {};
+        // Popoliamo le voci "engine" (built-in) dinamicamente in base alla configurazione.
+        // Mappa unica: cookie (lingua, SW, memorie del consenso) + Web Storage (consent_log, bearerToken).
+        const engine: Record<string, CookieConfig> = {};
 
         // Se ci sono più lingue, il cookie della lingua diventa tecnicamente necessario
         if (this.localeConfig.availableLanguages.length > 1) {
-            engineCookies['lang'] = ENGINE_COOKIE_MAP['lang'];
+            engine['lang'] = ENGINE_COOKIE_MAP['lang'];
         }
 
         // Se è una PWA, il cookie del service worker diventa necessario
         if (this.siteConfig.isWebApp) {
-            engineCookies[CookieConsentService.NGSW_WORKER] = ENGINE_COOKIE_MAP['ngsw-worker.js'];
+            engine[CookieConsentService.NGSW_WORKER] = ENGINE_COOKIE_MAP['ngsw-worker.js'];
         }
 
         // ATTENZIONE: le proprietà isXxxNeeded() sono computed signals.
-        // Durante la fase di costruttore (o init), chiamarle potrebbe restituire dati falsati o dare errore 
+        // Durante la fase di costruttore (o init), chiamarle potrebbe restituire dati falsati o dare errore
         // se altri signal di cui dipendono non si sono stabilizzati.
         // Per questo motivo, qui ricalcoliamo la stessa logica "a mano" in modo sincrono usando i dati grezzi.
         const isTechnicalNeededNow =
             this.localeConfig.availableLanguages.length > 1
             || this.siteConfig.isWebApp
-            || (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === CookieCategory.Technical);
+            || (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === ConsentCategory.Technical);
 
-        const isAnalyticsNeededNow = (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === CookieCategory.Analytics);
-        const isProfilingNeededNow = (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === CookieCategory.Profiling);
+        const isAnalyticsNeededNow = (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === ConsentCategory.Analytics);
+        const isProfilingNeededNow = (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === ConsentCategory.Profiling);
 
         // Se una categoria richiede consenso, registriamo i cookie built-in che memorizzano quel consenso
-        if (isTechnicalNeededNow) engineCookies[CONSENT_KEYS.technical] = CONSENT_COOKIE_MAP[CONSENT_KEYS.technical];
-        if (isAnalyticsNeededNow) engineCookies[CONSENT_KEYS.analytics] = CONSENT_COOKIE_MAP[CONSENT_KEYS.analytics];
-        if (isProfilingNeededNow) engineCookies[CONSENT_KEYS.profiling] = CONSENT_COOKIE_MAP[CONSENT_KEYS.profiling];
+        if (isTechnicalNeededNow) engine[CONSENT_KEYS.technical] = CONSENT_COOKIE_MAP[CONSENT_KEYS.technical];
+        if (isAnalyticsNeededNow) engine[CONSENT_KEYS.analytics] = CONSENT_COOKIE_MAP[CONSENT_KEYS.analytics];
+        if (isProfilingNeededNow) engine[CONSENT_KEYS.profiling] = CONSENT_COOKIE_MAP[CONSENT_KEYS.profiling];
 
-        this._activeEngineCookies.set(engineCookies);
-        this._cm = { ...engineCookies, ...COOKIE_MAP };
+        // Web Storage del motore: consent_log quando il banner è attivo, bearerToken solo se è
+        // configurato un login. Essenziali → elencati in policy ma esclusi dalla pulizia alla revoca.
+        if (isTechnicalNeededNow || isAnalyticsNeededNow || isProfilingNeededNow) {
+            engine['consent_log'] = ENGINE_COOKIE_MAP['consent_log'];
+        }
+        if (this.siteConfig.loginPage != null) {
+            engine['bearerToken'] = ENGINE_COOKIE_MAP['bearerToken'];
+        }
+
+        this._activeEngine.set(engine);
+        this._cm = { ...engine, ...COOKIE_MAP };
 
         if (this.isBrowser) {
             try {
@@ -308,48 +320,57 @@ export class CookieConsentService {
         } catch { }
     }
 
-    // ─── GESTIONE COOKIE ────────────────────────────────────────────────
+    // ─── GESTIONE ARCHIVIAZIONE (cookie + Web Storage) ──────────────────
     //
-    // Chiave fisica nel browser: {category}.{rawKey} (eccetto service worker)
-    //
-    // Gestisce in modo unificato sia CookieKey (progetto) che EngineCookieKey (built-in).
-    //
-    // I tre metodi includono un check runtime difensivo per eventuali cast `as any`.
-    // Una chiave non censita blocca la scrittura con console.error (Privacy by Default).
+    // Chiave fisica del cookie: {category}_{rawKey} (eccetto service worker). Per il Web Storage
+    // la chiave è raw. Il mezzo lo decide `config.storage`; set/get/remove instradano da soli.
+    // Gestisce in modo unificato CookieKey (progetto) ed EngineCookieKey (built-in).
+    // Una chiave non censita blocca la scrittura (Privacy by Default).
 
     /**
-     * Scrive un cookie fisicamente nel browser dell'utente.
-     * La scrittura viene automaticamente bloccata se la chiave non è censita (per prevenire cookie "orfani")
-     * o se l'utente non ha prestato il consenso per la categoria relativa.
+     * Scrive una voce nello storage del browser — cookie o Web Storage, secondo `config.storage`.
+     * Bloccata se la chiave non è censita o se manca il consenso per la categoria (Privacy by Default).
+     * I cookie di memoria del consenso bypassano il gate (serve poter salvare lo "0" su rifiuto).
      *
-     * @param key La chiave tipizzata del cookie (es. 'temaScuro'), deve essere presente in `COOKIE_MAP`.
+     * @param key La chiave tipizzata, presente in `COOKIE_MAP`/`ENGINE_COOKIE_MAP`.
      * @param value Il valore tipizzato in base alla configurazione.
-     * @param maxAgeSeconds La durata del cookie in secondi (es. `60 * 60 * 24` per un giorno).
+     * @param maxAgeSeconds Durata in secondi (solo cookie; ignorata dal Web Storage).
      */
-    setCookie<K extends CookieKey | EngineCookieKey>(key: K, value: InferCookieType<K>, maxAgeSeconds: number = 60 * 60 * 24 * 365): void {
+    set<K extends CookieKey | EngineCookieKey>(key: K, value: InferCookieType<K>, maxAgeSeconds: number = 60 * 60 * 24 * 365): void {
         const rawKey = key as string;
         const config = this._cm[rawKey];
-        const fullKey = buildPhysicalCookieKey(key, config);
-        
-        // I cookie di stato del consenso bypassano il blocco di scrittura,
-        // altrimenti non potremmo memorizzare uno "0" se l'utente rifiuta i tecnici!
+        if (!config || !this.isBrowser) return;
+
+        // I memo del consenso bypassano il gate, altrimenti non potremmo salvare uno "0" su rifiuto.
         const isConsentMemo = (Object.values(CONSENT_KEYS) as string[]).includes(rawKey);
-        
-        if (!fullKey || !config || (!this.isCategoryAccepted(config.category) && !isConsentMemo) || !this.isBrowser) return;
+        if (!this.isCategoryAccepted(config.category) && !isConsentMemo) return;
 
-        let strValue = '';
-        const type = config.valueType || 'string';
+        const strValue = this.serialize(value, config.valueType);
+        if (strValue === null) return; // valore non serializzabile → nessuna scrittura (niente crash)
+        const medium = config.storage ?? 'cookie';
 
-        if (type === 'boolean')
-            strValue = value ? '1' : '0';
-        else if (type === 'number')
-            strValue = String(value);
-        else if (type === 'json')
-            strValue = JSON.stringify(value);
-        else
-            strValue = String(value);
+        if (medium === 'cookie') {
+            const fullKey = buildPhysicalCookieKey(key, config);
+            if (!fullKey) return;
+            this.document.cookie = `${fullKey}=${encodeURIComponent(strValue)}; Max-Age=${maxAgeSeconds}${this.cookieSecurityAttributes()}`;
+        } else {
+            this.writeWebStorage(rawKey, strValue, medium);
+        }
+    }
 
-        this.document.cookie = `${fullKey}=${encodeURIComponent(strValue)}; Max-Age=${maxAgeSeconds}${this.cookieSecurityAttributes()}`;
+    /** Serializza un valore in stringa secondo il `valueType` (comune a cookie e Web Storage).
+     *  Ritorna `null` se il valore non è serializzabile (JSON circolare, `undefined`, ecc.): la
+     *  scrittura viene SALTATA invece di propagare un'eccezione e rompere il chiamante. */
+    private serialize(value: unknown, type: CookieValueType = 'string'): string | null {
+        try {
+            if (type === 'boolean') return value ? '1' : '0';
+            if (type === 'number') return String(value);
+            if (type === 'json') return JSON.stringify(value) ?? null;
+            return String(value);
+        } catch (err) {
+            if (isDevMode()) console.warn('[CookieConsentService] valore non serializzabile, scrittura saltata', err);
+            return null;
+        }
     }
 
     /**
@@ -364,37 +385,31 @@ export class CookieConsentService {
     }
 
     /**
-     * Legge il valore di un cookie.
-     * La lettura viene bloccata (ritorna `null`) se la chiave non è censita.
-     * Non verifica il consenso attuale, limitandosi a restituire il valore fisicamente presente nel browser.
+     * Legge una voce — cookie o Web Storage, secondo `config.storage`. Ritorna `null` se non
+     * censita o assente. Le letture non richiedono consenso (il gate è solo sulla scrittura).
+     * I cookie si leggono anche in SSR (header della request); il Web Storage è browser-only → in
+     * SSR torna `null` (per questo le voci storage non vanno usate per contenuto renderizzato SSR).
      *
-     * @param key La chiave tipizzata del cookie.
-     * @returns Il valore decodificato e castato automaticamente, o `null` se il cookie non esiste o non è censito.
+     * @param key La chiave tipizzata della voce.
+     * @returns Il valore decodificato e castato, o `null` se assente o non censito.
      */
-    getCookie<K extends CookieKey | EngineCookieKey>(key: K): InferCookieType<K> | null {
-        const fullKey = buildPhysicalCookieKey(key);
-        if (!fullKey) return null;
-
-        const rawString = this.readRawCookie(fullKey);
-        if (rawString === null) return null;
-
+    get<K extends CookieKey | EngineCookieKey>(key: K): InferCookieType<K> | null {
         const config = this._cm[key as string];
-        const type = config?.valueType || 'string';
+        if (!config) return null;
+        const medium = config.storage ?? 'cookie';
+        const raw = medium === 'cookie'
+            ? this.readRawCookie(buildPhysicalCookieKey(key, config) ?? (key as string))
+            : this.readWebStorage(key as string, medium);
+        if (raw === null) return null;
+        return this.deserialize<InferCookieType<K>>(raw, config.valueType);
+    }
 
-        // Gestione del casting automatico basato sul 'valueType' della configurazione:
-        // Se è 'boolean', consideriamo validi i valori testuali '1' o 'true'
-        if (type === 'boolean') return (rawString === '1' || rawString === 'true') as InferCookieType<K>;
-        // Se è 'number', parsiamo a Float, restituendo null se non è un numero valido
-        if (type === 'number') {
-            const num = parseFloat(rawString);
-            return isNaN(num) ? null : (num as InferCookieType<K>);
-        }
-        // Se è 'json', parsiamo il payload (avvolto nel try-catch per sicurezza)
-        if (type === 'json') {
-            try { return JSON.parse(rawString) as InferCookieType<K>; } catch { return null; }
-        }
-        // Default: restituisce stringa
-        return rawString as InferCookieType<K>;
+    /** Deserializza una stringa nel tipo dichiarato (`valueType`). Comune a cookie e Web Storage. */
+    private deserialize<T>(raw: string, type: CookieValueType = 'string'): T | null {
+        if (type === 'boolean') return (raw === '1' || raw === 'true') as T;
+        if (type === 'number') { const n = parseFloat(raw); return isNaN(n) ? null : (n as T); }
+        if (type === 'json') { try { return JSON.parse(raw) as T; } catch { return null; } }
+        return raw as T;
     }
 
     /**
@@ -419,21 +434,51 @@ export class CookieConsentService {
     }
 
     /**
-     * Rimuove un cookie dal browser dell'utente.
-     * A differenza della scrittura, l'eliminazione è sempre consentita anche se l'utente ha revocato il consenso.
+     * Rimuove una voce — cookie o Web Storage, secondo `config.storage`.
+     * A differenza della scrittura, l'eliminazione è sempre consentita anche a consenso revocato.
      *
-     * @param key La chiave tipizzata del cookie da eliminare.
+     * @param key La chiave tipizzata della voce da eliminare.
      */
-    removeCookie(key: CookieKey | EngineCookieKey): void {
+    remove(key: CookieKey | EngineCookieKey): void {
         if (!this.isBrowser) return;
-        // Rimozione "best-effort": una chiave non censita qui è innocua, quindi
-        // risolviamo il nome fisico in silenzio — niente console.error, a differenza
-        // di set/getCookie dove una chiave ignota segnala un errore di programmazione.
         const config = this._cm[key as string];
-        const fullKey = config
-            ? buildPhysicalCookieKey(key, config) ?? (key as string)
-            : (key as string);
-        this.document.cookie = `${fullKey}=; Max-Age=0${this.cookieSecurityAttributes()}`;
+        const medium = config?.storage ?? 'cookie';
+        if (medium === 'cookie') {
+            // Best-effort: una chiave non censita qui è innocua, risolviamo il nome in silenzio.
+            const fullKey = config ? buildPhysicalCookieKey(key, config) ?? (key as string) : (key as string);
+            this.document.cookie = `${fullKey}=; Max-Age=0${this.cookieSecurityAttributes()}`;
+        } else {
+            this.removeWebStorage(key as string, medium);
+        }
+    }
+
+    // ─── ALIAS DI COMPATIBILITÀ (deprecati) ─────────────────────────────
+    // L'API era storicamente cookie-only. Ora set/get/remove instradano anche sul Web Storage in
+    // base a `config.storage`; questi alias restano per non rompere i call-site esistenti.
+
+    /** @deprecated Usa `set` (instrada anche su Web Storage). */
+    setCookie<K extends CookieKey | EngineCookieKey>(key: K, value: InferCookieType<K>, maxAgeSeconds?: number): void {
+        this.set(key, value, maxAgeSeconds);
+    }
+    /** @deprecated Usa `get`. */
+    getCookie<K extends CookieKey | EngineCookieKey>(key: K): InferCookieType<K> | null {
+        return this.get(key);
+    }
+    /** @deprecated Usa `remove`. */
+    removeCookie(key: CookieKey | EngineCookieKey): void {
+        this.remove(key);
+    }
+
+    /** Scrive nel Web Storage (browser-only, best-effort). Chiave raw, non prefissata come i cookie. */
+    private writeWebStorage(rawKey: string, value: string, medium: StorageMedium): void {
+        if (!this.isBrowser) return;
+        try { (medium === 'session' ? sessionStorage : localStorage).setItem(rawKey, value); } catch { }
+    }
+
+    /** Legge dal Web Storage (browser-only). Chiave raw. */
+    private readWebStorage(rawKey: string, medium: StorageMedium): string | null {
+        if (!this.isBrowser) return null;
+        try { return (medium === 'session' ? sessionStorage : localStorage).getItem(rawKey); } catch { return null; }
     }
 
     // ─── PREFERENZA LINGUA (built-in) ───────────────────────────────────
@@ -455,11 +500,11 @@ export class CookieConsentService {
 
     // ─── HELPER INTERNI ───────────────────────────────────────────────
 
-    private isCategoryAccepted(category: CookieCategory): boolean {
+    private isCategoryAccepted(category: ConsentCategory): boolean {
         switch (category) {
-            case CookieCategory.Technical: return this._technicalAccepted();
-            case CookieCategory.Analytics: return this._analyticsAccepted();
-            case CookieCategory.Profiling: return this._profilingAccepted();
+            case ConsentCategory.Technical: return this._technicalAccepted();
+            case ConsentCategory.Analytics: return this._analyticsAccepted();
+            case ConsentCategory.Profiling: return this._profilingAccepted();
             default: return false;
         }
     }
@@ -483,21 +528,35 @@ export class CookieConsentService {
     }
 
     /**
-     * Rimuove fisicamente dal browser tutti i cookie gestiti la cui categoria associata
-     * è attualmente rifiutata dall'utente.
-     * I cookie di "memoria" del consenso vengono ignorati per non perdere la scelta dell'utente.
+     * Rimuove fisicamente dal browser tutte le voci gestite (cookie + Web Storage) la cui categoria
+     * è attualmente rifiutata dall'utente. Sono ignorate: le memorie del consenso e il Web Storage
+     * essenziale del motore (consent_log, bearerToken), per non perdere prova del consenso e sessione.
      */
     private clearRevokedCookies(): void {
         if (!this.isBrowser) return;
 
         for (const [rawKey, config] of Object.entries(this._cm) as [string, CookieConfig | undefined][]) {
-            // Saltiamo il file del Service Worker e i cookie di "memoria" del consenso
-            if (!config || rawKey === CookieConsentService.NGSW_WORKER || (Object.values(CONSENT_KEYS) as string[]).includes(rawKey)) {
+            // Saltiamo: Service Worker, memorie del consenso e Web Storage essenziale del motore.
+            if (!config
+                || rawKey === CookieConsentService.NGSW_WORKER
+                || (Object.values(CONSENT_KEYS) as string[]).includes(rawKey)
+                || (ESSENTIAL_ENGINE_STORAGE_KEYS as readonly string[]).includes(rawKey)) {
                 continue;
             }
+            // remove() instrada da solo su cookie o Web Storage in base a config.storage.
             if (!this.isCategoryAccepted(config.category)) {
-                this.removeCookie(rawKey as CookieKey | EngineCookieKey);
+                this.remove(rawKey as CookieKey | EngineCookieKey);
             }
         }
+    }
+
+    /** Rimuove una voce dal Web Storage (browser-only, best-effort). Il nome è la chiave raw,
+     *  non prefissata come i cookie. */
+    private removeWebStorage(rawKey: string, medium: StorageMedium): void {
+        if (!this.isBrowser) return;
+        try {
+            if (medium === 'session') sessionStorage.removeItem(rawKey);
+            else localStorage.removeItem(rawKey);
+        } catch { }
     }
 }

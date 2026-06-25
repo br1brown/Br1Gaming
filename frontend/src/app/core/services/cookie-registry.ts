@@ -15,8 +15,8 @@ import { ConsentCategory, type CookieConfig } from "../engine/services/cookie/co
  * Con mappa vuota: CookieKey = never → set/get non sono invocabili a compile-time.
  *
  * Esempi:
- *   '_ga':          { category: ConsentCategory.Analytics, descriptionKey: 'cookieDescGa' },               // cookie
- *   'mioSalvataggio':{ category: ConsentCategory.Technical, storage: 'local', valueType: 'json', ... },     // localStorage
+ *   '_ga':           { category: ConsentCategory.Analytics, descriptionKey: 'cookieDescGa' },               // cookie
+ *   'mioSalvataggio': { category: ConsentCategory.Technical, storage: 'local', valueType: 'json', ... },     // localStorage
  */
 export const COOKIE_MAP = {
     'storyPlayerState': { category: ConsentCategory.Technical, descriptionKey: 'gamingCookieDescStoryPlayerState' },

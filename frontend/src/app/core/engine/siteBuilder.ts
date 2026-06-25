@@ -12,6 +12,28 @@ import { buildPolicySection, legalSlugFor } from './legal/legal-pages';
 
 export const SITE_CONFIG = new InjectionToken<SiteConfig>('SITE_CONFIG');
 
+/**
+ * Flag di layout consumati dalla SHELL (root `app-root`, FUORI dal `<router-outlet>`).
+ * Essendo fuori dall'outlet, la shell non può riceverli come input di rotta né via DI di
+ * rotta: li legge dallo snapshot del router. Viaggiano quindi in `route.data`, ma raggruppati
+ * sotto `SHELL_DATA_KEY` — separati dai `data` liberi del figlio (che restano flat → input del
+ * componente) e tipati end-to-end (`routing.ts` li scrive, `app.component.ts` li legge).
+ */
+export interface ShellFlags {
+    /** Mostra la navbar. Default (assente): mostrata, salvo `site.showNav` globale off. */
+    showNav?: boolean;
+    /** Mostra il pannello contenuti. Default (assente): mostrato. */
+    showPanel?: boolean;
+    /** Mostra il footer. Default (assente): mostrato. */
+    showFooter?: boolean;
+    /** Vista full-bleed (niente pannello/container). Default (assente): off. */
+    fitViewport?: boolean;
+}
+
+/** Chiave RISERVATA in `route.data` sotto cui l'Engine mette i `ShellFlags`. Non usarla nei `data`
+ *  liberi del figlio in `site.ts`: è lo slot del motore per la shell. */
+export const SHELL_DATA_KEY = 'engineShell';
+
 //
 // ARCHITETTURA DEL DSL
 //
@@ -390,16 +412,15 @@ export type ParentPage = Omit<ParentPageInput, 'children' | 'kind'> & {
 /**
  * Versione interna normalizzata della pagina foglia.
  *
- * I sotto-oggetti `layout` e `otherSEO` vengono appiattiti al top-level:
- * il resto del motore (router, app shell, ContentResolver) li consuma
- * direttamente senza dover navigare i sotto-oggetti.
+ * `otherSEO` è appiattito al top-level; le levette di layout sono RAGGRUPPATE nell'oggetto
+ * `shell` (ShellFlags), che viaggia coerente fino a `route.data[SHELL_DATA_KEY]` senza essere
+ * appiattito e poi riraggruppato. `pageFade` resta a parte: passa flat in `route.data` e diventa
+ * input di PageBaseComponent.
  */
 export type LeafPage = Omit<LeafPageInput, 'kind' | 'layout' | 'otherSEO'> & {
     kind: 'leaf';
-    showPanel?: boolean;
-    showNav?: boolean;
-    showFooter?: boolean;
-    fitViewport?: boolean;
+    /** Levette di shell raggruppate, lette dal root via `route.data[SHELL_DATA_KEY]`. */
+    shell: ShellFlags;
     pageFade?: boolean;
     ogImage?: string | false;
     ogType?: string;
@@ -580,13 +601,16 @@ const normalizeSitePage = (
             ...rest,
             enabled: page.enabled ?? true,
             kind: 'leaf',
-            showPanel: layout?.showPanel,
-            showNav: layout?.showNav,
-            // Default contestuale: una vista full-bleed (fitViewport) nasconde il footer salvo
-            // riattivarlo esplicitamente con showFooter. Il default universale (mostrato) resta
-            // nello shell; qui il builder risolve solo la coerenza tra i due flag di layout.
-            showFooter: layout?.showFooter ?? (layout?.fitViewport ? false : undefined),
-            fitViewport: layout?.fitViewport,
+            // Levette di shell raggruppate in un oggetto ShellFlags: UNICO punto di traduzione
+            // DSL → trasporto, poi viaggia intatto fino a route.data (routing.ts non riraggruppa).
+            // Default contestuale: full-bleed (fitViewport) nasconde il footer salvo override
+            // esplicito; il default universale "mostrato" resta nella shell (app.component).
+            shell: {
+                showNav: layout?.showNav,
+                showPanel: layout?.showPanel,
+                showFooter: layout?.showFooter ?? (layout?.fitViewport ? false : undefined),
+                fitViewport: layout?.fitViewport,
+            } satisfies ShellFlags,
             pageFade: layout?.pageFade,
             ogImage: otherSEO?.ogImage,
             ogType: otherSEO?.ogType,

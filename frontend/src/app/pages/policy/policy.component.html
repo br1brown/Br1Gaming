@@ -13,9 +13,9 @@
                                         <div class="d-flex align-items-center mb-3">
                                             <div class="bg-light rounded p-3 me-3 d-flex align-items-center justify-content-center">
                                                 @switch (cat.key) {
-                                                    @case (CookieCategory.Technical) { <i class="fa-solid fa-shield-halved text-success fs-4"></i> }
-                                                    @case (CookieCategory.Analytics) { <i class="fa-solid fa-chart-line text-info fs-4"></i> }
-                                                    @case (CookieCategory.Profiling) { <i class="fa-solid fa-user-gear text-warning fs-4"></i> }
+                                                    @case (ConsentCategory.Technical) { <i class="fa-solid fa-shield-halved text-success fs-4"></i> }
+                                                    @case (ConsentCategory.Analytics) { <i class="fa-solid fa-chart-line text-info fs-4"></i> }
+                                                    @case (ConsentCategory.Profiling) { <i class="fa-solid fa-user-gear text-warning fs-4"></i> }
                                                 }
                                             </div>
                                             <h5 class="card-title mb-0 fw-bold">{{ cat.name }}</h5>
@@ -34,22 +34,30 @@
                                     <div class="d-flex align-items-center gap-2 flex-wrap">
                                         <code>{{ cookie.name }}</code>
                                         @switch (cookie.category) {
-                                            @case (CookieCategory.Technical) {
+                                            @case (ConsentCategory.Technical) {
                                                 <span class="badge px-3 py-1 rounded-pill text-uppercase bg-success-subtle text-success-emphasis" style="letter-spacing: 0.5px; font-size: 0.75rem;">
                                                     {{ cookie.categoryName }}
                                                 </span>
                                             }
-                                            @case (CookieCategory.Analytics) {
+                                            @case (ConsentCategory.Analytics) {
                                                 <span class="badge px-3 py-1 rounded-pill text-uppercase bg-info-subtle text-info-emphasis" style="letter-spacing: 0.5px; font-size: 0.75rem;">
                                                     {{ cookie.categoryName }}
                                                 </span>
                                             }
-                                            @case (CookieCategory.Profiling) {
+                                            @case (ConsentCategory.Profiling) {
                                                 <span class="badge px-3 py-1 rounded-pill text-uppercase bg-warning-subtle text-warning-emphasis" style="letter-spacing: 0.5px; font-size: 0.75rem;">
                                                     {{ cookie.categoryName }}
                                                 </span>
                                             }
                                         }
+                                        <span class="badge px-3 py-1 rounded-pill text-uppercase bg-secondary-subtle text-secondary-emphasis" style="letter-spacing: 0.5px; font-size: 0.75rem;">
+                                            @switch (cookie.medium) {
+                                                @case ('local') { <i class="fa-solid fa-database me-1" aria-hidden="true"></i> }
+                                                @case ('session') { <i class="fa-solid fa-hourglass-half me-1" aria-hidden="true"></i> }
+                                                @default { <i class="fa-solid fa-cookie-bite me-1" aria-hidden="true"></i> }
+                                            }
+                                            {{ cookie.mediumLabel }}
+                                        </span>
                                     </div>
                                 </div>
                                 @if (cookie.description) {

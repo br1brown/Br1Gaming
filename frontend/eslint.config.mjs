@@ -34,6 +34,15 @@ export default tseslint.config(
       "@angular-eslint/no-output-rename": "warn",
       "@angular-eslint/use-lifecycle-interface": "warn",
       "@angular-eslint/no-empty-lifecycle-method": "warn",
+
+      // Compliance: nessun accesso DIRETTO al Web Storage. Tutto deve passare dall'API gated dal
+      // consenso (CookieConsentService.set/get/remove), così la persistenza è sempre categorizzata,
+      // censita in policy e pulita alla revoca. Eccezioni gestite sotto (service + auth infra).
+      "no-restricted-globals": [
+        "error",
+        { name: "localStorage", message: "Usa CookieConsentService.set/get/remove (gated dal consenso + censito in policy)." },
+        { name: "sessionStorage", message: "Usa CookieConsentService.set/get/remove (gated dal consenso + censito in policy)." },
+      ],
     },
   },
 
@@ -62,5 +71,16 @@ export default tseslint.config(
       "@angular-eslint/template/mouse-events-have-key-events": "warn",
       "@angular-eslint/template/no-autofocus": "warn",
     },
+  },
+
+  // ── Eccezioni alla guardia Web Storage ────────────────────────────────────
+  // Solo il dispatcher del consenso e l'infrastruttura di autenticazione (modulo foglia) possono
+  // toccare lo storage grezzo; tutto il resto passa dall'API gated.
+  {
+    files: [
+      "**/core/engine/services/cookie-consent.service.ts",
+      "**/core/engine/services/token.service.ts",
+    ],
+    rules: { "no-restricted-globals": "off" },
   }
 );

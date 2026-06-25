@@ -79,6 +79,19 @@ jobs:
         working-directory: frontend
         run: npm run generate:statics
 
+      - name: Verifica seed allineato a global-settings.json
+        # environment.ts è un seed generato MA versionato (vedi generate-statics.ts): è funzione
+        # pura di global-settings.json (project / Localization / site), senza URL né date, quindi
+        # deterministico ovunque. Se dopo la rigenerazione differisce dal committato, qualcuno l'ha
+        # editato a mano o ha scordato di rigenerare dopo un cambio di config. Versione e identità
+        # si toccano SOLO in global-settings.json, mai nel file generato.
+        run: |
+          if ! git diff --quiet -- frontend/src/environments/environment.ts; then
+            echo "::error file=frontend/src/environments/environment.ts::Seed non allineato a global-settings.json: cambia versione/identità lì, poi 'npm run generate:statics' (cartella frontend) e committa il risultato."
+            git --no-pager diff -- frontend/src/environments/environment.ts
+            exit 1
+          fi
+
       - name: Genera icone
         working-directory: frontend
         run: npm run generate:icons
