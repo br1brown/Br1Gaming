@@ -46,7 +46,11 @@ export const appConfig: ApplicationConfig = {
             // Transizioni di pagina con la View Transitions API (cross-fade del browser).
             // Progressive enhancement: i browser senza supporto navigano senza animazione.
             // Il movimento è disattivato sotto prefers-reduced-motion (vedi base/_a11y.scss).
-            withViewTransitions()
+            // skipInitialTransition: il primo caricamento NON è una transizione "tra pagine".
+            // Senza questo, la View Transitions API farebbe il cross-fade dallo stato-shell
+            // ancora-da-risolvere (default permissivi: pannello + nav, prima del primo
+            // NavigationEnd) verso la pagina reale — uno sfarfallio visibile su home full-bleed.
+            withViewTransitions({ skipInitialTransition: true })
         ),
 
         // HttpClient con supporto fetch (migliore performance/compatibilità) e l'interceptor

@@ -8,10 +8,10 @@ La complessità tipica (routing frammentato, meta tag SEO sparsi, lazy loading) 
 
 ---
 
-## 🚀 Le "Killer Feature" (cosa fornisce l'Engine)
+## 🚀 Funzionalità Principali dell'Engine
 
-### 1. `site.ts`: Il Cuore Pulsante (DSL)
-**Perché è così?** In Angular "Vanilla" aggiungere una pagina richiede di toccare il file di routing, i componenti menu per i link e logiche SEO ripetitive.
+### 1. `site.ts`: Il DSL di Configurazione
+**Perché è utile:** In Angular standard aggiungere una pagina richiede configurare il routing, aggiornare i menu e gestire manualmente la SEO.
 **Cosa fa l'Engine:** In `src/app/site.ts` dichiari un oggetto JSON. L'Engine crea a runtime le rotte, nasconde/mostra la navbar in base a `layout.showNav`, e se la pagina ha `requiresAuth: true`, l'SSR viene spento forzando il client-side rendering.
 
 ### 2. Auto-SEO Dinamica
@@ -54,8 +54,8 @@ Il confine non è arbitrario: `app.component.ts` (che è *tuo*) importa `FooterC
 
 ## 📜 Le Regole del Gioco (cosa impone l'Engine)
 
-### 1. Identità Incorruttibile: L'Enum `PageType`
-Per ogni schermata aggiungi un identificatore all'enum `PageType` in `site.ts` e naviga sempre tramite quell'ID, così il link resta valido anche cambiando l'URL. Tutte le voci di menu e i pulsanti punteranno a quell'ID. Se domani rinomini l'URL, nessun link si romperà.
+### 1. Stabilità dei Riferimenti: L'Enum `PageType`
+Per ogni schermata aggiungi un identificatore all'enum `PageType` in `site.ts` e naviga sempre tramite quell'ID, così il link resta valido anche cambiando l'URL.
 ```typescript
 export enum PageType { Home, AboutUs }
 ```
@@ -156,126 +156,16 @@ Per comporre le UI riusi le direttive dichiarative (`[appPage]` per i link inter
 
 ## 🛠️ Developer Journey: Aggiungere una Pagina
 
-Per creare una nuova schermata, segui questo workflow: mantiene integro e type-safe il routing dell'Engine.
+Per creare una nuova schermata, segui questo workflow per mantenere integro e type-safe il routing dell'Engine:
 
-### Passo 1: Registrare l'identità (PageType)
-Apri `src/app/site.ts` e aggiungi il nuovo tipo all'enum centrale. Questo garantisce che la pagina sia referenziabile globalmente.
-```typescript
-export enum PageType {
-    Home = 0,
-    Contatti = 1,
-    MioNuovoComponente = 2 // <-- Aggiunto
-}
-```
+1. **Registrare l'identità:** Aggiungi un nuovo `PageType` nell'enum centrale in `src/app/site.ts`.
+2. **Dichiarare la rotta:** Aggiungi la configurazione della pagina nell'array `pages` di `site.ts` (definendo path, SEO ed eventuali guardie).
+3. **Creare il componente:** Crea il componente in `pages/` estendendo `PageBaseComponent` per ereditare i servizi dell'Engine (api, traduzioni, asset, notify e meta-tag automatici).
+4. **Proteggere la pagina (opzionale):** Usa `requiresAuth: true` nella dichiarazione in `site.ts` per demandare all'Engine il controllo auth e il redirect.
+5. **Navigare in Sicurezza:** Usa la direttiva `[appPage]="PageType.MioNuovoComponente"` nell'HTML per delegare al framework il calcolo della rotta corretta.
+6. **Caricare dati prima del render (opzionale):** Se la pagina necessita di dati SEO-critici pronti al primo render, aggiungi un caso nello switch del `ContentResolver`.
 
-### Passo 2: Dichiarare la Rotta (`pages`)
-Sempre in `site.ts`, aggiungi la pagina nell'array restituito da `pages`. Specifica il path, eventuali guardie di sicurezza e l'Auto-SEO.
-```typescript
-pages: (ctx) => [
-    // ... pagine esistenti ...
-    {
-        path: 'nuova-pagina',
-        pageType: PageType.MioNuovoComponente,
-        title: 'Nuova Pagina', // Verrà localizzato automaticamente
-        description: 'La mia descrizione SEO',
-        requiresAuth: false,
-        component: () => import('./pages/nuova-pagina/nuova-pagina.component')
-    }
-],
-```
-
-### Passo 3: Creare il Componente
-Nella cartella `pages/nuova-pagina/` crea il componente. Assicurati che estenda `PageBaseComponent<T>` (dove `T` è il tipo del contenuto della pagina) per ereditare i superpoteri dell'Engine.
-```typescript
-@Component({
-  standalone: true,
-  templateUrl: './nuova-pagina.component.html'
-})
-export default class NuovaPaginaComponent extends PageBaseComponent<MioContenuto> {
-    // Proprietà ereditate da PageBaseComponent:
-    // this.api        → ApiService (chiamate al backend)
-    // this.translate  → TranslateService (i18n)
-    // this.asset      → AssetService (URL immagini CDN)
-    // this.notify     → NotificationService (toast/alert)
-    // this.pageContent → Signal<MioContenuto | null> (dati dalla pagina)
-    // this.pageType   → input<PageType> (tipo corrente della pagina)
-    // this.getCurrentUrl() → string (URL canonico della pagina corrente)
-}
-```
-
-### (Opzionale) Passo 3b: Pagina Protetta da Login
-
-Se il componente deve essere accessibile solo agli utenti autenticati, aggiungi `requiresAuth: true` nella dichiarazione in `site.ts`. L'Engine fa tutto il resto: disattiva SSR per quella pagina, aggiunge l'auth guard e reindirizza gli utenti non loggati alla `loginPage`.
-
-```typescript
-pages: (ctx) => [
-    {
-        path: 'area-riservata',
-        pageType: PageType.AreaRiservata,
-        title: 'Area Riservata',
-        requiresAuth: true, // <-- sufficiente per proteggere la pagina
-        component: () => import('./pages/area-riservata/area-riservata.component')
-    }
-],
-```
-
-Nel componente i dati di sessione si leggono tramite `AuthService`:
-```typescript
-export default class AreaRiservataComponent extends PageBaseComponent {
-    private readonly auth = inject(AuthService);
-
-    readonly nomeUtente = computed(() => this.auth.session()?.displayName ?? '');
-}
-```
-
-### Passo 4: Navigare in Sicurezza
-Per navigare verso la pagina lascia che il framework calcoli la rotta esatta dal `PageType`, così il link resta valido anche cambiando l'URL in `site.ts`.
-
-**Per link `<a>` (preferito — SPA navigation, SEO, keyboard, right-click):**
-```html
-<!-- [appPage] traduce il PageType in href e attiva RouterLink -->
-<a [appPage]="PageType.MioNuovoComponente" class="btn btn-primary">Vai!</a>
-<a [appPage]="PageType.PrivacyPolicy" class="footer-link">Privacy</a>
-```
-
-**Per navigazione programmatica (es. redirect dopo submit form):**
-```typescript
-// Inietta il Router nel componente
-private readonly router = inject(Router);
-
-// Nel metodo (es. onFormSubmit)
-this.router.navigate([ContestoSito.getPath(PageType.MioNuovoComponente) ?? '/']);
-```
-
-### (Opzionale) Passo 5: Caricare dati prima del render (`ContentResolver`)
-
-Se la pagina deve avere già i suoi dati al primo render (utile per SSR e SEO: i crawler vedono il contenuto, non uno scheletro vuoto), il caricamento passa dal `ContentResolver`. È un resolver centralizzato che, in base al `PageType`, recupera il contenuto **prima** che il componente venga mostrato e lo consegna al `PageBaseComponent`, che lo espone tipizzato via `pageContent()`.
-
-Per dare un contenuto a una nuova pagina bastano due passi (`src/app/pages/content.resolver.ts`):
-
-```typescript
-// 1. Esponi il dato in ApiService (o usa un caricamento di file statico)
-// 2. Aggiungi un case nello switch di loadResolved()
-switch (pageType) {
-    case PageType.MioNuovoComponente:
-        content = await this.apiService.getMioDato();
-        break;
-    // ... altri case ...
-}
-```
-
-Nel componente il dato arriva già pronto, senza fetch manuale in `ngOnInit`:
-```typescript
-export default class NuovaPaginaComponent extends PageBaseComponent<MioContenuto> {
-    // this.pageContent() → Signal<MioContenuto | null>, valorizzato dal resolver
-}
-```
-
-Caratteristiche dell'Engine:
-- **Router protetto:** se il caricamento fallisce, `BaseApiService` ha già notificato l'utente e il resolver restituisce `content = null` invece di rigettare — la navigazione si completa sempre, non resta bloccata.
-- **SSR senza loopback:** per i contenuti da file (es. pagine legali) in SSR la lettura avviene da disco tramite `LEGAL_FILE_READER`, evitando una chiamata HTTP del server verso se stesso; nel browser è una normale fetch relativa.
-
-Se invece la pagina carica i dati a navigazione avvenuta (contenuto non SEO-critico), si può saltare il resolver e usare i pattern one-shot / reattivo di `ApiService` direttamente nel componente.
+> *Nota: Gli snippet di codice e i pattern implementativi (le "ricette") sono consultabili nel file `AGENTS.md` alla radice, oppure basta prendere spunto dai file della demo (es. la cartella `home`).*
 
 #### `PageBaseComponent`: cosa eredita gratis
 
