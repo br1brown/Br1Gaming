@@ -1,23 +1,30 @@
 import { CanActivateFn, NavigationEnd, Route, Router, Routes } from '@angular/router';
-import { inject } from '@angular/core';
+import { inject, Signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs';
 import { ContestoSito } from '../../site';
 import { AuthService } from '../services/auth.service';
 import { contentLoaderResolver } from '../../pages/content.resolver';
-import { InternalSitePage, isInternalPage, isParentPage } from './siteBuilder';
+import { InternalSitePage, isInternalPage, isParentPage, ShellFlags, SHELL_DATA_KEY } from './siteBuilder';
 import { NotificationService } from './services/notification.service';
 import { TranslateService } from './services/translate.service';
 
-export function injectCurrentUrl() {
+/**
+ * Signal che riemette `project(router)` ad ogni `NavigationEnd`, partendo da `initial`.
+ * Centralizza il pattern `toSignal(router.events → NavigationEnd)` usato in più punti (shell di
+ * `app.component`, URL corrente). Va chiamata in un injection context (inietta `Router`).
+ */
+export function onNavigationEnd<T>(project: (router: Router) => T, initial: T): Signal<T> {
     const router = inject(Router);
     return toSignal(
-        router.events.pipe(
-            filter(e => e instanceof NavigationEnd),
-            map(() => router.url)
-        ),
-        { initialValue: router.url }
+        router.events.pipe(filter(e => e instanceof NavigationEnd), map(() => project(router))),
+        { initialValue: initial }
     );
+}
+
+export function injectCurrentUrl(): Signal<string> {
+    const router = inject(Router);
+    return onNavigationEnd(() => router.url, router.url);
 }
 
 /**
@@ -97,15 +104,15 @@ function toAngularRoute(page: InternalSitePage): Route {
         route.loadComponent = page.component;
         route.data = {
             ...route.data,
+            // Piatti → diventano input del componente via withComponentInputBinding (insieme ai
+            // `data` liberi del figlio già in ...route.data).
             pageType: page.pageType,
-            showPanel: page.showPanel ?? true,
-            showNav: page.showNav,
-            showFooter: page.showFooter,
-            fitViewport: page.fitViewport ?? false,
             // Fade-in: subordinato al globale come showNav/footer — off globale vince, la pagina può solo spegnere.
             pageFade: ContestoSito.config.pageFade && (page.pageFade ?? true),
-            pageDescription: page.description ?? null,
-            ogImage: page.ogImage ?? null,
+            // Raggruppate → lette SOLO dalla shell (root, fuori dall'outlet) via snapshot. L'oggetto
+            // arriva già pronto da normalizeSitePage; i default (?? true/false) li applica app.component.
+            // (description/ogImage NON vanno qui: l'OG passa dal resolver via PageInfo → page-base.)
+            [SHELL_DATA_KEY]: page.shell,
         };
 
         route.resolve = { contentByResolve: contentLoaderResolver(page.pageType) };
@@ -136,7 +143,7 @@ function buildErrorRoutes(): Routes {
             path: 'error/:errorCode',
             title: 'erroreGenerico',
             loadComponent: () => import('../../pages/error/error.component').then(m => m.ErrorComponent),
-            data: { showPanel: false }
+            data: { [SHELL_DATA_KEY]: { showPanel: false } satisfies ShellFlags }
         },
         {
             path: 'error',

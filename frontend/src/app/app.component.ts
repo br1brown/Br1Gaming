@@ -1,9 +1,10 @@
-import { Component, computed, inject } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
-import { filter, map } from 'rxjs';
+import { Component, computed, effect, inject, makeStateKey, PLATFORM_ID, TransferState } from '@angular/core';
+import { isPlatformServer } from '@angular/common';
+import { RouterOutlet } from '@angular/router';
 
 import { ContestoSito } from './site';
+import { ShellFlags, SHELL_DATA_KEY } from './core/engine/siteBuilder';
+import { onNavigationEnd } from './core/engine/routing';
 import { ThemeService } from './core/engine/services/theme.service';
 import { FooterComponent } from './components/shared/footer/footer.component';
 import { NavbarComponent } from './core/engine/components/navbar/navbar.component';
@@ -13,6 +14,14 @@ import { CookieBannerComponent } from './core/engine/components/cookie-banner/co
 import { PageMetaService } from './core/engine/services/page-meta.service';
 import { VersionCheckService } from './core/engine/services/version-check.service';
 import { TranslatePipe } from './core/engine/pipes/translate.pipe';
+
+/**
+ * Chiave TransferState dei flag di shell. L'SSR serializza i flag della rotta RISOLTA; il client
+ * li rilegge come valore iniziale del signal, così il primo render combacia con l'HTML SSR
+ * (no flash navbar/pannello) SENZA dipendere dal timing della prima navigazione del router.
+ * Riusa la stessa stringa della chiave in `route.data`: è la stessa cosa logica, due canali diversi.
+ */
+const SHELL_FLAGS_STATE_KEY = makeStateKey<ShellFlags>(SHELL_DATA_KEY);
 
 /**
  * Shell principale dell'app.
@@ -32,49 +41,49 @@ import { TranslatePipe } from './core/engine/pipes/translate.pipe';
     host: { class: 'd-flex flex-column' }
 })
 export class AppComponent {
-    private readonly router = inject(Router);
+    private readonly platformId = inject(PLATFORM_ID);
+    private readonly transferState = inject(TransferState);
     readonly theme = inject(ThemeService);
 
     readonly smoke = ContestoSito.config.smoke;
+
+    /**
+     * Flag di shell della rotta attiva (slice tipato `route.data[SHELL_DATA_KEY]`, scritto da
+     * routing.ts). `initialValue` = flag serializzati dall'SSR (TransferState): sul client il PRIMO
+     * render usa esattamente i flag con cui l'SSR ha generato l'HTML, quindi nessuno sfarfallio
+     * (navbar/pannello che appaiono e spariscono) prima del primo NavigationEnd. Poi il signal si
+     * aggiorna ad ogni navigazione dalla rotta dal vivo. Senza SSR la chiave non c'è → `{}` → default.
+     */
+    private readonly shellFlags = onNavigationEnd(
+        router => (PageMetaService.getLeaf(router.routerState.snapshot).data[SHELL_DATA_KEY] ?? {}) as ShellFlags,
+        this.transferState.get(SHELL_FLAGS_STATE_KEY, {} as ShellFlags)
+    );
+
+    readonly showPanel = computed(() => this.shellFlags().showPanel ?? true);
+
+    // Vista full-bleed della pagina attiva (flag layout.fitViewport): lo shell rende il
+    // <main> senza container/padding e senza pannello, e .fit-viewport (base.scss) fa
+    // riempire l'altezza al contenuto. Quando attivo prevale su showPanel.
+    readonly fitViewport = computed(() => this.shellFlags().fitViewport ?? false);
+
+    // I flag di pagina sono subordinati al globale (come showNav/footer in global-settings.json):
+    // se globalmente off, nessuna pagina può riattivarli.
+    readonly showNavbar = computed(() => ContestoSito.config.showNav && (this.shellFlags().showNav ?? true));
+
+    readonly showFooter = computed(() => ContestoSito.config.showFooter && (this.shellFlags().showFooter ?? true));
 
     readonly showSmoke = computed(() =>
         this.showPanel() && !this.fitViewport() && this.smoke.enable && !this.theme.prefersReducedMotion()
     );
 
-    // Espone la route foglia corrente come signal, cosi' il layout globale
-    // puo' reagire ai flag custom e ai meta della pagina attiva.
-    private readonly currentRoute = toSignal(
-        this.router.events.pipe(
-            filter(e => e instanceof NavigationEnd),
-            map(() => PageMetaService.getLeaf(this.router.routerState.snapshot))
-        ),
-        { initialValue: PageMetaService.getLeaf(this.router.routerState.snapshot) }
-    );
-
-    readonly showPanel = computed(() => {
-        const value: boolean = this.currentRoute().data['showPanel'] ?? true;
-        return value;
-    });
-
-    // Vista full-bleed della pagina attiva (flag layout.fitViewport): lo shell rende il
-    // <main> senza container/padding e senza pannello, e .fit-viewport (base.scss) fa
-    // riempire l'altezza al contenuto. Quando attivo prevale su showPanel.
-    readonly fitViewport = computed(() => this.currentRoute().data['fitViewport'] ?? false);
-
-    readonly showNavbar = computed(() => {
-        if (!ContestoSito.config.showNav) return false;
-        return this.currentRoute().data['showNav'] ?? true;
-    });
-
-    readonly showFooter = computed(() => {
-        if (!ContestoSito.config.showFooter) return false;
-        // Il default contestuale "full-bleed → footer off" è già risolto dal builder
-        // (normalizeSitePage): qui resta solo il default universale, come showNav/showPanel.
-        return this.currentRoute().data['showFooter'] ?? true;
-    });
-
     constructor() {
+        // SSR: serializza i flag risolti in TransferState così il client li ha già al primo render.
+        // L'effect riscrive ad ogni cambio rotta; in SSR l'ultimo valore prima della serializzazione
+        // è quello della pagina richiesta. Solo server: nel browser sarebbe inutile.
+        if (isPlatformServer(this.platformId)) {
+            effect(() => this.transferState.set(SHELL_FLAGS_STATE_KEY, this.shellFlags()));
+        }
+
         inject(VersionCheckService).init();
     }
 }
-

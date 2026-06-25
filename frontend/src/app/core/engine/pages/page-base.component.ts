@@ -1,4 +1,4 @@
-import { computed, Directive, effect, HostBinding, inject, input, PLATFORM_ID, signal } from '@angular/core';
+import { computed, Directive, effect, HostBinding, inject, input, PLATFORM_ID, resource } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { Router } from '@angular/router';
 import { ApiService } from '../../services/api.service';
@@ -63,16 +63,30 @@ export abstract class PageBaseComponent<T> {
         return this.fadeAllowed && this.pageFadeEnabled();
     }
 
-    /** Aggiornato dal browser ad ogni cambio lingua tramite ContentResolverService. */
-    private readonly _liveResolved = signal<ResolvedPage<unknown> | null>(null);
-
-    private readonly _resolved = computed(() => this._liveResolved() ?? this.contentByResolve());
+    /**
+     * Ricarica del contenuto al cambio lingua (lato browser). `resource()` sostituisce l'effect
+     * scritto a mano + la guardia `reqId`: gestisce da solo la cancellazione delle richieste
+     * obsolete (l'ultima `params` vince, niente risposte stantie). In SSR `params` torna `undefined`
+     * → resource idle, nessuna fetch lato server: il contenuto del primo render arriva da
+     * `contentByResolve` (resolver del router). `defaultValue: null` → `.value()` è `null` (mai
+     * throw, anche in errore) finché non c'è un caricamento completato.
+     */
+    private readonly contentResource = resource<ResolvedPage<T> | null, { pageType: PageType; lang: string } | undefined>({
+        params: () => isPlatformBrowser(this.platformId)
+            ? { pageType: this.pageType(), lang: this.translate.currentLang() }
+            : undefined,
+        loader: ({ params }) => this.contentResolverService.loadResolved(params.pageType, params.lang) as Promise<ResolvedPage<T>>,
+        defaultValue: null,
+    });
 
     /**
-     * Contenuto sempre aggiornato della pagina corrente, tipizzato come T.
-     * SSR / primo render → contentByResolve() dal router.
-     * Browser dopo idratazione aggiornato ad ogni cambio lingua.
+     * Contenuto risolto della pagina: il ricaricato dal browser (resource) quando c'è, altrimenti
+     * quello del resolver del router. Così SSR / primo render usano `contentByResolve`, e dopo
+     * l'idratazione il valore si aggiorna ad ogni cambio lingua.
      */
+    private readonly _resolved = computed(() => this.contentResource.value() ?? this.contentByResolve());
+
+    /** Contenuto sempre aggiornato della pagina corrente, tipizzato come T. */
     protected readonly pageContent = computed<T | null>(() =>
         (this._resolved()?.content ?? null) as T | null
     );
@@ -94,18 +108,5 @@ export abstract class PageBaseComponent<T> {
             const description = info.description ? this.translate.translate(info.description) : null;
             this.pageMeta.setPageMeta(title, description, info.ogImage, info.ogType, info.structuredDataType);
         });
-
-        if (isPlatformBrowser(this.platformId)) {
-            // Guardia di sequenza: a cambi lingua ravvicinati possono esserci più
-            // loadResolved in volo; senza questo, una risposta lenta più VECCHIA potrebbe
-            // arrivare dopo una più nuova e sovrascrivere il contenuto con dati stantii.
-            let reqId = 0;
-            effect(() => {
-                const lang = this.translate.currentLang();
-                const id = ++reqId;
-                this.contentResolverService.loadResolved(this.pageType(), lang)
-                    .then(data => { if (id === reqId) this._liveResolved.set(data); });
-            });
-        }
     }
 }
