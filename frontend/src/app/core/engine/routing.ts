@@ -151,9 +151,15 @@ function buildErrorRoutes(): Routes {
             pathMatch: 'full'
         },
         {
-            // Qualsiasi rotta non trovata (404)
+            // Qualsiasi rotta non trovata: rende DIRETTAMENTE la pagina errore (404), niente `redirectTo`.
+            // Un redirect su una rotta SSR `RenderMode.Client` viene emesso come 3xx + `Location`, ma il
+            // server riscrive lo status a 404 (SEO): il browser, vedendo un 404 e non un 3xx, ignora il
+            // `Location` → pagina bianca al full-load di un URL sconosciuto. Rendere il componente (errorCode
+            // default 404) fa servire la shell e idratare la pagina, esattamente come `error/:errorCode`.
             path: '**',
-            redirectTo: 'error/404'
+            title: 'erroreGenerico',
+            loadComponent: () => import('../../pages/error/error.component').then(m => m.ErrorComponent),
+            data: { [SHELL_DATA_KEY]: { showPanel: false } satisfies ShellFlags }
         }
     );
 
