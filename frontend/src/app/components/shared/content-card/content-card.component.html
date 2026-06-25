@@ -1,15 +1,23 @@
-<div class="card h-100">
+<!-- Riga di lista (non più card verticale): miniatura a sinistra, testo al centro, chevron.
+     Tutta la riga è il link → niente bottone "Vai" separato. Su mobile occupa l'intera
+     larghezza (vedi griglia col-12 in home), così il testo non resta compresso. -->
+<a class="card content-card-row flex-row overflow-hidden h-100 text-reset text-decoration-none"
+   [routerLink]="path()">
     @if (imageId() && imageVisible()) {
-    <img [appAsset]="imageId()!" [appAssetWidth]="512" [alt]="title()" class="card-img-top content-card-image" loading="lazy"
+    <img [appAsset]="imageId()!"
+         [appAssetWidth]="320"
+         [alt]="title()"
+         class="content-card-thumb object-fit-cover flex-shrink-0"
+         loading="lazy"
          (error)="onImageError()">
     }
-    <div class="card-body d-flex flex-column">
-        <h3 class="card-title h6">{{ title() }}</h3>
-        @if (subtitle()) {
-        <p class="card-text text-muted small flex-grow-1">{{ subtitle() }}</p>
-        }
-        <a class="btn btn-primary btn-sm mt-auto align-self-start" [routerLink]="path()">
-            Vai <i class="fa-solid fa-arrow-right ms-1" aria-hidden="true"></i>
-        </a>
+    <div class="card-body d-flex align-items-center gap-3 py-3">
+        <div class="flex-grow-1 content-card-text">
+            <h3 class="card-title h6 mb-1">{{ title() }}</h3>
+            @if (subtitle()) {
+            <p class="card-text text-muted small mb-0">{{ subtitle() }}</p>
+            }
+        </div>
+        <i class="fa-solid fa-chevron-right text-secondary flex-shrink-0" aria-hidden="true"></i>
     </div>
-</div>
+</a>

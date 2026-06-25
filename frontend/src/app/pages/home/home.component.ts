@@ -37,8 +37,8 @@ const STATIC_GIOCHI: CardEntry[] = [
         pageType: PageType.GameDuceNonDuce,
     },
     {
-        title: 'Dragon Radar',
-        subtitle: 'Il radar delle chiese, in stile sfere del drago: apri la mappa e vedi quelle intorno a te.',
+        title: 'Chiese Radar',
+        subtitle: 'Il radar delle chiese: apri la mappa e vedi quelle intorno a te.',
         imageId: 'game.radar',
         pageType: PageType.GameRadar,
     },

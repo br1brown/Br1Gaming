@@ -89,12 +89,18 @@ export class StoryPlayerComponent extends PageBaseComponent<StoryInfo> {
         this.scrollToLatest();
     }
 
-    restart(): void {
-        const win = this.document.defaultView;
+    async restart(): Promise<void> {
         // Azione distruttiva: conferma prima di cancellare la timeline salvata.
-        if (win && !win.confirm(this.translate.translate('riavvia_conferma'))) return;
+        // Usa la modale dell'engine (NotificationService → SweetAlert2, già a tema chiaro/scuro),
+        // non il confirm() nativo del browser: coerenza visiva con il resto dell'app.
+        const confirmed = await this.notify.confirm(
+            this.translate.translate('riavvia'),
+            this.translate.translate('riavvia_conferma'),
+            { icon: 'warning' }
+        );
+        if (!confirmed) return;
         this.facade.restart();
-        win?.scrollTo(0, 0);
+        this.document.defaultView?.scrollTo(0, 0);
     }
 
     // Dopo una scelta porta in vista l'ultimo blocco aggiunto (la scelta → conseguenza → nuova scena),

@@ -1,0 +1,21 @@
+/* Miniatura quadrata a sinistra: larghezza fissa, l'altezza la dà la riga (flex-row
+   stretcha l'img a tutta l'altezza della card). overflow-hidden sulla card ritaglia
+   gli angoli arrotondati. */
+.content-card-thumb {
+    width: 96px;
+    align-self: stretch;
+}
+
+/* min-width:0 indispensabile: senza, il figlio flex non si restringe sotto il suo
+   contenuto e il testo lungo sfonda la riga invece di andare a capo. */
+.content-card-text {
+    min-width: 0;
+}
+
+.content-card-row {
+    transition: background-color .15s ease-in-out;
+}
+
+.content-card-row:hover {
+    background-color: var(--bs-tertiary-bg);
+}
