@@ -1,5 +1,6 @@
 import { computed, Directive, effect, HostBinding, inject, input, PLATFORM_ID, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
+import { Router } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 import { AssetService } from '../services/asset.service';
 import { NotificationService } from '../services/notification.service';
@@ -43,13 +44,23 @@ export abstract class PageBaseComponent<T> {
     protected readonly pageFadeEnabled = input<boolean>(false, { alias: 'pageFade' });
 
     /**
+     * Il fade è "tra pagine": NON deve scattare al primo caricamento (SSR + idratazione), dove la
+     * shell sta ancora risolvendo i flag di layout della route e mostrerebbe lo stato sbagliato.
+     * `router.navigated` è `false` durante la prima navigazione (passa a `true` solo al primo
+     * NavigationEnd): catturandolo alla costruzione, la pagina d'ingresso non sfuma, quelle
+     * raggiunte navigando sì. SSR e idratazione concordano (entrambi prima navigazione) → niente
+     * mismatch sulla classe. Si somma a `withViewTransitions({ skipInitialTransition: true })`.
+     */
+    private readonly fadeAllowed = inject(Router).navigated;
+
+    /**
      * Applica `.page-fade` sull'host quando il flag è attivo. DEVE essere @HostBinding, non
      * `host: {}` del decoratore: solo il primo si eredita nelle sottoclassi @Component — è ciò che
      * rende il fade automatico per ogni pagina. CSS e guardia reduced-motion in `base/_motion.scss`.
      */
     @HostBinding('class.page-fade')
     protected get pageFade(): boolean {
-        return this.pageFadeEnabled();
+        return this.fadeAllowed && this.pageFadeEnabled();
     }
 
     /** Aggiornato dal browser ad ogni cambio lingua tramite ContentResolverService. */
