@@ -26,10 +26,10 @@ L'Engine si estende **dall'esterno**: si eredita da una classe base, si registra
 
 ---
 
-## 🚀 Le "Killer Feature" (cosa fornisce l'Engine)
+## 🚀 Funzionalità Principali dell'Engine
 
-### 1. Sicurezza Invalicabile (Defense in Depth)
-**Perché è così?** Configurare rate limiter e validazioni CORS manualmente su ogni progetto espone a rischi di dimenticanze fatali.
+### 1. Sicurezza e Protezione Preconfigurate
+**Perché è utile:** Configurare rate limiter e validazioni CORS manualmente su ogni progetto espone al rischio di omissioni.
 **Cosa fa l'Engine:** Ogni endpoint che eredita dai controller di base esige l'header `X-Api-Key`. Il framework blocca automaticamente gli IP che superano le 100 req/min (5 req/min per i login) e applica CORS a livello di middleware. Gli header di sicurezza rivolti al browser sono definiti una sola volta in `security-headers.json` (file del template, uguale per ogni progetto) e condivisi col Node SSR del frontend: nel default il backend è interno alla rete Docker e serve solo JSON, ma se lo esponi (`backend.public`) applica gli stessi header (saltando la CSP, irrilevante su risposte JSON).
 
 Tre dettagli architetturali che incidono sul comportamento osservabile:
@@ -93,9 +93,9 @@ Dopo la rimozione, ASP.NET non genera rotte, non espone nulla in Swagger e nessu
 
 **Conseguenza pratica:** se si aggiunge un controller che eredita da `EngineAuthController` (es. `PasswordResetController`) e `SecretKey` è vuota, anche quel controller viene soppresso automaticamente. Non occorre alcuna logica aggiuntiva.
 
-### 4. Il Database Fantasma (`FileContentStore`)
-**Perché è così?** Installare Entity Framework e SQL per un MVP rallenta pesantemente le prime settimane. Spesso servono solo testi legali e di configurazione.
-**Cosa fa l'Engine:** Il `FileContentStore` carica file JSON da `/data/`, li cacha in `IMemoryCache` (con TTL di 1 ora e rispetto della memory pressure del runtime) e, risolvendo la lingua dall'header HTTP `Accept-Language`, restituisce l'oggetto già localizzato. Per gestire la lettura del file usa `try/catch` su `ReadAllTextAsync` invece di un `File.Exists` preventivo: elimina la race condition TOCTOU (il file potrebbe essere rimosso tra il controllo e la lettura effettiva) e converte correttamente la `FileNotFoundException` in `NotFoundException`.
+### 4. Lo Store Basato su File (`FileContentStore`)
+**Perché è utile:** Evita di dover installare e gestire un database SQL nelle prime fasi del progetto, utile quando servono solo configurazioni o testi legali.
+**Cosa fa l'Engine:** Il `FileContentStore` carica file JSON da `/data/`, li cacha in `IMemoryCache` (con TTL di 1 ora e rispetto della memory pressure del runtime) e, risolvendo la lingua dall'header HTTP `Accept-Language`, restituisce l'oggetto localizzato. Usa `try/catch` su `ReadAllTextAsync` per evitare race condition TOCTOU e tradurre l'assenza del file in una `NotFoundException`.
 
 I contenuti di `data/` sono **parte del codice**: in produzione non cambiano mai da soli (vivono nell'immagine, più la cache in RAM) — per modificarli si committa e si rifà il deploy. Ciò che invece deve cambiare a runtime vive nei volumi, ognuno col suo ruolo: `db/` per i dati del DB futuro, `uploads/` per i file caricati.
 
@@ -375,62 +375,28 @@ Perché l'Engine possa proteggere il progetto, vanno rispettate queste convenzio
 Eredita **sempre** da una delle classi base dell'Engine: così rate limiting, logging e controllo API Key arrivano automaticamente.
 
 L'Engine offre tre classi base a seconda del livello di protezione richiesto:
-
-**Endpoint pubblici (solo API Key):**
-```csharp
-[Route("api/v1/public")]
-public class PublicFeatureController : EngineApiController { }
-```
-
-**Endpoint riservati (API Key + JWT valido):**
-```csharp
-[Route("api/v1/private")]
-public class PrivateFeatureController : EngineProtectedController { }
-```
-
-**Endpoint di autenticazione (transito credenziali → emissione JWT):**
-```csharp
-[Route("auth")]
-public class MyAuthController : EngineAuthController { }
-```
-`EngineAuthController` è riservato agli endpoint che gestiscono il login. Viene soppresso automaticamente dal `TemplateControllerFeatureProvider` se `Security.Token.SecretKey` è vuoto.
+- `EngineApiController`: Endpoint pubblici (richiede solo API Key).
+- `EngineProtectedController`: Endpoint riservati (richiede API Key + JWT valido).
+- `EngineAuthController`: Endpoint di autenticazione (transito credenziali → emissione JWT). Viene soppresso automaticamente se `Security.Token.SecretKey` è vuoto.
 
 #### Il contesto "ambient" del controller base
 
-Ereditando da `EngineApiController` (e quindi anche da `EngineProtectedController` / `EngineAuthController`) ogni controller riceve, **senza nulla nel costruttore**, una serie di proprietà `protected` già pronte. Sono l'infrastruttura trasversale che quasi ogni endpoint usa: il controller di dominio inietta **solo le sue dipendenze** (es. `SiteService`) e attinge al resto dal contesto.
+Ereditando da queste classi ogni controller riceve, **senza nulla nel costruttore**, una serie di proprietà `protected` già pronte. Sono l'infrastruttura trasversale: il controller di dominio inietta **solo le sue dipendenze** e attinge al resto dal contesto.
 
 | Proprietà | Tipo | Cosa offre |
 | :--- | :--- | :--- |
 | `Logger` | `ILogger` | Logger condiviso, già istanziato. |
-| `Notifications` | `INotificationStream` | Pubblica notifiche realtime SSE: `Notifications.Publish(target, message)`. |
-| `BackgroundQueue` | `IBackgroundTaskQueue` | Accoda un task lungo: `BackgroundQueue.TryEnqueue(...)`. |
-| `Delivery` | `IDeliveryService` | Consegna l'esito con switch realtime/email: `Delivery.DeliverAsync(message)`. |
-| `ConnectionId` | `string?` | connectionId della SSE del chiamante, letto dall'header `X-Connection-Id` (vedi sotto), oppure `null`. |
-| `CurrentCulture` | `CultureInfo` | Cultura della richiesta (da `CultureInfo.CurrentCulture`, impostata da `UseRequestLocalization`). |
-| `CurrentLanguage` | `string` | Codice lingua a due lettere (es. `"it"`), la forma usata da `FileContentStore`. |
-| `User` | `ClaimsPrincipal` | Dalla `ControllerBase`: i claim della sessione (vedi `User.GetSession<T>()`). |
+| `Notifications` | `INotificationStream` | Pubblica notifiche realtime SSE. |
+| `BackgroundQueue` | `IBackgroundTaskQueue` | Accoda un task lungo. |
+| `Delivery` | `IDeliveryService` | Consegna l'esito con switch realtime/email. |
+| `ConnectionId` | `string?` | connectionId della SSE del chiamante, o `null`. |
+| `CurrentCulture` | `CultureInfo` | Cultura della richiesta. |
+| `CurrentLanguage` | `string` | Codice lingua a due lettere (es. `"it"`). |
+| `User` | `ClaimsPrincipal` | I claim della sessione. |
 
-I tre servizi (`Notifications`, `BackgroundQueue`, `Delivery`) sono **singleton risolti pigramente** da `HttpContext.RequestServices`: il getter scatta solo quando lo invochi dentro un'azione, quindi chi non li usa non paga nulla. Non vanno iniettati nel costruttore — è il motivo per cui `BaseController` riceve solo `SiteService` e `ILogger`.
+I tre servizi (`Notifications`, `BackgroundQueue`, `Delivery`) sono **singleton risolti pigramente** da `HttpContext.RequestServices`: il getter scatta solo quando lo invochi dentro un'azione. Non vanno iniettati nel costruttore.
 
-```csharp
-[Route("api/v1/orders")]
-public class OrdersController : EngineProtectedController
-{
-    private readonly OrderService _orders;   // SOLO la dipendenza di dominio
-
-    public OrdersController(OrderService orders, ILogger<OrdersController> logger)
-        : base(logger) => _orders = orders;
-
-    [HttpPost("{id}/confirm")]
-    public async Task<IActionResult> Confirm(string id, CancellationToken cancellationToken)
-    {
-        await _orders.ConfirmAsync(id, cancellationToken);     // logica di dominio
-        Notifications.Publish(NotificationTarget.All,          // infrastruttura ambient
-            new NotificationMessage { Type = "toast", Payload = new { messageKey = "ordineConfermato", icon = "success" } });
-        return Ok();
-    }
-}
-```
+> *Nota: Gli snippet pratici (le "ricette") su come scrivere un controller o usare la sessione sono riassunti in `AGENTS.md`.*
 
 > Il `CancellationToken` resta un **parametro esplicito dell'azione** (idioma ASP.NET): dichiararlo nella firma fa sì che ASP.NET lo leghi a `HttpContext.RequestAborted`. Solo il connectionId è migrato dalla firma all'header — il `CancellationToken` no.
 
