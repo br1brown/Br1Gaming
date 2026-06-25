@@ -1,5 +1,4 @@
-import { Injectable, PLATFORM_ID, inject, signal } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
+import { Injectable, inject, signal } from '@angular/core';
 import { ApiService } from './api.service';
 import { ApiError } from '../engine/services/base-api.service';
 import { CookieConsentService } from '../engine/services/cookie-consent.service';
@@ -18,11 +17,13 @@ type PlayFn = (sceneId?: string, choiceId?: string, stats?: Record<string, numbe
 export class StoryPlayerFacade {
     private readonly api = inject(ApiService);
     private readonly cookies = inject(CookieConsentService);
-    private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
     /** maxAge cookie: 1 anno. */
     private static readonly MAX_AGE = 60 * 60 * 24 * 365;
-    /** Chiave localStorage per le timeline (parte pesante, fuori dai 4KB del cookie). */
+    /** Chiave Web Storage delle timeline (parte voluminosa del salvataggio, fuori dai 4KB del cookie).
+     *  Censita in COOKIE_MAP con `storage:'local'` + `valueType:'json'` → in policy, gated dal
+     *  consenso e pulita alla revoca. Letta/scritta SOLO via l'API unificata del CookieConsentService
+     *  (set/get/remove), mai localStorage diretto (lo vieta anche la regola ESLint no-restricted-globals). */
     private static readonly TIMELINE_KEY = 'storyPlayerTimeline';
 
     readonly snapshot = signal<StorySnapshotDto | null>(null);
@@ -228,38 +229,28 @@ export class StoryPlayerFacade {
         this.writeTimeline(slug, null);
     }
 
-    // ── Timeline su localStorage (gated GDPR, SSR-safe) ──────────────
+    // ── Timeline via API unificata del consenso (gated GDPR + in policy, SSR-safe) ──
+    // Niente più localStorage diretto: lettura/scrittura passano da CookieConsentService.get/set/
+    // remove, che instradano sul Web Storage (storage:'local' in COOKIE_MAP), gate-ano sul consenso
+    // tecnico e serializzano via valueType:'json'. Quota/Safari privato: degradano in silenzio dentro.
 
     private readTimeline(slug: string): StoryTimelineItem[] | null {
-        if (!this.isBrowser) return null;
-        try {
-            const raw = localStorage.getItem(StoryPlayerFacade.TIMELINE_KEY);
-            if (!raw) return null;
-            return (JSON.parse(raw) as Record<string, StoryTimelineItem[]>)[slug] ?? null;
-        } catch {
-            return null;
-        }
+        const all = this.cookies.get(StoryPlayerFacade.TIMELINE_KEY) as Record<string, StoryTimelineItem[]> | null;
+        return all?.[slug] ?? null;
     }
 
     private writeTimeline(slug: string, timeline: StoryTimelineItem[] | null): void {
-        // Stesso gate del cookie tecnico: niente persistenza senza consenso.
-        if (!this.isBrowser || !this.cookies.technicalAccepted()) return;
-        try {
-            let all: Record<string, StoryTimelineItem[]> = {};
-            const raw = localStorage.getItem(StoryPlayerFacade.TIMELINE_KEY);
-            if (raw) {
-                try { all = JSON.parse(raw); } catch { }
-            }
-            if (timeline && timeline.length > 0) {
-                all[slug] = timeline;
-            } else {
-                delete all[slug];
-            }
-            if (Object.keys(all).length === 0) {
-                localStorage.removeItem(StoryPlayerFacade.TIMELINE_KEY);
-            } else {
-                localStorage.setItem(StoryPlayerFacade.TIMELINE_KEY, JSON.stringify(all));
-            }
-        } catch { /* quota/Safari privato: degrada senza storico, il resume resta valido */ }
+        // Il gate del consenso vive dentro set(): senza consenso tecnico è un no-op (privacy by default).
+        const all = (this.cookies.get(StoryPlayerFacade.TIMELINE_KEY) as Record<string, StoryTimelineItem[]> | null) ?? {};
+        if (timeline && timeline.length > 0) {
+            all[slug] = timeline;
+        } else {
+            delete all[slug];
+        }
+        if (Object.keys(all).length === 0) {
+            this.cookies.remove(StoryPlayerFacade.TIMELINE_KEY);
+        } else {
+            this.cookies.set(StoryPlayerFacade.TIMELINE_KEY, all);
+        }
     }
 }
