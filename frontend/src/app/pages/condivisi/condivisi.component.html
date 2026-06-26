@@ -1,21 +1,21 @@
 <div class="col-12 col-md-10 offset-md-1 py-3">
 
-    <h1 class="h3 fw-bold mb-1">{{ 'galleria' | translate }}</h1>
+    <h1 class="h3 fw-bold mb-1">{{ 'condivisi' | translate }}</h1>
 
     @if (filterName(); as name) {
     <p class="mb-4">
-        <a [routerLink]="galleriaPath" class="text-decoration-none small">{{ 'galleriaTuttiIGeneratori' | translate }}</a>
+        <a [routerLink]="condivisiPath" class="text-decoration-none small">{{ 'condivisiTuttiIGeneratori' | translate }}</a>
         <span class="text-secondary mx-2">/</span>
         <span class="fw-semibold">{{ name }}</span>
     </p>
     } @else {
-    <p class="text-secondary mb-4">{{ 'galleriaSottotitolo' | translate }}</p>
+    <p class="text-secondary mb-4">{{ 'condivisiSottotitolo' | translate }}</p>
     }
 
     @if (groups(); as list) {
         @if (list.length === 0) {
         <div class="alert alert-light border text-center py-5">
-            {{ 'galleriaVuota' | translate }}
+            {{ 'condivisiVuota' | translate }}
         </div>
         } @else {
             @for (group of list; track group.slug) {
@@ -29,21 +29,21 @@
                         }
                     </h2>
                     @if (group.hasMore) {
-                    <a class="small text-decoration-none" [routerLink]="galleriaPath" [queryParams]="{ gen: group.slug }">
-                        {{ 'galleriaVediTutte' | translate }} ({{ group.total }})
+                    <a class="small text-decoration-none" [routerLink]="condivisiPath" [queryParams]="{ gen: group.slug }">
+                        {{ 'condivisiVediTutte' | translate }} ({{ group.total }})
                     </a>
                     }
                 </div>
                 <div class="row g-3">
                     @for (card of group.cards; track card.id) {
                     <div class="col-12 col-md-6 col-lg-4">
-                        <div class="galleria-card card h-100 shadow-sm">
+                        <div class="condivisi-card card h-100 shadow-sm">
                             <div class="card-body">
                                 <div [innerHTML]="card.markdown | markdown"></div>
                             </div>
                             <div class="card-footer bg-transparent">
                                 <div class="d-flex justify-content-between align-items-center">
-                                    <span class="badge rounded-pill text-bg-primary" [title]="'galleriaPunteggio' | translate">
+                                    <span class="badge rounded-pill text-bg-primary" [title]="'condivisiPunteggio' | translate">
                                         ★ {{ card.score }}
                                     </span>
                                     <small class="text-secondary">{{ ago(card.createdUtc) }}</small>
@@ -52,13 +52,13 @@
                                 <div class="d-flex gap-2 mt-2">
                                     <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3"
                                             (click)="copyLink(group.path, card.id)"
-                                            [attr.aria-label]="'galleriaCopiaLink' | translate"
-                                            [title]="'galleriaCopiaLink' | translate">
+                                            [attr.aria-label]="'condivisiCopiaLink' | translate"
+                                            [title]="'condivisiCopiaLink' | translate">
                                         <i class="fa-solid fa-link" aria-hidden="true"></i>
                                     </button>
                                     <a class="btn btn-sm btn-outline-primary rounded-pill px-3 flex-grow-1 text-center"
                                        [routerLink]="group.path" [queryParams]="{ g: card.id }">
-                                        {{ 'galleriaApri' | translate }}
+                                        {{ 'condivisiApri' | translate }}
                                     </a>
                                 </div>
                                 }

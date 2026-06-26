@@ -72,8 +72,8 @@ public class GeneratorService
     /// <summary>
     /// Pulisce il Markdown per ricavarne testo normale (per speech e condivisione immagine).
     /// La resa HTML non si fa qui: il frontend renderizza il Markdown col pipe <c>markdown</c>
-    /// dell'engine, che sanifica l'output. È pubblico perché la galleria, che persiste solo il
-    /// Markdown firmato, ricostruisce server-side il testo plain al salvataggio (senza fidarsi del client).
+    /// dell'engine, che sanifica l'output. È pubblico perché i condivisi, che persistono solo il
+    /// Markdown firmato, ricostruiscono server-side il testo plain alla condivisione (senza fidarsi del client).
     /// </summary>
     /// <param name="md">Testo in Markdown.</param>
     /// <returns>Il testo senza formattazione, già rifilato.</returns>

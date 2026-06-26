@@ -38,7 +38,7 @@ public record GenerationSettings
     /// Override (0..1) del tasso STANDARD di "conio" Markov (<see cref="Grammar.MarkovChain.DefaultChaos"/>):
     /// probabilità che un segnaposto venga inventato da una catena di Markov invece di pescato — parole
     /// nuove ma plausibili, stesso sapore ortografico. Assente = usa il default standard; 0 = disattiva.
-    /// Vale comunque solo per le flatlist idonee (nomi propri a parola singola: nomi, città, cognomi…).
+    /// Vale comunque solo per le liste CONDIVISE dei nomi propri (nomi, cognomi…): città e social ne sono esclusi.
     /// In una composizione, tra i generatori che lo impostano vince la probabilità più alta.
     /// </summary>
     public double? MarkovChaos { get; init; }

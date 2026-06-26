@@ -15,14 +15,14 @@ export interface GenerateResponse {
      */
     score: number;
     /**
-     * Firma HMAC della generazione rilasciata dal backend. Va rimandata indietro per salvare la
-     * generazione in galleria: il server accetta solo testi con firma valida (output genuini).
+     * Firma HMAC della generazione rilasciata dal backend. Va rimandata indietro per condividere la
+     * generazione: il server accetta solo testi con firma valida (output genuini).
      */
     sig: string;
 }
 
-/** Una generazione salvata nella galleria pubblica (corrisponde al record C# `GalleryEntry`). */
-export interface GalleryEntry {
+/** Una generazione condivisa nella raccolta pubblica (corrisponde al record C# `ShareEntry`). */
+export interface ShareEntry {
     /** Id content-addressed: generazioni identiche condividono lo stesso id. */
     id: string;
     /** Slug del generatore che l'ha prodotta. */
@@ -33,11 +33,11 @@ export interface GalleryEntry {
     markdown: string;
     /** Peso/rarità della generazione. */
     score: number;
-    /** Istante di primo salvataggio (ISO 8601). */
+    /** Istante di prima condivisione (ISO 8601). */
     createdUtc: string;
 }
 
-/** Esito del salvataggio in galleria: l'id con cui recuperare/condividere la generazione. */
-export interface GallerySaveResult {
+/** Esito della condivisione: l'id con cui recuperare/ricondividere la generazione. */
+export interface ShareSaveResult {
     id: string;
 }

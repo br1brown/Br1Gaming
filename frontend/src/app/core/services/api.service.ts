@@ -3,7 +3,7 @@ import { HttpParams } from '@angular/common/http';
 import { BaseApiService } from '../engine/services/base-api.service';
 import { Profile } from '../engine/dto/profile.dto';
 import { StorySummary, StorySnapshotDto } from '../dto/story.dto';
-import { GeneratorInfo, GenerateResponse, GalleryEntry, GallerySaveResult } from '../dto/generator.dto';
+import { GeneratorInfo, GenerateResponse, ShareEntry, ShareSaveResult } from '../dto/generator.dto';
 import { LoginResult, LoginRequest } from '../dto/auth.dto';
 
 /** Endpoint backend. Aggiungere il path qui, poi il metodo pubblico sotto. */
@@ -20,8 +20,8 @@ const API = {
     generate: (slug: string) => `generators/${encodeURIComponent(slug)}/generate`,
     saveGeneration: (slug: string) => `generators/${encodeURIComponent(slug)}/save`,
     generation: (id: string) => `g/${encodeURIComponent(id)}`,
-    gallery: 'gallery',
-    galleryCounts: 'gallery/counts',
+    shares: 'shares',
+    sharesCounts: 'shares/counts',
 } as const;
 
 /**
@@ -201,35 +201,35 @@ export class ApiService extends BaseApiService {
         return this.api_post<GenerateResponse>(API.generate(slug), {});
     }
 
-    // ─── Galleria pubblica ───────────────────────────────────────────────
+    // ─── Condivisi (raccolta pubblica) ───────────────────────────────────
     // Lo slug arriva dalla GeneratorInfo già caricata (un valore, non una stringa scritta a mano):
-    // il salvataggio rimanda al backend Markdown, punteggio e firma HMAC ottenuti dalla generazione.
+    // la condivisione rimanda al backend Markdown, punteggio e firma HMAC ottenuti dalla generazione.
 
-    /** Salva una generazione in galleria e restituisce l'id pubblico con cui recuperarla/condividerla. */
-    saveGeneration(slug: string, payload: Pick<GenerateResponse, 'markdown' | 'score' | 'sig'>): Promise<GallerySaveResult> {
-        return this.api_post<GallerySaveResult>(API.saveGeneration(slug), payload);
+    /** Condivide una generazione e restituisce l'id pubblico con cui recuperarla/ricondividerla. */
+    saveGeneration(slug: string, payload: Pick<GenerateResponse, 'markdown' | 'score' | 'sig'>): Promise<ShareSaveResult> {
+        return this.api_post<ShareSaveResult>(API.saveGeneration(slug), payload);
     }
 
     /**
-     * Recupera una generazione salvata per id. `silent: true`: il chiamante (recupero `?g=` o pagina
-     * galleria) gestisce da sé l'assenza, senza la modale d'errore automatica dell'interceptor.
+     * Recupera una generazione condivisa per id. `silent: true`: il chiamante (recupero `?g=` o pagina
+     * condivisi) gestisce da sé l'assenza, senza la modale d'errore automatica dell'interceptor.
      */
-    getGeneration(id: string): Promise<GalleryEntry> {
-        return this.api_get<GalleryEntry>(API.generation(id), undefined, { silent: true });
+    getGeneration(id: string): Promise<ShareEntry> {
+        return this.api_get<ShareEntry>(API.generation(id), undefined, { silent: true });
     }
 
     /**
-     * Le generazioni salvate più recenti (lista pubblica della galleria).
-     * Con <paramref name="slug"/> restringe al solo generatore indicato (galleria per generatore).
+     * Le generazioni condivise più recenti (lista pubblica dei condivisi).
+     * Con <paramref name="slug"/> restringe al solo generatore indicato (condivisi per generatore).
      */
-    getGallery(limit = 50, slug?: string): Promise<GalleryEntry[]> {
+    getShares(limit = 50, slug?: string): Promise<ShareEntry[]> {
         let params = new HttpParams().set('limit', limit);
         if (slug) params = params.set('slug', slug);
-        return this.api_get<GalleryEntry[]>(API.gallery, params);
+        return this.api_get<ShareEntry[]>(API.shares, params);
     }
 
-    /** Conteggio delle generazioni salvate per generatore (slug → totale), per la panoramica. */
-    getGalleryCounts(): Promise<Record<string, number>> {
-        return this.api_get<Record<string, number>>(API.galleryCounts);
+    /** Conteggio delle generazioni condivise per generatore (slug → totale), per la panoramica. */
+    getSharesCounts(): Promise<Record<string, number>> {
+        return this.api_get<Record<string, number>>(API.sharesCounts);
     }
 }

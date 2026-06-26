@@ -56,7 +56,7 @@ const STATIC_GIOCHI: CardEntry[] = [
     templateUrl: './home.component.html',
 })
 export class HomeComponent extends PageBaseComponent<HomeContent> {
-    /** Per i link interni nel template (es. CTA verso la Galleria). */
+    /** Per i link interni nel template (es. CTA verso i Condivisi). */
     protected readonly PageType = PageType;
     /** Nome del sito dalla config (niente stringhe hardcoded nell'hero). */
     protected readonly appName = inject(SITE_CONFIG).appName;

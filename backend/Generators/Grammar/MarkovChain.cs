@@ -5,7 +5,7 @@ namespace Backend.Generators.Grammar;
 /// <summary>
 /// Catena di Markov a livello di CARATTERE: impara l'ortografia da una lista di parole e ne conia
 /// di nuove — plausibili ma inventate, con lo stesso "sapore" (es. da nomi reali → «Arnazio»,
-/// «Gernanio»; da città → «Viterata», «Materbo»). Dà un tocco di varietà ai segnaposto, opt-in via
+/// «Gernanio»; da cognomi → «Mariotti», «Vernazzi»). Dà un tocco di varietà ai segnaposto, opt-in via
 /// <see cref="GenerationSettings.MarkovChaos"/>. Costruita UNA VOLTA al boot (come tutto il Runtime),
 /// poi solo letta: il conio a runtime è O(lunghezza parola).
 /// </summary>
@@ -13,9 +13,10 @@ public sealed class MarkovChain
 {
     // ── Parametri (policy del conio, in un solo posto) ────────────────────────────────
     /// <summary>
-    /// Tasso di conio STANDARD applicato a ogni generatore (presente o futuro) sulle sue liste idonee
-    /// (nomi propri: città, nomi, cognomi…), senza bisogno di opt-in. Un generatore può sovrascriverlo
-    /// via <see cref="GenerationSettings.MarkovChaos"/> (anche 0 per disattivarlo del tutto).
+    /// Tasso di conio STANDARD applicato alle liste CONDIVISE dei nomi propri (nomi, cognomi…), curate
+    /// apposta per il conio — escluse quelle in <see cref="NonCoinableKeys"/> (città, social) che devono
+    /// restare reali. Un generatore può sovrascriverlo via <see cref="GenerationSettings.MarkovChaos"/>
+    /// (anche 0 per disattivarlo del tutto).
     /// </summary>
     public const double DefaultChaos = 0.25;
     /// <summary>Ordine (in caratteri) di default del modello, se il generatore non lo specifica.</summary>
@@ -27,10 +28,17 @@ public sealed class MarkovChain
     /// <summary>Frazione minima di voci a parola singola (i nomi propri lo sono).</summary>
     private const double MinSingleWordFraction = 0.8;
     /// <summary>Frazione minima di voci con iniziale maiuscola: il char-Markov conia bene i NOMI PROPRI
-    /// (nomi/città/cognomi), ma mangia le parole comuni in non-parole tipo refuso. Restare sui propri.</summary>
+    /// (nomi/cognomi), ma mangia le parole comuni in non-parole tipo refuso. Restare sui propri.</summary>
     private const double MinProperNounFraction = 0.8;
     /// <summary>Tentativi massimi di conio prima di rinunciare (e far ripiegare sul pescaggio normale).</summary>
     private const int MaxCoinAttempts = 24;
+    /// <summary>
+    /// Liste CONDIVISE da NON coniare mai, pur essendo idonee: sono dati del mondo reale che devono
+    /// restare verosimili e verificabili (città italiane, social esistenti). Il conio le trasformerebbe
+    /// in toponimi/brand inventati: gradevole per nomi/cognomi di fantasia, fuori luogo qui.
+    /// </summary>
+    public static readonly IReadOnlySet<string> NonCoinableKeys =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "city", "social" };
 
     // Sentinelle di inizio/fine parola (caratteri di controllo: non compaiono nei contenuti).
     private const char Start = '\u0002';

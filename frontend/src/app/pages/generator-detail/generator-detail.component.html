@@ -23,42 +23,39 @@
     </div>
 
     <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
+        @if (recovered()) {
+        <!-- Frase già generata e condivisa: niente "Ancora!", ma il ritorno al generatore "vuoto". -->
+        <button class="btn btn-primary rounded-pill px-4" (click)="goToGenerator()">
+            {{ 'condivisiVaiAlGeneratore' | translate }}
+        </button>
+        } @else {
         <button class="btn btn-primary rounded-pill px-4" (click)="generate(true)" [disabled]="loading()">
             @if (loading()) {
             <span class="spinner-border spinner-border-sm me-2" role="status"></span>
             }
             {{ (result() ? 'ancora' : 'genera') | translate }}!
         </button>
+        }
 
         @if (result(); as res) {
         <div class="row">
                 <app-speech-action [action]="speakText" class="col" />
-                <app-copy-action [action]="copyText" class="col" [showLabel]="true" />
                 <app-share-action [action]="buildShareCanvas" class="col" [showLabel]="true"
                                   [title]="shareTitle()" [filename]="shareFilename()" />
-                @if (res.sig) {
-                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3 col"
-                        (click)="save()" [disabled]="saving() || savedId() !== null">
-                    @if (saving()) {
-                    <span class="spinner-border spinner-border-sm me-1" role="status"></span>
-                    }
-                    {{ (savedId() ? 'galleriaSalvataBadge' : 'galleriaSalva') | translate }}
-                </button>
-                }
         </div>
         }
     </div>
 
     <p class="mb-4">
-        <a class="small text-decoration-none" [routerLink]="galleriaPath" [queryParams]="{ gen: gen.slug }">
-            {{ 'galleriaDiQuesto' | translate }}
+        <a class="small text-decoration-none" [routerLink]="condivisiPath" [queryParams]="{ gen: gen.slug }">
+            {{ 'condivisiDiQuesto' | translate }}
         </a>
     </p>
 
     @if (recovered()) {
     <p class="text-secondary small mb-3">
-        {{ 'galleriaDaGalleria' | translate }}
-        <a [appPage]="PageType.Galleria" class="ms-1">{{ 'galleriaVaiAllaGalleria' | translate }}</a>
+        {{ 'condivisiDaCondivisi' | translate }}
+        <a [appPage]="PageType.Condivisi" class="ms-1">{{ 'condivisiVaiAiCondivisi' | translate }}</a>
     </p>
     }
 
@@ -66,9 +63,9 @@
     <div class="gen-result p-4 shadow-sm">
         <div [innerHTML]="res.markdown | markdown"></div>
         <!-- Rarità: il backend calcola un peso (quanto è estrema/rara la frase). Mostrarlo
-             trasforma "Ancora!" in una caccia alla frase rara; stesso badge ★ della galleria. -->
+             trasforma "Ancora!" in una caccia alla frase rara; stesso badge ★ dei condivisi. -->
         <div class="text-end mt-3">
-            <span class="badge rounded-pill text-bg-primary" [title]="'galleriaPunteggio' | translate">
+            <span class="badge rounded-pill text-bg-primary" [title]="'condivisiPunteggio' | translate">
                 ★ {{ rounded(res.score) }}
             </span>
         </div>

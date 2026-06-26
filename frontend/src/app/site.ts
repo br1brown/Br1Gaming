@@ -28,7 +28,7 @@ export enum PageType {
     GameDuceNonDuce,
     GameRadar,
     GameBurocrazia,
-    Galleria,
+    Condivisi,
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -138,25 +138,25 @@ export const ContestoSito = buildSite({
                 .then(m => m.BurocraziaComponent),
         },
 
-        // ── Galleria pubblica delle generazioni salvate ──────────────
-        // Path figlio dei generatori (`generatori/galleria`): ne raccoglie gli output, quindi
+        // ── Condivisi: raccolta pubblica delle generazioni condivise ──────────────
+        // Path figlio dei generatori (`generatori/condivisi`): ne raccoglie gli output, quindi
         // sta sotto di loro anche nell'URL, non accanto ai giochi. Resta comunque una pagina a sé
         // (stesso rango delle altre): il sotto-path è solo gerarchia logica, non un embed.
         {
-            path: `generatori/galleria`,
-            title: `galleria`,
-            description: 'Le frasi più belle salvate dagli utenti: la galleria pubblica dei generatori.',
-            pageType: PageType.Galleria,
+            path: `generatori/condivisi`,
+            title: `condivisi`,
+            description: 'Le frasi più belle condivise dagli utenti: la raccolta pubblica dei generatori.',
+            pageType: PageType.Condivisi,
             layout: { showPanel: false },
-            component: () => import('./pages/galleria/galleria.component')
-                .then(m => m.GalleriaComponent),
+            component: () => import('./pages/condivisi/condivisi.component')
+                .then(m => m.CondivisiComponent),
         },
     ],
 
     headerNav: (nav) => {
         nav.addGroup('generatori', (g) => {
-            // I generatori veri e propri stanno in un sottogruppo annidato, così la Galleria
-            // (che raccoglie i loro output) vive accanto a loro senza sembrare un generatore.
+            // I generatori veri e propri stanno in un sottogruppo annidato, così i Condivisi
+            // (che raccolgono i loro output) vivono accanto a loro senza sembrare un generatore.
             g.addGroup('tuttiIGeneratori', (gg) => {
                 gg.addPage(PageType.GeneratorIncel);
                 gg.addPage(PageType.GeneratorAuto);
@@ -164,7 +164,7 @@ export const ContestoSito = buildSite({
                 gg.addPage(PageType.GeneratorLocali);
                 gg.addPage(PageType.GeneratorMbeb);
             });
-            g.addPage(PageType.Galleria);
+            g.addPage(PageType.Condivisi);
         });
         nav.addGroup('giochi', (g) => {
             // Le storie (avventure a bivi) in un sottogruppo annidato; gli altri giochi restano fuori.

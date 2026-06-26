@@ -99,19 +99,25 @@ public static class RuntimeBuilder
         var aperturaTpl = chain.Select(g => g.Apertura).FirstOrDefault(a => !string.IsNullOrEmpty(a));
         var chiusuraTpl = chain.Select(g => g.Chiusura).FirstOrDefault(c => !string.IsNullOrEmpty(c));
 
-        // ── Markov ("conio" di varianti): STANDARD per ogni generatore sulle sue flatlist idonee (nomi
-        // propri; la policy vive in MarkovChain.Train → IsSuitable). Il tasso è il default condiviso,
-        // salvo override esplicito di un generatore della catena (max tra quelli impostati; 0 disattiva).
-        // Ordine = primo esplicito, o il default del modello.
+        // ── Markov ("conio" di varianti): SOLO sulle liste CONDIVISE dei nomi propri (nome-m/-f, cognome,
+        // nome), curate apposta — meno quelle in NonCoinableKeys (città, social) che devono restare reali.
+        // Le liste dei singoli generatori (aggettivi, vibes, professioni…) non si coniano mai: lì un termine
+        // inventato è un refuso, non una variante. Il tasso è il default condiviso, salvo override esplicito
+        // di un generatore della catena (max tra quelli impostati; 0 disattiva). Ordine = primo esplicito, o default.
         var chaosOverrides = chain.Select(g => g.PhraseSettings?.MarkovChaos)
                                   .Where(v => v.HasValue).Select(v => v!.Value).ToList();
         double markovChaos = chaosOverrides.Count > 0 ? chaosOverrides.Max() : MarkovChain.DefaultChaos;
         int markovOrder = chain.Select(g => g.PhraseSettings?.MarkovOrder).FirstOrDefault(o => o is > 0)
                           ?? MarkovChain.DefaultOrder;
+        var coinableKeys = SharedContent.FlatLists.Keys
+            .Concat(SharedContent.ComposedLists.Keys)
+            .Where(k => !MarkovChain.NonCoinableKeys.Contains(k))
+            .ToHashSet();
         var markov = new Dictionary<string, MarkovChain>();
         if (markovChaos > 0)
             foreach (var (key, list) in flat)
-                if (MarkovChain.Train(list.Select(i => i.Text).ToList(), markovOrder) is { } ch)
+                if (coinableKeys.Contains(key)
+                    && MarkovChain.Train(list.Select(i => i.Text).ToList(), markovOrder) is { } ch)
                     markov[key] = ch;
 
         return new Runtime(

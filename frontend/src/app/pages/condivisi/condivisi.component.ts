@@ -5,7 +5,7 @@ import { MarkdownPipe } from '../../core/engine/pipes/markdown.pipe';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { PageDirective } from '../../core/engine/directives/page.directive';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
-import { GalleryEntry, GeneratorInfo } from '../../core/dto/generator.dto';
+import { ShareEntry, GeneratorInfo } from '../../core/dto/generator.dto';
 import { ContestoSito, PageType } from '../../site';
 
 // slug del generatore → PageType della sua pagina (stessa mappa della home: niente slug a mano nei link).
@@ -20,24 +20,24 @@ const GENERATOR_PAGE_TYPES: Partial<Record<string, PageType>> = {
 // Quante generazioni mostrare per generatore nella panoramica prima del link "Vedi tutte".
 const PREVIEW_LIMIT = 6;
 
-interface GalleryCard {
+interface CondivisoCard {
     id: string;
     markdown: string;
     /** Punteggio (peso/rarità) della generazione, arrotondato per la visualizzazione. */
     score: number;
-    /** Istante di salvataggio (ISO), per il "tempo fa". */
+    /** Istante di condivisione (ISO), per il "tempo fa". */
     createdUtc: string;
 }
 
-/** Un blocco della galleria: le generazioni salvate di uno stesso generatore. */
-interface GalleryGroup {
+/** Un blocco dei condivisi: le generazioni condivise di uno stesso generatore. */
+interface CondivisoGroup {
     slug: string;
     name: string;
     pageType: PageType | null;
     /** Path della pagina del generatore, per i link di recupero `?g=<id>`. */
     path: string | null;
     /** Carte mostrate (in panoramica sono troncate a PREVIEW_LIMIT). */
-    cards: GalleryCard[];
+    cards: CondivisoCard[];
     /** Totale caricato per questo generatore (per il contatore di "Vedi tutte"). */
     total: number;
     /** true se ci sono più generazioni di quelle mostrate (panoramica). */
@@ -45,7 +45,7 @@ interface GalleryGroup {
 }
 
 /**
- * Galleria pubblica con due modalità, distinte dal query param `?gen=<slug>` (bind via
+ * Raccolta pubblica dei condivisi, con due modalità distinte dal query param `?gen=<slug>` (bind via
  * withComponentInputBinding):
  *  - panoramica (senza `gen`): una sezione per generatore, in ordine di catalogo, con anteprima
  *    troncata e link "Vedi tutte" verso la modalità filtrata;
@@ -53,15 +53,15 @@ interface GalleryGroup {
  * Lista dinamica e non SEO-critica → caricata lato client.
  */
 @Component({
-    selector: 'app-galleria',
+    selector: 'app-condivisi',
     imports: [RouterLink, PageDirective, MarkdownPipe, TranslatePipe],
-    templateUrl: './galleria.component.html',
+    templateUrl: './condivisi.component.html',
     styles: [`
-        .galleria-card { transition: box-shadow .2s ease; }
-        .galleria-card:hover { box-shadow: var(--shadowElevatedHover); }
+        .condivisi-card { transition: box-shadow .2s ease; }
+        .condivisi-card:hover { box-shadow: var(--shadowElevatedHover); }
     `],
 })
-export class GalleriaComponent extends PageBaseComponent<unknown> {
+export class CondivisiComponent extends PageBaseComponent<unknown> {
     private readonly platform = inject(PLATFORM_ID);
     private readonly document = inject(DOCUMENT);
 
@@ -84,19 +84,19 @@ export class GalleriaComponent extends PageBaseComponent<unknown> {
         const url = `${this.document.location.origin}${path}?g=${id}`;
         try {
             await this.document.defaultView?.navigator.clipboard.writeText(url);
-            this.notify.toast(this.translate.translate('galleriaLinkCopiato'), 'success');
+            this.notify.toast(this.translate.translate('condivisiLinkCopiato'), 'success');
         } catch {
             this.notify.toast(url, 'info');   // clipboard non disponibile: mostra l'URL
         }
     }
 
-    /** Query param `?gen=<slug>`: se presente, mostra la galleria del solo generatore. */
+    /** Query param `?gen=<slug>`: se presente, mostra i condivisi del solo generatore. */
     readonly gen = input<string>();
 
-    /** Path della pagina galleria, per i link "Vedi tutte" / "Tutti i generatori". */
-    protected readonly galleriaPath = ContestoSito.getPath(PageType.Galleria) ?? '/';
+    /** Path della pagina condivisi, per i link "Vedi tutte" / "Tutti i generatori". */
+    protected readonly condivisiPath = ContestoSito.getPath(PageType.Condivisi) ?? '/';
 
-    private readonly entries = signal<GalleryEntry[] | null>(null);
+    private readonly entries = signal<ShareEntry[] | null>(null);
     /** Catalogo dei generatori in ordine, per raggruppare e dare i nomi. */
     private readonly generators = signal<GeneratorInfo[]>([]);
     /** Conteggio reale per generatore (slug → totale): la panoramica carica solo un'anteprima,
@@ -114,14 +114,14 @@ export class GalleriaComponent extends PageBaseComponent<unknown> {
     });
 
     /** null = ancora in caricamento; [] = caricata ma vuota. */
-    readonly groups = computed<GalleryGroup[] | null>(() => {
+    readonly groups = computed<CondivisoGroup[] | null>(() => {
         const list = this.entries();
         if (list === null) return null;
         const filtered = this.filterSlug();
 
         // Indice slug → carte, poi ordinate per punteggio decrescente (le generazioni "migliori"
         // — più rare/estreme — in cima a ogni generatore).
-        const bySlug = new Map<string, GalleryCard[]>();
+        const bySlug = new Map<string, CondivisoCard[]>();
         for (const e of list) {
             const cards = bySlug.get(e.slug) ?? [];
             cards.push({ id: e.id, markdown: e.markdown, score: Math.round(e.score), createdUtc: e.createdUtc });
@@ -164,16 +164,16 @@ export class GalleriaComponent extends PageBaseComponent<unknown> {
 
     private async load(slug: string | null): Promise<void> {
         this.entries.set(null);
-        const [gallery, generators, counts] = await Promise.all([
-            this.api.getGallery(200, slug ?? undefined).catch((): GalleryEntry[] => []),
+        const [shares, generators, counts] = await Promise.all([
+            this.api.getShares(200, slug ?? undefined).catch((): ShareEntry[] => []),
             this.generators().length ? Promise.resolve(this.generators())
                 : this.api.getGenerators().catch((): GeneratorInfo[] => []),
             // I conteggi servono solo alla panoramica (link "Vedi tutte"); in modalità filtrata si saltano.
             slug ? Promise.resolve(this.counts())
-                : this.api.getGalleryCounts().catch((): Record<string, number> => ({})),
+                : this.api.getSharesCounts().catch((): Record<string, number> => ({})),
         ]);
         this.generators.set(generators);
         this.counts.set(counts);
-        this.entries.set(gallery);
+        this.entries.set(shares);
     }
 }

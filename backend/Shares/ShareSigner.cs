@@ -1,27 +1,27 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Backend.Gallery;
+namespace Backend.Shares;
 
 /// <summary>
-/// Firma HMAC delle generazioni: il backend firma ogni testo che produce, e la galleria accetta
-/// in salvataggio solo testi con firma valida. Così nella lista pubblica finiscono unicamente
-/// output genuini del generatore, non testo arbitrario inviato a mano.
+/// Firma HMAC delle generazioni: il backend firma ogni testo che produce, e la condivisione accetta
+/// solo testi con firma valida. Così nella lista pubblica finiscono unicamente output genuini del
+/// generatore, non testo arbitrario inviato a mano.
 /// </summary>
 /// <remarks>
-/// La chiave si legge da <c>Custom:GallerySignKey</c> (config di progetto). Se assente si genera una
-/// chiave casuale per-processo: basta perché generazione e salvataggio avvengono nello stesso ciclo
+/// La chiave si legge da <c>Custom:ShareSignKey</c> (config di progetto). Se assente si genera una
+/// chiave casuale per-processo: basta perché generazione e condivisione avvengono nello stesso ciclo
 /// di vita del server. Valorizzare la chiave in config rende le firme stabili tra riavvii/istanze.
 /// </remarks>
-public sealed class GallerySigner
+public sealed class ShareSigner
 {
     private readonly byte[] _key;
 
     /// <summary>Inizializza il firmatario con la chiave da config (o una casuale per-processo).</summary>
     /// <param name="config">Configurazione applicativa (sezione <c>Custom</c>).</param>
-    public GallerySigner(IConfiguration config)
+    public ShareSigner(IConfiguration config)
     {
-        var configured = config["Custom:GallerySignKey"];
+        var configured = config["Custom:ShareSignKey"];
         _key = !string.IsNullOrWhiteSpace(configured)
             ? Encoding.UTF8.GetBytes(configured)
             : RandomNumberGenerator.GetBytes(32);

@@ -1,6 +1,6 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
-using Backend.Gallery;
+using Backend.Shares;
 using Backend.Generators;
 using Backend.Models;
 using Backend.Services;
@@ -21,8 +21,8 @@ public class BaseController : EngineApiController
     private readonly SiteService _site;
     private readonly StoryService _stories;
     private readonly GeneratorService _generators;
-    private readonly IGalleryStore _gallery;
-    private readonly GallerySigner _signer;
+    private readonly IShareStore _shares;
+    private readonly ShareSigner _signer;
     private readonly IValidator<StoryPlayRequestDto> _playValidator;
 
     /// <summary>Inizializza il controller con i servizi di dominio, il validator del play e il logger.</summary>
@@ -30,8 +30,8 @@ public class BaseController : EngineApiController
         SiteService site,
         StoryService stories,
         GeneratorService generators,
-        IGalleryStore gallery,
-        GallerySigner signer,
+        IShareStore shares,
+        ShareSigner signer,
         IValidator<StoryPlayRequestDto> playValidator,
         ILogger<BaseController> logger)
         : base(logger)
@@ -39,7 +39,7 @@ public class BaseController : EngineApiController
         _site = site;
         _stories = stories;
         _generators = generators;
-        _gallery = gallery;
+        _shares = shares;
         _signer = signer;
         _playValidator = playValidator;
     }
@@ -112,7 +112,7 @@ public class BaseController : EngineApiController
 
     /// <summary>
     /// Genera un nuovo testo per il generatore richiesto (slug sconosciuto → 404).
-    /// La risposta include una firma HMAC: serve a ri-salvare la generazione in galleria.
+    /// La risposta include una firma HMAC: serve a condividere la generazione.
     /// </summary>
     [HttpPost("generators/{slug}/generate")]
     public IActionResult Generate(string slug)
@@ -121,15 +121,15 @@ public class BaseController : EngineApiController
         return Ok(new GenerationResultDto(result.Text, result.Markdown, result.Score, _signer.Sign(slug, result.Markdown)));
     }
 
-    // ── Galleria pubblica ──────────────────────────────────────────────
+    // ── Condivisi (raccolta pubblica) ──────────────────────────────────
 
     /// <summary>
-    /// Salva una generazione nella galleria pubblica e restituisce l'id con cui recuperarla.
-    /// Accetta solo testi con firma HMAC valida (output genuini del generatore); l'id è
-    /// content-addressed, quindi salvare due volte la stessa generazione non crea doppioni.
+    /// Condivide una generazione (la salva nella raccolta pubblica) e restituisce l'id con cui
+    /// recuperarla. Accetta solo testi con firma HMAC valida (output genuini del generatore); l'id è
+    /// content-addressed, quindi condividere due volte la stessa generazione non crea doppioni.
     /// </summary>
     [HttpPost("generators/{slug}/save")]
-    public IActionResult SaveGeneration(string slug, [FromBody] GallerySaveRequest body)
+    public IActionResult SaveGeneration(string slug, [FromBody] ShareSaveRequest body)
     {
         _generators.Get(slug); // valida lo slug (404 se non esiste)
         if (body is null || string.IsNullOrWhiteSpace(body.Markdown) || !_signer.Verify(slug, body.Markdown, body.Sig))
@@ -137,26 +137,26 @@ public class BaseController : EngineApiController
 
         // Il testo plain è ricostruito server-side dal Markdown firmato (non si fida del client).
         var text = GeneratorService.MarkdownToPlain(body.Markdown);
-        var entry = _gallery.Save(slug, text, body.Markdown, body.Score);
-        return Ok(new GallerySaveResult(entry.Id));
+        var entry = _shares.Save(slug, text, body.Markdown, body.Score);
+        return Ok(new ShareSaveResult(entry.Id));
     }
 
-    /// <summary>Recupera una generazione salvata per id (id sconosciuto → 404).</summary>
+    /// <summary>Recupera una generazione condivisa per id (id sconosciuto → 404).</summary>
     [HttpGet("g/{id}")]
     public IActionResult GetGeneration(string id)
-        => Ok(_gallery.Get(id) ?? throw new NotFoundException(id));
+        => Ok(_shares.Get(id) ?? throw new NotFoundException(id));
 
     /// <summary>
-    /// Le generazioni salvate più recenti (lista pubblica), al massimo 200 per richiesta.
-    /// Con <paramref name="slug"/> valorizzato restringe a un solo generatore (galleria per generatore).
+    /// Le generazioni condivise più recenti (lista pubblica), al massimo 200 per richiesta.
+    /// Con <paramref name="slug"/> valorizzato restringe a un solo generatore (condivisi per generatore).
     /// </summary>
-    [HttpGet("gallery")]
-    public IActionResult GetGallery([FromQuery] int limit = 50, [FromQuery] string? slug = null)
-        => Ok(_gallery.GetRecent(Math.Clamp(limit, 1, 200), slug));
+    [HttpGet("shares")]
+    public IActionResult GetShares([FromQuery] int limit = 50, [FromQuery] string? slug = null)
+        => Ok(_shares.GetRecent(Math.Clamp(limit, 1, 200), slug));
 
-    /// <summary>Conteggio delle generazioni salvate per generatore (slug → totale), per la panoramica.</summary>
-    [HttpGet("gallery/counts")]
-    public IActionResult GetGalleryCounts() => Ok(_gallery.Counts());
+    /// <summary>Conteggio delle generazioni condivise per generatore (slug → totale), per la panoramica.</summary>
+    [HttpGet("shares/counts")]
+    public IActionResult GetSharesCounts() => Ok(_shares.Counts());
 
     private static GeneratorInfoDto ToInfoDto(IGenerator item)
         => new(item.Slug, item.Info?.Name ?? item.Slug, item.Info?.Description);

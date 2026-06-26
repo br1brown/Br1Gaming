@@ -6,15 +6,15 @@ using Microsoft.Extensions.Logging;
 using Backend.Engine;
 using Backend.Models;
 
-namespace Backend.Gallery;
+namespace Backend.Shares;
 
 /// <summary>
-/// Implementazione file-based di <see cref="IGalleryStore"/>: indice in memoria
-/// (<see cref="ConcurrentDictionary{TKey,TValue}"/>) con write-through su <c>db/gallery.json</c>
+/// Implementazione file-based di <see cref="IShareStore"/>: indice in memoria
+/// (<see cref="ConcurrentDictionary{TKey,TValue}"/>) con write-through su <c>db/shares.json</c>
 /// nel volume persistente <c>db/</c>. Fedele all'ethos "Database Fantasma" del template (niente
 /// motore SQL per un MVP). Pensato per singola istanza, come il default del template.
 /// </summary>
-public sealed class FileGalleryStore : IGalleryStore
+public sealed class FileShareStore : IShareStore
 {
     // Tetto morbido: oltre questa soglia si sfrattano le voci più vecchie (anti-crescita illimitata).
     private const int MaxEntries = 10000;
@@ -23,29 +23,33 @@ public sealed class FileGalleryStore : IGalleryStore
     private const int PersistMaxAttempts = 4;
 
     private readonly string _file;
+    // Nome storico del file (quando la feature si chiamava "galleria"): se il nuovo file non c'è
+    // ancora ma il vecchio sì, lo si legge una volta sola e il prossimo Persist scrive su shares.json.
+    private readonly string _legacyFile;
     private readonly object _lock = new();
-    private readonly ConcurrentDictionary<string, GalleryEntry> _entries = new();
-    private readonly ILogger<FileGalleryStore> _logger;
+    private readonly ConcurrentDictionary<string, ShareEntry> _entries = new();
+    private readonly ILogger<FileShareStore> _logger;
 
-    /// <summary>Inizializza lo store leggendo l'eventuale <c>db/gallery.json</c> esistente.</summary>
+    /// <summary>Inizializza lo store leggendo l'eventuale <c>db/shares.json</c> esistente.</summary>
     /// <param name="env">Ambiente host, per ricavare il percorso del volume <c>db/</c>.</param>
     /// <param name="logger">Logger per segnalare i ritenti/fallimenti di scrittura.</param>
-    public FileGalleryStore(IWebHostEnvironment env, ILogger<FileGalleryStore> logger)
+    public FileShareStore(IWebHostEnvironment env, ILogger<FileShareStore> logger)
     {
         _logger = logger;
         var dir = Path.Combine(env.ContentRootPath, "db");
         Directory.CreateDirectory(dir);
-        _file = Path.Combine(dir, "gallery.json");
+        _file = Path.Combine(dir, "shares.json");
+        _legacyFile = Path.Combine(dir, "gallery.json");
         Load();
     }
 
     /// <inheritdoc />
-    public GalleryEntry Save(string slug, string text, string markdown, double score)
+    public ShareEntry Save(string slug, string text, string markdown, double score)
     {
         var id = HashId(markdown);
         if (_entries.TryGetValue(id, out var existing)) return existing; // dedup: già presente
 
-        var entry = new GalleryEntry(id, slug, text, markdown, score, DateTimeOffset.UtcNow);
+        var entry = new ShareEntry(id, slug, text, markdown, score, DateTimeOffset.UtcNow);
         if (!_entries.TryAdd(id, entry)) return _entries[id]; // race: vince chi ha aggiunto per primo
 
         lock (_lock)
@@ -57,10 +61,10 @@ public sealed class FileGalleryStore : IGalleryStore
     }
 
     /// <inheritdoc />
-    public GalleryEntry? Get(string id) => _entries.TryGetValue(id, out var e) ? e : null;
+    public ShareEntry? Get(string id) => _entries.TryGetValue(id, out var e) ? e : null;
 
     /// <inheritdoc />
-    public IReadOnlyList<GalleryEntry> GetRecent(int limit, string? slug = null) =>
+    public IReadOnlyList<ShareEntry> GetRecent(int limit, string? slug = null) =>
         _entries.Values
             .Where(e => slug is null || string.Equals(e.Slug, slug, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(e => e.CreatedUtc)
@@ -107,7 +111,7 @@ public sealed class FileGalleryStore : IGalleryStore
             catch (IOException ex) when (attempt < PersistMaxAttempts)
             {
                 // Backoff esponenziale breve (25/50/100 ms): il lock è quasi sempre transitorio.
-                _logger.LogWarning(ex, "Galleria: scrittura di {File} fallita (tentativo {Attempt}/{Max}), ritento.",
+                _logger.LogWarning(ex, "Condivisi: scrittura di {File} fallita (tentativo {Attempt}/{Max}), ritento.",
                     _file, attempt, PersistMaxAttempts);
                 Thread.Sleep(25 * (1 << (attempt - 1)));
             }
@@ -116,7 +120,7 @@ public sealed class FileGalleryStore : IGalleryStore
                 // Tentativi esauriti o errore non transitorio: la voce è già in memoria (quindi
                 // visibile subito) e verrà ri-scritta al prossimo salvataggio riuscito, perché
                 // Persist serializza l'intero indice. Non facciamo fallire la richiesta dell'utente.
-                _logger.LogError(ex, "Galleria: impossibile persistere {File}; la voce resta solo in memoria.", _file);
+                _logger.LogError(ex, "Condivisi: impossibile persistere {File}; la voce resta solo in memoria.", _file);
                 TryDelete(tmp);
                 return;
             }
@@ -131,13 +135,16 @@ public sealed class FileGalleryStore : IGalleryStore
 
     private void Load()
     {
-        if (!File.Exists(_file)) return;
+        // Nuovo file se presente; altrimenti migrazione una-tantum dal vecchio db/gallery.json
+        // (il prossimo Persist riscrive su shares.json). Così i condivisi storici non si perdono.
+        var source = File.Exists(_file) ? _file : (File.Exists(_legacyFile) ? _legacyFile : null);
+        if (source is null) return;
         try
         {
-            var list = JsonSerializer.Deserialize<List<GalleryEntry>>(File.ReadAllText(_file), EngineJson.Web);
+            var list = JsonSerializer.Deserialize<List<ShareEntry>>(File.ReadAllText(source), EngineJson.Web);
             if (list is null) return;
             foreach (var e in list) _entries.TryAdd(e.Id, e);
         }
-        catch { /* file corrotto/illeggibile: si riparte da galleria vuota */ }
+        catch { /* file corrotto/illeggibile: si riparte dai condivisi vuoti */ }
     }
 }

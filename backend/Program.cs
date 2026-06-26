@@ -5,7 +5,7 @@ using FluentValidation;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.Options;
 using Backend.Delivery;
-using Backend.Gallery;
+using Backend.Shares;
 using Backend.Generators;
 using Backend.Mail;
 using Backend.Models.Configuration;
@@ -109,8 +109,8 @@ builder.Services.AddScoped<SiteService>();
 builder.Services.AddGenerators();
 // StoryService: registro storie e motore narrativo (auto-registrazione come i generatori).
 builder.Services.AddStories();
-// Galleria pubblica: store file-based in db/ + firmatario HMAC delle generazioni.
-builder.Services.AddGallery();
+// Condivisi (raccolta pubblica): store file-based in db/ + firmatario HMAC delle generazioni.
+builder.Services.AddShares();
 
 // Mailer: il sender (IEngineMailer) più coda + worker di invio in background. Accodare e
 // rispondere subito evita di bloccare la richiesta HTTP sull'I/O SMTP; l'invio (con retry)

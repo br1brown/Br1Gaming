@@ -1,6 +1,6 @@
 import { DOCUMENT } from '@angular/common';
 import { afterNextRender, Component, computed, inject, input, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { GeneratorInfo, GenerateResponse } from '../../core/dto/generator.dto';
 import { ContestoSito, PageType } from '../../site';
 import { SpeechService } from '../../core/engine/services/speech.service';
@@ -10,7 +10,6 @@ import { PageDirective } from '../../core/engine/directives/page.directive';
 import { MarkdownPipe } from '../../core/engine/pipes/markdown.pipe';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
-import { CopyActionComponent } from '../../components/shared/action/copy-action/copy-action.component';
 import { ShareActionComponent } from '../../components/shared/action/share-action/share-action.component';
 import { SpeechActionComponent } from '../../components/shared/action/speech-action/speech-action.component';
 
@@ -23,7 +22,6 @@ import { SpeechActionComponent } from '../../components/shared/action/speech-act
         AssetDirective,
         PageDirective,
         RouterLink,
-        CopyActionComponent,
         ShareActionComponent,
         SpeechActionComponent,
     ],
@@ -39,13 +37,14 @@ import { SpeechActionComponent } from '../../components/shared/action/speech-act
     `],
 })
 export class GeneratorDetailComponent extends PageBaseComponent<GeneratorInfo> {
-    /** Esposto al template per i link interni via [appPage] (es. verso la galleria). */
+    /** Esposto al template per i link interni via [appPage] (es. verso i condivisi). */
     protected readonly PageType = PageType;
-    /** Path della pagina galleria, per il link "Galleria di questo generatore" (con `?gen=`). */
-    protected readonly galleriaPath = ContestoSito.getPath(PageType.Galleria) ?? '/';
+    /** Path della pagina condivisi, per il link "Condivisi di questo generatore" (con `?gen=`). */
+    protected readonly condivisiPath = ContestoSito.getPath(PageType.Condivisi) ?? '/';
     /** Arrotonda il punteggio per il badge rarità. */
     protected readonly rounded = (n: number): number => Math.round(n);
     private readonly document = inject(DOCUMENT);
+    private readonly router = inject(Router);
     private readonly speech = inject(SpeechService);
     private readonly imgBuilder = inject(ImgBuilderService);
 
@@ -56,19 +55,17 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorInfo> {
     });
     readonly coverVisible = signal(true);
 
-    /** Query param `?g=<id>`: se presente, all'avvio si recupera quella generazione salvata
-     *  invece di generarne una nuova (link condivisibile della galleria). Bind automatico via
+    /** Query param `?g=<id>`: se presente, all'avvio si recupera quella generazione condivisa
+     *  invece di generarne una nuova (link condivisibile). Bind automatico via
      *  withComponentInputBinding. */
     readonly g = input<string>();
 
     readonly result = signal<GenerateResponse | null>(null);
     readonly loading = signal(false);
-    readonly saving = signal(false);
-    /** Id pubblico dell'ultima generazione salvata in galleria (per il link condivisibile). */
+    /** Id pubblico dell'ultima generazione condivisa (per il link condivisibile). */
     readonly savedId = signal<string | null>(null);
-    /** true quando il risultato mostrato proviene dalla galleria (recupero `?g=`), non da una generazione. */
+    /** true quando il risultato mostrato proviene dai condivisi (recupero `?g=`), non da una generazione. */
     readonly recovered = signal(false);
-    private allaFine = '';
 
     constructor() {
         super();
@@ -91,7 +88,6 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorInfo> {
         this.result.set(null);
         this.savedId.set(null);
         this.recovered.set(false);
-        this.allaFine = `\n\nDal ${this.generator()?.name ?? ''}\n${this.getCurrentUrl()}`;
         try {
             const res = await this.fetchGeneratedText();
             this.result.set(res);
@@ -105,7 +101,7 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorInfo> {
     }
 
     /**
-     * Recupera dalla galleria la generazione con l'id dato e la mostra. Id assente o non valido →
+     * Recupera dai condivisi la generazione con l'id dato e la mostra. Id assente o non valido →
      * si ricade su una generazione normale, così il link resta sempre utilizzabile.
      */
     private async recover(id: string): Promise<void> {
@@ -115,8 +111,7 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorInfo> {
         this.savedId.set(null);
         try {
             const entry = await this.api.getGeneration(id);
-            this.allaFine = `\n\nDal ${this.generator()?.name ?? ''}\n${this.getCurrentUrl()}?g=${id}`;
-            // sig vuota: un risultato recuperato è già in galleria, non si ri-salva.
+            // sig vuota: un risultato recuperato è già nei condivisi, non si ri-condivide.
             this.result.set({ text: entry.text, markdown: entry.markdown, score: entry.score, sig: '' });
             this.recovered.set(true);
         } catch {
@@ -127,30 +122,41 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorInfo> {
     }
 
     /**
-     * Salva il risultato corrente nella galleria pubblica e copia negli appunti il link
-     * condivisibile (`?g=<id>`). Disponibile solo per generazioni genuine (con firma HMAC).
+     * Assicura che il risultato corrente sia tra i condivisi e restituisce il link
+     * condivisibile che punta a *quell'* oggetto (`?g=<id>`). È il cuore del nuovo flusso di
+     * condivisione: prima si registra (una volta sola: l'id viene riusato), poi il chiamante usa
+     * il link sia dentro l'immagine sia come URL allegato alla condivisione.
+     *
+     * - Generazione genuina (con firma HMAC) non ancora condivisa → la condivide e ottiene l'id.
+     * - Già condivisa in questa sessione → riusa `savedId`, niente doppia registrazione.
+     * - Risultato recuperato dai condivisi (`?g=`, sig vuota) → è già un oggetto: link al suo id.
+     *
+     * Un errore di registrazione propaga: la share-action annulla la condivisione e notifica,
+     * così non si finisce mai a condividere un link "nudo" che non punta alla frase mostrata.
      */
-    async save(): Promise<void> {
+    private async ensureSavedLink(): Promise<string> {
+        if (this.savedId()) return `${this.getCurrentUrl()}?g=${this.savedId()}`;
+        const recoveredId = this.g();
+        if (recoveredId) return `${this.getCurrentUrl()}?g=${recoveredId}`;
+
         const res = this.result();
         const slug = this.generator()?.slug;
-        if (!res || !res.sig || !slug || this.saving()) return;
-        this.saving.set(true);
-        try {
-            const { id } = await this.api.saveGeneration(slug, { markdown: res.markdown, score: res.score, sig: res.sig });
-            this.savedId.set(id);
-            const url = `${this.getCurrentUrl()}?g=${id}`;
-            try {
-                await this.document.defaultView?.navigator.clipboard.writeText(url);
-                this.notify.toast(this.translate.translate('galleriaSalvataLinkCopiato'), 'success');
-            } catch {
-                // Clipboard non disponibile (permessi/contesto non sicuro): il salvataggio è comunque riuscito.
-                this.notify.toast(this.translate.translate('galleriaSalvata'), 'success');
-            }
-        } catch {
-            // L'apiErrorInterceptor ha già notificato l'utente.
-        } finally {
-            this.saving.set(false);
-        }
+        if (!res?.sig || !slug) return this.getCurrentUrl();
+
+        const { id } = await this.api.saveGeneration(slug, { markdown: res.markdown, score: res.score, sig: res.sig });
+        this.savedId.set(id);
+        return `${this.getCurrentUrl()}?g=${id}`;
+    }
+
+    /**
+     * Dallo stato "frase recuperata" (`?g=`) torna al generatore "vuoto": rimuove la query dall'URL
+     * e produce subito una generazione nuova. La navigazione riusa l'istanza del componente (stessa
+     * rotta), quindi `afterNextRender` non riparte: la generazione la lanciamo a mano.
+     */
+    goToGenerator(): void {
+        const path = ContestoSito.getPath(this.pageType());
+        if (path) void this.router.navigateByUrl(path);
+        void this.generate(true);
     }
 
     // Porta in vista il risultato appena rigenerato (block: 'nearest' = non si muove se già visibile).
@@ -160,34 +166,42 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorInfo> {
             this.document.querySelector('.gen-result')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
     }
 
-    // ── Sorgenti dati per i bottoni azione (copy / share / speech) ───────
+    // ── Sorgenti dati per i bottoni azione (share / speech) ──────────────
     //
     // I componenti `action` del template ricevono una funzione che produce il
     // dato e gestiscono da soli il servizio, lo stato di loading, il toast di
     // esito e gli errori. Il componente di pagina non tocca più ShareService.
 
-    /** Testo da copiare negli appunti. */
-    readonly copyText = (): string => (this.result()?.markdown ?? '') + this.allaFine;
-
     /** Testo da leggere ad alta voce. */
     readonly speakText = (): string => this.result()?.text ?? '';
 
-    /** Canvas immagine da condividere (la share-action smista verso shareCanvas). */
+    /**
+     * Canvas immagine da condividere. Prima registra la generazione tra i condivisi (`ensureSavedLink`),
+     * poi disegna il testo con in calce il link che punta a *quell'* oggetto: così l'immagine e
+     * la pagina condivise mostrano la stessa frase. La share-action smista verso shareCanvas e,
+     * dopo questo await, legge `shareTitle()` con l'id ormai disponibile.
+     */
     readonly buildShareCanvas = async (): Promise<HTMLCanvasElement> => {
         const res = this.result();
         if (!res) throw new Error('Nessun risultato da condividere');
-        const canvas = await this.imgBuilder.buildCanvas(
-            `${res.text}\n${this.allaFine}`,
-            { maxWidth: 1200 }
-        );
+        const link = await this.ensureSavedLink();
+        const footer = `\n\nDal ${this.generator()?.name ?? ''}\n${link}`;
+        const canvas = await this.imgBuilder.buildCanvas(`${res.text}\n${footer}`, { maxWidth: 1200 });
         if (!canvas) throw new Error('Errore nella generazione dell\'immagine');
         return canvas as HTMLCanvasElement;
     };
 
-    /** Titolo per la Web Share API. */
+    /**
+     * Titolo per la Web Share API, con il link all'oggetto condiviso. Letto dalla share-action
+     * dopo `buildShareCanvas`, quindi `savedId()` è già valorizzato per una generazione appena
+     * salvata; `g()` copre il caso di frase recuperata.
+     */
     readonly shareTitle = computed(() => {
         const gen = this.generator();
-        return gen ? `${gen.name}: ${this.getCurrentUrl()}` : '';
+        if (!gen) return '';
+        const id = this.savedId() ?? this.g();
+        const url = id ? `${this.getCurrentUrl()}?g=${id}` : this.getCurrentUrl();
+        return `${gen.name}: ${url}`;
     });
 
     /** Nome del file immagine condiviso. */

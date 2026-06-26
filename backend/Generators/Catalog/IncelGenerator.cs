@@ -224,7 +224,6 @@ public sealed class IncelGenerator : GeneratorBase
             ("martire del femminismo", 3),
             ("poveraccio vittima del sistema", 3),
             ("paladino della verità", 3),
-            ("oppressore autodifeso", 2),
         ],
         ["professioni"] =
         [
