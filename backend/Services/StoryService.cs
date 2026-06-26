@@ -107,6 +107,7 @@ public class StoryService
             SceneId: sceneId,
             SceneText: scene.Text,
             EndingTitle: scene.EndingTitle,
+            EndingImageId: scene.EndingImageId,
             Choices: scene.Choices.Where(c => c.IsVisible).Select(c => new ChoiceSnapshot(c.Id, c.Text)).ToList(),
             IsEnding: scene.IsEnding,
             Consequences: consequence,

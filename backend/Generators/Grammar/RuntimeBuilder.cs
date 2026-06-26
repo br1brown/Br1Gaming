@@ -99,6 +99,21 @@ public static class RuntimeBuilder
         var aperturaTpl = chain.Select(g => g.Apertura).FirstOrDefault(a => !string.IsNullOrEmpty(a));
         var chiusuraTpl = chain.Select(g => g.Chiusura).FirstOrDefault(c => !string.IsNullOrEmpty(c));
 
+        // ── Markov ("conio" di varianti): STANDARD per ogni generatore sulle sue flatlist idonee (nomi
+        // propri; la policy vive in MarkovChain.Train → IsSuitable). Il tasso è il default condiviso,
+        // salvo override esplicito di un generatore della catena (max tra quelli impostati; 0 disattiva).
+        // Ordine = primo esplicito, o il default del modello.
+        var chaosOverrides = chain.Select(g => g.PhraseSettings?.MarkovChaos)
+                                  .Where(v => v.HasValue).Select(v => v!.Value).ToList();
+        double markovChaos = chaosOverrides.Count > 0 ? chaosOverrides.Max() : MarkovChain.DefaultChaos;
+        int markovOrder = chain.Select(g => g.PhraseSettings?.MarkovOrder).FirstOrDefault(o => o is > 0)
+                          ?? MarkovChain.DefaultOrder;
+        var markov = new Dictionary<string, MarkovChain>();
+        if (markovChaos > 0)
+            foreach (var (key, list) in flat)
+                if (MarkovChain.Train(list.Select(i => i.Text).ToList(), markovOrder) is { } ch)
+                    markov[key] = ch;
+
         return new Runtime(
             FlatLists: resolvedFlat,
             GlobalCore: globalCore,
@@ -106,7 +121,8 @@ public static class RuntimeBuilder
             MinPhrases: min, MaxPhrases: max, MinScore: minScore,
             Separators: separators,
             Apertura: aperturaTpl is null ? null : parser.Parse(aperturaTpl, 0, "frame"),
-            Chiusura: chiusuraTpl is null ? null : parser.Parse(chiusuraTpl, 0, "frame"));
+            Chiusura: chiusuraTpl is null ? null : parser.Parse(chiusuraTpl, 0, "frame"),
+            Markov: markov, MarkovChaos: markovChaos);
     }
 
     private static Requirement ParseRequirement(RequiredInjectData data, string origin, PhraseParser parser) =>

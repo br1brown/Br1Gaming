@@ -66,14 +66,6 @@
     </div>
     }
 
-    @if (snap.isEnding && !facade.loading()) {
-    <div class="row justify-content-center g-2 mt-2">
-        <app-speech-action [action]="speakEnding" class="col-auto" />
-        <app-copy-action [action]="copyEnding" class="col-auto" [showLabel]="true" />
-        <app-share-action [action]="buildEndingShareCanvas" class="col-auto" [showLabel]="true"
-                          [title]="shareTitle()" [filename]="shareFilename()" />
-    </div>
-    }
     }
 
     @if (!facade.error()) {
@@ -107,11 +99,21 @@
     }
 
     @if (item.type === 'ending') {
-    <div class="card rounded-4 p-4 text-center shadow">
-        @if (item.title) {
-        <h2 class="fw-bold mb-3">{{ item.title }}</h2>
+    <div class="card rounded-4 overflow-hidden text-center shadow">
+        @if (item.imageId) {
+        <img [appAsset]="item.imageId"
+             [appAssetWidth]="1024"
+             alt=""
+             class="w-100 object-fit-cover"
+             style="max-height: 220px;"
+             (error)="hideBrokenImage($event)">
         }
-        <div class="fs-5" [innerHTML]="item.text | markdown"></div>
+        <div class="p-4">
+            @if (item.title) {
+            <h2 class="fw-bold mb-3">{{ item.title }}</h2>
+            }
+            <div class="fs-5" [innerHTML]="item.text | markdown"></div>
+        </div>
     </div>
     }
 </ng-template>

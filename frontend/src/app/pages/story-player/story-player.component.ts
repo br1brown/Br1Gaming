@@ -5,15 +5,11 @@ import { Router } from '@angular/router';
 import { PageType } from '../../site';
 import { StoryPlayerFacade } from '../../core/services/story-player.facade';
 import { ApiError } from '../../core/engine/services/base-api.service';
-import { ImgBuilderService } from '../../core/engine/services/img-builder.service';
 import { StoryInfo } from '../../core/dto/story.dto';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { MarkdownPipe } from '../../core/engine/pipes/markdown.pipe';
 import { AssetDirective } from '../../core/engine/directives/asset.directive';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
-import { CopyActionComponent } from '../../components/shared/action/copy-action/copy-action.component';
-import { ShareActionComponent } from '../../components/shared/action/share-action/share-action.component';
-import { SpeechActionComponent } from '../../components/shared/action/speech-action/speech-action.component';
 
 @Component({
     selector: 'app-story-player',
@@ -22,9 +18,6 @@ import { SpeechActionComponent } from '../../components/shared/action/speech-act
         MarkdownPipe,
         AssetDirective,
         NgTemplateOutlet,
-        CopyActionComponent,
-        ShareActionComponent,
-        SpeechActionComponent,
     ],
     templateUrl: './story-player.component.html',
     styles: [`
@@ -38,7 +31,6 @@ import { SpeechActionComponent } from '../../components/shared/action/speech-act
 export class StoryPlayerComponent extends PageBaseComponent<StoryInfo> {
     private readonly router = inject(Router);
     private readonly document = inject(DOCUMENT);
-    private readonly imgBuilder = inject(ImgBuilderService);
     readonly facade = inject(StoryPlayerFacade);
 
     readonly storyInfo = computed(() => this.pageContent());
@@ -114,41 +106,10 @@ export class StoryPlayerComponent extends PageBaseComponent<StoryInfo> {
         });
     }
 
-    // ── Azioni sul finale (riuso dei componenti dei generatori) ──────────
-
-    private endingPlain(): string {
-        const snap = this.facade.snapshot();
-        if (!snap?.isEnding) return '';
-        const title = snap.endingTitle ? `${snap.endingTitle}\n\n` : '';
-        // Il testo del finale è Markdown: lo riduco a testo piano per voce/immagine/clipboard.
-        const body = snap.sceneText
-            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-            .replace(/[*_`#>]/g, '')
-            .trim();
-        return title + body;
+    // Immagine del finale assente o non caricabile (asset id senza file, rete): nascondi l'elemento
+    // così la card resta pulita col solo testo, senza l'icona di immagine rotta.
+    hideBrokenImage(event: Event): void {
+        (event.target as HTMLElement | null)?.style.setProperty('display', 'none');
     }
-
-    private endingFooter(): string {
-        return `\n\nDa «${this.facade.title()}»\n${this.getCurrentUrl()}`;
-    }
-
-    /** Testo del finale letto ad alta voce. */
-    readonly speakEnding = (): string => this.endingPlain();
-
-    /** Testo del finale da copiare (con firma). */
-    readonly copyEnding = (): string => this.endingPlain() + this.endingFooter();
-
-    /** Immagine del finale da condividere. */
-    readonly buildEndingShareCanvas = async (): Promise<HTMLCanvasElement> => {
-        const canvas = await this.imgBuilder.buildCanvas(this.endingPlain() + this.endingFooter(), { maxWidth: 1200 });
-        if (!canvas) throw new Error('Errore nella generazione dell\'immagine');
-        return canvas;
-    };
-
-    /** Titolo per la Web Share API. */
-    readonly shareTitle = computed(() => `${this.facade.title()}: ${this.getCurrentUrl()}`);
-
-    /** Nome del file immagine condiviso. */
-    readonly shareFilename = computed(() => `${this.facade.snapshot()?.storySlug ?? 'storia'}.png`);
 
 }

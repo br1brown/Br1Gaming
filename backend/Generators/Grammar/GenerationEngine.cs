@@ -74,4 +74,7 @@ public sealed record Runtime(
     IReadOnlyList<Requirement> Requirements,
     int MinPhrases, int MaxPhrases, double MinScore,
     IReadOnlyList<string> Separators,
-    Phrase? Apertura, Phrase? Chiusura);
+    Phrase? Apertura, Phrase? Chiusura,
+    // Catene di Markov per flatlist eleggibile (conio di varianti) e relativa probabilità.
+    // Dizionario vuoto / probabilità 0 = feature disattiva (comportamento storico invariato).
+    IReadOnlyDictionary<string, MarkovChain> Markov, double MarkovChaos);

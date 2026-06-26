@@ -125,6 +125,15 @@ public static class Composer
     private static string EvalFlat(string key, EvalContext ctx)
     {
         var pool = ctx.Rt.FlatLists[key];
+
+        // "Conio" Markov: con probabilità MarkovChaos, inventa una parola nuova invece di pescarla
+        // (solo per le flatlist idonee, che hanno una catena). Un coniato NON ha una rarità definita:
+        // come i numeri (Range/Età) NON concorre al punteggio, così la "valutazione" finale resta il
+        // suo significato originale — la rarità dei soli elementi curati. Parola piana → torna com'è.
+        if (ctx.Rt.MarkovChaos > 0 && ctx.Rng.NextDouble() < ctx.Rt.MarkovChaos
+            && ctx.Rt.Markov.TryGetValue(key, out var chain) && chain.Coin(ctx.Rng) is { } coined)
+            return coined;
+
         if (!ctx.Used.TryGetValue(key, out var used)) ctx.Used[key] = used = [];
         var available = pool.Where(e => !used.Contains(e.Raw)).ToList();
         if (available.Count == 0) { used.Clear(); available = [.. pool]; } // pool esaurito → reset

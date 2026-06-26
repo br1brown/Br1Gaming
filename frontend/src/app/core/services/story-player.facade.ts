@@ -75,7 +75,7 @@ export class StoryPlayerFacade {
                 newItems.push({ type: 'consequence', text: next.consequences });
             }
             if (next.isEnding) {
-                newItems.push({ type: 'ending', sceneId: next.sceneId, text: next.sceneText, title: next.endingTitle });
+                newItems.push({ type: 'ending', sceneId: next.sceneId, text: next.sceneText, title: next.endingTitle, imageId: next.endingImageId });
             } else {
                 newItems.push({ type: 'scene', sceneId: next.sceneId, text: next.sceneText });
             }
@@ -167,7 +167,7 @@ export class StoryPlayerFacade {
 
         if (this.timeline().length === 0) {
             if (snap.isEnding) {
-                this.timeline.set([{ type: 'ending', sceneId: snap.sceneId, text: snap.sceneText, title: snap.endingTitle }]);
+                this.timeline.set([{ type: 'ending', sceneId: snap.sceneId, text: snap.sceneText, title: snap.endingTitle, imageId: snap.endingImageId }]);
             } else {
                 this.timeline.set([{ type: 'scene', sceneId: snap.sceneId, text: snap.sceneText }]);
             }

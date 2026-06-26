@@ -33,6 +33,18 @@ public record GenerationSettings
     /// Assente o 0 = nessuna soglia. In una composizione vince la soglia più alta tra i generatori.
     /// </summary>
     public double? MinScore { get; init; }
+
+    /// <summary>
+    /// Override (0..1) del tasso STANDARD di "conio" Markov (<see cref="Grammar.MarkovChain.DefaultChaos"/>):
+    /// probabilità che un segnaposto venga inventato da una catena di Markov invece di pescato — parole
+    /// nuove ma plausibili, stesso sapore ortografico. Assente = usa il default standard; 0 = disattiva.
+    /// Vale comunque solo per le flatlist idonee (nomi propri a parola singola: nomi, città, cognomi…).
+    /// In una composizione, tra i generatori che lo impostano vince la probabilità più alta.
+    /// </summary>
+    public double? MarkovChaos { get; init; }
+
+    /// <summary>Ordine (in caratteri) del modello di Markov per il conio. Default 2 (più alto = più vicino agli originali).</summary>
+    public int? MarkovOrder { get; init; }
 }
 
 /// <summary>Quota di frasi "identitarie" da garantire quando il generatore è ospite di un altro.</summary>

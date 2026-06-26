@@ -77,6 +77,13 @@ public class SceneDef
     /// <summary>Titolo del finale, visibile solo se IsEnding è true.</summary>
     public string? EndingTitle { get; init; }
 
+    /// <summary>
+    /// Asset id dell'immagine del finale (es. <c>story.poveri-maschi.redenzione</c>), opzionale.
+    /// Risolta dal client via la pipeline asset; se l'immagine manca, il client la nasconde.
+    /// Significativa solo se IsEnding è true.
+    /// </summary>
+    public string? EndingImageId { get; init; }
+
     /// <summary>Lista delle scelte disponibili. IsVisible su ciascuna gestisce il filtraggio.</summary>
     public List<ChoiceDef> Choices { get; init; } = [];
 

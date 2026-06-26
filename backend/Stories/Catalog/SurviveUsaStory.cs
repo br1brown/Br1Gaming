@@ -71,6 +71,7 @@ Ops: il tuo piccolo Paese ha appena scoperto di avere il petrolio. E ne ha **par
         {
             IsEnding    = true,
             EndingTitle = "Golpe al primo giorno",
+            EndingImageId = "story.sopravvivi-agli-usa.petrolio",
             Text = """
 Mi spiace informarti: ti hanno appena fatto il golpe.
 
@@ -107,6 +108,7 @@ I tuoi consiglieri scoprono che ha studiato ad Harvard, che sua moglie lavora al
         {
             IsEnding    = true,
             EndingTitle = "Comprato, non eletto",
+            EndingImageId = "story.sopravvivi-agli-usa.elezioni",
             Text = """
 Ha vinto le elezioni: gli americani hanno tasche profonde e la propaganda era imbattibile.
 
@@ -143,6 +145,7 @@ Curiosamente, i cartelli sono **tutti in inglese**, in un Paese dove quasi nessu
         {
             IsEnding    = true,
             EndingTitle = "Cacciato di palazzo",
+            EndingImageId = "story.sopravvivi-agli-usa.proteste",
             Text = """
 I manifestanti assaltano il palazzo del governo e ti cacciano via — o peggio.
 
@@ -178,6 +181,7 @@ Ti restano due soldi in cassa. Puoi spenderli una volta sola.
         {
             IsEnding    = true,
             EndingTitle = "Colto allo stremo",
+            EndingImageId = "story.sopravvivi-agli-usa.invasione",
             Text = """
 Molto carino da parte tua. Peccato che fosse esattamente quello che aspettavano: gli Stati Uniti hanno aspettato che fossi allo stremo e poi ti hanno invaso via terra per toglierti di mezzo.
 
@@ -189,6 +193,7 @@ Ti hanno fatto il golpe. Il petrolio, in fondo, non è mai stato il punto.
         {
             IsEnding    = true,
             EndingTitle = "Vivo per combattere ancora",
+            EndingImageId = "story.sopravvivi-agli-usa.sopravvivenza",
             Text = """
 Congratulazioni: sei sopravvissuto senza farti rovesciare dal governo degli Stati Uniti.
 

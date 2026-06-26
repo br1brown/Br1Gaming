@@ -30,7 +30,9 @@
 }
 
 html {
-    font-size: clamp(1rem, 0.5rem + 1vw, 1.25rem);
+    // Base tipografica = default del browser (16px), così il testo non è ingrandito a forza su
+    // schermi larghi e si rispettano le preferenze di accessibilità dell'utente. Tutto il resto
+    // del sito è in rem e scala di conseguenza.
     scroll-behavior: smooth;
     background: linear-gradient(180deg, color-mix(in srgb, var(--colorBase) 92%, white 8%), color-mix(in srgb, var(--colorBase) 86%, black 14%));
 }

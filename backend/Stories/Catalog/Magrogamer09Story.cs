@@ -905,24 +905,28 @@ Nel giro di poche ore **circolano screenshot ovunque**. Quando apri la live la c
         {
             IsEnding = true,
             EndingTitle = "Salvati dall'Amicizia",
+            EndingImageId = "story.magrogamer09.amicizia",
             Text = "Il **sostegno pubblico di Favijanni** cambia il clima. Il suo intervento diventa virale e riporta *fiducia e stabilità* attorno al canale."
         },
         ["ending_indenne"] = _ => new()
         {
             IsEnding = true,
             EndingTitle = "Uscita Quasi Indenne",
+            EndingImageId = "story.magrogamer09.indenne",
             Text = "Lo scandalo non si spegne subito, ma la gestione viene apprezzata. **La community resta in gran parte con te mentre si beve succo alla pera.**"
         },
         ["ending_difficile"] = _ => new()
         {
             IsEnding = true,
             EndingTitle = "Sopravvivenza Difficile",
+            EndingImageId = "story.magrogamer09.difficile",
             Text = "Il canale non si ferma, ma *perde slancio e credibilità*. La ricostruzione della fiducia richiederà **molto tempo**."
         },
         ["ending_chiusura"] = _ => new()
         {
             IsEnding = true,
             EndingTitle = "Chiusura del Canale",
+            EndingImageId = "story.magrogamer09.chiusura",
             Text = "**La sfiducia cresce** fino a rendere impossibile continuare. *Il canale si ferma.*"
         }
     };

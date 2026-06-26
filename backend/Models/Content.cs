@@ -16,6 +16,7 @@ public record ChoiceSnapshot(string Id, string Text);
 /// <param name="SceneId">Identificatore della scena corrente.</param>
 /// <param name="SceneText">Testo della scena, già calcolato per lo stato corrente.</param>
 /// <param name="EndingTitle">Titolo del finale, valorizzato solo se <paramref name="IsEnding"/> è true.</param>
+/// <param name="EndingImageId">Asset id dell'immagine del finale, o null. Significativo solo se <paramref name="IsEnding"/> è true.</param>
 /// <param name="Choices">Scelte visibili per lo stato corrente.</param>
 /// <param name="IsEnding">True se la scena è un finale (nessuna scelta).</param>
 /// <param name="Consequences">Testo della conseguenza dell'ultima scelta, o null.</param>
@@ -27,6 +28,7 @@ public record StorySnapshot(
     string SceneId,
     string SceneText,
     string? EndingTitle,
+    string? EndingImageId,
     List<ChoiceSnapshot> Choices,
     bool IsEnding,
     string? Consequences,

@@ -324,7 +324,7 @@ public sealed class IncelGenerator : GeneratorBase
         ("[vibes] di [eta-giovane] anni", 2),
         ("[professioni] [difetti_sociali]", 2),
         ("non si fida di nessuno e su [social] ripete a pappagallo _«[frasi_tipiche]»_", 6),
-        ("ascolta le OST dei videogiochi perché _«la musica commerciale è in mano a...? Esatto, [hating]!»_)", 6),
+        ("ascolta le OST dei videogiochi (perché _«la musica commerciale è in mano a...? Esatto, [hating]!»_)", 6),
         ("con complessi sulle dimensioni del suo pene ([commenti_sprezzanti_pene])", 15),
         ("il suo profilo [social] è pieno di citazioni di [idoli] (ma poi è stra attivo, tipo [5-8] post al giorno)", 9),
         ("[eta-giovane]enne [vibes] che si lamenta spesso dicendo cose tipo _«[frasi_tipiche]»_", 6),

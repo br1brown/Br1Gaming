@@ -432,6 +432,7 @@ Le donne hanno welfare, promo facili, quote rosa... e noi? Ci attacchiamo al caz
         {
             IsEnding    = true,
             EndingTitle = "Cancel Culture",
+            EndingImageId = "story.poveri-maschi.cancel-culture",
             Text        = """
 Cazzo, è vero: non si può droppare una *blackpill* senza che ti cancelino — non è solo un complotto anti-beta, è il **sistema woke** intero!
 
@@ -452,6 +453,7 @@ Mi pompano di pillole per non farmi *looksmaxxare* la verità, ma io so che ho r
         {
             IsEnding    = true,
             EndingTitle = "Il Buco Nero della Mente",
+            EndingImageId = "story.poveri-maschi.buco-nero",
             Text        = """
 Tutto è una merda assoluta, io sono il solo **redpilled illuminato** in un mare di *bluepilled* zombie!
 
@@ -472,6 +474,7 @@ Ma cazzo, ho **LA BLACKPILL SUPREMA!** Rope? Nah, vivo da eremita *MGTOW*, *look
         {
             IsEnding    = true,
             EndingTitle = "Lunga Strada Verso la Redenzione",
+            EndingImageId = "story.poveri-maschi.redenzione",
             Text        = """
             
 Staccare dal web sembra una mossa furba, magari cerco vita reale invece di rage-comment su forum *incel*.
