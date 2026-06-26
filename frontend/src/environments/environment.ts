@@ -28,7 +28,7 @@ export const environment: AppEnvironment = {
     defaultLang: 'it',
     availableLanguages: ["it"],
     config: {
-            "colorTema": "#bfffff",
+            "colorTema": "#add8e6",
             "description": {
                     "it": "Generatori ignoranti, avventure interattive, universo Br1."
             }

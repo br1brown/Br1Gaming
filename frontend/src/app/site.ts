@@ -69,13 +69,8 @@ function storyPage(
 
 export const ContestoSito = buildSite({
 
-    // PWA disattivata per questo sito: niente Service Worker. Non c'è nulla di realmente
-    // offline (servirebbe censire gli endpoint in config, non previsto dal codice attuale) e
-    // l'unico effetto del SW era costringere gli utenti ad aggiornare la cache a ogni deploy.
-    // Il default del padre resta `true`: è solo questo figlio a fare opt-out.
     isWebApp: false,
 
-    // Pagina del brand/logo nel navbar.
     homePage: PageType.Home,
 
     legalPages: {
@@ -138,10 +133,6 @@ export const ContestoSito = buildSite({
                 .then(m => m.BurocraziaComponent),
         },
 
-        // ── Condivisi: raccolta pubblica delle generazioni condivise ──────────────
-        // Path figlio dei generatori (`generatori/condivisi`): ne raccoglie gli output, quindi
-        // sta sotto di loro anche nell'URL, non accanto ai giochi. Resta comunque una pagina a sé
-        // (stesso rango delle altre): il sotto-path è solo gerarchia logica, non un embed.
         {
             path: `generatori/condivisi`,
             title: `condivisi`,

@@ -6,6 +6,20 @@ namespace Backend.Generators;
 /// Dati condivisi tra tutti i generatori (un tempo <c>data/generators/shared.json</c>):
 /// dizionari di parole comuni, gruppi di policy, liste composte e alias di fasce d'età.
 /// </summary>
+/// <remarks>
+/// VOCABOLARIO DEI SEGNAPOSTO (cosa si può scrivere tra <c>[ ]</c> in un template):
+/// <list type="bullet">
+///   <item>Liste per-generatore → la chiave delle <c>FlatLists</c> del generatore stesso o dei suoi
+///         master (<c>ComposeWith</c>): es. <c>[hating]</c>, <c>[terrori_quotidiani]</c>. Si auto-documentano lì.</item>
+///   <item>Liste condivise → le chiavi delle <see cref="FlatLists"/> qui sotto: <c>[city]</c>, <c>[nome-m]</c>,
+///         <c>[nome-f]</c>, <c>[cognome]</c>, <c>[social]</c>, più la composta <c>[nome]</c> (<see cref="ComposedLists"/>).</item>
+///   <item>Fasce d'età → le chiavi di <see cref="AgeAliases"/>: <c>[eta-minorenne]</c> … <c>[eta-anziano]</c>,
+///         risolte in un numero entro il range della fascia.</item>
+///   <item>Range numerico → SINTASSI, non una lista: <c>[N-M]</c> (es. <c>[2-5]</c>) estrae un intero in <c>[N, M]</c>.</item>
+/// </list>
+/// Un tag che non rientra in nessuna di queste categorie fa fallire il boot (<c>GeneratorConfigException</c>),
+/// quindi non serve un registro a parte: il compilatore dei runtime è già il "linter" dei segnaposto.
+/// </remarks>
 public static class SharedContent
 {
     /// <summary>Dizionari di parole comuni (con punteggio opzionale), riusati dai placeholder di ogni generatore.</summary>

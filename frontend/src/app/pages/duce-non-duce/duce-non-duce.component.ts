@@ -57,9 +57,22 @@ export class DuceNonDuceComponent extends PageBaseComponent<void> implements OnD
     private imageBag: number[] = [];
     private timerId: ReturnType<typeof setInterval> | null = null;
 
+    /**
+     * SFX condivisi con la burocrazia (stesso set di file, un suono solo): `win` per la risposta
+     * giusta, `lose` quando si apre la modale della risposta sbagliata. Precaricati lato browser
+     * in afterNextRender; il play parte dentro il click (gesto utente) → niente blocco autoplay.
+     */
+    private sfxCorrect: HTMLAudioElement | null = null;
+    private sfxWrong: HTMLAudioElement | null = null;
+
     constructor() {
         super();
         afterNextRender(() => {
+            this.sfxCorrect = new Audio(this.asset.getUrl('buro.sfx.win'));
+            this.sfxWrong = new Audio(this.asset.getUrl('buro.sfx.lose'));
+            this.sfxCorrect.preload = 'auto';
+            this.sfxWrong.preload = 'auto';
+
             const saved = this.cookies.getCookie('duceNonDuceRecord');
             if (saved) {
                 try {
@@ -94,10 +107,12 @@ export class DuceNonDuceComponent extends PageBaseComponent<void> implements OnD
         if (!img) return;
 
         if (isDuce === img.toUpperCase().startsWith('DUCE')) {
+            this.playSfx(this.sfxCorrect);
             this.score.update(s => s + 1);
             this.saveRecord();
             this.nextImage();
         } else {
+            this.playSfx(this.sfxWrong);
             this.stopTimer();
             this.gameActive.set(false);
             this.notify.error(
@@ -105,6 +120,13 @@ export class DuceNonDuceComponent extends PageBaseComponent<void> implements OnD
                 `Hai totalizzato ${this.score()} punti in ${this.formattedTime()}`
             );
         }
+    }
+
+    /** Riavvolge e riproduce un SFX; ignora errori (es. autoplay non sbloccato o asset assente). */
+    private playSfx(audio: HTMLAudioElement | null): void {
+        if (!audio) return;
+        audio.currentTime = 0;
+        void audio.play().catch(() => { /* silenzioso: nessun suono non deve rompere il gioco */ });
     }
 
     resetRecord(): void {

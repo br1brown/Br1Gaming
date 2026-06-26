@@ -265,12 +265,11 @@ public sealed class IncelGenerator : GeneratorBase
         ["commenti_sprezzanti_generici"] =
         [
             ("peccato non abbia ancora imparato ad avviare la lavatrice da solo", 3),
-            ("ma va nel panico se il cameriere gli chiede se l'acqua la vuole liscia o gassata", 3),
             ("alle [2-5] di notte, illuminato solo dal monitor mentre mangia merendine sottomarca al buio", 3),
             ("nella sua testa sta pensando a [idoli]", 3),
             ("ma in realtà è palesemente [vibes]", 3),
             ("la sua ultima interazione umana risale al [2019-2025]", 3),
-            ("mentre la madre gli prepara la merenda nella stanza accanto", 3),
+            ("la madre gli prepara la merenda tutti i giorni", 3),
             ("e lo hanno capito tutti tranne lui", 3),
         ],
         ["commenti_sprezzanti_pene"] =
@@ -307,7 +306,7 @@ public sealed class IncelGenerator : GeneratorBase
         ("non ha mai avuto successo con la [donne] (non mi sorprende dato che dice sempre _«[frasi_tipiche]»_)", 9),
         ("non si è mai fidanzato, lui è un _«[percezione]»_", 6),
         ("nonostante i suoi [eta-giovane] anni è ancora [difetti_sociali]", 3),
-        ("nonostante i suoi [eta-giovane] anni, è sempre [difetti_sociali] e la sua frase distintiva è _«[frasi_tipiche]»_ (ultimamente ha il coraggio di dirlo persino davanti a [hating])", 10),
+        ("nonostante i suoi [eta-giovane] anni, è sempre [difetti_sociali] e la sua frase distintiva è _«[frasi_tipiche]»_ (ultimamente ha il coraggio di dirlo persino quando si parla di [hating])", 10),
         ("odia [hating] oltre che se stesso", 3),
         ("odia oltre ogni limite [hating]", 3),
         ("odia tutto ciò che riguarda [hating] e lo dice sommessamente su [social] ([commenti_sprezzanti_generici])", 10),
@@ -322,10 +321,8 @@ public sealed class IncelGenerator : GeneratorBase
         ("[vibes] di [eta-giovane] anni che su [social] ripete sempre cose strane tipo _«[frasi_tipiche]»_", 6),
         ("[vibes] di [eta-giovane] anni", 2),
         ("[professioni] [difetti_sociali]", 2),
-        ("non si fida di nessuno e su [social] ripete a pappagallo _«[frasi_tipiche]»_", 6),
         ("ascolta le OST dei videogiochi (perché _«la musica commerciale è in mano a...? Esatto, [hating]!»_)", 6),
         ("con complessi sulle dimensioni del suo pene ([commenti_sprezzanti_pene])", 15),
-        ("il suo profilo [social] è pieno di citazioni di [idoli] (ma poi è stra attivo, tipo [5-8] post al giorno)", 9),
         ("[eta-giovane]enne [vibes] che si lamenta spesso dicendo cose tipo _«[frasi_tipiche]»_", 6),
         ("[eta-giovane]enne [vibes] che su [social] dice _«[frasi_tipiche]»_ ogni giorno", 6),
         ("[eta-minorenne]enne che si definisce un _«[percezione] che ha capito come gira il mondo: [frasi_tipiche]»_", 6),
@@ -341,5 +338,8 @@ public sealed class IncelGenerator : GeneratorBase
         ("ha calcolato l'angolo perfetto della sua mandibola usando un goniometro comprato dai cinesi e lo paragona a quello dei modelli su [social]", 35),
         ("conserva una cartella criptata sul pc con le foto delle mani di altri uomini per fare confronti ossessivi", 35),
         ("ha comprato delle solette rialzanti da [2-5] cm su Amazon per sembrare più alto", 15),
+        ("si atteggia a _«[percezione]»_ con tutti, ma la sua più grande paura è [terrori_quotidiani]", 12),
+        ("nella sua testa è un alfa intoccabile, nella realtà è terrorizzato da una cosa: [terrori_quotidiani]", 12),
+        ("si definisce un _«[percezione]»_ su [social] (eppure va nel panico al solo pensiero di [terrori_quotidiani])", 9),
     ];
 }
