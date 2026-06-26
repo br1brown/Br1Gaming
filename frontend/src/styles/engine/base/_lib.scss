@@ -20,14 +20,16 @@ $bp-md: 768px;
 /// qui sono un solo blocco, con le poche asimmetrie reali come parametri espliciti.
 /// @param {String} $s      suffisso palette: `Lt` (chiaro) | `Dk` (scuro)
 /// @param {String} $mix    colore per l'hover del link: `black` in light, `white` in dark
-/// @param {String} $pfg    sorgente di `--colorPrimaryFg`    (base in light, variante Dk in dark)
-/// @param {String} $pfgRgb sorgente di `--colorPrimaryFgRgb` (idem, tripla RGB)
-@mixin theme-bridge($s, $mix, $pfg, $pfgRgb) {
+@mixin theme-bridge($s, $mix) {
     --bs-link-color:          var(--colorLink#{$s});
     --bs-link-hover-color:    color-mix(in srgb, var(--colorLink#{$s}), #{$mix} 15%);
     --focusRingColor:         var(--colorLink#{$s});
-    --colorPrimaryFg:         var(#{$pfg});
-    --colorPrimaryFgRgb:      var(#{$pfgRgb});
+    --colorPrimaryFg:         var(--colorPrimaryFg#{$s});
+    --colorPrimaryFgRgb:      var(--colorPrimaryFgRgb#{$s});
+    // Primary FILL tone-adaptive (--bs-primary segue via :root mapping)
+    --colorPrimary:           var(--colorPrimary#{$s});
+    --colorPrimaryRgb:        var(--colorPrimaryRgb#{$s});
+    --colorPrimaryText:       var(--colorPrimaryText#{$s});
     --bs-body-bg:             var(--colorBase#{$s});
     --bs-body-color:          var(--colorSurfaceText#{$s});
     --bs-body-color-rgb:      var(--colorSurfaceTextRgb#{$s});
