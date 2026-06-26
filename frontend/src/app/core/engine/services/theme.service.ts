@@ -43,14 +43,33 @@ export interface PaletteTokens {
     colorPrimaryRgb: string;
     /**
      * Gemella scura di `colorPrimary`: brand schiarito in OKLCH (hue e chroma preservate) finché il
-     * contrasto WCAG 4.5:1 sullo sfondo pagina SCURO reale (`baseDk`) è garantito. Usata per il primary
-     * come FOREGROUND (testo `.text-primary`, bordo `.border-primary`) in dark mode, dove `colorPrimary`
-     * — tarato per il fondo chiaro — risulterebbe scuro-su-scuro. CSS: `--colorPrimaryDk`
+     * contrasto 4.8:1 (sopra AA) sulla superficie più ESTREMA dark (`mutedBgDk`) è garantito. Usata per
+     * il primary come FOREGROUND (testo `.text-primary`, bordo `.border-primary`) in dark mode, dove
+     * `colorPrimary` — tarato per il fondo chiaro — risulterebbe scuro-su-scuro. CSS: `--colorPrimaryFgDk`
      */
-    colorPrimaryDk: string;
-    /** Tripla RGB di `colorPrimaryDk`, per le utility `rgba()` con opacity. CSS: `--colorPrimaryRgbDk` */
-    colorPrimaryDkRgb: string;
-    /** `#000000` o `#ffffff` — testo leggibile su `colorPrimary`. CSS: `--colorPrimaryText` */
+    colorPrimaryFgDk: string;
+    /** Tripla RGB di `colorPrimaryFgDk`, per le utility `rgba()` con opacity. CSS: `--colorPrimaryFgRgbDk` */
+    colorPrimaryFgDkRgb: string;
+    /**
+     * Variante LIGHT del primary come FOREGROUND (testo `.text-primary`, bordo `.border-primary`):
+     * brand scurito in OKLCH finché il contrasto 4.8:1 (sopra AA) sulla superficie più ESTREMA light
+     * (`mutedBgLt`) è garantito. Disaccoppiata dal fill `colorPrimary` (`--bs-primary`), che resta il
+     * colore brand fedele: il foreground vive sulle superfici, il fill ospita testo proprio. CSS: `--colorPrimaryFgLt`
+     */
+    colorPrimaryFgLt: string;
+    /** Tripla RGB di `colorPrimaryFgLt`. CSS: `--colorPrimaryFgRgbLt` */
+    colorPrimaryFgLtRgb: string;
+    /**
+     * Variante DARK del primary come FILL (`--bs-primary` in dark mode): `colorPrimary` schiarito quanto
+     * basta per un boundary ≥3.2:1 sul fondo pagina scuro, così `.btn-primary`/`.bg-primary` resta
+     * visibile anche con brand quasi-neri. Brand già luminosi: invariato. CSS: `--colorPrimaryDk` (fill)
+     */
+    colorPrimaryFillDk: string;
+    /** Tripla RGB di `colorPrimaryFillDk`. CSS: `--colorPrimaryRgbDk` (fill) */
+    colorPrimaryFillDkRgb: string;
+    /** `#000000` o `#ffffff` — testo leggibile su `colorPrimaryFillDk` (fill primary in dark). CSS: `--colorPrimaryTextDk` */
+    colorPrimaryTextDk: '#000000' | '#ffffff';
+    /** `#000000` o `#ffffff` — testo leggibile su `colorPrimary` (fill primary in light). CSS: `--colorPrimaryText` */
     colorPrimaryText: '#000000' | '#ffffff';
 
     // ── Link — tone-adaptive ────────────────────────────────────────────────
@@ -312,17 +331,29 @@ export class ThemeService {
             // Brand
             ['--colorTema', p.colorTema],
             ['--colorTemaText', p.colorTemaText],
-            ['--colorPrimary', p.colorPrimary],
-            ['--colorPrimaryRgb', p.colorPrimaryRgb],
-            ['--colorPrimaryText', p.colorPrimaryText],
-            // Primary FOREGROUND tone-adaptive (testo/bordo .text-primary/.border-primary):
-            // colorPrimary in light (4.5:1 su baseLt), colorPrimaryDk in dark (4.5:1 su baseDk).
-            // I FILL (bottoni/bg) restano su --bs-primary = colorPrimary. Stesso pattern di --colorLink.
-            ['--colorPrimaryFg', lt ? p.colorPrimary : p.colorPrimaryDk],
-            ['--colorPrimaryFgRgb', lt ? p.colorPrimaryRgb : p.colorPrimaryDkRgb],
-            // Varianti fisse Lt/Dk per il ponte CSS dei subtheme [data-bs-theme] nidificati
-            ['--colorPrimaryDk', p.colorPrimaryDk],
-            ['--colorPrimaryRgbDk', p.colorPrimaryDkRgb],
+            // Primary FILL tone-adaptive (--bs-primary, .btn-primary/.bg-primary): colorPrimary in
+            // light, colorPrimaryFillDk in dark (schiarito per boundary ≥3.2:1 sul fondo scuro).
+            // Il testo del fill segue: colorPrimaryText (light) / colorPrimaryTextDk (dark).
+            ['--colorPrimary', lt ? p.colorPrimary : p.colorPrimaryFillDk],
+            ['--colorPrimaryRgb', lt ? p.colorPrimaryRgb : p.colorPrimaryFillDkRgb],
+            ['--colorPrimaryText', lt ? p.colorPrimaryText : p.colorPrimaryTextDk],
+            // Varianti fisse Lt/Dk del FILL per il ponte CSS dei subtheme [data-bs-theme] nidificati
+            ['--colorPrimaryLt', p.colorPrimary],
+            ['--colorPrimaryRgbLt', p.colorPrimaryRgb],
+            ['--colorPrimaryTextLt', p.colorPrimaryText],
+            ['--colorPrimaryDk', p.colorPrimaryFillDk],
+            ['--colorPrimaryRgbDk', p.colorPrimaryFillDkRgb],
+            ['--colorPrimaryTextDk', p.colorPrimaryTextDk],
+            // Primary FOREGROUND tone-adaptive (testo/bordo .text-primary/.border-primary),
+            // DISACCOPPIATO dal fill: colorPrimaryFgLt in light, colorPrimaryFgDk in dark — entrambi
+            // tarati 4.8:1 sulla superficie più estrema. I FILL restano su --bs-primary. Pattern di --colorLink.
+            ['--colorPrimaryFg', lt ? p.colorPrimaryFgLt : p.colorPrimaryFgDk],
+            ['--colorPrimaryFgRgb', lt ? p.colorPrimaryFgLtRgb : p.colorPrimaryFgDkRgb],
+            // Varianti fisse Lt/Dk del primary FOREGROUND per il ponte CSS dei subtheme [data-bs-theme]
+            ['--colorPrimaryFgLt', p.colorPrimaryFgLt],
+            ['--colorPrimaryFgRgbLt', p.colorPrimaryFgLtRgb],
+            ['--colorPrimaryFgDk', p.colorPrimaryFgDk],
+            ['--colorPrimaryFgRgbDk', p.colorPrimaryFgDkRgb],
             // Link + focus ring — tone-adaptive: contrasto leggibile del link sul pannello
             ['--colorLinkLt', p.colorLinkLt],
             ['--colorLinkDk', p.colorLinkDk],
@@ -341,8 +372,8 @@ export class ThemeService {
             ['--colorSecondaryRgb', ThemeService.hexToRgbTriplet(lt ? p.colorSecondaryLt : p.colorSecondaryDk)],
             ['--colorSecondaryText', lt ? p.colorSecondaryTextLt : p.colorSecondaryTextDk],
             // Bootstrap overrides
-            ['--bs-primary', p.colorPrimary],
-            ['--bs-primary-rgb', p.colorPrimaryRgb],
+            ['--bs-primary', lt ? p.colorPrimary : p.colorPrimaryFillDk],
+            ['--bs-primary-rgb', lt ? p.colorPrimaryRgb : p.colorPrimaryFillDkRgb],
             ['--bs-secondary', lt ? p.colorSecondaryLt : p.colorSecondaryDk],
             ['--bs-body-bg', lt ? p.colorBaseLt : p.colorBaseDk],
             ['--bs-body-color', lt ? p.colorSurfaceTextLt : p.colorSurfaceTextDk],
@@ -492,9 +523,17 @@ export class ThemeService {
                 // Expose lt/dk link vars per CSS subtheme overrides
                 `--colorLinkLt:${p.colorLinkLt};` +
                 `--colorLinkDk:${p.colorLinkDk};` +
-                // Primary FOREGROUND tone-adaptive — .text-primary/.border-primary WCAG 4.5:1 in entrambi i toni
-                `--colorPrimaryFg:${s ? p.colorPrimary : p.colorPrimaryDk};` +
-                `--colorPrimaryFgRgb:${s ? p.colorPrimaryRgb : p.colorPrimaryDkRgb};` +
+                // Primary FOREGROUND tone-adaptive (disaccoppiato dal fill) — .text-primary/.border-primary
+                // ≥4.8:1 sulla superficie estrema in entrambi i toni
+                `--colorPrimaryFg:${s ? p.colorPrimaryFgLt : p.colorPrimaryFgDk};` +
+                `--colorPrimaryFgRgb:${s ? p.colorPrimaryFgLtRgb : p.colorPrimaryFgDkRgb};` +
+                // Primary FILL tone-adaptive — colorPrimary in light, colorPrimaryFillDk in dark
+                // (schiarito per boundary ≥3.2:1). --bs-primary segue; il testo del fill anche.
+                `--colorPrimary:${s ? p.colorPrimary : p.colorPrimaryFillDk};` +
+                `--colorPrimaryRgb:${s ? p.colorPrimaryRgb : p.colorPrimaryFillDkRgb};` +
+                `--colorPrimaryText:${s ? p.colorPrimaryText : p.colorPrimaryTextDk};` +
+                `--bs-primary:${s ? p.colorPrimary : p.colorPrimaryFillDk};` +
+                `--bs-primary-rgb:${s ? p.colorPrimaryRgb : p.colorPrimaryFillDkRgb};` +
                 // RGB triplets semantici
                 `--bs-secondary-rgb:${ThemeService.hexToRgbTriplet(s ? p.colorSecondaryLt : p.colorSecondaryDk)};` +
                 // Strutturali Bootstrap
@@ -536,14 +575,19 @@ export class ThemeService {
             `--bs-body-font-family:${FontConfig.DEFAULT_WEB_FONT};` +
             `--colorTema:${p.colorTema};` +
             `--colorTemaText:${p.colorTemaText};` +
-            `--colorPrimary:${p.colorPrimary};` +
-            `--colorPrimaryRgb:${p.colorPrimaryRgb};` +
-            `--colorPrimaryText:${p.colorPrimaryText};` +
-            `--bs-primary:${p.colorPrimary};` +
-            `--bs-primary-rgb:${p.colorPrimaryRgb};` +
-            // Varianti fisse Dk del primary FOREGROUND — per il ponte CSS subtheme in base.scss
-            `--colorPrimaryDk:${p.colorPrimaryDk};` +
-            `--colorPrimaryRgbDk:${p.colorPrimaryDkRgb};` +
+            // (--colorPrimary/--colorPrimaryText/--bs-primary sono tone-adaptive in surfaces())
+            // Varianti fisse Lt/Dk del primary FILL — per il ponte CSS subtheme in base.scss
+            `--colorPrimaryLt:${p.colorPrimary};` +
+            `--colorPrimaryRgbLt:${p.colorPrimaryRgb};` +
+            `--colorPrimaryTextLt:${p.colorPrimaryText};` +
+            `--colorPrimaryDk:${p.colorPrimaryFillDk};` +
+            `--colorPrimaryRgbDk:${p.colorPrimaryFillDkRgb};` +
+            `--colorPrimaryTextDk:${p.colorPrimaryTextDk};` +
+            // Varianti fisse Lt/Dk del primary FOREGROUND — per il ponte CSS subtheme in base.scss
+            `--colorPrimaryFgLt:${p.colorPrimaryFgLt};` +
+            `--colorPrimaryFgRgbLt:${p.colorPrimaryFgLtRgb};` +
+            `--colorPrimaryFgDk:${p.colorPrimaryFgDk};` +
+            `--colorPrimaryFgRgbDk:${p.colorPrimaryFgDkRgb};` +
             // Varianti Lt/Dk fisse — per il ponte CSS subtheme in base.scss
             `--colorHeadingLt:${p.colorHeadingLt};` +
             `--colorHeadingDk:${p.colorHeadingDk};` +
@@ -604,6 +648,21 @@ export class ThemeService {
     // ── Static palette computation ────────────────────────────────────────
 
     /**
+     * Target di contrasto per i foreground testuali derivati (link, secondary, muted, primary-fg):
+     * 4.8:1, un margine sopra il minimo WCAG AA (4.5:1) per una lettura più confortevole e robusta
+     * agli arrotondamenti dell'audit. Fonte unica usata da `computePalette` e `computeColorPrimaryFgDk`.
+     */
+    private static readonly TARGET_TEXT_CONTRAST = 4.8;
+
+    /**
+     * Target di contrasto NON-testo per il boundary del fill primary (`--bs-primary`) contro lo sfondo
+     * pagina: 3.2:1, un margine sopra il minimo WCAG 1.4.11 (3:1). Usato in dark mode da
+     * `computeColorPrimaryFillDk` per garantire che `.btn-primary`/`.bg-primary` resti distinguibile
+     * dal fondo scuro anche con brand quasi-neri (che da soli sarebbero invisibili, ~1:1).
+     */
+    private static readonly TARGET_FILL_BOUNDARY = 3.2;
+
+    /**
      * Calcola l'intera `PaletteTokens` dal solo colore brand.
      * Ogni token è derivato matematicamente in OKLCH: nessun valore hardcoded
      * ad eccezione delle costanti di luminosità (L) che definiscono la struttura Bootstrap.
@@ -613,9 +672,14 @@ export class ThemeService {
         const colorTemaText = ThemeService.getReadableTextColor(colorTema);
         const colorPrimary = ThemeService.computeColorPrimary(colorTema);
         const colorPrimaryRgb = ThemeService.hexToRgbTriplet(colorPrimary);
-        const colorPrimaryDk = ThemeService.computeColorPrimaryDk(colorTema);
-        const colorPrimaryDkRgb = ThemeService.hexToRgbTriplet(colorPrimaryDk);
+        const colorPrimaryFgDk = ThemeService.computeColorPrimaryFgDk(colorTema);
+        const colorPrimaryFgDkRgb = ThemeService.hexToRgbTriplet(colorPrimaryFgDk);
+        const colorPrimaryFgLt = ThemeService.computeColorPrimaryFgLt(colorTema);
+        const colorPrimaryFgLtRgb = ThemeService.hexToRgbTriplet(colorPrimaryFgLt);
+        const colorPrimaryFillDk = ThemeService.computeColorPrimaryFillDk(colorPrimary);
+        const colorPrimaryFillDkRgb = ThemeService.hexToRgbTriplet(colorPrimaryFillDk);
         const colorPrimaryText = ThemeService.getReadableTextColor(colorPrimary);
+        const colorPrimaryTextDk = ThemeService.getReadableTextColor(colorPrimaryFillDk);
         const naturalTone = ThemeService.computeThemeTone(colorTema);
 
         // Sfondo base precomputato — serve come riferimento per i check di contrasto
@@ -623,29 +687,48 @@ export class ThemeService {
         const baseLtHex = ThemeService.computeBaseLt(C_t, H_t);
         const baseDkHex = ThemeService.computeBaseDk(C_t, H_t);
 
-        // Link Lt/Dk: stessa hue del brand, L cercata finché ≥ 4.5:1 sul rispettivo
-        // sfondo pagina REALE (baseLt/baseDk). Nota: colorPrimary garantisce 4.5:1 su
-        // bianco puro, ma il link vive su baseLt (L=0.970, leggermente più scuro del
-        // bianco) → riusare colorPrimary lasciava il link sotto soglia su ~1 brand su 7.
+        // Superfici precomputate qui (dipendono solo da C_t/H_t) perché sono i riferimenti
+        // di contrasto per i foreground derivati (link/secondary/muted).
+        //
+        // tertiary-bg (--bs-tertiary-bg): table-striped alternato, placeholder.
+        const colorSubtleBgLt = ThemeService.oklchToHex(0.967, Math.min(C_t * 0.05, 0.007), H_t);
+        const colorSubtleBgDk = ThemeService.oklchToHex(0.248, Math.min(C_t * 0.20, 0.025), H_t);
+        // secondary-bg (--bs-secondary-bg): disabled inputs, table-striped. È la superficie
+        // più ESTREMA su cui i foreground possono comparire, in ENTRAMBI i toni:
+        //   light L=0.942 → più SCURA di tertiary(0.967)/base(0.970)/surface(0.985)/hover(0.950);
+        //   dark  L=0.295 → più CHIARA di tertiary(0.248)/surface(0.180)/base(0.140)/hover(0.220).
+        // Tarare i foreground contro questa (anziché la tertiary) garantisce il target a fortiori
+        // su TUTTE le altre superfici (base, card, hover, tertiary) — verificato via stress test.
+        const colorMutedBgLt = ThemeService.computeMutedBgLt(C_t, H_t);
+        const colorMutedBgDk = ThemeService.computeMutedBgDk(C_t, H_t);
+
+        // Target di contrasto per i foreground testuali: 4.8:1, sopra il minimo WCAG AA (4.5:1).
+        // Il margine evita di "passare per il rotto della cuffia" (token al limite a 4.50) e dà una
+        // lettura più confortevole; findCompliantColor ripiega comunque su nero/bianco se serve,
+        // quindi alzare il target non scende MAI sotto AA. Verificato: 0 perdita di tinta brand.
+        const TARGET_TEXT = ThemeService.TARGET_TEXT_CONTRAST;
+
+        // Link Lt/Dk: stessa hue del brand, L cercata finché ≥ TARGET_TEXT sulla superficie più
+        // estrema (secondary-bg), così il link resta leggibile su ogni superficie/componente.
         // Chroma minima 0.08 per una tinta riconoscibile anche su brand grigi.
         const colorLinkLt = ThemeService.findCompliantColor(
-            Math.max(C_t, 0.08), H_t, baseLtHex, 4.5, 0.55, -0.01
+            Math.max(C_t, 0.08), H_t, colorMutedBgLt, TARGET_TEXT, 0.55, -0.01
         );
         const colorLinkDk = ThemeService.findCompliantColor(
-            Math.max(C_t, 0.08), H_t, baseDkHex, 4.5, 0.55, +0.01
+            Math.max(C_t, 0.08), H_t, colorMutedBgDk, TARGET_TEXT, 0.55, +0.01
         );
 
         // Secondary: C più bassa del brand — è una variante muted, non un accento.
         const C_sec = Math.min(C_t * 0.75, 0.12);
         const H_sec = H_t;
 
-        let secLt = ThemeService.findCompliantColor(C_sec, H_sec, baseLtHex, 4.5, 0.72, -0.01);
-        if (ThemeService.calcContrastRatio(secLt, '#ffffff') < 4.5) {
-            secLt = ThemeService.findCompliantColor(C_sec, H_sec, '#ffffff', 4.5, 0.72, -0.01);
+        let secLt = ThemeService.findCompliantColor(C_sec, H_sec, colorMutedBgLt, TARGET_TEXT, 0.72, -0.01);
+        if (ThemeService.calcContrastRatio(secLt, '#ffffff') < TARGET_TEXT) {
+            secLt = ThemeService.findCompliantColor(C_sec, H_sec, '#ffffff', TARGET_TEXT, 0.72, -0.01);
         }
-        let secDk = ThemeService.findCompliantColor(C_sec, H_sec, baseDkHex, 4.5, 0.55, +0.01);
-        if (ThemeService.calcContrastRatio(secDk, '#000000') < 4.5) {
-            secDk = ThemeService.findCompliantColor(C_sec, H_sec, '#000000', 4.5, 0.55, +0.01);
+        let secDk = ThemeService.findCompliantColor(C_sec, H_sec, colorMutedBgDk, TARGET_TEXT, 0.55, +0.01);
+        if (ThemeService.calcContrastRatio(secDk, '#000000') < TARGET_TEXT) {
+            secDk = ThemeService.findCompliantColor(C_sec, H_sec, '#000000', TARGET_TEXT, 0.55, +0.01);
         }
 
         // ── Subtle/emphasis system ─────────────────────────────────────────
@@ -658,20 +741,16 @@ export class ThemeService {
         // emphasis: headings/strong — quasi nero/bianco con leggera tinta brand
         const colorHeadingLt = ThemeService.oklchToHex(0.165, Math.min(C_t * 0.14, 0.020), H_t);
         const colorHeadingDk = ThemeService.oklchToHex(0.958, Math.min(C_t * 0.04, 0.006), H_t);
-        // secondary-bg: disabled inputs, table-striped
-        const colorMutedBgLt = ThemeService.oklchToHex(0.942, Math.min(C_t * 0.08, 0.011), H_t);
-        const colorMutedBgDk = ThemeService.oklchToHex(0.295, Math.min(C_t * 0.18, 0.022), H_t);
-        // tertiary-bg: table striped alternato, placeholder
-        const colorSubtleBgLt = ThemeService.oklchToHex(0.967, Math.min(C_t * 0.05, 0.007), H_t);
-        const colorSubtleBgDk = ThemeService.oklchToHex(0.248, Math.min(C_t * 0.20, 0.025), H_t);
-        // secondary-color: testo muted — WCAG 4.5:1 garantito da findCompliantColor.
-        // Riferimento di contrasto = la SUPERFICIE (card/pannelli), non la base pagina: il muted
-        // vive su .card/.panel (--colorSurface). In dark la superficie (L=0.180) è più chiara della
-        // base (L=0.140) → è il caso peggiore; garantendo 4.5:1 lì, lo si ha anche sulla base.
-        // In light la base è più scura della superficie → resta il caso peggiore: si usa baseLtHex.
+        // (colorMutedBgLt/Dk — secondary-bg — sono precomputati sopra: servono come
+        //  riferimento di contrasto estremo per i foreground oltre che come token nel return.)
+        // secondary-color: testo muted — TARGET_TEXT (4.8:1, sopra AA) garantito da
+        // findCompliantColor contro la superficie più ESTREMA (secondary-bg): il muted compare su
+        // card/pannelli, righe tabella alternate e input disabilitati. Garantendolo lì, lo si
+        // ottiene su ogni altra superficie. È il token che l'audit segnalava al limite (4.49:1).
+        // NB: colorSurfaceDkHex resta definito, è ancora il token --colorSurfaceDk nel return.
         const colorSurfaceDkHex = ThemeService.oklchToHex(0.180, Math.min(C_t * 0.12, 0.014), H_t);
-        const colorMutedTextLt = ThemeService.findCompliantColor(Math.min(C_t * 0.08, 0.012), H_t, baseLtHex, 4.5, 0.65, -0.01);
-        const colorMutedTextDk = ThemeService.findCompliantColor(Math.min(C_t * 0.08, 0.012), H_t, colorSurfaceDkHex, 4.5, 0.45, +0.01);
+        const colorMutedTextLt = ThemeService.findCompliantColor(Math.min(C_t * 0.08, 0.012), H_t, colorMutedBgLt, TARGET_TEXT, 0.65, -0.01);
+        const colorMutedTextDk = ThemeService.findCompliantColor(Math.min(C_t * 0.08, 0.012), H_t, colorMutedBgDk, TARGET_TEXT, 0.45, +0.01);
 
         // Adaptive Navbar/Footer colors (NavBg / NavText)
         let colorNavBgLt: string;
@@ -703,14 +782,20 @@ export class ThemeService {
             colorTemaText,
             colorPrimary,
             colorPrimaryRgb,
-            colorPrimaryDk,
-            colorPrimaryDkRgb,
+            colorPrimaryFgDk,
+            colorPrimaryFgDkRgb,
+            colorPrimaryFgLt,
+            colorPrimaryFgLtRgb,
+            colorPrimaryFillDk,
+            colorPrimaryFillDkRgb,
+            colorPrimaryTextDk,
             colorPrimaryText,
             colorLinkLt,
             colorLinkDk,
 
             // Light surfaces — high L, low chroma, brand hue.
-            // Border at L=0.570: lum≈0.185 vs base lum≈0.913 → contrast ≈ 4.3:1 (WCAG 1.4.11 ≥ 3:1).
+            // Border L=0.570: caso peggiore vs la superficie più SCURA (secondary-bg L=0.942)
+            // → ≈ 3.75:1 (WCAG 1.4.11 ≥ 3:1); a fortiori su base/surface/hover/tertiary.
             colorBaseLt: baseLtHex,
             colorSurfaceLt: ThemeService.oklchToHex(0.985, Math.min(C_t * 0.02, 0.003), H_t),
             colorSurfaceHoverLt: ThemeService.oklchToHex(0.950, Math.min(C_t * 0.04, 0.006), H_t),
@@ -718,11 +803,14 @@ export class ThemeService {
             colorSurfaceTextLt: ThemeService.oklchToHex(0.200, Math.min(C_t * 0.20, 0.030), H_t),
 
             // Dark surfaces — low L, moderate chroma, brand hue.
-            // Border at L=0.490: lum≈0.118 vs base lum≈0.003 → contrast ≈ 3.3:1 (WCAG 1.4.11 ≥ 3:1).
+            // Border L=0.600 (era 0.490): a 0.490 il contrasto cadeva sotto 3:1 su tutte le
+            // superfici tranne base (es. bordo input disabilitato su secondary-bg L=0.295 → 2.18:1).
+            // A L=0.600 il caso peggiore vs la superficie più CHIARA (secondary-bg) è ≈ 3.47:1 —
+            // margine sopra il minimo WCAG 1.4.11 (3:1); a fortiori su base/surface/hover/tertiary.
             colorBaseDk: baseDkHex,
             colorSurfaceDk: colorSurfaceDkHex,
             colorSurfaceHoverDk: ThemeService.oklchToHex(0.220, Math.min(C_t * 0.10, 0.012), H_t),
-            colorSurfaceBorderDk: ThemeService.oklchToHex(0.490, 0, 0),
+            colorSurfaceBorderDk: ThemeService.oklchToHex(0.600, 0, 0),
             colorSurfaceTextDk: ThemeService.oklchToHex(0.920, Math.min(C_t * 0.06, 0.010), H_t),
 
             // Semantic light
@@ -761,13 +849,28 @@ export class ThemeService {
 
     /**
      * Sfondo pagina scuro reale: near-black con micro-tinta brand (L=0.140, chroma minima).
-     * Gemello scuro di `computeBaseLt`: è il riferimento di contrasto per i token che vi compaiono
-     * come foreground in dark mode (`colorPrimaryDk`, `colorLinkDk`). Fonte unica della formula —
-     * usato sia da `computePalette` (token `colorBaseDk`) sia da `computeColorPrimaryDk`, così il
-     * primary scuro si tara sullo stesso fondo su cui poi vive.
+     * Gemello scuro di `computeBaseLt`: è il riferimento di contrasto per il boundary del FILL primary
+     * in dark mode (`colorPrimaryFillDk`). Fonte unica della formula — usato sia da `computePalette`
+     * (token `colorBaseDk`) sia da `computeColorPrimaryFillDk`, così il fill scuro si tara sullo stesso
+     * fondo pagina su cui poi compare. (I foreground dark — `colorPrimaryFgDk`, `colorLinkDk` — si
+     * tarano invece sulla superficie più estrema `mutedBgDk`, non sulla base.)
      */
     private static computeBaseDk(C: number, H: number): string {
         return ThemeService.oklchToHex(0.140, Math.min(C * 0.08, 0.010), H);
+    }
+
+    /**
+     * Superficie più ESTREMA su cui un foreground può comparire (`--bs-secondary-bg`: table-striped,
+     * input disabilitati). Light L=0.942 → più scura di tertiary/base/surface/hover; dark L=0.295 →
+     * più chiara delle stesse. È il riferimento di contrasto worst-case per i token foreground:
+     * garantendo il target qui lo si ottiene a fortiori su ogni altra superficie. Fonte unica della
+     * formula — usata da `computePalette` (token `colorMutedBg`) e dai foreground `computeColorPrimaryFgLt`/`computeColorPrimaryFgDk`.
+     */
+    private static computeMutedBgLt(C: number, H: number): string {
+        return ThemeService.oklchToHex(0.942, Math.min(C * 0.08, 0.011), H);
+    }
+    private static computeMutedBgDk(C: number, H: number): string {
+        return ThemeService.oklchToHex(0.295, Math.min(C * 0.18, 0.022), H);
     }
 
     // Calcola le 3 varianti subtle/emphasis per un colore semantico dato C e H OKLCH.
@@ -899,24 +1002,68 @@ export class ThemeService {
     }
 
     /**
-     * Gemella scura di `computeColorPrimary`: variante del brand con contrasto WCAG 4.5:1 (AA, testo
-     * normale) sullo sfondo pagina SCURO reale `baseDk`, per il primary usato come foreground (testo
-     * `.text-primary`, bordo `.border-primary`) in dark mode. Schiarisce in OKLCH a hue e chroma
-     * invariati — alza solo la luminanza L partendo da quella del brand, il minimo indispensabile per
-     * 4.5:1. Speculare a `colorLinkDk`, ma preserva la chroma REALE del brand invece di forzarne una
-     * minima: un primary-come-testo resta una tinta brand viva anche su fondo scuro, senza desaturare.
-     *
-     * Il riferimento è `baseDk` (near-black con micro-tinta brand, L=0.140), lo stesso fondo su cui il
-     * token vive: il contrasto WCAG dipende dalla luminanza, non dalla chroma, quindi preservare la
-     * saturazione non costa accessibilità. Speculare al ragionamento di `computeColorPrimary` su `baseLt`.
-     * Fallback `#e6e6e6` se nessuna L conforme (hue al limite del gamut sRGB).
+     * Variante LIGHT del primary come FOREGROUND (testo `.text-primary`, bordo `.border-primary`).
+     * Gemella light di `computeColorPrimaryFgDk`: scurisce il brand in OKLCH (hue e chroma preservate)
+     * finché il contrasto `TARGET_TEXT_CONTRAST` (4.8:1, sopra AA) sulla superficie più ESTREMA light
+     * (`mutedBgLt`, `--bs-secondary-bg` L=0.942) è garantito. È DISACCOPPIATA dal fill `colorPrimary`:
+     * il fill `--bs-primary` resta il colore brand fedele (tarato 4.5:1 su `baseLt`, ospita testo
+     * proprio via `colorPrimaryText`), mentre questo foreground vive sulle superfici interne (card,
+     * righe-tabella, input disabilitati) dove serve più contrasto. Tararlo su `baseLt` come il fill
+     * lasciava `.text-primary` a ~4.1:1 su quelle superfici. Fallback `#1a1a1a` (hue al limite gamut).
      */
-    static computeColorPrimaryDk(colorTema: string): string {
+    static computeColorPrimaryFgLt(colorTema: string): string {
         const [L0, C, H] = ThemeService.hexToOklch(colorTema);
+        const bg = ThemeService.computeMutedBgLt(C, H);
+        for (let L = L0; L >= 0.05; L -= 0.01) {
+            const candidate = ThemeService.oklchToHex(L, C, H);
+            if (ThemeService.calcContrastRatio(candidate, bg) >= ThemeService.TARGET_TEXT_CONTRAST) return candidate;
+        }
+        return '#1a1a1a';
+    }
+
+    /**
+     * Variante DARK del primary come FILL (`--bs-primary`, `.btn-primary`/`.bg-primary`) in dark mode.
+     * Il fill light `colorPrimary` è tarato per il fondo CHIARO: usato letteralmente come bg su pagina
+     * scura, un brand scuro/quasi-nero sparisce (boundary ~1:1, sotto WCAG 1.4.11). Qui si SCHIARISCE
+     * il fill light in OKLCH (hue e chroma preservati) finché soddisfa DUE vincoli: boundary
+     * `TARGET_FILL_BOUNDARY` (3.2:1) vs lo sfondo pagina scuro `baseDk`, E un testo leggibile (≥4.5:1,
+     * bianco o nero) ospitabile sopra. I brand già abbastanza luminosi restano invariati (nessuna
+     * deriva). Il testo del bottone in dark è poi `getReadableTextColor(questo)` = `colorPrimaryTextDk`.
+     */
+    private static computeColorPrimaryFillDk(colorPrimaryLt: string): string {
+        const [L0, C, H] = ThemeService.hexToOklch(colorPrimaryLt);
         const bg = ThemeService.computeBaseDk(C, H);
         for (let L = L0; L <= 0.98; L += 0.01) {
             const candidate = ThemeService.oklchToHex(L, C, H);
-            if (ThemeService.calcContrastRatio(candidate, bg) >= 4.5) return candidate;
+            const boundary = ThemeService.calcContrastRatio(candidate, bg);
+            const text = Math.max(
+                ThemeService.calcContrastRatio(candidate, '#000000'),
+                ThemeService.calcContrastRatio(candidate, '#ffffff'),
+            );
+            if (boundary >= ThemeService.TARGET_FILL_BOUNDARY && text >= 4.5) return candidate;
+        }
+        return colorPrimaryLt;
+    }
+
+    /**
+     * Gemella scura di `computeColorPrimary`: variante del brand con contrasto WCAG sopra-AA
+     * (`TARGET_TEXT_CONTRAST` = 4.8:1) per il primary usato come FOREGROUND (testo `.text-primary`,
+     * bordo `.border-primary`) in dark mode. Schiarisce in OKLCH a hue e chroma invariati — alza solo
+     * la luminanza L partendo da quella del brand, il minimo indispensabile. Preserva la chroma REALE
+     * del brand (non una minima): un primary-come-testo resta una tinta brand viva anche su fondo scuro.
+     *
+     * Riferimento = la superficie più ESTREMA `mutedBgDk` (`--bs-secondary-bg`, L=0.295), NON la base
+     * pagina: il primary come foreground compare anche su card/righe-tabella/input disabilitati, dove
+     * il contrasto è peggiore che sulla base (tarando su `baseDk` `.text-primary` cadeva a ~3.1:1).
+     * È token foreground-only (mai usato come fill `--bs-primary`), quindi alzarne il contrasto non
+     * tocca i bottoni. Fallback `#e6e6e6` se nessuna L conforme (hue al limite del gamut sRGB).
+     */
+    static computeColorPrimaryFgDk(colorTema: string): string {
+        const [L0, C, H] = ThemeService.hexToOklch(colorTema);
+        const bg = ThemeService.computeMutedBgDk(C, H);
+        for (let L = L0; L <= 0.98; L += 0.01) {
+            const candidate = ThemeService.oklchToHex(L, C, H);
+            if (ThemeService.calcContrastRatio(candidate, bg) >= ThemeService.TARGET_TEXT_CONTRAST) return candidate;
         }
         return '#e6e6e6';
     }

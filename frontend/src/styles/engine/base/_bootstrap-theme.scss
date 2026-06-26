@@ -37,12 +37,19 @@
    I blocchi qui sotto usano le varianti Lt/Dk esposte da ThemeService, che sono fisse
    e garantiscono il valore corretto indipendentemente dal tone globale. */
 :root,
-[data-bs-theme="light"] { @include lib.theme-bridge('Lt', 'black', '--colorPrimary', '--colorPrimaryRgb'); }
+[data-bs-theme="light"] { @include lib.theme-bridge('Lt', 'black'); }
 
-[data-bs-theme="dark"] { @include lib.theme-bridge('Dk', 'white', '--colorPrimaryDk', '--colorPrimaryRgbDk'); }
+[data-bs-theme="dark"] { @include lib.theme-bridge('Dk', 'white'); }
 
 /* I bottoni .btn-primary / .btn-outline-primary hanno --bs-btn-* hardcoded al
-   colore default Bootstrap (#0d6efd): vanno ridiretti a --bs-primary. */
+   colore default Bootstrap (#0d6efd): vanno ridiretti a --bs-primary.
+   NOTA a11y: hover/active scuriscono il fill (shade 12-22%) — convenzione corretta in
+   light (aumenta il contrasto vs pagina). In DARK lo scurire avvicina il fill al fondo:
+   il boundary transitorio scende a ~2.4-2.6:1 (sotto 1.4.11) mentre il TESTO del bottone
+   resta ≥5.9:1, quindi il bottone è sempre pienamente identificabile e operabile. Lo stato
+   a RIPOSO — quello che 1.4.11 richiede e che gli audit testano — è garantito ≥3.2:1 dal
+   fill tone-adaptive (colorPrimaryFillDk). Una hover-tint in dark risolverebbe il boundary
+   ma manderebbe il testo sotto soglia (~3.4:1): trade-off peggiore, quindi lasciato così. */
 .btn-primary {
     --bs-btn-bg:               var(--bs-primary);
     --bs-btn-border-color:     var(--bs-primary);
@@ -74,8 +81,9 @@
 /* Primary come FOREGROUND (testo/bordo sulla pagina) — tone-adaptive WCAG 4.5:1.
    Le utility .text-primary / .border-primary di Bootstrap risolvono a --bs-primary, che è
    tarato per 4.5:1 sul fondo CHIARO (baseLt): su pagina scura sarebbe scuro-su-scuro, sotto soglia.
-   Qui le ridirigiamo a --colorPrimaryFg (= colorPrimary in light, colorPrimaryDk in dark), così il
-   primary-come-testo resta AA in entrambi i toni. I FILL (.btn-primary, .bg-primary, .text-bg-primary)
+   Qui le ridirigiamo a --colorPrimaryFg (= colorPrimaryFgLt in light, colorPrimaryDk in dark, token
+   foreground DISACCOPPIATI dal fill e tarati 4.8:1 sulla superficie estrema), così il primary-come-testo
+   resta sopra-AA su ogni superficie in entrambi i toni. I FILL (.btn-primary, .bg-primary, .text-bg-primary)
    restano su --bs-primary = colorPrimary: lì il testo si contrasta su --colorPrimaryText, non sulla pagina.
    Stesso ragionamento già applicato a link e bottoni outline via --bs-link-color. */
 .text-primary {
