@@ -1,7 +1,7 @@
 import { DOCUMENT } from '@angular/common';
 import { afterNextRender, Component, computed, inject, input, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { GeneratorInfo, GenerateResponse } from '../../core/dto/generator.dto';
+import { GeneratorInfo, GenerateResponse, GeneratorPageContent } from '../../core/dto/generator.dto';
 import { ContestoSito, PageType } from '../../site';
 import { SpeechService } from '../../core/engine/services/speech.service';
 import { ImgBuilderService } from '../../core/engine/services/img-builder.service';
@@ -36,7 +36,7 @@ import { SpeechActionComponent } from '../../components/shared/action/speech-act
         }
     `],
 })
-export class GeneratorDetailComponent extends PageBaseComponent<GeneratorInfo> {
+export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageContent> {
     /** Esposto al template per i link interni via [appPage] (es. verso i condivisi). */
     protected readonly PageType = PageType;
     /** Path della pagina condivisi, per il link "Condivisi di questo generatore" (con `?gen=`). */
@@ -48,7 +48,7 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorInfo> {
     private readonly speech = inject(SpeechService);
     private readonly imgBuilder = inject(ImgBuilderService);
 
-    readonly generator = computed<GeneratorInfo | null>(() => this.pageContent());
+    readonly generator = computed<GeneratorInfo | null>(() => this.pageContent()?.generator ?? null);
     readonly coverAssetId = computed(() => {
         const slug = this.generator()?.slug;
         return slug ? `generator.${slug}` : null;
@@ -60,21 +60,22 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorInfo> {
      *  withComponentInputBinding. */
     readonly g = input<string>();
 
-    readonly result = signal<GenerateResponse | null>(null);
+    /** Generazione prodotta dal client ("Ancora!"): quando c'è, vince sul `result` SSR del resolver. */
+    private readonly localResult = signal<GenerateResponse | null>(null);
+    /** Risultato mostrato: quello del client se presente, altrimenti quello SSR dal resolver (recupero `?g=`). */
+    readonly result = computed<GenerateResponse | null>(() => this.localResult() ?? this.pageContent()?.result ?? null);
     readonly loading = signal(false);
     /** Id pubblico dell'ultima generazione condivisa (per il link condivisibile). */
     readonly savedId = signal<string | null>(null);
-    /** true quando il risultato mostrato proviene dai condivisi (recupero `?g=`), non da una generazione. */
-    readonly recovered = signal(false);
+    /** true quando il risultato mostrato proviene dai condivisi (recupero `?g=`), non da una generazione client. */
+    readonly recovered = computed(() => this.localResult() === null && (this.pageContent()?.recovered ?? false));
 
     constructor() {
         super();
-        // All'avvio: con `?g=` recupera la generazione salvata, altrimenti ne genera una nuova.
-        // Niente scroll: la pagina è appena arrivata.
+        // Recupero `?g=`: la generazione è già risolta in SSR (resolver) → niente da fare. Altrimenti
+        // genera lato client. Niente scroll: la pagina è appena arrivata.
         afterNextRender(() => {
-            const id = this.g();
-            if (id) void this.recover(id);
-            else void this.generate();
+            if (!this.result()) void this.generate();
         });
     }
 
@@ -85,37 +86,15 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorInfo> {
     async generate(scrollToResult = false): Promise<void> {
         this.speech.stop();
         this.loading.set(true);
-        this.result.set(null);
+        this.localResult.set(null);
         this.savedId.set(null);
-        this.recovered.set(false);
         try {
             const res = await this.fetchGeneratedText();
-            this.result.set(res);
+            this.localResult.set(res);
             if (scrollToResult) this.scrollToResult();
         } catch {
             // L'apiErrorInterceptor ha già notificato l'utente: qui resettiamo solo lo stato UI.
-            this.result.set(null);
-        } finally {
-            this.loading.set(false);
-        }
-    }
-
-    /**
-     * Recupera dai condivisi la generazione con l'id dato e la mostra. Id assente o non valido →
-     * si ricade su una generazione normale, così il link resta sempre utilizzabile.
-     */
-    private async recover(id: string): Promise<void> {
-        this.speech.stop();
-        this.loading.set(true);
-        this.result.set(null);
-        this.savedId.set(null);
-        try {
-            const entry = await this.api.getGeneration(id);
-            // sig vuota: un risultato recuperato è già nei condivisi, non si ri-condivide.
-            this.result.set({ text: entry.text, markdown: entry.markdown, score: entry.score, sig: '' });
-            this.recovered.set(true);
-        } catch {
-            await this.generate();
+            this.localResult.set(null);
         } finally {
             this.loading.set(false);
         }
@@ -125,7 +104,7 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorInfo> {
      * Assicura che il risultato corrente sia tra i condivisi e restituisce il link
      * condivisibile che punta a *quell'* oggetto (`?g=<id>`). È il cuore del nuovo flusso di
      * condivisione: prima si registra (una volta sola: l'id viene riusato), poi il chiamante usa
-     * il link sia dentro l'immagine sia come URL allegato alla condivisione.
+     * il link come URL allegato alla condivisione (`shareTitle`).
      *
      * - Generazione genuina (con firma HMAC) non ancora condivisa → la condivide e ottiene l'id.
      * - Già condivisa in questa sessione → riusa `savedId`, niente doppia registrazione.
@@ -177,15 +156,17 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorInfo> {
 
     /**
      * Canvas immagine da condividere. Prima registra la generazione tra i condivisi (`ensureSavedLink`),
-     * poi disegna il testo con in calce il link che punta a *quell'* oggetto: così l'immagine e
-     * la pagina condivise mostrano la stessa frase. La share-action smista verso shareCanvas e,
-     * dopo questo await, legge `shareTitle()` con l'id ormai disponibile.
+     * così `shareTitle()` può allegare il link a *quell'* oggetto; l'immagine però mostra solo la frase
+     * (niente URL trascritto). La share-action smista verso shareCanvas e, dopo questo await, legge
+     * `shareTitle()` con l'id ormai disponibile.
      */
     readonly buildShareCanvas = async (): Promise<HTMLCanvasElement> => {
         const res = this.result();
         if (!res) throw new Error('Nessun risultato da condividere');
-        const link = await this.ensureSavedLink();
-        const footer = `\n\nDal ${this.generator()?.name ?? ''}\n${link}`;
+        // Registra la generazione tra i condivisi (serve per il link allegato alla condivisione via
+        // shareTitle), ma NON trascriviamo l'URL nell'immagine: lì resterebbe testo morto, non cliccabile.
+        await this.ensureSavedLink();
+        const footer = `\n\nDal ${this.generator()?.name ?? ''}`;
         const canvas = await this.imgBuilder.buildCanvas(`${res.text}\n${footer}`, { maxWidth: 1200 });
         if (!canvas) throw new Error('Errore nella generazione dell\'immagine');
         return canvas as HTMLCanvasElement;

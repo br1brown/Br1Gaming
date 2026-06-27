@@ -41,3 +41,16 @@ export interface ShareEntry {
 export interface ShareSaveResult {
     id: string;
 }
+
+/**
+ * Contenuto risolto della pagina generatore (il `<T>` di GeneratorDetailComponent).
+ *
+ * `result` è valorizzato dal resolver SOLO nel recupero `?g=` (frase condivisa): così la
+ * generazione recuperata è già in SSR e il component non la ri-fetcha. Per la generazione
+ * NUOVA resta `null` — la produce il client, evitando un re-generate ad ogni cambio lingua.
+ */
+export interface GeneratorPageContent {
+    generator: GeneratorInfo;
+    result: GenerateResponse | null;
+    recovered: boolean;
+}

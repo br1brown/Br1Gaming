@@ -1,13 +1,13 @@
 import { inject, Injectable, InjectionToken } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { ResolveFn } from '@angular/router';
+import { ResolveFn, Router } from '@angular/router';
 import { firstValueFrom, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { ContestoSito, PageType } from '../site';
 import { TranslateService } from '../core/engine/services/translate.service';
 import { ApiService } from '../core/services/api.service';
 import { PageInfo } from '../core/engine/siteBuilder';
-import { GeneratorInfo } from '../core/dto/generator.dto';
+import { GeneratorInfo, GenerateResponse, GeneratorPageContent } from '../core/dto/generator.dto';
 import { StorySummary } from '../core/dto/story.dto';
 
 export type LegalFileReader = (slug: string, lang: string) => Promise<string | null>;
@@ -15,6 +15,15 @@ export type LegalFileReader = (slug: string, lang: string) => Promise<string | n
 export interface HomeContent {
     generators: GeneratorInfo[];
     stories: StorySummary[];
+}
+
+/**
+ * Titolo della pagina dalla frase generata, recuperata con `?g=`. Qui si normalizza solo il
+ * whitespace: il troncamento e l'eventuale ellissi sono delegati al livello a valle
+ * (setPageMeta / og-preview), che è l'unico punto dove si decide come tagliare.
+ */
+function titleFromGeneration(text: string): string {
+    return text.replace(/\s+/g, ' ').trim();
 }
 
 /** In SSR viene fornita da app.config.server.ts per leggere i file .md da disco.
@@ -57,6 +66,7 @@ export class ContentResolver {
     private readonly translate = inject(TranslateService);
     private readonly apiService = inject(ApiService);
     private readonly fileReader = inject(LEGAL_FILE_READER);
+    private readonly router = inject(Router);
 
     async loadResolved(pageType: PageType, lang?: string): Promise<ResolvedPage> {
 
@@ -71,8 +81,31 @@ export class ContentResolver {
             // Le altre pagine hanno un case esplicito che chiama il wrapper tipizzato
             // di ApiService — niente slug scritti a mano qui dentro.
             const legalSlug = ContestoSito.getLegalSlug(pageType);
+            const loadGenerator = this.generatorLoader(pageType);
             if (legalSlug) {
                 content = await this.tryLoadPolicy(legalSlug, language);
+            } else if (loadGenerator) {
+                // Generatori: info del generatore e (se `?g=`) la generazione recuperata in
+                // parallelo — due round-trip al massimo, non in fila. Il `result` arriva SOLO dal
+                // recupero `?g=` (SSR + niente doppio fetch lato component); la generazione nuova
+                // la fa il client. La frase recuperata diventa anche il titolo SEO (vedi sotto).
+                const g = this.currentG();
+                const [gen, entry] = await Promise.all([
+                    loadGenerator().catch(() => null),
+                    g ? this.apiService.getGeneration(g).catch(() => null) : Promise.resolve(null),
+                ]);
+                if (gen) {
+                    if (info) info = { ...info, title: gen.name, description: gen.description };
+                    let result: GenerateResponse | null = null;
+                    let recovered = false;
+                    if (entry?.text) {
+                        // sig vuota: una generazione recuperata è già nei condivisi, non si ri-condivide.
+                        result = { text: entry.text, markdown: entry.markdown, score: entry.score, sig: '' };
+                        recovered = true;
+                        if (info) info = { ...info, title: titleFromGeneration(entry.text) };
+                    }
+                    content = { generator: gen, result, recovered } satisfies GeneratorPageContent;
+                }
             } else {
                 switch (pageType) {
                     case PageType.Home: {
@@ -81,37 +114,6 @@ export class ContentResolver {
                             this.apiService.getStories().catch((): StorySummary[] => []),
                         ]);
                         content = { generators, stories };
-                        break;
-                    }
-                    // ── Generatori ───────────────────────────────────────────────
-                    case PageType.GeneratorIncel: {
-                        const gen = await this.apiService.getIncel().catch(() => null);
-                        content = gen;
-                        if (gen && info) info = { ...info, title: gen.name, description: gen.description };
-                        break;
-                    }
-                    case PageType.GeneratorAuto: {
-                        const gen = await this.apiService.getAuto().catch(() => null);
-                        content = gen;
-                        if (gen && info) info = { ...info, title: gen.name, description: gen.description };
-                        break;
-                    }
-                    case PageType.GeneratorAntiveg: {
-                        const gen = await this.apiService.getAntiveg().catch(() => null);
-                        content = gen;
-                        if (gen && info) info = { ...info, title: gen.name, description: gen.description };
-                        break;
-                    }
-                    case PageType.GeneratorLocali: {
-                        const gen = await this.apiService.getLocali().catch(() => null);
-                        content = gen;
-                        if (gen && info) info = { ...info, title: gen.name, description: gen.description };
-                        break;
-                    }
-                    case PageType.GeneratorMbeb: {
-                        const gen = await this.apiService.getMbeb().catch(() => null);
-                        content = gen;
-                        if (gen && info) info = { ...info, title: gen.name, description: gen.description };
                         break;
                     }
 
@@ -144,6 +146,28 @@ export class ContentResolver {
         }
 
         return { content, info: info };
+    }
+
+    /** Wrapper tipizzato per le info del generatore associato al pageType, o null se non è un generatore. */
+    private generatorLoader(pageType: PageType): (() => Promise<GeneratorInfo>) | null {
+        switch (pageType) {
+            case PageType.GeneratorIncel: return () => this.apiService.getIncel();
+            case PageType.GeneratorAuto: return () => this.apiService.getAuto();
+            case PageType.GeneratorAntiveg: return () => this.apiService.getAntiveg();
+            case PageType.GeneratorLocali: return () => this.apiService.getLocali();
+            case PageType.GeneratorMbeb: return () => this.apiService.getMbeb();
+            default: return null;
+        }
+    }
+
+    /**
+     * Query param `?g=` della pagina corrente. Lo legge dal Router (non da un argomento) così
+     * funziona sia durante la navigazione (finalUrl) sia nei reload del resolver scatenati dalla
+     * base al cambio lingua (dove l'URL attivo non cambia). SSR-safe.
+     */
+    private currentG(): string | null {
+        const tree = this.router.getCurrentNavigation()?.finalUrl ?? this.router.parseUrl(this.router.url);
+        return tree.queryParamMap.get('g');
     }
 
     private async tryLoadPolicy(slug: string, lang: string): Promise<string | null> {

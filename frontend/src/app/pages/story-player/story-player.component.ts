@@ -26,6 +26,10 @@ import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
         details[open] .story-history-caret { transform: rotate(90deg); }
         .story-scene { animation: scenePop .35s ease-out; }
         @keyframes scenePop { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+        /* Cover intera: sfondo morbido (tone-adaptive Bootstrap) dietro le bande del contain;
+           altezza cappata in base alla viewport così le immagini strane si vedono tutte senza dominare. */
+        .story-cover { background: var(--bs-tertiary-bg); }
+        .story-cover img { display: block; max-height: clamp(220px, 38vh, 420px); }
     `],
 })
 export class StoryPlayerComponent extends PageBaseComponent<StoryInfo> {
@@ -106,10 +110,13 @@ export class StoryPlayerComponent extends PageBaseComponent<StoryInfo> {
         });
     }
 
-    // Immagine del finale assente o non caricabile (asset id senza file, rete): nascondi l'elemento
-    // così la card resta pulita col solo testo, senza l'icona di immagine rotta.
+    // Immagine del finale assente o non caricabile (asset id senza file, rete): nascondi l'intero
+    // contenitore `.story-cover` (non solo l'<img>), così non resta la banda dello sfondo morbido e
+    // la card resta pulita col solo testo. Fallback all'elemento stesso se il wrapper mancasse.
     hideBrokenImage(event: Event): void {
-        (event.target as HTMLElement | null)?.style.setProperty('display', 'none');
+        const img = event.target as HTMLElement | null;
+        const target = (img?.closest('.story-cover') ?? img) as HTMLElement | null;
+        target?.style.setProperty('display', 'none');
     }
 
 }

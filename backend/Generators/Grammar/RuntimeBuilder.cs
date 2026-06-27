@@ -145,6 +145,7 @@ public static class RuntimeBuilder
                 foreach (Match m in Tok.Matches(entry.Text))
                 {
                     var dep = m.Value[1..^1];
+                    if (dep.Length > 1 && dep[0] == '$') dep = dep[1..]; // `[$chiave]` riferisce comunque la flatlist
                     if (flat.ContainsKey(dep)) outs.Add(dep);
                 }
             graph[key] = outs;
@@ -202,17 +203,21 @@ internal sealed class PhraseParser(
         return new Phrase(score, parts, groups, labels, origin, template);
     }
 
-    private Slot ResolveSlot(string key, string template, string origin)
+    private Slot ResolveSlot(string raw, string template, string origin)
     {
+        // `[$chiave]`: segnaposto a variabile condivisa. Lo `$` non fa parte della chiave: si striscia
+        // e si risolve il tipo sulla chiave nuda (l'appartenenza ai gruppi è sempre per tag sottostante).
+        bool bound = raw.Length > 1 && raw[0] == '$';
+        var key = bound ? raw[1..] : raw;
         var groups = GroupsFor(key);
         if (SharedContent.AgeAliases.TryGetValue(key, out var alias) && TryRange(StripBrackets(alias), out int alo, out int ahi))
-            return new Slot(key, SlotKind.Age, alo, ahi, groups);
+            return new Slot(key, SlotKind.Age, alo, ahi, groups, bound);
         if (TryRange(key, out int lo, out int hi))
-            return new Slot(key, SlotKind.Range, lo, hi, groups);
+            return new Slot(key, SlotKind.Range, lo, hi, groups, bound);
         if (flatKeys.Contains(key))
-            return new Slot(key, SlotKind.FlatList, 0, 0, groups);
+            return new Slot(key, SlotKind.FlatList, 0, 0, groups, bound);
         throw new GeneratorConfigException(
-            $"Generatore '{origin}': tag sconosciuto [{key}] nella frase \"{template}\"");
+            $"Generatore '{origin}': tag sconosciuto [{raw}] nella frase \"{template}\"");
     }
 
     private HashSet<string> GroupsFor(string key)

@@ -1,4 +1,4 @@
-<div class="d-flex flex-column gap-4 py-3">
+<div class="col-12 col-md-8 offset-md-2 d-flex flex-column gap-4 py-3">
 
     @if (facade.error()) {
     <div class="alert alert-danger rounded-4 shadow-sm">
@@ -7,21 +7,25 @@
     }
 
     <header class="text-center">
-        <h1 class="h2 fw-bold mb-2">{{ facade.title() }}</h1>
-
-        @if (choicesMade() > 0) {
-        <div class="mb-3">
-            <span class="badge rounded-pill text-bg-secondary">{{ 'storieSceltefatte' | translate }}: {{ choicesMade() }}</span>
+        <!-- Cover INTERA (object-fit: contain): le immagini scelte si vedono per intero, senza
+             ritaglio. Altezza cappata (clamp) e contenuto ristretto tengono sotto controllo
+             l'ingombro; le eventuali bande laterali cadono sullo sfondo morbido del contenitore. -->
+        @if (coverAssetId() && coverVisible()) {
+        <div class="story-cover rounded-4 shadow-sm overflow-hidden mb-3">
+            <img [appAsset]="coverAssetId()!"
+                 [appAssetWidth]="1024"
+                 alt=""
+                 class="w-100 object-fit-contain"
+                 (error)="coverVisible.set(false)">
         </div>
         }
 
-        @if (coverAssetId() && coverVisible()) {
-        <img [appAsset]="coverAssetId()!"
-             [appAssetWidth]="1024"
-             alt=""
-             class="w-100 object-fit-cover rounded-4 shadow-sm"
-             style="max-height: 240px;"
-             (error)="coverVisible.set(false)">
+        <h1 class="h2 fw-bold mb-2">{{ facade.title() }}</h1>
+
+        @if (choicesMade() > 0) {
+        <div class="mb-0">
+            <span class="badge rounded-pill text-bg-secondary">{{ 'storieSceltefatte' | translate }}: {{ choicesMade() }}</span>
+        </div>
         }
     </header>
 
@@ -101,12 +105,14 @@
     @if (item.type === 'ending') {
     <div class="card rounded-4 overflow-hidden text-center shadow">
         @if (item.imageId) {
-        <img [appAsset]="item.imageId"
-             [appAssetWidth]="1024"
-             alt=""
-             class="w-100 object-fit-cover"
-             style="max-height: 220px;"
-             (error)="hideBrokenImage($event)">
+        <!-- Stesso trattamento della cover: immagine INTERA (contain) su sfondo morbido, niente crop. -->
+        <div class="story-cover">
+            <img [appAsset]="item.imageId"
+                 [appAssetWidth]="1024"
+                 alt=""
+                 class="w-100 object-fit-contain"
+                 (error)="hideBrokenImage($event)">
+        </div>
         }
         <div class="p-4">
             @if (item.title) {

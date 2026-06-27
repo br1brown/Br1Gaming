@@ -39,7 +39,8 @@ function generatorPage(
     pageType: PageType,
 ): LeafPageInput {
     return {
-        path: `generatori/${urlSegment}`,
+        // Path relativo: il prefisso `generatori/` lo fornisce il parent.
+        path: urlSegment,
         title: `generatore-${urlSegment}`,
         pageType,
         layout: { showPanel: false },
@@ -57,7 +58,8 @@ function storyPage(
     pageType: PageType,
 ): LeafPageInput {
     return {
-        path: `avventura/${urlSegment}`,
+        // Path relativo: il prefisso `avventura/` lo fornisce il parent.
+        path: urlSegment,
         title: `avventura-${urlSegment}`,
         pageType,
         otherSEO: { ogImage: `story.${urlSegment}` },
@@ -65,6 +67,24 @@ function storyPage(
             .then(m => m.StoryPlayerComponent),
     };
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// CATALOGHI — unico punto da estendere per aggiungere un generatore/una storia
+// (slug + PageType): alimentano sia le route (sotto i parent) sia la navbar.
+// ═══════════════════════════════════════════════════════════════════════
+const GENERATORS = [
+    ['incel', PageType.GeneratorIncel],
+    ['auto', PageType.GeneratorAuto],
+    ['antiveg', PageType.GeneratorAntiveg],
+    ['locali', PageType.GeneratorLocali],
+    ['mbeb', PageType.GeneratorMbeb],
+] as const;
+
+const STORIES = [
+    ['poveri-maschi', PageType.StoryPoveriMaschi],
+    ['magrogamer09', PageType.StoryMagrogamer09],
+    ['sopravvivi-agli-usa', PageType.StorySurviveUsa],
+] as const;
 
 
 export const ContestoSito = buildSite({
@@ -88,18 +108,34 @@ export const ContestoSito = buildSite({
             component: () => import('./pages/home/home.component').then(m => m.HomeComponent),
         },
 
-        // ── Generatori ──────────────────────────────────────────────
-        generatorPage('incel', PageType.GeneratorIncel),
-        generatorPage('auto', PageType.GeneratorAuto),
-        generatorPage('antiveg', PageType.GeneratorAntiveg),
-        generatorPage('locali', PageType.GeneratorLocali),
-        generatorPage('mbeb', PageType.GeneratorMbeb),
+        // ── Generatori (+ Condivisi) sotto /generatori ───────────────
+        // Parent senza component: fa solo da prefisso di path (gli URL figli
+        // restano /generatori/<slug> e /generatori/condivisi).
+        {
+            path: 'generatori',
+            title: 'generatori',
+            children: [
+                ...GENERATORS.map(([slug, pageType]) => generatorPage(slug, pageType)),
+                {
+                    path: 'condivisi',
+                    title: 'condivisi',
+                    description: 'Le frasi più belle condivise dagli utenti: la raccolta pubblica dei generatori.',
+                    pageType: PageType.Condivisi,
+                    layout: { showPanel: false },
+                    component: () => import('./pages/condivisi/condivisi.component')
+                        .then(m => m.CondivisiComponent),
+                },
+            ],
+        },
 
-        // ── Giochi ──────────────────────────────────────────────────
-        storyPage('poveri-maschi', PageType.StoryPoveriMaschi),
-        storyPage('magrogamer09', PageType.StoryMagrogamer09),
-        storyPage('sopravvivi-agli-usa', PageType.StorySurviveUsa),
+        // ── Avventure sotto /avventura ───────────────────────────────
+        {
+            path: 'avventura',
+            title: 'avventura',
+            children: STORIES.map(([slug, pageType]) => storyPage(slug, pageType)),
+        },
 
+        // ── Altri giochi (top-level) ─────────────────────────────────
         {
             path: `ducenonduce`,
             title: `ducenonduce`,
@@ -132,16 +168,6 @@ export const ContestoSito = buildSite({
             component: () => import('./pages/burocrazia/burocrazia.component')
                 .then(m => m.BurocraziaComponent),
         },
-
-        {
-            path: `generatori/condivisi`,
-            title: `condivisi`,
-            description: 'Le frasi più belle condivise dagli utenti: la raccolta pubblica dei generatori.',
-            pageType: PageType.Condivisi,
-            layout: { showPanel: false },
-            component: () => import('./pages/condivisi/condivisi.component')
-                .then(m => m.CondivisiComponent),
-        },
     ],
 
     headerNav: (nav) => {
@@ -149,20 +175,14 @@ export const ContestoSito = buildSite({
             // I generatori veri e propri stanno in un sottogruppo annidato, così i Condivisi
             // (che raccolgono i loro output) vivono accanto a loro senza sembrare un generatore.
             g.addGroup('tuttiIGeneratori', (gg) => {
-                gg.addPage(PageType.GeneratorIncel);
-                gg.addPage(PageType.GeneratorAuto);
-                gg.addPage(PageType.GeneratorAntiveg);
-                gg.addPage(PageType.GeneratorLocali);
-                gg.addPage(PageType.GeneratorMbeb);
+                GENERATORS.forEach(([, pageType]) => gg.addPage(pageType));
             });
             g.addPage(PageType.Condivisi);
         });
         nav.addGroup('giochi', (g) => {
             // Le storie (avventure a bivi) in un sottogruppo annidato; gli altri giochi restano fuori.
             g.addGroup('storie', (gg) => {
-                gg.addPage(PageType.StoryPoveriMaschi);
-                gg.addPage(PageType.StoryMagrogamer09);
-                gg.addPage(PageType.StorySurviveUsa);
+                STORIES.forEach(([, pageType]) => gg.addPage(pageType));
             });
             g.addPage(PageType.GameDuceNonDuce);
             g.addPage(PageType.GameRadar);

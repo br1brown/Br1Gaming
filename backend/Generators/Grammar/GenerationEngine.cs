@@ -41,8 +41,14 @@ public enum SlotKind
 /// <summary>
 /// Un segnaposto risolto al parse: ne è già noto il tipo, l'eventuale range numerico e
 /// i gruppi esclusivi a cui appartiene (per i vincoli, derivati una volta sola).
+/// <para>
+/// <paramref name="Bound"/> (sintassi <c>[$chiave]</c>): variabile CONDIVISA nella generazione. Alla
+/// prima risoluzione pesca normalmente (punteggio + unicità) e MEMORIZZA il valore sotto <see cref="Key"/>;
+/// le occorrenze successive — nella stessa frase o in frasi diverse — riusano quel valore (niente nuovo
+/// punteggio, niente unicità). È l'opposto dell'unicità: "appunta" un'età/marca/persona per tutta la frase.
+/// </para>
 /// </summary>
-public sealed record Slot(string Key, SlotKind Kind, int Lo, int Hi, IReadOnlySet<string> Groups) : Part;
+public sealed record Slot(string Key, SlotKind Kind, int Lo, int Hi, IReadOnlySet<string> Groups, bool Bound = false) : Part;
 
 /// <summary>
 /// Una frase compilata: l'AST delle sue parti, il punteggio base, e i metadata per i vincoli

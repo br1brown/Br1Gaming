@@ -99,8 +99,11 @@ public static class Composer
         public readonly Runtime Rt = rt;
         public readonly Random Rng = rng;
         public readonly Dictionary<string, HashSet<string>> Used = new(); // unicità per-chiave nel testo
+        public readonly Dictionary<string, string> Bound = new();         // variabili `[$chiave]` appuntate (per composizione, anche tra frasi)
         public double Product = 1;                                        // prodotto dei pesi (per frase)
         public int PickCount;
+        // Reset solo degli accumulatori di punteggio (per-frase). Used e Bound NO: l'unicità e le
+        // variabili condivise valgono per l'intera composizione (apertura, chiusura e tutte le frasi).
         public void ResetAccumulator() { Product = 1; PickCount = 0; }
     }
 
@@ -113,13 +116,33 @@ public static class Composer
         return (sb.ToString(), phrase.Score + (ctx.PickCount > 0 ? ctx.Product : 0));
     }
 
-    private static string EvalPart(Part part, EvalContext ctx) => part switch
+    private static string EvalPart(Part part, EvalContext ctx)
     {
-        Lit lit => lit.Text,
+        switch (part)
+        {
+            case Lit lit:
+                return lit.Text;
+            // Variabile condivisa `[$chiave]`: alla prima occorrenza risolve come uno slot normale
+            // (con punteggio e unicità) e memorizza; alle successive riusa il valore — niente nuovo
+            // punteggio né unicità, così l'età/marca/persona resta identica in tutta la composizione.
+            case Slot { Bound: true } s:
+                if (ctx.Bound.TryGetValue(s.Key, out var cached)) return cached;
+                var first = EvalSlotValue(s, ctx);
+                ctx.Bound[s.Key] = first;
+                return first;
+            case Slot s:
+                return EvalSlotValue(s, ctx);
+            default:
+                return "";
+        }
+    }
+
+    // Valore "grezzo" di uno slot, ignorando il binding (lo gestisce EvalPart).
+    private static string EvalSlotValue(Slot s, EvalContext ctx) => s.Kind switch
+    {
         // Range ed età producono numeri: non concorrono al punteggio.
-        Slot { Kind: SlotKind.Range or SlotKind.Age } s => ctx.Rng.Next(s.Lo, s.Hi + 1).ToString(),
-        Slot s => EvalFlat(s.Key, ctx),
-        _ => "",
+        SlotKind.Range or SlotKind.Age => ctx.Rng.Next(s.Lo, s.Hi + 1).ToString(),
+        _ => EvalFlat(s.Key, ctx),
     };
 
     private static string EvalFlat(string key, EvalContext ctx)
