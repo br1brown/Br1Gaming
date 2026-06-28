@@ -158,7 +158,7 @@ public class ForbiddenException : ApiException
 /// Rappresenta un errore 404 per una risorsa richiesta ma non trovata o non leggibile.
 /// </summary>
 /// <remarks>
-/// Uso tipico: <c>throw new NotFoundException("profilo")</c> quando un file JSON o un record
+/// Uso tipico: <c>throw new NotFoundException("utente")</c> quando un file JSON o un record
 /// non esiste. Il nome della risorsa riempie il segnaposto del messaggio localizzato.
 /// </remarks>
 public class NotFoundException : ApiException

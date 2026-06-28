@@ -1,11 +1,11 @@
 import { Component, ElementRef, inject, isDevMode, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { UpperCasePipe } from '@angular/common';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { injectCurrentUrl } from '../../routing';
 import { ThemeService } from '../../services/theme.service';
 import { TranslateService } from '../../services/translate.service';
+import { LocalizationService } from '../../services/localization.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { NavLinkComponent } from '../nav-link/nav-link.component';
 import { NavDropdownComponent } from '../nav-dropdown/nav-dropdown.component';
@@ -17,7 +17,7 @@ import { NotificationBellComponent } from '../notification-bell/notification-bel
 
 @Component({
     selector: 'app-navbar',
-    imports: [TranslatePipe, AssetDirective, UpperCasePipe, NavLinkComponent, NavDropdownComponent, RouterLink, UserNavComponent, NotificationBellComponent],
+    imports: [TranslatePipe, AssetDirective, NavLinkComponent, NavDropdownComponent, RouterLink, UserNavComponent, NotificationBellComponent],
     templateUrl: './navbar.component.html',
     styleUrl: './navbar.component.scss',
     host: {
@@ -41,6 +41,7 @@ import { NotificationBellComponent } from '../notification-bell/notification-bel
 export class NavbarComponent {
     readonly theme = inject(ThemeService);
     readonly translate = inject(TranslateService);
+    private readonly localization = inject(LocalizationService);
     private readonly router = inject(Router);
     private readonly elRef = inject(ElementRef);
 
@@ -54,6 +55,8 @@ export class NavbarComponent {
     readonly showBrandIconInHeader = ContestoSito.config.showBrandIconInHeader;
     /** Mostra il campanellino delle notifiche realtime (shell.showNotifications, default false). */
     readonly showNotifications = ContestoSito.config.showNotifications;
+    // Set di lingue dalla risoluzione (coerente coi cataloghi i18n presenti → setLanguage funziona
+    // sempre); il NOME mostrato è quello nativo derivato dalle culture C# (GET /localization).
     readonly languages = this.translate.availableLangs;
     /** True se l'area login/logout deve essere mostrata nella navbar. */
     readonly hasAuthPage = ContestoSito.config.loginPage != null && ContestoSito.config.showLoginInHeader;
@@ -122,6 +125,11 @@ export class NavbarComponent {
 
     getFlagClass(_lang: string): string {
         return 'fa-solid fa-globe';
+    }
+
+    /** Nome nativo della lingua dal codice (dalle culture C#), con fallback al codice in MAIUSCOLO. */
+    langName(code: string): string {
+        return this.localization.nameOf()(code);
     }
 
     private closeNavigation(): void {

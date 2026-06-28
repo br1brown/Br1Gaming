@@ -29,7 +29,7 @@ L'app è **zoneless**: non c'è `zone.js`, la change detection è guidata dai si
 L'Engine si occupa di iniettare meccanismi standard di base per l'Accessibilità (WCAG) e alcuni helper della shell già pronti e auto-iniettati — un banner cookie integrato che si allinea alla navigazione e un pulsante "torna su" (back-to-top) che compare dopo lo scroll. Non vanno istanziati né configurati: ci sono e basta. Meno codice, più compliance.
 
 ### 5. Policy Pages Integrate
-Le pagine legali (Privacy, Cookie, Termini, Note Legali) le costruisce l'**Engine**: in `site.ts` valorizzi gli slot `legalPages` (`privacy`/`cookie`/`tos`/`legal`) coi tuoi `PageType` e il builder inietta da solo il nodo `/policy/*`. Uno slot omesso = quella pagina non esiste (es. una vetrina con solo i cookie). Se il sito usa cookie, lo slot `cookie` è **obbligatorio**: ometterlo è un errore al build. I testi vivono in `src/assets/legal/` come Markdown localizzati (es. `privacy.it.md`, `TOS.it.md`); il `ContentResolver` li carica da filesystem in SSR e via fetch nel browser, e il `PolicyComponent` interpola i placeholder come `{{ragioneSociale}}` / `{{partitaIva}}` dal profilo aziendale del backend.
+Le pagine legali (Privacy, Cookie, Termini, Note Legali) le costruisce l'**Engine**: in `site.ts` valorizzi gli slot `legalPages` (`privacy`/`cookie`/`tos`/`legal`) coi tuoi `PageType` e il builder inietta da solo il nodo `/policy/*`. Uno slot omesso = quella pagina non esiste (es. una vetrina con solo i cookie). Se il sito usa cookie, lo slot `cookie` è **obbligatorio**: ometterlo è un errore al build. I testi vivono in `src/assets/legal/` come Markdown localizzati (es. `privacy.it.md`, `TOS.it.md`); il `ContentResolver` li carica da filesystem in SSR e via fetch nel browser, e il `PolicyComponent` interpola i placeholder come `{{ragioneSociale}}` / `{{partitaIva}}` dall'identità del sito (`GET /identity`).
 
 ---
 
@@ -42,7 +42,7 @@ Prima di scrivere una riga, tieni a mente una sola linea di confine. Tutto ciò 
 | `core/engine/**` | **Engine** (intoccabile) | Servizi, direttive, componenti shell, builder, server SSR, script di build. Lo consumi tramite token, signal e direttive — non lo modifichi |
 | `site.ts` | Tuo | Il DSL del sito: enum `PageType`, pagine, menu, shell, tema. È il primo file che apri |
 | `app.component.ts` / `.html` | Tuo (la **shell**) | Monta navbar, footer, cookie banner, back-to-top e smoke, e avvia `VersionCheckService.init()`. È il posto naturale dove iniettare un servizio sempre-attivo (es. `NotificationStreamService`) |
-| `components/shared/**` | Tuo (riusabili) | Le famiglie pronte — azione, contatto, social, profilo, `app-login-form`, `app-upload-form`, footer. Riusabili così come sono, ma di proprietà del figlio: estendibili e modificabili |
+| `components/shared/**` | Tuo (riusabili) | Le famiglie pronte — azione, contatto, social, `app-identity-render`, `app-login-form`, `app-upload-form`, footer. Riusabili così come sono, ma di proprietà del figlio: estendibili e modificabili |
 | `core/services/**` | Tuo | `api.service.ts` (il client API che estendi con i tuoi endpoint), `auth.service.ts`, `cookie-registry.ts` (`COOKIE_MAP`) |
 | `core/dto/**` | Tuo | I contratti dati (`session.dto.ts`, `auth.dto.ts`) allineati a mano ai record C# |
 | `pages/**` | Tuo | Le schermate, ognuna estende `PageBaseComponent` |
@@ -642,12 +642,12 @@ if (!ok) return;
 
 // Spinner durante operazione asincrona
 this.notify.openLoading('Caricamento...');
-await this.api.getProfile();
+await this.api.getSocial();
 this.notify.closeLoading();
 
 // Lavoro async con spinner + toast di esito (rilancia l'errore: gestiscilo tu)
-const profile = await this.notify.promise(this.api.getProfile(), {
-    loading: 'Caricamento...', success: 'Profilo caricato',
+const social = await this.notify.promise(this.api.getSocial(), {
+    loading: 'Caricamento...', success: 'Caricato',
 });
 
 // Gestione errore API (legge ProblemDetails RFC 9457)
@@ -825,9 +825,9 @@ Le traduzioni vivono in `src/assets/i18n/` (la copia in `public/` è output di b
 | `addon.{lang}.json` | Stringhe del **progetto** — qui vanno le chiavi personalizzate. A parità di chiave **sovrascrive** `basic` (i cataloghi sono fusi con `addon` per ultimo): per cambiare il testo di una stringa dell'Engine si ridefinisce la chiave qui, senza mai toccare `basic.*.json` |
 
 **Aggiungere una lingua:**
-1. In `global-settings.json`: `"Localization.SupportedLanguages": ["it", "en", "fr"]`
-2. Creare `basic.fr.json` e `addon.fr.json` in `src/assets/i18n/`
-3. `i18n-check.sh` in CI verifica che nessuna chiave sia mancante
+1. In `global-settings.json`: `"Localization.SupportedLanguages": ["it", "en", "fr"]` (codici a 2 lettere). Il backend li arricchisce nelle culture tipizzate (BCP-47, nome nativo, giorni) e li serve via `GET /localization` — la tendina prende da lì il nome "Français", non lo scrivi tu.
+2. Creare `basic.fr.json` e `addon.fr.json` in `src/assets/i18n/`.
+3. `i18n-check.sh` in CI verifica che nessuna chiave sia mancante.
 
 **Togliere una lingua:** basta rimuoverla da `SupportedLanguages`. I file `basic.*.json`/`addon.*.json` della lingua tolta restano orfani — nessun controllo li guarda più, è un limite noto: cancellarli a mano per pulizia.
 
@@ -870,7 +870,7 @@ this.translate.defaultLang;        // string — lingua di default (proprietà, 
 await this.translate.setLanguage('en');
 ```
 
-`setLanguage(lang)` carica i cataloghi della nuova lingua, aggiorna il signal `currentLang`, scrive `<html lang>` e — solo con consenso tecnico accettato — persiste la preferenza (vedi *Persistenza Lingua e Consenso*). Poiché aggiorna `currentLang`, ogni contenuto reattivo via `httpResource` (es. `getProfileResource()`) si ri-fetcha da solo con il nuovo `Accept-Language`. Il tag passato è normalizzato BCP-47 e ricondotto a una lingua supportata: un tag non riconosciuto ricade su `defaultLang`.
+`setLanguage(lang)` carica i cataloghi della nuova lingua, aggiorna il signal `currentLang`, scrive `<html lang>` e — solo con consenso tecnico accettato — persiste la preferenza (vedi *Persistenza Lingua e Consenso*). Poiché aggiorna `currentLang`, ogni contenuto reattivo via `httpResource` (es. `IdentityService.identity()`) si ri-fetcha da solo con il nuovo `Accept-Language`. Il tag passato è normalizzato BCP-47 e ricondotto a una lingua supportata: un tag non riconosciuto ricade su `defaultLang`.
 
 ```typescript
 // t() è alias di translate(): stessa firma, comodo per template densi
@@ -931,13 +931,13 @@ Usata internamente da `PolicyComponent` per le pagine legali. Disponibile in qua
 
 | Metodo | Tipo di ritorno | Quando usarlo |
 | :--- | :--- | :--- |
-| `getProfile()` | `Promise<Profile>` | Caricamento una-tantum del profilo aziendale |
-| `getProfileResource()` | `httpResource<Profile>` | Profilo reattivo (si aggiorna col Signal) |
-| `getSocial(nomi?)` *(demo)* | `Promise<Record<string, string>>` | Link ai social del profilo; `nomi` opzionale filtra (es. `['facebook','instagram']`) generando query a chiavi ripetute (`?nomi=facebook&nomi=instagram`). **Metodo dimostrativo: il `setup.mjs` lo rimuove dal progetto figlio (con l'endpoint `/social`).** |
+| `getSocial(nomi?)` *(demo)* | `Promise<Record<string, string>>` | Galleria social demo; `nomi` opzionale filtra (es. `['facebook','instagram']`) generando query a chiavi ripetute (`?nomi=facebook&nomi=instagram`). **Metodo dimostrativo: il `setup.mjs` lo rimuove dal progetto figlio (con l'endpoint `/social`).** |
 | `getBlobUrl(slug, webopt?)` | `string` | URL relativo del file (`/api/blob/{slug}`) per `<img src>` / `<a href>` — senza download in memoria. Anche in GET passa dal proxy `/api` protetto da API key |
 | `getBlob(slug)` | `Promise<Blob>` | File scaricato in memoria (anteprima locale, download forzato) |
 | `uploadBlob(file)` | `Promise<{ slug }>` | Carica un file nel volume uploads (richiede JWT) |
 | `login(username, password)` | `Promise<LoginResult>` | Autenticazione utente (solo se JWT abilitato) |
+
+> **L'identità del sito non sta in `ApiService`.** Footer, pagine legali e SEO la leggono dalla risorsa condivisa dell'Engine `IdentityService` (`identity()` signal, `GET /identity`, una sola fetch per lingua). Vedi *IdentityService*.
 
 ### File Uploads (`/api/blob`)
 
@@ -989,15 +989,11 @@ async onFileConfirmed(file: File): Promise<void> {
 **Pattern one-shot** (dati statici, caricati una volta):
 ```typescript
 ngOnInit() {
-    this.api.getProfile().then(p => this.profile.set(p));
+    this.api.getSocial().then(s => this.social.set(s));
 }
 ```
 
-**Pattern reattivo** (dati che si aggiornano con la lingua o lo stato):
-```typescript
-readonly profileRes = this.api.getProfileResource();
-// In template: profileRes.value() | profileRes.isLoading()
-```
+**Pattern reattivo** (dati che si aggiornano con la lingua o lo stato): esponi un metodo che ritorna `api_resource<T>()` (vedi *Aggiungere un Endpoint*), poi nel template `res.value()` / `res.isLoading()`. Per l'**identità del sito** non serve scriverlo: c'è già `IdentityService` (risorsa condivisa dell'Engine).
 
 ### Errori Silenziosi per UI Custom
 
@@ -1035,15 +1031,33 @@ getArticolo(id: string): Promise<Articolo> {
 
 ### `httpResource` per Componenti Sempre-On
 
-Usa `getProfileResource()` nei componenti che restano attivi durante tutta la navigazione (navbar, footer):
-```typescript
-readonly profile = this.api.getProfileResource();
-// profile.value() → Profile | undefined
-// profile.isLoading() → boolean
-```
-Si aggiorna automaticamente al cambio lingua (tramite segnale `Accept-Language`).
+Per i dati di un componente sempre-attivo (navbar, footer) esponi un metodo che ritorna `api_resource<T>()`: è un `httpResource` reattivo che si ri-fetcha da solo al cambio lingua (tramite segnale `Accept-Language`), così il componente mostra sempre la lingua corrente.
 
-> **`getProfile()` vs `getProfileResource()`:** scegli in base alla reattività che ti serve. `getProfile()` è una `Promise` one-shot: la risolvi una volta (es. in `ngOnInit`) e i dati restano fissi finché non richiami il metodo — adatta a dati che leggi una volta sola. `getProfileResource()` è un `httpResource` reattivo che si ri-fetcha da solo al cambio lingua: usalo nei componenti sempre-attivi (navbar, footer) così mostrano sempre la lingua corrente.
+```typescript
+// in api.service.ts
+getArticoli() { return this.api_resource<Articolo[]>(API.articoli); }
+// nel componente: readonly res = this.api.getArticoli();  → res.value() | res.isLoading()
+```
+
+> **L'identità del sito è già un `httpResource` condiviso:** `IdentityService` (Engine) la espone come `identity()` signal, una sola fetch per lingua riusata da footer, pagine legali e SEO. Non ricrearla a mano — vedi *IdentityService*.
+
+---
+
+## 🪪 IdentityService: l'identità del sito
+
+`IdentityService` (Engine, `providedIn: 'root'`) è la **sorgente unica** dell'identità del sito — dati legali/anagrafici, profili social del brand, natura dell'entità (`personal`). Espone un solo signal:
+
+```typescript
+private readonly identityService = inject(IdentityService);
+this.identityService.identity();  // Signal<Identity | null>
+this.identityService.loading();   // Signal<boolean>
+```
+
+- **Una sola fetch condivisa.** È un `httpResource` su `GET /identity`, ri-fetchato al cambio lingua. Footer, pagine legali (placeholder `{{ragioneSociale}}`…) e `PageMetaService` (JSON-LD `sameAs`/`@type`) leggono tutti da qui: niente N chiamate sparse.
+- **SSR-aware.** In SSR la risorsa è risolta prima della serializzazione, quindi i dati strutturati finiscono già nell'HTML server-rendered (la SEO non aspetta il browser).
+- **Degrada da sola.** Identità non configurata (o backend irraggiungibile) → `identity()` è `null`: footer, social e JSON-LD relativi si nascondono senza errori.
+
+I **dati** vivono nel backend (`data/identity.json`, servito dall'Engine) — il frontend li **consuma** soltanto. Per renderli usa `app-identity-render` (sotto), col flag `showSocial` per le icone dei profili brand.
 
 ---
 
@@ -1184,16 +1198,7 @@ In SSR viene generata automaticamente un'immagine personalizzata per la condivis
 - Overlay con titolo e sottotitolo
 - Badge con favicon del sito
 
-```typescript
-// Nel ContentResolver della pagina
-this.pageMeta.setPageMeta({
-    pageTitle: 'Il Mio Articolo',
-    description: 'Descrizione SEO',
-    imgId: 'hero-image-123',
-    ogType: 'article',
-    structuredDataType: 'Article'
-});
-```
+Non chiami `PageMetaService` a mano (è privato all'Engine): dichiari i meta in `site.ts` (`description`, `otherSEO`) o, per i dati derivati dal contenuto, nel `ContentResolver`. L'Engine li riapplica da solo a ogni cambio pagina e di lingua.
 
 **Importante:** `og:image` si aggiorna solo in SSR. I crawler non eseguono JavaScript — vedono la versione server-rendered. Le modifiche client-side all'og:image non hanno effetto sui preview di Facebook/LinkedIn/WhatsApp.
 
@@ -1216,12 +1221,19 @@ Schema.org viene iniettato automaticamente per ogni pagina. Migliora l'apparenza
 
 | Entità | `@id` | Quando |
 | :--- | :--- | :--- |
-| `Organization` | `{origin}#organization` | Sempre — nome, URL e logo del sito |
+| `Organization` *(o `Person`)* | `{origin}#organization` *(o `#person`)* | Sempre — l'entità brand: nome (ragione sociale, fallback nome sito), URL e icona del sito (`logo` per Organization, `image` per Person); `sameAs` dai social; `address` (`PostalAddress` dalla sede); `contactPoint` (`ContactPoint` con telefono/email, `hoursAvailable` dagli orari, `availableLanguage` dalle lingue del sito); e — solo Organization — `legalName`/`vatID`/`taxID` da ragione sociale/P.IVA/CF; più la via di fuga `identity.extra` (proprietà schema.org arbitrarie fuse nel nodo). Il tipo dipende da `identity.personal` (default Organization); identità assente → Organization minimale |
 | `WebSite` | `{origin}#website` | Sempre — collega le pagine al sito e all'organizzazione |
-| `WebPage` (o tipo scelto) | `{canonical}#webpage` | Sempre — la pagina corrente, con `inLanguage`, `isPartOf`, `publisher` |
+| `WebPage` (o tipo scelto) | `{canonical}#webpage` | Sempre — la pagina corrente, con `inLanguage`, `isPartOf`, `publisher` e `dateModified` (dal valore effettivo di `og:updated_time`) |
 | `BreadcrumbList` | — | Solo quando il path non è la root (`/`) |
 
-Il tipo della pagina (`Article`, `WebPage`, ecc.) si imposta tramite `structuredDataType` nella config della pagina in `site.ts`. Ogni script è marcato con l'attributo `data-br1-jsonld` (per aggiornarli/rimuoverli in blocco) e riceve il **nonce CSP** della richiesta in SSR, così rispetta la Content-Security-Policy senza `unsafe-inline`.
+Ogni script è marcato con l'attributo `data-br1-jsonld` (per aggiornarli/rimuoverli in blocco) e riceve il **nonce CSP** della richiesta in SSR, così rispetta la Content-Security-Policy senza `unsafe-inline`.
+
+I **dati strutturati** si dichiarano in un **solo campo**, `otherSEO.structuredData`, in tre forme (anche combinabili in una lista):
+- una **stringa** → solo il `@type` della pagina (es. `'AboutPage'`, per i tipi non coperti; default `WebPage`);
+- un **oggetto** `{ kind, … }` con campi parlanti (`article` / `faq` / `product` / `event`) → **senza conoscere schema.org**, tradotto dall'Engine in JSON-LD valido;
+- un **array** → più entità sulla stessa pagina (es. un Article + una FAQ + un `raw`).
+
+La traduzione vive in un **unico punto** (`structured-data.ts`): se domani schema.org cambia si tocca solo quello, non la config dei figli. Si impostano **statici** in `site.ts` o **dinamici** dal `ContentResolver` (derivati dal contenuto — es. autore e data di un Article — con la precedenza). Per i tipi non coperti c'è la via di fuga `kind: 'raw'` (JSON-LD grezzo). **I campi non impostati ricadono sui dati già esistenti** (titolo, og:image, ultima modifica, Organization del sito): così anche un semplice `{ kind: 'article' }` produce un'entità completa. E senza dichiarare nulla, ogni pagina ha comunque il grafo base `Organization`+`WebSite`+`WebPage`. Per gli **articoli** (`kind: 'article'`) l'Engine emette anche i meta Open Graph `article:*` (`published_time`, `modified_time`, `author`, `section`, un `tag` per voce) — gemelli dei dati JSON-LD, abbinali a `ogType: 'article'`. Esempi in [AGENTS.md](../AGENTS.md).
 
 ### URL Canonico e `og:locale`
 
@@ -1232,6 +1244,10 @@ Il canonical viene costruito in modo **stabile** per evitare contenuti duplicati
 Lo stesso canonical alimenta `og:url`, il tag `rel="canonical"` e gli `@id`/`url` del grafo JSON-LD, mantenendoli coerenti.
 
 `og:locale` (e gli `og:locale:alternate` per le altre lingue) usano il formato regionale OpenGraph `lingua_REGIONE` (es. `it_IT`, `en_US`), derivato via `Intl.Locale().maximize()`. Gli alternate vengono rigenerati con remove+add a ogni cambio pagina, così funzionano correttamente anche con più di due lingue (dove `Meta.updateTag` sovrascriverebbe un solo tag).
+
+Il modello i18n è a **URL unico**: la lingua è negoziata da `Accept-Language`/cookie, non c'è prefisso di percorso (`/en/…`). Per questo l'Engine **non** emette `hreflang` (richiederebbe URL distinti per lingua) ma, sui siti multilingua, aggiunge `Vary: Accept-Language` alle risposte HTML SSR: dichiara il *locale-adaptive serving* a cache/CDN ed è il segnale che Google usa per il crawling per-lingua. Sul template mono-lingua l'header non viene emesso.
+
+> **Anteprime ricche.** Il `<meta name="robots">` di base include `max-image-preview:large, max-snippet:-1, max-video-preview:-1`: autorizza Google a mostrare l'anteprima immagine grande (l'OG 1200×630 generata dall'Engine) e snippet/video senza limiti nei risultati. La description di pagina, se omessa, ricade sulla `site.description` di default (localizzata) invece di restare quella della pagina precedente.
 
 ---
 
@@ -1279,7 +1295,8 @@ Oltre a `path`, `title` e `description`, ogni pagina in `pages` accetta:
     otherSEO: {
         ogImage: 'og-cover',  // ID asset (non un path). `false` = nessun og:image; omesso = preview dinamica auto-generata
         ogType: 'article',
-        structuredDataType: 'WebPage',
+        structuredData: { kind: 'article' },  // JSON-LD: stringa (@type), oggetto {kind,…} o lista. Vedi sezione JSON-LD
+        noindex: false,       // true = pagina pubblica/SSR ma esclusa dall'indice (X-Robots-Tag + fuori sitemap). Default false
     },
 }
 ```
@@ -1307,7 +1324,11 @@ onlyPlainImage: false,             // anteprime social con sola immagine, senza 
 legalPages: { /* … */ },           // pagine legali → vedi sotto
 ```
 
-> `description` (mappa per-lingua `{ it, en, … }`), `colorTema` e l'effetto `smoke` non stanno qui: sono identità/estetica e vivono in `global-settings.json → site`.
+> `description` (mappa per-lingua `{ it, en, … }`), `colorTema` e l'effetto `smoke` non stanno qui: sono estetica e vivono in `global-settings.json → site`.
+
+I **profili social** del brand e la **natura dell'entità** sono dati d'**identità**: vivono in `backend/data/identity.json` (campi `social` e `personal`), serviti dall'Engine su `GET /identity` e letti dalla risorsa condivisa `IdentityService`. `social` è una **lista di URL**: l'Engine li emette come `sameAs` dell'entità brand nel JSON-LD — il segnale che Google usa per il **Knowledge Panel** — e l'icona nel footer è dedotta dall'URL (quindi più profili dello stesso social convivono). Lista vuota o identità assente → nessun `sameAs`. Se tra i profili c'è un URL Twitter/X, l'handle alimenta anche il meta `twitter:site`. (Esempio in [AGENTS.md](../AGENTS.md).)
+
+Per un sito **personale/portfolio** imposta `personal: true` in `identity.json`: l'entità brand diventa `Person` invece di `Organization` (default). Cambia solo il `@type` e l'icona passa da `logo` a `image`; il nome dell'entità è la `ragioneSociale` (fallback al nome del sito). Il default è `Organization` perché è il meno penalizzante per Google: dichiarare `Person` quando si è un'azienda è peggio del contrario. Identità assente → esce comunque un grafo valido (Organization, senza sameAs).
 
 > **`isWebApp: false` rende il sito non installabile.** Oltre a non registrare il Service Worker (e a de-registrarlo a runtime, vedi *Service Worker e Consenso Tecnico*), `generate-statics.ts` non genera il `manifest.webmanifest` e rimuove da `index.html` i trigger di installabilità (`<link rel="manifest">`, `mobile-web-app-capable`, i meta `apple-mobile-web-app-*`); il server SSR risponde `404` al manifest. Così non compare il prompt "Aggiungi a schermata Home" (su Chrome Android il Service Worker non è più requisito di installabilità dal 2021). Con `isWebApp: true` la PWA è completa.
 
@@ -1395,7 +1416,7 @@ legalPages: {
 ```
 - **Slot omesso** → quella pagina non viene creata (es. una vetrina con i soli cookie).
 - **Cookie obbligatoria**: se il sito usa cookie (multilingua, PWA o cookie di progetto) lo slot `cookie` dev'essere valorizzato, altrimenti il build si ferma con un errore esplicito.
-- **Contenuto**: Markdown localizzati in `src/assets/legal/` (slug `privacy`, `cookie`, `TOS`, `legal` → `<slug>.<lang>.md`); il `PolicyComponent` interpola i placeholder del profilo aziendale (`{{ragioneSociale}}`, `{{partitaIva}}`, …).
+- **Contenuto**: Markdown localizzati in `src/assets/legal/` (slug `privacy`, `cookie`, `TOS`, `legal` → `<slug>.<lang>.md`); il `PolicyComponent` interpola i placeholder dell'identità del sito (`{{ragioneSociale}}`, `{{partitaIva}}`, …).
 
 **Override per-pagina.** Per gestire una policy a modo tuo (rotta dedicata, contenuto da API invece che da Markdown) dichiari tu stesso la pagina in `pages` con lo stesso `PageType`: la tua vince, l'Engine non la crea e non ne carica il `.md`. Le altre policy restano automatiche.
 
@@ -1634,7 +1655,7 @@ Wrappa un blocco di contenuto e mostra uno spinner finché `loading` è `true`, 
 ```html
 <app-loading [loading]="isLoading()">
     <!-- mostrato solo quando isLoading() è false -->
-    <app-profile-render [profile]="profile()!" />
+    <app-identity-render [identity]="identity()" />
 </app-loading>
 ```
 
@@ -1642,17 +1663,24 @@ Wrappa un blocco di contenuto e mostra uno spinner finché `loading` è `true`, 
 | :--- | :--- | :--- |
 | `loading` | `boolean` (required) | `true` → spinner; `false` → contenuto proiettato |
 
-### `app-profile-render`: Dati Aziendali Completi
+### `app-identity-render`: Dati Identità Completi
 
-Visualizza un oggetto `Profile` con tutti i campi legali italiani. I campi `null`/`undefined` vengono omessi automaticamente (skip-empty).
+Visualizza un oggetto `Identity` con tutti i campi legali italiani. I campi `null`/`undefined` vengono omessi automaticamente (skip-empty). Identità `null` → non rende nulla.
 
 ```html
-<app-profile-render [profile]="profile" />
+<app-identity-render [identity]="identity()" [showSocial]="true" />
 ```
 
-Rende due sezioni:
-- **Contatti**: telefono, PEC, email
+| Input | Tipo | Descrizione |
+| :--- | :--- | :--- |
+| `identity` | `Identity \| null` (required) | L'identità da rendere (tipicamente `IdentityService.identity()`) |
+| `showSocial` | `boolean` (default `false`) | Mostra le icone dei profili social del brand. Il footer lo attiva, le pagine legali no — i social sono dati d'identità, resi qui da un solo posto |
+| `inColonna` | `boolean` (default `false`) | Impila le sezioni in colonna invece che affiancate |
+
+Rende:
+- **Contatti**: telefono, PEC, email, sede, rappresentante legale e **orari di contatto** (resi localizzati dagli orari strutturati: "lun–ven 09:00–17:00")
 - **Dati societari**: P.IVA, Codice Fiscale, sede legale, registro imprese, REA, capitale sociale, versamento integrale, socio unico, stato di liquidazione, codice SDI
+- **Social** *(solo con `showSocial`)*: icone dei profili brand (dedotte dall'URL), col nome accanto — dall'`name` della voce social se presente, altrimenti dedotto dall'URL
 
 Formattazione automatica:
 - **Importi**: `Intl.NumberFormat` con locale mapping (`it` → `it-IT`, `en` → `en-GB`)
@@ -1682,20 +1710,20 @@ Glifo FontAwesome in pastiglia con forma e animazione hover configurabili. Valor
 
 ### `app-social-link`: Pulsante Social con Branding
 
-Pulsante social con icona e colore brand corretti. Riconosce automaticamente tutti i network noti; per gli sconosciuti usa `fa-solid fa-link` senza colore brand.
+Pulsante social con icona e colore brand corretti. **Deduce il network dall'URL** (regex sui social noti): basta passare il `value`, niente `type`. Per gli sconosciuti usa `fa-solid fa-link` (etichetta = hostname). Il `type` esplicito resta come override (utile alla galleria demo, dove l'URL è generico).
 
 ```html
-<app-social-link type="facebook"  [value]="fbUrl" />
-<app-social-link type="instagram" [value]="igUrl" [showLabel]="true" />
-<!-- Network non riconosciuto — usa icona generica -->
-<app-social-link type="mio-sito"  [value]="url"   label="Sito web" />
+<!-- Solo URL: icona dedotta (linkedin) — così una lista può avere più profili dello stesso social -->
+<app-social-link [value]="'https://linkedin.com/company/acme'" [showLabel]="true" />
+<!-- Override esplicito del tipo (opzionale) -->
+<app-social-link type="facebook" [value]="fbUrl" />
 ```
 
 | Input | Tipo | Descrizione |
 | :--- | :--- | :--- |
-| `type` | `string` (required) | Chiave network (case-insensitive) |
-| `value` | `string` (required) | URL o handle |
-| `label` | `string` | Etichetta custom (default: `capitalize(type)`) |
+| `value` | `string` (required) | URL (o handle) del profilo |
+| `type` | `string` (opzionale) | Override del network; se omesso è dedotto dall'URL |
+| `label` | `string` | Etichetta custom (default: nome network dedotto, o hostname) |
 | `showLabel` | `boolean` | Mostra testo accanto all'icona (default: `false`) |
 
 Network con branding integrato (30+): `facebook`, `instagram`, `twitter`, `linkedin`, `youtube`, `whatsapp`, `telegram`, `tiktok`, `spotify`, `discord`, `github`, `reddit`, `threads`, `google`, `snapchat`, `pinterest`, `tumblr`, `twitch`, `soundcloud`, `deezer`, `vimeo`, `dribbble`, `skype`, `mastodon`, `btc`, `amazon`, `airbnb`, `apple`, `android`, `yahoo`, `audible` e altri.
@@ -1843,7 +1871,7 @@ Nel template chiami `onClick()` sul bottone, leggi `displayLabel()` per il testo
 
 ## 🏗️ Script di Build: `generate-statics.ts`
 
-Lo script sincronizza i file statici e **inietta nel frontend** (via `src/environments/environment.ts`) identità ed estetica del progetto: `project.name`/`project.version`, `Localization` e la sezione `site` (descrizione, tema, smoke) da `global-settings.json`. La **struttura e il comportamento** (pagine, menu, `shell`, `isWebApp`, `loginPage`, `legalPages`) restano in `site.ts`. **Va eseguito ogni volta che si modifica `global-settings.json` o `site.ts`** (è già nei passi `prebuild`/`prestart`; in Docker la config arriva via l'ARG `BR1_PROJECT_JSON`).
+Lo script sincronizza i file statici e **inietta nel frontend** (via `src/environments/environment.ts`) identità ed estetica del progetto: `project.name`/`project.version`, i codici lingua (`Localization`) e la sezione `site` (descrizione, tema, smoke) da `global-settings.json`. I codici lingua qui sono il seed di build (shell, fallback `pickLocaleText`, pagina cookie); il backend li arricchisce nelle culture tipizzate servite via `GET /localization`. La **struttura e il comportamento** (pagine, menu, `shell`, `isWebApp`, `loginPage`, `legalPages`) restano in `site.ts`. **Va eseguito ogni volta che si modifica `global-settings.json` o `site.ts`** (è già nei passi `prebuild`/`prestart`; in Docker la config arriva via l'ARG `BR1_PROJECT_JSON`).
 
 ```bash
 npm run generate:statics
@@ -1876,7 +1904,7 @@ Il punto pratico: **un solo asset, `favIcon`, alimenta tutto** — favicon del s
 | :--- | :--- | :--- |
 | `FRONTEND_BASE_URL` | URL canonico del sito (es. `https://tuodominio.it`), per gli URL assoluti `og:image` | `https://example.com` con warning |
 
-Lingua di default e lingue supportate **non** sono variabili d'ambiente: lo script le ricava dalla sezione `Localization` del progetto. Su host/CI legge direttamente `global-settings.json`; nelle immagini Docker (dove il file non è nel build context) legge gli stessi dati da `BR1_PROJECT_JSON`, il JSON di progetto che `deploy.sh` passa come build-arg.
+Lingua di default e lingue supportate **non** sono variabili d'ambiente: lo script le ricava dalla sezione `Localization` del progetto (codici a 2 lettere). Su host/CI legge direttamente `global-settings.json`; nelle immagini Docker (dove il file non è nel build context) legge gli stessi dati da `BR1_PROJECT_JSON`, il JSON di progetto che `deploy.sh` passa come build-arg. È il seed di build; i nomi nativi e i primitivi di cultura li dà il backend via `GET /localization`.
 
 ### Esclusioni Automatiche da Sitemap e Indicizzazione
 
@@ -1884,7 +1912,8 @@ Lingua di default e lingue supportate **non** sono variabili d'ambiente: lo scri
 | :--- | :--- |
 | `enabled: false` | Esclusa dalla sitemap |
 | `externalUrl` presente | Esclusa dalla sitemap |
-| `requiresAuth: true` | Esclusa dalla sitemap **e** marcata `noindex` dal server SSR (`X-Robots-Tag: noindex, nofollow`), senza comparire in robots.txt |
+| `requiresAuth: true` | Esclusa dalla sitemap **e** marcata `noindex` dal server SSR (`X-Robots-Tag: noindex, nofollow`), senza comparire in robots.txt. Forza anche il client-render |
+| `otherSEO: { noindex: true }` | Esclusa dalla sitemap **e** marcata `noindex` dal server SSR (`X-Robots-Tag: noindex, nofollow`). A differenza di `requiresAuth` la pagina resta **pubblica e SSR**: solo non indicizzabile (es. landing duplicate, thank-you) |
 
 > **Deploy non indicizzabile (staging).** Per un'anteprima/staging dietro lo stesso reverse proxy della produzione, imposta l'env var `SEO_NOINDEX=true` sul container Node SSR: il server emette `X-Robots-Tag: noindex, nofollow` su ogni risposta e serve un `robots.txt` dinamico `Disallow: /`. Default off → in produzione il sito resta indicizzabile. Vedi [DOCKER_README.md](../DOCKER_README.md).
 

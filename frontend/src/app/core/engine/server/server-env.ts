@@ -14,6 +14,7 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import type { GlobalSettings } from '../global-settings.types';
 
 // ── Lettura global-settings.json (+ override global-settings.local.json) ──────────────
 // GLOBAL_SETTINGS_PATH (env var) → path esplicito (Docker: /app/global-settings.json,
@@ -64,12 +65,9 @@ function loadBr1Settings(): Record<string, unknown> {
     return local ? deepMerge(base, local) : base;
 }
 
-/** Forma tipizzata dei campi di global-settings.json letti da questo modulo.
- *  Partial: i campi possono mancare se global-settings.json è incompleto o assente. */
-interface Br1Json {
-    Security?: { ApiKeys?: string[] };
-    frontend?: { hostname?: string; port?: number };
-}
+/** Forma tipizzata di global-settings.json: il tipo `GlobalSettings` è generato dallo schema
+ *  (`npm run generate:types`), sorgente unica — niente più interfaccia partial scritta a mano. */
+type Br1Json = GlobalSettings;
 
 // ── Lettura security-headers.json ─────────────────────────────────────────────
 // File del template (uguale per ogni progetto): contiene gli header di sicurezza fissi.
@@ -100,9 +98,9 @@ function br1(): Br1Json {
     return (_br1 ??= loadBr1Settings()) as Br1Json;
 }
 
-/** Accesso diretto all'intero global-settings.json — utile per leggere Custom.*  */
-export function getBr1Settings(): Record<string, unknown> {
-    return _br1 ??= loadBr1Settings();
+/** Accesso diretto all'intero global-settings.json (tipizzato) — utile per leggere Custom.*  */
+export function getBr1Settings(): GlobalSettings {
+    return (_br1 ??= loadBr1Settings()) as GlobalSettings;
 }
 
 // ── Interfacce ────────────────────────────────────────────────────────────────
@@ -144,6 +142,11 @@ export interface SiteEnv {
      *  Impostato da SEO_NOINDEX (1/true/yes). Default `false` (sito indicizzabile).
      *  Pensato per ambienti di staging/anteprima dietro lo stesso reverse proxy della prod. */
     readonly noindex: boolean;
+    /** True se il sito è multilingua (`Localization.SupportedLanguages` > 1). Quando true le
+     *  risposte HTML SSR portano `Vary: Accept-Language`: il contenuto varia per lingua sullo
+     *  stesso URL (negoziazione via header/cookie, nessun URL localizzato), e l'header lo segnala
+     *  a cache/CDN e abilita il crawling locale-adaptive di Google. */
+    readonly multiLang: boolean;
 }
 
 /** Header di sicurezza condivisi col backend, letti da security-headers.json (file del template). */
@@ -227,6 +230,7 @@ export const serverEnv: ServerEnv = {
             assetsDir:           process.env['ASSETS_DIR'] ?? '',
             previewCryptoSecret: process.env['PREVIEW_CRYPTO_SECRET'] ?? '',
             noindex:             parseBool(process.env['SEO_NOINDEX']),
+            multiLang:           (br1().Localization?.SupportedLanguages?.length ?? 0) > 1,
         };
     },
     get security(): SecurityEnv {

@@ -6,6 +6,31 @@ import { ContestoSito } from '../../../site';
 import { pickLocaleText } from '../siteBuilder';
 import { CdnCgi } from './asset.service';
 import { TranslateService } from './translate.service';
+import { IdentityService } from './identity.service';
+import { type Identity, type Address, type DayName, DAY_ORDER } from '../dto/identity.dto';
+import { type StructuredDataInput, buildStructuredDataGraph } from './structured-data';
+
+/** Orario "HH:mm" (24h): difesa contro valori sporchi prima di mapparli su JSON-LD. */
+const HM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+function isHm(value: unknown): value is string {
+    return typeof value === 'string' && HM_RE.test(value);
+}
+
+/** Input di {@link PageMetaService.setPageMeta}. Tutti i campi tranne `title` sono opzionali. */
+export interface PageMetaInput {
+    /** Titolo grezzo della pagina (es. "Home", non "Home | Template"). */
+    title: string;
+    /** Meta-description. Se assente/null si usa la `site.description` di default (localizzata). */
+    description?: string | null;
+    /** ID asset anteprima: `string` = variante immagine; `false` = nessuna anteprima; assente = variante testuale. */
+    imgId?: string | null | false;
+    /** Tipo Open Graph (es. 'website', 'article'). Default: 'website'. */
+    ogType?: string | null;
+    /** Timestamp ISO 8601 ultima modifica (og:updated_time). Se assente resta il valore di build. */
+    updatedTime?: string | null;
+    /** Dati strutturati ricchi tipizzati: un item o una lista (vedi `structured-data.ts`). Tradotti in JSON-LD. */
+    structuredData?: StructuredDataInput | null;
+}
 
 /**
  * Funzione sincrona di cifratura del payload preview.
@@ -41,6 +66,7 @@ export class PageMetaService {
     private readonly meta = inject(Meta);
     private readonly document = inject(DOCUMENT);
     private readonly translate = inject(TranslateService);
+    private readonly identity = inject(IdentityService);
     private readonly cspNonce = inject(CSP_NONCE, { optional: true });
 
     /** Cifratura preview: disponibile solo in SSR, null nel browser. */
@@ -69,25 +95,10 @@ export class PageMetaService {
      * restano quelli iniettati dall'SSR — i crawler non eseguono JavaScript,
      * quindi vedono sempre la versione server-rendered.
      *
-     * @param pageTitle - Titolo grezzo della pagina (es. "Home", non "Home | Template")
-     * @param description - Meta-description per i motori di ricerca
-     * @param imgId - ID asset dell'immagine di anteprima:
-     *               - `string` → variante con immagine (sovrapposizione asset + favicon + badge)
-     *               - `false`  → nessuna anteprima (og:image e twitter:image rimossi)
-     *               - `null` / `undefined` → variante testuale (SVG con titolo e sottotitolo)
-     * @param ogType - Tipo Open Graph (es. 'website', 'article'). Default: 'website'.
-     * @param structuredDataType - Tipo Schema.org JSON-LD. Default: 'WebPage'.
-     * @param updatedTime - Timestamp ISO 8601 ultima modifica. Se nullo, resta
-     *                     il valore globale di build emesso da `generate-statics.ts`.
+     * @param input - Vedi {@link PageMetaInput}. `title` è il titolo grezzo (es. "Home", non "Home | Template").
      */
-    setPageMeta(
-        pageTitle: string,
-        description?: string | null,
-        imgId?: string | null | false,
-        ogType?: string | null,
-        structuredDataType?: string | null,
-        updatedTime?: string | null,
-    ): void {
+    setPageMeta(input: PageMetaInput): void {
+        const { title: pageTitle, description, imgId, ogType, updatedTime, structuredData } = input;
 
         // Titolo browser: "Pagina | AppName", oppure solo "AppName" se pageTitle è vuoto
         const { appName } = ContestoSito.config;
@@ -100,11 +111,19 @@ export class PageMetaService {
         this.meta.updateTag({ name: 'twitter:title', content: browserTitle });
         this.meta.updateTag({ property: 'og:title', content: browserTitle });
 
-        // Se presente, aggiorna la descrizione ovunque
-        if (description) {
-            this.meta.updateTag({ name: 'description', content: description });
-            this.meta.updateTag({ property: 'og:description', content: description });
-            this.meta.updateTag({ name: 'twitter:description', content: description });
+        // twitter:site (@handle del brand) derivato dai profili social, se ce n'è uno Twitter/X.
+        const twitterSite = this.twitterSiteHandle();
+        if (twitterSite) this.meta.updateTag({ name: 'twitter:site', content: twitterSite });
+
+        // Description: se la pagina non ne ha una, si ricade sulla description di default del
+        // sito (localizzata) anziché lasciare quella della pagina precedente — che in navigazione
+        // SPA resterebbe "stantia". I crawler vedono l'SSR fresco, ma così è coerente anche lato client.
+        const metaDescription = description
+            ?? pickLocaleText(ContestoSito.config.description, this.translate.currentLang());
+        if (metaDescription) {
+            this.meta.updateTag({ name: 'description', content: metaDescription });
+            this.meta.updateTag({ property: 'og:description', content: metaDescription });
+            this.meta.updateTag({ name: 'twitter:description', content: metaDescription });
         }
 
         const canonicalUrl = this.getCanonicalUrl();
@@ -134,6 +153,9 @@ export class PageMetaService {
         if (imgId === false) {
             this.meta.removeTag('property="og:image"');
             this.meta.removeTag('name="twitter:image"');
+            this.removeImageDimensionTags();
+            // Senza immagine la card grande non ha senso: si declassa a 'summary' (testo).
+            this.meta.updateTag({ name: 'twitter:card', content: 'summary' });
         } else if (this.encryptFn) {
             const payload: Record<string, string> = { title: pageTitle };
             if (description) payload['subtitle'] = description;
@@ -143,10 +165,122 @@ export class PageMetaService {
             imageUrl = `${origin}${CdnCgi.preview}?p=${blob}`;
             this.meta.updateTag({ property: 'og:image', content: imageUrl });
             this.meta.updateTag({ name: 'twitter:image', content: imageUrl });
+
+            // Dimensioni/tipo dichiarati: i crawler renderizzano la card senza dover prima
+            // scaricare l'immagine (niente prima-condivisione "vuota"). Il canvas è 1200x630
+            // per entrambe le varianti; il MIME segue il formato realmente generato in
+            // og-preview.ts (variante con immagine → JPEG, variante testuale → PNG).
+            this.meta.updateTag({ property: 'og:image:width', content: '1200' });
+            this.meta.updateTag({ property: 'og:image:height', content: '630' });
+            this.meta.updateTag({ property: 'og:image:type', content: imgId ? 'image/jpeg' : 'image/png' });
+            this.meta.updateTag({ property: 'og:image:alt', content: browserTitle });
+            this.meta.updateTag({ name: 'twitter:image:alt', content: browserTitle });
+            // secure_url: ridondante ma richiesto da alcuni scraper datati (solo se già https).
+            if (imageUrl.startsWith('https:')) {
+                this.meta.updateTag({ property: 'og:image:secure_url', content: imageUrl });
+            }
+            // C'è un'immagine 1200x630: card grande.
+            this.meta.updateTag({ name: 'twitter:card', content: 'summary_large_image' });
         }
 
-        // Aggiorna JSON-LD structured data
-        this.updateStructuredData(pageTitle || appName, description, imageUrl, structuredDataType || 'WebPage', canonicalUrl);
+        // Aggiorna JSON-LD structured data (usa la description risolta, coerente con i meta tag)
+        this.updateStructuredData(pageTitle || appName, metaDescription, imageUrl, canonicalUrl, structuredData);
+    }
+
+    /** Emette i meta Open Graph `article:*` dell'entità principale (da `structuredData` di tipo
+     *  article). Rimuove prima tutti gli `article:*` esistenti — così in navigazione SPA non
+     *  restano stantii passando a una pagina non-articolo — e li riemette (`article:tag` ripetibile). */
+    private updateArticleMeta(ogMeta: { property: string; content: string }[]): void {
+        this.document.querySelectorAll('meta[property^="article:"]').forEach(tag => tag.remove());
+        for (const { property, content } of ogMeta) {
+            this.meta.addTag({ property, content });
+        }
+    }
+
+    /** Estrae l'handle Twitter/X (`@nome`) dai profili social del brand (identità), per
+     *  `twitter:site`. Ritorna il primo trovato, o `null` se nessun profilo Twitter/X è configurato. */
+    private twitterSiteHandle(): string | null {
+        const social = this.identity.identity()?.social;
+        if (!Array.isArray(social)) return null;
+        for (const entry of social) {
+            if (typeof entry?.url !== 'string') continue;
+            // Parsing con la primitiva `URL` (non regex): valida l'URL ed estrae host/handle in modo
+            // robusto (host esatto, niente match casuali in query/path). Gli URL non validi sono già
+            // scartati a monte dal backend, ma il try/catch tiene comunque sicuro il render SSR.
+            let parsed: URL;
+            try { parsed = new URL(entry.url); } catch { continue; }
+            const host = parsed.hostname.replace(/^www\./, '');
+            if (host !== 'twitter.com' && host !== 'x.com') continue;
+            const handle = parsed.pathname.split('/').filter(Boolean)[0]?.replace(/^@/, '');
+            if (handle && /^[A-Za-z0-9_]{1,15}$/.test(handle)) return `@${handle}`;
+        }
+        return null;
+    }
+
+    /** `PostalAddress` da un indirizzo dell'identità (sede legale o operativa). Null se nessun campo utile. */
+    private buildPostalAddress(a: Address | null | undefined): Record<string, unknown> | null {
+        if (!a) return null;
+        const street = [a.via, a.civico].filter(s => typeof s === 'string' && s.trim()).join(' ').trim();
+        const addr: Record<string, unknown> = { '@type': 'PostalAddress' };
+        if (street) addr['streetAddress'] = street;
+        if (a.cap?.trim()) addr['postalCode'] = a.cap.trim();
+        if (a.citta?.trim()) addr['addressLocality'] = a.citta.trim();
+        if (a.provincia?.trim()) addr['addressRegion'] = a.provincia.trim();
+        // addressCountry = codice ISO 3166-1 alpha-2 (la forma che schema.org/Google preferiscono).
+        if (a.nazione?.trim()) addr['addressCountry'] = a.nazione.trim();
+        return Object.keys(addr).length > 1 ? addr : null;   // solo @type → nessun dato
+    }
+
+    /** `ContactPoint` con telefono/email, `hoursAvailable` dagli orari e `availableLanguage` dalle
+     *  lingue configurate del sito. `includeHours=false` per un'attività, dove gli orari vivono come
+     *  `openingHoursSpecification` sul nodo (qui sarebbero un doppione). Null se non c'è canale né orari. */
+    private buildContactPoint(identity: Identity | null, includeHours = true): Record<string, unknown> | null {
+        const c = identity?.contatti;
+        const hours = includeHours ? this.buildOpeningHours(identity) : [];
+        const cp: Record<string, unknown> = { '@type': 'ContactPoint', contactType: 'customer service' };
+        if (c?.telefono?.trim()) cp['telephone'] = c.telefono.trim();
+        if (c?.email?.trim()) cp['email'] = c.email.trim();
+        if (hours.length) cp['hoursAvailable'] = hours;
+        // Serve almeno un canale (telefono/email) o gli orari, altrimenti niente ContactPoint.
+        if (!cp['telephone'] && !cp['email'] && !hours.length) return null;
+        // availableLanguage: derivato dalle lingue del sito (config), arricchisce un ContactPoint esistente.
+        const langs = this.translate.availableLangs();
+        if (Array.isArray(langs) && langs.length) cp['availableLanguage'] = langs;
+        return cp;
+    }
+
+    /** Orari (lista di intervalli) → `OpeningHoursSpecification[]`: una spec per fascia, coi giorni che
+     *  la condividono. `dayOfWeek` = `schema.org/{nome giorno}` diretto (il nome `DayOfWeek` È il nome
+     *  schema.org), niente mappa a mano. Type-safe contro valori sporchi (JSON/compose/CMS). */
+    private buildOpeningHours(identity: Identity | null): Record<string, unknown>[] {
+        const list = identity?.openingHours;
+        if (!Array.isArray(list)) return [];
+
+        // Raggruppa per fascia (opens-closes) → giorni.
+        const byRange = new Map<string, { opens: string; closes: string; days: DayName[] }>();
+        for (const it of list) {
+            if (!it || !DAY_ORDER.includes(it.day) || !isHm(it.opens) || !isHm(it.closes)) continue;
+            const group = byRange.get(`${it.opens}-${it.closes}`);
+            if (group) { if (!group.days.includes(it.day)) group.days.push(it.day); }
+            else byRange.set(`${it.opens}-${it.closes}`, { opens: it.opens, closes: it.closes, days: [it.day] });
+        }
+
+        const out: Record<string, unknown>[] = [];
+        for (const { opens, closes, days } of byRange.values()) {
+            out.push({ '@type': 'OpeningHoursSpecification', dayOfWeek: days.map(d => `https://schema.org/${d}`), opens, closes });
+        }
+        return out;
+    }
+
+    /** Rimuove i tag accessori dell'immagine (dimensioni/tipo/alt) quando la pagina non
+     *  ha anteprima: evita che restino orfani dopo aver rimosso og:image/twitter:image. */
+    private removeImageDimensionTags(): void {
+        this.meta.removeTag('property="og:image:width"');
+        this.meta.removeTag('property="og:image:height"');
+        this.meta.removeTag('property="og:image:type"');
+        this.meta.removeTag('property="og:image:alt"');
+        this.meta.removeTag('property="og:image:secure_url"');
+        this.meta.removeTag('name="twitter:image:alt"');
     }
 
     /**
@@ -184,32 +318,75 @@ export class PageMetaService {
     /**
      * Aggiorna gli script JSON-LD con structured data coerenti con il canonical.
      *
-     * Vengono emessi blocchi separati per WebPage, Organization, WebSite e,
-     * quando utile, BreadcrumbList: separarli rende il grafo piu' leggibile ai
+     * Vengono emessi blocchi separati per WebPage, l'entità brand (Organization o Person,
+     * dall'identità `personal`), WebSite e, quando utile, BreadcrumbList: separarli rende il grafo piu' leggibile ai
      * validator e permette di aggiornare ogni entita' senza sovrascrivere le altre.
-     * @param schemaType Tipo Schema.org (@type), es. 'WebPage', 'Article'. Default: 'WebPage'.
+     * @param structuredData Dati strutturati: stringa (solo @type), oggetto tipizzato o lista.
+     *        L'adapter li traduce in JSON-LD, arricchendo il nodo pagina (@type + proprietà) ed
+     *        eventualmente aggiungendo nodi al grafo. Se assente il nodo pagina resta `WebPage`.
      */
     private updateStructuredData(
         title: string,
         description?: string | null,
         imageUrl?: string | null,
-        schemaType: string = 'WebPage',
         canonicalUrl: string = this.getCanonicalUrl(),
+        structuredData?: StructuredDataInput | null,
     ): void {
         const { appName } = ContestoSito.config;
         const siteUrl = this.getSiteUrl(canonicalUrl);
         const currentLang = this.translate.currentLang();
-        const organizationId = `${siteUrl}#organization`;
+        // Identità del sito (runtime, condivisa): dà natura del brand, social e nome legale.
+        // Assente (sito che non la configura, o backend giù) → default Organization senza sameAs.
+        const identity = this.identity.identity();
+        // Tipo entità brand: se l'identità dichiara un'attività fisica (businessType, es. "Restaurant")
+        // l'entità è quel sottotipo di LocalBusiness; altrimenti Person per un sito personale
+        // (personal=true) o Organization (default). È il publisher di WebSite/WebPage.
+        const businessType = typeof identity?.businessType === 'string' && identity.businessType.trim()
+            ? identity.businessType.trim() : null;
+        // Un'attività locale è sempre Organization-like, mai Person: così i gate legali sotto restano validi.
+        const isPerson = (identity?.personal ?? false) && !businessType;
+        const publisherId = `${siteUrl}#${isPerson ? 'person' : 'organization'}`;
         const websiteId = `${siteUrl}#website`;
         const pageId = `${canonicalUrl}#webpage`;
 
-        const organization = {
-            '@context': 'https://schema.org',
-            '@type': 'Organization',
-            '@id': organizationId,
-            name: appName,
+        // sameAs dai profili social ufficiali del brand (solo gli URL; il `name` è footer). Vuoto → omesso.
+        const social = Array.isArray(identity?.social)
+            ? identity.social.map(s => s?.url).filter((u): u is string => typeof u === 'string' && u.trim().length > 0)
+            : [];
+        const brandImage = `${siteUrl}icons/icon-512x512.png`;
+        // Indirizzo del nodo: per un'attività la sede operativa fisica (fallback alla legale), altrimenti
+        // la sede legale. Gli orari di un'attività vanno come openingHoursSpecification SUL NODO (segnale
+        // locale di Google); su Organization/Person restano in contactPoint.hoursAvailable.
+        const address = this.buildPostalAddress(
+            (businessType && identity?.sedeOperativa) ? identity.sedeOperativa : identity?.sedeLegale);
+        const openingHours = businessType ? this.buildOpeningHours(identity) : [];
+        const contactPoint = this.buildContactPoint(identity, !businessType);
+        const publisher = {
+            // Default dell'Engine: tipo, nome, identificativi legali, social, indirizzo, contatti.
+            '@type': businessType ?? (isPerson ? 'Person' : 'Organization'),
+            // Nome dell'entità brand: ragione sociale legale se presente, altrimenti il nome del sito.
+            name: identity?.ragioneSociale || appName,
             url: siteUrl,
-            logo: `${siteUrl}icons/icon-512x512.png`,
+            // L'icona del brand (stessa sorgente via mapping asset): Organization la espone come
+            // `logo` (Knowledge Panel), Person come `image` (foto profilo) — `logo` non è valido su Person.
+            ...(isPerson ? { image: brandImage } : { logo: brandImage }),
+            // Identificativi legali (solo Organization): fatti dichiarati nell'identità, non dedotti.
+            ...(!isPerson && identity?.ragioneSociale && { legalName: identity.ragioneSociale }),
+            ...(!isPerson && identity?.partitaIva && { vatID: identity.partitaIva }),
+            ...(!isPerson && identity?.codiceFiscale && { taxID: identity.codiceFiscale }),
+            // sameAs: profili ufficiali del brand → segnale per il Knowledge Panel di Google.
+            ...(social.length > 0 && { sameAs: social }),
+            ...(address && { address }),
+            // openingHoursSpecification sul nodo: solo per un'attività (Organization non ha questo campo).
+            ...(openingHours.length > 0 && { openingHoursSpecification: openingHours }),
+            ...(contactPoint && { contactPoint }),
+            // Via di fuga: le proprietà extra del figlio fuse PER ULTIME → SOVRASCRIVONO i default,
+            // non solo aggiungono (es. `@type` → `LocalBusiness`/sottotipi, `geo`, `priceRange`).
+            ...(identity?.extra && typeof identity.extra === 'object' ? identity.extra : {}),
+            // Perni del grafo: `@context` e `@id` restano sempre dell'Engine — `website`/`webpage`
+            // referenziano il publisher via `@id`, l'extra non deve poterli spezzare.
+            '@context': 'https://schema.org',
+            '@id': publisherId,
         };
 
         const siteDescription = pickLocaleText(ContestoSito.config.description, currentLang);
@@ -221,19 +398,31 @@ export class PageMetaService {
             name: appName,
             ...(siteDescription && { description: siteDescription }),
             inLanguage: currentLang,
-            publisher: { '@id': organizationId },
+            publisher: { '@id': publisherId },
         };
+
+        // Segnale di freschezza: riusa il valore effettivo di og:updated_time (override per-pagina
+        // se impostato, altrimenti il timestamp di build emesso in index.html da generate-statics).
+        const dateModified = this.meta.getTag('property="og:updated_time"')?.content;
+
+        // Structured data tipizzati → JSON-LD (unico punto di traduzione, in structured-data.ts).
+        // Compone uno o più item: il primo arricchisce il WebPage, gli altri sono nodi a sé.
+        const sd = buildStructuredDataGraph(structuredData, { pageName: title, imageUrl, dateModified, publisherId });
+
+        // Meta Open Graph dell'entità principale (es. article:*), gemelli dei dati JSON-LD.
+        this.updateArticleMeta(sd.ogMeta);
 
         const webPage = {
             '@context': 'https://schema.org',
-            '@type': schemaType,
+            '@type': sd.pageType ?? 'WebPage',
             '@id': pageId,
             name: title,
             ...(description && { description }),
             url: canonicalUrl,
             inLanguage: currentLang,
+            ...(dateModified && { dateModified }),
             isPartOf: { '@id': websiteId },
-            publisher: { '@id': organizationId },
+            publisher: { '@id': publisherId },
             // Se imageUrl è null, undefined o stringa vuota, l'oggetto image non viene aggiunto
             ...(imageUrl && {
                 image: {
@@ -241,9 +430,12 @@ export class PageMetaService {
                     url: imageUrl
                 }
             }),
+            // Arricchimento dall'adapter (headline/author/offers/…). Va per ultimo: ha la precedenza.
+            ...sd.pageProps,
         };
 
-        const graph: object[] = [organization, website, webPage];
+        // Nodi standalone dall'adapter (item successivi al primo + tutti i 'raw'), accanto al WebPage.
+        const graph: object[] = [publisher, website, webPage, ...sd.nodes];
         const breadcrumb = this.buildBreadcrumbData(title, canonicalUrl, siteUrl);
         if (breadcrumb) graph.push(breadcrumb);
 
@@ -256,7 +448,12 @@ export class PageMetaService {
             script.type = 'application/ld+json';
             script.setAttribute('data-br1-jsonld', String(index));
             if (this.cspNonce) script.nonce = this.cspNonce;
-            script.textContent = JSON.stringify(data);
+            // Hardening anti-XSS: escape di <, >, & in \uXXXX così un valore tipo "</script>"
+            // non può chiudere il tag e iniettare markup (breakout). I parser JSON-LD decodificano
+            // gli escape: il dato resta identico e valido. Vale per qualunque sorgente del grafo
+            // (identità, structured data di pagina, raw), anche quando i dati vengono da DB/CMS.
+            script.textContent = JSON.stringify(data)
+                .replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
             this.document.head.appendChild(script);
         });
     }

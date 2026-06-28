@@ -30,9 +30,14 @@ export class PreviewCrypto {
     private static cachedKey: Buffer | null = null;
     private static getKey(): Buffer {
         if (!PreviewCrypto.cachedKey) {
-            const material = serverEnv.site.previewCryptoSecret
-                || serverEnv.backend.apiKey
-                || `${ContestoSito.config.appName}:${ContestoSito.config.version}`;
+            const secret = serverEnv.site.previewCryptoSecret || serverEnv.backend.apiKey;
+            // Fallback pubblico (appName:version): chiave derivabile → blob og:image FORGIABILI.
+            // Si avvisa una volta sola (cachedKey rende getKey idempotente): è un segnale a runtime,
+            // non solo nei commenti, per accorgersi di una misconfigurazione in produzione.
+            if (!secret) {
+                console.warn('[PreviewCrypto] Nessun PREVIEW_CRYPTO_SECRET né API key server-side: la chiave og:image è derivata da appName:version (PUBBLICA) → i blob /cdn-cgi/preview sono forgiabili. In produzione configura una API key o PREVIEW_CRYPTO_SECRET.');
+            }
+            const material = secret || `${ContestoSito.config.appName}:${ContestoSito.config.version}`;
             PreviewCrypto.cachedKey = createHash('sha256').update(material).digest();
         }
         return PreviewCrypto.cachedKey;

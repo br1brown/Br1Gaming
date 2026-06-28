@@ -1,65 +1,49 @@
-using System.Globalization;
-using Backend.Models.Configuration;
-using Backend.Models.Legal;
+using System.Text.Json;
+using Backend.Models;
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Options;
+using Backend.Engine;
 
 namespace Backend.Store;
 
 /// <summary>
-/// Implementa <see cref="IContentStore"/> leggendo i contenuti da file nella cartella <c>data/</c>.
+/// Implementa <see cref="IContentStore"/> leggendo i contenuti da file JSON nella cartella <c>data/</c>.
 /// </summary>
 /// <remarks>
-/// I generatori non vivono più qui: sono istanze di classi (<c>Backend.Generators</c>). Questo store
-/// resta responsabile dei soli contenuti ancora su file (profilo legale), isolando il resto del
-/// backend dal formato di persistenza.
+/// Centralizza la lettura fisica dei file (con cache), così i servizi restano indipendenti dal
+/// formato di persistenza. L'identità del sito non passa di qui: vive nel sottosistema Engine
+/// <c>IIdentityStore</c> (file <c>data/identity.json</c>).
 /// </remarks>
 public class FileContentStore : IContentStore
 {
     private readonly string _dataPath;
     private readonly IMemoryCache _cache;
-    private readonly HashSet<string> _supportedLanguages;
-    private readonly string _defaultLanguage;
 
     /// <summary>
     /// Inizializza lo store file-based partendo dalla root dell'applicazione ASP.NET.
     /// </summary>
-    /// <param name="env">Ambiente host usato per ricavare il percorso assoluto della cartella <c>data</c>.</param>
-    /// <param name="localizationOptions">Opzioni di localizzazione tipizzate (lingue supportate e lingua predefinita).</param>
-    /// <param name="cache">Cache in memoria condivisa usata per i file statici.</param>
-    public FileContentStore(IWebHostEnvironment env, IOptions<LocalizationOptions> localizationOptions, IMemoryCache cache)
+    /// <param name="env">
+    /// Ambiente host usato per ricavare il percorso assoluto della cartella <c>data</c>.
+    /// </param>
+    /// <param name="cache">
+    /// Cache in memoria condivisa usata da <see cref="FileUtils.ReadStaticFileAsync"/> per i file JSON.
+    /// </param>
+    public FileContentStore(IWebHostEnvironment env, IMemoryCache cache)
     {
         _cache = cache;
         _dataPath = Path.Combine(env.ContentRootPath, "data");
-
-        var loc = localizationOptions.Value;
-
-        // CultureInfo.GetCultureInfo valida ogni codice secondo lo standard BCP-47 e lancia
-        // CultureNotFoundException al boot se un tag non è riconosciuto (es. "ita" invece di "it").
-        // TwoLetterISOLanguageName normalizza tag complessi (es. "it-IT" → "it") per il confronto con le chiavi JSON.
-        _supportedLanguages = new HashSet<string>(
-            loc.SupportedLanguages.Select(l => CultureInfo.GetCultureInfo(l).TwoLetterISOLanguageName),
-            StringComparer.OrdinalIgnoreCase);
-
-        _defaultLanguage = CultureInfo.GetCultureInfo(loc.DefaultLanguage).TwoLetterISOLanguageName;
     }
 
     /// <summary>
-    /// Recupera il profilo legale localizzato dell'organizzazione.
+    /// Recupera la configurazione completa dei social dal file <c>social.json</c>.
     /// </summary>
-    /// <param name="language">
-    /// Lingua richiesta dal livello applicativo, tipicamente derivata da <c>Accept-Language</c>.
-    /// </param>
-    /// <param name="cancellationToken">
-    /// Token della richiesta HTTP, propagato alla lettura del file.
-    /// </param>
     /// <returns>
-    /// Un <see cref="UniversalLegalModel"/> con i campi localizzati risolti.
-    /// L'arricchimento con i social e' responsabilita' del livello applicativo (<c>SiteService</c>),
-    /// cosi' lo store resta pure-storage e non conosce regole di business.
+    /// Una mappa nome-URL pronta per essere filtrata o esposta dai servizi applicativi.
     /// </returns>
-    public Task<UniversalLegalModel> GetProfileAsync(string language, CancellationToken cancellationToken = default)
+    public async Task<Dictionary<string, string>> GetSocialAsync(CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(new UniversalLegalModel());
+        var json = await FileUtils.ReadStaticFileAsync("social", _dataPath, _cache, cancellationToken: cancellationToken);
+        return JsonSerializer.Deserialize<Dictionary<string, string>>(json, EngineJson.Web)
+            ?? throw new DecodingException();
     }
+
 }

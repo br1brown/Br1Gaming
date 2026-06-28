@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "global-settings Settings",
+  "title": "GlobalSettings",
   "description": "Configurazione centralizzata del progetto. Letto direttamente da deploy.sh (bash), dal backend ASP.NET Core (AddJsonFile) e dal frontend Node SSR (readFileSync). Modificare questo file e rieseguire il deploy è sufficiente per applicare la configurazione a tutti i livelli.",
   "type": "object",
   "additionalProperties": false,
@@ -74,23 +74,20 @@
     },
     "Localization": {
       "type": "object",
-      "description": "Configurazione localizzazione. Letta direttamente da ASP.NET Core tramite IOptions<LocalizationOptions>. Il frontend legge queste stesse chiavi da global-settings.json tramite server-env.ts al bootstrap del Node SSR.",
+      "description": "Lingue del sito come codici a due lettere: dichiarazione semplice letta a build/module-load (pagina cookie multilingua, fallback di pickLocaleText, RequestLocalization). Il backend le arricchisce nelle culture .NET tipizzate (BCP-47, nomi nativi, nomi giorno) e le serve via GET /localization.",
       "additionalProperties": false,
       "properties": {
         "DefaultLanguage": {
           "type": "string",
-          "description": "Lingua di default del sito. Deve essere un tag BCP-47 valido (ISO 639-1 o sottoinsieme). Deve essere inclusa in SupportedLanguages.",
+          "description": "Lingua di default (codice ISO 639-1, es. 'it'). Deve essere inclusa in SupportedLanguages.",
           "examples": ["it", "en", "de", "fr"]
         },
         "SupportedLanguages": {
           "type": "array",
-          "description": "Lista di tutte le lingue supportate come tag BCP-47. Deve includere DefaultLanguage. Per siti monolingua: inserire solo la lingua default.",
-          "items": {
-            "type": "string",
-            "examples": ["it", "en", "de", "fr"]
-          },
+          "description": "Lingue supportate come codici a due lettere. Deve includere DefaultLanguage. Per ognuna serve il catalogo i18n (basic/addon) e i file legali.",
+          "items": { "type": "string", "examples": ["it", "en", "de", "fr"] },
           "minItems": 1,
-          "examples": [["it"], ["it", "en"], ["it", "en", "de"]]
+          "examples": [["it"], ["it", "en"]]
         }
       }
     },
@@ -211,7 +208,8 @@
         },
         "colorTema": {
           "type": "string",
-          "description": "Colore tema principale (hex). Genera la palette OKLCH e il tono testo chiaro/scuro.",
+          "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$",
+          "description": "Colore tema principale (hex #RGB / #RRGGBB / #RRGGBBAA). Genera la palette OKLCH e il tono testo chiaro/scuro.",
           "examples": ["#131e55", "#0d6efd"]
         },
         "smoke": {
@@ -220,11 +218,11 @@
           "additionalProperties": false,
           "properties": {
             "enable": { "type": "boolean" },
-            "color": { "type": "string" },
-            "opacity": { "type": "number" },
-            "maximumVelocity": { "type": "number" },
-            "particleRadius": { "type": "number" },
-            "density": { "type": "number" }
+            "color": { "type": "string", "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$" },
+            "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+            "maximumVelocity": { "type": "number", "minimum": 0 },
+            "particleRadius": { "type": "number", "minimum": 0 },
+            "density": { "type": "number", "minimum": 0 }
           }
         }
       }

@@ -140,6 +140,12 @@ sul **dominio vince il figlio**. Sui path engine prendi la versione del template
 
 \* `security-headers.json`: unica eccezione, l'override documentato nella `_nota` (vedi sopra).
 
+> **Dominio a contratto fisso.** Alcuni file di Dominio sono **importati dall'Engine per path e nome**: il figlio ne cambia liberamente il **corpo**, ma deve preservarne **path, nome dell'export e forma** — altrimenti l'Engine non compila. Non sono "campo libero", sono punti di contatto a contratto fisso:
+> - `site.ts` → `ContestoSito` (da `buildSite`), enum `PageType`, tipi `SmokeSettings`/`SitePageInput`. È il DSL: l'Engine lo legge ovunque (routing, builder, meta, tema…).
+> - `pages/content.resolver.ts` → `ContentResolver` (con `loadResolved`), `ResolvedPage`, `contentLoaderResolver` — usati da `routing.ts` e `PageBaseComponent`. Aggiungi `case` allo switch, non rinominare gli export.
+> - `core/services/api.service.ts` → la classe `ApiService` iniettabile (`PageBaseComponent` espone `this.api`). La estendi con metodi, non la elimini.
+> - `components/shared/user-nav/` → `UserNavComponent` / selettore `app-user-nav`, montato dalla navbar dell'Engine. Personalizzi l'interno, non il selettore/export.
+
 **Documenti.** Nel figlio sparisce un file e uno soltanto: **questo README** (è la vetrina del template, non del
 prodotto). Tutto il resto della documentazione **resta e si aggiorna dal template** — al merge vince il
 template, esattamente come per l'Engine: il `CHANGELOG.md` racconta al figlio cosa è cambiato nel template tra una
@@ -153,7 +159,7 @@ Regola generale: il **Dominio** si tocca; l'**Engine** (`backend/Engine/`, `fron
 
 **Pagine, rotte e navigazione.** Il frontend nasce da un file unico, `frontend/src/app/site.ts`: lì dichiari le pagine e l'Engine si genera da sé rotte, voci di menu, sitemap e meta-tag SEO. Nello stesso posto imposti anche la pagina di login, le pagine legali (privacy, cookie, termini) e l'aspetto della shell (navbar, footer). L'identità e l'estetica del sito (nome, versione, lingue, descrizione, **colore del tema**, effetto smoke) non abitano qui: stanno in `global-settings.json` e vengono iniettate al build. Il componente di una pagina sta in `frontend/src/app/pages/<nome>/` (estende `PageBaseComponent`); i pezzi di UI riusabili in `frontend/src/app/components/`. Ogni opzione, voce per voce, è in [frontend/README.md](frontend/README.md).
 
-**Contenuti e testi.** I testi legali (privacy, cookie, termini) sono Markdown in `frontend/src/assets/legal/`; le traduzioni del progetto in `frontend/src/assets/i18n/addon.*.json`; i dati del profilo aziendale e affini in `backend/data/*.json`.
+**Contenuti e testi.** I testi legali (privacy, cookie, termini) sono Markdown in `frontend/src/assets/legal/`; le traduzioni del progetto in `frontend/src/assets/i18n/addon.*.json`; l'identità del sito (dati legali, social del brand, tipo entità) in `backend/data/identity.json` (servita dall'Engine su `GET /identity`).
 
 **Backend: API e logica.** Un nuovo endpoint è un controller in `backend/Controllers/` che eredita `EngineApiController` (pubblico) o `EngineProtectedController` (chiede il login); la logica di business va nei `backend/Services/`. Per un nuovo tipo di errore: una sottoclasse di `ApiException` più la chiave nei `Resources/*.resx`. Per cambiare lo storage: una nuova implementazione di `IContentStore`.
 
@@ -180,7 +186,7 @@ Il Node SSR del frontend gestisce, oltre alle pagine Angular, anche alcune route
 | `/assets/files/*` | **Bloccata** (404): i file sorgente degli asset si servono soltanto via `/cdn-cgi/asset` |
 | `/.well-known/security.txt` | Contatto di sicurezza RFC 9116 (generato al build da `generate-statics.ts`) |
 
-> Il Node SSR applica anche, in automatico, **compressione gzip** su tutte le risposte testuali e un **graceful shutdown** su SIGTERM/SIGINT (drena le connessioni prima di uscire). I file statici SEO (`sitemap.xml`, `robots.txt`, `llms.txt`, `security.txt`) sono generati al build.
+> Il Node SSR applica anche, in automatico, **compressione gzip** sulle risposte testuali — **escluso lo stream di notifiche SSE**, che resta non compresso così gli eventi arrivano subito al browser invece di restare nel buffer — e un **graceful shutdown** su SIGTERM/SIGINT (drena le connessioni prima di uscire). I file statici SEO (`sitemap.xml`, `robots.txt`, `llms.txt`, `security.txt`) sono generati al build.
 
 ---
 
@@ -189,7 +195,7 @@ Il Node SSR del frontend gestisce, oltre alle pagine Angular, anche alcune route
 Senza scrivere una riga di codice infrastrutturale, dalla scatola esce già tutto questo (sì, anche le cose che di norma rimandi a "dopo"):
 
 - **SEO e social**: tag OpenGraph e JSON-LD per pagina, SSR granulare guidato da `site.ts`, più `sitemap.xml`, `robots.txt` e anteprime `og:image` dinamiche.
-- **Sicurezza by-design**: protezione attiva contro Stored XSS (file isolati e markdown sanificato), rate limiting, CORS, API key, header di sicurezza (incluso HSTS subdomains); prevenzione Host Header Injection e script di deploy fail-fast sui segreti. Errori API standardizzati in `ProblemDetails` (RFC 9457) senza leak di stack trace.
+- **Sicurezza by-design**: protezione attiva contro Stored XSS (file isolati, markdown sanificato, JSON-LD inline escapato contro il breakout dal `<script>`), rate limiting, CORS, API key, header di sicurezza (incluso HSTS subdomains); prevenzione Host Header Injection e script di deploy fail-fast sui segreti. Errori API standardizzati in `ProblemDetails` (RFC 9457) senza leak di stack trace.
 - **Pronto all'uso**: routing, navigazione, i18n, PWA, consenso cookie e pagine legali già funzionanti — si parte dritti dalla logica di dominio.
 - **Menu Multilivello**: supporto nativo a navigazione ricorsiva sia nella Navbar (con flyout desktop che evita di uscire dallo schermo e accordion su mobile) sia nel Footer. Basta annidare i gruppi in `site.ts`.
 - **Notifiche realtime**: canale server→client via SSE (`INotificationStream` / `NotificationStreamService`) per spingere notifiche ai client connessi — targeting per broadcast/connessione/gruppo, indipendente dal login, payload che non si ferma al testo. Dettagli in [backend](backend/README.md) e [frontend](frontend/README.md).
@@ -203,7 +209,7 @@ Tutto ciò che il template mostra "di fabbrica" è **demo**: esiste per far vede
 
 > **Riusare o partire puliti — lo decidi al `setup`.** La cerimonia di init (`node setup.mjs "Nome"`) chiede `[s/N]`:
 > - **`N` → riusi la demo** (la via descritta qui sopra): tieni struttura, file, servizi ed endpoint e ne cambi il contenuto. La demo resta un esempio vivo finché vuoi.
-> - **`s` → parti pulito** (*eject*): il setup rimuove la demo (pagina Social, home svuotata, `addon` azzerati, controller backend ridotti al `profile` e nient'altro), elimina **questa vetrina** e fa un commit `init <Nome>`. Resta lo scheletro Home + pagine legali, login spento, pronto a crescere.
+> - **`s` → parti pulito** (*eject*): il setup rimuove la demo (galleria Social + store/SiteService, home svuotata, `addon` azzerati, `BaseController` ridotto a vuoto, `identity.json` azzerato a scheletro), elimina **questa vetrina** e fa un commit `init <Nome>`. Resta lo scheletro Home + pagine legali, l'identità servita dall'Engine, login spento, pronto a crescere.
 >
 > In entrambi i casi l'**Engine resta intatto**: cambia soltanto *da dove* parte il tuo dominio — demo riusabile o foglio bianco. La demo non è un peso da subire: è il banco di prova del template (esercita ogni feature) e, finché la tieni, il tuo esempio di riferimento.
 
@@ -227,12 +233,13 @@ Due dettagli da non perdere:
 
 | Controller | Endpoint | Cosa fa vedere |
 | :--- | :--- | :--- |
-| `BaseController` | `GET /profile`, `GET /social[?nomi=...]`, `POST /notifications/demo/ping[?message=...]`, `POST /tasks/demo/import[?email=...]` | Lettura dal "DB" JSON localizzato (`FileContentStore`), un filtro di dominio d'esempio (se il client ha lo stream attivo — header `X-Connection-Id`, aggiunto in automatico dal frontend — consegna anche una notifica realtime via `IDeliveryService`, canale di default), il ping del canale realtime e la demo del pattern task-lungo → notifica/email (si tiene: cambia soltanto il contenuto dei JSON) |
+| `BaseController` | `GET /social[?nomi=...]`, `POST /notifications/demo/ping[?message=...]`, `POST /tasks/demo/import[?email=...]` | La galleria social demo (filtro di dominio d'esempio: se il client ha lo stream attivo — header `X-Connection-Id` — consegna anche una notifica realtime via `IDeliveryService`, canale di default), il ping del canale realtime e la demo del pattern task-lungo → notifica/email |
+| *(Engine)* `EngineIdentityController` | `GET /identity` | **Non è demo:** l'Engine serve l'identità del sito (legale + social brand + tipo entità) da `data/identity.json`, sorgente unica di footer, pagine legali e SEO. Il figlio riempie solo il file (o sostituisce `IIdentityStore` via DI); file assente → risposta `null` |
 | `AuthController` | `POST /auth/login` | Login demo a credenziali fisse → emissione JWT con payload di sessione |
 | `ProtectedController` | `GET /ping` | Endpoint riservato: API key + JWT obbligatori |
 | `BlobController` | `GET /blob/{slug}`, `POST /blob/up` | Upload/download di file sul volume persistente (è anche uno strumento di fabbrica: il contratto sta in [backend/README.md](backend/README.md)) |
 
-Sono segnaposto anche i **dati demo** (`backend/data/irl.json`, `social.json`), i testi legali di esempio (`frontend/src/assets/legal/`) e le credenziali del login: i file restano dove sono e con lo stesso nome, il figlio ci scrive dentro i **propri** dati. Lo stesso vale per i pezzi facoltativi: quelli che il sito non espone si lasciano **non valorizzati** e l'Engine fa il resto — per esempio, senza social il `SiteService` lascia vuoto `profile.Social` e il footer di default nasconde da sé la sezione. Il blocco profilo del footer è la **parte legale** del sito e nei figli resta di default: se ne adatta l'estetica e si tolgono i pezzi facoltativi (i social), non le informazioni legali.
+Sono segnaposto i **dati demo** (`backend/data/social.json`, galleria social), i testi legali di esempio (`frontend/src/assets/legal/`) e le credenziali del login: i file restano dove sono e con lo stesso nome, il figlio ci scrive dentro i **propri** dati. L'**identità** del sito (`backend/data/identity.json`) è invece la parte non-demo: legale + social del brand + tipo entità in un solo file, servito dall'Engine su `GET /identity`. I pezzi facoltativi si lasciano **non valorizzati** e l'Engine fa il resto — senza social il footer nasconde da sé la sezione, senza identità (`identity.json` assente → `null`) footer e blocco legale spariscono del tutto. Il blocco identità del footer è la **parte legale** del sito: nei figli si adatta l'estetica e si tolgono i pezzi facoltativi (i social), non le informazioni legali.
 
 ---
 
@@ -276,7 +283,7 @@ node setup.mjs "Nome Progetto"
 ```
 *Battezza il progetto: imposta `project.name` in `global-settings.json`, genera `global-settings.local.json` con porte e **API key generata**, rinomina gli identificatori npm/Service Worker e `App.sln`. La `SecretKey` JWT resta **vuota**: un figlio nasce col **login spento** e accenderlo è una scelta esplicita (chiave ≥32 char + verifica propria in `AuthController`). Dettagli in [DOCKER_README.md](DOCKER_README.md).*
 
-Poi `setup.mjs` chiede conferma `[s/N]` per la **cerimonia "da template a progetto"** (distruttiva): rimuove la demo (pagina Social, home svuotata a placeholder, `addon.*.json` → `{}`, `BaseController`/`SiteService` minimi e `site.ts` riscritto allo scheletro Home + pagine legali, con **login spento di default** — coerente con `SecretKey` vuota — da riaccendere quando imposti il segreto), elimina **questo README** (la vetrina del template), esegue i controlli statici (lint/tsc/i18n/cicli) come gate, **auto-cancella `setup.mjs`** e chiude con un commit locale `init <Nome>`. Rispondendo `N` resti sul template completo (demo inclusa) e lo rilanci quando sei pronto.
+Poi `setup.mjs` chiede conferma `[s/N]` per la **cerimonia "da template a progetto"** (distruttiva): rimuove la demo (galleria Social + store/`SiteService`/`social.json`, home svuotata a placeholder, `addon.*.json` → `{}`, `BaseController` ridotto a vuoto, `data/identity.json` azzerato a scheletro e `site.ts` riscritto allo scheletro Home + pagine legali, con **login spento di default** — coerente con `SecretKey` vuota — da riaccendere quando imposti il segreto). L'**identità** resta servita dall'Engine (`GET /identity`). Poi elimina **questo README** (la vetrina del template), esegue i controlli statici (lint/tsc/i18n/cicli) come gate, **auto-cancella `setup.mjs`** e chiude con un commit locale `init <Nome>`. Rispondendo `N` resti sul template completo (demo inclusa) e lo rilanci quando sei pronto.
 
 La versione Node di riferimento è dichiarata in `.nvmrc` (Node 24 LTS): con nvm basta `nvm install && nvm use`; la CI legge lo stesso file.
 

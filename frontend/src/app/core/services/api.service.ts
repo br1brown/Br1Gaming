@@ -1,14 +1,12 @@
 import { Injectable } from '@angular/core';
 import { HttpParams } from '@angular/common/http';
 import { BaseApiService } from '../engine/services/base-api.service';
-import { Profile } from '../engine/dto/profile.dto';
 import { StorySummary, StorySnapshotDto } from '../dto/story.dto';
 import { GeneratorInfo, GenerateResponse, ShareEntry, ShareSaveResult } from '../dto/generator.dto';
 import { LoginResult, LoginRequest } from '../dto/auth.dto';
 
 /** Endpoint backend. Aggiungere il path qui, poi il metodo pubblico sotto. */
 const API = {
-    profile: 'profile',
     login: 'auth/login',
     blob: (slug: string) => `blob/${encodeURIComponent(slug)}`,
     blobUpload: 'blob/up',
@@ -26,6 +24,10 @@ const API = {
 
 /**
  * Client HTTP centralizzato. Ogni endpoint del backend ha un metodo pubblico dedicato.
+ *
+ * ⚙️ Contratto fisso: `PageBaseComponent` (Engine) inietta questa classe come `this.api`.
+ * Aggiungi metodi; non rinominare/rimuovere la classe `ApiService`.
+ *
  * La gestione errori e' automatica per default: l'apiErrorInterceptor notifica l'utente via
  * NotificationService e ri-lancia un ApiError tipizzato per chi vuole gestire lo stato localmente.
  * Passando { silent: true } la notifica automatica viene saltata e l'errore (ApiError) resta solo
@@ -40,22 +42,6 @@ const API = {
  */
 @Injectable({ providedIn: 'root' })
 export class ApiService extends BaseApiService {
-
-    // ─── Sito: profilo ───────────────────────────────────────────────
-
-    /** Recupera i dati del profilo del sito e i contatti pubblici. */
-    getProfile(): Promise<Profile> {
-        return this.api_get<Profile>(API.profile);
-    }
-
-    /**
-     * Versione reattiva di getProfile() basata su httpResource.
-     * Si aggiorna automaticamente al cambio lingua (via Accept-Language nell'header).
-     * Usare nei componenti persistenti come il footer.
-     */
-    getProfileResource() {
-        return this.api_resource<Profile>(API.profile);
-    }
 
     /**
      * Recupera un file dal volume uploads come Blob (immagini, documenti, ecc.).

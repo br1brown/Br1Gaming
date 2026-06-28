@@ -9,6 +9,7 @@ import { ApiService } from '../core/services/api.service';
 import { PageInfo } from '../core/engine/siteBuilder';
 import { GeneratorInfo, GenerateResponse, GeneratorPageContent } from '../core/dto/generator.dto';
 import { StorySummary } from '../core/dto/story.dto';
+import type { StructuredDataInput } from '../core/engine/services/structured-data';
 
 export type LegalFileReader = (slug: string, lang: string) => Promise<string | null>;
 
@@ -40,10 +41,19 @@ export const LEGAL_FILE_READER = new InjectionToken<LegalFileReader | null>(
 export interface ResolvedPage<T = unknown> {
     content: T | null;
     info: PageInfo | null;
+    /**
+     * Dati strutturati ricchi (JSON-LD) derivati dal contenuto, impostati da un caso del resolver
+     * (es. autore/data di un Article). Hanno la precedenza sul `structuredData` statico di `site.ts`.
+     * Omesso → si usa quello statico (o nessuno).
+     */
+    structuredData?: StructuredDataInput | null;
 }
 
 /**
  * Servizio centralizzato per il caricamento dei contenuti di pagina.
+ *
+ * ⚙️ Contratto fisso: l'Engine importa `ContentResolver`, `ResolvedPage` e `contentLoaderResolver`
+ * (routing.ts + PageBaseComponent). Aggiungi `case` a loadResolved(); non rinominare/rimuovere gli export.
  *
  * Per aggiungere il contenuto di una nuova pagina:
  *   1. Aggiungere il metodo in ApiService (o usare tryLoadPolicy per file statici)
@@ -73,6 +83,11 @@ export class ContentResolver {
         const language = lang ?? this.translate.currentLang();
 
         let content: unknown = null;
+        // Dati strutturati dinamici: un caso può valorizzarli dal contenuto caricato (es.
+        // { kind: 'article', author: art.author, publishedOn: art.date }). Se resta null si usa
+        // lo structuredData statico di site.ts (otherSEO.structuredData), o nessuno.
+        // eslint-disable-next-line prefer-const -- punto d'estensione: i casi del resolver lo riassegnano
+        let structuredData: StructuredDataInput | null = null;
         let info = ContestoSito.getPageInfo(pageType);
 
         try {
@@ -145,7 +160,7 @@ export class ContentResolver {
             content = null;
         }
 
-        return { content, info: info };
+        return { content, info, structuredData };
     }
 
     /** Wrapper tipizzato per le info del generatore associato al pageType, o null se non è un generatore. */

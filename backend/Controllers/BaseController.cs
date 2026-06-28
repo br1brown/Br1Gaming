@@ -18,7 +18,6 @@ namespace Backend.Controllers;
 [Route("")]
 public class BaseController : EngineApiController
 {
-    private readonly SiteService _site;
     private readonly StoryService _stories;
     private readonly GeneratorService _generators;
     private readonly IShareStore _shares;
@@ -27,7 +26,6 @@ public class BaseController : EngineApiController
 
     /// <summary>Inizializza il controller con i servizi di dominio, il validator del play e il logger.</summary>
     public BaseController(
-        SiteService site,
         StoryService stories,
         GeneratorService generators,
         IShareStore shares,
@@ -36,28 +34,11 @@ public class BaseController : EngineApiController
         ILogger<BaseController> logger)
         : base(logger)
     {
-        _site = site;
         _stories = stories;
         _generators = generators;
         _shares = shares;
         _signer = signer;
         _playValidator = playValidator;
-    }
-
-    // ── Sito: profilo ────────────────────────────────────────────────
-
-    /// <summary>
-    /// Restituisce il profilo del sito localizzato (dati legali e contatti).
-    /// </summary>
-    [HttpGet("profile")]
-    public async Task<IActionResult> GetProfile(CancellationToken cancellationToken)
-    {
-        Logger.LogInformation(
-            "Richiesta profilo - lingua: {Lang}",
-            System.Globalization.CultureInfo.CurrentCulture);
-
-        var data = await _site.GetProfileAsync(cancellationToken);
-        return Ok(data);
     }
 
     // ── Storie ───────────────────────────────────────────────────────

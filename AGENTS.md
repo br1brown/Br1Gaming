@@ -58,6 +58,68 @@ const v = this.consent.get('mioSalvataggio');    // → tipo da valueType | null
 ```
 Registrare la voce basta per: toggle nel banner, riga in policy (col mezzo), pulizia alla revoca. **MAI `localStorage`/`sessionStorage` diretti** (lo vieta una regola ESLint, eccetto il `CookieConsentService` e `TokenService`): tutto passa dal gate, l'inventario in policy resta completo. `setCookie/getCookie/removeCookie` sono alias deprecati di `set/get/remove`.
 
+**Leggere `global-settings.json` tipizzato** — il tipo `GlobalSettings` è **generato dallo schema** (sorgente unica), non scritto a mano. Dopo aver toccato `global-settings.schema.json`, rigeneralo; un typo di chiave diventa errore a `tsc`.
+```bash
+npm run generate:types   # → src/app/core/engine/global-settings.types.ts (committato, DO NOT MODIFY)
+```
+```typescript
+import type { GlobalSettings } from '...engine/global-settings.types';
+const s = JSON.parse(raw) as GlobalSettings;
+s.Localization?.SupportedLanguages   // tipizzato; `s.Localizaton` non compila
+```
+
+**SEO: escludere una pagina dall'indice**
+```typescript
+// site.ts — pagina pubblica e SSR ma fuori da sitemap e indice (X-Robots-Tag: noindex).
+// A differenza di requiresAuth NON forza il client-render. Default: noindex false.
+{ path: 'grazie', pageType: PageType.Grazie,
+  component: () => import('./pages/grazie/grazie.component'),
+  otherSEO: { noindex: true } }
+```
+
+**Comporre l'identità da una fonte diversa dal file** — il caso base si riempie in `data/identity.json` (campi nello schema engine `Engine/Models/Identity/identity.schema.json`). Per prendere un pezzo da un DB/API si fa l'override del solo metodo dedicato: stesso tipo in ingresso e in uscita, arricchisci e ritorna. **Dichiari col framework** (`DayOfWeek`, `TimeOnly`, codici ISO), non stringhe magiche né nozioni di schema.org: l'Engine deriva resa e JSON-LD.
+```csharp
+// backend/Store/AppIdentityStore.cs (di proprietà del progetto)
+protected override async Task<SiteIdentity?> ComposeIdentityAsync(
+    SiteIdentity? identity, string language, CancellationToken ct)
+{
+    identity ??= new SiteIdentity();                    // null se non c'è il file
+    identity.OpeningHours =                             // lista di intervalli tipizzati
+    [
+        new() { Day = DayOfWeek.Tuesday,   Opens = new(9, 0), Closes = new(18, 0) },
+        new() { Day = DayOfWeek.Wednesday, Opens = new(9, 0), Closes = new(13, 0) },  // pausa pranzo
+        new() { Day = DayOfWeek.Wednesday, Opens = new(15, 0), Closes = new(18, 0) },
+    ];
+    return identity;                                     // stesso oggetto, arricchito
+}
+```
+Stessa filosofia per gli altri "codici": `Currency` ISO 4217, `SedeLegale.Nazione` ISO 3166, lingue in `Localization` — dichiari il codice, il framework (`CultureInfo`/`Intl`) dà nome e formato. Per una proprietà schema.org che il modello non tipizza, valorizza `identity.Extra`: fuso **per ultimo** nel nodo entità brand, sovrascrive i default (anche il `@type`, es. → `LocalBusiness` con `geo`/`openingHoursSpecification`); l'Engine si tiene solo `@context` e `@id`.
+
+**Sito di un'attività fisica (LocalBusiness)** — dichiara `businessType` (sottotipo schema.org) in `data/identity.json`: l'entità brand diventa quel `@type` con indirizzo e `openingHoursSpecification` portati **sul nodo**. Gli `openingHours` (già tipizzati) non cambiano; l'indirizzo è la `sedeOperativa` (fallback `sedeLegale`); la geo (opzionale per Google, basta l'indirizzo) va in `extra`. `businessType` è una **stringa libera** (qualsiasi sottotipo `LocalBusiness` valido), non un enum: la metti diretta — non serve `extra`, che resta solo per le proprietà *in più* (geo, priceRange…). Non è un enum perché i sottotipi sono 150+ ed evolvono, e tanto `extra` può comunque cambiare `@type`: validità schema.org a carico tuo.
+```json
+{
+  "businessType": "Restaurant",
+  "sedeOperativa": { "via": "Via Roma", "civico": "1", "cap": "00100", "citta": "Roma", "nazione": "IT" },
+  "openingHours": [ { "day": "Monday", "opens": "12:00", "closes": "23:00" } ],
+  "extra": { "servesCuisine": "Italian", "priceRange": "€€" }
+}
+```
+
+**SEO: dati strutturati (JSON-LD) con campi parlanti** — dichiari `kind` + campi, l'Engine traduce in schema.org (`structured-data.ts`). `kind`: `article` | `faq` | `product` | `event` | `raw`.
+```typescript
+// site.ts — STATICI (es. FAQ con domande fisse)
+otherSEO: { structuredData: { kind: 'faq', questions: [{ question: 'Come?', answer: 'Così.' }] } }
+```
+```typescript
+// content.resolver.ts — DINAMICI dal contenuto (hanno la precedenza sullo statico)
+case PageType.Articolo: {
+  const art = await this.apiService.getArticolo(id); content = art;
+  structuredData = art && { kind: 'article', headline: art.titolo, author: art.autore, publishedOn: art.data };
+  break;
+}
+// casi non coperti: { kind: 'raw', jsonLd: { '@type': 'Recipe', name: '…' } }
+```
+
 ## Ricette — backend
 
 **Aggiungere un endpoint** (DTO in `Models/`, logica in `Services/`, thin controller)
@@ -113,8 +175,8 @@ return Accepted();                                             // 202 (503 se la
 
 **Sostituire un servizio dell'Engine** (vince l'ultima registrazione)
 ```csharp
-// Program.cs, blocco "── SERVIZI APPLICATIVI ──"
-builder.Services.AddSingleton<IContentStore, EfContentStore>();
+// Program.cs, blocco "── SERVIZI APPLICATIVI ──" — es. l'identità da un DB invece che da identity.json
+builder.Services.AddSingleton<IIdentityStore, DbIdentityStore>();
 ```
 
 ## Documentazione

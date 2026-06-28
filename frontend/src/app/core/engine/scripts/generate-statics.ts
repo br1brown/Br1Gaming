@@ -36,6 +36,7 @@ import { join } from 'path';
 import { ContestoSito } from '../../../site';
 import { ThemeService } from '../services/theme.service';
 import { SitemapEntry } from '../siteBuilder';
+import type { GlobalSettings } from '../global-settings.types';
 
 const ROOT = join(__dirname, '../../../../../');
 
@@ -44,10 +45,12 @@ const ROOT = join(__dirname, '../../../../../');
 // nel build context (./frontend), quindi deploy.sh passa il suo contenuto minificato come
 // build ARG BR1_PROJECT_JSON (solo config di progetto, NIENTE segreti). Su host/CI il file
 // c'è e si legge direttamente (guardato). FRONTEND_BASE_URL resta un ARG a parte (deploy).
-function readProjectSettings(): Record<string, unknown> {
+// Tipizzato con GlobalSettings (generato dallo schema, `npm run generate:types`): le letture sono
+// type-safe, un typo di chiave (es. `Localizaton`) è errore a `tsc`.
+function readProjectSettings(): GlobalSettings {
     const inline = process.env['BR1_PROJECT_JSON'];
     if (inline) {
-        try { return JSON.parse(inline) as Record<string, unknown>; } catch { /* fallback al file */ }
+        try { return JSON.parse(inline) as GlobalSettings; } catch { /* fallback al file */ }
     }
     const candidates = [
         process.env['GLOBAL_SETTINGS_PATH'],
@@ -58,7 +61,7 @@ function readProjectSettings(): Record<string, unknown> {
     for (const p of candidates) {
         try {
             if (existsSync(p)) {
-                return JSON.parse(readFileSync(p, 'utf-8')) as Record<string, unknown>;
+                return JSON.parse(readFileSync(p, 'utf-8')) as GlobalSettings;
             }
         } catch { /* file illeggibile: prova il prossimo candidato */ }
     }
@@ -66,19 +69,19 @@ function readProjectSettings(): Record<string, unknown> {
 }
 
 const _settings = readProjectSettings();
-const _fileLoc = (_settings['Localization'] as Record<string, unknown>) ?? {};
-const _fileProject = (_settings['project'] as Record<string, unknown>) ?? {};
+const _fileLoc = _settings.Localization ?? {};
+const _fileProject = _settings.project ?? {};
 // Config di sito: solo identità/estetica finisce in environment.ts. I flag di
 // COMPORTAMENTO (showNav/showFooter/fixedTopHeader/showBrandIconInHeader/
 // showLoginInHeader/showNotifications/forcedLightPanel/isWebApp/onlyPlainImage) sono migrati in site.ts,
 // quindi vengono filtrati via qui anche se un vecchio JSON li contiene ancora.
-const SITE_CONFIG = (_settings['site'] as Record<string, unknown>) ?? {};
+const SITE_CONFIG = _settings.site ?? {};
 const SITE_AESTHETIC_KEYS = ['description', 'colorTema', 'smoke'];
 
 // Identità dell'app — fonte unica: project.name / project.version.
-const APP_NAME = (_fileProject['name'] as string | undefined) || 'App';
-const APP_VERSION = (_fileProject['version'] as string | undefined) || '1.0.0';
-const COLOR_TEMA = (SITE_CONFIG['colorTema'] as string | undefined) ?? '#888888';
+const APP_NAME = _fileProject.name || 'App';
+const APP_VERSION = _fileProject.version || '1.0.0';
+const COLOR_TEMA = SITE_CONFIG.colorTema ?? '#888888';
 
 // PWA on/off — fonte unica: ContestoSito.config.isWebApp (site.ts). Guida la generazione
 // dei TRIGGER di installabilità: il manifest e, in index.html, <link rel="manifest"> più i
@@ -93,8 +96,12 @@ const _normLang = (tag: unknown): string | null => {
     try { return new Intl.Locale(tag.trim()).language ?? null; } catch { return null; }
 };
 
-const _defaultRaw   = _fileLoc['DefaultLanguage'];
-const _supportedRaw = _fileLoc['SupportedLanguages'] as string[] | undefined;
+// Lingue di build dai codici dichiarati in global-settings.json (Localization): le leggono i
+// consumatori sincroni a module-load (pagina cookie multilingua, fallback di pickLocaleText, shell
+// statica). Il backend arricchisce gli stessi codici nelle culture tipizzate, servite via
+// GET /localization (BCP-47, nomi nativi, giorni) — l'SSR riscrive comunque lang/meta per richiesta.
+const _defaultRaw   = _fileLoc.DefaultLanguage;
+const _supportedRaw = _fileLoc.SupportedLanguages;
 
 const DEFAULT_LANG    = _normLang(_defaultRaw) ?? 'it';
 const AVAILABLE_LANGS = (_supportedRaw ?? [DEFAULT_LANG])
@@ -105,7 +112,7 @@ const AVAILABLE_LANGS = (_supportedRaw ?? [DEFAULT_LANG])
 // description: mappa per-lingua { it, en, ... } (accetta anche una stringa singola,
 // normalizzata sulla lingua default). environment.ts riceve la mappa; i file statici
 // usano la lingua default (in SSR i meta sono riscritti per richiesta).
-const _rawDesc = SITE_CONFIG['description'];
+const _rawDesc = SITE_CONFIG.description;
 const DESCRIPTION_MAP: Record<string, string> =
     typeof _rawDesc === 'string'
         ? { [DEFAULT_LANG]: _rawDesc }
@@ -117,6 +124,8 @@ const DESCRIPTION_MAP: Record<string, string> =
 const DESCRIPTION = DESCRIPTION_MAP[DEFAULT_LANG] ?? Object.values(DESCRIPTION_MAP)[0] ?? '';
 
 // Solo identità/estetica finisce in environment.ts (description normalizzata a mappa).
+// L'identità legale/social del brand e il tipo entità NON stanno qui: sono dato runtime,
+// serviti dall'Engine (GET /identity), e alimentano da lì footer, pagine legali e JSON-LD.
 const SITE_CONFIG_OUT = {
     ...Object.fromEntries(
         Object.entries(SITE_CONFIG).filter(([k]) => SITE_AESTHETIC_KEYS.includes(k) && k !== 'description')
@@ -263,8 +272,10 @@ function updateIndexHtml(): void {
         ['property', 'og:image', defaultImageUrl],
     ];
 
-    // Genera il file TS con identità, lingue e config di sito per il frontend (invece di
-    // esporre JSON nel meta tag). Fonte unica: global-settings.json (project / Localization / site).
+    // Genera il file TS con identità, lingue e config di sito per il frontend (invece di esporre
+    // JSON nel meta tag). Sorgente: global-settings.json (project / Localization / site). Le lingue
+    // qui sono il seed di build (shell, fallback pickLocaleText, pagina cookie); il backend le
+    // arricchisce nelle culture tipizzate servite via GET /localization.
     const generatedTsPath = join(ROOT, 'src', 'environments', 'environment.ts');
     const generatedTsContent = `// FILE GENERATO AUTOMATICAMENTE DA scripts/generate-statics.ts
 // Non modificare manualmente. Sorgente di verità: global-settings.json (sezioni project / Localization / site)

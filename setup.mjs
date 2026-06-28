@@ -16,8 +16,10 @@
  *   4. Rinomina App.sln → NomeProgetto.sln
  *
  * Poi CHIEDE conferma [s/N] per la "cerimonia" da template a progetto (DISTRUTTIVA):
- *   5. Rimuove la demo (frontend + backend): pagina Social, home → placeholder,
- *      addon i18n → {}, BaseController/SiteService minimi, site.ts riscritto.
+ *   5. Rimuove la demo (frontend + backend): pagina Social + galleria social
+ *      (store/SiteService/social.json), home → placeholder, addon i18n → {},
+ *      BaseController minimo, data/identity.json azzerato a scheletro, site.ts riscritto.
+ *      L'identità del sito resta servita dall'Engine (GET /identity).
  *   6. Elimina il README.md vetrina del template.
  *   7. Esegue i controlli statici disponibili (lint/tsc/i18n/cicli) come gate.
  *   8. Auto-cancella questo setup.mjs.
@@ -199,63 +201,41 @@ const MINIMAL_HOME_HTML = `<!-- La home del tuo progetto: parti da qui. -->
 `;
 
 const MINIMAL_BASECONTROLLER_CS = `using Microsoft.AspNetCore.Mvc;
-using Backend.Services;
 
 namespace Backend.Controllers;
 
 /// <summary>
-/// Controller concreto del progetto per gli endpoint pubblici (API key).
-/// Eredita sicurezza e logger da <see cref="EngineApiController"/>.
-/// Aggiungi qui gli endpoint pubblici del progetto.
+/// Controller pubblico del progetto (API key). Eredita sicurezza e logger da
+/// <see cref="EngineApiController"/>. Punto di partenza vuoto: aggiungi qui i tuoi endpoint.
 /// </summary>
+/// <remarks>
+/// L'identità del sito (footer, pagine legali, SEO) è servita dall'Engine su GET /identity:
+/// non si scrive qui, basta riempire data/identity.json.
+/// </remarks>
 [Route("")]
 public class BaseController : EngineApiController
 {
-    private readonly SiteService _service;
-
-    /// <summary>Inizializza il controller col servizio di dominio e il logger ereditato dall'Engine.</summary>
-    public BaseController(SiteService service, ILogger<BaseController> logger)
-        : base(logger)
-    {
-        _service = service;
-    }
-
-    /// <summary>Profilo aziendale localizzato (usato dal footer e dalle pagine legali).</summary>
-    [HttpGet("profile")]
-    public async Task<IActionResult> GetProfile(CancellationToken cancellationToken)
-    {
-        var data = await _service.GetProfileAsync(cancellationToken);
-        return Ok(data);
-    }
+    /// <summary>Inizializza il controller col logger ereditato dall'Engine.</summary>
+    public BaseController(ILogger<BaseController> logger) : base(logger) { }
 }
 `;
 
-const MINIMAL_SITESERVICE_CS = `using System.Globalization;
-using Backend.Models.Legal;
-using Backend.Store;
-
-namespace Backend.Services;
-
-/// <summary>
-/// Casi d'uso applicativi del sito esposti dalle API pubbliche.
-/// Orchestra logica leggera sopra <see cref="IContentStore"/>.
-/// </summary>
-public class SiteService
-{
-    private readonly IContentStore _store;
-
-    /// <summary>Inizializza il servizio con lo store da cui leggere i contenuti del sito.</summary>
-    public SiteService(IContentStore store)
-    {
-        _store = store;
-    }
-
-    /// <summary>Profilo aziendale nella lingua corrente (per footer e pagine legali).</summary>
-    public async Task<UniversalLegalModel> GetProfileAsync(CancellationToken cancellationToken = default)
-    {
-        var language = CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
-        return await _store.GetProfileAsync(language, cancellationToken);
-    }
+// identity.json azzerato a scheletro: il figlio lo riempie (o lo lascia così → /identity
+// risponde null e footer/pagine legali/JSON-LD si nascondono da soli). Lo schema (engine,
+// in Engine/Models/Identity/) dà validazione e autocomplete su questo file.
+const MINIMAL_IDENTITY_JSON = `{
+    "$schema": "../Engine/Models/Identity/identity.schema.json",
+    "personal": false,
+    "ragioneSociale": "",
+    "partitaIva": "",
+    "codiceFiscale": "",
+    "sedeLegale": { "via": "", "civico": "", "cap": "", "citta": "", "provincia": "", "nazione": "" },
+    "contatti": { "telefono": "", "email": "", "pec": "" },
+    "datiSocietari": { "registroImprese": "", "numeroRea": "", "codiceSdi": "" },
+    "social": [],
+    "openingHours": [],
+    "currency": "EUR",
+    "metadatiAggiuntivi": {}
 }
 `;
 
@@ -273,7 +253,30 @@ function ejectDemo() {
     writeNew(join(fe, 'assets/i18n/addon.it.json'), '{}\n');
     writeNew(join(fe, 'assets/i18n/addon.en.json'), '{}\n');
     writeNew(join(be, 'Controllers/BaseController.cs'), MINIMAL_BASECONTROLLER_CS);
-    writeNew(join(be, 'Services/SiteService.cs'), MINIMAL_SITESERVICE_CS);
+
+    // L'identità è servita dall'Engine (GET /identity): qui resta solo il dato, azzerato a scheletro.
+    // La galleria social era una demo (store + SiteService + social.json) → brucia per intero.
+    writeNew(join(be, 'data/identity.json'), MINIMAL_IDENTITY_JSON);
+    rmSync(join(be, 'Services/SiteService.cs'), { force: true });
+    rmSync(join(be, 'Store/IContentStore.cs'), { force: true });
+    rmSync(join(be, 'Store/FileContentStore.cs'), { force: true });
+    rmSync(join(be, 'data/social.json'), { force: true });
+    console.log('  ✓  bruciati: SiteService, IContentStore/FileContentStore, data/social.json');
+    console.log('  ✓  azzerato a scheletro: backend/data/identity.json');
+
+    // Program.cs: via le registrazioni dello store/SiteService demo (l'identità resta su AddTemplateIdentity).
+    editFile(join(be, 'Program.cs'), src => {
+        src = removeChunk(src, `builder.Services.AddSingleton<IContentStore, FileContentStore>();\n`, 'Program IContentStore reg');
+        src = removeChunk(src, `builder.Services.AddScoped<SiteService>();\n`, 'Program SiteService reg');
+        src = src.replace(
+`// IContentStore (FileContentStore): accesso dati demo (galleria social), sostituibile con DB.
+// SiteService: logica di business del progetto. L'identità del sito è servita dall'engine (vedi AddTemplateIdentity).
+// AuthService: infrastruttura JWT, registrata solo se LoginEnabled.`,
+`// BlobStore: storage dei file caricati (upload).
+// AuthService: infrastruttura JWT, registrata solo se LoginEnabled.
+// L'identità del sito è servita dall'Engine (GET /identity): riempi data/identity.json.`);
+        return src;
+    });
 
     // content.resolver: via il case Social (e la dipendenza ApiService, ora inutile).
     // Rimozioni mirate perché il file contiene template-literal (${...}) non incorporabili.
@@ -456,7 +459,8 @@ async function main() {
     console.log('\n──────────────────────────────────────────');
     console.log(' Cerimonia: da TEMPLATE a PROGETTO');
     console.log('──────────────────────────────────────────');
-    console.log(' Rimuove la demo (Social + home svuotata + addon + backend minimo),');
+    console.log(' Rimuove la demo (Social + galleria social + home svuotata + addon + backend minimo,');
+    console.log(' identity.json azzerato),');
     console.log(' elimina il README vetrina, esegue i controlli, AUTO-CANCELLA setup.mjs');
     console.log(` e fa un commit locale "init ${displayName}".`);
     const answer = (await ask('\n  Procedo? [s/N]: ')).toLowerCase();

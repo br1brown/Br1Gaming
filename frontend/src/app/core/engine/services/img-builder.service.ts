@@ -32,8 +32,11 @@ import { FontConfig } from '../../../../styles/font-config';
  *  'fixedRatio'  → il ratio comanda: la larghezza si espande se necessario, i margini
  *                  diventano dinamici (5% della larghezza) e il testo viene ri-wrappato.
  *                  Utile quando il formato dell'immagine è più importante della lunghezza.
+ *  'fit'         → box FISSO (maxWidth × maxWidth/ratio): il testo NON allarga il canvas ma
+ *                  viene rimpicciolito (shrink-to-fit) finché entra; oltre la scala minima si
+ *                  tronca con ellissi. Utile per card di dimensione fissa (es. anteprime OG).
  */
-export type ImgRenderMode = 'exactInLine' | 'wrap' | 'fixedRatio';
+export type ImgRenderMode = 'exactInLine' | 'wrap' | 'fixedRatio' | 'fit';
 
 /**
  * Opzioni per i metodi istanza: tutti i campi sono facoltativi perché i default
@@ -57,6 +60,10 @@ export interface ImgBuildOptions {
     lineHeight?: number;
     /** Modalità di layout. Default: 'wrap'. */
     renderMode?: ImgRenderMode;
+    /** Solo per renderMode 'fit': scala minima del font prima di troncare. Default: 0.5. */
+    minFontScale?: number;
+    /** Solo per renderMode 'fit': righe massime prima del troncamento con ellissi. Default: 6. */
+    maxLines?: number;
 }
 
 /**
@@ -74,6 +81,60 @@ export interface ImgBuildResolved {
     maxWidth: number;
     lineHeight: number;
     renderMode: ImgRenderMode;
+    /** Solo 'fit': scala minima del font prima di troncare. */
+    minFontScale: number;
+    /** Solo 'fit': righe massime prima del troncamento con ellissi. */
+    maxLines: number;
+}
+
+// ─── Tipi shrink-to-fit ─────────────────────────────────────────────────────────
+
+/** Un blocco di testo da far entrare (es. titolo, sottotitolo). */
+export interface TextBlockSpec {
+    /** Testo del blocco (già normalizzato dal chiamante). */
+    text: string;
+    /** Font-size a scala piena (verrà ridotto in proporzione durante lo shrink). */
+    baseFontSize: number;
+    /** Moltiplicatore di interlinea del blocco. */
+    lineHeight: number;
+    /** Numero massimo di righe oltre cui troncare con ellissi (ultima risorsa). */
+    maxLines: number;
+    /** Il blocco è in grassetto? Incide solo sulla misura della larghezza. Default: false. */
+    bold?: boolean;
+}
+
+/** Risultato di layout di un singolo blocco dopo il fit. */
+export interface FittedBlock {
+    /** Font-size finale (dopo l'eventuale shrink). */
+    fontSize: number;
+    /** Righe wrappate (eventualmente troncate con ellissi). */
+    lines: string[];
+    /** Passo verticale tra una riga e l'altra (fontSize · lineHeight). */
+    lineStep: number;
+    /** Altezza del blocco (fontSize + righe extra · lineStep). */
+    blockHeight: number;
+}
+
+/** Opzioni del fit. La misura è iniettabile: canvas nel browser, tabella font sul server. */
+export interface FitOptions {
+    /** Scala minima del font sotto cui non scendere (poi si tronca). Default: 0.6. */
+    minScale?: number;
+    /** Passo di riduzione della scala a ogni tentativo. Default: 0.05. */
+    step?: number;
+    /** Misura size-aware della larghezza. Default: stima `text.length · fontSize · 0.55`. */
+    measureFn?: (text: string, fontSizePx: number, bold: boolean) => number;
+}
+
+/** Esito complessivo del fit di uno o più blocchi entro un'altezza disponibile. */
+export interface FitResult {
+    /** Scala del font applicata (1 = nessuna riduzione). */
+    scale: number;
+    /** Blocchi risolti, nello stesso ordine di input. */
+    blocks: FittedBlock[];
+    /** Altezza totale occupata dal testo (somma blocchi + gap tra blocchi). */
+    textHeight: number;
+    /** True se è stato necessario troncare con ellissi (non bastava lo shrink). */
+    truncated: boolean;
 }
 
 // ─── Servizio ──────────────────────────────────────────────────────────────────
@@ -110,10 +171,7 @@ export class ImgBuilderService {
         if (!this.isBrowser) return null;
 
         const r = this.resolveOptions(opts);
-        const { svg, width, height } = ImgBuilderService.buildSvg(
-            text, r.bgColor, r.textColor, r.fontSize, r.fontFamily,
-            r.ratio, r.maxWidth, r.lineHeight, r.renderMode,
-        );
+        const { svg, width, height } = ImgBuilderService.buildSvg(text, r);
 
         return new Promise((resolve, reject) => {
             const canvas = document.createElement('canvas');
@@ -169,6 +227,8 @@ export class ImgBuilderService {
             maxWidth: opts.maxWidth ?? 1000,
             lineHeight: opts.lineHeight ?? 1.4,
             renderMode: opts.renderMode ?? 'wrap',
+            minFontScale: opts.minFontScale ?? 0.5,
+            maxLines: opts.maxLines ?? 6,
         };
     }
 
@@ -179,38 +239,91 @@ export class ImgBuilderService {
     // devono essere passati esplicitamente dal chiamante.
     // ============================================================
 
-    static buildSvg(
-        text: string,
-        bgColor: string,
-        textColor: string,
-        fontSize: number,
-        fontFamily: string,
-        ratio: '4:3' | '16:9' | '1:1' | '9:16',
-        maxWidth: number,
-        lineHeight: number,
-        renderMode: ImgRenderMode,
-    ): { svg: string; width: number; height: number } {
+    /**
+     * Shrink-to-fit puro: dati uno o più blocchi di testo e l'altezza disponibile, calcola i
+     * font-size e le righe che li fanno entrare, e ritorna SOLO i dati di layout (nessuna immagine).
+     * Il chiamante (SVG server, canvas front, badge) decide poi come renderizzarli.
+     *
+     * Strategia: riduce in proporzione i font di tutti i blocchi finché il testo entra in altezza;
+     * solo se nemmeno alla scala minima entra, tiene il font pieno e tronca con ellissi a `maxLines`.
+     *
+     * La misura della larghezza è iniettabile (`opts.measureFn`): nel browser si passa
+     * `ctx.measureText` (metriche reali), sul server la tabella `FontMetrics` (Liberation/Arial);
+     * in assenza si usa la stima costante storica. Il fit VERTICALE è comunque esatto perché le
+     * righe diventano `<tspan>`/righe esplicite: il loro numero — e quindi l'altezza — è quello qui.
+     *
+     * @param availableHeight Altezza che il SOLO testo può occupare (il chiamante ha già sottratto
+     *                        eventuali elementi fissi come favicon/nome app e i loro margini).
+     * @param gap Spazio verticale tra un blocco e il successivo.
+     */
+    static fitTextBlocks(
+        blocks: TextBlockSpec[],
+        maxWidthPx: number,
+        availableHeight: number,
+        gap: number,
+        opts: FitOptions = {},
+    ): FitResult {
+        const minScale = opts.minScale ?? 0.6;
+        const step = opts.step ?? 0.05;
+        const measure = opts.measureFn ?? ((t: string, fs: number) => t.length * fs * 0.55);
 
-        // Nel browser: crea un canvas temporaneo per misurare il testo con le metriche reali del font.
-        // Nel server (SSR/Node): measureFn resta undefined → wrapText userà la stima 0.55.
-        let measureFn: ((t: string) => number) | undefined;
+        const compute = (scale: number, truncate: boolean): { blocks: FittedBlock[]; textHeight: number } => {
+            const fitted = blocks.map(b => {
+                const fontSize = Math.max(1, Math.round(b.baseFontSize * scale));
+                const lineStep = fontSize * b.lineHeight;
+                const lines = ImgBuilderService.wrapText(
+                    b.text, maxWidthPx, fontSize,
+                    (t: string) => measure(t, fontSize, b.bold ?? false),
+                    truncate ? b.maxLines : undefined,
+                );
+                const blockHeight = fontSize + (lines.length - 1) * lineStep;
+                return { fontSize, lines, lineStep, blockHeight };
+            });
+            const textHeight = fitted.reduce((sum, f) => sum + f.blockHeight, 0)
+                + gap * Math.max(0, fitted.length - 1);
+            return { blocks: fitted, textHeight };
+        };
+
+        // 1) Shrink-to-fit senza troncare: riduce i font finché TUTTO il testo entra.
+        for (let scale = 1; scale >= minScale - 1e-9; scale -= step) {
+            const c = compute(scale, false);
+            if (c.textHeight <= availableHeight) {
+                return { scale, blocks: c.blocks, textHeight: c.textHeight, truncated: false };
+            }
+        }
+        // 2) Non basta: font pieno (più leggibile) + troncamento con ellissi a maxLines.
+        const c = compute(1, true);
+        return { scale: 1, blocks: c.blocks, textHeight: c.textHeight, truncated: true };
+    }
+
+    static buildSvg(text: string, r: ImgBuildResolved): { svg: string; width: number; height: number } {
+        const { bgColor, textColor, fontFamily, ratio, maxWidth, lineHeight, renderMode } = r;
+
+        // Nel browser: misura size-aware con le metriche reali del font (il peso 700 combacia col
+        // rendering). Nel server (SSR/Node): undefined → wrapText/fitTextBlocks usano la stima.
+        let browserMeasure: ((t: string, fontSizePx: number) => number) | undefined;
         if (typeof document !== 'undefined') {
-            const offscreen = document.createElement('canvas');
-            const ctx = offscreen.getContext('2d')!;
-            ctx.font = `700 ${fontSize}px ${fontFamily}`;
-            measureFn = (t: string) => ctx.measureText(t).width;
+            const ctx = document.createElement('canvas').getContext('2d')!;
+            browserMeasure = (t: string, fontSizePx: number) => {
+                ctx.font = `700 ${fontSizePx}px ${fontFamily}`;
+                return ctx.measureText(t).width;
+            };
         }
 
-        // Il padding è proporzionale al font: testi grandi hanno margini grandi.
-        const paddingPx = fontSize * 2;
+        // Il padding è proporzionale al font base: testi grandi hanno margini grandi.
+        const paddingPx = r.fontSize * 2;
         const targetRatio = ImgBuilderService.parseRatio(ratio);
         const normalizedText = ImgBuilderService.normalizeWhitespace(text);
 
         let finalWidth: number;
         let finalHeight: number;
         let lines: string[];
+        // Font effettivamente renderizzato: pari al base, tranne in 'fit' dove può ridursi.
+        let fontSize = r.fontSize;
 
-        const measure = measureFn ?? ((t: string) => ImgBuilderService.approxTextWidth(t, fontSize));
+        // Misura "baked" al font base, per le modalità che non scalano il testo.
+        const measureFn = browserMeasure ? (t: string) => browserMeasure!(t, r.fontSize) : undefined;
+        const measure = measureFn ?? ((t: string) => ImgBuilderService.approxTextWidth(t, r.fontSize));
 
         if (renderMode === 'exactInLine') {
             // ── Nessun wrap: il contenuto guida le dimensioni ─────────────────────
@@ -237,7 +350,7 @@ export class ImgBuilderService {
             finalWidth = maxWidth;
             finalHeight = Math.max(altezzaTotaleTestoPx + paddingPx * 2, finalWidth / targetRatio);
 
-        } else {
+        } else if (renderMode === 'fixedRatio') {
             // ── fixedRatio: il ratio comanda, margini dinamici, ri-wrapping ───────
             let larghezza = maxWidth;
             let padding = larghezza * 0.05;
@@ -258,6 +371,20 @@ export class ImgBuilderService {
 
             finalWidth = larghezza;
             finalHeight = altezza;
+
+        } else {
+            // ── 'fit': box FISSO, il testo viene rimpicciolito (shrink-to-fit) per entrare ──
+            finalWidth = maxWidth;
+            finalHeight = maxWidth / targetRatio;
+            const fit = ImgBuilderService.fitTextBlocks(
+                [{ text: normalizedText, baseFontSize: r.fontSize, lineHeight, maxLines: r.maxLines, bold: true }],
+                finalWidth - paddingPx * 2,
+                finalHeight - paddingPx * 2,
+                0,
+                { minScale: r.minFontScale, measureFn: browserMeasure },
+            );
+            lines = fit.blocks[0].lines;
+            fontSize = fit.blocks[0].fontSize;
         }
 
         // Clamp finale: evita dimensioni fuori controllo per testi molto lunghi o molto corti
@@ -274,8 +401,8 @@ export class ImgBuilderService {
         //
         // Il "+ altezzaRiga / 2" compensa `dominant-baseline="middle"` applicato al <text>:
         // con quel valore il punto di ancoraggio è al centro del carattere, non alla baseline.
-        const altezzaBloccoTestoPx = lines.length * (fontSize * lineHeight);
         const altezzaRigaPx = fontSize * lineHeight;
+        const altezzaBloccoTestoPx = lines.length * altezzaRigaPx;
         const centraleX = finalWidth / 2;
         const primaRigaY = (finalHeight - altezzaBloccoTestoPx) / 2 + altezzaRigaPx / 2;
 
@@ -305,7 +432,9 @@ export class ImgBuilderService {
      * il contenuto testuale dei <tspan>, dove '<' e '&' romperebbero il markup.
      */
     static escapeXml(value: string): string {
-        return value
+        // Rimuove i caratteri di controllo non validi in XML 1.0 (tutti i C0 tranne tab/LF/CR):
+        // se finissero nell'SVG romperebbero il parsing di Sharp/librsvg (PCDATA invalid Char).
+        return value.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
@@ -344,10 +473,10 @@ export class ImgBuilderService {
      * Gestisce anche il caso in cui una singola parola sia più lunga della riga:
      * in quel caso la parola viene spezzata carattere per carattere.
      */
-    static wrapText(text: string, maxWidthPx: number, fontSizePx: number, measureFn?: (t: string) => number): string[] {
+    static wrapText(text: string, maxWidthPx: number, fontSizePx: number, measureFn?: (t: string) => number, maxLines?: number): string[] {
         const measure = measureFn ?? ((t: string) => t.length * fontSizePx * 0.55);
 
-        return text.split('\n').flatMap(paragrafo => {
+        const righe = text.split('\n').flatMap(paragrafo => {
             const p = paragrafo.trim();
             // Riga vuota → spazio singolo per preservare la spaziatura verticale nel SVG
             if (!p) return [' '];
@@ -386,6 +515,18 @@ export class ImgBuilderService {
             if (rigaCorrente) righe.push(rigaCorrente);
             return righe;
         });
+
+        // Cap sul numero di righe: garantisce che il blocco di testo non sfori il canvas
+        // (il limite sui caratteri non basta, dipende da quanti vanno a capo). L'ultima riga
+        // tenuta viene accorciata quel tanto che basta perché ci stia il carattere finale '…'.
+        if (maxLines && righe.length > maxLines) {
+            const tenute = righe.slice(0, maxLines);
+            let ultima = tenute[maxLines - 1].trimEnd();
+            while (ultima && measure(ultima + '…') > maxWidthPx) ultima = ultima.slice(0, -1).trimEnd();
+            tenute[maxLines - 1] = ultima + '…';
+            return tenute;
+        }
+        return righe;
     }
 
     /**

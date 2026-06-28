@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://br1webengine/identity.schema.json",
+  "title": "SiteIdentity",
+  "description": "Identità del sito letta da GET /identity: dati legali/anagrafici, contatti, profili social del brand e natura dell'entità. Sorgente unica per footer, pagine legali e dati strutturati SEO (JSON-LD). Tutti i campi sono opzionali; i campi testuali possono essere una stringa o un oggetto localizzato { \"it\": ..., \"en\": ... }.",
+  "type": "object",
+  "additionalProperties": false,
+  "definitions": {
+    "localizedString": {
+      "description": "Stringa semplice, oppure mappa lingua→testo (es. { \"it\": \"...\", \"en\": \"...\" }).",
+      "oneOf": [
+        { "type": "string" },
+        { "type": "object", "additionalProperties": { "type": "string" }, "minProperties": 1 }
+      ]
+    },
+    "address": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "via": { "$ref": "#/definitions/localizedString" },
+        "civico": { "type": "string" },
+        "cap": { "type": "string" },
+        "citta": { "$ref": "#/definitions/localizedString" },
+        "provincia": { "$ref": "#/definitions/localizedString" },
+        "nazione": {
+          "type": "string",
+          "description": "Paese come codice ISO 3166-1 alpha-2 (es. 'IT', 'AE'). Il frontend ne deriva il nome localizzato (Intl.DisplayNames); il JSON-LD addressCountry usa il codice.",
+          "pattern": "^[A-Za-z]{2}$"
+        }
+      }
+    }
+  },
+  "properties": {
+    "$schema": { "type": "string" },
+    "personal": {
+      "type": "boolean",
+      "description": "false (default) = Organization, true = Person (sito personale/portfolio). Decide il @type del brand nel JSON-LD."
+    },
+    "businessType": {
+      "type": "string",
+      "description": "Tipo schema.org se il brand è un'attività fisica (es. 'Restaurant', 'Store', 'ProfessionalService', o il generico 'LocalBusiness'). Valorizzato → l'entità brand diventa quel @type, con indirizzo e openingHoursSpecification SUL NODO (segnali 'attività locale' di Google); ha la precedenza su 'personal'. Omesso → Organization/Person. Deve essere un sottotipo valido di LocalBusiness (validità a carico tuo)."
+    },
+    "ragioneSociale": { "$ref": "#/definitions/localizedString" },
+    "partitaIva": { "type": "string" },
+    "codiceFiscale": { "type": "string" },
+    "sedeLegale": { "$ref": "#/definitions/address" },
+    "sedeOperativa": {
+      "$ref": "#/definitions/address",
+      "description": "Indirizzo della sede fisica aperta al pubblico, se diversa dalla legale. Usata come address del brand solo con 'businessType' valorizzato; assente → ripiega su 'sedeLegale'."
+    },
+    "contatti": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "telefono": { "type": "string" },
+        "email": { "type": "string" },
+        "pec": { "type": "string" }
+      }
+    },
+    "datiSocietari": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "registroImprese": { "$ref": "#/definitions/localizedString" },
+        "numeroRea": { "type": "string" },
+        "capitaleSociale": { "type": "number" },
+        "capitaleInteramenteVersato": { "type": "boolean" },
+        "isSocioUnico": { "type": "boolean" },
+        "inLiquidazione": { "type": "boolean" },
+        "codiceSdi": { "type": "string" }
+      }
+    },
+    "social": {
+      "type": "array",
+      "description": "Profili social ufficiali del brand. Ogni voce è un URL: stringa nuda, oppure oggetto { url, name } con un'etichetta (anche localizzata) mostrata SOLO nel footer accanto all'icona. Footer e sameAs (JSON-LD) usano l'URL; l'icona è dedotta dall'URL, quindi sono ammessi più profili dello stesso social.",
+      "items": {
+        "oneOf": [
+          { "type": "string", "format": "uri" },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["url"],
+            "properties": {
+              "url": { "type": "string", "format": "uri" },
+              "name": { "$ref": "#/definitions/localizedString", "description": "Etichetta per il footer (solo presentazione)." }
+            }
+          }
+        ]
+      }
+    },
+    "openingHours": {
+      "type": "array",
+      "description": "Orari di apertura come lista di intervalli: ogni voce è { day, opens, closes }. Il giorno è un nome DayOfWeek (Monday…Sunday), gli orari 'HH:mm' (24h). Più voci sullo stesso giorno = più fasce (pausa pranzo); un giorno senza voci = chiuso. Il modello lo tipizza (DayOfWeek + TimeOnly); il frontend deriva la resa leggibile e le OpeningHoursSpecification del JSON-LD.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["day", "opens", "closes"],
+        "properties": {
+          "day": {
+            "type": "string",
+            "enum": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+          },
+          "opens": { "type": "string", "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$" },
+          "closes": { "type": "string", "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$" }
+        }
+      }
+    },
+    "currency": {
+      "type": "string",
+      "description": "Valuta dei valori monetari (es. capitale sociale) in ISO 4217. Omessa → EUR.",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "rappresentanteLegale": {
+      "$ref": "#/definitions/localizedString",
+      "description": "Rappresentante legale dell'entità (campo noto e tipizzato, reso dal footer/pagine legali)."
+    },
+    "metadatiAggiuntivi": {
+      "type": "object",
+      "description": "Coppie chiave → testo (anche localizzato) per metadati custom mostrati nelle pagine istituzionali.",
+      "additionalProperties": { "$ref": "#/definitions/localizedString" }
+    },
+    "extra": {
+      "type": "object",
+      "description": "Via di fuga: proprietà schema.org arbitrarie fuse PER ULTIME nel nodo entità brand del JSON-LD (es. geo, foundingDate, slogan) → sovrascrivono i default, anche @type; l'Engine si tiene solo @context e @id. Validità a carico tuo.",
+      "additionalProperties": true
+    }
+  }
+}
