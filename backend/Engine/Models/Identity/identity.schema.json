@@ -12,18 +12,8 @@
         { "type": "string" },
         { "type": "object", "additionalProperties": { "type": "string" }, "minProperties": 1 }
       ]
-    }
-  },
-  "properties": {
-    "$schema": { "type": "string" },
-    "personal": {
-      "type": "boolean",
-      "description": "false (default) = Organization, true = Person (sito personale/portfolio). Decide il @type del brand nel JSON-LD."
     },
-    "ragioneSociale": { "$ref": "#/definitions/localizedString" },
-    "partitaIva": { "type": "string" },
-    "codiceFiscale": { "type": "string" },
-    "sedeLegale": {
+    "address": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -38,6 +28,25 @@
           "pattern": "^[A-Za-z]{2}$"
         }
       }
+    }
+  },
+  "properties": {
+    "$schema": { "type": "string" },
+    "personal": {
+      "type": "boolean",
+      "description": "false (default) = Organization, true = Person (sito personale/portfolio). Decide il @type del brand nel JSON-LD."
+    },
+    "businessType": {
+      "type": "string",
+      "description": "Tipo schema.org se il brand è un'attività fisica (es. 'Restaurant', 'Store', 'ProfessionalService', o il generico 'LocalBusiness'). Valorizzato → l'entità brand diventa quel @type, con indirizzo e openingHoursSpecification SUL NODO (segnali 'attività locale' di Google); ha la precedenza su 'personal'. Omesso → Organization/Person. Deve essere un sottotipo valido di LocalBusiness (validità a carico tuo)."
+    },
+    "ragioneSociale": { "$ref": "#/definitions/localizedString" },
+    "partitaIva": { "type": "string" },
+    "codiceFiscale": { "type": "string" },
+    "sedeLegale": { "$ref": "#/definitions/address" },
+    "sedeOperativa": {
+      "$ref": "#/definitions/address",
+      "description": "Indirizzo della sede fisica aperta al pubblico, se diversa dalla legale. Usata come address del brand solo con 'businessType' valorizzato; assente → ripiega su 'sedeLegale'."
     },
     "contatti": {
       "type": "object",
@@ -112,7 +121,7 @@
     },
     "extra": {
       "type": "object",
-      "description": "Via di fuga: proprietà schema.org arbitrarie fuse così come sono nel nodo entità brand del JSON-LD (es. geo, foundingDate, slogan, campi di LocalBusiness). Validità a carico tuo; le proprietà strutturali dell'Engine vincono in caso di collisione.",
+      "description": "Via di fuga: proprietà schema.org arbitrarie fuse PER ULTIME nel nodo entità brand del JSON-LD (es. geo, foundingDate, slogan) → sovrascrivono i default, anche @type; l'Engine si tiene solo @context e @id. Validità a carico tuo.",
       "additionalProperties": true
     }
   }

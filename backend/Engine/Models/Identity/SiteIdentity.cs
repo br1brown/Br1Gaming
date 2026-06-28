@@ -23,6 +23,24 @@ public class SiteIdentity
     public bool Personal { get; set; }
 
     /// <summary>
+    /// Tipo schema.org dell'entità quando il brand è un'**attività fisica** (es. <c>"Restaurant"</c>,
+    /// <c>"Store"</c>, <c>"ProfessionalService"</c>, o il generico <c>"LocalBusiness"</c>). Valorizzato
+    /// ⇒ l'entità brand del JSON-LD diventa quel tipo (invece di <c>Organization</c>), con indirizzo e
+    /// <c>openingHoursSpecification</c> portati **sul nodo** — i segnali che Google usa per le attività
+    /// locali. Ha la precedenza su <see cref="Personal"/>. Omesso ⇒ <c>Organization</c>/<c>Person</c>
+    /// come prima.
+    /// </summary>
+    /// <remarks>
+    /// È una **stringa libera, non un enum, di proposito**: i sottotipi di <c>LocalBusiness</c> sono
+    /// oltre 150 ed evolvono (un enum sarebbe incompleto e andrebbe a rincorrere schema.org), e siccome
+    /// <see cref="Extra"/> può comunque sovrascrivere <c>@type</c> un enum darebbe una coerenza solo
+    /// illusoria. Quindi vale come <see cref="Extra"/>/JSON-LD grezzo: la imposti **diretta** (non serve
+    /// passare da <see cref="Extra"/>, che resta per le proprietà *in più* come <c>geo</c>/<c>priceRange</c>)
+    /// e la validità schema.org è a carico del progetto.
+    /// </remarks>
+    public string? BusinessType { get; set; }
+
+    /// <summary>
     /// Ragione sociale o denominazione completa dell'organizzazione.
     /// </summary>
     public string? RagioneSociale { get; set; }
@@ -41,6 +59,13 @@ public class SiteIdentity
     /// Indirizzo della sede legale.
     /// </summary>
     public Address? SedeLegale { get; set; }
+
+    /// <summary>
+    /// Indirizzo della **sede operativa/fisica** aperta al pubblico, quando diversa dalla
+    /// <see cref="SedeLegale"/>. Usata come <c>address</c> dell'entità brand solo quando
+    /// <see cref="BusinessType"/> è valorizzato; assente ⇒ si ripiega sulla <see cref="SedeLegale"/>.
+    /// </summary>
+    public Address? SedeOperativa { get; set; }
 
     /// <summary>
     /// Recapiti generali dell'organizzazione.

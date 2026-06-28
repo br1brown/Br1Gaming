@@ -95,6 +95,16 @@ protected override async Task<SiteIdentity?> ComposeIdentityAsync(
 ```
 Stessa filosofia per gli altri "codici": `Currency` ISO 4217, `SedeLegale.Nazione` ISO 3166, lingue in `Localization` — dichiari il codice, il framework (`CultureInfo`/`Intl`) dà nome e formato. Per una proprietà schema.org che il modello non tipizza, valorizza `identity.Extra`: fuso **per ultimo** nel nodo entità brand, sovrascrive i default (anche il `@type`, es. → `LocalBusiness` con `geo`/`openingHoursSpecification`); l'Engine si tiene solo `@context` e `@id`.
 
+**Sito di un'attività fisica (LocalBusiness)** — dichiara `businessType` (sottotipo schema.org) in `data/identity.json`: l'entità brand diventa quel `@type` con indirizzo e `openingHoursSpecification` portati **sul nodo**. Gli `openingHours` (già tipizzati) non cambiano; l'indirizzo è la `sedeOperativa` (fallback `sedeLegale`); la geo (opzionale per Google, basta l'indirizzo) va in `extra`. `businessType` è una **stringa libera** (qualsiasi sottotipo `LocalBusiness` valido), non un enum: la metti diretta — non serve `extra`, che resta solo per le proprietà *in più* (geo, priceRange…). Non è un enum perché i sottotipi sono 150+ ed evolvono, e tanto `extra` può comunque cambiare `@type`: validità schema.org a carico tuo.
+```json
+{
+  "businessType": "Restaurant",
+  "sedeOperativa": { "via": "Via Roma", "civico": "1", "cap": "00100", "citta": "Roma", "nazione": "IT" },
+  "openingHours": [ { "day": "Monday", "opens": "12:00", "closes": "23:00" } ],
+  "extra": { "servesCuisine": "Italian", "priceRange": "€€" }
+}
+```
+
 **SEO: dati strutturati (JSON-LD) con campi parlanti** — dichiari `kind` + campi, l'Engine traduce in schema.org (`structured-data.ts`). `kind`: `article` | `faq` | `product` | `event` | `raw`.
 ```typescript
 // site.ts — STATICI (es. FAQ con domande fisse)

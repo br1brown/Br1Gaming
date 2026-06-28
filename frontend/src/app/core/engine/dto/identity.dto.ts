@@ -57,16 +57,24 @@ export type OpeningHours = OpeningInterval[];
 export interface Identity {
     /** false (default) = Organization, true = Person (sito personale/portfolio). Decide il @type del brand nel JSON-LD. */
     personal?: boolean;
+    /** Tipo schema.org se il brand è un'attività fisica (es. "Restaurant", "Store", "LocalBusiness").
+     *  Valorizzato → l'entità brand diventa quel @type, con indirizzo e openingHoursSpecification sul
+     *  nodo (segnali "attività locale" di Google); ha la precedenza su `personal`. Omesso → Organization/Person. */
+    businessType?: string;
     ragioneSociale?: string;
     partitaIva?: string;
     codiceFiscale?: string;
     sedeLegale?: Address;
+    /** Indirizzo della sede fisica aperta al pubblico, se diversa dalla legale. Usata come `address` del
+     *  brand solo con `businessType` valorizzato; assente → ripiega su `sedeLegale`. */
+    sedeOperativa?: Address;
     contatti?: ContactInfo;
     datiSocietari?: CompanyDetails;
     /** Profili social ufficiali del brand: icone del footer + sameAs JSON-LD. L'icona è dedotta
      *  dall'URL (più profili dello stesso social convivono); il `name` è un'etichetta solo footer. */
     social?: SocialLink[];
-    /** Orari di contatto/apertura per-giorno: hoursAvailable del ContactPoint (SEO) + resa localizzata. */
+    /** Orari di apertura per-giorno. Su Organization → `hoursAvailable` del ContactPoint; con `businessType`
+     *  (LocalBusiness) → `openingHoursSpecification` sul nodo. Più la resa localizzata nel footer. */
     openingHours?: OpeningHours;
     /** Valuta ISO 4217 dei valori monetari (es. capitale sociale). Omessa → EUR. */
     currency?: string;
@@ -74,7 +82,7 @@ export interface Identity {
     rappresentanteLegale?: string;
     /** Metadati custom generici: NON resi dall'identità (solo dati noti); contenitore per il progetto. */
     metadatiAggiuntivi?: Record<string, string>;
-    /** Proprietà schema.org extra fuse così come sono nel nodo entità brand del JSON-LD (via di fuga).
-     *  Validità a carico del progetto; le proprietà strutturali dell'Engine vincono sulle collisioni. */
+    /** Proprietà schema.org extra fuse PER ULTIME nel nodo entità brand → sovrascrivono i default (anche
+     *  `@type`); l'Engine si tiene solo `@context` e `@id`. Validità a carico del progetto. */
     extra?: Record<string, unknown>;
 }

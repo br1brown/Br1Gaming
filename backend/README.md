@@ -811,12 +811,18 @@ L'**identità** (dati legali/anagrafici, profili social del brand, natura dell'e
 ```csharp
 SiteIdentity {
     bool     Personal             // false = Organization (default), true = Person (JSON-LD @type)
+    string?  BusinessType         // Attività fisica: sottotipo schema.org (es. "Restaurant"/"Store"/
+                                  // "LocalBusiness"). Valorizzato → @type = quello, con indirizzo e
+                                  // openingHoursSpecification SUL NODO; ha la precedenza su Personal.
+                                  // Stringa libera (non enum: 150+ sottotipi che evolvono), validità tua
     string?  RagioneSociale
     string?  PartitaIva
     string?  CodiceFiscale        // Se distinto dalla P.IVA
     Address? SedeLegale { Via, Civico, Cap, Citta, Provincia, Nazione }   // → PostalAddress.
                                   // Nazione = codice ISO 3166-1 alpha-2 (es. "IT"): il frontend ne deriva
                                   // il nome (Intl.DisplayNames), il JSON-LD addressCountry usa il codice
+    Address? SedeOperativa { … }  // Sede fisica al pubblico se ≠ legale; usata come address del brand
+                                  // solo con BusinessType valorizzato; assente → ripiega su SedeLegale
     ContactInfo? Contatti { Telefono, Email, Pec }                        // → ContactPoint
     CompanyDetails? DatiSocietari {
         RegistroImprese, NumeroRea

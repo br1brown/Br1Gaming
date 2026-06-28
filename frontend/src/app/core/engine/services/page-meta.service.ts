@@ -7,7 +7,7 @@ import { pickLocaleText } from '../siteBuilder';
 import { CdnCgi } from './asset.service';
 import { TranslateService } from './translate.service';
 import { IdentityService } from './identity.service';
-import { type Identity, type DayName, DAY_ORDER } from '../dto/identity.dto';
+import { type Identity, type Address, type DayName, DAY_ORDER } from '../dto/identity.dto';
 import { type StructuredDataInput, buildStructuredDataGraph } from './structured-data';
 
 /** Orario "HH:mm" (24h): difesa contro valori sporchi prima di mapparli su JSON-LD. */
@@ -217,9 +217,8 @@ export class PageMetaService {
         return null;
     }
 
-    /** `PostalAddress` dell'entità brand dalla sede legale dell'identità. Null se nessun campo utile. */
-    private buildPostalAddress(identity: Identity | null): Record<string, unknown> | null {
-        const a = identity?.sedeLegale;
+    /** `PostalAddress` da un indirizzo dell'identità (sede legale o operativa). Null se nessun campo utile. */
+    private buildPostalAddress(a: Address | null | undefined): Record<string, unknown> | null {
         if (!a) return null;
         const street = [a.via, a.civico].filter(s => typeof s === 'string' && s.trim()).join(' ').trim();
         const addr: Record<string, unknown> = { '@type': 'PostalAddress' };
@@ -233,10 +232,11 @@ export class PageMetaService {
     }
 
     /** `ContactPoint` con telefono/email, `hoursAvailable` dagli orari e `availableLanguage` dalle
-     *  lingue configurate del sito. Null se non c'è un canale di contatto né orari. */
-    private buildContactPoint(identity: Identity | null): Record<string, unknown> | null {
+     *  lingue configurate del sito. `includeHours=false` per un'attività, dove gli orari vivono come
+     *  `openingHoursSpecification` sul nodo (qui sarebbero un doppione). Null se non c'è canale né orari. */
+    private buildContactPoint(identity: Identity | null, includeHours = true): Record<string, unknown> | null {
         const c = identity?.contatti;
-        const hours = this.buildOpeningHours(identity);
+        const hours = includeHours ? this.buildOpeningHours(identity) : [];
         const cp: Record<string, unknown> = { '@type': 'ContactPoint', contactType: 'customer service' };
         if (c?.telefono?.trim()) cp['telephone'] = c.telefono.trim();
         if (c?.email?.trim()) cp['email'] = c.email.trim();
@@ -338,9 +338,13 @@ export class PageMetaService {
         // Identità del sito (runtime, condivisa): dà natura del brand, social e nome legale.
         // Assente (sito che non la configura, o backend giù) → default Organization senza sameAs.
         const identity = this.identity.identity();
-        // Entità brand: Person per un sito personale/portfolio (identità personal=true), altrimenti
-        // Organization (default, il meno penalizzante per Google). È il publisher di WebSite/WebPage.
-        const isPerson = identity?.personal ?? false;
+        // Tipo entità brand: se l'identità dichiara un'attività fisica (businessType, es. "Restaurant")
+        // l'entità è quel sottotipo di LocalBusiness; altrimenti Person per un sito personale
+        // (personal=true) o Organization (default). È il publisher di WebSite/WebPage.
+        const businessType = typeof identity?.businessType === 'string' && identity.businessType.trim()
+            ? identity.businessType.trim() : null;
+        // Un'attività locale è sempre Organization-like, mai Person: così i gate legali sotto restano validi.
+        const isPerson = (identity?.personal ?? false) && !businessType;
         const publisherId = `${siteUrl}#${isPerson ? 'person' : 'organization'}`;
         const websiteId = `${siteUrl}#website`;
         const pageId = `${canonicalUrl}#webpage`;
@@ -350,13 +354,16 @@ export class PageMetaService {
             ? identity.social.map(s => s?.url).filter((u): u is string => typeof u === 'string' && u.trim().length > 0)
             : [];
         const brandImage = `${siteUrl}icons/icon-512x512.png`;
-        // address e contactPoint arricchiscono l'entità brand (PostalAddress, ContactPoint con
-        // telefono/email e hoursAvailable dagli orari strutturati). Assenti → omessi.
-        const address = this.buildPostalAddress(identity);
-        const contactPoint = this.buildContactPoint(identity);
+        // Indirizzo del nodo: per un'attività la sede operativa fisica (fallback alla legale), altrimenti
+        // la sede legale. Gli orari di un'attività vanno come openingHoursSpecification SUL NODO (segnale
+        // locale di Google); su Organization/Person restano in contactPoint.hoursAvailable.
+        const address = this.buildPostalAddress(
+            (businessType && identity?.sedeOperativa) ? identity.sedeOperativa : identity?.sedeLegale);
+        const openingHours = businessType ? this.buildOpeningHours(identity) : [];
+        const contactPoint = this.buildContactPoint(identity, !businessType);
         const publisher = {
             // Default dell'Engine: tipo, nome, identificativi legali, social, indirizzo, contatti.
-            '@type': isPerson ? 'Person' : 'Organization',
+            '@type': businessType ?? (isPerson ? 'Person' : 'Organization'),
             // Nome dell'entità brand: ragione sociale legale se presente, altrimenti il nome del sito.
             name: identity?.ragioneSociale || appName,
             url: siteUrl,
@@ -370,6 +377,8 @@ export class PageMetaService {
             // sameAs: profili ufficiali del brand → segnale per il Knowledge Panel di Google.
             ...(social.length > 0 && { sameAs: social }),
             ...(address && { address }),
+            // openingHoursSpecification sul nodo: solo per un'attività (Organization non ha questo campo).
+            ...(openingHours.length > 0 && { openingHoursSpecification: openingHours }),
             ...(contactPoint && { contactPoint }),
             // Via di fuga: le proprietà extra del figlio fuse PER ULTIME → SOVRASCRIVONO i default,
             // non solo aggiungono (es. `@type` → `LocalBusiness`/sottotipi, `geo`, `priceRange`).
