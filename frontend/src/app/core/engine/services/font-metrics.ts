@@ -8,12 +8,19 @@ import { FontConfig, ServerFont } from '../../../../styles/font-config';
  * **costanti dei font server** (`FontConfig.SERVER_FONTS`), così ogni font ha i suoi valori e la
  * misura resta corretta anche cambiando `DEFAULT_SERVER_FONT_KEY`.
  *
- * Le tabelle `advance` (unità/1000 em, code point 32–126) sono ESTRATTE dai file dei font
- * realmente installati nel container (LiberationSans/Roboto/DejaVuSans/NotoSans, Regular), così
- * corrispondono al rendering. Per rigenerarle: leggere `head.unitsPerEm` + `cmap` + `hmtx` con un
- * parser TTF (es. `fonttools`) e scalare `advance·1000/unitsPerEm`. `fallbackAdvance` (≈ advance
- * di 'o') copre i code point fuori tabella (accentate rare, emoji, CJK). `boldFactor` = rapporto
- * medio bold/regular sulle lettere. Limite noto: solo advance per-glifo (niente kerning/ligature).
+ * Le metriche reali le deriva a runtime il loader server (`server/server-font-metrics`), che legge i
+ * font installati via `fc-match` + parser TTF: così restano allineate ai file senza rigenerare a mano.
+ * Il loader si inietta con `FontMetrics.configure`; gira pigro al primo `measure` e su QUALSIASI
+ * intoppo (font non leggibili, `fc-match` assente come in dev su Windows, numeri implausibili) cade
+ * sulle tabelle `FONT_METRICS` qui sotto. Quindi questo file resta privo di dipendenze node, e le
+ * tabelle sono lo **snapshot di fallback** — non più l'unica fonte.
+ *
+ * Le tabelle `advance` (unità/1000 em, code point 32–126) sono ESTRATTE dai font installati nel
+ * container (LiberationSans/Roboto/DejaVuSans/NotoSans, Regular). Per rigenerare lo snapshot: leggere
+ * `head.unitsPerEm` + `cmap` + `hmtx` con un parser TTF (es. `fonttools`) e scalare `advance·1000/
+ * unitsPerEm`. `fallbackAdvance` (≈ advance di 'o') copre i code point fuori tabella (accentate rare,
+ * emoji, CJK). `boldFactor` = rapporto medio bold/regular sulle lettere. Limite noto: solo advance
+ * per-glifo (niente kerning/ligature).
  */
 
 /** Metriche di un singolo font, per il calcolo della larghezza testo lato server. */
@@ -90,8 +97,9 @@ const NOTO_ADVANCE: Readonly<Record<number, number>> = {
     120: 529, 121: 510, 122: 470, 123: 380, 124: 551, 125: 380, 126: 572,
 };
 
-/** Metriche per ogni font server. Chiavi = enum `ServerFont` (a prova di typo).
- *  Tutte con tabella `advance` precisa estratta dai file font installati. */
+/** Snapshot di fallback per ogni font server. Chiavi = enum `ServerFont` (a prova di typo). Usato
+ *  quando il loader runtime non può leggere i font reali (vedi nota di testa). Tabella `advance`
+ *  estratta dai file font installati. */
 export const FONT_METRICS: Record<ServerFont, FontMetric> = {
     [ServerFont.Liberation]: { advance: LIBERATION_ADVANCE, fallbackAdvance: 556, boldFactor: 1.051 },
     [ServerFont.Roboto]: { advance: ROBOTO_ADVANCE, fallbackAdvance: 570, boldFactor: 1.014 },
@@ -99,7 +107,37 @@ export const FONT_METRICS: Record<ServerFont, FontMetric> = {
     [ServerFont.Noto]: { advance: NOTO_ADVANCE, fallbackAdvance: 605, boldFactor: 1.060 },
 };
 
+/** Loader (lato server) che deriva le metriche dai font realmente installati. Iniettato via
+ *  `FontMetrics.configure`; assente fuori dal server → si usano le tabelle `FONT_METRICS`. */
+export type ServerMetricsLoader = () => Record<ServerFont, FontMetric>;
+
+/** Loader registrato dal layer server, e cache delle metriche risolte (una volta per processo). */
+let metricsLoader: ServerMetricsLoader | null = null;
+let activeMetrics: Record<ServerFont, FontMetric> | null = null;
+
 export class FontMetrics {
+    /**
+     * Registra il loader che legge le metriche dai font reali (vedi `server/server-font-metrics`).
+     * Lo chiama il layer server una volta sola, all'avvio; il loader gira pigro al primo `measure` e
+     * cade da solo su `FONT_METRICS` se i font non sono leggibili. Senza `configure` (o se il loader
+     * lancia) si usano direttamente le tabelle di fallback.
+     */
+    static configure(loader: ServerMetricsLoader): void {
+        metricsLoader = loader;
+        activeMetrics = null;
+    }
+
+    /** Metriche attive: derivate dai font reali al primo uso (loader memoizzato), o snapshot di fallback. */
+    private static resolve(): Record<ServerFont, FontMetric> {
+        if (activeMetrics) return activeMetrics;
+        try {
+            activeMetrics = metricsLoader ? metricsLoader() : FONT_METRICS;
+        } catch {
+            activeMetrics = FONT_METRICS;
+        }
+        return activeMetrics;
+    }
+
     /**
      * Larghezza in pixel del testo al `fontSizePx` indicato, con le metriche del font server di
      * default (`FontConfig.DEFAULT_SERVER_FONT_KEY`). `bold` applica la maggiorazione del peso 700.
@@ -110,7 +148,7 @@ export class FontMetrics {
      * (es. `measureFn: FontMetrics.measure`), senza dipendere da `this` alla chiamata.
      */
     static measure(text: string, fontSizePx: number, bold = false): number {
-        const m = FONT_METRICS[FontConfig.DEFAULT_SERVER_FONT_KEY];
+        const m = FontMetrics.resolve()[FontConfig.DEFAULT_SERVER_FONT_KEY];
         let units = 0;
         for (const ch of text) units += m.advance?.[ch.codePointAt(0)!] ?? m.fallbackAdvance;
         const px = (units * fontSizePx) / 1000;

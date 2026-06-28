@@ -165,7 +165,7 @@ Il Node SSR del frontend gestisce, oltre alle pagine Angular, anche alcune route
 | `/assets/files/*` | **Bloccata** (404): i file sorgente degli asset si servono soltanto via `/cdn-cgi/asset` |
 | `/.well-known/security.txt` | Contatto di sicurezza RFC 9116 (generato al build da `generate-statics.ts`) |
 
-> Il Node SSR applica anche, in automatico, **compressione gzip** su tutte le risposte testuali e un **graceful shutdown** su SIGTERM/SIGINT (drena le connessioni prima di uscire). I file statici SEO (`sitemap.xml`, `robots.txt`, `llms.txt`, `security.txt`) sono generati al build.
+> Il Node SSR applica anche, in automatico, **compressione gzip** sulle risposte testuali — **escluso lo stream di notifiche SSE**, che resta non compresso così gli eventi arrivano subito al browser invece di restare nel buffer — e un **graceful shutdown** su SIGTERM/SIGINT (drena le connessioni prima di uscire). I file statici SEO (`sitemap.xml`, `robots.txt`, `llms.txt`, `security.txt`) sono generati al build.
 
 ---
 

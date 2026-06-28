@@ -1,6 +1,10 @@
 import { ImgBuilderService, TextBlockSpec } from '../services/img-builder.service';
 import { FontMetrics } from '../services/font-metrics';
+import { loadServerFontMetrics } from './server-font-metrics';
 import { FontConfig } from '../../../../styles/font-config';
+
+// Lato server le metriche vengono dai font reali installati (fallback alle tabelle se non leggibili).
+FontMetrics.configure(loadServerFontMetrics);
 
 export interface PreviewSvgOptions {
     /** Nome applicazione mostrato nella preview SVG. */
