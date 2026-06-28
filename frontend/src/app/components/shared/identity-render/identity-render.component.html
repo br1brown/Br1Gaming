@@ -13,13 +13,15 @@
                                     <span class="badge rounded-pill border bg-body-secondary text-body font-monospace fw-normal">{{ item.value }}</span>
                                 }
                                 @case ('bool') {
-                                    <span class="badge rounded-pill"
-                                          [class.text-bg-success]="item.tone === 'success'"
-                                          [class.text-bg-secondary]="item.tone === 'secondary'"
-                                          [class.text-bg-warning]="item.tone === 'warning'"
-                                          [class.text-bg-danger]="item.tone === 'danger'"
-                                          [class.text-bg-info]="item.tone === 'info'"
-                                          [class.text-bg-primary]="item.tone === 'primary'">{{ item.value }}</span>
+                                    <!-- Coppie Bootstrap 5.3 subtle/emphasis: WCAG-safe e tone-adaptive (data-bs-theme),
+                                         a differenza di text-bg-* che col tema brand non garantisce 4.5:1 sul testo. -->
+                                    <span class="badge rounded-pill border"
+                                          [class.bg-success-subtle]="item.tone === 'success'" [class.text-success-emphasis]="item.tone === 'success'"
+                                          [class.bg-secondary-subtle]="item.tone === 'secondary'" [class.text-secondary-emphasis]="item.tone === 'secondary'"
+                                          [class.bg-warning-subtle]="item.tone === 'warning'" [class.text-warning-emphasis]="item.tone === 'warning'"
+                                          [class.bg-danger-subtle]="item.tone === 'danger'" [class.text-danger-emphasis]="item.tone === 'danger'"
+                                          [class.bg-info-subtle]="item.tone === 'info'" [class.text-info-emphasis]="item.tone === 'info'"
+                                          [class.bg-primary-subtle]="item.tone === 'primary'" [class.text-primary-emphasis]="item.tone === 'primary'">{{ item.value }}</span>
                                 }
                                 @default { <strong>{{ item.value }}</strong> }
                             }
@@ -63,5 +65,18 @@
 
     </div>
 
+    <hr />
+}
+
+@if (socialLinks().length > 0) {
+    <div class="row mb-3 text-center">
+        <div class="col">
+            @for (social of socialLinks(); track social.url) {
+                <span class="mx-2">
+                    <app-social-link [value]="social.url" [label]="social.name ?? ''" [showLabel]="true" />
+                </span>
+            }
+        </div>
+    </div>
     <hr />
 }

@@ -31,20 +31,6 @@ public class BaseController : EngineApiController
     }
 
     /// <summary>
-    /// Restituisce il profilo aziendale localizzato.
-    /// Sovrascrive la logica engine per usare <see cref="SiteService"/>
-    /// che arricchisce il profilo con i social principali.
-    /// </summary>
-    [HttpGet("profile")]
-    public async Task<IActionResult> GetProfile(CancellationToken cancellationToken)
-    {
-        Logger.LogInformation("Richiesta profilo - lingua: {Lang}", CurrentCulture);
-
-        var data = await _service.GetProfileAsync(cancellationToken);
-        return Ok(data);
-    }
-
-    /// <summary>
     /// Restituisce i social network configurati, con filtro opzionale per nome.
     /// Endpoint dimostrativo: mostra come aggiungere funzionalita' al controller ereditato dall'engine.
     /// Se il chiamante ha lo stream notifiche aperto (header <c>X-Connection-Id</c>) consegna anche una

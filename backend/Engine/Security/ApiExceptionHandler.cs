@@ -21,7 +21,7 @@ namespace Backend.Security;
 /// <para>
 /// Il flusso completo e':
 /// <list type="number">
-/// <item>Un controller lancia <c>throw new NotFoundException("profilo")</c></item>
+/// <item>Un controller lancia <c>throw new NotFoundException("utente")</c></item>
 /// <item>L'eccezione risale la pipeline fino al middleware <c>UseExceptionHandler()</c></item>
 /// <item>ASP.NET la passa a questo handler tramite <see cref="TryHandleAsync"/></item>
 /// <item>L'handler verifica che sia una nostra <see cref="ApiException"/></item>

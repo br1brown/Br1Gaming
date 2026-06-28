@@ -1,32 +1,17 @@
-using Backend.Models.Legal;
-
 namespace Backend.Store;
 
 /// <summary>
 /// Definisce il contratto di accesso ai contenuti persistenti del sito.
 /// </summary>
 /// <remarks>
-/// L'obiettivo dell'interfaccia e' isolare il resto del backend dal tipo di storage usato.
-/// e i controller dipendono soltanto da questo contratto.
+/// L'obiettivo dell'interfaccia e' isolare il resto del backend dal tipo di storage usato:
+/// i controller e i servizi dipendono soltanto da questo contratto.
+/// L'identità del sito non passa di qui: è un sottosistema dell'Engine (<c>IIdentityStore</c>).
 /// </remarks>
 public interface IContentStore
 {
     /// <summary>
-    /// Recupera il profilo legale dell'organizzazione nella lingua richiesta.
-    /// </summary>
-    /// <param name="language">
-    /// Codice lingua da usare per la risoluzione dei campi localizzati, ad esempio <c>it</c> o <c>en</c>.
-    /// </param>
-    /// <param name="cancellationToken">
-    /// Token legato alla richiesta HTTP: interrompe la lettura se il client abbandona la chiamata.
-    /// </param>
-    /// <returns>
-    /// Un modello legale completo, gia' risolto nella lingua richiesta e pronto per essere esposto dall'API.
-    /// </returns>
-    Task<UniversalLegalModel> GetProfileAsync(string language, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Recupera i link ai social network configurati per il sito.
+    /// Recupera i link ai social network configurati per il sito (galleria demo).
     /// </summary>
     /// <param name="cancellationToken">
     /// Token legato alla richiesta HTTP: interrompe la lettura se il client abbandona la chiamata.

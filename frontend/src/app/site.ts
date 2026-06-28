@@ -96,7 +96,7 @@ export const ContestoSito = buildSite({
     // Campi opzionali:
     //   requiresAuth → true = richiede login (JWT), altrimenti redirect
     //   layout       → { showPanel, showNav, showFooter } override per-pagina
-    //   otherSEO     → { ogImage, ogType, structuredDataType } meta OG/Schema.org
+    //   otherSEO     → { ogImage, ogType, structuredData, noindex } meta OG/Schema.org
     //   description  → chiave i18n o stringa per meta description + sitemap
     //   renderMode   → 'server' (default) | 'client' (no SSR)
     //   data         → dati custom passati al componente via route.data

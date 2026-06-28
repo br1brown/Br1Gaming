@@ -5,6 +5,8 @@ using FluentValidation;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.Options;
 using Backend.Delivery;
+using Backend.Engine.Localization;
+using Backend.Identity;
 using Backend.Mail;
 using Backend.Models.Configuration;
 using Backend.Notifications;
@@ -84,6 +86,8 @@ builder.Services.Configure<MailOptions>(
 var security = builder.Configuration
     .GetSection("Security")
     .Get<SecurityOptions>() ?? new SecurityOptions();
+// Lingue: codici a due lettere dichiarati in global-settings.json; EngineCultures li arricchisce
+// nelle CultureInfo tipizzate (qui per UseRequestLocalization, e in GET /localization per il frontend).
 var localization = builder.Configuration
     .GetSection("Localization")
     .Get<LocalizationOptions>() ?? new LocalizationOptions();
@@ -92,13 +96,18 @@ var mail = builder.Configuration
     .Get<MailOptions>() ?? new MailOptions();
 
 // ── SERVIZI APPLICATIVI ─────────────────────────────────────────────
-// IContentStore (FileContentStore): accesso dati, sostituibile con DB senza toccare controller.
-// SiteService: logica di business del progetto.
+// IContentStore (FileContentStore): accesso dati demo (galleria social), sostituibile con DB.
+// SiteService: logica di business del progetto. L'identità del sito è servita dall'engine (vedi AddTemplateIdentity).
 // AuthService: infrastruttura JWT, registrata solo se LoginEnabled.
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IContentStore, FileContentStore>();
 builder.Services.AddSingleton<BlobStore>();
 builder.Services.AddScoped<SiteService>();
+
+// Identità del sito: sorgente di PROGETTO (AppIdentityStore) sopra il default file-based dell'Engine.
+// Vince sul default registrato da AddTemplateIdentity (TryAdd): è qui che il figlio compone
+// l'identità da più fonti (override ComposeIdentityAsync in Store/AppIdentityStore.cs).
+builder.Services.AddSingleton<IIdentityStore, AppIdentityStore>();
 
 // Mailer: il sender (IEngineMailer) più coda + worker di invio in background. Accodare e
 // rispondere subito evita di bloccare la richiesta HTTP sull'I/O SMTP; l'invio (con retry)
@@ -125,6 +134,11 @@ builder.Services.AddTemplateNotifications();
 builder.Services.AddTemplateBackgroundTasks();
 builder.Services.AddTemplateDelivery();
 
+// Identità del sito (dati legali, social del brand, tipo entità): sottosistema dell'engine servito
+// da GET /identity. Sorgente di default file-based (data/identity.json); un figlio la sostituisce
+// registrando la propria IIdentityStore (DB/API esterna). Vedi Engine/Identity/.
+builder.Services.AddTemplateIdentity();
+
 // Registra tutti i validator FluentValidation dell'assembly corrente (Validation/).
 // I controller iniettano IValidator<T> ed eseguono la validazione esplicitamente.
 builder.Services.AddValidatorsFromAssemblyContaining<Program>(ServiceLifetime.Singleton);
@@ -146,9 +160,9 @@ builder.Services
 
 // ── LOCALIZZAZIONE ──────────────────────────────────────────────────
 //
-// Le lingue supportate vengono lette da LocalizationOptions (già registrato).
-// La lingua della richiesta viene poi risolta dall'header Accept-Language
-// inviato dal frontend (impostato dall'interceptor Angular).
+// Le lingue supportate sono i codici dichiarati in LocalizationOptions (global-settings.json),
+// arricchiti in CultureInfo da EngineCultures. La lingua della richiesta viene poi risolta
+// dall'header Accept-Language inviato dal frontend (impostato dall'interceptor Angular).
 //
 // AddLocalization abilita IStringLocalizer: i messaggi (validazione ed errori applicativi)
 // vivono nei file .resx sotto Resources/ e si risolvono per CurrentUICulture.
@@ -156,7 +170,7 @@ builder.Services.AddLocalization(options => options.ResourcesPath = "Resources")
 
 builder.Services.Configure<RequestLocalizationOptions>(options =>
 {
-    var supported = localization.SupportedLanguages.Select(l => new CultureInfo(l)).ToArray();
+    var supported = EngineCultures.Supported(localization).ToArray();
     options.DefaultRequestCulture = new RequestCulture(localization.DefaultLanguage);
     options.SupportedCultures = supported;
     options.SupportedUICultures = supported;

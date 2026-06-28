@@ -74,7 +74,7 @@
                             (click)="toggleLang()">
                         <span class="nav-dropdown-label">
                             <i [class]="getFlagClass(translate.currentLang())" aria-hidden="true" class="me-1"></i>
-                            {{ translate.currentLang() | uppercase }}
+                            {{ langName(translate.currentLang()) }}
                         </span>
                         <span class="nav-dropdown-caret" aria-hidden="true"></span>
                     </button>
@@ -86,14 +86,14 @@
                             @if (lingua === translate.currentLang()) {
                             <span class="dropdown-item language-link nav-current-link active d-flex align-items-center justify-content-between"
                                   aria-current="true">
-                                {{ lingua | uppercase }}
+                                {{ langName(lingua) }}
                                 <i class="fa-solid fa-check ms-2" aria-hidden="true"></i>
                             </span>
                             } @else {
                             <button type="button"
                                     class="dropdown-item language-link"
                                     (click)="setLanguage(lingua)">
-                                {{ lingua | uppercase }}
+                                {{ langName(lingua) }}
                             </button>
                             }
                         </li>

@@ -1,4 +1,5 @@
-import { ImgBuilderService } from '../services/img-builder.service';
+import { ImgBuilderService, TextBlockSpec } from '../services/img-builder.service';
+import { FontMetrics } from '../services/font-metrics';
 import { FontConfig } from '../../../../styles/font-config';
 
 export interface PreviewSvgOptions {
@@ -78,8 +79,6 @@ export class PreviewBuilder {
     /** Moltiplicatore line-height universale per tutti i testi multilinea */
     static readonly LINE_HEIGHT = 1.3;
 
-    /** Stima px/char per i calcoli della larghezza dei font SVG (usata in wrapText e calcolo box). */
-    static readonly CHAR_WIDTH_RATIO = 0.55;
     /** Offset per spostarsi dalla cima del cap-box alla baseline tipografica nei nodi <text>. */
     static readonly BASELINE_OFFSET_RATIO = 0.8;
 
@@ -101,6 +100,20 @@ export class PreviewBuilder {
     static readonly CANVAS_WIDTH = 1200;
     static readonly CANVAS_HEIGHT = 630;
     static readonly FAVICON_SIZE = 200;
+
+    // --- Limiti righe (anti-overflow verticale) ---
+    /** Max righe del titolo nella preview testuale (centrata: oltre sforerebbe il canvas). */
+    static readonly MAX_TITLE_LINES = 3;
+    /** Max righe del sottotitolo nella preview testuale. */
+    static readonly MAX_SUBTITLE_LINES = 3;
+    /** Max righe del badge titolo sopra l'immagine (oltre il pill crescerebbe troppo). */
+    static readonly MAX_BADGE_LINES = 3;
+
+    // --- Shrink-to-fit (preview testuale) ---
+    /** Scala minima del font sotto cui non si scende: oltre, si tronca invece di rimpicciolire. */
+    static readonly MIN_FONT_SCALE = 0.6;
+    /** Passo di riduzione della scala a ogni tentativo di fit. */
+    static readonly FONT_SHRINK_STEP = 0.05;
 
     // =========================================================
     // LOGICA PREVIEW SVG
@@ -138,40 +151,49 @@ export class PreviewBuilder {
         // Spazio massimo in larghezza a disposizione del testo
         const maxWidthPx = r.width - r.horizontalPadding * 2;
 
-        // Calcolo dello step (in pixel) tra una riga e l'altra basato sul line-height
-        const titleLineStep = r.titleFontSize * r.titleLineHeight;
-        const subtitleLineStep = r.subtitleFontSize * r.subtitleLineHeight;
-
         const esc = ImgBuilderService.escapeXml;
 
-        // Suddivisione in righe basata sullo spazio orizzontale
-        const titleLines = ImgBuilderService.wrapText(r.title, maxWidthPx, r.titleFontSize);
-        const subtitleLines = r.subtitle
-            ? ImgBuilderService.wrapText(r.subtitle, maxWidthPx, r.subtitleFontSize)
-            : [];
+        // Shrink-to-fit (canvas fisso 1200x630): si riducono i font di titolo/sottotitolo finché
+        // il testo entra; solo se nemmeno al minimo leggibile entra, si tronca con ellissi.
+        // Il calcolo è delegato alla funzione pura condivisa ImgBuilderService.fitTextBlocks,
+        // con misura reale del font server (FontMetrics) invece della stima 0.55.
+        // Elementi fissi sopra il testo (non scalati): nome app (se presente) + favicon + spaziature.
+        // appName vuoto (es. home: il nome app fa già da titolo) → la sua riga non occupa spazio,
+        // così favicon e titolo restano centrati senza un gap fantasma in alto.
+        const hasAppName = r.appName.length > 0;
+        const reservedHeight = (hasAppName ? r.appFontSize + r.spacing : 0) + r.faviconSize + r.spacing;
+        const availableTextHeight = r.height - this.SPACING_MD * 2 - reservedHeight;
 
-        // Calcolo dell'altezza totale del blocco titolo (Font base + N righe aggiuntive)
-        const titleBlockHeight = r.titleFontSize + (titleLines.length - 1) * titleLineStep;
+        const blocks: TextBlockSpec[] = [
+            { text: r.title, baseFontSize: r.titleFontSize, lineHeight: r.titleLineHeight, maxLines: this.MAX_TITLE_LINES, bold: true },
+        ];
+        if (r.subtitle) {
+            blocks.push({ text: r.subtitle, baseFontSize: r.subtitleFontSize, lineHeight: r.subtitleLineHeight, maxLines: this.MAX_SUBTITLE_LINES });
+        }
+        const fit = ImgBuilderService.fitTextBlocks(blocks, maxWidthPx, availableTextHeight, r.spacing, {
+            minScale: this.MIN_FONT_SCALE, step: this.FONT_SHRINK_STEP, measureFn: FontMetrics.measure,
+        });
 
-        // Calcolo dell'altezza totale del blocco sottotitolo (se presente)
-        const subtitleBlockHeight = subtitleLines.length > 0
-            ? r.subtitleFontSize + (subtitleLines.length - 1) * subtitleLineStep
-            : 0;
-
-        // Altezza cumulativa di tutti gli elementi per poterli centrare verticalmente nel canvas
-        const totalHeight = r.appFontSize
-            + r.spacing + r.faviconSize
-            + r.spacing + titleBlockHeight
-            + (subtitleBlockHeight > 0 ? r.spacing + subtitleBlockHeight : 0);
+        const titleFit = fit.blocks[0];
+        const subtitleFit = fit.blocks[1]; // undefined quando non c'è sottotitolo
+        const titleLines = titleFit.lines;
+        const titleFontSize = titleFit.fontSize;
+        const titleLineStep = titleFit.lineStep;
+        const titleBlockHeight = titleFit.blockHeight;
+        const subtitleLines = subtitleFit?.lines ?? [];
+        const subtitleFontSize = subtitleFit?.fontSize ?? r.subtitleFontSize;
+        const subtitleLineStep = subtitleFit?.lineStep ?? 0;
 
         // Coordinata Y di partenza per centrare in blocco il contenuto
+        const totalHeight = reservedHeight + fit.textHeight;
         let topY = (r.height - totalHeight) / 2;
 
-        /** Nodo SVG del nome applicazione (in alto). */
-        const appNameEl =
-            `<text x="${cx}" y="${topY + r.appFontSize}" font-family="${esc(r.fontFamily)}" font-size="${r.appFontSize}" font-weight="400" fill="${esc(r.textColor)}" text-anchor="middle" opacity="${this.OPACITY_TEXT_SECONDARY}">${esc(r.appName)}</text>`;
+        /** Nodo SVG del nome applicazione (in alto). Omesso quando appName è vuoto. */
+        const appNameEl = hasAppName
+            ? `<text x="${cx}" y="${topY + r.appFontSize}" font-family="${esc(r.fontFamily)}" font-size="${r.appFontSize}" font-weight="400" fill="${esc(r.textColor)}" text-anchor="middle" opacity="${this.OPACITY_TEXT_SECONDARY}">${esc(r.appName)}</text>`
+            : '';
 
-        topY += r.appFontSize + r.spacing;
+        if (hasAppName) topY += r.appFontSize + r.spacing;
 
         /** Nodo SVG favicon/logo centrale. Centrato rispetto a X = cx. */
         const faviconEl = r.faviconDataUrl
@@ -187,7 +209,7 @@ export class PreviewBuilder {
 
         /** Nodo SVG del titolo principale. */
         const titleEl =
-            `<text x="${cx}" y="${topY + r.titleFontSize}" font-family="${esc(r.fontFamily)}" font-size="${r.titleFontSize}" font-weight="700" fill="${esc(r.textColor)}" text-anchor="middle">${titleTspans}</text>`;
+            `<text x="${cx}" y="${topY + titleFontSize}" font-family="${esc(r.fontFamily)}" font-size="${titleFontSize}" font-weight="700" fill="${esc(r.textColor)}" text-anchor="middle">${titleTspans}</text>`;
 
         topY += titleBlockHeight + r.spacing;
 
@@ -201,7 +223,7 @@ export class PreviewBuilder {
 
             /** Nodo SVG del sottotitolo. */
             subtitleEl =
-                `<text x="${cx}" y="${topY + r.subtitleFontSize}" font-family="${esc(r.fontFamily)}" font-size="${r.subtitleFontSize}" font-weight="400" fill="${esc(r.textColor)}" text-anchor="middle" opacity="${this.OPACITY_TEXT_SECONDARY}">${subtitleTspans}</text>`;
+                `<text x="${cx}" y="${topY + subtitleFontSize}" font-family="${esc(r.fontFamily)}" font-size="${subtitleFontSize}" font-weight="400" fill="${esc(r.textColor)}" text-anchor="middle" opacity="${this.OPACITY_TEXT_SECONDARY}">${subtitleTspans}</text>`;
         }
 
         /** SVG finale completo di background e raggruppamento nodi. */
@@ -248,11 +270,18 @@ export class PreviewBuilder {
         // Spazio disponibile per il testo (al netto dei padding orizzontali e del limite destro del canvas).
         const maxTextW = r.maxRight - r.anchorLeft - r.hPadL - r.hPadR;
 
-        /** Righe wrappate del titolo badge. */
-        const lines = ImgBuilderService.wrapText(r.title, maxTextW, r.fontSize);
+        /** Righe wrappate del titolo badge. Il font è fisso (proporzionato alla favicon), quindi
+         *  niente shrink (minScale 1): fitTextBlocks serve qui solo a wrappare e troncare con ellissi
+         *  oltre MAX_BADGE_LINES, con la stessa misura reale del font (FontMetrics) del resto.
+         *  L'altezza disponibile è fissata a MAX_BADGE_LINES righe così il cap scatta sempre. */
+        const maxBadgeHeight = r.fontSize + (this.MAX_BADGE_LINES - 1) * r.lineStep;
+        const lines = ImgBuilderService.fitTextBlocks(
+            [{ text: r.title, baseFontSize: r.fontSize, lineHeight: this.LINE_HEIGHT, maxLines: this.MAX_BADGE_LINES, bold: true }],
+            maxTextW, maxBadgeHeight, 0, { minScale: 1, measureFn: FontMetrics.measure },
+        ).blocks[0].lines;
 
-        /** Lunghezza in caratteri della riga più lunga (serve per calcolare la larghezza del rettangolo di sfondo). */
-        const longestLen = Math.max(...lines.map(l => l.length));
+        /** Larghezza in pixel della riga più lunga, misurata con le metriche reali del font. */
+        const longestLineW = Math.max(...lines.map(l => FontMetrics.measure(l, r.fontSize, true)));
 
         /** Altezza del blocco multilinea del testo badge (senza padding). */
         const blockHeight = r.fontSize + (lines.length - 1) * r.lineStep;
@@ -260,12 +289,13 @@ export class PreviewBuilder {
         /** Altezza finale del rettangolo del badge/pill (includendo i padding verticali). */
         const badgeH = Math.round(blockHeight + r.vPad * 2);
 
-        /** Larghezza finale del badge, che non deve superare il margine destro impostato (maxRight).
-         *  Si basa sulla costante CHAR_WIDTH_RATIO per stimare la larghezza del testo. */
-        const badgeW = Math.round(Math.min(
-            longestLen * r.fontSize * this.CHAR_WIDTH_RATIO + r.hPadL + r.hPadR,
+        /** Larghezza finale del badge: si stringe sul testo reale ma non supera il margine destro.
+         *  Clamp a >=0: con geometrie degeneri (anchorLeft > maxRight) eviterebbe un rect a
+         *  larghezza negativa, che è SVG non valida. */
+        const badgeW = Math.max(0, Math.round(Math.min(
+            longestLineW + r.hPadL + r.hPadR,
             r.maxRight - r.anchorLeft
-        ));
+        )));
 
         /** Coordinata Y superiore del rettangolo del badge (centrato verticalmente su anchorCenterY). */
         const badgeY = Math.round(r.anchorCenterY - badgeH / 2);

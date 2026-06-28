@@ -1,0 +1,47 @@
+# Changelog
+
+Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
+
+## [Non rilasciato]
+
+### Identità del sito centralizzata nell'Engine
+
+L'identità del sito — dati legali/anagrafici, profili social del brand, natura dell'entità — è ora un **sottosistema dell'Engine**, sorgente unica per footer, pagine legali e SEO (JSON-LD).
+
+- **Backend:** nuovo `IIdentityStore` (default `FileIdentityStore`, `AddTemplateIdentity`) + endpoint Engine `GET /identity`, che legge `data/identity.json`. Modello `SiteIdentity` (ex `UniversalLegalModel`), con `Social` (profili brand) e `Personal` (tipo entità). File assente → risposta `null`, niente errore.
+- **Dato:** `data/irl.json` → **`data/identity.json`** (validato dallo schema engine `Engine/Models/Identity/identity.schema.json` via `$schema`). I social del brand vivono qui, non più in `global-settings.json`.
+- **Frontend:** nuovo `IdentityService` (Engine, risorsa condivisa `identity()`, una fetch per lingua). `page-meta.service` deriva `sameAs`/`@type`/`twitter:site` dall'identità (runtime, risolta in SSR). Rimossi `site.social` e `site.personal` da `global-settings.json` / `SiteConfig` / `environment`.
+- **Componente:** `app-profile-render` → **`app-identity-render`**, con input `[identity]` e flag `[showSocial]` (footer sì, pagine legali no).
+- **Demo separata:** la galleria social (`GET /social`, `social.json`, pagina Social, `IContentStore`/`SiteService`) resta una demo a sé; il `setup.mjs` (eject) la brucia per intero, mentre l'identità sopravvive (il figlio riempie solo `identity.json`).
+
+### Identità: orari strutturati, social URL-driven, JSON-LD compliant
+
+- **Orari come lista di intervalli tipizzati:** `openingHours` in `SiteIdentity` è `List<OpeningHoursInterval>` — ogni voce `{ Day: DayOfWeek, Opens/Closes: TimeOnly }`. Chi sviluppa dichiara **col framework** (`DayOfWeek.Tuesday`, `TimeOnly`), senza stringhe magiche né conoscere schema.org; i cast li fa l'Engine (converter: sul filo è `{ day:"Tuesday", opens:"09:00", closes:"18:00" }`). Più voci sullo stesso giorno = più fasce (pausa pranzo). Il frontend **deriva** sia la resa leggibile (fonde i giorni con orari identici, "lun–ven 09:00–18:00") sia le `OpeningHoursSpecification` (`ContactPoint.hoursAvailable`) — dove `DayOfWeek` è già il nome `schema.org/Tuesday`, via la mappa scritta a mano. Sostituisce il vecchio testo libero `metadatiAggiuntivi.orariContatto`.
+- **Social come lista di URL, con nome opzionale per il footer:** `SiteIdentity.Social` è una lista dove ogni voce è un URL (stringa nuda) **oppure** `{ url, name }`. Il `name` (anche localizzato `{it,en}`) è l'etichetta resa **solo nel footer** accanto all'icona — utile per distinguere più profili dello stesso social (es. "Instagram — sede IT" / "— sede EN"); icona (regex sull'URL) e `sameAs` JSON-LD usano solo l'URL. Il nome auto-dedotto usa il casing ufficiale (LinkedIn/WhatsApp/YouTube). Il `type` del componente resta override opzionale.
+- **Entità brand JSON-LD più ricca:** aggiunti `address` (`PostalAddress` dalla sede) e `contactPoint` (`ContactPoint` con telefono/email + `hoursAvailable` + `availableLanguage` dalle lingue del sito) all'`Organization`/`Person`. Per l'`Organization` anche `legalName`/`vatID`/`taxID` da ragione sociale/P.IVA/CF (dati già presenti, ora emessi).
+- **Valuta dichiarata, non dedotta:** nuovo `currency` (ISO 4217) in `SiteIdentity`; il capitale sociale si formatta con quella valuta nella lingua corrente (via `Intl`), togliendo l'EUR hardcoded. È il pattern "dichiara il fatto, deriva la forma" — l'identità (paese/valuta) è un fatto, il locale del visitatore decide solo il formato.
+- **Composizione da più fonti:** `FileIdentityStore` ora ha l'hook `protected virtual ComposeIdentityAsync` (passthrough), e il template registra `Store/AppIdentityStore.cs` (**di proprietà del progetto**) dove il figlio fonde l'identità da fonti diverse dal file (DB/API) senza riscrivere la lettura.
+- **Via di fuga JSON-LD (`extra`):** nuovo `Extra` (`Dictionary<string,object>`) in `SiteIdentity`, fuso nel nodo entità brand del JSON-LD. Permette qualsiasi proprietà schema.org non tipizzata (geo, foundingDate, campi di LocalBusiness…) senza toccare modello né adapter. È fuso **per ultimo**, quindi sovrascrive i default dell'Engine — incluso il `@type` (es. → `LocalBusiness`); restano riservati all'Engine solo `@context` e `@id` (perni del grafo). La validità schema.org è a carico del progetto.
+- **Rappresentante legale tipizzato:** `rappresentanteLegale` è un campo noto di `SiteIdentity` (anche localizzato), non più pescato da `metadatiAggiuntivi` per chiave magica (un typo lo faceva sparire). `metadatiAggiuntivi` resta sul modello ma **non è più reso** dall'identità: il render mostra solo dati noti/tipizzati.
+- **Fix:** i badge booleani passano a `bg-*-subtle`/`text-*-emphasis` (WCAG-safe sul tema, risolve un contrasto 2.89:1).
+
+### Localizzazione: codici dichiarati, cultura derivata dal framework
+
+I codici lingua restano una **dichiarazione semplice** (2 lettere) in `global-settings.json` → `Localization`; il backend li **arricchisce nelle culture .NET tipizzate** e serve tutto via API — niente più mappe hardcoded nel frontend né calcolo dei giorni a mano. "Dichiari il noto — i codici — e il framework deriva il resto."
+
+- **Nuovo endpoint `GET /localization` (`SiteLocalization`):** dai codici di `Localization.SupportedLanguages` l'Engine ricava, via `CultureInfo`, `current` (tag BCP-47 specifico, es. `it-IT`), `default`, `dayNames` (`{ Mo: "lun", … }` da `DateTimeFormat`) e `languages` (`[{ code, code3, name }]` — codici a 2/3 lettere e nome nativo da `NativeName`). `EngineCultures` è l'helper codici→cultura (con deduplica difensiva contro l'append del binder di config). Nuovo `LocalizationService` frontend (risorsa condivisa, SSR-resolved come l'identità).
+- **Frontend: via le ruote reinventate.** `app-identity-render` non mappa più `it→it-IT`/`en→en-GB` a mano né calcola i nomi giorno con un trucco su una data ancorata: legge tag BCP-47 e nomi giorno da `/localization` (orari e valuta formattati con quel locale). Il **selettore lingua** mostra i **nomi nativi** ("Italiano"/"English"), non più il codice in maiuscolo.
+- **`Localization` in `global-settings.json` resta** la sorgente dei codici (la leggono anche i consumatori sincroni a module-load: pagina cookie multilingua, fallback `pickLocaleText`, `RequestLocalization`); l'API ne è l'arricchimento tipizzato.
+- **Paese come codice ISO, nome dal framework:** `sedeLegale.nazione` passa da testo libero a **codice ISO 3166-1 alpha-2** (`"IT"`). Il footer ne deriva il nome localizzato con `Intl.DisplayNames` (il gemello JS di `RegionInfo`, come `Intl.NumberFormat` per la valuta); il JSON-LD `addressCountry` usa il codice (forma preferita da schema.org/Google). Testo legacy non-codice → reso così com'è (migrazione morbida). *Migrazione figlio: `"nazione": "Italia"` → `"nazione": "IT"`.*
+
+### Lettura di global-settings.json tipizzata
+
+- **Tipo `GlobalSettings` generato dallo schema:** la lettura del config nel frontend (`generate-statics`, `server-env`) passa da accesso a chiavi-stringa (`s['Localization']`) al tipo `GlobalSettings` **generato da `global-settings.schema.json`** (`json-schema-to-typescript`, `npm run generate:types`). Lo schema resta la **sorgente unica** (niente interfaccia scritta a mano: via il `Br1Json` partial); un typo di chiave è errore a `tsc`. Il tipo è un seed committato (lo schema non è nel build context Docker del frontend), rigenerato a mano quando cambia lo schema.
+
+### Sicurezza: JSON-LD a prova di breakout, identità tollerante
+
+- **JSON-LD XSS-safe:** gli script `application/ld+json` escapano `<`/`>`/`&` in `\uXXXX`, così nessun valore (identità, structured data di pagina, `extra`, dati da CMS/DB) può chiudere il `<script>` e iniettare markup. Vale per tutti i nodi del grafo; i parser decodificano gli escape, il dato resta valido.
+- **Identità validata con le primitive del framework, non con regex a mano:** gli URL social via `Uri.TryCreate` (assoluto http/https; fuori `javascript:`/relativi/garbage), le **email/PEC** via `System.Net.Mail.MailAddress`, il **telefono** (lascamente) via `PhoneAttribute` (DataAnnotations) — malformati → scartati (non resi, fuori dal JSON-LD); le voci social scartate non lasciano `null` nella risposta (compattate nello store). Gli **orari** sono tipizzati (`TimeOnly`): un orario impossibile è errore al deserialize, e il frontend ha guardie `isHm` per dati sporchi a runtime. Un `identity.json` con tipi errati fa rispondere `GET /identity` con 500 (loggato) ma il sito resta su e degrada (footer/JSON-LD si nascondono); i campi fuori schema vengono scartati. `extra` resta l'unico canale per dati off-schema.
+- **`twitter:site` da parsing `URL`, non regex:** l'handle Twitter/X per `twitter:site` si estrae con la primitiva `URL` (host esatto + handle dal path), più robusta della vecchia regex sul testo dell'URL.
+
+**Migrazione per un figlio:** rinomina `backend/data/irl.json` in `identity.json`, sposta dentro i profili social del brand (`"social": [ … ]`, lista di URL) e l'eventuale `"personal": true`; rimuovi `site.social`/`site.personal` da `global-settings.json`. La sezione `Localization` di `global-settings.json` resta (codici a 2 lettere); il backend la arricchisce nelle culture tipizzate e le serve via `GET /localization` — niente da migrare lì.

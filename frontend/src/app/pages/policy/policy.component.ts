@@ -4,24 +4,23 @@ import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { CookieConsentService, buildPhysicalCookieKey } from '../../core/engine/services/cookie-consent.service';
 import { ConsentCategory, CookieConfig, EngineCookieKey, StorageMedium } from '../../core/engine/services/cookie/cookie-type';
 import { COOKIE_MAP, type CookieKey } from '../../core/services/cookie-registry';
-import { ProfileRenderComponent } from '../../components/shared/profile-render/profile-render.component';
-import type { Profile } from '../../core/engine/dto/profile.dto';
+import { IdentityRenderComponent } from '../../components/shared/identity-render/identity-render.component';
+import { IdentityService } from '../../core/engine/services/identity.service';
+import type { Identity } from '../../core/engine/dto/identity.dto';
 
 @Component({
     selector: 'app-policy',
-    imports: [MarkdownPipe, ProfileRenderComponent],
+    imports: [MarkdownPipe, IdentityRenderComponent],
     templateUrl: './policy.component.html'
 })
 export class PolicyComponent extends PageBaseComponent<string> {
     private readonly cookieConsent = inject(CookieConsentService);
+    private readonly identityService = inject(IdentityService);
 
     readonly ConsentCategory = ConsentCategory;
 
-    /** Profilo originale per il ProfileRenderComponent */
-    readonly rawProfile = signal<Profile | null>(null);
-
-    /** Flag per evitare fetch multipli in caso di errore */
-    private readonly profileLoaded = signal(false);
+    /** Identità per l'IdentityRenderComponent (dalla risorsa condivisa dell'engine). */
+    readonly identity = signal<Identity | null>(null);
 
     readonly cookieCategories = computed(() => {
         const categories: { key: ConsentCategory; name: string; description: string }[] = [];
@@ -95,14 +94,14 @@ export class PolicyComponent extends PageBaseComponent<string> {
     });
 
     readonly segments = computed(() => {
-        const profile = this.rawProfile();
+        const identity = this.identity();
         let content = this.pageContent() ?? '';
         if (!content) return [];
 
-        if (profile) {
-            const fields: (keyof Profile)[] = ['ragioneSociale', 'partitaIva', 'codiceFiscale'];
+        if (identity) {
+            const fields: (keyof Identity)[] = ['ragioneSociale', 'partitaIva', 'codiceFiscale'];
             for (const field of fields) {
-                const val = profile[field];
+                const val = identity[field];
                 if (typeof val === 'string') {
                     content = content.replaceAll(`{{${field}}}`, val);
                 }
@@ -125,23 +124,9 @@ export class PolicyComponent extends PageBaseComponent<string> {
 
     constructor() {
         super();
-        effect(() => {
-            const content = this.pageContent();
-            const needsProfile = content != null && (
-                content.includes('{{companyProfile}}') ||
-                content.includes('{{ragioneSociale}}') ||
-                content.includes('{{partitaIva}}') ||
-                content.includes('{{codiceFiscale}}')
-            );
-            if (needsProfile && !this.profileLoaded()) {
-                this.api.getProfile()
-                    .then(p => {
-                        this.rawProfile.set(p);
-                        this.profileLoaded.set(true);
-                    })
-                    .catch(() => this.profileLoaded.set(true));
-            }
-        });
+        // L'identità arriva dalla risorsa condivisa dell'engine (già fetchata dal footer): qui la
+        // si rispecchia nel signal locale, senza un fetch dedicato. Null finché non risolta/assente.
+        effect(() => this.identity.set(this.identityService.identity()));
     }
 
 

@@ -67,9 +67,9 @@
                         }
                     </div>
                 } @else if (seg.type === 'profile') {
-                    @if (rawProfile()) {
+                    @if (identity()) {
                         <div class="my-4">
-                            <app-profile-render inColonna [profile]="rawProfile()"></app-profile-render>
+                            <app-identity-render inColonna [identity]="identity()"></app-identity-render>
                         </div>
                     }
                 }

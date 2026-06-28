@@ -8,6 +8,10 @@ import { AssetHandler } from '../asset-handler';
 import { inProgress, runImageJob } from '../image-cache';
 import { fileExists } from '../fs-utils';
 
+/** Tetto al tempo di decode/resize per singola richiesta: blinda contro file patologici/decode lenti
+ *  (il cap sui pixel d'ingresso lo dà già `limitInputPixels` di default di Sharp, ~268MP). */
+const SHARP_TIMEOUT = { seconds: 15 };
+
 /**
  * Endpoint CDN Asset: gestisce il recupero e l'ottimizzazione delle immagini al volo.
  * Risolve l'ID nel file sorgente, valida la larghezza contro la whitelist, e serve
@@ -48,7 +52,7 @@ export async function cdnAssetHandler(req: Request, res: Response): Promise<void
         }
 
         /** Analizza i metadati dell'originale per evitare di ingrandire immagini piccole (pixel sgranati) */
-        const metadata = await sharp(absolutePath).metadata();
+        const metadata = await sharp(absolutePath).timeout(SHARP_TIMEOUT).metadata();
         const originalWidth = metadata.width || 0;
         const finalWidth = originalWidth < requestedWidth ? originalWidth : requestedWidth;
 
@@ -70,6 +74,7 @@ export async function cdnAssetHandler(req: Request, res: Response): Promise<void
             // AVIF rende qualità equivalente a WebP con quality più bassa (file più piccoli).
             // runImageJob limita la concorrenza globale dei job sharp (CPU/RAM).
             job = runImageJob(() => sharp(absolutePath)
+                .timeout(SHARP_TIMEOUT)
                 .resize(finalWidth, null, { withoutEnlargement: true, fastShrinkOnLoad: true })
                 .toFormat(format, { quality: format === 'avif' ? 55 : 80 })
                 .toFile(cacheFile)

@@ -102,11 +102,19 @@ export abstract class PageBaseComponent<T> {
 
     constructor() {
         effect(() => {
-            const info = this._resolved()?.info;
+            const resolved = this._resolved();
+            const info = resolved?.info;
             if (!info) return;
             const title = info.title ? this.translate.translate(info.title) : '';
             const description = info.description ? this.translate.translate(info.description) : null;
-            this.pageMeta.setPageMeta(title, description, info.ogImage, info.ogType, info.structuredDataType);
+            // structuredData dinamico (dal resolver, derivato dal contenuto) ha la precedenza sullo
+            // statico dichiarato in site.ts (otherSEO.structuredData → info.structuredData).
+            const structuredData = resolved?.structuredData ?? info.structuredData ?? null;
+            this.pageMeta.setPageMeta({
+                title, description,
+                imgId: info.ogImage, ogType: info.ogType,
+                structuredData,
+            });
         });
     }
 }

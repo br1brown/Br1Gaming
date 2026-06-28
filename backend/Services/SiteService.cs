@@ -1,5 +1,3 @@
-using System.Globalization;
-using Backend.Models.Legal;
 using Backend.Store;
 
 namespace Backend.Services;
@@ -8,9 +6,10 @@ namespace Backend.Services;
 /// Raccoglie i casi d'uso applicativi del sito esposti dalle API pubbliche.
 /// </summary>
 /// <remarks>
-/// Il servizio orchestra logica di dominio leggera sopra <see cref="IContentStore"/>:
-/// filtri, scelta della lingua corrente e arricchimento dei modelli restituiti.
-/// Non conosce il dettaglio dello storage e per questo non dipende da file, database o provider esterni.
+/// Il servizio orchestra logica di dominio leggera sopra <see cref="IContentStore"/>: per ora il
+/// filtro della galleria social demo. Non conosce il dettaglio dello storage.
+/// L'identità del sito (dati legali, social del brand, tipo entità) è invece servita dall'Engine
+/// (<c>GET /identity</c>): non passa da qui.
 /// </remarks>
 public class SiteService
 {
@@ -52,34 +51,5 @@ public class SiteService
         return data
             .Where(kv => filtro.Contains(kv.Key.ToLowerInvariant()))
             .ToDictionary(kv => kv.Key, kv => kv.Value);
-    }
-
-    /// <summary>
-    /// Recupera il profilo aziendale nella lingua corrente dell'applicazione,
-    /// arricchito con i social principali.
-    /// </summary>
-    /// <param name="cancellationToken">Token della richiesta HTTP, propagato allo store.</param>
-    /// <returns>
-    /// Un <see cref="UniversalLegalModel"/> localizzato con la sezione social valorizzata.
-    /// </returns>
-    /// <remarks>
-    /// La lingua effettiva viene presa da <see cref="CultureInfo.CurrentCulture"/>.
-    /// </remarks>
-    public async Task<UniversalLegalModel> GetProfileAsync(CancellationToken cancellationToken = default)
-    {
-        var language = CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
-        var profile = await _store.GetProfileAsync(language, cancellationToken);
-        var social = await _store.GetSocialAsync(cancellationToken);
-
-        // Esempio/demo: il profilo pubblico mostra solo un sottoinsieme "principale" di social.
-        // Logica di dominio del progetto, non dell'Engine: nel figlio si adatta (o si toglie)
-        // il filtro, non il servizio. Se il sito non espone social, lascia Social non
-        // valorizzato: il footer di default nasconde da solo la sezione.
-        string[] principali = ["linkedin", "whatsapp", "facebook"];
-        profile.Social = social
-            .Where(kv => principali.Contains(kv.Key, StringComparer.OrdinalIgnoreCase))
-            .ToDictionary(kv => kv.Key, kv => kv.Value);
-
-        return profile;
     }
 }

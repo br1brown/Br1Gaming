@@ -42,11 +42,12 @@ const knownPagePaths = new Set(
     ContestoSito.serverRenderEntries.map(entry => normalizePagePath(entry.path))
 );
 
-/** Path delle pagine protette (`requiresAuth`): il server le marca `noindex` così non
- *  finiscono nell'indice, senza elencarle in robots.txt (che ne rivelerebbe i path). */
+/** Path non indicizzabili: pagine protette (`requiresAuth`) e pagine `otherSEO.noindex`.
+ *  Il server le marca `noindex` via header così non finiscono nell'indice, senza elencarle
+ *  in robots.txt (che ne rivelerebbe i path). */
 const noindexPagePaths = new Set(
     ContestoSito.serverRenderEntries
-        .filter(entry => entry.requiresAuth)
+        .filter(entry => entry.requiresAuth || entry.noindex)
         .map(entry => normalizePagePath(entry.path))
 );
 
@@ -319,6 +320,14 @@ app.use(async (request: Request, response: Response, next) => {
             if (lk === 'cache-control' || lk === 'content-security-policy' || lk === 'content-length') return;
             response.setHeader(key, value);
         });
+
+        // Locale-adaptive serving: con sito multilingua il contenuto varia per Accept-Language
+        // sullo stesso URL (negoziazione lingua via header/cookie, nessun URL localizzato).
+        // `Vary` lo segnala a cache/CDN ed è il segnale che Google usa per il crawling
+        // locale-adaptive. Impostato dopo l'inoltro degli header Angular per non farselo sovrascrivere.
+        if (serverEnv.site.multiLang) {
+            response.setHeader('Vary', 'Accept-Language');
+        }
 
         // CSP: in prod nonce per-request (+ hash dello script event-dispatch build-time,
         // vedi eventReplayScriptSrc), in dev 'unsafe-inline' (richiesto da HMR)

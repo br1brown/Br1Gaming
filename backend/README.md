@@ -22,7 +22,7 @@ L'Engine si estende **dall'esterno**: si eredita da una classe base, si registra
 
 **Validazione, errori e sessione.** La validazione degli input è un `AbstractValidator<T>` (auto-registrato); un nuovo tipo d'errore è una sottoclasse di `ApiException` con la sua chiave nei `.resx`; la forma del payload di sessione è il record `SessionInfo` incapsulato nel claim del JWT. *Vedi «Usa FluentValidation per gli Input», «Lancia Eccezioni per gli Errori», «Sistema di Login e Sessioni JWT».*
 
-**Configurazione.** Sicurezza, mailer e lingue si regolano dalle sezioni `Security.*` / `Mail.*` / `Localization.*`; per i valori liberi di progetto c'è `Custom:`, letta da `IConfiguration`. Gli header di sicurezza del browser vivono in `security-headers.json` (override eccezionale solo dove annotato nella sua `_nota`). *Vedi i riferimenti «SecurityOptions», «MailOptions», «LocalizationOptions», «Sezione Custom» e il [README root](../README.md) per la policy di override.*
+**Configurazione.** Sicurezza, mailer e lingue si regolano dalle sezioni `Security.*` / `Mail.*` / `Localization.*` (le lingue sono codici a 2 lettere, che il backend arricchisce nelle culture .NET); per i valori liberi di progetto c'è `Custom:`, letta da `IConfiguration`. Gli header di sicurezza del browser vivono in `security-headers.json` (override eccezionale solo dove annotato nella sua `_nota`). *Vedi i riferimenti «SecurityOptions», «MailOptions», «LocalizationOptions», «Sezione Custom» e il [README root](../README.md) per la policy di override.*
 
 ---
 
@@ -123,11 +123,11 @@ Un oggetto è considerato un blocco i18n *solo se tutte le sue chiavi sono codic
 2. `Localization.DefaultLanguage` (es. `"it"`)
 3. Primo valore non vuoto trovato nell'oggetto
 
-**Normalizzazione:** `Accept-Language: it-IT,it;q=0.9` → prima preferenza `"it-IT"` → `CultureInfo.TwoLetterISOLanguageName` → `"it"`. Tag non riconosciuti da `CultureInfo` (es. `"xyz"`) ricadono sul `DefaultLanguage`.
+**Normalizzazione:** `Accept-Language: it-IT,it;q=0.9` → prima preferenza `"it-IT"` → `CultureInfo.TwoLetterISOLanguageName` → `"it"`. Tag non riconosciuti da `CultureInfo` (es. `"xyz"`) ricadono sulla lingua di default.
 
 **Pruning dei valori vuoti:** dopo la risoluzione, i campi il cui valore diventa stringa vuota, array vuoto o oggetto vuoto vengono **rimossi** dall'output. Il campo corrispondente nel modello risultante sarà `null`, non una stringa vuota.
 
-> **Prima di aggiungere una lingua a `SupportedLanguages`:** verifica che nessun campo dati in `irl.json` usi quel codice come chiave, così l'oggetto continua a essere interpretato come dato di dominio e non come blocco i18n.
+> **Prima di aggiungere una lingua a `SupportedLanguages`:** verifica che nessun campo dati in `identity.json` usi quel codice come chiave, così l'oggetto continua a essere interpretato come dato di dominio e non come blocco i18n.
 
 #### Invalidare la cache dei contenuti
 
@@ -422,7 +422,7 @@ API key — di solito è ciò che vuoi, ma sappi qual è l'interruttore quando *
 `CurrentCulture`/`CurrentLanguage` del controller base leggono `CultureInfo.CurrentCulture`, **non**
 parsano `Accept-Language` a mano: è `UseRequestLocalization` (early nella pipeline) a impostare la
 cultura sul contesto async-local della richiesta, e queste proprietà la rileggono. Stessa fonte usata da
-`SiteService.GetProfileAsync` e da `FileContentStore`. Comodo, ma con un limite:
+`FileIdentityStore` (`GET /identity`) e da `FileContentStore`. Comodo, ma con un limite:
 
 **In un task in background non c'è una richiesta, quindi non c'è cultura di richiesta.** Il lavoro
 accodato con `BackgroundQueue.TryEnqueue(...)` gira **fuori dal contesto HTTP** (scope DI proprio,
@@ -667,7 +667,7 @@ Cosa è importante capire: **non tutte le sezioni del file finiscono nel backend
 da tre consumer (backend ASP.NET, frontend Node SSR, `deploy.sh`), e ognuno legge la sua fetta.
 Lato **backend**, `Program.cs` lega come `IOptions<T>` **solo** `Security`, `Localization` e `Mail`
 (`builder.Services.Configure<…>`), e legge `Custom` ad-hoc via `IConfiguration` (non un `*Options`
-tipizzato). Le sezioni `project` e `site` (più `frontend`/`backend` di deploy) **non sono lette dal
+tipizzato). I codici di `Localization` vengono poi arricchiti nelle culture .NET da `EngineCultures`. Le sezioni `project` e `site` (più `frontend`/`backend` di deploy) **non sono lette dal
 backend**: sono **frontend-owned** / di deploy. Quindi mettere una chiave applicativa dentro `site`
 aspettandosi che il backend la veda non funziona — i valori liberi che il backend deve leggere vanno in
 **`Custom`** (vedi *Sezione `Custom`*).
@@ -710,10 +710,18 @@ Il `RequestCultureProviders` è impostato con solo `AcceptLanguageHeaderRequestC
 
 #### Riferimento `LocalizationOptions` (`global-settings.json` → `Localization.*`)
 
+Le lingue sono **codici a due lettere** dichiarati in `global-settings.json` → `Localization` (dichiarazione semplice, letta anche dai consumatori sincroni a module-load del frontend). Il backend li **arricchisce** nelle `CultureInfo` tipizzate via `EngineCultures` (`Engine/Localization/EngineCultures.cs`), che alimenta `UseRequestLocalization` e l'endpoint `GET /localization`. Aggiungere una lingua = aggiungere il codice qui (più i cataloghi i18n e i file legali del frontend).
+
 | Chiave | Tipo | Default | Comportamento |
 | :--- | :--- | :--- | :--- |
-| `DefaultLanguage` | `string` | `"it"` | Lingua di fallback (codice BCP-47): usata quando `Accept-Language` non corrisponde, e seconda priorità nella risoluzione i18n dei file `data/*.json`. |
-| `SupportedLanguages` | `string[]` | `["it","en"]` | Lingue riconosciute: un oggetto JSON è trattato come blocco i18n solo se *tutte* le sue chiavi sono qui dentro (vedi `LocalizedJsonDeserializer`). |
+| `DefaultLanguage` | `string` | `"it"` | Lingua di fallback (codice ISO 639-1): usata quando `Accept-Language` non corrisponde, e seconda priorità nella risoluzione i18n dei file `data/*.json`. |
+| `SupportedLanguages` | `string[]` | `["it","en"]` | Lingue riconosciute: un oggetto JSON è trattato come blocco i18n solo se *tutte* le sue chiavi sono fra queste (vedi `LocalizedJsonDeserializer`). |
+
+> `LocalizationOptions.SupportedLanguages` ha default **vuoto** di proposito: il binder di config .NET *appende* l'array bound al default della proprietà, quindi un default non vuoto si sommerebbe ai codici di `global-settings.json` (`["it","en"]` default + `["it","en"]` config ⇒ 4 voci duplicate). Con default vuoto il config sostituisce pulito.
+
+#### L'endpoint `GET /localization` (`EngineLocalizationController`, `SiteLocalization`)
+
+Dai codici dichiarati l'Engine **deriva** i primitivi di localizzazione tramite le culture (`EngineCultures` + `CultureInfo.CurrentCulture`), così il frontend non rimappa lingue→regione né calcola i nomi giorno a mano: `current` (tag BCP-47 specifico, es. `it-IT`), `default`, `dayNames` (`{ "Mo": "lun", … }` da `DateTimeFormat`) e `languages` (`[{ code, code3, name }]` — codici a 2/3 lettere e nome nativo da `NativeName`). `current`/`dayNames` seguono l'`Accept-Language` della richiesta; il footer ne deriva orari/valuta, la tendina i nomi delle lingue.
 
 ### Sezione `Custom` (Configurazione Libera)
 
@@ -746,6 +754,7 @@ Le registrazioni vivono in `Program.cs`; il blocco **`── SERVIZI APPLICATIVI
 Concretamente, servizio per servizio:
 
 - **`IContentStore`** — default `FileContentStore`. Registri `AddSingleton<IContentStore, EfContentStore>()` per migrare a un database senza toccare controller né `SiteService`.
+- **`IIdentityStore`** — il template registra già **`Store/AppIdentityStore.cs`** (di **proprietà del progetto**, estende il default engine `FileIdentityStore` che legge `data/identity.json`). Due livelli di estensione: **(a) comporre da più fonti** — nel tuo `AppIdentityStore` fai l'override di `ComposeIdentityAsync(identity, language, ct)` (oggi passthrough) per fondere nel modello pezzi presi altrove (es. orari o capitale da un DB/API) senza riscrivere la lettura del file; gira anche con `identity == null` (caso "tutto da un'API"). **(b) sorgente completamente diversa** — registri una tua `IIdentityStore` da zero. Il default engine (`FileIdentityStore` via `AddTemplateIdentity`, `TryAdd`) resta come rete di sicurezza.
 
 > Nota: lo **storage dei file caricati** non è un'interfaccia ma la classe concreta **`BlobStore`** (`Store/BlobStore.cs`): file di progetto che modifichi direttamente o estendi via `override`. È deliberatamente tenuto separato da `IContentStore` (binari in volume runtime vs contenuti localizzati read-only). Diventerebbe un'interfaccia solo il giorno in cui servisse davvero lo swap a runtime (es. S3) — estrarla è un attimo.
 - **`IEngineMailer`** — default `EngineMailer` (SMTP). Lo sostituisci con una tua implementazione di `IsEnabled`/`IsValidAddress`/`SendAsync` (es. l'API HTTP di un provider); coda e worker restano invariati.
@@ -770,26 +779,45 @@ public class UserResponseDto {
 
 ### Passo 2: Recupero Dati (IContentStore e `data/`)
 
-`IContentStore` è già implementato da `FileContentStore`: legge un file JSON da `data/`, lo cacha e lo restituisce localizzato nella lingua della richiesta. Esempio di metodo del contratto:
+`IContentStore` è già implementato da `FileContentStore`: legge un file JSON da `data/`, lo cacha e lo restituisce nella forma richiesta. Nel template serve la galleria social demo:
 ```csharp
-Task<UniversalLegalModel> GetProfileAsync(string language, CancellationToken cancellationToken = default); // dati aziendali localizzati (data/irl.json)
+Task<Dictionary<string, string>> GetSocialAsync(CancellationToken cancellationToken = default); // mappa nome→URL (data/social.json)
 ```
 
 Il `CancellationToken` arriva dal controller (basta dichiararlo come parametro dell'action: ASP.NET lo lega a `HttpContext.RequestAborted`) e viene propagato fino alla lettura del file: se il client abbandona la richiesta, l'I/O si interrompe. Mantenerlo nelle nuove firme: per lo store su DB diventa la cancellazione delle query.
 
-#### Schema completo di `UniversalLegalModel` (e `data/irl.json`)
+> **L'identità del sito è un sottosistema a parte dell'Engine, non passa da `IContentStore`.** Vedi *L'Identità del Sito* qui sotto.
+
+#### `social.json` → `Dictionary<string,string>` (mappa piatta, demo)
+
+`social.json` è una **mappa piatta** `nomeLogico → url` (es. `"facebook": "https://…"`) deserializzata direttamente con `EngineJson.Web`, **senza passaggio i18n** (gli URL non hanno lingua). È la galleria di icone esercitata dalla pagina demo Social via `GET /social` (filtro per nome, `case-insensitive`, in `SiteService.GetSocialAsync`). È **demo**: il `setup.mjs` la brucia (pagina + endpoint + `social.json` + store/SiteService) inizializzando un progetto figlio. Da non confondere con i social del **brand**, che stanno nell'identità (sotto).
+
+**Aggiungere un nuovo file di dati**:
+1. Crea il JSON in `data/` (es. `data/products.json`)
+2. Aggiungi il metodo a `IContentStore` e implementalo in `FileContentStore`
+3. Inietta `IContentStore` nel `Service` e delegagli la lettura
 
 ```csharp
-UniversalLegalModel {
+// IContentStore.cs
+Task<UserResponseDto> GetUserAsync(string id);
+```
+
+#### L'Identità del Sito (`IIdentityStore`, `GET /identity`, `data/identity.json`)
+
+L'**identità** (dati legali/anagrafici, profili social del brand, natura dell'entità) è un sottosistema dell'Engine, **offerto ai figli**: un progetto non scrive controller né service per servirla — l'Engine espone `GET /identity` e il figlio riempie soltanto `data/identity.json` (validato e auto-completato dallo schema dell'Engine `Engine/Models/Identity/identity.schema.json`, referenziato via `$schema`). La sorgente è il seam `IIdentityStore` (default file-based `FileIdentityStore`), sostituibile via DI per leggere da DB/API esterna (`AddTemplateIdentity` in `Program.cs`; vedi *Sostituire un servizio dell'Engine*). È la sorgente **unica** di footer, pagine legali e dati strutturati SEO (JSON-LD: `sameAs` dai social, `@type` da `personal`).
+
+**File assente o non valorizzato ⇒ `GET /identity` risponde `null`** (non un errore): footer, social e JSON-LD relativi si nascondono da soli lato frontend. Schema di `SiteIdentity` (tutti i campi opzionali; i campi testuali accettano stringa o blocco localizzato `{ "it": …, "en": … }`, risolto da `LocalizedJsonDeserializer`):
+
+```csharp
+SiteIdentity {
+    bool     Personal             // false = Organization (default), true = Person (JSON-LD @type)
     string?  RagioneSociale
     string?  PartitaIva
     string?  CodiceFiscale        // Se distinto dalla P.IVA
-    Address? SedeLegale {
-        Via, Civico, Cap, Citta, Provincia, Nazione
-    }
-    ContactInfo? Contatti {
-        Telefono, Email, Pec
-    }
+    Address? SedeLegale { Via, Civico, Cap, Citta, Provincia, Nazione }   // → PostalAddress.
+                                  // Nazione = codice ISO 3166-1 alpha-2 (es. "IT"): il frontend ne deriva
+                                  // il nome (Intl.DisplayNames), il JSON-LD addressCountry usa il codice
+    ContactInfo? Contatti { Telefono, Email, Pec }                        // → ContactPoint
     CompanyDetails? DatiSocietari {
         RegistroImprese, NumeroRea
         decimal?  CapitaleSociale
@@ -798,50 +826,54 @@ UniversalLegalModel {
         bool?     InLiquidazione
         string?   CodiceSdi         // Codice SDI fatturazione elettronica
     }
-    Dictionary<string,string>? Social           // Popolato a runtime dal Service, non da irl.json
-    Dictionary<string,string>? MetadatiAggiuntivi  // Valori flat: string, non object
+    List<SocialLink>? Social      // Profili social del brand. Voce = URL nudo, o { url, name } con
+                                  // etichetta (anche localizzata) resa SOLO nel footer. Icona/sameAs
+                                  // usano l'URL → ammessi più profili dello stesso social
+    List<OpeningHoursInterval>? OpeningHours  // Lista di intervalli TIPIZZATI: { Day: DayOfWeek, Opens/Closes:
+                                  // TimeOnly }. Dichiari DayOfWeek.Tuesday + TimeOnly, non stringhe; sul filo è
+                                  // { day:"Tuesday", opens:"09:00", closes:"18:00" } (converter). Più voci sullo
+                                  // stesso giorno = più fasce; il frontend deriva resa e OpeningHoursSpecification
+    string?  Currency             // ISO 4217 (es. EUR) per i valori monetari (capitale); omessa → EUR
+    string?  RappresentanteLegale // Dato noto e tipizzato (anche localizzato), reso dal footer/pagine legali
+    Dictionary<string,string>? MetadatiAggiuntivi  // Valori flat: string, non object. NON reso dall'identità
+                                  // (solo dati noti); contenitore generico per il progetto
+    Dictionary<string,object>? Extra              // via di fuga: proprietà schema.org arbitrarie, fuse
+                                  // PER ULTIME nel nodo entità brand → sovrascrivono i default (anche
+                                  // @type → LocalBusiness); restano dell'Engine solo @context e @id
 }
 ```
 
-Tutti i campi sono nullable: inserisci solo quelli che il sito deve esporre. Esempio esteso di `data/irl.json`:
+Esempio `data/identity.json`:
 ```json
 {
+    "$schema": "./identity.schema.json",
+    "personal": false,
     "ragioneSociale": "Acme Srl",
     "partitaIva": "IT12345678901",
-    "codiceFiscale": "12345678901",
     "sedeLegale": {
         "via": { "it": "Via Roma 1", "en": "1 Rome Street" },
-        "civico": "1", "cap": "20100", "citta": "Milano",
-        "provincia": "MI", "nazione": "Italia"
+        "civico": "1", "cap": "20100", "citta": "Milano", "provincia": "MI", "nazione": "IT"
     },
     "contatti": { "email": "info@acme.it", "pec": "acme@pec.it", "telefono": "+39 02 1234567" },
-    "datiSocietari": {
-        "registroImprese": "MI-1234567",
-        "numeroRea": "MI-123456",
-        "capitaleSociale": 10000.00,
-        "capitaleInteramenteVersato": true,
-        "isSocioUnico": false,
-        "inLiquidazione": false,
-        "codiceSdi": "XXXXXXX"
-    },
-    "metadatiAggiuntivi": {
-        "rappresentanteLegale": { "it": "Mario Rossi", "en": "Mario Rossi" }
-    }
+    "datiSocietari": { "registroImprese": "MI-1234567", "numeroRea": "MI-123456", "capitaleSociale": 10000.00 },
+    "social": [
+        "https://facebook.com/acme",
+        { "url": "https://www.linkedin.com/company/acme", "name": "LinkedIn — Acme HQ" }
+    ],
+    "openingHours": [
+        { "day": "Monday", "opens": "09:00", "closes": "17:00" },
+        { "day": "Wednesday", "opens": "09:00", "closes": "13:00" },
+        { "day": "Wednesday", "opens": "14:00", "closes": "17:00" },
+        { "day": "Friday", "opens": "09:00", "closes": "17:00" }
+    ],
+    "currency": "EUR",
+    "extra": { "foundingDate": "2010-05-01", "slogan": "Il claim del brand" }
 }
 ```
 
-> `MetadatiAggiuntivi` è `Dictionary<string, string>`: i valori sono stringhe semplici dopo la risoluzione della localizzazione. Non annidare oggetti complessi qui; usare `DatiSocietari` per dati strutturati.
+> **Cosa diventa SEO (JSON-LD).** L'Engine costruisce l'entità brand (`Organization`/`Person`) con `sameAs` (dai social), `address` (`PostalAddress` dalla sede), `contactPoint` (`ContactPoint` con telefono/email, `hoursAvailable` dagli orari e `availableLanguage` dalle lingue del sito) e — solo per `Organization` — `legalName`/`vatID`/`taxID` da ragione sociale/P.IVA/CF. Gli orari sono una **lista di intervalli tipizzati** (`DayOfWeek` + `TimeOnly`): chi sviluppa dichiara `DayOfWeek.Tuesday`/`TimeOnly`, non stringhe né nozioni di schema.org; il frontend ne deriva sia la resa leggibile (fondendo i giorni con orari identici, es. "Lun–Ven") sia le `OpeningHoursSpecification` (dove `DayOfWeek` è già il nome `schema.org/Tuesday`). I social sono una **lista di URL** (stringa nuda, o `{ url, name }` con un'etichetta resa **solo nel footer**): l'icona e il `sameAs` usano l'URL, quindi più profili dello stesso social convivono. La **valuta** dei valori monetari è un fatto dichiarato (`currency`), non dedotto dal locale del visitatore: il frontend formatta gli importi con quella valuta nella lingua corrente. Per **qualsiasi proprietà schema.org non tipizzata** (es. `geo`, `foundingDate`, campi di `LocalBusiness`) c'è la via di fuga `extra`: viene fusa così com'è nel nodo entità brand, **senza toccare modello né adapter** — l'Engine non diventa mai un collo di bottiglia. Le proprietà strutturali dell'Engine vincono sulle collisioni; la **validità schema.org** di `extra` è a carico del progetto, ma la **sicurezza no**: l'Engine escapa l'output JSON-LD (`<`/`>`/`&` → `\uXXXX`), quindi anche un valore ostile in `extra` (o da un CMS/DB) non può rompere il `<script>` e iniettare markup.
 
-##### Due file, due forme: `irl.json` (localizzato) vs `social.json` (mappa piatta)
-
-I due file di `data/` che il template legge passano per **due percorsi diversi**, ed è bene saperlo prima di aggiungerne altri:
-
-- **`irl.json` → `UniversalLegalModel`** via `LocalizedJsonDeserializer`: l'albero JSON è risolto nella lingua della richiesta (i blocchi `{ "it": …, "en": … }` vengono collassati, vedi le regole i18n sopra) prima di deserializzare nel modello tipizzato.
-- **`social.json` → `Dictionary<string,string>`** (`nomeLogico → url`, es. `"facebook": "https://…"`): è una **mappa piatta** deserializzata direttamente con `EngineJson.Web`, **senza alcun passaggio i18n**. Un blocco `{ "it": …, "en": … }` qui **non verrebbe interpretato** come traduzione: finirebbe come valore letterale. Gli URL social non hanno lingua, quindi la mappa piatta è la forma giusta.
-
-Sul `Dictionary` di `social.json` il dominio fa due cose, **entrambe logica di progetto demo, non Engine**:
-- Il filtro `GET /social?nomi=facebook,linkedin` (in `SiteService.GetSocialAsync`) confronta i nomi **case-insensitive** (`Facebook` ≡ `facebook`).
-- Il sottoinsieme "principale" esposto in `GetProfileAsync` (`["linkedin", "whatsapp", "facebook"]`, confronto `OrdinalIgnoreCase`) che popola `UniversalLegalModel.Social` **a runtime nel servizio** — `irl.json` non contiene social, e lo store li lascia `null` di proposito (resta pure-storage). Nel figlio si adatta o si toglie il filtro, non lo store.
+> `MetadatiAggiuntivi` è `Dictionary<string, string>`: i valori sono stringhe semplici dopo la risoluzione della localizzazione. Non annidare oggetti complessi qui; usa `DatiSocietari` per dati strutturati.
 
 **Aggiungere un nuovo file di dati**:
 1. Crea il JSON in `data/` (es. `data/products.json`)
@@ -868,7 +900,7 @@ Task<UserResponseDto> GetUserAsync(string id);
 > mai compilato** nell'assembly. `data/` (asset di build, parte del codice) e `uploads/` (volume runtime,
 > dati dell'utente) hanno ruoli opposti e il `.csproj` li tratta in modo opposto.
 
-> **Nota sulla lingua in `SiteService`:** `GetProfileAsync()` ricava la lingua da `CultureInfo.CurrentCulture`, impostato da `UseRequestLocalization` all'inizio della pipeline. Se chiami `SiteService` fuori da un contesto HTTP (es. job in background), la cultura usata è quella di default del processo.
+> **Nota sulla lingua:** `FileIdentityStore` (e `SiteService`) ricavano la lingua da `CultureInfo.CurrentCulture`, impostato da `UseRequestLocalization` all'inizio della pipeline. Se leggi fuori da un contesto HTTP (es. job in background), la cultura usata è quella di default del processo.
 
 ### Passo 3: La Business Logic (Services)
 Tutta la logica va qui. Inietta lo store, manipola i dati, lancia eccezioni personalizzate se necessario.
@@ -1042,13 +1074,14 @@ Il JWT è stateless: il logout sul client (rimozione del token) non invalida il 
 
 ## 📦 Strumenti HTTP di Fabbrica
 
-> I **controller dimostrativi** del template (profilo/social, login demo, ping protetto) non sono
+> I **controller dimostrativi** del template (galleria social, login demo, ping protetto) non sono
 > documentati qui: il catalogo vive nella **vetrina della demo** del [README root](../README.md).
 > Sono segnaposto: al `setup` scegli tra **riusarli** (rispondi `N`) — li tieni e ne cambi il
 > contenuto (i dati in `data/*.json`, la verifica delle credenziali, i filtri di dominio) o ne lasci
-> non valorizzate le parti che non esponi — o l'**eject** (rispondi `s`), che li rimuove lasciando il
-> solo `GetProfile`. In entrambi i casi aggiungi accanto i controller del tuo dominio. Qui sotto
-> restano gli strumenti che il template fornisce di default e che un figlio usa così come sono.
+> non valorizzate le parti che non esponi — o l'**eject** (rispondi `s`), che li rimuove lasciando un
+> `BaseController` vuoto. L'**identità** (`GET /identity`) non è demo: è dell'Engine e sopravvive
+> sempre — il figlio riempie solo `data/identity.json`. In entrambi i casi aggiungi accanto i
+> controller del tuo dominio. Qui sotto restano gli strumenti che il template fornisce di default.
 
 #### `BlobStore` — lo storage dei file caricati
 

@@ -1,4 +1,4 @@
-import { inject, Injectable, signal, effect, PLATFORM_ID } from '@angular/core';
+import { inject, Injectable, signal, computed, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { TranslateService } from './translate.service';
 
@@ -15,21 +15,22 @@ export class SpeechService {
     /** Signal: indica se il browser sta riproducendo audio in questo momento */
     readonly isSpeaking = signal(false);
 
-    /** Signal: la voce di sistema attualmente selezionata in base alla lingua */
-    readonly currentVoice = signal<SpeechSynthesisVoice | null>(null);
+    /** Voci di sistema disponibili: si popolano in modo asincrono (evento `voiceschanged`),
+     *  quindi sono un signal e non una lettura una-tantum. Vuoto in SSR. */
+    private readonly voices = signal<SpeechSynthesisVoice[]>([]);
+
+    /** Voce di sistema per la lingua corrente — derivata da (lingua × voci disponibili).
+     *  È un `computed`: si riaggiorna sia al cambio lingua sia quando le voci finiscono di caricarsi. */
+    readonly currentVoice = computed<SpeechSynthesisVoice | null>(
+        () => this.findBestVoice(this.translate.currentLang(), this.voices())
+    );
 
     constructor() {
-        // La sintesi vocale è disponibile solo nel browser, non in SSR (Server)
+        // La sintesi vocale è disponibile solo nel browser, non in SSR.
         if (this.isBrowser && window.speechSynthesis) {
-
-            // L'evento 'voiceschanged' scatta quando il sistema finisce di caricare le voci disponibili
-            window.speechSynthesis.addEventListener('voiceschanged', () => this.updateVoice());
-
-            // aggiorna la voce automaticamente ad ogni cambio lingua (effect reagisce al signal)
-            effect(() => {
-                this.translate.currentLang(); // Registra la dipendenza dal signal della lingua
-                this.updateVoice();           // Aggiorna la voce corrispondente
-            });
+            const sync = () => this.voices.set(window.speechSynthesis.getVoices());
+            sync(); // le voci possono essere già pronte al primo accesso…
+            window.speechSynthesis.addEventListener('voiceschanged', sync); // …o arrivare dopo
         }
     }
 
@@ -51,7 +52,7 @@ export class SpeechService {
         utterance.lang = this.translate.currentLang();
 
         // Tenta di assegnare la voce migliore disponibile per quella lingua
-        const voice = this.findBestVoice(utterance.lang);
+        const voice = this.findBestVoice(utterance.lang, this.voices());
         if (voice) utterance.voice = voice;
 
         // Configura parametri opzionali (default: 1)
@@ -76,22 +77,14 @@ export class SpeechService {
     }
 
     /**
-     * Cerca tra le voci installate nel sistema quella più adatta alla lingua richiesta.
+     * Voce più adatta alla lingua, tra quelle passate. Funzione **pura** (nessun accesso a `window`):
+     * SSR-safe per costruzione — con lista vuota (SSR o voci non ancora caricate) ritorna null.
+     * Strategia: match esatto (es. `it-IT`) → prefisso (`it`) → null (il browser usa la voce di default).
      */
-    private findBestVoice(lang: string): SpeechSynthesisVoice | null {
-        const voices = window.speechSynthesis.getVoices();
-
-        // Strategia di ricerca:
-        // Cerca corrispondenza esatta (es. 'it-IT')
-        // Se non la trova, cerca per prefisso (es. 'it')
-        // Altrimenti ritorna null (il browser userà la voce di default)
+    private findBestVoice(lang: string, voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
+        if (!voices.length) return null;
         return voices.find(v => v.lang === lang)
             ?? voices.find(v => v.lang.startsWith(lang.split('-')[0]))
             ?? null;
-    }
-
-    /** Aggiorna il Signal della voce corrente chiamando la ricerca. */
-    private updateVoice(): void {
-        this.currentVoice.set(this.findBestVoice(this.translate.currentLang()));
     }
 }

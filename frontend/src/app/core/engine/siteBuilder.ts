@@ -4,6 +4,7 @@ import type { PageBaseComponent } from './pages/page-base.component';
 import { environment } from '../../../environments/environment';
 import { hasCookiesConfigured } from './services/cookie/cookie-utils';
 import { buildPolicySection, legalSlugFor } from './legal/legal-pages';
+import type { StructuredDataInput } from './services/structured-data';
 
 
 // ======================================================
@@ -345,8 +346,24 @@ export type LeafPageInput = BasePageInput & {
         ogImage?: string | false;
         /** Tipo Open Graph (og:type). Default automatico: 'website'. */
         ogType?: string;
-        /** Tipo Schema.org per i structured data JSON-LD (@type). Default automatico: 'WebPage'. */
-        structuredDataType?: string;
+        /**
+         * Dati strutturati (JSON-LD) per la pagina. Tre forme, anche combinabili in una lista:
+         * - **stringa** → solo il `@type` Schema.org della pagina (es. 'AboutPage'); default 'WebPage';
+         * - **oggetto** `{ kind, … }` → entità ricca con campi parlanti, senza conoscere schema.org,
+         *   tradotta dall'Engine (`structured-data.ts`) con default a cascata;
+         * - **array** → più entità sulla stessa pagina (es. un Article + una FAQ + un `raw`).
+         * Per dati statici (es. una FAQ fissa). Quelli derivati dal contenuto si impostano nel
+         * `ContentResolver`, che ha la precedenza.
+         */
+        structuredData?: StructuredDataInput;
+        /**
+         * Esclude la pagina dall'indicizzazione. Default automatico: `false`.
+         * Come per `requiresAuth`, l'Engine la marca a runtime con `X-Robots-Tag: noindex,
+         * nofollow` (header autoritativo, vale anche per chi ignora il meta) e la esclude dalla
+         * sitemap. A differenza di `requiresAuth` NON forza il client-render: la pagina resta
+         * pubblica e SSR, semplicemente non indicizzabile (es. landing duplicate, thank-you).
+         */
+        noindex?: boolean;
     };
 
     /** Non consentito per una pagina interna */
@@ -424,7 +441,8 @@ export type LeafPage = Omit<LeafPageInput, 'kind' | 'layout' | 'otherSEO'> & {
     pageFade?: boolean;
     ogImage?: string | false;
     ogType?: string;
-    structuredDataType?: string;
+    structuredData?: StructuredDataInput;
+    noindex?: boolean;
 };
 
 /** Versione interna normalizzata della pagina esterna. */
@@ -614,7 +632,8 @@ const normalizeSitePage = (
             pageFade: layout?.pageFade,
             ogImage: otherSEO?.ogImage,
             ogType: otherSEO?.ogType,
-            structuredDataType: otherSEO?.structuredDataType,
+            structuredData: otherSEO?.structuredData,
+            noindex: otherSEO?.noindex,
         };
     }
 
@@ -757,6 +776,9 @@ export type ServerRenderEntry = {
      *  `noindex` (header `X-Robots-Tag`): così le pagine protette non finiscono nell'indice
      *  senza doverle elencare in `robots.txt` (che ne rivelerebbe i path pubblicamente). */
     requiresAuth: boolean;
+    /** `true` se la pagina è esclusa dall'indicizzazione via `otherSEO.noindex`. Il layer server
+     *  emette `X-Robots-Tag: noindex, nofollow` come per le pagine protette (vedi `requiresAuth`). */
+    noindex: boolean;
 };
 
 /**
@@ -777,8 +799,9 @@ export type PageInfo = {
     ogImage?: string | false;
     /** Tipo Open Graph della pagina (og:type). Se assente il default è 'website'. */
     ogType?: string;
-    /** Tipo Schema.org per i structured data JSON-LD (@type). Se assente il default è 'WebPage'. */
-    structuredDataType?: string;
+    /** Dati strutturati statici (da `otherSEO.structuredData`): stringa (@type), oggetto o lista.
+     *  Quelli dinamici arrivano dal `ContentResolver` via `ResolvedPage.structuredData` (precedenza). */
+    structuredData?: StructuredDataInput;
 };
 
 export interface BuiltSite {
@@ -992,13 +1015,14 @@ function processPages(
                 description: page.description,
                 ogImage: page.ogImage,
                 ogType: page.ogType ?? 'website',
-                structuredDataType: page.structuredDataType ?? 'WebPage',
+                structuredData: page.structuredData,
             });
             // requiresAuth → 'client' (i bot non loggano, l'SSR è inutile); altrimenti renderMode esplicito o 'server'.
-            serverRenderEntries.push({ path: fullPath, renderMode: page.requiresAuth ? 'client' : (page.renderMode ?? 'server'), requiresAuth: !!page.requiresAuth });
+            // noindex NON forza il client-render: la pagina resta SSR/pubblica, solo non indicizzabile.
+            serverRenderEntries.push({ path: fullPath, renderMode: page.requiresAuth ? 'client' : (page.renderMode ?? 'server'), requiresAuth: !!page.requiresAuth, noindex: !!page.noindex });
 
-            // Le pagine protette restano fuori dalla sitemap (un crawler non può accedervi).
-            return page.requiresAuth ? [] : [{ path: fullPath, description: page.description }];
+            // Fuori dalla sitemap le pagine protette (crawler non accede) e quelle noindex (non indicizzabili).
+            return page.requiresAuth || page.noindex ? [] : [{ path: fullPath, description: page.description }];
         });
 
     return walk(pages, '');

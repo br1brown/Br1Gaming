@@ -10,33 +10,40 @@ import { ContactUrl } from '../../utils/contact-url.util';
     templateUrl: './social-link.component.html',
 })
 export class SocialLinkComponent extends BaseLinkComponent {
-    readonly type = input.required<string>();
+    /** Tipo esplicito (opzionale): se omesso, il social viene dedotto dall'URL (regex sui social noti). */
+    readonly type = input<string>('');
     readonly value = input.required<string>();
 
-    readonly socialConfig = computed(() => {
-        const key = this.type().trim().toLowerCase();
-        return SOCIAL_MAP[key] ?? DEFAULT_SOCIAL_CONFIG;
+    /**
+     * Chiave social effettiva: il `type` esplicito se passato, altrimenti dedotta dall'URL.
+     * Così l'icona non dipende da una chiave fornita: una lista può contenere più profili dello
+     * stesso social (es. due pagine LinkedIn) senza collisioni. Stringa vuota = social non noto.
+     */
+    readonly socialKey: Signal<string> = computed(() => {
+        const explicit = this.type().trim().toLowerCase();
+        return explicit || detectSocialKey(this.value());
     });
+
+    readonly socialConfig = computed(() => SOCIAL_MAP[this.socialKey()] ?? DEFAULT_SOCIAL_CONFIG);
 
     readonly glyph: Signal<string> = computed(() => this.socialConfig().icon);
     readonly color: Signal<string | null> = computed(() => this.socialConfig().color);
     readonly content: Signal<string> = computed(() => this.value().trim());
 
     readonly displayLabel: Signal<string> = computed(() =>
-        this.label()?.trim() || capitalize(this.type().trim())
+        this.label()?.trim() || socialDisplayName(this.socialKey()) || hostnameLabel(this.value())
     );
 
     /**
-     * URL finale. Se `value` è già un URL completo (http/mailto/tel) lo usa
-     * così com'è; altrimenti lo costruisce dal `type` (handle/numero → URL
-     * completo) riusando i builder condivisi in contact-url.util.
+     * URL finale. Se `value` è già un URL completo (http/mailto/tel) lo usa così com'è; altrimenti
+     * lo costruisce dalla chiave social (handle/numero → URL completo) riusando i builder condivisi.
      */
     readonly href: Signal<string> = computed(() => {
         const raw = this.value().trim();
         if (!raw) return '';
         if (/^(https?:|mailto:|tel:)/i.test(raw)) return raw;
 
-        switch (this.type().trim().toLowerCase()) {
+        switch (this.socialKey()) {
             case 'whatsapp': return ContactUrl.whatsapp(raw);
             case 'telegram': return ContactUrl.telegram(raw);
             case 'email':
@@ -52,8 +59,66 @@ export class SocialLinkComponent extends BaseLinkComponent {
 }
 
 function capitalize(s: string): string {
-    return s.charAt(0).toUpperCase() + s.slice(1);
+    return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
 }
+
+/** Nomi con maiuscole "ufficiali" dove il semplice capitalize sbaglia (LinkedIn, non Linkedin). */
+const SOCIAL_DISPLAY_NAMES: Record<string, string> = {
+    linkedin: 'LinkedIn',
+    whatsapp: 'WhatsApp',
+    youtube: 'YouTube',
+    tiktok: 'TikTok',
+    github: 'GitHub',
+    soundcloud: 'SoundCloud',
+};
+
+/** Nome leggibile del social dalla chiave dedotta: casing ufficiale se noto, altrimenti capitalize. */
+function socialDisplayName(key: string): string {
+    return SOCIAL_DISPLAY_NAMES[key] ?? capitalize(key);
+}
+
+/** Etichetta di ripiego per un URL di social non riconosciuto: l'hostname senza `www.`. */
+function hostnameLabel(url: string): string {
+    try { return new URL(url.trim()).hostname.replace(/^www\./, ''); } catch { return url.trim(); }
+}
+
+/**
+ * Deduce la chiave social dall'URL (dominio), per non dipendere da un `type` fornito.
+ * Coppie ancorate al dominio per evitare falsi positivi (es. `x.com` solo dopo `//` o `.`).
+ * Stringa vuota se nessun social noto combacia → icona generica + etichetta hostname.
+ */
+function detectSocialKey(url: string): string {
+    const u = (url ?? '').trim();
+    if (!u) return '';
+    for (const { key, re } of SOCIAL_URL_PATTERNS) {
+        if (re.test(u)) return key;
+    }
+    return '';
+}
+
+const SOCIAL_URL_PATTERNS: { key: string; re: RegExp }[] = [
+    { key: 'facebook',   re: /(?:facebook|fb)\.com|fb\.me/i },
+    { key: 'instagram',  re: /instagram\.com|instagr\.am/i },
+    { key: 'twitter',    re: /twitter\.com|(?:^|\/|\.)x\.com/i },
+    { key: 'linkedin',   re: /linkedin\.com|lnkd\.in/i },
+    { key: 'youtube',    re: /youtube\.com|youtu\.be/i },
+    { key: 'tiktok',     re: /tiktok\.com/i },
+    { key: 'whatsapp',   re: /wa\.me|whatsapp\.com/i },
+    { key: 'telegram',   re: /t\.me|telegram\.(?:org|me)/i },
+    { key: 'github',     re: /github\.com/i },
+    { key: 'threads',    re: /threads\.net/i },
+    { key: 'mastodon',   re: /mastodon\./i },
+    { key: 'discord',    re: /discord\.(?:gg|com)/i },
+    { key: 'reddit',     re: /reddit\.com/i },
+    { key: 'pinterest',  re: /pinterest\./i },
+    { key: 'snapchat',   re: /snapchat\.com/i },
+    { key: 'twitch',     re: /twitch\.tv/i },
+    { key: 'spotify',    re: /spotify\.com/i },
+    { key: 'soundcloud', re: /soundcloud\.com/i },
+    { key: 'vimeo',      re: /vimeo\.com/i },
+    { key: 'dribbble',   re: /dribbble\.com/i },
+    { key: 'tumblr',     re: /tumblr\.com/i },
+];
 
 type SocialConfig = {
     icon: string;

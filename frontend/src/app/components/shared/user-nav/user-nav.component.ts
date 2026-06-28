@@ -15,6 +15,9 @@ import { NavLink } from '../../../core/engine/siteBuilder';
  * Estratto dall'engine per consentire ai progetti figli di personalizzare
  * la navigazione senza modificare i file interni dell'engine.
  *
+ * ⚙️ Contratto fisso: la navbar dell'Engine importa `UserNavComponent` (selettore `app-user-nav`).
+ * Personalizza l'interno; non rinominare/rimuovere la classe o il selettore.
+ *
  * Responsabilità:
  *  - Mostra il link di login (quando sloggato) o il bottone di logout (quando loggato).
  *  - Gestisce la conferma di logout via NotificationService.
