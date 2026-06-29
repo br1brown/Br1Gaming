@@ -17,7 +17,7 @@ public sealed class AutoGenerator : GeneratorBase
     public override string Slug => "auto";
 
     /// <inheritdoc />
-    public override GeneratorInfo Info { get; } = new() { Order = 4, Name = "Generatore Invettive Automobilistiche", Description = "Non sai cosa dire quando un guidatore fa delle manovre poco piacevoli?" };
+    public override GeneratorInfo Info { get; } = new() { Order = 6, Name = "Generatore Invettive Automobilistiche", Description = "Non sai cosa dire quando un guidatore fa delle manovre poco piacevoli?" };
 
     /// <inheritdoc />
     public override GenerationSettings? PhraseSettings { get; } = new() { MinPhrases = 2, MaxPhrases = 4, Separators = ["! eh?!?! ", "! cosa cazzo?! ", "! ma porca miseria!! ", "! oh cazzo no!! ", "! eh?! ma come cazzo è possibile?! ", "! che cazzo stai facendo?! ", "! no, no e poi no, cazzo!! ", "! ma vaffanculo!! ", "! oh madonna, mi stai prendendo per il culo?! ", "! eh... fighi un cazzo!! ", "! ma davvero?! ma davvero cazzo?! ", "! basta, ho finito la pazienza!! ", "! oh! oh! oh! non ci posso credere!! ", "! ma che cazzo vuoi?! ", "! eeeeeh?!?! ", "! porca puttana!! ", "! ma tu sei fuori di testa?! ", "! ho detto no, cazzo!! ", "! mi stai facendo incazzare di brutto!! ", "! ma va a cagare!! ", "! ma sei nato in autostrada?! ", "! ma vai a quel paese!! ", "! testa di cazzo!! ", "! ma chi cazzo ti caga?! ", "! ma stai sul cazzo a tutti?! ", "! porco il clacson!! ", "! ma suona te 'sto clacson, no?! ", "! ma t'hanno dato la patente coi punti?! ", "! porca troia!! ", "! ma che cazzo combini?! ", "! madonna santa che pena!! ", "! ma quanto sei coglione?! ", "! ma muoviti, cazzo!! ", "! ma t'hanno svitato la testa?! ", "! oh, ma ci sei o ci fai?! "] };

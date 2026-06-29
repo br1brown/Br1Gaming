@@ -10,14 +10,5 @@ namespace Backend.Store;
 /// </remarks>
 public interface IContentStore
 {
-    /// <summary>
-    /// Recupera i link ai social network configurati per il sito (galleria demo).
-    /// </summary>
-    /// <param name="cancellationToken">
-    /// Token legato alla richiesta HTTP: interrompe la lettura se il client abbandona la chiamata.
-    /// </param>
-    /// <returns>
-    /// Una mappa in cui la chiave rappresenta il nome logico del social e il valore l'URL finale da esporre.
-    /// </returns>
-    Task<Dictionary<string, string>> GetSocialAsync(CancellationToken cancellationToken = default);
+
 }

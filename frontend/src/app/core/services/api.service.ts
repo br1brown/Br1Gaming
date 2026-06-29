@@ -164,6 +164,9 @@ export class ApiService extends BaseApiService {
     /** Info del generatore MBEB. */
     getMbeb(): Promise<GeneratorInfo> { return this.getGenerator('mbeb'); }
 
+    /** Info del generatore Kebabbari. */
+    getKebab(): Promise<GeneratorInfo> { return this.getGenerator('kebab'); }
+
     /** Genera un nuovo testo Incel. */
     generateIncel(): Promise<GenerateResponse> { return this.generate('incel'); }
 
@@ -178,6 +181,9 @@ export class ApiService extends BaseApiService {
 
     /** Genera un nuovo testo MBEB. */
     generateMbeb(): Promise<GenerateResponse> { return this.generate('mbeb'); }
+
+    /** Genera un nuovo nome di kebabbaro/locale straniero. */
+    generateKebab(): Promise<GenerateResponse> { return this.generate('kebab'); }
 
     private getGenerator(slug: string): Promise<GeneratorInfo> {
         return this.api_get<GeneratorInfo>(API.generator(slug));

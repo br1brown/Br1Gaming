@@ -49,6 +49,7 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
     private readonly imgBuilder = inject(ImgBuilderService);
 
     readonly generator = computed<GeneratorInfo | null>(() => this.pageContent()?.generator ?? null);
+
     readonly coverAssetId = computed(() => {
         const slug = this.generator()?.slug;
         return slug ? `generator.${slug}` : null;
@@ -199,6 +200,7 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
             case PageType.GeneratorAuto: return this.api.generateAuto();
             case PageType.GeneratorAntiveg: return this.api.generateAntiveg();
             case PageType.GeneratorLocali: return this.api.generateLocali();
+            case PageType.GeneratorKebab: return this.api.generateKebab();
             case PageType.GeneratorMbeb: return this.api.generateMbeb();
             default: throw new Error(`PageType non è un generatore: ${this.pageType()}`);
         }

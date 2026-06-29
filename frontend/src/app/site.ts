@@ -21,6 +21,7 @@ export enum PageType {
     GeneratorAuto,
     GeneratorAntiveg,
     GeneratorLocali,
+    GeneratorKebab,
     GeneratorMbeb,
     StoryPoveriMaschi,
     StoryMagrogamer09,
@@ -72,12 +73,15 @@ function storyPage(
 // CATALOGHI — unico punto da estendere per aggiungere un generatore/una storia
 // (slug + PageType): alimentano sia le route (sotto i parent) sia la navbar.
 // ═══════════════════════════════════════════════════════════════════════
+// Ordine di navbar/route. La home segue invece l'ordine del backend (Info.Order); qui lo si rispecchia
+// per coerenza: incel, mbeb, nomi bar, kebabbari, anti-vegani, invettive automobilistiche.
 const GENERATORS = [
     ['incel', PageType.GeneratorIncel],
-    ['auto', PageType.GeneratorAuto],
-    ['antiveg', PageType.GeneratorAntiveg],
-    ['locali', PageType.GeneratorLocali],
     ['mbeb', PageType.GeneratorMbeb],
+    ['locali', PageType.GeneratorLocali],
+    ['kebab', PageType.GeneratorKebab],
+    ['antiveg', PageType.GeneratorAntiveg],
+    ['auto', PageType.GeneratorAuto],
 ] as const;
 
 const STORIES = [

@@ -1,24 +1,18 @@
 import { Component, computed, inject } from '@angular/core';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
-import { ContentCardComponent } from '../../components/shared/content-card/content-card.component';
+import { CardGridComponent, CardEntry } from '../../components/shared/card-grid/card-grid.component';
 import { PageDirective } from '../../core/engine/directives/page.directive';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { HomeContent } from '../content.resolver';
 import { PageType } from '../../site';
 import { SITE_CONFIG } from '../../core/engine/siteBuilder';
 
-interface CardEntry {
-    title: string;
-    subtitle: string | null;
-    imageId: string | null;
-    pageType: PageType;
-}
-
 const GENERATOR_PAGE_TYPES: Partial<Record<string, PageType>> = {
     'incel': PageType.GeneratorIncel,
     'auto': PageType.GeneratorAuto,
     'antiveg': PageType.GeneratorAntiveg,
     'locali': PageType.GeneratorLocali,
+    'kebab': PageType.GeneratorKebab,
     'mbeb': PageType.GeneratorMbeb,
 };
 
@@ -52,7 +46,7 @@ const STATIC_GIOCHI: CardEntry[] = [
 
 @Component({
     selector: 'app-home',
-    imports: [TranslatePipe, ContentCardComponent, PageDirective],
+    imports: [TranslatePipe, CardGridComponent, PageDirective],
     templateUrl: './home.component.html',
 })
 export class HomeComponent extends PageBaseComponent<HomeContent> {

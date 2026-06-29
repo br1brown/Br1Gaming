@@ -16,15 +16,7 @@
         @if (generatori().length === 0) {
         <p class="text-secondary">Nessun generatore disponibile.</p>
         }
-        <div class="row g-3">
-            @for (item of generatori(); track item.pageType) {
-            <app-content-card class="col-12 col-md-6"
-                              [title]="item.title"
-                              [subtitle]="item.subtitle"
-                              [imageId]="item.imageId"
-                              [pageType]="item.pageType" />
-            }
-        </div>
+        <app-card-grid [items]="generatori()" />
 
         <!-- Call-to-action verso i Condivisi: vivono accanto ai generatori (ne raccolgono gli output). -->
         <div class="card border-0 bg-body-tertiary rounded-4 mt-3">
@@ -44,15 +36,7 @@
     @defer (hydrate on viewport) {
     <section class="mb-5">
         <h2 class="h4 fw-bold mb-3">{{ 'storie' | translate }}</h2>
-        <div class="row g-3">
-            @for (item of storie(); track item.pageType) {
-            <app-content-card class="col-12 col-md-6"
-                              [title]="item.title"
-                              [subtitle]="item.subtitle"
-                              [imageId]="item.imageId"
-                              [pageType]="item.pageType" />
-            }
-        </div>
+        <app-card-grid [items]="storie()" />
     </section>
     } @placeholder {
     <section class="mb-5" aria-hidden="true">
@@ -76,15 +60,7 @@
     @defer (hydrate on viewport) {
     <section class="mb-5">
         <h2 class="h4 fw-bold mb-3">{{ 'giochi' | translate }}</h2>
-        <div class="row g-3">
-            @for (item of giochi; track item.pageType) {
-            <app-content-card class="col-12 col-md-6"
-                              [title]="item.title"
-                              [subtitle]="item.subtitle"
-                              [imageId]="item.imageId"
-                              [pageType]="item.pageType" />
-            }
-        </div>
+        <app-card-grid [items]="giochi" />
     </section>
     } @placeholder {
     <section class="mb-5" aria-hidden="true">

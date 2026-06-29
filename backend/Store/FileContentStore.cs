@@ -33,17 +33,5 @@ public class FileContentStore : IContentStore
         _dataPath = Path.Combine(env.ContentRootPath, "data");
     }
 
-    /// <summary>
-    /// Recupera la configurazione completa dei social dal file <c>social.json</c>.
-    /// </summary>
-    /// <returns>
-    /// Una mappa nome-URL pronta per essere filtrata o esposta dai servizi applicativi.
-    /// </returns>
-    public async Task<Dictionary<string, string>> GetSocialAsync(CancellationToken cancellationToken = default)
-    {
-        var json = await FileUtils.ReadStaticFileAsync("social", _dataPath, _cache, cancellationToken: cancellationToken);
-        return JsonSerializer.Deserialize<Dictionary<string, string>>(json, EngineJson.Web)
-            ?? throw new DecodingException();
-    }
 
 }

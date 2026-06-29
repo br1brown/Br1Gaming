@@ -1,0 +1,25 @@
+<!-- Si rendono TUTTE le card; quando è ripiegato si nascondono le eccedenti con le utility responsive:
+     oltre la collapseMobile-esima su mobile (d-none) e oltre la collapseDesktop-esima da desktop. Le
+     posizioni intermedie restano nascoste solo su mobile (d-md-block le riporta da ≥ md). -->
+<div class="row g-3">
+    @for (item of items(); track item.pageType; let i = $index) {
+    <app-content-card class="col-12 col-md-6"
+                      [class.d-none]="!espanso() && i >= collapseMobile()"
+                      [class.d-md-block]="!espanso() && i >= collapseMobile() && i < collapseDesktop()"
+                      [title]="item.title"
+                      [subtitle]="item.subtitle"
+                      [imageId]="item.imageId"
+                      [pageType]="item.pageType" />
+    }
+</div>
+
+<!-- Pulsante espandi/ripiega: nascosto da ≥ md quando il ripiegamento riguarda solo il mobile. -->
+@if (espandibile()) {
+<div class="text-center mt-3" [class.d-md-none]="soloMobile()">
+    <button type="button" class="btn btn-outline-secondary rounded-pill px-4"
+            [attr.aria-expanded]="espanso()"
+            (click)="espanso.set(!espanso())">
+        {{ (espanso() ? 'mostraMeno' : 'mostraTutti') | translate }}
+    </button>
+</div>
+}

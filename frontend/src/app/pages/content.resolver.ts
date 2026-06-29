@@ -170,6 +170,7 @@ export class ContentResolver {
             case PageType.GeneratorAuto: return () => this.apiService.getAuto();
             case PageType.GeneratorAntiveg: return () => this.apiService.getAntiveg();
             case PageType.GeneratorLocali: return () => this.apiService.getLocali();
+            case PageType.GeneratorKebab: return () => this.apiService.getKebab();
             case PageType.GeneratorMbeb: return () => this.apiService.getMbeb();
             default: return null;
         }

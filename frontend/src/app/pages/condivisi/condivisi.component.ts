@@ -14,6 +14,7 @@ const GENERATOR_PAGE_TYPES: Partial<Record<string, PageType>> = {
     'auto': PageType.GeneratorAuto,
     'antiveg': PageType.GeneratorAntiveg,
     'locali': PageType.GeneratorLocali,
+    'kebab': PageType.GeneratorKebab,
     'mbeb': PageType.GeneratorMbeb,
 };
 
