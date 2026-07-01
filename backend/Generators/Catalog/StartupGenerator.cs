@@ -81,7 +81,7 @@ public sealed class StartupGenerator : GeneratorBase
             "ma solo per gente di [city]",
             "con le notifiche che ti fanno i complimenti",
             "che però parla nel dialetto di [city]",
-            "ma senza pubblicità, quindi gratis per sempre (e senza incassi)",
+            "ma senza pubblicità, quindi gratis per sempre — e senza incassi",
             "con un sistema di punti che non serve a niente",
             "ma solo per veri intenditori",
         ],
