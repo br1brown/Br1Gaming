@@ -175,7 +175,7 @@ public sealed class StartupGenerator : GeneratorBase
         [
             ("è tipo [colosso], [twist]", 3),
             ("praticamente è [colosso] [twist], ma il nostro è diverso", 4),
-            ("basta prendere l'[1-5]% del mercato di [colosso] e siamo ricchi", 4),
+            ("basta prendere un [1-5]% del mercato di [colosso] e siamo ricchi", 4),
             ("l'idea vale, l'esecuzione è un dettaglio", 3),
             ("ho solo bisogno di un programmatore e siamo a posto", 4),
             ("cerco un socio tecnico che sviluppi in cambio di visibilità", 4),
@@ -230,7 +230,7 @@ public sealed class StartupGenerator : GeneratorBase
     [
         ("vuole fare _«[colosso] [twist]»_ (sì, sa che esiste già, ma _«il nostro è diverso»_ — non è diverso)", 12),
         ("ha avuto l'idea del secolo: _«[colosso], [twist]»_, con soli [12-20] anni di ritardo", 10),
-        ("è convinto che basti l'[1-5]% del mercato di [colosso] per diventare [buzzword]", 9),
+        ("è convinto che basti un [1-5]% del mercato di [colosso] per diventare [buzzword]", 9),
         ("cerca un socio tecnico che sviluppi tutto gratis _«in cambio di visibilità e di una piccola parte delle quote»_", 12),
         ("ti fa firmare un NDA prima di rivelarti l'idea (che poi è: [colosso] [twist])", 12),
         ("valuta la sua startup [1-50] milioni pre-money, pre-prodotto, pre-tutto", 11),
@@ -264,7 +264,7 @@ public sealed class StartupGenerator : GeneratorBase
         ("dice che gli manca _«solo il capitale iniziale»_ (e il prodotto, e i clienti, e il tecnico)", 10),
         ("promette che _«tra [1-3] anni siamo su Forbes»_, intanto la beta è ferma a una slide", 9),
         ("[percezione] a parole, [professioni] nei fatti, [vibes] sempre", 5),
-        ("ti offre l'[1-5]% della società _«che varrà milioni»_ se gli sviluppi l'app entro venerdì", 12),
+        ("ti offre un [1-5]% della società _«che varrà milioni»_ se gli sviluppi l'app entro venerdì", 12),
         ("ha lanciato un sondaggio su [social] per _«validare il mercato»_: hanno risposto sua madre e due bot", 11),
         ("convinto che [colosso] _«non abbia capito niente»_ e che lui, [twist], li spazzerà via", 9),
     ];
