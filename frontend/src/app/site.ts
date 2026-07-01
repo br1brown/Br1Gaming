@@ -39,6 +39,9 @@ export enum PageType {
 function generatorPage(
     urlSegment: string,
     pageType: PageType,
+    // OG dedicata: di default coincide con l'immagine web (`generator.<slug>`), ma un generatore può
+    // puntare a una versione già croppata 1200x630 per l'anteprima social (es. `generator.<slug>.og`).
+    ogImage: string = `generator.${urlSegment}`,
 ): LeafPageInput {
     return {
         // Path relativo: il prefisso `generatori/` lo fornisce il parent.
@@ -46,7 +49,7 @@ function generatorPage(
         title: `generatore-${urlSegment}`,
         pageType,
         layout: { showPanel: false },
-        otherSEO: { ogImage: `generator.${urlSegment}` },
+        otherSEO: { ogImage },
         component: () => import('./pages/generator-detail/generator-detail.component')
             .then(m => m.GeneratorDetailComponent),
     };
@@ -78,7 +81,8 @@ function storyPage(
 // per coerenza: incel, startupparo, mbeb, nomi bar, kebabbari, anti-vegani, invettive automobilistiche.
 const GENERATORS = [
     ['incel', PageType.GeneratorIncel],
-    ['startup', PageType.GeneratorStartup],
+    // 3° elemento = id OG dedicato (immagine già croppata 1200x630); gli altri usano il default.
+    ['startup', PageType.GeneratorStartup, 'generator.startup.og'],
     ['mbeb', PageType.GeneratorMbeb],
     ['locali', PageType.GeneratorLocali],
     ['kebab', PageType.GeneratorKebab],
@@ -121,7 +125,7 @@ export const ContestoSito = buildSite({
             path: 'generatori',
             title: 'generatori',
             children: [
-                ...GENERATORS.map(([slug, pageType]) => generatorPage(slug, pageType)),
+                ...GENERATORS.map(([slug, pageType, ogImage]) => generatorPage(slug, pageType, ogImage)),
                 {
                     path: 'condivisi',
                     title: 'condivisi',
