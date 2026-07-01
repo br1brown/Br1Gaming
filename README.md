@@ -2,7 +2,7 @@
 
 > **Cos'è questa repo (leggimi prima).**
 > **Br1Gaming** è un progetto concreto: un sito di intrattenimento italiano — *«universo Br1»* — fatto di
-> **generatori di testo demenziali** (Maschio Basico, Incel, Startupparo, Invettive automobilistiche,
+> **generatori di testo demenziali** (Maschio Basico, Incel, Idee per App, Invettive automobilistiche,
 > Rant anti-vegani, Nomi di locali, Kebabbari), **avventure interattive a bivi** e qualche **mini-gioco**.
 >
 > È costruito **sopra il template Br1WebEngine** (il *"padre"*), da cui eredita tutta l'infrastruttura

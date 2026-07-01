@@ -38,7 +38,16 @@ public sealed class MarkovChain
     /// in toponimi/brand inventati: gradevole per nomi/cognomi di fantasia, fuori luogo qui.
     /// </summary>
     public static readonly IReadOnlySet<string> NonCoinableKeys =
-        new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "city", "social" };
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "city", "social",
+            // Parenti: legami reali, non si coniano mai. Chiavi derivate dagli stessi token tipizzati
+            // (SharedContent.Tags.Parente) usati per definirli, così non possono divergere.
+            SharedContent.Key(SharedContent.Tags.Parente.Giovane.M), SharedContent.Key(SharedContent.Tags.Parente.Giovane.F),
+            SharedContent.Key(SharedContent.Tags.Parente.Pari.M),    SharedContent.Key(SharedContent.Tags.Parente.Pari.F),
+            SharedContent.Key(SharedContent.Tags.Parente.Anziano.M), SharedContent.Key(SharedContent.Tags.Parente.Anziano.F),
+            SharedContent.Key(SharedContent.Tags.Parente.M), SharedContent.Key(SharedContent.Tags.Parente.F), SharedContent.Key(SharedContent.Tags.Parente.Any),
+        };
 
     // Sentinelle di inizio/fine parola (caratteri di controllo: non compaiono nei contenuti).
     private const char Start = '\u0002';

@@ -1,22 +1,25 @@
 using Backend.Models;
 
+// Alias tipizzato per i parenti condivisi: niente stringhe magiche nei segnaposto.
+using Parente = Backend.Generators.SharedContent.Tags.Parente;
+
 namespace Backend.Generators.Catalog;
 
 /// <summary>
-/// Il visionario dell'innovazione a orologeria: l'aspirante imprenditore che «ha avuto un'idea» — di
-/// solito <i>«[colosso] ma [twist]»</i>, cioè clonare da zero qualcosa che esiste già da vent'anni, con
-/// un taglio iperlocalizzato («ma solo per [city]») e zero percezione del mercato. Profilo in stile rant,
-/// come i generatori dei maschi, ma qui il bersaglio è lo startupparo con la slide della concorrenza vuota:
+/// Generatore di IDEE per app/software (non di imprenditori): sforna il classico progetto "da bar". Ogni
+/// output è una singola idea, montata così:
 /// <list type="bullet">
-///   <item><c>colosso</c>: il servizio già esistente da «reinventare» (LinkedIn, Netflix, Uber…);</item>
-///   <item><c>twist</c>: il differenziatore fantasma («ma italiano», «ma per [city]», «ma con la blockchain»);</item>
-///   <item><c>buzzword</c> / <c>percezione</c>: il gergo da pitch e l'auto-mitologia («il prossimo Steve Jobs»);</item>
-///   <item><c>professioni</c>: cosa fa davvero nella vita (nel gruppo <c>identita</c>, così il soggetto si
-///         definisce una volta sola: niente «CEO seriale» che è pure «studente al primo anno»);</item>
-///   <item><c>frasi_tipiche</c>: le battute-feticcio del founder pre-prodotto, con <c>[colosso]</c>/<c>[twist]</c>
-///         a segnaposto (gruppo esclusivo: una sola per testo, come nell'Incel).</item>
+///   <item><b>testa</b> (<see cref="Apertura"/>): il titolo dell'app — <c>[piattaforma]</c> per una
+///         <c>[funzione]</c> generica (roba che esiste già ovunque) + un <c>[dettaglio_specifico]</c>
+///         iper-specifico tra parentesi, dove ogni tanto spunta la <c>[city]</c>;</item>
+///   <item><b>centro</b> (<see cref="Core"/>): il cortocircuito <c>[lavoro_reale]</c> ↔ <c>[percepito]</c>
+///         (una roba enorme liquidata come "la fa il cugino") e la battuta ricorrente vera, <c>[problema_utenti]</c>:
+///         il difficile non è farla, è che non la usa nessuno;</item>
+///   <item><b>coda</b> (<see cref="Chiusura"/>, discorsiva): chi l'ha avuta — <c>[nome-m]</c>,
+///         <c>[professioni]</c> e la <c>[genesi]</c> (sempre dopo troppo tempo su un social).</item>
 /// </list>
-/// Generatore autonomo (niente <c>ComposeWith</c>): la satira è tutta sua.
+/// I "parenti che smanettano" arrivano dai condivisi tipizzati (<see cref="Parente"/>). Autonomo, in stile
+/// rant come i generatori dei maschi. Gruppi esclusivi: una sola battuta per tipo (contrasto/utenti/sicumera).
 /// </summary>
 public sealed class StartupGenerator : GeneratorBase
 {
@@ -24,248 +27,140 @@ public sealed class StartupGenerator : GeneratorBase
     public override string Slug => "startup";
 
     /// <inheritdoc />
-    public override GeneratorInfo Info { get; } = new() { Order = 2, Name = "Generatore Startupparo", Description = "Genera l'imprenditore visionario con l'idea geniale (in ritardo di vent'anni)" };
+    public override GeneratorInfo Info { get; } = new() { Order = 2, Name = "Generatore di Idee per App", Description = "L'idea geniale per un'app: esiste già e non la userà nessuno" };
 
     /// <inheritdoc />
-    public override GenerationSettings? PhraseSettings { get; } = new() { MinPhrases = 3, MaxPhrases = 5, MinScore = 28, Separators = [". ", "; ", ".\n"] };
+    // MarkovChaos = 0: niente conio dei nomi. Qui vogliamo realismo (nomi veri), non varianti inventate.
+    public override GenerationSettings? PhraseSettings { get; } = new() { MinPhrases = 2, MaxPhrases = 3, MinScore = 10, Separators = [". ", ".\n"], MarkovChaos = 0 };
+
+    /// <summary>Testa: il titolo dell'idea (piattaforma + funzione generica + dettaglio iper-specifico).</summary>
+    public override string? Apertura => "## [piattaforma] per [funzione] _([dettaglio_specifico])_\n\n";
+
+    /// <summary>Coda discorsiva: chi l'ha avuta, cosa fa e dove gli è venuta.</summary>
+    public override string? Chiusura => "\n\n_L'idea è di [nome-m], [professioni]. [genesi]._";
 
     /// <inheritdoc />
-    public override string? Apertura => "## [nome-m],\n";
-
-    /// <inheritdoc />
-    public override List<string>? UniqueLabels { get; } = ["vuole fare", "cerca un socio", "ti fa firmare", "valuta la sua", "si definisce"];
-
-    /// <inheritdoc />
-    public override List<string>? ExclusiveGroups { get; } = ["identita", "frasi_tipiche"];
+    public override List<string>? ExclusiveGroups { get; } = ["lavoro_reale", "problema_utenti", "sicumera"];
 
     /// <inheritdoc />
     public override Dictionary<string, List<ScoredItem>> FlatLists { get; } = new()
     {
-        // Il servizio già esistente che vuole «reinventare da zero». Deve leggere bene sia da solo sia
-        // dentro "[colosso] ma [twist]" e "l'ha già fatta [colosso]".
-        ["colosso"] =
+        // ══ TESTA ══ (nell'apertura: non concorrono al punteggio)
+        ["piattaforma"] =
         [
-            ("LinkedIn", 2),
-            ("Netflix", 2),
-            ("Facebook", 2),
-            ("Amazon", 2),
-            ("Uber", 2),
-            ("Tinder", 2),
-            ("Spotify", 2),
-            ("Airbnb", 2),
-            ("YouTube", 2),
-            ("TikTok", 2),
-            ("Instagram", 2),
-            ("PayPal", 2),
-            ("Booking", 2),
-            ("Just Eat", 2),
-            ("Glovo", 2),
-            ("Twitch", 2),
-            ("WhatsApp", 2),
-            ("Google", 3),
-            ("Trainline", 2),
-            ("Subito.it", 2),
+            "Un'app", "Un sito", "Un'applicazione desktop", "Un gestionale", "Un portale", "Un social", "Un marketplace", "Una piattaforma",
         ],
-        // Il differenziatore fantasma. Alcune varianti pescano la città condivisa: l'iperlocalizzazione
-        // è metà della comicità («il social network di [city]»).
-        ["twist"] =
+        // Funzioni generiche: versioni "da bar" di app che esistono già a bizzeffe. Nessun nome di brand.
+        ["funzione"] =
         [
-            ("ma italiano", 2),
-            ("ma per [city]", 3),
-            ("ma solo per [city]", 3),
-            ("ma con la blockchain", 3),
-            ("ma con l'AI", 2),
-            ("ma etico", 2),
-            ("ma per gli over 60", 3),
-            ("ma per parrucchieri", 3),
-            ("ma per la Serie B", 3),
-            ("ma cattolico", 2),
-            ("ma decentralizzato", 3),
-            ("ma con le crypto", 3),
-            ("ma senza gli algoritmi cattivi", 3),
-            ("ma con la privacy vera", 3),
-            ("ma per veri intenditori", 3),
-            ("ma green", 2),
+            "trovare persone con le tue stesse passioni vicino a te",
+            "dirti cosa cucinare con quello che hai nel frigo",
+            "riconoscere una pianta da una foto",
+            "dirti se un prodotto del supermercato fa male",
+            "trovare lavoro in zona",
+            "dividere le spese tra amici",
+            "prenotare dal barbiere senza telefonare",
+            "trovare un parcheggio libero",
+            "sapere a che ora passa davvero l'autobus",
+            "vendere le cose che non usi più",
+            "condividere la macchina con chi fa la tua strada",
+            "trovarti compagni per andare in palestra",
+            "ricordarti di bere l'acqua",
+            "organizzarti le vacanze col budget che hai",
+            "farti portare la spesa a casa",
         ],
-        // Il gergo del pitch: infilato ovunque, sempre con la faccia serissima.
-        ["buzzword"] =
+        // Il twist iper-specifico tra parentesi: qui ogni tanto spunta la città.
+        ["dettaglio_specifico"] =
         [
-            ("disruptive", 2),
-            ("scalabile", 2),
-            ("verticale", 2),
-            ("un ecosistema", 2),
-            ("una sinergia", 2),
-            ("first mover", 3),
-            ("un MVP", 2),
-            ("un unicorno", 2),
-            ("un marketplace", 2),
-            ("growth hacking", 3),
-            ("una exit strategy", 3),
-            ("un pivot", 2),
-            ("data-driven", 2),
-            ("customer-centric", 3),
-            ("un oceano blu", 3),
-            ("una value proposition", 3),
-            ("un funnel", 2),
+            "ma solo se hai un cane",
+            "ma solo per chi è nato sotto lo stesso segno",
+            "con l'IA che ti capisce l'umore",
+            "che ti evita la faccia dell'ex",
+            "ma i match solo entro 5 km da [city]",
+            "però funziona solo il martedì",
+            "ma solo per gente di [city]",
+            "con le notifiche che ti fanno i complimenti",
+            "che però parla nel dialetto di [city]",
+            "ma senza pubblicità, quindi gratis per sempre (e senza incassi)",
+            "con un sistema di punti che non serve a niente",
+            "ma solo per veri intenditori",
         ],
-        ["idoli"] =
+
+        // ══ CENTRO ══ (pesati: entrano nel punteggio)
+        // Quello che servirebbe DAVVERO (enorme).
+        ["lavoro_reale"] =
         [
-            ("Steve Jobs", 2),
-            ("Elon Musk", 2),
-            ("Mark Zuckerberg", 2),
-            ("Jeff Bezos", 2),
-            ("Jack Ma", 2),
-            ("Flavio Briatore", 3),
-            ("big Luca", 3),
-            ("i fratelli Winklevoss", 3),
-            ("il tizio del corso di trading su Instagram", 4),
-            ("Gary Vaynerchuk", 3),
-            ("un guru di LinkedIn con 40mila follower", 4),
+            ("un algoritmo di matching geolocalizzato in tempo reale", 3),
+            ("un sistema di riconoscimento immagini", 3),
+            ("un modello di IA che nessuna multinazionale ha ancora fatto girare bene", 3),
+            ("un'infrastruttura che regge milioni di utenti in contemporanea", 3),
+            ("un accordo con mezza grande distribuzione", 3),
+            ("un database aggiornato di ogni prodotto in commercio", 3),
+            ("una rete di rider e magazzini in tutta Italia", 3),
+            ("la moderazione di milioni di contenuti al giorno", 3),
         ],
-        // Auto-mitologia. Sempre tra virgolette nel testo: è come si presenta, non come è.
-        ["percezione"] =
+        // Come lo liquida ("il sito del cugino"): pesca i parenti condivisi tipizzati.
+        ["percepito"] =
         [
-            ("il prossimo Steve Jobs", 3),
-            ("lo Zuckerberg italiano", 3),
-            ("un visionario", 2),
-            ("un disruptor", 2),
-            ("un founder seriale", 3),
-            ("un serial entrepreneur", 3),
-            ("un self-made man", 3),
-            ("un business angel in incognito", 4),
-            ("un genio incompreso dell'innovazione", 3),
-            ("un imprenditore digitale", 2),
-            ("un innovatore nato", 2),
-            ("il futuro Elon Musk della [city]", 4),
-            ("un CEO visionario", 3),
-            ("un ragazzo con le idee giuste", 2),
+            ($"la fa mio {Parente.Pari.M} che smanetta, due sere", 2),
+            ($"è il sito del {Parente.Giovane.M}, due click", 2),
+            ("la butto giù con ChatGPT in un weekend", 2),
+            ("l'IA ormai fa tutto lei, io ci metto l'idea", 2),
+            ($"tanto mi ha detto mio {Parente.Anziano.M} che è una figata", 2),
+            ("ci vuole niente, è solo questione di mettersi lì", 2),
+            ("basta un programmatore e siamo a posto", 2),
+            ($"me la fa mia {Parente.Pari.F} che studia informatica", 2),
         ],
-        // Cosa fa DAVVERO (gruppo "identita": esclusivo con l'età).
+        // La battuta ricorrente vera.
+        ["problema_utenti"] =
+        [
+            ("poi però non la scarica nessuno", 2),
+            ("dopo un mese, download totali: 4", 3),
+            ($"l'hanno installata in tre: lui, sua madre e il {Parente.Giovane.M} che gliel'ha fatta", 3),
+            ("zero utenti attivi, ma già pensa allo spot in TV", 3),
+            ("il difficile non è farla, è convincere qualcuno a usarla", 2),
+            ("gli manca solo una cosa per sfondare: le persone che la usano", 3),
+            ("l'unico iscritto, per ora, è lui", 2),
+        ],
+        ["sicumera"] =
+        [
+            "la cosa più semplice del mondo", "una passeggiata", "roba da niente", "una cosa già mezzo fatta",
+        ],
+
+        // ══ CODA ══ (nella chiusura: non concorrono al punteggio)
         ["professioni"] =
         [
-            ("studente di economia al primo anno", 3),
-            ("promotore finanziario", 2),
-            ("ex agente immobiliare", 3),
-            ("venditore di materassi", 3),
-            ("dropshipper part-time", 3),
-            ("consulente non si sa bene di cosa", 3),
-            ("laureando fuoricorso in scienze della comunicazione", 4),
-            ("stagista non retribuito", 3),
-            ("influencer con 300 follower", 3),
-            ("trader di criptovalute in perdita", 3),
-            ("cassiere che sogna in grande", 3),
-            ("network marketer", 2),
+            "geometra", "barista", "rappresentante", "magazziniere", "personal trainer",
+            "neo-diplomato", "parrucchiere", "agente immobiliare", "promotore finanziario",
+            "cassiere al discount", "meccanico", "cameriere", "studente al primo anno",
         ],
-        ["vibes"] =
+        // Dove è nata: sempre dal social. Frasi con verbo, così scorrono dopo il ";".
+        ["genesi"] =
         [
-            ("iper-motivato", 2),
-            ("logorroico", 2),
-            ("caffeinomane", 2),
-            ("perennemente in call", 3),
-            ("allergico al lavoro dipendente", 3),
-            ("convinto", 2),
-            ("instancabile a parole", 3),
-            ("in modalità pitch h24", 3),
-            ("esaltato", 2),
-            ("insopportabile ai cenoni", 3),
-            ("visionario a vuoto", 3),
-        ],
-        // Le battute-feticcio: [colosso], [twist], [buzzword] a segnaposto. Una sola per testo (gruppo esclusivo).
-        ["frasi_tipiche"] =
-        [
-            ("è tipo [colosso], [twist]", 3),
-            ("praticamente è [colosso] [twist], ma il nostro è diverso", 4),
-            ("basta prendere un [1-5]% del mercato di [colosso] e siamo ricchi", 4),
-            ("l'idea vale, l'esecuzione è un dettaglio", 3),
-            ("ho solo bisogno di un programmatore e siamo a posto", 4),
-            ("cerco un socio tecnico che sviluppi in cambio di visibilità", 4),
-            ("non posso dirti l'idea, prima firma l'NDA", 4),
-            ("è un progetto [buzzword], capisci? Cambierà tutto", 3),
-            ("quando facciamo la exit ci ricompri l'attico", 4),
-            ("sì lo so che esiste già, ma nessuno l'ha fatto per [city]", 4),
-            ("mi manca solo il capitale iniziale, per il resto è fatta", 4),
-            ("è [buzzword], è il momento giusto, dobbiamo muoverci ora", 3),
-            ("gli utenti arriveranno da soli, il prodotto si vende da sé", 4),
-            ("ho già registrato il dominio, ormai è quasi fatta", 4),
-            ("il mercato è enorme, siamo [buzzword]", 3),
-            ("dammi retta, tra un anno siamo su Forbes", 3),
-        ],
-        // Le sue paure profonde: che gli rubino l'idea, che l'abbiano già fatta.
-        ["terrori"] =
-        [
-            ("che qualcuno gli rubi l'idea", 3),
-            ("scoprire che l'ha già fatta [colosso]", 4),
-            ("dover scrivere una riga di codice", 3),
-            ("che il socio tecnico si arrenda", 3),
-            ("che qualcuno gli chieda il fatturato", 4),
-            ("un investitore che chiede i numeri", 4),
-            ("finire l'attico dei suoi entro i 30", 3),
-        ],
-        // Oggetti di scena del personaggio.
-        ["props"] =
-        [
-            ("un MacBook pieno di adesivi di acceleratori", 3),
-            ("un pitch deck di [30-90] slide", 3),
-            ("biglietti da visita con scritto _«CEO & Founder»_", 4),
-            ("una felpa col logo della startup che non esiste ancora", 4),
-            ("un dominio .io comprato a mezzanotte", 3),
-            ("un logo fatto su Canva in cinque minuti", 3),
-            ("un abbonamento premium a LinkedIn", 3),
-            ("una lavagna piena di frecce e _«[buzzword]»_", 3),
-        ],
-        // Dove lo trovi.
-        ["luoghi"] =
-        [
-            ("un coworking di [city]", 3),
-            ("l'incubatore dove non è mai stato ammesso", 4),
-            ("un acceleratore visto solo su Instagram", 4),
-            ("il bar dove tiene i _«meeting strategici»_", 4),
-            ("una fiera di startup con l'ingresso gratuito", 4),
-            ("un evento di networking per il buffet", 4),
+            "gli è venuta dopo tre ore su TikTok",
+            "gli è venuta sotto un reel di un motivatore alle 2 di notte",
+            "ci ha pensato leggendo i commenti sotto il video di uno streamer",
+            "l'ha avuta dopo un carosello motivazionale su [social]",
+            "gli è venuta guardando uno che vende corsi con la Lambo a nolo",
+            "ci ha pensato sul divano, mentre scrollava",
+            "gli è venuta dopo l'ennesimo tutorial su come diventare ricchi",
+            "l'ha avuta al bar, dopo il terzo spritz",
         ],
     };
 
     /// <inheritdoc />
     public override List<ScoredItem> Core { get; } =
     [
-        ("vuole fare _«[colosso] [twist]»_ (sì, sa che esiste già, ma _«il nostro è diverso»_ — non è diverso)", 12),
-        ("ha avuto l'idea del secolo: _«[colosso], [twist]»_, con soli [12-20] anni di ritardo", 10),
-        ("è convinto che basti un [1-5]% del mercato di [colosso] per diventare [buzzword]", 9),
-        ("cerca un socio tecnico che sviluppi tutto gratis _«in cambio di visibilità e di una piccola parte delle quote»_", 12),
-        ("ti fa firmare un NDA prima di rivelarti l'idea (che poi è: [colosso] [twist])", 12),
-        ("valuta la sua startup [1-50] milioni pre-money, pre-prodotto, pre-tutto", 11),
-        ("si definisce _«[percezione]»_ su [social] (di lavoro fa il [professioni])", 9),
-        ("ha già pensato all'exit, anche se l'azienda ha zero utenti e zero euro di fatturato", 11),
-        ("il suo pitch deck ha [30-90] slide e quella della concorrenza dice sempre _«nessuno fa quello che facciamo noi»_ (lo fa [colosso] da [10-25] anni)", 15),
-        ("parla solo per [buzzword] e ogni tanto ripete _«[frasi_tipiche]»_", 7),
-        ("il logo l'ha già fatto su Canva, il codice lo scriverà _«qualcuno»_", 8),
-        ("gira ogni conversazione su _«senti, ma tu di lavoro cosa fai? no perché io avrei un'idea...»_", 9),
-        ("[professioni] che si presenta come _«[percezione]»_", 4),
-        ("ha [eta-giovane] anni e già [vibes], ripete a chiunque _«[frasi_tipiche]»_", 7),
-        ("[vibes] di [eta-giovane] anni, lo trovi sempre in [luoghi]", 6),
-        ("porta ovunque [props] e te lo mostra prima ancora di salutarti", 8),
-        ("quando gli dici che [colosso] lo fa già, risponde _«sì ma [twist]»_ e cambia argomento", 11),
-        ("il suo terrore più grande è [terrori], per questo non dice mai l'idea per intero", 9),
-        ("ha registrato il dominio, aperto la partita IVA e ordinato le felpe: manca solo il prodotto", 12),
-        ("secondo lui l'idea è tutto e l'esecuzione _«la fa il tecnico»_, che ovviamente non ha ancora trovato", 10),
-        ("ha [eta-giovane] anni, fa il [professioni], ma sui suoi biglietti c'è scritto _«[percezione]»_", 8),
-        ("passa le giornate in [luoghi] a _«fare networking»_ e a spiegare perché _«[frasi_tipiche]»_", 9),
-        ("il suo idolo è [idoli] e cita i suoi tweet come fossero il Vangelo", 6),
-        ("vuole _«essere il [idoli] della [city]»_, ma per ora ha solo [props]", 10),
-        ("è [buzzword], almeno secondo la sua bio di [social]", 4),
-        ("[vibes], convinto che _«[frasi_tipiche]»_", 5),
-        ("ti spiega che la sua idea è _«un oceano blu»_ (in realtà è [colosso] [twist])", 9),
-        ("non ha mai scritto una riga di codice, ma ha già deciso il nome dell'azienda e il colore del logo", 9),
-        ("ha pitchato l'idea a [3-15] investitori, a tutti i parenti e al barista: risposta unanime, _«bella, però...»_", 11),
-        ("il suo business plan si regge su una frase: _«[frasi_tipiche]»_", 7),
-        ("[professioni] che dopo un corso online da [90-400] euro si sente [percezione]", 8),
-        ("è terrorizzato all'idea di [terrori], quindi ogni riunione inizia con un NDA", 10),
-        ("ha [eta-giovane] anni e una startup che esiste solo come logo, dominio e _«[frasi_tipiche]»_", 8),
-        ("dice che gli manca _«solo il capitale iniziale»_ (e il prodotto, e i clienti, e il tecnico)", 10),
-        ("promette che _«tra [1-3] anni siamo su Forbes»_, intanto la beta è ferma a una slide", 9),
-        ("[percezione] a parole, [professioni] nei fatti, [vibes] sempre", 5),
-        ("ti offre un [1-5]% della società _«che varrà milioni»_ se gli sviluppi l'app entro venerdì", 12),
-        ("ha lanciato un sondaggio su [social] per _«validare il mercato»_: hanno risposto sua madre e due bot", 11),
-        ("convinto che [colosso] _«non abbia capito niente»_ e che lui, [twist], li spazzerà via", 9),
+        // Contrasto lavoro reale ↔ percepito (una sola per testo: gruppo esclusivo "lavoro_reale").
+        ("In realtà servirebbe [lavoro_reale], ma per lui _«[percepito]»_", 4),
+        ("Dietro ci sarebbe [lavoro_reale], che però lui liquida con _«[percepito]»_", 4),
+        ("La parte difficile — [lavoro_reale] — per lui non esiste: _«[percepito]»_", 5),
+        ("Tecnicamente vuol dire [lavoro_reale], ma _«tanto [percepito]»_", 4),
+        // Problema utenti (gruppo esclusivo "problema_utenti").
+        ("Il problema, come sempre, non è l'app: [problema_utenti]", 4),
+        ("Poi c'è il dettaglio da nulla: [problema_utenti]", 4),
+        // Sicumera (gruppo esclusivo "sicumera").
+        ("Ne parla come se fosse [sicumera]", 3),
+        ("Per lui è [sicumera], una formalità", 3),
     ];
 }

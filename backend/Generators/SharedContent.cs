@@ -22,6 +22,33 @@ namespace Backend.Generators;
 /// </remarks>
 public static class SharedContent
 {
+    /// <summary>
+    /// Token tipizzati dei segnaposto condivisi: niente stringhe magiche sparse nelle frasi. La stessa
+    /// costante scrive il tag (via interpolazione, es. <c>$"...{Tags.Parente.Pari.M}..."</c>) e — tolte le
+    /// parentesi con <see cref="Key"/> — la chiave della lista qui sotto, così tag e chiave non possono
+    /// divergere e un refuso lo becca il compilatore. Riusabili da qualunque generatore.
+    /// </summary>
+    internal static class Tags
+    {
+        /// <summary>Parenti, divisi per genere e per fascia generazionale (relativa a chi parla).</summary>
+        public static class Parente
+        {
+            /// <summary>Generazione sotto (nipote, cuginetto…).</summary>
+            public static class Giovane { public const string M = "[parente-giovane-m]"; public const string F = "[parente-giovane-f]"; }
+            /// <summary>Stessa generazione (cugino, fratello, cognato…).</summary>
+            public static class Pari { public const string M = "[parente-pari-m]"; public const string F = "[parente-pari-f]"; }
+            /// <summary>Generazione sopra (zio, suocero, nonno…).</summary>
+            public static class Anziano { public const string M = "[parente-anziano-m]"; public const string F = "[parente-anziano-f]"; }
+            /// <summary>Composti: tutte le fasce di un genere, o entrambe.</summary>
+            public const string M = "[parente-m]";
+            public const string F = "[parente-f]";
+            public const string Any = "[parente]";
+        }
+    }
+
+    /// <summary>Toglie le parentesi da un token (<c>"[x]"</c> → <c>"x"</c>) per ricavarne la chiave di lista.</summary>
+    internal static string Key(string token) => token[1..^1];
+
     /// <summary>Dizionari di parole comuni (con punteggio opzionale), riusati dai placeholder di ogni generatore.</summary>
     public static Dictionary<string, List<ScoredItem>> FlatLists { get; } = new()
     {
@@ -1015,6 +1042,14 @@ public static class SharedContent
             "Zappia",
             "Zito",
         ],
+        // ── Parenti condivisi: genere × fascia generazionale (relativa a chi parla). Non-coniabili
+        //    (vedi MarkovChain.NonCoinableKeys): sono legami reali, il conio li renderebbe assurdi.
+        [Key(Tags.Parente.Giovane.M)] = ["nipote", "nipotino", "cuginetto", "figlioccio"],
+        [Key(Tags.Parente.Giovane.F)] = ["nipote", "nipotina", "cuginetta", "figlioccia"],
+        [Key(Tags.Parente.Pari.M)] = ["cugino", "fratello", "cognato"],
+        [Key(Tags.Parente.Pari.F)] = ["cugina", "sorella", "cognata"],
+        [Key(Tags.Parente.Anziano.M)] = ["zio", "suocero", "nonno", "prozio"],
+        [Key(Tags.Parente.Anziano.F)] = ["zia", "suocera", "nonna", "prozia"],
     };
 
     /// <summary>Gruppi di tag mutuamente esclusivi referenziabili per nome.</summary>
@@ -1030,6 +1065,14 @@ public static class SharedContent
     public static Dictionary<string, List<string>> ComposedLists { get; } = new()
     {
         ["nome"] = ["nome-m", "nome-f"],
+        // Parenti composti: [parente-m]/[parente-f] uniscono le tre fasce di un genere, [parente] entrambe.
+        [Key(Tags.Parente.M)] = [Key(Tags.Parente.Giovane.M), Key(Tags.Parente.Pari.M), Key(Tags.Parente.Anziano.M)],
+        [Key(Tags.Parente.F)] = [Key(Tags.Parente.Giovane.F), Key(Tags.Parente.Pari.F), Key(Tags.Parente.Anziano.F)],
+        [Key(Tags.Parente.Any)] =
+        [
+            Key(Tags.Parente.Giovane.M), Key(Tags.Parente.Pari.M), Key(Tags.Parente.Anziano.M),
+            Key(Tags.Parente.Giovane.F), Key(Tags.Parente.Pari.F), Key(Tags.Parente.Anziano.F),
+        ],
     };
 
     /// <summary>Mappa alias → range d'età (es. <c>eta-giovane</c> → <c>[18-26]</c>).</summary>

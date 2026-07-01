@@ -68,6 +68,6 @@
   </g>
 
   <!-- title -->
-  <text x="600" y="540" text-anchor="middle" font-size="86" font-weight="800" fill="#ffffff" letter-spacing="2">STARTUPPARO</text>
-  <text x="600" y="590" text-anchor="middle" font-size="30" font-weight="600" fill="#c4b5fd">«e' tipo LinkedIn, ma per il mio paese»</text>
+  <text x="600" y="540" text-anchor="middle" font-size="80" font-weight="800" fill="#ffffff" letter-spacing="2">IDEE PER APP</text>
+  <text x="600" y="590" text-anchor="middle" font-size="29" font-weight="600" fill="#c4b5fd">«tu ci metti X e ti da' Y» (esiste gia', e non la usa nessuno)</text>
 </svg>
