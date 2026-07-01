@@ -9,7 +9,7 @@ public sealed class MbebGenerator : GeneratorBase
     public override string Slug => "mbeb";
 
     /// <inheritdoc />
-    public override GeneratorInfo Info { get; } = new() { Order = 2, Name = "Generatore MBEB", Description = "Genera il tuo Maschio Bianco Etero Basico" };
+    public override GeneratorInfo Info { get; } = new() { Order = 3, Name = "Generatore MBEB", Description = "Genera il tuo Maschio Bianco Etero Basico" };
 
     /// <inheritdoc />
     public override GenerationSettings? PhraseSettings { get; } = new() { MinPhrases = 2, MaxPhrases = 5, MinScore = 24, Separators = [". ", "; "] };

@@ -9,6 +9,7 @@ import { SITE_CONFIG } from '../../core/engine/siteBuilder';
 
 const GENERATOR_PAGE_TYPES: Partial<Record<string, PageType>> = {
     'incel': PageType.GeneratorIncel,
+    'startup': PageType.GeneratorStartup,
     'auto': PageType.GeneratorAuto,
     'antiveg': PageType.GeneratorAntiveg,
     'locali': PageType.GeneratorLocali,

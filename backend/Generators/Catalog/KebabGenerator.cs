@@ -28,7 +28,7 @@ public sealed class KebabGenerator : GeneratorBase
     public override string Slug => "kebab";
 
     /// <inheritdoc />
-    public override GeneratorInfo Info { get; } = new() { Order = 4, Name = "Generatore Kebabbari", Description = "Trova il nome del tuo kebabbaro o locale straniero" };
+    public override GeneratorInfo Info { get; } = new() { Order = 5, Name = "Generatore Kebabbari", Description = "Trova il nome del tuo kebabbaro o locale straniero" };
 
     /// <inheritdoc />
     public override Dictionary<string, List<ScoredItem>> FlatLists { get; } = new()

@@ -9,7 +9,7 @@ public sealed class AntivegGenerator : GeneratorBase
     public override string Slug => "antiveg";
 
     /// <inheritdoc />
-    public override GeneratorInfo Info { get; } = new() { Order = 5, Name = "Generatore Rant Anti-Vegani", Description = "Senti cosa ha da dire ancora il generico negazionista vegano" };
+    public override GeneratorInfo Info { get; } = new() { Order = 6, Name = "Generatore Rant Anti-Vegani", Description = "Senti cosa ha da dire ancora il generico negazionista vegano" };
 
     /// <inheritdoc />
     public override GenerationSettings? PhraseSettings { get; } = new() { MinPhrases = 2, MaxPhrases = 4, Separators = ["!! ", "!1! ", "! ", "\n"] };

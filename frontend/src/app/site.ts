@@ -18,6 +18,7 @@ export enum PageType {
     //PERSONALIZZABILI
     Home,
     GeneratorIncel,
+    GeneratorStartup,
     GeneratorAuto,
     GeneratorAntiveg,
     GeneratorLocali,
@@ -74,9 +75,10 @@ function storyPage(
 // (slug + PageType): alimentano sia le route (sotto i parent) sia la navbar.
 // ═══════════════════════════════════════════════════════════════════════
 // Ordine di navbar/route. La home segue invece l'ordine del backend (Info.Order); qui lo si rispecchia
-// per coerenza: incel, mbeb, nomi bar, kebabbari, anti-vegani, invettive automobilistiche.
+// per coerenza: incel, startupparo, mbeb, nomi bar, kebabbari, anti-vegani, invettive automobilistiche.
 const GENERATORS = [
     ['incel', PageType.GeneratorIncel],
+    ['startup', PageType.GeneratorStartup],
     ['mbeb', PageType.GeneratorMbeb],
     ['locali', PageType.GeneratorLocali],
     ['kebab', PageType.GeneratorKebab],
