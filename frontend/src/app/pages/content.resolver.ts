@@ -167,6 +167,7 @@ export class ContentResolver {
     private generatorLoader(pageType: PageType): (() => Promise<GeneratorInfo>) | null {
         switch (pageType) {
             case PageType.GeneratorIncel: return () => this.apiService.getIncel();
+            case PageType.GeneratorStartup: return () => this.apiService.getStartup();
             case PageType.GeneratorAuto: return () => this.apiService.getAuto();
             case PageType.GeneratorAntiveg: return () => this.apiService.getAntiveg();
             case PageType.GeneratorLocali: return () => this.apiService.getLocali();

@@ -18,6 +18,7 @@ export enum PageType {
     //PERSONALIZZABILI
     Home,
     GeneratorIncel,
+    GeneratorStartup,
     GeneratorAuto,
     GeneratorAntiveg,
     GeneratorLocali,
@@ -38,6 +39,9 @@ export enum PageType {
 function generatorPage(
     urlSegment: string,
     pageType: PageType,
+    // OG dedicata: di default coincide con l'immagine web (`generator.<slug>`), ma un generatore può
+    // puntare a una versione già croppata 1200x630 per l'anteprima social (es. `generator.<slug>.og`).
+    ogImage: string = `generator.${urlSegment}`,
 ): LeafPageInput {
     return {
         // Path relativo: il prefisso `generatori/` lo fornisce il parent.
@@ -45,7 +49,7 @@ function generatorPage(
         title: `generatore-${urlSegment}`,
         pageType,
         layout: { showPanel: false },
-        otherSEO: { ogImage: `generator.${urlSegment}` },
+        otherSEO: { ogImage },
         component: () => import('./pages/generator-detail/generator-detail.component')
             .then(m => m.GeneratorDetailComponent),
     };
@@ -57,13 +61,16 @@ function generatorPage(
 function storyPage(
     urlSegment: string,
     pageType: PageType,
+    // OG dedicata opaca: default = immagine web (`story.<slug>`); una storia con card trasparente
+    // punta a una sorgente OG opaca (`story.<slug>.og`) per non rovinare l'anteprima social.
+    ogImage: string = `story.${urlSegment}`,
 ): LeafPageInput {
     return {
         // Path relativo: il prefisso `avventura/` lo fornisce il parent.
         path: urlSegment,
         title: `avventura-${urlSegment}`,
         pageType,
-        otherSEO: { ogImage: `story.${urlSegment}` },
+        otherSEO: { ogImage },
         component: () => import('./pages/story-player/story-player.component')
             .then(m => m.StoryPlayerComponent),
     };
@@ -74,20 +81,25 @@ function storyPage(
 // (slug + PageType): alimentano sia le route (sotto i parent) sia la navbar.
 // ═══════════════════════════════════════════════════════════════════════
 // Ordine di navbar/route. La home segue invece l'ordine del backend (Info.Order); qui lo si rispecchia
-// per coerenza: incel, mbeb, nomi bar, kebabbari, anti-vegani, invettive automobilistiche.
+// per coerenza: incel, startupparo, mbeb, nomi bar, kebabbari, anti-vegani, invettive automobilistiche.
 const GENERATORS = [
-    ['incel', PageType.GeneratorIncel],
-    ['mbeb', PageType.GeneratorMbeb],
-    ['locali', PageType.GeneratorLocali],
-    ['kebab', PageType.GeneratorKebab],
-    ['antiveg', PageType.GeneratorAntiveg],
-    ['auto', PageType.GeneratorAuto],
+    // 3° elemento = id OG dedicato (immagine OPACA, "forma OG"): serve quando la card è trasparente,
+    // così l'anteprima social resta opaca e non esce lavata/nera. incel/mbeb/startup: ritaglio su fondo
+    // brand; auto: la foto originale opaca (la card userà poi il ritaglio trasparente).
+    ['incel', PageType.GeneratorIncel, 'generator.incel.og'],
+    ['startup', PageType.GeneratorStartup, 'generator.startup.og'],
+    ['mbeb', PageType.GeneratorMbeb, 'generator.mbeb.og'],
+    ['locali', PageType.GeneratorLocali, 'generator.locali.og'],
+    ['kebab', PageType.GeneratorKebab, 'generator.kebab.og'],
+    ['antiveg', PageType.GeneratorAntiveg, 'generator.antiveg.og'],
+    ['auto', PageType.GeneratorAuto, 'generator.auto.og'],
 ] as const;
 
 const STORIES = [
-    ['poveri-maschi', PageType.StoryPoveriMaschi],
-    ['magrogamer09', PageType.StoryMagrogamer09],
-    ['sopravvivi-agli-usa', PageType.StorySurviveUsa],
+    // 3° elemento = id OG dedicato opaco (card trasparente → OG resta opaca).
+    ['poveri-maschi', PageType.StoryPoveriMaschi, 'story.poveri-maschi.og'],
+    ['magrogamer09', PageType.StoryMagrogamer09, 'story.magrogamer09.og'],
+    ['sopravvivi-agli-usa', PageType.StorySurviveUsa, 'story.sopravvivi-agli-usa.og'],
 ] as const;
 
 
@@ -119,7 +131,7 @@ export const ContestoSito = buildSite({
             path: 'generatori',
             title: 'generatori',
             children: [
-                ...GENERATORS.map(([slug, pageType]) => generatorPage(slug, pageType)),
+                ...GENERATORS.map(([slug, pageType, ogImage]) => generatorPage(slug, pageType, ogImage)),
                 {
                     path: 'condivisi',
                     title: 'condivisi',
@@ -136,7 +148,7 @@ export const ContestoSito = buildSite({
         {
             path: 'avventura',
             title: 'avventura',
-            children: STORIES.map(([slug, pageType]) => storyPage(slug, pageType)),
+            children: STORIES.map(([slug, pageType, ogImage]) => storyPage(slug, pageType, ogImage)),
         },
 
         // ── Altri giochi (top-level) ─────────────────────────────────
@@ -146,6 +158,8 @@ export const ContestoSito = buildSite({
             description: 'Indovina se la persona è un duce o non duce',
             pageType: PageType.GameDuceNonDuce,
             layout: { fitViewport: true },
+            // Eccezione: qui la card NON diventa trasparente (è normale sia con Valerio Lundini),
+            // quindi niente OG separata — l'immagine della card fa già da anteprima social.
             otherSEO: { ogImage: 'game.ducenonduce' },
             component: () => import('./pages/duce-non-duce/duce-non-duce.component')
                 .then(m => m.DuceNonDuceComponent),
@@ -156,7 +170,8 @@ export const ContestoSito = buildSite({
             title: `radar`,
             description: 'Il radar delle chiese intorno a te',
             pageType: PageType.GameRadar,
-            otherSEO: { ogImage: 'game.radar' },
+            // OG opaca dedicata (la card può diventare trasparente senza rovinare l'anteprima social).
+            otherSEO: { ogImage: 'game.radar.og' },
             layout: { fitViewport: true },
             component: () => import('./pages/radar/radar.component')
                 .then(m => m.RadarComponent),
@@ -168,7 +183,8 @@ export const ContestoSito = buildSite({
             description: 'Attraversa la città a colpi di passaggi in auto e chiudi la pratica prima che chiudano gli sportelli.',
             pageType: PageType.GameBurocrazia,
             layout: { fitViewport: true },
-            otherSEO: { ogImage: 'game.burocrazia' },
+            // OG opaca dedicata (la card può diventare trasparente senza rovinare l'anteprima social).
+            otherSEO: { ogImage: 'game.burocrazia.og' },
             component: () => import('./pages/burocrazia/burocrazia.component')
                 .then(m => m.BurocraziaComponent),
         },

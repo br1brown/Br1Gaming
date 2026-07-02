@@ -1,4 +1,3 @@
-using Backend.Models;
 
 namespace Backend.Generators;
 
@@ -38,7 +37,7 @@ public record GenerationSettings
     /// Override (0..1) del tasso STANDARD di "conio" Markov (<see cref="Grammar.MarkovChain.DefaultChaos"/>):
     /// probabilità che un segnaposto venga inventato da una catena di Markov invece di pescato — parole
     /// nuove ma plausibili, stesso sapore ortografico. Assente = usa il default standard; 0 = disattiva.
-    /// Vale comunque solo per le liste CONDIVISE dei nomi propri (nomi, cognomi…): città e social ne sono esclusi.
+    /// Vale comunque solo per le liste dichiarate coniabili (<c>le chiavi coniabili, private del motore</c>: nomi e cognomi).
     /// In una composizione, tra i generatori che lo impostano vince la probabilità più alta.
     /// </summary>
     public double? MarkovChaos { get; init; }
@@ -57,7 +56,7 @@ public record RequiredInjectData
     public int Max { get; init; }
 
     /// <summary>Frasi candidate all'iniezione (con punteggio opzionale).</summary>
-    public List<ScoredItem> Phrases { get; init; } = [];
+    public List<Frase> Phrases { get; init; } = [];
 
     /// <summary>Costruttore vuoto.</summary>
     public RequiredInjectData() { }
@@ -66,7 +65,7 @@ public record RequiredInjectData
     /// <param name="min">Numero minimo di frasi da iniettare.</param>
     /// <param name="max">Numero massimo di frasi da iniettare.</param>
     /// <param name="phrases">Frasi candidate all'iniezione.</param>
-    public RequiredInjectData(int min, int max, List<ScoredItem> phrases)
+    public RequiredInjectData(int min, int max, List<Frase> phrases)
     {
         Min = min;
         Max = max;
@@ -107,21 +106,44 @@ public interface IGenerator
     /// <summary>Quota di frasi identitarie quando questo generatore è iniettato in un altro, o <c>null</c>.</summary>
     RequiredInjectData? CoreRequired { get; }
 
-    /// <summary>Frase di apertura del testo (template con placeholder), o <c>null</c>.</summary>
-    string? Apertura { get; }
+    /// <summary>Frase di apertura del testo (tipizzata o template legacy), o <c>null</c>.</summary>
+    Frase? Apertura { get; }
 
-    /// <summary>Frase di chiusura del testo (template con placeholder), o <c>null</c>.</summary>
-    string? Chiusura { get; }
+    /// <summary>Frase di chiusura del testo (tipizzata o template legacy), o <c>null</c>.</summary>
+    Frase? Chiusura { get; }
 
-    /// <summary>Frasi centrali del generatore (template con placeholder, con punteggio opzionale).</summary>
-    List<ScoredItem> Core { get; }
+    /// <summary>Frasi centrali del generatore (tipizzate o template legacy, con punteggio opzionale).</summary>
+    List<Frase> Core { get; }
 
-    /// <summary>Dizionari di parole locali del generatore (con punteggio opzionale), fusi con quelli condivisi.</summary>
-    Dictionary<string, List<ScoredItem>> FlatLists { get; }
+    /// <summary>
+    /// I tag CON VOCI del generatore: le sue liste locali ed eventuali estensioni di liste altrui
+    /// (<c>new(AltroTag) { ... }</c>), fusi per chiave con i condivisi e con la catena dei master.
+    /// L'implementazione di default (<see cref="GeneratorBase"/>) li scopre dai campi statici della
+    /// classe: dichiarare il campo è dichiarare la lista.
+    /// </summary>
+    IReadOnlyList<Tag> Liste { get; }
 
-    /// <summary>Etichette che possono comparire una sola volta nel testo generato, o <c>null</c>.</summary>
-    List<string>? UniqueLabels { get; }
+    /// <summary>
+    /// I tag UNIONE del generatore (creati con <see cref="Tag.Unione"/>): non hanno voci proprie, le loro
+    /// voci sono l'unione — composta al boot, DOPO il merge della catena — dei sotto-tag indicati. Così le
+    /// estensioni ai sotto-tag (anche di altri generatori via <see cref="ComposeWith"/>) rifluiscono
+    /// nell'unione. Scoperti come le <see cref="Liste"/> dai campi statici della classe.
+    /// </summary>
+    IReadOnlyList<Tag> Composte { get; }
 
-    /// <summary>Nomi di PolicyGroups (condivisi) da attivare come gruppi di esclusione reciproca, o <c>null</c>.</summary>
+    /// <summary>Etichette che possono comparire una sola volta nel testo generato, o <c>null</c>.
+    /// Validate al boot: ognuna deve comparire in almeno una frase della catena.</summary>
+    List<Etichetta>? UniqueLabels { get; }
+
+    /// <summary>Nomi di gruppi di esclusione reciproca da attivare, o <c>null</c>. Un nome si risolve (in
+    /// quest'ordine) in: un <see cref="PolicyGroups"/> LOCALE, un PolicyGroup CONDIVISO, o — se è la chiave
+    /// di una flatlist — un gruppo-singoletto su quel solo tag.</summary>
     List<string>? ExclusiveGroups { get; }
+
+    /// <summary>Gruppi di esclusione reciproca LOCALI: nome → chiavi dei tag che, comparendo in frasi
+    /// diverse dello stesso testo, si escludono a vicenda (al massimo una frase per gruppo). Come i
+    /// PolicyGroups condivisi ma definiti dal generatore; si ATTIVANO elencandone il nome in
+    /// <see cref="ExclusiveGroups"/>. Servono a evitare che due frasi ripetano lo stesso TEMA quando
+    /// più tag sono concettualmente equivalenti. <c>null</c> se il generatore non ne ha.</summary>
+    IReadOnlyDictionary<string, IReadOnlyList<string>>? PolicyGroups { get; }
 }

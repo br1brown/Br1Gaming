@@ -152,6 +152,9 @@ export class ApiService extends BaseApiService {
     /** Info del generatore Incel. */
     getIncel(): Promise<GeneratorInfo> { return this.getGenerator('incel'); }
 
+    /** Info del generatore Startupparo. */
+    getStartup(): Promise<GeneratorInfo> { return this.getGenerator('startup'); }
+
     /** Info del generatore Automobilista. */
     getAuto(): Promise<GeneratorInfo> { return this.getGenerator('auto'); }
 
@@ -169,6 +172,9 @@ export class ApiService extends BaseApiService {
 
     /** Genera un nuovo testo Incel. */
     generateIncel(): Promise<GenerateResponse> { return this.generate('incel'); }
+
+    /** Genera un nuovo profilo Startupparo. */
+    generateStartup(): Promise<GenerateResponse> { return this.generate('startup'); }
 
     /** Genera un nuovo testo Automobilista. */
     generateAuto(): Promise<GenerateResponse> { return this.generate('auto'); }

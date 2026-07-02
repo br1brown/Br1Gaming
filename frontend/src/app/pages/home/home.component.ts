@@ -9,6 +9,7 @@ import { SITE_CONFIG } from '../../core/engine/siteBuilder';
 
 const GENERATOR_PAGE_TYPES: Partial<Record<string, PageType>> = {
     'incel': PageType.GeneratorIncel,
+    'startup': PageType.GeneratorStartup,
     'auto': PageType.GeneratorAuto,
     'antiveg': PageType.GeneratorAntiveg,
     'locali': PageType.GeneratorLocali,
@@ -22,8 +23,15 @@ const STORY_PAGE_TYPES: Partial<Record<string, PageType>> = {
     'sopravvivi-agli-usa': PageType.StorySurviveUsa,
 };
 
-// I giochi "non-storia": stanno fuori dal gruppo Storie, come nel menu.
+// I giochi "non-storia": stanno fuori dal gruppo Storie, come nel menu. In home Burocrazia va per prima
+// (ordine indipendente da quello delle route/navbar).
 const STATIC_GIOCHI: CardEntry[] = [
+    {
+        title: 'Burocrazia',
+        subtitle: 'Attraversa la città a colpi di passaggi in auto e chiudi la pratica prima che chiudano gli sportelli.',
+        imageId: 'game.burocrazia',
+        pageType: PageType.GameBurocrazia,
+    },
     {
         title: 'Duce o Non Duce?',
         subtitle: "Indovina se la persona è un duce o non duce. Da un'idea di Valerio Lundini.",
@@ -35,12 +43,6 @@ const STATIC_GIOCHI: CardEntry[] = [
         subtitle: 'Il radar delle chiese: apri la mappa e vedi quelle intorno a te.',
         imageId: 'game.radar',
         pageType: PageType.GameRadar,
-    },
-    {
-        title: 'Burocrazia',
-        subtitle: 'Attraversa la città a colpi di passaggi in auto e chiudi la pratica prima che chiudano gli sportelli.',
-        imageId: 'game.burocrazia',
-        pageType: PageType.GameBurocrazia,
     },
 ];
 

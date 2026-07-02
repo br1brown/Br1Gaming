@@ -30,6 +30,9 @@ export class CardGridComponent {
     readonly collapseMobile = input(2);
     /** Quante card mostra la vista ripiegata da desktop (≥ md). */
     readonly collapseDesktop = input(4);
+    /** Classi di colonna di ogni card. Default: 2 per riga da desktop. Le sezioni a mezza pagina
+     *  (storie/giochi affiancati) passano 'col-12' per impilare le card in colonna singola. */
+    readonly itemColClass = input('col-12 col-md-6');
 
     /** L'utente ha premuto "Mostra tutti": la lista resta espansa per il resto della visita. */
     protected readonly espanso = signal(false);

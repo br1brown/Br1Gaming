@@ -1,390 +1,427 @@
-using Backend.Models;
+
+// Alias tipizzati per i contenuti condivisi: niente stringhe magiche nei segnaposto.
+using City = Backend.Generators.SharedContent.City;
+using Cognome = Backend.Generators.SharedContent.Cognome;
+using Eta = Backend.Generators.SharedContent.Eta;
+using Gruppi = Backend.Generators.SharedContent.Gruppi;
+using Nome = Backend.Generators.SharedContent.Nome;
+using Parente = Backend.Generators.SharedContent.Parente;
+using Piatti = Backend.Generators.SharedContent.Piatti;
+using Professioni = Backend.Generators.SharedContent.Professioni;
+using Social = Backend.Generators.SharedContent.Social;
 
 namespace Backend.Generators.Catalog;
 
 /// <summary>Maschio Bianco Etero Basico (MBEB). Fa da base per l'Incel, che lo dichiara in <c>ComposeWith</c>.</summary>
 public sealed class MbebGenerator : GeneratorBase
 {
+    // Segnaposto del generatore, tipizzati. INTERNAL (non private) quelli che l'Incel — che compone
+    // con questo master via ComposeWith — riusa per estendere le liste e citarle nelle sue frasi.
+    internal static readonly Tag Donne = new("donne")
+    {
+        ("mogl... la sua ex moglie", 4),
+        ("sua ex moglie", 3),
+        ("madre", 2),
+        new($"{Parente.Anziano.F} {Nome.F}", 3),
+        new($"{Parente.Anziano.F}", 2),
+        new($"{Parente.Pari.F}", 2),
+        ("sua ragazza", 2),
+        ("_«sua donna»_", 2),
+        ("sua ex-collega idealizzata", 3),
+        new($"sua amica {Nome.F}", 3),
+        ("sua prima compagna", 3),
+        ("sua ultima fidanzata", 3),
+        new($"sua vicina di casa {Nome.F}", 3),
+        ("sua insegnante delle medie", 3),
+        ("sua ex-fidanzata", 2),
+        new($"ex-moglie del suo miglior amico", 4),
+        new($"{Parente.Pari.F} del suo miglior amico, {Nome.F}", 4),
+    };
+
+    internal static readonly Tag Idoli = new("idoli")
+    {
+        ("Elon Musk", 2),
+        ("Sgarbi", 2),
+        ("big Luca", 2),
+        ("Marco Travaglio", 2),
+        ("Povia", 2),
+        ("Mario Giordano", 2),
+        ("Diego Fusaro", 2),
+        ("Gianluigi Paragone", 2),
+        ("Bruno Vespa", 2),
+    };
+
+    internal static readonly Tag Ossessioni = new("ossessioni")
+    {
+        ("Padel", 2),
+        ("Fantacalcio", 2),
+        ("grigliata della domenica", 3),
+        ("automobili fighissime", 2),
+        ("bei vecchi tempi", 3),
+        ("calcetto con i colleghi", 3),
+        ("birra artigianale", 2),
+        new($"video di motori su {Social.Any}", 3),
+        ("fai-da-te", 2),
+        ("discorsi motivazionali", 2),
+    };
+
+    // Il "hating" è diviso per NATURA del bersaglio, così ogni frase pesca il tipo giusto e non crea
+    // cortocircuiti: «A Morte [concetto]» non deve mai uscire su una persona reale (diffamazione), e
+    // "non è mica come [persona]" vuole un individuo, non una ZTL. {Hating} resta l'unione (l'"Any")
+    // per le frasi generiche di sempre.
+    // Persone REALI nominate: usare solo in contesti miti, MAI su liste nere / "a morte".
+    internal static readonly Tag HatingPersone = new("hating-persone")
+    {
+        ("Fedez", 2),
+        ("Chiara Ferragni", 2),
+        ("Selvaggia Lucarelli", 2),
+        ("Saviano", 2),
+        ("Luciana Littizzetto", 2),
+        ("Achille Lauro", 2),
+        ("Alessandro Zan", 2),
+    };
+
+    // Categorie di persone (plurali): bersaglio collettivo, non un individuo.
+    internal static readonly Tag HatingGruppi = new("hating-gruppi")
+    {
+        ("i ciclisti in mezzo alla strada", 3),
+        ("i vegani", 2),
+        ("chi paga il caffè col POS", 3),
+        ("i giovani che non hanno voglia di lavorare", 3),
+    };
+
+    // Concetti / cose / fenomeni: il bersaglio "sicuro" per i contesti aggressivi.
+    internal static readonly Tag HatingConcetti = new("hating-concetti")
+    {
+        ("i monopattini elettrici", 3),
+        ("il politicamente corretto", 3),
+        ("la farina di insetti", 3),
+        ("le auto elettriche", 3),
+        ("la musica trap", 3),
+        ("le ZTL", 2),
+        ("le manifestazioni per il clima", 3),
+    };
+
+    // Unione ("Any"): {Hating} = persone ∪ gruppi ∪ concetti. Il RuntimeBuilder la compone DOPO il merge
+    // della catena, così le estensioni ai sottogruppi (anche dell'incel) rifluiscono qui automaticamente.
+    internal static readonly Tag Hating = Tag.Unione("hating", HatingPersone, HatingGruppi, HatingConcetti);
+
+    internal static readonly Tag DifettiSociali = new("difetti_sociali")
+    {
+        ("anti vegano", 2),
+        ("omofobo", 2),
+        ("transfobico", 2),
+        ("complottista", 2),
+        ("retrogrado", 2),
+        ("sessista", 2),
+        ("razzista", 2),
+        ("bigotto", 2),
+        ("indelicato", 2),
+        ("senza cuore", 2),
+        ("intollerante", 2),
+        ("egoista", 2),
+        ("aggressivo", 2),
+        ("prepotente", 2),
+        ("autoritario", 2),
+        ("possessivo", 2),
+    };
+
+    internal static readonly Tag Vibes = new("vibes")
+    {
+        ("stronzo", 2),
+        ("pessimista rabbioso", 2),
+        ("insicuro cronico", 2),
+        ("frustrato", 2),
+        ("antipatico", 2),
+        ("geloso", 2),
+        ("permaloso", 2),
+        ("rosicone", 2),
+        ("saccente", 2),
+        ("musone rancoroso", 3),
+        ("boomer nell'anima", 3),
+        ("borioso", 2),
+        ("lamentoso", 2),
+        ("perennemente incazzato", 3),
+    };
+
+    internal static readonly Tag Percezione = new("percezione")
+    {
+        ("divorziato attempato", 2),
+        ("spaccafighe", 2),
+        ("VIRILE (così dice lui... vabbé)", 4),
+        ("navigatore in acque turbolente", 3),
+        ("guerriero silenzioso", 2),
+        ("gentile con tutti (ci tiene a rimarcarlo ogni volta quindi lo dico: sì gentile anche con i neri)", 4),
+        ("eremita moderno", 2),
+        ("ombra errante", 2),
+        ("fortezza inespugnabile", 2),
+        ("viandante solitario", 2),
+        ("cavaliere senza armatura", 3),
+        ("fenice taciturna", 2),
+        ("mistero insondabile", 2),
+        ("astro nascente celato", 3),
+        ("solitarrio come isola deserta", 3),
+        ("lupo solitario", 2),
+    };
+
+    internal static readonly Tag FrasiTipiche = new("frasi_tipiche")
+    {
+        ("le femministe esagerano, ci vuole il compromesso!", 3),
+        ("vuoi la parità? allora paga anche tu al ristorante", 3),
+        ("una volta le donne erano più femminili", 3),
+        new($"non si può più dire niente senza offendere {HatingGruppi}", 4),
+        ("stavo scherzando! non hai senso dell'umorismo", 3),
+        ("la famiglia tradizionale funzionava meglio", 3),
+        new($"se è ancora single a {34..45} anni, qualcosa non va", 4),
+        ("uomo vero non piange", 3),
+        ("io non ho nulla contro i gay, ma certe cose non le voglio vedere in giro", 3),
+        ("io sono così, prendere o lasciare", 3),
+        new($"la {Donne} era una vera donna, non come quelle di adesso", 4),
+        new($"la {Donne} è come tutte le femmine: vogliono tutto ma poi non sanno cosa vogliono", 4),
+        ("non è razzismo, è statistiche", 3),
+        ("il problema è che oggi tutti si sentono vittime", 3),
+        ("una volta si scherzava senza che nessuno si offendesse", 3),
+    };
+
+    // Solo commenti DAVVERO generici: appendibili a qualsiasi frase. I parentetici legati a un
+    // contesto preciso (cucina/viaggi/palestra/frequenza post) vivono inline nella loro frase d'origine.
+    internal static readonly Tag CommentiSprezzantiGenerici = new("commenti_sprezzanti_generici")
+    {
+        ("e lo hanno capito tutti", 3),
+        new($"l'ultima donna che gli ha scritto su {Social.Any} era un bot asiatico di criptovalute", 3),
+        ("pace all'anima sua", 3),
+        new($"non è mica come {HatingPersone}", 3),
+        ("ed è palesemente per compensare qualcosa", 3),
+        ("e nessuno ha avuto il coraggio di dirglielo", 3),
+        ("come volevasi dimostrare", 3),
+        ("e ci crede pure", 3),
+        ("roba da chiamare un esorcista", 3),
+        new($"e intanto dà la colpa a {Hating}", 3),
+    };
+
+    // Il grosso arriva dai piatti CONDIVISI (concordanza per genere garantita dalle liste);
+    // i letterali coprono i casi che il template non può fare (elisioni, nomi fuori lista).
+    internal static readonly Tag PiattiPerfetti = new("piatti_perfetti")
+    {
+        new($"il {Piatti.M} perfetto", 3),
+        new($"la {Piatti.F} perfetta", 3),
+        ("l'amatriciana perfetta", 3),
+        ("la cacio e pepe perfetta", 3),
+        ("il risotto perfetto", 3),
+        ("il tiramisù perfetto", 3),
+    };
+
+    // Cose banalissime del vivere quotidiano che lo mandano nel panico: lo stereotipo del basico
+    // incapace di gestire da solo le interazioni più ordinarie. Voci in infinito così entrano in
+    // qualsiasi template ("terrorizzato all'idea di...", "la sua più grande paura è...").
+    internal static readonly Tag TerroriQuotidiani = new("terrori_quotidiani")
+    {
+        ("rispondere al cameriere che gli chiede se l'acqua la vuole liscia o gassata", 3),
+        new($"interagire con la cassiera del supermercato di {City.Any}", 3),
+        ("andare a fare la spesa senza le cuffie", 3),
+        new($"rispondere a una telefonata da un numero sconosciuto (e se poi è la {Donne}?)", 3),
+        new($"ordinare al _«{Genera("locali").Fissato}»_ dopo aver ripetuto la frase {2..5} volte nella sua testa", 3),
+        new($"chiedere lo scontrino al _«{Genera("locali").Fissato}»_ di {City.Any}", 3),
+        new($"prenotare una visita dalla dottoressa {Nome.F} {Cognome.Any} al telefono", 3),
+        new($"restituire un capo in negozio senza la {Donne} che parla per lui", 3),
+        new($"salutare il vicino {Nome.M} {Cognome.Any} in ascensore", 3),
+        ("dire al barbiere come vuole i capelli (finisce sempre con _«faccia lei»_)", 3),
+        new($"attraversare il _«{Genera("locali").Fissato}»_ pieno di gente per andare in bagno", 3),
+        ("parlare con il commesso che gli chiede _«ha bisogno di aiuto?»_", 3),
+        ("farsi servire al banco della gastronomia e dover dire i grammi", 3),
+        new($"dire _«no, grazie»_ a chi gli porge un volantino in centro a {City.Any}", 3),
+        new($"avviare la lavatrice senza chiedere alla {Donne}", 3),
+        new($"fare la fila alle poste di {City.Any} e arrivare davvero allo sportello", 3),
+        new($"mandare indietro un piatto al _«{Genera("locali").Fissato}»_ perché non è come {PiattiPerfetti}", 3),
+    };
+
+    internal static readonly Tag MarcheOrologi = new("marche_orologi")
+    {
+        ("un Rolex", 3),
+        ("un Patek Philippe", 3),
+        ("un Audemars Piguet", 3),
+        ("un Omega", 3),
+        ("un Cartier", 3),
+        ("un Hublot", 3),
+        ("un Breitling", 3),
+        ("un Tag Heuer", 3),
+        ("un Panerai", 3),
+        ("un Richard Mille", 3),
+    };
+
+    /// <summary>Scarpe di marca riconoscibili: concordano tutte con "una … usata".</summary>
+    internal static readonly Tag Scarpe = new("scarpe")
+    {
+        "DrMartin", "Nike", "Converse", "Vans", "Superga", "Timberland", "New Balance", "Adidas",
+    };
+
+
+    // Etichette uniche, stessa regola dei Tag: INTERNAL quelle che l'Incel dichiara a sua volta.
+    // ("fetic" stava qui per errore: il contenuto feticista è dell'incel — l'ha scovato il boot-linter.)
+    internal static readonly Etichetta Vanta = new("vanta");
+    internal static readonly Etichetta Definisce = new("definisce");
+    private static readonly Etichetta Dice = new("dice");
+
     /// <inheritdoc />
     public override string Slug => "mbeb";
 
     /// <inheritdoc />
-    public override GeneratorInfo Info { get; } = new() { Order = 2, Name = "Generatore MBEB", Description = "Genera il tuo Maschio Bianco Etero Basico" };
+    public override GeneratorInfo Info { get; } = new() { Order = 3, Name = "Generatore MBEB", Description = "Genera il tuo Maschio Bianco Etero Basico" };
 
     /// <inheritdoc />
     public override GenerationSettings? PhraseSettings { get; } = new() { MinPhrases = 2, MaxPhrases = 5, MinScore = 24, Separators = [". ", "; "] };
 
     /// <inheritdoc />
-    public override string? Apertura => "## [nome-m],\n";
+    public override Frase? Apertura => new($"## {Nome.M},\n");
 
     /// <inheritdoc />
-    public override List<string>? UniqueLabels { get; } = ["vanta", "definisce", "fetic", "dice"];
+    public override List<Etichetta>? UniqueLabels { get; } = [Vanta, Definisce, Dice];
 
     /// <inheritdoc />
-    public override List<string>? ExclusiveGroups { get; } = ["identita", "frasi_tipiche", "donne"];
+    public override List<string>? ExclusiveGroups { get; } = [Gruppi.Identita, FrasiTipiche.Key, Donne.Key];
 
     /// <inheritdoc />
-    public override Dictionary<string, List<ScoredItem>> FlatLists { get; } = new()
-    {
-        ["donne"] =
-        [
-            ("mogl... la sua ex moglie", 4),
-            ("sua ex moglie", 3),
-            ("madre", 2),
-            ("zia [nome-f]", 3),
-            ("nonna", 2),
-            ("sorella", 2),
-            ("sua ragazza", 2),
-            ("_«sua donna»_", 2),
-            ("sua ex-collega idealizzata", 3),
-            ("sua miglior amica", 3),
-            ("sua prima compagna", 3),
-            ("sua ultima fidanzata", 3),
-            ("sua vicina di casa", 3),
-            ("sua insegnante delle medie", 3),
-            ("sua ex-fidanzata", 2),
-            ("ex-moglie del suo miglior amico, [nome-f]", 4),
-        ],
-        ["idoli"] =
-        [
-            ("Elon Musk", 2),
-            ("Sgarbi", 2),
-            ("big Luca", 2),
-            ("Marco Travaglio", 2),
-            ("Povia", 2),
-            ("Mario Giordano", 2),
-            ("Diego Fusaro", 2),
-            ("Gianluigi Paragone", 2),
-            ("Bruno Vespa", 2),
-        ],
-        ["ossessioni"] =
-        [
-            ("Padel", 2),
-            ("Fantacalcio", 2),
-            ("grigliata della domenica", 3),
-            ("automobili fighissime", 2),
-            ("bei vecchi tempi", 3),
-            ("calcetto con i colleghi", 3),
-            ("birra artigianale", 2),
-            ("video di motori su YouTube", 3),
-            ("fai-da-te", 2),
-            ("discorsi motivazionali", 2),
-        ],
-        ["hating"] =
-        [
-            ("Fedez", 2),
-            ("Chiara Ferragni", 2),
-            ("Selvaggia Lucarelli", 2),
-            ("Saviano", 2),
-            ("Luciana Littizzetto", 2),
-            ("Achille Lauro", 2),
-            ("Alessandro Zan", 2),
-            ("i ciclisti in mezzo alla strada", 3),
-            ("i monopattini elettrici", 3),
-            ("i vegani", 2),
-            ("il politicamente corretto", 3),
-            ("la farina di insetti", 3),
-            ("le auto elettriche", 3),
-            ("chi paga il caffè col POS", 3),
-            ("i giovani che non hanno voglia di lavorare", 3),
-            ("la musica trap", 3),
-            ("le ZTL", 2),
-            ("le manifestazioni per il clima", 3),
-        ],
-        ["difetti_sociali"] =
-        [
-            ("misogino", 2),
-            ("anti vegano", 2),
-            ("omofobo", 2),
-            ("transfobico", 2),
-            ("complottista", 2),
-            ("retrogrado", 2),
-            ("sessista", 2),
-            ("razzista", 2),
-            ("bigotto", 2),
-            ("indelicato", 2),
-            ("manipolatore", 2),
-            ("senza cuore", 2),
-            ("intollerante", 2),
-            ("egoista", 2),
-            ("aggressivo", 2),
-            ("prepotente", 2),
-            ("autoritario", 2),
-            ("possessivo", 2),
-        ],
-        ["vibes"] =
-        [
-            ("stronzo", 2),
-            ("pessimista rabbioso", 2),
-            ("insicuro cronico", 2),
-            ("frustrato", 2),
-            ("antipatico", 2),
-            ("geloso", 2),
-        ],
-        ["percezione"] =
-        [
-            ("divorziato attempato", 2),
-            ("spaccafighe", 2),
-            ("VIRILE (così dice lui... vabbé)", 4),
-            ("navigatore in acque turbolente", 3),
-            ("guerriero silenzioso", 2),
-            ("gentile con tutti (ci tiene a rimarcarlo ogni volta quindi lo dico: sì gentile anche con i neri)", 4),
-            ("eremita moderno", 2),
-            ("ombra errante", 2),
-            ("fortezza inespugnabile", 2),
-            ("viandante solitario", 2),
-            ("cavaliere senza armatura", 3),
-            ("fenice taciturna", 2),
-            ("mistero insondabile", 2),
-            ("astro nascente celato", 3),
-            ("solitarrio come isola deserta", 3),
-            ("lupo solitario", 2),
-        ],
-        ["frasi_tipiche"] =
-        [
-            ("le femministe esagerano, ci vuole il compromesso!", 3),
-            ("vuoi la parità? allora paga anche tu al ristorante", 3),
-            ("una volta le donne erano più femminili", 3),
-            ("non si può più dire niente senza offendere [hating]", 4),
-            ("stavo scherzando! non hai senso dell'umorismo", 3),
-            ("la famiglia tradizionale funzionava meglio", 3),
-            ("se è ancora single a [34-45] anni, qualcosa non va", 4),
-            ("uomo vero non piange", 3),
-            ("io non ho nulla contro i gay, ma certe cose non le voglio vedere in giro", 3),
-            ("io sono così, prendere o lasciare", 3),
-            ("la [donne] era una vera donna, non come quelle di adesso", 4),
-            ("la [donne] è come tutte le femmine: vogliono tutto ma poi non sanno cosa vogliono", 4),
-            ("non è razzismo, è statistiche", 3),
-            ("il problema è che oggi tutti si sentono vittime", 3),
-            ("una volta si scherzava senza che nessuno si offendesse", 3),
-        ],
-        ["professioni"] =
-        [
-            ("addetto al caricamento e scaricamento delle merci", 3),
-            ("addetto al customer service", 3),
-            ("addetto alle pulizie", 3),
-            ("addetto alle consegne", 3),
-            ("agente immobiliare", 2),
-            ("agricoltore", 2),
-            ("apprendista cuoco", 2),
-            ("assistente di magazzino", 3),
-            ("autista di Uber", 3),
-            ("avvocato", 2),
-            ("barista", 2),
-            ("cameriere", 2),
-            ("commesso", 2),
-            ("elettricista", 2),
-            ("giardiniere", 2),
-            ("idraulico", 2),
-            ("impiegato in un fast food", 3),
-            ("impiegato statale", 2),
-            ("istruttore di fitness", 3),
-            ("lavoratore in un magazzino", 3),
-            ("meccanico", 2),
-            ("musicista", 2),
-            ("operatore di call center", 3),
-            ("operatore di telemarketing", 3),
-            ("poliziotto", 2),
-            ("receptionist", 2),
-            ("tassista", 2),
-            ("tecnico informatico", 2),
-            ("venditore di strada", 3),
-            ("pensionato", 2),
-            ("disoccupato", 2),
-            ("studente universitario", 2),
-            ("studente fallito", 2),
-            ("studente di medicina", 3),
-        ],
-        ["piatti_perfetti"] =
-        [
-            ("la carbonara perfetta", 3),
-            ("la gricia perfetta", 3),
-            ("la fiorentina perfetta", 3),
-            ("il ragù perfetto", 3),
-            ("la pizza verace perfetta", 3),
-        ],
-        ["marche_orologi"] =
-        [
-            ("un Rolex", 3),
-            ("un Patek Philippe", 3),
-            ("un Audemars Piguet", 3),
-            ("un Omega", 3),
-        ],
-        // Cose banalissime del vivere quotidiano che lo mandano nel panico: lo stereotipo del basico
-        // incapace di gestire da solo le interazioni più ordinarie. Voci in infinito così entrano in
-        // qualsiasi template ("terrorizzato all'idea di...", "la sua più grande paura è...").
-        ["terrori_quotidiani"] =
-        [
-            ("rispondere al cameriere che gli chiede se l'acqua la vuole liscia o gassata", 3),
-            ("interagire con la cassiera del supermercato di [city]", 3),
-            ("andare a fare la spesa senza le cuffie", 3),
-            ("rispondere a una telefonata da un numero sconosciuto (e se poi è la [donne]?)", 3),
-            ("ordinare al bar dopo aver ripetuto la frase [2-5] volte nella sua testa", 3),
-            ("chiedere lo scontrino al bar di [city]", 3),
-            ("prenotare una visita dalla dottoressa [nome-f] [cognome] al telefono", 3),
-            ("restituire un capo in negozio senza la [donne] che parla per lui", 3),
-            ("salutare il vicino [nome-m] [cognome] in ascensore", 3),
-            ("dire al barbiere come vuole i capelli (finisce sempre con _«faccia lei»_)", 3),
-            ("attraversare un bar pieno di gente per andare in bagno", 3),
-            ("parlare con il commesso che gli chiede _«ha bisogno di aiuto?»_", 3),
-            ("farsi servire al banco della gastronomia e dover dire i grammi", 3),
-            ("dire _«no, grazie»_ a chi gli porge un volantino in centro a [city]", 3),
-            ("avviare la lavatrice senza chiedere alla [donne]", 3),
-            ("fare la fila alle poste di [city] e arrivare davvero allo sportello", 3),
-            ("mandare indietro un piatto al ristorante perché non è come [piatti_perfetti]", 3),
-        ],
-        // Solo commenti DAVVERO generici: appendibili a qualsiasi frase. I parentetici legati a un
-        // contesto preciso (cucina/viaggi/palestra/frequenza post) vivono inline nella loro frase d'origine.
-        ["commenti_sprezzanti_generici"] =
-        [
-            ("e lo hanno capito tutti", 3),
-            ("l'ultima donna che gli ha scritto su [social] era un bot asiatico di criptovalute", 3),
-            ("pace all'anima sua", 3),
-            ("non è mica come [hating]", 3),
-            ("ed è palesemente per compensare qualcosa", 3),
-        ],
-    };
-
-    /// <inheritdoc />
-    public override List<ScoredItem> Core { get; } =
+    public override List<Frase> Core { get; } =
     [
-        ("[vibes] di [eta-cresciuto] anni", 2),
-        ("il perfetto ritratto di un hater di [hating], [eta-cresciuto]enne", 4),
-        ("tutti i giorni si alza e non si accorge di essere [difetti_sociali], nemmeno sul [social] di [idoli]", 6),
-        ("lo hanno bannato da [social] per hate speech ma lui voleva solo dire _«[frasi_tipiche]!»_", 6),
-        ("cresciuto a pane e padre [difetti_sociali]", 3),
-        ("si fa sottomettere da un'estetista di [16-25] anni di nome [nome-f] [cognome], o Miss [nome-f], con la promessa di fargli leccare una DrMartin usata", 7),
-        ("di [eta-anziano] anni, con una lieve tendenza a essere [difetti_sociali]", 4),
-        ("si vanta su [social] di essere [vibes]", 4),
-        ("il primo bersaglio sulla sua lista nera è: [hating]", 4),
-        ("si vanta dell'altezza di ben 1.[65-84] cm (misurata rigorosamente con la postura tattica)", 7),
-        ("ha perso degli amici a causa del suo essere [difetti_sociali]", 4),
-        ("autodefinitosi _«[percezione]»_ su [social]", 4),
-        ("cresciuto con un padre [difetti_sociali]", 3),
-        ("[eta-anziano]enne con una lieve tendenza a essere [difetti_sociali]", 3),
-        ("è noto in tutta la città di [city] per un atteggiamento persistentemente [difetti_sociali]", 5),
-        ("è noto in tutta [city] per essere persistentemente [difetti_sociali]", 5),
-        ("ha uno strano modo di esprimere gioia dovuto al suo essere [difetti_sociali]", 4),
-        ("giovane [professioni] [eta-giovane]enne, [difetti_sociali]", 2),
-        ("si dimostra sempre [difetti_sociali] su [social] (sì, quindi non solo con gli amici)", 7),
-        ("[professioni], [difetti_sociali]", 2),
-        ("è il padre [difetti_sociali] che tutti temono", 3),
-        ("[professioni] di [eta-cresciuto] anni, decisamente [difetti_sociali]", 3),
-        ("[professioni] di mezza età (mezza età tipo [eta-anziano] anni), sempre e comunque [difetti_sociali] e [vibes]", 7),
-        ("di [eta-anziano] anni, nonno incredibilmente [difetti_sociali] e [vibes]", 3),
-        ("il classico [professioni] [difetti_sociali]", 2),
-        ("ragazzino di [eta-minorenne] anni, già [difetti_sociali] nei commenti di [hating]", 4),
-        ("_«imprenditore»_ (è un [professioni] ma ci sta credendo anche lui... quindi...), già con il mindset da [difetti_sociali]", 8),
-        ("è un [professioni] [difetti_sociali] che nessuno sopporta", 3),
-        ("[professioni] che passa le giornate in piazza, [difetti_sociali] come non mai", 4),
-        ("[professioni] di [eta-anziano] anni, [difetti_sociali] all'estremo", 3),
-        ("il suo vicino di casa lo descriverà agli inquirenti come un esempio di individuo [vibes]", 5),
-        ("[vibes] che frequenta le superiori (poco importa abbia [eta-giovane] anni), già [difetti_sociali], e non cerca nemmeno di migliorare il suo lato [difetti_sociali]", 7),
-        ("[professioni], [difetti_sociali] fino al midollo", 3),
-        ("[professioni], [difetti_sociali]", 2),
-        ("[vibes] che frequenta le superiori (poco importa abbia [eta-giovane] anni)", 6),
-        ("[difetti_sociali] e [vibes]", 2),
-        ("[professioni] di [eta-giovane] anni", 2),
-        ("non cerca di migliorare il suo lato [difetti_sociali]", 3),
-        ("[professioni], [difetti_sociali], che guida tutto il giorno con il Reggaeton in auto (con il braccio fuori dal finestrino anche a dicembre per far vedere il tatuaggio a tema [ossessioni] sbiadito sull'avambraccio)", 9),
-        ("[professioni] di [eta-anziano] anni", 2),
-        ("[professioni] di [eta-anziano] anni, noto per essere [difetti_sociali]", 3),
-        ("[professioni], hater di [hating] oltre ogni limite", 3),
-        ("[professioni] di [eta-cresciuto] anni, insopportabilmente [difetti_sociali]", 3),
-        ("[professioni], [difetti_sociali] e cleptomane", 2),
-        ("[professioni], purtroppo [difetti_sociali]", 2),
-        ("[vibes] di mezza età ([eta-adulto] anni), [difetti_sociali] senza vergogna", 3),
-        ("[professioni] che rinnega il suo essere [difetti_sociali]", 3),
-        ("[professioni] che definirei [difetti_sociali]", 2),
-        ("[vibes], fastidiosamente [difetti_sociali]", 2),
-        ("[professioni] di [eta-anziano] anni, [difetti_sociali]", 3),
-        ("[professioni] davvero [difetti_sociali], ma almeno fa quadrare i conti dai", 4),
-        ("giovane [professioni] di [eta-giovane] anni, [difetti_sociali] senza precedenti", 3),
-        ("[professioni], [difetti_sociali] al punto giusto", 3),
-        ("[vibes] con un'attitudine da [difetti_sociali]", 3),
-        ("[difetti_sociali] con un comportamento [vibes]", 3),
-        ("dà la colpa al mondo, ma è solo colpa del suo essere [vibes]", 4),
-        ("appena sente parlare di [hating] comincia a sghignazzare per motivi che solo un [vibes] trova divertenti (condividendo meme sgranatissimi nel gruppo WhatsApp _«[frasi_tipiche] - [city]»_ seguiti da troppe emoji che ridono)", 10),
-        ("apre [social] la notte e si ritrova a discutere sulla _«meravigliosa figura di [idoli]»_ con tono da [difetti_sociali] (scrivendo rigorosamente con l'indice, tenendo il telefono a [4-12] centimetri dal naso)", 10),
-        ("i figli si sono trasferiti a [city] pur di stargli lontano", 5),
-        ("costringe chiunque a guardare video a tema [ossessioni] sul suo telefono col vetro perennemente crepato", 6),
-        ("è sempre d'accordo con [idoli]", 4),
-        ("per lui Camera Café è la vera ironia", 20),
-        ("ha scelto di essere [difetti_sociali] perché pensa che gli doni carisma", 4),
-        ("dice che il politicamente corretto è solo una questione di essere [difetti_sociali], solo che lo dice anche nei commenti di [hating]", 5),
-        ("ha una collezione di riviste Playboy nel seminterrato perché quelle cose lì lui non le fa mica ([commenti_sprezzanti_generici])", 7),
-        ("è convinto che la sua opinione da [difetti_sociali] sia l'unica valida (l'ha maturata dopo aver sentito parlare [idoli], che però stava parlando di tutt'altro)", 9),
-        ("suo figlio ha osato chiamarlo _«[vibes]»_ di fronte a tutta la famiglia a Natale ([commenti_sprezzanti_generici])", 8),
-        ("è in fissa con una cosa: [ossessioni]", 4),
-        ("mentre parla di [ossessioni] tutto preso bene ci deve cacciare qualche frase da [difetti_sociali]", 5),
-        ("le sue battute dal sottotesto [difetti_sociali] fanno sempre imbarazzare tutti", 4),
-        ("è stato bandito dal suo pub preferito per il suo comportamento [difetti_sociali]", 4),
-        ("la [donne] dice che è il più [difetti_sociali] che abbia mai conosciuto", 5),
-        ("il suo profilo [social] è pieno di roba da [difetti_sociali] contro [hating], in stile [vibes]", 6),
-        ("è stato definito [vibes] dal suo migliore amico", 3),
-        ("è stato definito [vibes] dalla [donne]", 4),
-        ("ha perso il suo lavoro da [professioni] a causa del suo atteggiamento da [difetti_sociali]", 4),
-        ("i suoi vecchi amici non lo invitano perché è troppo [difetti_sociali], ma lo compatiscono leggendo i suoi interventi su [social]", 6),
-        ("la [donne] dice che è [vibes], ma lui la ama lo stesso", 5),
-        ("giovane [eta-giovane]enne [professioni]", 2),
-        ("il suo vicino di casa ha messo una recinzione solo per evitare il suo comportamento [difetti_sociali]", 5),
-        ("è stato rifiutato da tutte le donne al bar a causa del suo atteggiamento da [difetti_sociali]", 5),
-        ("ragazzino di [eta-minorenne] anni", 2),
-        ("è l'uomo più [difetti_sociali] che tu possa incontrare", 3),
-        ("l'ho conosciuto in un pub mentre inveiva contro [hating] in TV, non so come siamo arrivati a parlare di [idoli]", 6),
-        ("si vanta sempre del suo comportamento [difetti_sociali] come se fosse una cosa positiva", 4),
-        ("pensa che la [donne] lo adori, ma in realtà lei ha capito che è solo [vibes]", 6),
-        ("il suo barbiere dice che è il cliente più [difetti_sociali] che abbia mai avuto", 4),
-        ("il suo personal trainer lo considera [vibes], per questo lo fa pagare il doppio (e lui è convinto che sia perché fanno l'allenamento _«da [percezione]»_)", 10),
-        ("il suo ultimo appuntamento su Tinder lo ha definito _«[vibes], [difetti_sociali]»_ e quindi diverso dalla bio: _«[city] - [professioni] :-) [percezione]»_", 7),
-        ("nonostante a tutti non piaccia il suo essere un [professioni] se ne vanta", 4),
-        ("nonostante sia [vibes], pensa ancora di essere un Don Giovanni e si definisce su [social]: _«[percezione] - [city] - [percezione]»_", 7),
-        ("non sorprenderà sapere che è [difetti_sociali]", 3),
-        ("risponde sempre con GIF inappropriate su [social]", 4),
-        ("i suoi colleghi di lavoro lo evitano perché è [difetti_sociali]", 4),
-        ("il suo atteggiamento da [difetti_sociali] non passa mai inosservato", 4),
-        ("anche il suo psicologo dice che è [vibes]", 3),
-        ("se si parla di [hating] diventa improvvisamente [difetti_sociali] e borbotta cosa da [vibes]", 4),
-        ("è l'unico nella sua famiglia a essere [difetti_sociali]", 3),
-        ("pensa che sia divertente essere [difetti_sociali]", 3),
-        ("il suo bar preferito non lo serve più a causa del suo comportamento [difetti_sociali]", 4),
-        ("ha rotto con la [donne] perché lei lo ha definito [vibes]", 5),
-        ("l'atteggiamento [vibes] gli è costato molti amici, ma ora a lui non interessa è diventato [difetti_sociali]", 5),
-        ("nonostante la sua età, è ancora [difetti_sociali]", 3),
-        ("vive idolatrando su [social] [idoli], convinto di essere suo pari nonostante le evidenti differenze", 5),
-        ("dal vivo gli daresti un'età matura, cosa che ha ([eta-anziano] anni eh!), ma su [social] ha un'immaturità che sorprende tutti", 8),
-        ("passa le giornate a criticare [hating] su [social], ma si dimentica di correggere il suo essere [difetti_sociali]", 6),
-        ("si autodefinisce _«esperto di [ossessioni]»_", 5),
-        ("si vanta di non seguire le mode, in realtà è solo un [professioni]", 4),
-        ("insegue sempre le ultime tendenze su [social], cercando disperatamente di rimanere giovane", 5),
-        ("[professioni] di [eta-anziano] anni che crede di sapere tutto: (altro che [hating]!)", 6),
-        ("si vanta di essere un grande fan di [idoli]", 5),
-        ("di [eta-giovane] anni, ma con un'arroganza che ne dimostra il doppio", 4),
-        ("ha sempre da ridire su [hating], lo fa in dei commenti tipici da [vibes]", 4),
-        ("cerca sempre di impressionare con storie di viaggi esotici, ma non ha mai lasciato [city] (se escludiamo quella volta a [city] nel [2019-2025] dove gli hanno pure rubato il portafoglio)", 10),
-        ("si considera un modello per i giovani (oltre che un [percezione]), ma i suoi comportamenti dicono il contrario", 8),
-        ("si vanta delle sue _«conquiste»_, ma in realtà se le inventa ([commenti_sprezzanti_generici])", 10),
-        ("a [eta-anziano] anni, passa più tempo a denigrare su [social] [hating] che a vivere la vita che gli resta", 6),
-        ("si autodefinisce _«[percezione]: il guru di [ossessioni]»_", 5),
-        ("dice di amare [hating], ovviamente non è vero ([commenti_sprezzanti_generici])", 6),
-        ("si definisce un _«[percezione]»_, ma in realtà ha solo paura di affrontare il mondo (gli basta [terrori_quotidiani] per andare nel pallone)", 8),
-        ("è terrorizzato all'idea di dover fare lui la telefonata per prenotare nella migliore pizzeria di [city]", 6),
-        ("fa il duro contro [hating], ma la sua più grande paura è [terrori_quotidiani]", 10),
-        ("predica _«[frasi_tipiche]»_, poi però va nel panico al solo pensiero di [terrori_quotidiani]", 9),
-        ("si professa _«[percezione]»_ ma non sa nemmeno [terrori_quotidiani] da solo", 8),
-        ("il suo profilo [social] è pieno di citazioni di [idoli] (ma poi è stra attivo, tipo [5-8] post al giorno)", 9),
-        ("non si fida di nessuno e su [social] ripete a pappagallo _«[frasi_tipiche]»_", 6),
-        ("ha sempre una risposta pronta per tutto: _«[frasi_tipiche]»_", 5),
-        ("si presenta agli sconosciuti con frasi tipo _«[frasi_tipiche]»_", 5),
-        ("è andato in un negozio per farsi una maglia con scritto _«[frasi_tipiche]»_", 6),
-        ("dice che non è [difetti_sociali], poi apre bocca: _«[frasi_tipiche]»_", 6),
-        ("sostiene di saper cucinare [piatti_perfetti] e si incazza se qualcuno usa gli ingredienti sbagliati (anche se lui brucia tutto ogni volta in una padella mezza scrostata)", 20),
-        ("si vanta di avere [marche_orologi] (palesemente finto comprato a [city] in vacanza) e lo tiene sempre in vista mentre guida la sua utilitaria a rate", 22),
-        ("parla di investimenti in criptovalute come se fosse il lupo di Wall Street, ma il suo portafoglio su [social] è in rosso del 90%", 20),
-        ("misura il suo successo in base al numero di bottiglie che ha ordinato in discoteca [2-5] anni fa", 18),
-        ("morbosamente geloso della [donne]", 4),
-        ("tirannico con la [donne], altro che uomo di casa", 4),
-        ("ossessionato dalle partite di calcio, non che sia nulla di male, ma non quando diventa superstizione", 5),
-        ("tifoso sfegatato di [idoli]", 4),
+        new($"{Vibes} di {Eta.Cresciuto} anni", 2),
+        new($"il perfetto ritratto di un hater di {Hating}, {Eta.Cresciuto}enne", 4),
+        new($"tutti i giorni si alza e non si accorge di essere {DifettiSociali}, nemmeno sul {Social.Any} di {Idoli}", 6),
+        new($"lo hanno bannato da {Social.Any} per hate speech ma lui voleva solo dire _«{FrasiTipiche}!»_", 6),
+        new($"cresciuto a pane e padre {DifettiSociali}", 3),
+        new($"si fa sottomettere da un'estetista di {16..25} anni di nome {Nome.F} {Cognome.Any}, o Miss {Nome.F}, con la promessa di fargli leccare una {Scarpe} usata", 7),
+        new($"di {Eta.Anziano} anni, con una lieve tendenza a essere {DifettiSociali}", 4),
+        new($"si vanta su {Social.Any} di essere {Vibes}", 4),
+        new($"il primo bersaglio sulla sua lista nera è: {HatingConcetti}", 4),
+        new($"si vanta dell'altezza di ben 1.{65..84} cm (misurata rigorosamente con la postura tattica)", 7),
+        new($"ha perso degli amici a causa del suo essere {DifettiSociali}", 4),
+        new($"autodefinitosi _«{Percezione}»_ su {Social.Any}", 4),
+        new($"cresciuto con un padre {DifettiSociali}", 3),
+        new($"{Eta.Anziano}enne con una lieve tendenza a essere {DifettiSociali}", 3),
+        new($"è noto in tutta la città di {City.Any} per un atteggiamento persistentemente {DifettiSociali}", 5),
+        new($"è noto in tutta {City.Any} per essere persistentemente {DifettiSociali}", 5),
+        new($"ha uno strano modo di esprimere gioia dovuto al suo essere {DifettiSociali}", 4),
+        new($"giovane {Professioni.Any.Fissato} {Eta.Giovane}enne, {DifettiSociali}", 2),
+        new($"si dimostra sempre {DifettiSociali} su {Social.Any} (sì, quindi non solo con gli amici)", 7),
+        new($"{Professioni.Any.Fissato}, {DifettiSociali}", 2),
+        new($"è il padre {DifettiSociali} che tutti temono", 3),
+        new($"{Professioni.Any.Fissato} di {Eta.Cresciuto} anni, decisamente {DifettiSociali}", 3),
+        new($"{Professioni.Any.Fissato} di mezza età (mezza età tipo {Eta.Anziano} anni), sempre e comunque {DifettiSociali} e {Vibes}", 7),
+        new($"di {Eta.Anziano} anni, {Parente.Anziano.M} incredibilmente {DifettiSociali} e {Vibes}", 3),
+        new($"il classico {Professioni.Any.Fissato} {DifettiSociali}", 2),
+        new($"ragazzino di {Eta.Minorenne} anni, già {DifettiSociali} nei commenti di {Hating}", 4),
+        new($"_«imprenditore»_ (è un {Professioni.Any.Fissato} ma ci sta credendo anche lui... quindi...), già con il mindset da {DifettiSociali}", 8),
+        new($"è un {Professioni.Any.Fissato} {DifettiSociali} che nessuno sopporta", 3),
+        new($"{Professioni.Any.Fissato} che passa le giornate in piazza, {DifettiSociali} come non mai", 4),
+        new($"{Professioni.Any.Fissato} di {Eta.Anziano} anni, {DifettiSociali} all'estremo", 3),
+        new($"il suo vicino di casa lo descriverà agli inquirenti come un esempio di individuo {Vibes}", 5),
+        new($"{Vibes} che frequenta le superiori (poco importa abbia {Eta.Giovane} anni), già {DifettiSociali}, e non cerca nemmeno di migliorare il suo lato {DifettiSociali}", 7),
+        new($"{Professioni.Any.Fissato}, {DifettiSociali} fino al midollo", 3),
+        new($"{Professioni.Any.Fissato}, {DifettiSociali}", 2),
+        new($"{Vibes} che frequenta le superiori (poco importa abbia {Eta.Giovane} anni)", 6),
+        new($"{DifettiSociali} e {Vibes}", 2),
+        new($"{Professioni.Any.Fissato} di {Eta.Giovane} anni", 2),
+        new($"non cerca di migliorare il suo lato {DifettiSociali}", 3),
+        new($"{Professioni.Any.Fissato}, {DifettiSociali}, che guida tutto il giorno con il Reggaeton in auto (con il braccio fuori dal finestrino anche a dicembre per far vedere il tatuaggio a tema {Ossessioni} sbiadito sull'avambraccio)", 9),
+        new($"{Professioni.Any.Fissato} di {Eta.Anziano} anni", 2),
+        new($"{Professioni.Any.Fissato} di {Eta.Anziano} anni, noto per essere {DifettiSociali}", 3),
+        new($"{Professioni.Any.Fissato}, hater di {Hating} oltre ogni limite", 3),
+        new($"{Professioni.Any.Fissato} di {Eta.Cresciuto} anni, insopportabilmente {DifettiSociali}", 3),
+        new($"{Professioni.Any.Fissato}, {DifettiSociali} e cleptomane", 2),
+        new($"{Professioni.Any.Fissato}, purtroppo {DifettiSociali}", 2),
+        new($"{Vibes} di mezza età ({Eta.Adulto} anni), {DifettiSociali} senza vergogna", 3),
+        new($"{Professioni.Any.Fissato} che rinnega il suo essere {DifettiSociali}", 3),
+        new($"{Professioni.Any.Fissato} che definirei {DifettiSociali}", 2),
+        new($"{Vibes}, fastidiosamente {DifettiSociali}", 2),
+        new($"{Professioni.Any.Fissato} di {Eta.Anziano} anni, {DifettiSociali}", 3),
+        new($"{Professioni.Any.Fissato} davvero {DifettiSociali}, ma almeno fa quadrare i conti dai", 4),
+        new($"giovane {Professioni.Any.Fissato} di {Eta.Giovane} anni, {DifettiSociali} senza precedenti", 3),
+        new($"{Professioni.Any.Fissato}, {DifettiSociali} al punto giusto", 3),
+        new($"{Vibes} con un'attitudine da {DifettiSociali}", 3),
+        new($"{DifettiSociali} con un comportamento {Vibes}", 3),
+        new($"dà la colpa al mondo, ma è solo colpa del suo essere {Vibes}", 4),
+        new($"appena sente parlare di {Hating} comincia a sghignazzare per motivi che solo un {Vibes} trova divertenti (condividendo meme sgranatissimi nel gruppo WhatsApp _«{FrasiTipiche} - {City.Any}»_ seguiti da troppe emoji che ridono)", 10),
+        new($"apre {Social.Any} la notte e si ritrova a discutere sulla _«meravigliosa figura di {Idoli}»_ con tono da {DifettiSociali} (scrivendo rigorosamente con l'indice, tenendo il telefono a {4..12} centimetri dal naso)", 10),
+        new($"i figli si sono trasferiti a {City.Any} pur di stargli lontano", 5),
+        new($"costringe chiunque a guardare video a tema {Ossessioni} sul suo telefono col vetro perennemente crepato", 6),
+        new($"è sempre d'accordo con {Idoli}", 4),
+        new($"per lui Camera Café è la vera ironia", 20),
+        new($"ha scelto di essere {DifettiSociali} perché pensa che gli doni carisma", 4),
+        new($"dice che il politicamente corretto è solo una questione di essere {DifettiSociali}, solo che lo dice anche nei commenti di {Hating}", 5),
+        new($"ha una collezione di riviste Playboy nel seminterrato perché quelle cose lì lui non le fa mica ({CommentiSprezzantiGenerici})", 7),
+        new($"è convinto che la sua opinione da {DifettiSociali} sia l'unica valida (l'ha maturata dopo aver sentito parlare {Idoli}, che però stava parlando di tutt'altro)", 9),
+        new($"suo figlio ha osato chiamarlo _«{Vibes}»_ di fronte a tutta la famiglia a Natale ({CommentiSprezzantiGenerici})", 8),
+        new($"è in fissa con una cosa: {Ossessioni}", 4),
+        new($"mentre parla di {Ossessioni} tutto preso bene ci deve cacciare qualche frase da {DifettiSociali}", 5),
+        new($"le sue battute dal sottotesto {DifettiSociali} fanno sempre imbarazzare tutti", 4),
+        new($"è stato bandito dal _«{Genera("locali").Fissato}»_, il suo locale preferito, per il suo comportamento {DifettiSociali}", 4),
+        new($"la {Donne} dice che è il più {DifettiSociali} che abbia mai conosciuto", 5),
+        new($"il suo profilo {Social.Any} è pieno di roba da {DifettiSociali} contro {Hating}, in stile {Vibes}", 6),
+        new($"è stato definito {Vibes} dal suo migliore amico", 3),
+        new($"è stato definito {Vibes} dalla {Donne}", 4),
+        new($"ha perso il suo lavoro da {Professioni.Any.Fissato} a causa del suo atteggiamento da {DifettiSociali}", 4),
+        new($"i suoi vecchi amici non lo invitano perché è troppo {DifettiSociali}, ma lo compatiscono leggendo i suoi interventi su {Social.Any}", 6),
+        new($"la {Donne} dice che è {Vibes}, ma lui la ama lo stesso", 5),
+        new($"giovane {Eta.Giovane}enne {Professioni.Any.Fissato}", 2),
+        new($"il suo vicino di casa ha messo una recinzione solo per evitare il suo comportamento {DifettiSociali}", 5),
+        new($"è stato rifiutato da tutte le donne del _«{Genera("locali").Fissato}»_ a causa del suo atteggiamento da {DifettiSociali}", 5),
+        new($"ragazzino di {Eta.Minorenne} anni", 2),
+        new($"è l'uomo più {DifettiSociali} che tu possa incontrare", 3),
+        new($"l'ho conosciuto al _«{Genera("locali").Fissato}»_ mentre inveiva contro {Hating} in TV, non so come siamo arrivati a parlare di {Idoli}", 6),
+        new($"si vanta sempre del suo comportamento {DifettiSociali} come se fosse una cosa positiva", 4),
+        new($"pensa che la {Donne} lo adori, ma in realtà lei ha capito che è solo {Vibes}", 6),
+        new($"il suo barbiere dice che è il cliente più {DifettiSociali} che abbia mai avuto", 4),
+        new($"il suo personal trainer lo considera {Vibes}, per questo lo fa pagare il doppio (e lui è convinto che sia perché fanno l'allenamento _«da {Percezione}»_)", 10),
+        new($"il suo ultimo appuntamento su Tinder lo ha definito _«{Vibes}, {DifettiSociali}»_ e quindi diverso dalla bio: _«{City.Any} - {Professioni.Any.Fissato} :-) {Percezione}»_", 7),
+        new($"nonostante a tutti non piaccia il suo essere un {Professioni.Any.Fissato} se ne vanta", 4),
+        new($"nonostante sia {Vibes}, pensa ancora di essere un Don Giovanni e si definisce su {Social.Any}: _«{Percezione} - {City.Any} - {Percezione}»_", 7),
+        new($"non sorprenderà sapere che è {DifettiSociali}", 3),
+        new($"risponde sempre con GIF inappropriate su {Social.Any}", 4),
+        new($"i suoi colleghi di lavoro lo evitano perché è {DifettiSociali}", 4),
+        new($"il suo atteggiamento da {DifettiSociali} non passa mai inosservato", 4),
+        new($"anche il suo psicologo dice che è {Vibes}", 3),
+        new($"se si parla di {Hating} diventa improvvisamente {DifettiSociali} e borbotta cosa da {Vibes}", 4),
+        new($"è l'unico nella sua famiglia a essere {DifettiSociali}", 3),
+        new($"pensa che sia divertente essere {DifettiSociali}", 3),
+        new($"al _«{Genera("locali").Fissato}»_, il suo bar preferito, non lo servono più a causa del suo comportamento {DifettiSociali}", 4),
+        // Il bar è GENERATO dal generatore dei bar: innesto di una generazione nell'altra.
+        new($"tiene banco ogni sera al _«{Genera("locali").Fissato}»_, il bar sotto casa, spiegando come andrebbe governato il paese", 8),
+        new($"ha rotto con la {Donne} perché lei lo ha definito {Vibes}", 5),
+        new($"l'atteggiamento {Vibes} gli è costato molti amici, ma ora a lui non interessa è diventato {DifettiSociali}", 5),
+        new($"nonostante la sua età, è ancora {DifettiSociali}", 3),
+        new($"vive idolatrando su {Social.Any} {Idoli}, convinto di essere suo pari nonostante le evidenti differenze", 5),
+        new($"dal vivo gli daresti un'età matura, cosa che ha ({Eta.Anziano} anni eh!), ma su {Social.Any} ha un'immaturità che sorprende tutti", 8),
+        new($"passa le giornate a criticare {Hating} su {Social.Any}, ma si dimentica di correggere il suo essere {DifettiSociali}", 6),
+        new($"si autodefinisce _«esperto di {Ossessioni}»_", 5),
+        new($"si vanta di non seguire le mode, in realtà è solo un {Professioni.Any.Fissato}", 4),
+        new($"insegue sempre le ultime tendenze su {Social.Any}, cercando disperatamente di rimanere giovane", 5),
+        new($"{Professioni.Any.Fissato} di {Eta.Anziano} anni che crede di sapere tutto: (altro che {Hating}!)", 6),
+        new($"si vanta di essere un grande fan di {Idoli}", 5),
+        new($"di {Eta.Giovane} anni, ma con un'arroganza che ne dimostra il doppio", 4),
+        new($"ha sempre da ridire su {Hating}, lo fa in dei commenti tipici da {Vibes}", 4),
+        new($"cerca sempre di impressionare con storie di viaggi esotici, ma non ha mai lasciato {City.Any} (se escludiamo quella volta a {City.Any} nel {2019..2025} dove gli hanno pure rubato il portafoglio)", 10),
+        new($"si considera un modello per i giovani (oltre che un {Percezione}), ma i suoi comportamenti dicono il contrario", 8),
+        new($"si vanta delle sue _«conquiste»_, ma in realtà se le inventa ({CommentiSprezzantiGenerici})", 10),
+        new($"a {Eta.Anziano} anni, passa più tempo a denigrare su {Social.Any} {Hating} che a vivere la vita che gli resta", 6),
+        new($"si autodefinisce _«{Percezione}: il guru di {Ossessioni}»_", 5),
+        new($"dice di amare {Hating}, ovviamente non è vero ({CommentiSprezzantiGenerici})", 6),
+        new($"si definisce un _«{Percezione}»_, ma in realtà ha solo paura di affrontare il mondo (gli basta {TerroriQuotidiani} per andare nel pallone)", 8),
+        new($"è terrorizzato all'idea di dover fare lui la telefonata per prenotare al _«{Genera("locali").Fissato}»_, il locale più in voga di {City.Any}", 6),
+        new($"fa il duro contro {Hating}, ma la sua più grande paura è {TerroriQuotidiani}", 10),
+        new($"predica _«{FrasiTipiche}»_, poi però va nel panico al solo pensiero di {TerroriQuotidiani}", 9),
+        new($"si professa _«{Percezione}»_ ma non sa nemmeno {TerroriQuotidiani} da solo", 8),
+        new($"il suo profilo {Social.Any} è pieno di citazioni di {Idoli} (ma poi è stra attivo, tipo {5..8} post al giorno)", 9),
+        new($"non si fida di nessuno e su {Social.Any} ripete a pappagallo _«{FrasiTipiche}»_", 6),
+        new($"ha sempre una risposta pronta per tutto: _«{FrasiTipiche}»_", 5),
+        new($"si presenta agli sconosciuti con frasi tipo _«{FrasiTipiche}»_", 5),
+        new($"è andato in un negozio per farsi una maglia con scritto _«{FrasiTipiche}»_", 6),
+        new($"dice che non è {DifettiSociali}, poi apre bocca: _«{FrasiTipiche}»_", 6),
+        new($"sostiene di saper cucinare {PiattiPerfetti} e si incazza se qualcuno usa gli ingredienti sbagliati (anche se lui brucia tutto ogni volta in una padella mezza scrostata)", 20),
+        new($"si vanta di avere {MarcheOrologi} (palesemente finto comprato a {City.Any} in vacanza) e lo tiene sempre in vista mentre guida la sua utilitaria a rate", 22),
+        new($"parla di investimenti in criptovalute come se fosse il lupo di Wall Street, ma il suo portafoglio su {Social.Any} è in rosso del 90%", 20),
+        new($"misura il suo successo in base al numero di bottiglie che ha ordinato in discoteca {2..5} anni fa", 18),
+        new($"morbosamente geloso della {Donne}", 4),
+        new($"tirannico con la {Donne}, altro che uomo di casa", 4),
+        new($"ossessionato dalle partite di calcio, non che sia nulla di male, ma non quando diventa superstizione", 5),
+        new($"tifoso sfegatato di {Idoli}", 4),
     ];
 }

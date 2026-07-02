@@ -1,21 +1,21 @@
-using Backend.Models;
-using System.Text;
-using System.Text.RegularExpressions;
-
 namespace Backend.Generators.Grammar;
 
 // ════════════════════════════════════════════════════════════════════════════
-// Grammatica AST dei generatori. Le frasi-template (es. "ha [eta-giovane] anni")
-// vengono COMPILATE UNA VOLTA al boot in un AST tipato (Lit/Slot); la generazione
-// valuta l'AST con un contesto (unicità, punteggio), senza più regex a runtime.
+// Grammatica AST dei generatori. Le frasi nascono GIÀ tipizzate alla costruzione
+// (interpolazione via FraseBuilder: es. new($"ha {Eta.Giovane} anni")); al boot
+// il RuntimeBuilder aggancia solo il contesto di catena (gruppi, label, esistenza
+// delle liste) e la generazione valuta l'AST. Non esiste un momento in cui un
+// template sia una stringa da scandire: niente regex, da nessuna parte.
 //
 // Garanzie rispetto al vecchio modello a stringhe:
+//   • un segnaposto malformato o inesistente NON COMPILA (i segnaposto sono
+//     simboli C#, il FraseBuilder accetta solo i tipi ammessi);
 //   • risoluzione DETERMINISTICA — il grafo dei riferimenti tra flatlist è
 //     verificato aciclico al boot ⇒ terminazione garantita, NIENTE "max N passate";
-//   • fail-fast — un tag sconosciuto o un ciclo fanno fallire la COSTRUZIONE
-//     (boot), non scivolano silenziosamente nell'output;
+//   • fail-fast — una lista assente dalla catena fusa o un ciclo fanno fallire
+//     la COSTRUZIONE (boot), non scivolano silenziosamente nell'output;
 //   • i vincoli inter-frase (gruppi esclusivi, label uniche) sono metadata
-//     calcolata al parse, letta come set — non più scan di sottostringa.
+//     calcolata alla compilazione, letta come set — non più scan di sottostringa.
 // ════════════════════════════════════════════════════════════════════════════
 
 /// <summary>Eccezione di configurazione: un generatore non compila (tag ignoto, ciclo). Tirata al boot.</summary>
@@ -36,6 +36,8 @@ public enum SlotKind
     Age,
     /// <summary>Range numerico esplicito (es. <c>2-15</c>) risolto in un numero casuale.</summary>
     Range,
+    /// <summary>Innesto: esegue un ALTRO generatore (la Key è il suo slug) e ne incolla il testo.</summary>
+    Innesto,
 }
 
 /// <summary>
@@ -83,4 +85,7 @@ public sealed record Runtime(
     Phrase? Apertura, Phrase? Chiusura,
     // Catene di Markov per flatlist eleggibile (conio di varianti) e relativa probabilità.
     // Dizionario vuoto / probabilità 0 = feature disattiva (comportamento storico invariato).
-    IReadOnlyDictionary<string, MarkovChain> Markov, double MarkovChaos);
+    IReadOnlyDictionary<string, MarkovChain> Markov, double MarkovChaos,
+    // Risolve lo slug di un innesto ({Genera("...")}) nel Runtime da eseguire. Il grafo degli
+    // innesti è validato aciclico al boot: la ricorsione termina sempre.
+    Func<string, Runtime> RisolviInnesto);

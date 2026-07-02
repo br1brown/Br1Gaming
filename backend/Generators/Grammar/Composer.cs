@@ -36,15 +36,34 @@ public static class Composer
 
         var chosen = new List<Phrase>();
         var texts = new HashSet<string>();
-        var closedGroups = new HashSet<string>();
+        // Gruppo chiuso → per ogni chiave che l'ha toccato, se TUTTE le occorrenze erano Fissato.
+        var closedGroups = new Dictionary<string, Dictionary<string, bool>>();
         var usedLabels = new HashSet<string>();
 
-        bool Accept(Phrase p) =>
-            !texts.Contains(p.Raw) && !p.Groups.Overlaps(closedGroups) && !p.Labels.Overlaps(usedLabels);
+        // Un gruppo esclusivo chiuso si può RIBADIRE, non ridefinire: una frase che lo tocca passa
+        // solo se i suoi slot nel gruppo sono Fissato sulla STESSA chiave già fissata (stesso valore
+        // garantito dal binding). Così "fa l'idraulico…" e "…da idraulico" convivono, mentre una
+        // seconda professione o un'altra fascia d'età restano fuori come sempre.
+        bool Accept(Phrase p)
+        {
+            if (texts.Contains(p.Raw) || p.Labels.Overlaps(usedLabels)) return false;
+            foreach (var slot in p.Parts.OfType<Slot>())
+                foreach (var gruppo in slot.Groups)
+                    if (closedGroups.TryGetValue(gruppo, out var chiavi)
+                        && !(slot.Bound && chiavi.TryGetValue(slot.Key, out var eraFissato) && eraFissato))
+                        return false;
+            return true;
+        }
         void Commit(Phrase p)
         {
-            chosen.Add(p); texts.Add(p.Raw);
-            closedGroups.UnionWith(p.Groups); usedLabels.UnionWith(p.Labels);
+            chosen.Add(p); texts.Add(p.Raw); usedLabels.UnionWith(p.Labels);
+            foreach (var slot in p.Parts.OfType<Slot>())
+                foreach (var gruppo in slot.Groups)
+                {
+                    if (!closedGroups.TryGetValue(gruppo, out var chiavi)) closedGroups[gruppo] = chiavi = [];
+                    // La chiave resta "ribadibile" solo se OGNI sua occorrenza è Fissato.
+                    chiavi[slot.Key] = !chiavi.TryGetValue(slot.Key, out var prima) ? slot.Bound : prima && slot.Bound;
+                }
         }
 
         foreach (var req in rt.Requirements)
@@ -142,6 +161,9 @@ public static class Composer
     {
         // Range ed età producono numeri: non concorrono al punteggio.
         SlotKind.Range or SlotKind.Age => ctx.Rng.Next(s.Lo, s.Hi + 1).ToString(),
+        // Innesto: esegue l'altro generatore per intero (contesto suo, unicità sua) e incolla il
+        // testo. Come i numeri, non concorre al punteggio. Termina: grafo aciclico validato al boot.
+        SlotKind.Innesto => Generate(ctx.Rt.RisolviInnesto(s.Key), ctx.Rng).Text,
         _ => EvalFlat(s.Key, ctx),
     };
 

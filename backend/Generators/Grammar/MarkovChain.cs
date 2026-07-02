@@ -13,10 +13,10 @@ public sealed class MarkovChain
 {
     // ── Parametri (policy del conio, in un solo posto) ────────────────────────────────
     /// <summary>
-    /// Tasso di conio STANDARD applicato alle liste CONDIVISE dei nomi propri (nomi, cognomi…), curate
-    /// apposta per il conio — escluse quelle in <see cref="NonCoinableKeys"/> (città, social) che devono
-    /// restare reali. Un generatore può sovrascriverlo via <see cref="GenerationSettings.MarkovChaos"/>
-    /// (anche 0 per disattivarlo del tutto).
+    /// Tasso di conio STANDARD applicato alle sole liste dichiarate coniabili dai loro simboli
+    /// (<c>le chiavi coniabili, private del motore</c>: nomi e cognomi, curati apposta per il conio; città,
+    /// social e parenti devono restare reali e non ci sono). Un generatore può sovrascriverlo via
+    /// <see cref="GenerationSettings.MarkovChaos"/> (anche 0 per disattivarlo del tutto).
     /// </summary>
     public const double DefaultChaos = 0.25;
     /// <summary>Ordine (in caratteri) di default del modello, se il generatore non lo specifica.</summary>
@@ -32,13 +32,6 @@ public sealed class MarkovChain
     private const double MinProperNounFraction = 0.8;
     /// <summary>Tentativi massimi di conio prima di rinunciare (e far ripiegare sul pescaggio normale).</summary>
     private const int MaxCoinAttempts = 24;
-    /// <summary>
-    /// Liste CONDIVISE da NON coniare mai, pur essendo idonee: sono dati del mondo reale che devono
-    /// restare verosimili e verificabili (città italiane, social esistenti). Il conio le trasformerebbe
-    /// in toponimi/brand inventati: gradevole per nomi/cognomi di fantasia, fuori luogo qui.
-    /// </summary>
-    public static readonly IReadOnlySet<string> NonCoinableKeys =
-        new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "city", "social" };
 
     // Sentinelle di inizio/fine parola (caratteri di controllo: non compaiono nei contenuti).
     private const char Start = '\u0002';

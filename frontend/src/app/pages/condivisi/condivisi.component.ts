@@ -11,6 +11,7 @@ import { ContestoSito, PageType } from '../../site';
 // slug del generatore → PageType della sua pagina (stessa mappa della home: niente slug a mano nei link).
 const GENERATOR_PAGE_TYPES: Partial<Record<string, PageType>> = {
     'incel': PageType.GeneratorIncel,
+    'startup': PageType.GeneratorStartup,
     'auto': PageType.GeneratorAuto,
     'antiveg': PageType.GeneratorAntiveg,
     'locali': PageType.GeneratorLocali,

@@ -1,4 +1,5 @@
-using Backend.Models;
+
+using System.Reflection;
 
 namespace Backend.Generators;
 
@@ -25,20 +26,49 @@ public abstract class GeneratorBase : IGenerator
     public virtual RequiredInjectData? CoreRequired => null;
 
     /// <inheritdoc />
-    public virtual string? Apertura => null;
+    public virtual Frase? Apertura => null;
 
     /// <inheritdoc />
-    public virtual string? Chiusura => null;
+    public virtual Frase? Chiusura => null;
 
     /// <inheritdoc />
-    public virtual List<ScoredItem> Core => [];
+    public virtual List<Frase> Core => [];
 
     /// <inheritdoc />
-    public virtual Dictionary<string, List<ScoredItem>> FlatLists => [];
+    /// <remarks>Scoperti via reflection dai campi statici di tipo <see cref="Tag"/> che possiedono
+    /// voci — stessa filosofia dell'auto-registrazione dei generatori: dichiarare = fatto. I tag
+    /// nudi (alias, riferimenti) non contano. Calcolato una volta per istanza.</remarks>
+    public virtual IReadOnlyList<Tag> Liste => _liste ??=
+        [.. GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
+            .Where(campo => campo.FieldType == typeof(Tag))
+            .Select(campo => (Tag)campo.GetValue(null)!)
+            .Where(tag => tag.HaVoci)];
+    private IReadOnlyList<Tag>? _liste;
 
     /// <inheritdoc />
-    public virtual List<string>? UniqueLabels => null;
+    /// <remarks>Le UNIONI (<see cref="Tag.Unione"/>): scoperte come le <see cref="Liste"/> dai campi
+    /// statici, ma qui contano quelle che portano le chiavi-componenti (niente voci proprie).</remarks>
+    public virtual IReadOnlyList<Tag> Composte => _composte ??=
+        [.. GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
+            .Where(campo => campo.FieldType == typeof(Tag))
+            .Select(campo => (Tag)campo.GetValue(null)!)
+            .Where(tag => tag.Componenti is not null)];
+    private IReadOnlyList<Tag>? _composte;
+
+    /// <summary>
+    /// Innesto in una frase della generazione di un ALTRO generatore: <c>{Genera("locali")}</c> esegue
+    /// il generatore dei bar e ne incolla il testo. Lo slug è validato al boot (esistenza + niente
+    /// cicli tra generatori), quindi un refuso non arriva mai a runtime.
+    /// </summary>
+    /// <param name="slug">Lo slug del generatore da eseguire.</param>
+    protected static Innesto Genera(string slug) => new(slug);
+
+    /// <inheritdoc />
+    public virtual List<Etichetta>? UniqueLabels => null;
 
     /// <inheritdoc />
     public virtual List<string>? ExclusiveGroups => null;
+
+    /// <inheritdoc />
+    public virtual IReadOnlyDictionary<string, IReadOnlyList<string>>? PolicyGroups => null;
 }

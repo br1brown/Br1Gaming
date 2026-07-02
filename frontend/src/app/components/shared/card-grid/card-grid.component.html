@@ -3,7 +3,7 @@
      posizioni intermedie restano nascoste solo su mobile (d-md-block le riporta da ≥ md). -->
 <div class="row g-3">
     @for (item of items(); track item.pageType; let i = $index) {
-    <app-content-card class="col-12 col-md-6"
+    <app-content-card [class]="itemColClass()"
                       [class.d-none]="!espanso() && i >= collapseMobile()"
                       [class.d-md-block]="!espanso() && i >= collapseMobile() && i < collapseDesktop()"
                       [title]="item.title"

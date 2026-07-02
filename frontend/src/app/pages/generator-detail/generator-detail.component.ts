@@ -197,6 +197,7 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
     private fetchGeneratedText(): Promise<GenerateResponse> {
         switch (this.pageType()) {
             case PageType.GeneratorIncel: return this.api.generateIncel();
+            case PageType.GeneratorStartup: return this.api.generateStartup();
             case PageType.GeneratorAuto: return this.api.generateAuto();
             case PageType.GeneratorAntiveg: return this.api.generateAntiveg();
             case PageType.GeneratorLocali: return this.api.generateLocali();

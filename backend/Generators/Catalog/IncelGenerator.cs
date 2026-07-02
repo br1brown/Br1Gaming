@@ -1,10 +1,97 @@
-using Backend.Models;
+
+// Alias tipizzati per i contenuti condivisi: niente stringhe magiche nei segnaposto.
+using City = Backend.Generators.SharedContent.City;
+using Eta = Backend.Generators.SharedContent.Eta;
+using Gruppi = Backend.Generators.SharedContent.Gruppi;
+using Marketplace = Backend.Generators.SharedContent.Marketplace;
+using Nome = Backend.Generators.SharedContent.Nome;
+using Parente = Backend.Generators.SharedContent.Parente;
+using Professioni = Backend.Generators.SharedContent.Professioni;
+using Social = Backend.Generators.SharedContent.Social;
 
 namespace Backend.Generators.Catalog;
 
 /// <summary>Incel: estende il Maschio Basico, che fa da base (merge dichiarato in <see cref="ComposeWith"/>).</summary>
 public sealed class IncelGenerator : GeneratorBase
 {
+    // Tag del MASTER (mbeb): stessi simboli, riferimenti compile-checked. La fusione dei contenuti
+    // resta dichiarata in ComposeWith; qui si riusa solo l'identità dei segnaposto.
+    internal static readonly Tag Donne = MbebGenerator.Donne;
+    internal static readonly Tag Idoli = MbebGenerator.Idoli;
+    internal static readonly Tag Ossessioni = MbebGenerator.Ossessioni;
+    internal static readonly Tag Hating = MbebGenerator.Hating;
+    internal static readonly Tag HatingConcetti = MbebGenerator.HatingConcetti;
+    internal static readonly Tag HatingPersone = MbebGenerator.HatingPersone;
+    internal static readonly Tag DifettiSociali = MbebGenerator.DifettiSociali;
+    internal static readonly Tag Vibes = MbebGenerator.Vibes;
+    internal static readonly Tag Percezione = MbebGenerator.Percezione;
+    internal static readonly Tag FrasiTipiche = MbebGenerator.FrasiTipiche;
+    internal static readonly Tag CommentiSprezzantiGenerici = MbebGenerator.CommentiSprezzantiGenerici;
+    internal static readonly Tag TerroriQuotidiani = MbebGenerator.TerroriQuotidiani;
+    // Segnaposto PROPRI dell'incel.
+    internal static readonly Tag AbbigliamentoScadente = new("abbigliamento_scadente")
+    {
+        ("completi in poliestere scadente", 3),
+        ("magliette con grafiche cringe", 3),
+        ("camicie hawaiane plasticose", 3),
+        ("felpe con scritte pseudo-filosofiche", 3),
+        ("t-shirt attillate comprate su Shein", 3),
+        ("felpe oversize con loghi taroccati", 3),
+        ("giubbotti di finta pelle scamosciata", 3),
+        ("pantaloni cargo pseudo-militari", 3),
+        ("camicie di raso con le tigri stampate", 3),
+        ("gilet tattici da finto operatore", 3),
+    };
+
+    internal static readonly Tag StrumentiMisura = new("strumenti_misura")
+    {
+        ("un righello di plastica dei Power Rangers delle elementari", 3),
+        new($"un calibro digitale comprato su {Marketplace.Any}", 3),
+        ("un'app per lo smartphone scaricata da siti russi", 3),
+        new($"un metro da sarto rubato a sua {Parente.Anziano.F}", 3),
+        ("un compasso arrugginito trovato in cantina", 3),
+        ("il righello scolastico di Spongebob", 3),
+        ("un calibro stampato in 3D storto", 3),
+        ("un metro a nastro dell'IKEA", 3),
+        ("un'app chiamata _«AlphaMeasure Pro»_ scaricata da un forum", 3),
+        new($"il regolo calcolatore di suo {Parente.Anziano.M}", 3),
+    };
+
+    internal static readonly Tag CommentiSprezzantiPene = new("commenti_sprezzanti_pene")
+    {
+        new($"misura che ha calcolato usando {StrumentiMisura}", 3),
+        ("calcolata partendo rigorosamente dalla spina dorsale", 3),
+        ("un'evidente sovrastima dovuta a un uso improprio del righello", 3),
+        new($"o almeno così scrive nel suo profilo di {Social.Any} per compensare", 3),
+        new($"anche se la {Donne} avrebbe molto da ridire in proposito", 3),
+        ("misura ovviamente arrotondata per eccesso", 3),
+        ("record raggiunto una volta sola e mai più replicato", 3),
+        ("in erezione, al freddo e con il vento a favore", 3),
+        ("un numero che cambia ogni volta che lo racconta", 3),
+        ("certificata da nessuno tranne lui", 3),
+        new($"e a smentirlo ci sono pure quelli che ha su {Social.Any}", 3),
+    };
+
+    internal static readonly Tag OggettiStatus = new("oggetti_status")
+    {
+        ("il suo orologio in acciaio", 3),
+        ("il suo G-Shock enorme", 3),
+        ("il suo bracciale in finta pelle", 3),
+        ("il suo braccialetto di perline energetiche", 3),
+        ("il suo Apple Watch di seconda mano", 3),
+        ("il suo cinturino militare in nylon", 3),
+        ("il suo bracciale magnetico anti-stress", 3),
+        ("il suo smartband cinese", 3),
+        ("il suo braccialetto in paracord", 3),
+    };
+
+    // Etichette uniche: quelle in comune col mbeb sono gli STESSI simboli; le altre sono proprie
+    // ("fetic" era dichiarata per errore nel mbeb: il contenuto feticista è qui).
+    private static readonly Etichetta Vanta = MbebGenerator.Vanta;
+    private static readonly Etichetta Definisce = MbebGenerator.Definisce;
+    private static readonly Etichetta FaCommenti = new("fa commenti");
+    private static readonly Etichetta Fetic = new("fetic");
+
     /// <inheritdoc />
     public override string Slug => "incel";
 
@@ -18,328 +105,319 @@ public sealed class IncelGenerator : GeneratorBase
     public override GenerationSettings? PhraseSettings { get; } = new() { MinPhrases = 3, MaxPhrases = 5, MinScore = 36, Separators = [". ", "; ", ".\n"] };
 
     /// <inheritdoc />
-    public override string? Apertura => "## [nome-m],\n";
+    public override Frase? Apertura => new($"## {Nome.M},\n");
 
     /// <inheritdoc />
-    public override List<string>? UniqueLabels { get; } = ["definisce", "fa commenti", "vanta"];
+    public override List<Etichetta>? UniqueLabels { get; } = [Definisce, FaCommenti, Vanta, Fetic];
 
     /// <inheritdoc />
-    public override List<string>? ExclusiveGroups { get; } = ["identita", "frasi_tipiche"];
+    public override List<string>? ExclusiveGroups { get; } = [Gruppi.Identita, FrasiTipiche.Key];
 
-    /// <inheritdoc />
-    public override Dictionary<string, List<ScoredItem>> FlatLists { get; } = new()
+    // ── ESTENSIONI: tag costruiti sul segnaposto del master (o condiviso) con voci proprie.
+    // Il RuntimeBuilder fonde per chiave: la vena incel si AGGIUNGE alle voci del mbeb, non le
+    // sostituisce. Il suffisso "Incel" distingue l'estensione dall'alias nudo in testa al file. ──
+
+    internal static readonly Tag IdoliIncel = new(Idoli)
     {
-        ["idoli"] =
-        [
-            ("Andrew Tate", 2),
-            ("Rollo Tomassi", 2),
-            ("Joe Rogan", 2),
-            ("Jordan Peterson", 2),
-            ("Ben Shapiro", 2),
-            ("Tucker Carlson", 2),
-            ("Marco Crepaldi", 2),
-            ("Alex Jones", 2),
-            ("Elliot Rodger", 2),
-            ("Nick Fuentes", 2),
-            ("Tommy Robinson", 2),
-        ],
-        ["ossessioni"] =
-        [
-            ("aspetto fisico", 2),
-            ("ipergamia femminile", 2),
-            ("status", 2),
-            ("inutili dating app", 3),
-            ("looksmaxxing", 2),
-            ("declino dell'Occidente", 2),
-        ],
-        ["hating"] =
-        [
-            ("le femministe", 2),
-            ("le ragazze _«che la danno a tutti»_", 3),
-            ("le femmine di oggi", 3),
-            ("OnlyFans", 2),
-            ("tutte le donne", 3),
-            ("le _«tipe di Tinder»_", 3),
-            ("donne che cercano solo soldi", 3),
-            ("i chad", 2),
-            ("i simp", 2),
-            ("i normie", 2),
-            ("quelli che vanno in palestra", 3),
-            ("le coppie felici", 3),
-            ("i maschi alfa", 3),
-            ("gli uomini che hanno successo con le donne", 3),
-            ("i cuck", 2),
-            ("le relazioni moderne", 3),
-            ("il femminismo", 2),
-            ("la società moderna", 3),
-            ("gli uomini che difendono le donne", 3),
-            ("i maschi che piacciono alle ragazze", 3),
-            ("quelli che non capiscono la Red Pill", 3),
-            ("i white pillati", 3),
-            ("chi non ha sofferto come lui", 3),
-        ],
-        ["donne"] =
-        [
-            ("ragazza che lo friendzona", 3),
-            ("ragazza che lo ha rifiutato", 3),
-            ("ragazza che non gli risponde ai messaggi", 3),
-            ("sua crush che sta con un altro", 3),
-            ("ragazza che lo ha ghostato", 3),
-            ("ragazza che _«va con i chad»_", 3),
-            ("ragazza che lo respinge", 3),
-        ],
-        ["frasi_tipiche"] =
-        [
-            ("non sono sessista, è biologia", 3),
-            ("io sono un [percezione] e il mondo mi ha ridotto a un guscio vuoto", 4),
-            ("quando morirò sarà colpa sai di chi? dico solo una cosa: [hating]", 4),
-            ("diventeranno vecchie, rugose e inutili, mentre io riderò dalla mia tomba sapendo che le ho superate tutte", 3),
-            ("l'unica cosa che mi tiene vivo è l'idea di vederle tutte infelici, grasse e abbandonate a [40-80] anni", 4),
-            ("sai cosa ha creato una generazione di gente senza valore che meritano solo sofferenza eterna? [hating]!", 4),
-            ("mi hanno trasformato in un [percezione]", 4),
-            ("Diventeranno tutte zitelle depressive con [2-15] gatti e zero rimpianti... toh", 4),
-            ("Mi hanno rifiutato solo perché non sono egemone e apprezzo [hating]", 4),
-            ("L'amore vero non esiste più, è stato ucciso da una cosa: [hating]", 4),
-            ("diventeranno tutte gattare", 3),
-            ("resteranno tutte da sole e pentite", 3),
-            ("si pentiranno di avermi rifiutato", 3),
-            ("tradiranno tutti, come hanno fatto con me", 3),
-            ("essere gentile non serve a niente con le donne", 3),
-            ("essere un bravo ragazzo non paga mai", 3),
-            ("il femminismo ha distrutto la società", 3),
-            ("il loro amore è solo un'illusione", 3),
-            ("il loro rifiuto mi ha reso più forte", 3),
-            ("il romanticismo è morto grazie alle donne", 3),
-            ("l'amore è una bugia inventata dalle femministe", 3),
-            ("l'unica cosa che le donne vogliono è attenzione", 3),
-            ("la società favorisce solo le donne, non gli uomini", 3),
-            ("la società è contro gli uomini come me", 3),
-            ("le donne amano solo i bastardi", 3),
-            ("le donne fanno solo drammi inutili", 3),
-            ("le donne fingono interesse solo per usarti", 3),
-            ("le donne hanno distrutto la mia vita", 3),
-            ("le donne moderne non sanno cosa vogliono", 3),
-            ("le donne non sanno cosa sia la vera fedeltà", 3),
-            ("le donne sono attratte solo dai soldi e dal potere", 3),
-            ("le donne usano gli uomini come atm", 3),
-            ("loro non possono capire il mio dolore", 3),
-            ("mi rifiutano solo perché non sono un modello", 3),
-            ("mi sono arreso, non ci proverò più", 3),
-            ("nessuna donna merita il mio tempo o la mia attenzione", 3),
-            ("non c'è speranza per gli uomini come me", 3),
-            ("non ci sono più vere donne oggi", 3),
-            ("non ho bisogno di nessuna di loro per essere felice", 3),
-            ("non ho bisogno di nessuna, loro hanno bisogno di me", 3),
-            ("non sarò mai abbastanza per loro", 3),
-            ("non sprecherò più energie per loro", 3),
-            ("non vedono l'uomo dietro i miei difetti", 3),
-            ("non voglio essere un simp, preferisco stare solo", 3),
-            ("ogni volta che sono gentile, mi trattano come uno zerbino", 3),
-            ("perché dovrei rispettare chi non mi rispetta?", 3),
-            ("prima o poi capiranno il loro errore", 3),
-            ("se non hai i muscoli, non esisti per loro", 3),
-            ("se non mi avessero rifiutato, non sarei così", 3),
-            ("se non sei alto 1.[80-95] non hai speranza", 4),
-            ("se non sei un alfa, sei invisibile per loro", 3),
-            ("se solo avessi i soldi, tutte le donne mi vorrebbero", 3),
-            ("sono loro che hanno perso, non io", 3),
-            ("sono stufo delle loro bugie e dei loro giochi mentali", 3),
-            ("sono troppo buono per loro", 3),
-            ("sono troppo intelligente per essere capito dalle donne", 3),
-            ("sono tutte troie", 3),
-            ("tanto alla fine cercano sempre il più cattivo", 3),
-            ("tanto finiscono per essere infelici con quel chad", 3),
-            ("tutte le ragazze vogliono solo i chad", 3),
-            ("le donne si offendono per niente, ormai", 3),
-            ("tutte quelle che mi rifiutano finiranno sole", 3),
-        ],
-        ["difetti_sociali"] =
-        [
-            ("misogino", 2),
-            ("nichilista", 2),
-            ("violento", 2),
-            ("pervertito", 2),
-            ("incontenibile", 2),
-            ("indisponente", 2),
-            ("manipolatore", 2),
-            ("narcisista", 2),
-            ("passivo-aggressivo", 2),
-            ("scontroso", 2),
-            ("vendicativo", 2),
-            ("feticista dei piedi", 3),
-        ],
-        ["vibes"] =
-        [
-            ("arrabbiato", 2),
-            ("deluso", 2),
-            ("disilluso", 2),
-            ("disperato", 2),
-            ("insicuro", 2),
-            ("invidioso", 2),
-            ("paranoico", 2),
-            ("rancoroso", 2),
-            ("scontento", 2),
-            ("scoraggiato", 2),
-            ("triste", 2),
-            ("autocommiserante", 2),
-            ("vittimista", 2),
-            ("autodistruttivo", 2),
-            ("rassegnato", 2),
-        ],
-        ["percezione"] =
-        [
-            ("genio incompreso", 2),
-            ("emarginato dalla società", 3),
-            ("unico uomo vero rimasto", 3),
-            ("troppo puro per questo mondo", 3),
-            ("ribelle contro il sistema", 3),
-            ("lupo solitario", 2),
-            ("redpillato", 2),
-            ("blackpillato", 2),
-            ("eroe tragico", 2),
-            ("anima tormentata", 2),
-            ("vero uomo", 2),
-            ("isolato", 2),
-            ("elemento superiore", 2),
-            ("abbandonato", 2),
-            ("non convenzionale", 2),
-            ("immortale", 2),
-            ("ribelle", 2),
-            ("solitario estremo", 2),
-            ("disperato perenne", 2),
-            ("intoccabile", 2),
-            ("eccentrico", 2),
-            ("malinconico eroe", 2),
-            ("eternamente giovane", 2),
-            ("mentore tormentato", 2),
-            ("invisibile", 2),
-            ("saggio sofferente", 2),
-            ("infallibile", 2),
-            ("nemico del sistema", 3),
-            ("paladino perduto", 2),
-            ("combattente solitario", 2),
-            ("individuo fuori dal coro", 3),
-            ("giustiziere silenzioso", 2),
-            ("solitario by choice", 3),
-            ("martire del femminismo", 3),
-            ("poveraccio vittima del sistema", 3),
-            ("paladino della verità", 3),
-        ],
-        ["professioni"] =
-        [
-            ("esperto in criptovalute", 3),
-            ("web developer", 2),
-            ("programmatore", 2),
-            ("programmatore di videogiochi", 3),
-            ("analista di dati", 3),
-            ("analista di marketing", 3),
-            ("imprenditore", 2),
-            ("ingegnere del software", 3),
-            ("trader di criptovalute", 3),
-            ("sviluppatore di smart contract", 3),
-            ("analista di mercato cripto", 3),
-            ("consulente per investimenti in criptovalute", 3),
-            ("amministratore di piattaforme di scambio cripto", 3),
-            ("consulente per la tokenizzazione di asset", 3),
-        ],
-        ["strumenti_misura"] =
-        [
-            ("un righello di plastica dei Power Rangers delle elementari", 3),
-            ("un calibro digitale comprato su Wish", 3),
-            ("un'app per lo smartphone scaricata da siti russi", 3),
-            ("un metro da sarto rubato a sua nonna", 3),
-        ],
-        ["abbigliamento_scadente"] =
-        [
-            ("completi in poliestere scadente", 3),
-            ("magliette con grafiche cringe", 3),
-            ("camicie hawaiane plasticose", 3),
-            ("felpe con scritte pseudo-filosofiche", 3),
-        ],
-        ["oggetti_status"] =
-        [
-            ("il suo orologio in acciaio", 3),
-            ("il suo G-Shock enorme", 3),
-            ("il suo bracciale in finta pelle", 3),
-        ],
-        ["commenti_sprezzanti_generici"] =
-        [
-            ("peccato non abbia ancora imparato ad avviare la lavatrice da solo", 3),
-            ("alle [2-5] di notte, illuminato solo dal monitor mentre mangia merendine sottomarca al buio", 3),
-            ("nella sua testa sta pensando a [idoli]", 3),
-            ("ma in realtà è palesemente [vibes]", 3),
-            ("la sua ultima interazione umana risale al [2019-2025]", 3),
-            ("la madre gli prepara la merenda tutti i giorni", 3),
-            ("e lo hanno capito tutti tranne lui", 3),
-        ],
-        ["commenti_sprezzanti_pene"] =
-        [
-            ("misura che ha calcolato usando [strumenti_misura]", 3),
-            ("calcolata partendo rigorosamente dalla spina dorsale", 3),
-            ("un'evidente sovrastima dovuta a un uso improprio del righello", 3),
-            ("o almeno così scrive nel suo profilo di [social] per compensare", 3),
-            ("anche se la [donne] avrebbe molto da ridire in proposito", 3),
-        ],
+        ("Andrew Tate", 2),
+        ("Rollo Tomassi", 2),
+        ("Joe Rogan", 2),
+        ("Jordan Peterson", 2),
+        ("Ben Shapiro", 2),
+        ("Tucker Carlson", 2),
+        ("Marco Crepaldi", 2),
+        ("Alex Jones", 2),
+        ("Elliot Rodger", 2),
+        ("Nick Fuentes", 2),
+        ("Tommy Robinson", 2),
     };
 
+    internal static readonly Tag OssessioniIncel = new(Ossessioni)
+    {
+        ("aspetto fisico", 2),
+        ("ipergamia femminile", 2),
+        ("status", 2),
+        ("inutili dating app", 3),
+        ("looksmaxxing", 2),
+        ("declino dell'Occidente", 2),
+    };
+
+    // Bersagli dell'incel, CATEGORIZZATI: estendono i sottogruppi del mbeb, così finiscono sia nella
+    // categoria giusta (per i retarget: «A Morte [concetto]» ecc.) sia nell'unione {Hating} — che il
+    // RuntimeBuilder ricompone dopo il merge. L'incel non nomina persone reali → niente "hating-persone".
+    internal static readonly Tag HatingGruppiIncel = new(MbebGenerator.HatingGruppi)
+    {
+        ("le femministe", 2),
+        ("le ragazze _«che la danno a tutti»_", 3),
+        ("le femmine di oggi", 3),
+        ("tutte le donne", 3),
+        ("le _«tipe di Tinder»_", 3),
+        ("donne che cercano solo soldi", 3),
+        ("i chad", 2),
+        ("i simp", 2),
+        ("i normie", 2),
+        ("quelli che vanno in palestra", 3),
+        ("le coppie felici", 3),
+        ("i maschi alfa", 3),
+        ("gli uomini che hanno successo con le donne", 3),
+        ("i cuck", 2),
+        ("gli uomini che difendono le donne", 3),
+        ("i maschi che piacciono alle ragazze", 3),
+        ("quelli che non capiscono la Red Pill", 3),
+        ("i white pillati", 3),
+        ("chi non ha sofferto come lui", 3),
+    };
+
+    internal static readonly Tag HatingConcettiIncel = new(MbebGenerator.HatingConcetti)
+    {
+        ("OnlyFans", 2),
+        ("le relazioni moderne", 3),
+        ("il femminismo", 2),
+        ("la società moderna", 3),
+    };
+
+    internal static readonly Tag DonneIncel = new(Donne)
+    {
+        ("ragazza che lo friendzona", 3),
+        ("ragazza che lo ha rifiutato", 3),
+        ("ragazza che non gli risponde ai messaggi", 3),
+        ("sua crush che sta con un altro", 3),
+        ("ragazza che lo ha ghostato", 3),
+        ("ragazza che _«va con i chad»_", 3),
+        ("ragazza che lo respinge", 3),
+    };
+
+    internal static readonly Tag FrasiTipicheIncel = new(FrasiTipiche)
+    {
+        ("non sono sessista, è biologia", 3),
+        new($"io sono un {Percezione} e il mondo mi ha ridotto a un guscio vuoto", 4),
+        new($"quando morirò sarà colpa sai di chi? dico solo una cosa: {Hating}", 4),
+        ("diventeranno vecchie, rugose e inutili, mentre io riderò dalla mia tomba sapendo che le ho superate tutte", 3),
+        new($"l'unica cosa che mi tiene vivo è l'idea di vederle tutte infelici, grasse e abbandonate a {40..80} anni", 4),
+        new($"sai cosa ha creato una generazione di gente senza valore che meritano solo sofferenza eterna? {Hating}!", 4),
+        new($"mi hanno trasformato in un {Percezione}", 4),
+        new($"Diventeranno tutte zitelle depressive con {2..15} gatti e zero rimpianti... toh", 4),
+        new($"Mi hanno rifiutato solo perché non sono egemone e apprezzo {Hating}", 4),
+        new($"L'amore vero non esiste più, è stato ucciso da una cosa: {HatingConcetti}", 4),
+        ("diventeranno tutte gattare", 3),
+        ("resteranno tutte da sole e pentite", 3),
+        ("si pentiranno di avermi rifiutato", 3),
+        ("tradiranno tutti, come hanno fatto con me", 3),
+        ("essere gentile non serve a niente con le donne", 3),
+        ("essere un bravo ragazzo non paga mai", 3),
+        ("il femminismo ha distrutto la società", 3),
+        ("il loro amore è solo un'illusione", 3),
+        ("il loro rifiuto mi ha reso più forte", 3),
+        ("il romanticismo è morto grazie alle donne", 3),
+        ("l'amore è una bugia inventata dalle femministe", 3),
+        ("l'unica cosa che le donne vogliono è attenzione", 3),
+        ("la società favorisce solo le donne, non gli uomini", 3),
+        ("la società è contro gli uomini come me", 3),
+        ("le donne amano solo i bastardi", 3),
+        ("le donne fanno solo drammi inutili", 3),
+        ("le donne fingono interesse solo per usarti", 3),
+        ("le donne hanno distrutto la mia vita", 3),
+        ("le donne moderne non sanno cosa vogliono", 3),
+        ("le donne non sanno cosa sia la vera fedeltà", 3),
+        ("le donne sono attratte solo dai soldi e dal potere", 3),
+        ("le donne usano gli uomini come atm", 3),
+        ("loro non possono capire il mio dolore", 3),
+        ("mi rifiutano solo perché non sono un modello", 3),
+        ("mi sono arreso, non ci proverò più", 3),
+        ("nessuna donna merita il mio tempo o la mia attenzione", 3),
+        ("non c'è speranza per gli uomini come me", 3),
+        ("non ci sono più vere donne oggi", 3),
+        ("non ho bisogno di nessuna di loro per essere felice", 3),
+        ("non ho bisogno di nessuna, loro hanno bisogno di me", 3),
+        ("non sarò mai abbastanza per loro", 3),
+        ("non sprecherò più energie per loro", 3),
+        ("non vedono l'uomo dietro i miei difetti", 3),
+        ("non voglio essere un simp, preferisco stare solo", 3),
+        ("ogni volta che sono gentile, mi trattano come uno zerbino", 3),
+        ("perché dovrei rispettare chi non mi rispetta?", 3),
+        ("prima o poi capiranno il loro errore", 3),
+        ("se non hai i muscoli, non esisti per loro", 3),
+        ("se non mi avessero rifiutato, non sarei così", 3),
+        new($"se non sei alto 1.{80..95} non hai speranza", 4),
+        ("se non sei un alfa, sei invisibile per loro", 3),
+        ("se solo avessi i soldi, tutte le donne mi vorrebbero", 3),
+        ("sono loro che hanno perso, non io", 3),
+        ("sono stufo delle loro bugie e dei loro giochi mentali", 3),
+        ("sono troppo buono per loro", 3),
+        ("sono troppo intelligente per essere capito dalle donne", 3),
+        ("sono tutte troie", 3),
+        ("tanto alla fine cercano sempre il più cattivo", 3),
+        ("tanto finiscono per essere infelici con quel chad", 3),
+        ("tutte le ragazze vogliono solo i chad", 3),
+        ("le donne si offendono per niente, ormai", 3),
+        ("tutte quelle che mi rifiutano finiranno sole", 3),
+    };
+
+    internal static readonly Tag DifettiSocialiIncel = new(DifettiSociali)
+    {
+        ("misogino", 2),
+        ("nichilista", 2),
+        ("violento", 2),
+        ("pervertito", 2),
+        ("incontenibile", 2),
+        ("indisponente", 2),
+        ("manipolatore", 2),
+        ("narcisista", 2),
+        ("passivo-aggressivo", 2),
+        ("scontroso", 2),
+        ("vendicativo", 2),
+        ("feticista dei piedi", 3),
+    };
+
+    internal static readonly Tag VibesIncel = new(Vibes)
+    {
+        ("arrabbiato", 2),
+        ("deluso", 2),
+        ("disilluso", 2),
+        ("disperato", 2),
+        ("insicuro", 2),
+        ("invidioso", 2),
+        ("paranoico", 2),
+        ("rancoroso", 2),
+        ("scontento", 2),
+        ("scoraggiato", 2),
+        ("triste", 2),
+        ("autocommiserante", 2),
+        ("vittimista", 2),
+        ("autodistruttivo", 2),
+        ("rassegnato", 2),
+    };
+
+    internal static readonly Tag PercezioneIncel = new(Percezione)
+    {
+        ("genio incompreso", 2),
+        ("emarginato dalla società", 3),
+        ("unico uomo vero rimasto", 3),
+        ("troppo puro per questo mondo", 3),
+        ("ribelle contro il sistema", 3),
+        ("lupo solitario", 2),
+        ("redpillato", 2),
+        ("blackpillato", 2),
+        ("eroe tragico", 2),
+        ("anima tormentata", 2),
+        ("vero uomo", 2),
+        ("isolato", 2),
+        ("elemento superiore", 2),
+        ("abbandonato", 2),
+        ("non convenzionale", 2),
+        ("immortale", 2),
+        ("ribelle", 2),
+        ("solitario estremo", 2),
+        ("disperato perenne", 2),
+        ("intoccabile", 2),
+        ("eccentrico", 2),
+        ("malinconico eroe", 2),
+        ("eternamente giovane", 2),
+        ("mentore tormentato", 2),
+        ("invisibile", 2),
+        ("saggio sofferente", 2),
+        ("infallibile", 2),
+        ("nemico del sistema", 3),
+        ("paladino perduto", 2),
+        ("combattente solitario", 2),
+        ("individuo fuori dal coro", 3),
+        ("giustiziere silenzioso", 2),
+        ("solitario by choice", 3),
+        ("martire del femminismo", 3),
+        ("poveraccio vittima del sistema", 3),
+        ("paladino della verità", 3),
+    };
+
+    // Estende la lista CONDIVISA sotto la stessa chiave (RuntimeBuilder concatena): la vena
+    // cripto dell'incel si aggiunge alle professioni comuni, non le sostituisce.
+    internal static readonly Tag ProfessioniIncel = new(Professioni.Any)
+    {
+        ("esperto in criptovalute", 3),
+        ("web developer", 2),
+        ("programmatore", 2),
+        ("programmatore di videogiochi", 3),
+        ("analista di dati", 3),
+        ("analista di marketing", 3),
+        ("imprenditore", 2),
+        ("ingegnere del software", 3),
+        ("trader di criptovalute", 3),
+        ("sviluppatore di smart contract", 3),
+        ("analista di mercato cripto", 3),
+        ("consulente per investimenti in criptovalute", 3),
+        ("amministratore di piattaforme di scambio cripto", 3),
+        ("consulente per la tokenizzazione di asset", 3),
+    };
+
+    internal static readonly Tag CommentiSprezzantiGenericiIncel = new(CommentiSprezzantiGenerici)
+    {
+        ("peccato non abbia ancora imparato ad avviare la lavatrice da solo", 3),
+        new($"alle {2..5} di notte, illuminato solo dal monitor mentre mangia merendine sottomarca al buio", 3),
+        new($"nella sua testa sta pensando a {Idoli}", 3),
+        new($"ma in realtà è palesemente {Vibes}", 3),
+        new($"la sua ultima interazione umana risale al {2019..2025}", 3),
+        ("la madre gli prepara la merenda tutti i giorni", 3),
+        ("e lo hanno capito tutti tranne lui", 3),
+    };
+
+
     /// <inheritdoc />
-    public override List<ScoredItem> Core { get; } =
+    public override List<Frase> Core { get; } =
     [
-        ("[idoli] è la sua guida spirituale (forse gli ha dato dei soldi in un corso non ho capito)", 8),
-        ("[professioni] che odia [hating]", 2),
-        ("odia solo [hating], per il resto ok, gode persino [hating]", 4),
-        ("è convinto di non essere più giovane per la riproduzione (anche se ha solo [eta-minorenne] anni)", 7),
-        ("[professioni] che non apprezza [hating]", 3),
-        ("ha un tatuaggio con scritto _«[percezione]»_ (fatto nello scantinato di un tizio a [city] e rigorosamente con un errore di battitura)", 25),
-        ("ha [eta-giovane] anni, ma già malsopporta [hating] e lo dimostra lamentandosi con frasi di circostanza tipo _«[frasi_tipiche]»_", 7),
-        ("fa commenti da [difetti_sociali] su [social], sempre con frasi tipo _«[frasi_tipiche]»_", 6),
-        ("fa commenti da [difetti_sociali] sul suo [social] (da un profilo rigorosamente con l'avatar di un personaggio degli anime)", 8),
-        ("cerca di emulare lo stile di [idoli] (comprando online [abbigliamento_scadente] di [2-3] taglie più grandi)", 25),
-        ("[difetti_sociali] nei commenti ai post su [hating]", 3),
-        ("ha [eta-giovane] anni e si comporta sempre da [difetti_sociali], dicendo cose tipo _«[frasi_tipiche]»_, o comunque un concetto simile", 7),
-        ("ha [eta-giovane] anni e una tendenza a essere [vibes]", 4),
-        ("ha un modo distorto di vedere [hating], in realtà è solo [difetti_sociali]", 4),
-        ("il perfetto ritratto di un [eta-giovane]enne [vibes]", 3),
-        ("considera l'uso quotidiano del deodorante un'inutile imposizione indovinate di chi?... Esatto, [hating]!", 4),
-        ("la prima cosa sulla sua lista nera è: [hating]", 4),
-        ("se c'è una cosa che crede di aver imparato da [idoli] è che: _«[frasi_tipiche]»_ ([commenti_sprezzanti_generici])", 10),
-        ("non ha mai avuto successo con la [donne] (non mi sorprende dato che dice sempre _«[frasi_tipiche]»_)", 9),
-        ("non si è mai fidanzato, lui è un _«[percezione]»_", 6),
-        ("nonostante i suoi [eta-giovane] anni è ancora [difetti_sociali]", 3),
-        ("nonostante i suoi [eta-giovane] anni, è sempre [difetti_sociali] e la sua frase distintiva è _«[frasi_tipiche]»_ (ultimamente ha il coraggio di dirlo persino quando si parla di [hating])", 10),
-        ("odia [hating] oltre che se stesso", 3),
-        ("odia oltre ogni limite [hating]", 3),
-        ("odia tutto ciò che riguarda [hating] e lo dice sommessamente su [social] ([commenti_sprezzanti_generici])", 10),
-        ("sempre e comunque [difetti_sociali]", 2),
-        ("si autodefinisce un _«[percezione]»_ su [social] ([commenti_sprezzanti_generici])", 9),
-        ("si definisce un _«[percezione]»_ e su [social] continua a dire cose tipo _«[frasi_tipiche]»_", 6),
-        ("si definisce un _«[percezione]»_ ma è solo [vibes]", 5),
-        ("si dimostra sempre [difetti_sociali] su [social]", 4),
-        ("è un _«[percezione] di [eta-giovane] anni e [percezione]»_ ([commenti_sprezzanti_generici])", 8),
-        ("si vanta su [social] di essere un _«[percezione]»_ e ripete _«[frasi_tipiche]»_ con un tono da [vibes]", 7),
-        ("si vanta su [social] di essere un _«[percezione]»_ ([commenti_sprezzanti_generici])", 9),
-        ("[vibes] di [eta-giovane] anni che su [social] ripete sempre cose strane tipo _«[frasi_tipiche]»_", 6),
-        ("[vibes] di [eta-giovane] anni", 2),
-        ("[professioni] [difetti_sociali]", 2),
-        ("ascolta le OST dei videogiochi (perché _«la musica commerciale è in mano a...? Esatto, [hating]!»_)", 6),
-        ("con complessi sulle dimensioni del suo pene ([commenti_sprezzanti_pene])", 15),
-        ("[eta-giovane]enne [vibes] che si lamenta spesso dicendo cose tipo _«[frasi_tipiche]»_", 6),
-        ("[eta-giovane]enne [vibes] che su [social] dice _«[frasi_tipiche]»_ ogni giorno", 6),
-        ("[eta-minorenne]enne che si definisce un _«[percezione] che ha capito come gira il mondo: [frasi_tipiche]»_", 6),
-        ("su [social] ha la bio _«[percezione] - [frasi_tipiche]»_ te lo ricordi perché è [difetti_sociali]", 6),
-        ("[eta-giovane]enne che su [social] si lamenta con argomenti riassumibili in una frase: _«[frasi_tipiche]»_", 6),
-        ("[eta-giovane]enne con una tendenza a essere [vibes]", 3),
-        ("è contro: [hating], [hating], [hating], [hating], [hating] e sorpresa sorpresa... [hating]!", 4),
-        ("[vibes] di [eta-giovane] anni che ama dire _«[frasi_tipiche]»_ su [social]", 6),
-        ("si vanta del pene sopra i [6-12] cm ([commenti_sprezzanti_pene])", 25),
-        ("ha fondato il fanclub _«A Morte [hating]»_ (che attualmente conta l'incredibile cifra di [4-25] membri)", 9),
-        ("ha uno strano feticcio per i piedi (che si aggrava quando pensa alla [donne]), forse dovuto al suo essere [vibes]", 8),
-        ("misura i polsi ogni mattina per controllare di non aver perso circonferenza ossea (ed è terrorizzato che [oggetti_status] preso a [city] sembri troppo grande)", 25),
-        ("ha calcolato l'angolo perfetto della sua mandibola usando un goniometro comprato dai cinesi e lo paragona a quello dei modelli su [social]", 35),
-        ("conserva una cartella criptata sul pc con le foto delle mani di altri uomini per fare confronti ossessivi", 35),
-        ("ha comprato delle solette rialzanti da [2-5] cm su Amazon per sembrare più alto", 15),
-        ("si atteggia a _«[percezione]»_ con tutti, ma la sua più grande paura è [terrori_quotidiani]", 12),
-        ("nella sua testa è un alfa intoccabile, nella realtà è terrorizzato da una cosa: [terrori_quotidiani]", 12),
-        ("si definisce un _«[percezione]»_ su [social] (eppure va nel panico al solo pensiero di [terrori_quotidiani])", 9),
+        new($"{Idoli} è la sua guida spirituale (forse gli ha dato dei soldi in un corso non ho capito)", 8),
+        new($"{Professioni.Any.Fissato} che odia {Hating}", 2),
+        new($"odia solo {Hating}, per il resto ok, gode persino {Hating}", 4),
+        new($"è convinto di non essere più giovane per la riproduzione (anche se ha solo {Eta.Minorenne} anni)", 7),
+        new($"{Professioni.Any.Fissato} che non apprezza {Hating}", 3),
+        new($"ha un tatuaggio con scritto _«{Percezione}»_ (fatto nello scantinato di un tizio a {City.Any} e rigorosamente con un errore di battitura)", 25),
+        new($"ha {Eta.Giovane} anni, ma già malsopporta {Hating} e lo dimostra lamentandosi con frasi di circostanza tipo _«{FrasiTipiche}»_", 7),
+        new($"fa commenti da {DifettiSociali} su {Social.Any}, sempre con frasi tipo _«{FrasiTipiche}»_", 6),
+        new($"fa commenti da {DifettiSociali} sul suo {Social.Any} (da un profilo rigorosamente con l'avatar di un personaggio degli anime)", 8),
+        new($"cerca di emulare lo stile di {Idoli} (comprando online {AbbigliamentoScadente} di {2..3} taglie più grandi)", 25),
+        new($"{DifettiSociali} nei commenti ai post su {Hating}", 3),
+        new($"ha {Eta.Giovane} anni e si comporta sempre da {DifettiSociali}, dicendo cose tipo _«{FrasiTipiche}»_, o comunque un concetto simile", 7),
+        new($"ha {Eta.Giovane} anni e una tendenza a essere {Vibes}", 4),
+        new($"ha un modo distorto di vedere {Hating}, in realtà è solo {DifettiSociali}", 4),
+        new($"il perfetto ritratto di un {Eta.Giovane}enne {Vibes}", 3),
+        new($"considera l'uso quotidiano del deodorante un'inutile imposizione indovinate di chi?... Esatto, {Hating}!", 4),
+        new($"la prima cosa sulla sua lista nera è: {HatingConcetti}", 4),
+        new($"se c'è una cosa che crede di aver imparato da {Idoli} è che: _«{FrasiTipiche}»_ ({CommentiSprezzantiGenerici})", 10),
+        new($"non ha mai avuto successo con la {Donne} (non mi sorprende dato che dice sempre _«{FrasiTipiche}»_)", 9),
+        new($"non si è mai fidanzato, lui è un _«{Percezione}»_", 6),
+        new($"nonostante i suoi {Eta.Giovane} anni è ancora {DifettiSociali}", 3),
+        new($"nonostante i suoi {Eta.Giovane} anni, è sempre {DifettiSociali} e la sua frase distintiva è _«{FrasiTipiche}»_ (ultimamente ha il coraggio di dirlo persino quando si parla di {Hating})", 10),
+        new($"odia {Hating} oltre che se stesso", 3),
+        new($"odia oltre ogni limite {Hating}", 3),
+        new($"odia tutto ciò che riguarda {Hating} e lo dice sommessamente su {Social.Any} ({CommentiSprezzantiGenerici})", 10),
+        new($"sempre e comunque {DifettiSociali}", 2),
+        new($"si autodefinisce un _«{Percezione}»_ su {Social.Any} ({CommentiSprezzantiGenerici})", 9),
+        new($"si definisce un _«{Percezione}»_ e su {Social.Any} continua a dire cose tipo _«{FrasiTipiche}»_", 6),
+        new($"si definisce un _«{Percezione}»_ ma è solo {Vibes}", 5),
+        new($"si dimostra sempre {DifettiSociali} su {Social.Any}", 4),
+        new($"è un _«{Percezione} di {Eta.Giovane} anni e {Percezione}»_ ({CommentiSprezzantiGenerici})", 8),
+        new($"si vanta su {Social.Any} di essere un _«{Percezione}»_ e ripete _«{FrasiTipiche}»_ con un tono da {Vibes}", 7),
+        new($"si vanta su {Social.Any} di essere un _«{Percezione}»_ ({CommentiSprezzantiGenerici})", 9),
+        new($"{Vibes} di {Eta.Giovane} anni che su {Social.Any} ripete sempre cose strane tipo _«{FrasiTipiche}»_", 6),
+        new($"{Vibes} di {Eta.Giovane} anni", 2),
+        new($"{Professioni.Any.Fissato} {DifettiSociali}", 2),
+        new($"ascolta le OST dei videogiochi (perché _«la musica commerciale è in mano a...? Esatto, {HatingPersone}!»_)", 6),
+        new($"con complessi sulle dimensioni del suo pene ({CommentiSprezzantiPene})", 15),
+        new($"{Eta.Giovane}enne {Vibes} che si lamenta spesso dicendo cose tipo _«{FrasiTipiche}»_", 6),
+        new($"{Eta.Giovane}enne {Vibes} che su {Social.Any} dice _«{FrasiTipiche}»_ ogni giorno", 6),
+        new($"{Eta.Minorenne}enne che si definisce un _«{Percezione} che ha capito come gira il mondo: {FrasiTipiche}»_", 6),
+        new($"su {Social.Any} ha la bio _«{Percezione} - {FrasiTipiche}»_ te lo ricordi perché è {DifettiSociali}", 6),
+        new($"{Eta.Giovane}enne che su {Social.Any} si lamenta con argomenti riassumibili in una frase: _«{FrasiTipiche}»_", 6),
+        new($"{Eta.Giovane}enne con una tendenza a essere {Vibes}", 3),
+        new($"è contro: {Hating}, {Hating}, {Hating}, {Hating}, {Hating} e sorpresa sorpresa... {Hating}!", 4),
+        new($"{Vibes} di {Eta.Giovane} anni che ama dire _«{FrasiTipiche}»_ su {Social.Any}", 6),
+        new($"si vanta del pene sopra i {6..12} cm ({CommentiSprezzantiPene})", 25),
+        new($"ha fondato il fanclub _«A Morte {HatingConcetti}»_ (che attualmente conta l'incredibile cifra di {4..25} membri)", 9),
+        new($"ha uno strano feticcio per i piedi (che si aggrava quando pensa alla {Donne}), forse dovuto al suo essere {Vibes}", 8),
+        new($"misura i polsi ogni mattina per controllare di non aver perso circonferenza ossea (ed è terrorizzato che {OggettiStatus} preso a {City.Any} sembri troppo grande)", 25),
+        new($"ha calcolato l'angolo perfetto della sua mandibola usando un goniometro comprato dai cinesi e lo paragona a quello dei modelli su {Social.Any}", 35),
+        new($"conserva una cartella criptata sul pc con le foto delle mani di altri uomini per fare confronti ossessivi", 35),
+        new($"ha comprato delle solette rialzanti da {2..5} cm su {Marketplace.Any} per sembrare più alto", 15),
+        new($"si atteggia a _«{Percezione}»_ con tutti, ma la sua più grande paura è {TerroriQuotidiani}", 12),
+        new($"nella sua testa è un alfa intoccabile, nella realtà è terrorizzato da una cosa: {TerroriQuotidiani}", 12),
+        new($"si definisce un _«{Percezione}»_ su {Social.Any} (eppure va nel panico al solo pensiero di {TerroriQuotidiani})", 9),
     ];
 }

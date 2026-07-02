@@ -1,9 +1,13 @@
-/* Miniatura quadrata a sinistra: larghezza fissa, l'altezza la dà la riga (flex-row
-   stretcha l'img a tutta l'altezza della card). overflow-hidden sulla card ritaglia
-   gli angoli arrotondati. */
+/* Miniatura a sinistra: larghezza fissa, altezza stirata alla riga (align-self:stretch).
+   Il box è vuoto (l'img è dentro in position:absolute), quindi non ha altezza intrinseca e
+   NON gonfia la card: l'altezza la detta il testo. L'img usa object-fit:contain, così si
+   vede intera dentro questo riquadro (niente ritagli) adattandosi allo spazio disponibile.
+   min-height: garantisce un po' di respiro all'immagine sulle card di solo testo corto.
+   Vale SOLO con immagine: senza, questo div non viene renderizzato e la card resta compatta. */
 .content-card-thumb {
     width: 96px;
     align-self: stretch;
+    min-height: 3em;
 }
 
 /* min-width:0 indispensabile: senza, il figlio flex non si restringe sotto il suo

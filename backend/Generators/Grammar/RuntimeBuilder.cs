@@ -1,6 +1,3 @@
-using Backend.Models;
-using System.Text.RegularExpressions;
-
 namespace Backend.Generators.Grammar;
 
 /// <summary>
@@ -10,13 +7,12 @@ namespace Backend.Generators.Grammar;
 /// </summary>
 public static class RuntimeBuilder
 {
-    private static readonly Regex Tok = new(@"\[[^\]]+\]", RegexOptions.Compiled);
-
     /// <summary>
     /// Costruisce il runtime di <paramref name="target"/>. <paramref name="resolve"/> mappa uno slug al
-    /// suo generatore (per i master dichiarati in <see cref="IGenerator.ComposeWith"/>).
+    /// suo generatore (per i master di <see cref="IGenerator.ComposeWith"/> e per validare gli innesti);
+    /// <paramref name="risolviInnesto"/> mappa lo slug di un innesto al suo Runtime, a boot completato.
     /// </summary>
-    public static Runtime Build(IGenerator target, Func<string, IGenerator> resolve)
+    public static Runtime Build(IGenerator target, Func<string, IGenerator> resolve, Func<string, Runtime> risolviInnesto)
     {
         // Catena master-first: i master (da ComposeWith) prima, poi il generatore stesso.
         var chain = new List<IGenerator>();
@@ -33,34 +29,59 @@ public static class RuntimeBuilder
                               .SelectMany(g => g.PhraseSettings!.Separators!).Distinct().ToList();
         if (separators.Count == 0) separators.Add(". ");
 
-        // ── FlatLists: shared ∪ liste composte ∪ catena (concat + dedup per testo) ──
-        var flat = new Dictionary<string, List<ScoredItem>>();
-        foreach (var (key, list) in SharedContent.FlatLists) flat[key] = [.. list];
-        foreach (var (key, sources) in SharedContent.ComposedLists)
-        {
-            var combined = sources.Where(flat.ContainsKey).SelectMany(s => flat[s]).ToList();
-            if (combined.Count > 0) flat[key] = combined;
-        }
+        // ── FlatLists: owning condivise ∪ catena (concat + dedup per testo); poi le UNIONI ──
+        var flat = new Dictionary<string, List<Frase>>();
+        foreach (var (key, list) in Condivisi.FlatLists) flat[key] = [.. list];
         foreach (var g in chain)
-            foreach (var (key, list) in g.FlatLists)
-                flat[key] = flat.TryGetValue(key, out var existing)
-                    ? existing.Concat(list).DistinctBy(item => item.Text).ToList()
-                    : [.. list];
+            foreach (var lista in g.Liste)
+                flat[lista.Key] = flat.TryGetValue(lista.Key, out var existing)
+                    ? existing.Concat(lista.Voci).DistinctBy(item => item.Raw).ToList()
+                    : [.. lista.Voci];
+
+        // ── UNIONI (Tag.Unione), condivise + della catena: flat[unione] = (eventuale estensione diretta)
+        // ∪ delle sottochiavi. DOPO il merge, così le estensioni ai sotto-tag (anche lungo la catena
+        // ComposeWith) rifluiscono. Le unioni compongono da liste OWNING, non da altre unioni → un passo. ──
+        foreach (var unione in Condivisi.Unioni.Concat(chain.SelectMany(g => g.Composte)))
+            flat[unione.Key] = (flat.TryGetValue(unione.Key, out var estensione) ? estensione : [])
+                .Concat(unione.Componenti!.Where(flat.ContainsKey).SelectMany(chiave => flat[chiave]))
+                .DistinctBy(item => item.Raw)
+                .ToList();
 
         // ── Validazione DETERMINISTICA: il grafo dei riferimenti tra flatlist è aciclico ──
         if (FindCycle(BuildRefGraph(flat)) is { } cycle)
             throw new GeneratorConfigException(
                 $"Generatore '{target.Slug}': ciclo di riferimenti tra flatlist: {string.Join(" → ", cycle)}");
 
-        // ── Gruppi esclusivi attivi (nome → tag): da PolicyGroups, o singoletto se nome sconosciuto ──
+        // ── Gruppi esclusivi attivi (nome → tag): da PolicyGroups locali/condivisi, o singoletto ──
         var exclusiveNames = chain.Where(g => g.ExclusiveGroups != null)
                                   .SelectMany(g => g.ExclusiveGroups!).Distinct();
+        // PolicyGroups LOCALI dei generatori (nome → chiavi), fusi per nome lungo la catena.
+        var localPolicy = chain.Where(g => g.PolicyGroups != null)
+            .SelectMany(g => g.PolicyGroups!)
+            .GroupBy(kv => kv.Key)
+            .ToDictionary(grp => grp.Key, grp => grp.SelectMany(kv => kv.Value).Distinct().ToArray());
+        // Fail-fast: un membro di un gruppo locale che non è una flatlist nota è un refuso silenzioso.
+        foreach (var (nome, chiavi) in localPolicy)
+            foreach (var chiave in chiavi)
+                if (!flat.ContainsKey(chiave))
+                    throw new GeneratorConfigException(
+                        $"Generatore '{target.Slug}': il gruppo locale '{nome}' referenzia un tag sconosciuto '{chiave}'");
         var activeGroups = exclusiveNames.ToDictionary(
             name => name,
-            name => SharedContent.PolicyGroups.TryGetValue(name, out var tags) ? tags.ToArray() : [name]);
+            name =>
+            {
+                if (localPolicy.TryGetValue(name, out var localTags)) return localTags;
+                if (Condivisi.PolicyGroups.TryGetValue(name, out var tags)) return tags.ToArray();
+                // Gruppo-singoletto: il nome È la chiave del tag da rendere esclusivo, quindi si valida
+                // qui — un refuso diventerebbe altrimenti un gruppo che non aggancia nulla, in silenzio.
+                if (!flat.ContainsKey(name) && !Condivisi.FasceEta.ContainsKey(name))
+                    throw new GeneratorConfigException(
+                        $"Generatore '{target.Slug}': gruppo esclusivo sconosciuto '{name}' (né PolicyGroups locali/condivisi, né flatlist, né fascia d'età)");
+                return new[] { name };
+            });
 
         var uniqueLabels = chain.Where(g => g.UniqueLabels != null)
-                                .SelectMany(g => g.UniqueLabels!).Distinct().ToList();
+                                .SelectMany(g => g.UniqueLabels!).Select(e => e.Testo).Distinct().ToList();
 
         var parser = new PhraseParser(flat.Keys.ToHashSet(), activeGroups, uniqueLabels);
 
@@ -68,10 +89,10 @@ public static class RuntimeBuilder
         var resolvedFlat = flat.ToDictionary(
             kv => kv.Key,
             kv => (IReadOnlyList<FlatEntry>)kv.Value
-                .Select(item => new FlatEntry(parser.Parse(item.Text, 0, "flat"), item.Score, item.Text))
+                .Select(item => new FlatEntry(parser.Parse(item, "flat"), item.Score, item.Raw))
                 .ToList());
 
-        var globalCore = chain.SelectMany(g => g.Core.Select(c => parser.Parse(c.Text, c.Score, g.Slug)))
+        var globalCore = chain.SelectMany(g => g.Core.Select(c => parser.Parse(c, g.Slug)))
                               .DistinctBy(p => p.Raw).ToList();
 
         // ── Required: master se esplicito; altrimenti quota proporzionale per gli ospiti ──
@@ -90,18 +111,50 @@ public static class RuntimeBuilder
                     requirements.Add(ParseRequirement(guestReq, instance.Slug, parser));
                 else
                 {
-                    var phrases = instance.Core.Select(c => parser.Parse(c.Text, c.Score, instance.Slug)).ToList();
+                    var phrases = instance.Core.Select(c => parser.Parse(c, instance.Slug)).ToList();
                     requirements.Add(new Requirement(Math.Max(1, (min + 1) / 2), max / 2, phrases));
                 }
             }
         }
 
-        var aperturaTpl = chain.Select(g => g.Apertura).FirstOrDefault(a => !string.IsNullOrEmpty(a));
-        var chiusuraTpl = chain.Select(g => g.Chiusura).FirstOrDefault(c => !string.IsNullOrEmpty(c));
+        var aperturaTpl = chain.Select(g => g.Apertura).FirstOrDefault(a => !string.IsNullOrEmpty(a?.Raw));
+        var chiusuraTpl = chain.Select(g => g.Chiusura).FirstOrDefault(c => !string.IsNullOrEmpty(c?.Raw));
+        var apertura = aperturaTpl is null ? null : parser.Parse(aperturaTpl, "frame");
+        var chiusura = chiusuraTpl is null ? null : parser.Parse(chiusuraTpl, "frame");
 
-        // ── Markov ("conio" di varianti): SOLO sulle liste CONDIVISE dei nomi propri (nome-m/-f, cognome,
-        // nome), curate apposta — meno quelle in NonCoinableKeys (città, social) che devono restare reali.
-        // Le liste dei singoli generatori (aggettivi, vibes, professioni…) non si coniano mai: lì un termine
+        // ── Coerenza dei contenuti (il boot è il linter): tutte le frasi del runtime in un corpus ──
+        var frasi = globalCore
+            .Concat(requirements.SelectMany(r => r.Phrases))
+            .Concat(resolvedFlat.Values.SelectMany(entries => entries.Select(e => e.Ast)))
+            .Concat(new[] { apertura, chiusura }.OfType<Phrase>())
+            .ToList();
+
+        // Etichette uniche: ognuna deve comparire in ALMENO una frase — un'etichetta senza riscontro
+        // è un refuso che disattiverebbe l'unicità in silenzio.
+        var morte = uniqueLabels.Where(label => !frasi.Any(p => p.Raw.Contains(label))).ToList();
+        if (morte.Count > 0)
+            throw new GeneratorConfigException(
+                $"Generatore '{target.Slug}': etichette uniche senza riscontro in alcuna frase: {string.Join(", ", morte)}");
+
+        // Liste dichiarate ma mai citate: un tag con voci che nessuna frase pesca è contenuto morto.
+        var citate = frasi.SelectMany(p => p.Parts).OfType<Slot>()
+            .Where(s => s.Kind == SlotKind.FlatList).Select(s => s.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var inerti = chain.SelectMany(g => g.Liste).Select(t => t.Key).Distinct()
+            .Where(key => !citate.Contains(key)).ToList();
+        if (inerti.Count > 0)
+            throw new GeneratorConfigException(
+                $"Generatore '{target.Slug}': liste dichiarate ma mai citate da alcuna frase: {string.Join(", ", inerti)}");
+
+        // Innesti ({Genera("...")}): ogni slug citato deve esistere e il grafo tra generatori essere
+        // aciclico — due generatori che si innestano a vicenda genererebbero all'infinito.
+        foreach (var slug in frasi.SelectMany(p => p.Parts).OfType<Slot>()
+                     .Where(s => s.Kind == SlotKind.Innesto).Select(s => s.Key).Distinct())
+            ValidaInnesto(slug, resolve, [target.Slug]);
+
+        // ── Markov ("conio" di varianti): SOLO sulle liste dichiarate coniabili dai loro simboli
+        // (Condivisi.ChiaviConiabili: nomi e cognomi, curati apposta) — opt-in esplicito, niente
+        // deduzione per esclusione. Le liste dei singoli generatori non si coniano mai: lì un termine
         // inventato è un refuso, non una variante. Il tasso è il default condiviso, salvo override esplicito
         // di un generatore della catena (max tra quelli impostati; 0 disattiva). Ordine = primo esplicito, o default.
         var chaosOverrides = chain.Select(g => g.PhraseSettings?.MarkovChaos)
@@ -109,15 +162,11 @@ public static class RuntimeBuilder
         double markovChaos = chaosOverrides.Count > 0 ? chaosOverrides.Max() : MarkovChain.DefaultChaos;
         int markovOrder = chain.Select(g => g.PhraseSettings?.MarkovOrder).FirstOrDefault(o => o is > 0)
                           ?? MarkovChain.DefaultOrder;
-        var coinableKeys = SharedContent.FlatLists.Keys
-            .Concat(SharedContent.ComposedLists.Keys)
-            .Where(k => !MarkovChain.NonCoinableKeys.Contains(k))
-            .ToHashSet();
         var markov = new Dictionary<string, MarkovChain>();
         if (markovChaos > 0)
             foreach (var (key, list) in flat)
-                if (coinableKeys.Contains(key)
-                    && MarkovChain.Train(list.Select(i => i.Text).ToList(), markovOrder) is { } ch)
+                if (Condivisi.ChiaviConiabili.Contains(key)
+                    && MarkovChain.Train(list.Select(i => i.Raw).ToList(), markovOrder) is { } ch)
                     markov[key] = ch;
 
         return new Runtime(
@@ -126,28 +175,54 @@ public static class RuntimeBuilder
             Requirements: requirements,
             MinPhrases: min, MaxPhrases: max, MinScore: minScore,
             Separators: separators,
-            Apertura: aperturaTpl is null ? null : parser.Parse(aperturaTpl, 0, "frame"),
-            Chiusura: chiusuraTpl is null ? null : parser.Parse(chiusuraTpl, 0, "frame"),
-            Markov: markov, MarkovChaos: markovChaos);
+            Apertura: apertura,
+            Chiusura: chiusura,
+            Markov: markov, MarkovChaos: markovChaos,
+            RisolviInnesto: risolviInnesto);
     }
 
     private static Requirement ParseRequirement(RequiredInjectData data, string origin, PhraseParser parser) =>
-        new(data.Min, data.Max, data.Phrases.Select(p => parser.Parse(p.Text, p.Score, origin)).ToList());
+        new(data.Min, data.Max, data.Phrases.Select(p => parser.Parse(p, origin)).ToList());
+
+    /// <summary>
+    /// Valida ricorsivamente un innesto: lo slug esiste e il grafo degli innesti (attraverso i
+    /// contenuti del bersaglio E dei suoi master) non torna mai su un generatore già in catena.
+    /// </summary>
+    private static void ValidaInnesto(string slug, Func<string, IGenerator> resolve, List<string> catena)
+    {
+        if (catena.Contains(slug, StringComparer.OrdinalIgnoreCase))
+            throw new GeneratorConfigException(
+                $"Ciclo di innesti tra generatori: {string.Join(" → ", catena)} → {slug}");
+
+        IGenerator bersaglio;
+        try { bersaglio = resolve(slug); }
+        catch
+        {
+            throw new GeneratorConfigException(
+                $"Generatore '{catena[0]}': innesto verso uno slug sconosciuto '{slug}'");
+        }
+
+        var catenaBersaglio = bersaglio.ComposeWith.Select(resolve).Append(bersaglio).ToList();
+        var frasi = catenaBersaglio.SelectMany(g => g.Core
+            .Concat(g.Liste.SelectMany(lista => lista.Voci))
+            .Concat(new[] { g.Apertura, g.Chiusura }.OfType<Frase>()));
+        foreach (var sub in frasi.SelectMany(f => f.Parti).OfType<ProtoSlot>()
+                     .Where(p => p.Kind == SlotKind.Innesto).Select(p => p.Key).Distinct())
+            ValidaInnesto(sub, resolve, [.. catena, slug]);
+    }
 
     // ── Grafo dei riferimenti tra flatlist (solo le flatlist possono ciclare; range/età sono foglie) ──
-    private static Dictionary<string, List<string>> BuildRefGraph(Dictionary<string, List<ScoredItem>> flat)
+    private static Dictionary<string, List<string>> BuildRefGraph(Dictionary<string, List<Frase>> flat)
     {
         var graph = new Dictionary<string, List<string>>();
         foreach (var (key, entries) in flat)
         {
             var outs = new List<string>();
             foreach (var entry in entries)
-                foreach (Match m in Tok.Matches(entry.Text))
-                {
-                    var dep = m.Value[1..^1];
-                    if (dep.Length > 1 && dep[0] == '$') dep = dep[1..]; // `[$chiave]` riferisce comunque la flatlist
-                    if (flat.ContainsKey(dep)) outs.Add(dep);
-                }
+                // I riferimenti sono già slot tipizzati (anche quelli "fissati"): nessun testo da scandire.
+                foreach (var slot in entry.Parti.OfType<ProtoSlot>())
+                    if (slot.Kind == SlotKind.FlatList && flat.ContainsKey(slot.Key))
+                        outs.Add(slot.Key);
             graph[key] = outs;
         }
         return graph;
@@ -176,48 +251,43 @@ public static class RuntimeBuilder
     }
 }
 
-/// <summary>Trasforma una stringa-template in un <see cref="Phrase"/> AST, risolvendo tipo e gruppi di ogni Slot.</summary>
+/// <summary>
+/// Compila una <see cref="Frase"/> in un <see cref="Phrase"/> AST. Le parti tipizzate esistono già
+/// dalla costruzione (interpolazione, vedi <c>FraseBuilder</c>): qui resta solo il lavoro che dipende
+/// dal RUNTIME della catena — agganciare i gruppi esclusivi attivi, le label uniche, e validare che
+/// le flatlist referenziate esistano nella fusione. Nessun parsing: il testo non si scandisce mai.
+/// </summary>
 internal sealed class PhraseParser(
     IReadOnlySet<string> flatKeys,
     IReadOnlyDictionary<string, string[]> activeGroups,
     IReadOnlyList<string> uniqueLabels)
 {
-    private static readonly Regex Tok = new(@"\[[^\]]+\]", RegexOptions.Compiled);
-    private static readonly Regex RangeRx = new(@"^\d+-\d+$", RegexOptions.Compiled);
-
-    public Phrase Parse(string template, double score, string origin)
+    public Phrase Parse(Frase frase, string origin)
     {
-        var parts = new List<Part>();
-        int idx = 0;
-        foreach (Match m in Tok.Matches(template))
-        {
-            if (m.Index > idx) parts.Add(new Lit(template[idx..m.Index]));
-            parts.Add(ResolveSlot(m.Value[1..^1], template, origin));
-            idx = m.Index + m.Length;
-        }
-        if (idx < template.Length) parts.Add(new Lit(template[idx..]));
+        var parts = new List<Part>(frase.Parti.Count);
+        foreach (var proto in frase.Parti)
+            parts.Add(proto switch
+            {
+                ProtoLit lit => new Lit(lit.Text),
+                ProtoSlot slot => MapSlot(slot, frase.Raw, origin),
+                _ => throw new GeneratorConfigException($"Parte di frase sconosciuta: {proto}"),
+            });
 
-        // SHALLOW (come il vecchio HasGroupConflict): solo i tag DIRETTI del template.
+        // SHALLOW (come sempre): contano solo i tag DIRETTI del template.
         var groups = parts.OfType<Slot>().SelectMany(s => s.Groups).ToHashSet();
-        var labels = uniqueLabels.Where(template.Contains).ToHashSet();
-        return new Phrase(score, parts, groups, labels, origin, template);
+        var labels = uniqueLabels.Where(frase.Raw.Contains).ToHashSet();
+        return new Phrase(frase.Score, parts, groups, labels, origin, frase.Raw);
     }
 
-    private Slot ResolveSlot(string raw, string template, string origin)
+    private Slot MapSlot(ProtoSlot proto, string template, string origin)
     {
-        // `[$chiave]`: segnaposto a variabile condivisa. Lo `$` non fa parte della chiave: si striscia
-        // e si risolve il tipo sulla chiave nuda (l'appartenenza ai gruppi è sempre per tag sottostante).
-        bool bound = raw.Length > 1 && raw[0] == '$';
-        var key = bound ? raw[1..] : raw;
-        var groups = GroupsFor(key);
-        if (SharedContent.AgeAliases.TryGetValue(key, out var alias) && TryRange(StripBrackets(alias), out int alo, out int ahi))
-            return new Slot(key, SlotKind.Age, alo, ahi, groups, bound);
-        if (TryRange(key, out int lo, out int hi))
-            return new Slot(key, SlotKind.Range, lo, hi, groups, bound);
-        if (flatKeys.Contains(key))
-            return new Slot(key, SlotKind.FlatList, 0, 0, groups, bound);
-        throw new GeneratorConfigException(
-            $"Generatore '{origin}': tag sconosciuto [{raw}] nella frase \"{template}\"");
+        // Il TIPO dello slot è già noto dal costruttore tipizzato; resta da validare che una flatlist
+        // referenziata esista nella catena di questo runtime (il Tag di un altro generatore compila,
+        // ma senza ComposeWith la sua lista qui non c'è).
+        if (proto.Kind == SlotKind.FlatList && !flatKeys.Contains(proto.Key))
+            throw new GeneratorConfigException(
+                $"Generatore '{origin}': tag sconosciuto [{proto.Key}] nella frase \"{template}\"");
+        return new Slot(proto.Key, proto.Kind, proto.Lo, proto.Hi, GroupsFor(proto.Key), proto.Bound);
     }
 
     private HashSet<string> GroupsFor(string key)
@@ -227,14 +297,67 @@ internal sealed class PhraseParser(
             if (tags.Contains(key)) set.Add(name);
         return set;
     }
+}
 
-    private static string StripBrackets(string s) => s.Length >= 2 && s[0] == '[' && s[^1] == ']' ? s[1..^1] : s;
+/// <summary>
+/// Gli assemblaggi dei contenuti condivisi (da <see cref="SharedContent"/>) nella forma che serve al
+/// motore. Classe <c>file</c>-scoped: PRIVATA di questo file per il linguaggio — un generatore non può
+/// nominarla nemmeno volendo. La sua superficie di authoring resta SharedContent e basta.
+/// </summary>
+file static class Condivisi
+{
+    /// <summary>Le liste condivise, assemblate dai tag-con-voci (chiave = <c>Tag.Key</c>).</summary>
+    internal static Dictionary<string, List<Frase>> FlatLists { get; } = BuildFlatLists();
 
-    private static bool TryRange(string s, out int lo, out int hi)
+    private static Dictionary<string, List<Frase>> BuildFlatLists()
     {
-        lo = hi = 0;
-        if (!RangeRx.IsMatch(s)) return false;
-        int dash = s.IndexOf('-');
-        return int.TryParse(s[..dash], out lo) && int.TryParse(s[(dash + 1)..], out hi);
+        Tag[] condivisi =
+        [
+            SharedContent.Social.Any, SharedContent.City.Any,
+            SharedContent.Nome.M, SharedContent.Nome.F,
+            SharedContent.Cognome.Any, SharedContent.Professioni.Any,
+            SharedContent.Piatti.M, SharedContent.Piatti.F,
+            SharedContent.Marketplace.Any, SharedContent.Giorni.Any,
+            .. SharedContent.Parente.Fasce.SelectMany(fascia => new[] { fascia.M, fascia.F }),
+        ];
+        return condivisi.ToDictionary(tag => tag.Key, tag => tag.Voci.ToList());
     }
+
+    /// <summary>Gruppi di tag mutuamente esclusivi referenziabili per nome (vedi <c>SharedContent.Gruppi</c>).</summary>
+    internal static Dictionary<string, List<string>> PolicyGroups { get; } = new()
+    {
+        [SharedContent.Gruppi.Eta] = [.. SharedContent.Eta.Tutte.Select(fascia => fascia.Tag.Key)],
+        // "identità": età E professione nello stesso gruppo, così un testo definisce il soggetto
+        // una sola volta (niente "50 anni, nonno" + "studente universitario" nella stessa descrizione).
+        [SharedContent.Gruppi.Identita] =
+            [SharedContent.Professioni.Any.Key, .. SharedContent.Eta.Tutte.Select(fascia => fascia.Tag.Key)],
+    };
+
+    /// <summary>Le UNIONI condivise (<see cref="Tag.Unione"/>): il RuntimeBuilder le compone come quelle
+    /// dei generatori (<c>IGenerator.Composte</c>). La struttura vive accanto ai dati in
+    /// <see cref="SharedContent"/> — qui si elencano soltanto; le sottochiavi le porta ogni unione
+    /// (<c>Componenti</c>). Coprono nomi/piatti (M∪F) e i parenti (fasce per genere e complessivi).</summary>
+    internal static Tag[] Unioni { get; } =
+    [
+        SharedContent.Nome.Any, SharedContent.Piatti.Any,
+        SharedContent.Parente.M, SharedContent.Parente.F, SharedContent.Parente.Any,
+        .. SharedContent.Parente.Fasce.Select(fascia => fascia.Any),
+    ];
+
+    /// <summary>Le fasce d'età indicizzate per chiave di tag (per la validazione dei gruppi).</summary>
+    internal static IReadOnlyDictionary<string, FasciaEta> FasceEta { get; } =
+        SharedContent.Eta.Tutte.ToDictionary(fascia => fascia.Tag.Key);
+
+    /// <summary>
+    /// Le SOLE liste su cui lavora il conio Markov: coniare è una proprietà OPT-IN del contenuto, non
+    /// una deduzione per esclusione. Nomi e cognomi (e la composta dei nomi) sono insiemi numerosi di
+    /// nomi propri curati apposta per le varianti inventate; tutto il resto — condiviso o locale —
+    /// resta reale e non si conia mai. <c>MarkovChain.IsSuitable</c> fa da rete di sicurezza in più.
+    /// </summary>
+    internal static IReadOnlySet<string> ChiaviConiabili { get; } =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            SharedContent.Nome.M.Key, SharedContent.Nome.F.Key,
+            SharedContent.Nome.Any.Key, SharedContent.Cognome.Any.Key,
+        };
 }

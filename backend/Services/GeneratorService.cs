@@ -36,8 +36,10 @@ public class GeneratorService
         var all = generators.ToList();
         _bySlug = all.ToDictionary(generator => generator.Slug, StringComparer.OrdinalIgnoreCase);
         _catalog = all.OrderBy(generator => generator.Info?.Order ?? 999).ToList();
+        // Il risolutore degli innesti legge _runtimes in differita: quando un innesto viene davvero
+        // eseguito (a una generazione), il dizionario è completo da un pezzo.
         _runtimes = all.ToDictionary(generator => generator.Slug,
-                                     generator => RuntimeBuilder.Build(generator, Get),
+                                     generator => RuntimeBuilder.Build(generator, Get, slug => _runtimes![slug]),
                                      StringComparer.OrdinalIgnoreCase);
     }
 

@@ -32,51 +32,62 @@
         </div>
     </section>
 
-    <!-- Storie (sotto la piega: idratazione incrementale on viewport, vedi frontend/README.md) -->
-    @defer (hydrate on viewport) {
-    <section class="mb-5">
-        <h2 class="h4 fw-bold mb-3">{{ 'storie' | translate }}</h2>
-        <app-card-grid [items]="storie()" />
-    </section>
-    } @placeholder {
-    <section class="mb-5" aria-hidden="true">
-        <span class="placeholder col-3 col-md-2 d-block mb-3" style="height: 1.75rem"></span>
-        <div class="row g-3 placeholder-glow">
-            @for (n of skeletonSlots; track n) {
-            <div class="col-12 col-md-6">
-                <div class="card" style="min-height: 96px">
-                    <div class="card-body">
-                        <span class="placeholder col-7 mb-2 d-block"></span>
-                        <span class="placeholder col-10 d-block"></span>
-                    </div>
-                </div>
-            </div>
-            }
-        </div>
-    </section>
-    }
+    <!-- Storie e Giochi affiancati: metà colonne ciascuno → una riga unica da desktop, impilati su mobile.
+         Ogni colonna resta un @defer indipendente (idratazione incrementale on viewport). Le card interne
+         usano itemColClass="col-12" per impilarsi in colonna singola nella mezza larghezza. -->
+    <div class="row g-4">
 
-    <!-- Giochi (sotto la piega: idratazione incrementale on viewport) -->
-    @defer (hydrate on viewport) {
-    <section class="mb-5">
-        <h2 class="h4 fw-bold mb-3">{{ 'giochi' | translate }}</h2>
-        <app-card-grid [items]="giochi" />
-    </section>
-    } @placeholder {
-    <section class="mb-5" aria-hidden="true">
-        <span class="placeholder col-3 col-md-2 d-block mb-3" style="height: 1.75rem"></span>
-        <div class="row g-3 placeholder-glow">
-            @for (n of skeletonSlots; track n) {
-            <div class="col-12 col-md-6">
-                <div class="card" style="min-height: 96px">
-                    <div class="card-body">
-                        <span class="placeholder col-7 mb-2 d-block"></span>
-                        <span class="placeholder col-10 d-block"></span>
+        <!-- Storie -->
+        <div class="col-12 col-md-6">
+            @defer (hydrate on viewport) {
+            <section class="mb-5 mb-md-0">
+                <h2 class="h4 fw-bold mb-3">{{ 'storie' | translate }}</h2>
+                <app-card-grid [items]="storie()" itemColClass="col-12" />
+            </section>
+            } @placeholder {
+            <section class="mb-5 mb-md-0" aria-hidden="true">
+                <span class="placeholder col-3 col-md-4 d-block mb-3" style="height: 1.75rem"></span>
+                <div class="row g-3 placeholder-glow">
+                    @for (n of skeletonSlots; track n) {
+                    <div class="col-12">
+                        <div class="card" style="min-height: 96px">
+                            <div class="card-body">
+                                <span class="placeholder col-7 mb-2 d-block"></span>
+                                <span class="placeholder col-10 d-block"></span>
+                            </div>
+                        </div>
                     </div>
+                    }
                 </div>
-            </div>
+            </section>
             }
         </div>
-    </section>
-    }
+
+        <!-- Giochi -->
+        <div class="col-12 col-md-6">
+            @defer (hydrate on viewport) {
+            <section class="mb-5 mb-md-0">
+                <h2 class="h4 fw-bold mb-3">{{ 'giochi' | translate }}</h2>
+                <app-card-grid [items]="giochi" itemColClass="col-12" />
+            </section>
+            } @placeholder {
+            <section class="mb-5 mb-md-0" aria-hidden="true">
+                <span class="placeholder col-3 col-md-4 d-block mb-3" style="height: 1.75rem"></span>
+                <div class="row g-3 placeholder-glow">
+                    @for (n of skeletonSlots; track n) {
+                    <div class="col-12">
+                        <div class="card" style="min-height: 96px">
+                            <div class="card-body">
+                                <span class="placeholder col-7 mb-2 d-block"></span>
+                                <span class="placeholder col-10 d-block"></span>
+                            </div>
+                        </div>
+                    </div>
+                    }
+                </div>
+            </section>
+            }
+        </div>
+
+    </div>
 </main>
