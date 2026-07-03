@@ -146,7 +146,7 @@ public sealed class OroscopoGenerator : GeneratorBase
     {
         Order = 4,
         Name = "Oroscopo del Giorno",
-        Description = "Scegli il segno e ricevi previsioni astrali totalmente inventate",
+        Description = "Scegli il segno e ricevi previsioni totalmente giusate e vere altro che",
     };
 
     /// <inheritdoc />
