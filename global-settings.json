@@ -16,6 +16,9 @@
     },
     "colorTema": "#add8e6"
   },
+  "Security": {
+    "BehindProxy": true
+  },
   "Custom": {
     "MapboxToken": ""
   }
