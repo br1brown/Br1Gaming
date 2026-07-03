@@ -180,8 +180,36 @@ public static class Composer
         // Innesto: esegue l'altro generatore per intero (contesto suo, unicità sua) e incolla il
         // testo. Come i numeri, non concorre al punteggio. Termina: grafo aciclico validato al boot.
         SlotKind.Innesto => Generate(ctx.Rt.RisolviInnesto(s.Key), ctx.Rng).Text,
+        // Time (fascia oraria): genera "HH:mm di <locuzione>" (es. "06:30 di mattina"). La Key = locuzione.
+        SlotKind.Time => FormatTimeSlot(s.Key, s.Lo, s.Hi, ctx.Rng),
+        // DateRange: genera un intervallo di date formattato in italiano.
+        SlotKind.DateRange => FormatDateRange(s.Key),
         _ => EvalFlat(s.Key, ctx),
     };
+
+    /// <summary>Genera "HH:mm di &lt;locuzione&gt;" nella fascia (Lo=ora_min, Hi=ora_max). Il modulo 24
+    /// gestisce il giro di boa della mezzanotte: la sera (19-24) può pescare 24 → reso come 00. Cultura
+    /// it-IT condivisa (<see cref="SharedContent.CulturaIt"/>): output stabile a prescindere dalla locale.</summary>
+    private static string FormatTimeSlot(string locuzione, int oraMin, int oraMax, Random rng)
+    {
+        var cult = SharedContent.CulturaIt;
+        var ora = rng.Next(oraMin, oraMax + 1) % 24;
+        var minuti = rng.Next(0, 60);
+        return $"{ora.ToString("00", cult)}:{minuti.ToString("00", cult)} di {locuzione}";
+    }
+
+    /// <summary>Ricostruisce il <see cref="SharedContent.DateRangeSlot"/> dalla key codificata da
+    /// <c>FraseBuilder</c> (<c>daterange:YYYYMMDD:YYYYMMDD:soloFeriali:saltaFestivi:conGiorno</c>, flag 0/1) e lo
+    /// rende in italiano. La key è sempre generata dal nostro codice: un formato inatteso è un bug, non input da tollerare.</summary>
+    private static string FormatDateRange(string key)
+    {
+        var parts = key.Split(':');
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        var start = System.DateTime.ParseExact(parts[1], "yyyyMMdd", inv);
+        var end = System.DateTime.ParseExact(parts[2], "yyyyMMdd", inv);
+        return new SharedContent.DateRangeSlot(start, end,
+            SoloFeriali: parts[3] == "1", SaltaFestivi: parts[4] == "1", ConGiornoSettimana: parts[5] == "1").Formatta();
+    }
 
     private static string EvalFlat(string key, EvalContext ctx)
     {

@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Text;
+using Backend.Generators;
 using Backend.Generators.Grammar;
 
 namespace Backend.Generators;
@@ -148,6 +149,27 @@ public ref struct FraseBuilder
     {
         _parti.Add(new ProtoSlot(fisso.Innesto.Slug, SlotKind.Innesto, 0, 0, Bound: true));
         _raw.Append($"[$innesto:{fisso.Innesto.Slug}]");
+    }
+
+    /// <summary><c>{SharedContent.TimeSlot.Mattina}</c> o <c>{SharedContent.TimeSlot.Notte}</c>: genera
+    /// un orario "HH:mm di &lt;fascia&gt;" in italiano. La Key porta la LOCUZIONE (Lo/Hi sono le ore):
+    /// il Composer la usa per il suffisso "di notte/mattina/pomeriggio/sera".</summary>
+    public void AppendFormatted(SharedContent.TimeSlot slot)
+    {
+        if (slot is null) throw OrdineSbagliato();
+        _parti.Add(new ProtoSlot(slot.Locuzione, SlotKind.Time, slot.OraMin, slot.OraMax));
+        _raw.Append(slot.ToString());
+    }
+
+    /// <summary><c>{new SharedContent.DateRangeSlot(new(2026, 6, 1), new(2026, 8, 31))}</c>: genera un intervallo di date formattato in italiano.</summary>
+    public void AppendFormatted(SharedContent.DateRangeSlot range)
+    {
+        if (range is null) throw OrdineSbagliato();
+        // Codifichiamo start/end + i tre flag nella key (formato macchina → InvariantCulture); il Composer li decodifica.
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        var key = $"daterange:{range.Start.ToString("yyyyMMdd", inv)}:{range.End.ToString("yyyyMMdd", inv)}:{(range.SoloFeriali ? "1" : "0")}:{(range.SaltaFestivi ? "1" : "0")}:{(range.ConGiornoSettimana ? "1" : "0")}";
+        _parti.Add(new ProtoSlot(key, SlotKind.DateRange, 0, 0));
+        _raw.Append(range.ToString());
     }
 
     internal readonly string Raw => _raw.ToString();

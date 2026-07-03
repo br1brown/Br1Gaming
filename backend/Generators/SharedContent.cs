@@ -32,6 +32,15 @@ public static class SharedContent
     // I tipi qui sotto (Tag, FasciaEta, FasciaParente, Gruppo, Etichetta — definiti in fondo al file)
     // sono il contratto: la CHIAVE è l'unica fonte e il token "[chiave]" si DERIVA, mai il contrario.
 
+    /// <summary>
+    /// La cultura italiana (it-IT) UNICA e condivisa da tutto il sottosistema dei generatori: ogni
+    /// formattazione di date/ore la usa, così l'output è SEMPRE italiano corretto a prescindere dalla
+    /// locale del server (un container non-IT non deve alterare mesi/cifre). <c>GetCultureInfo</c>
+    /// restituisce già un'istanza cached: qui la si nomina una volta sola per non ripeterne il nome ovunque.
+    /// </summary>
+    public static readonly System.Globalization.CultureInfo CulturaIt =
+        System.Globalization.CultureInfo.GetCultureInfo("it-IT");
+
     // ── Contenuti condivisi tipizzati ─────────────────────────────────────────────────────────────
     // Ogni concetto è uno static autosufficiente: il Tag scrive il segnaposto (via interpolazione,
     // es. $"...{Social.Any}...") e POSSIEDE le proprie voci nelle graffe. Tag, chiave e contenuto
@@ -1065,53 +1074,61 @@ public static class SharedContent
     /// </summary>
     internal static class Professioni
     {
-        public static readonly Tag Any = new("professioni")
+        /// <summary>Mestieri EPICENI (stessa forma nei due generi: "un/una barista"): definiti UNA volta
+        /// e spinti DENTRO sia <see cref="M"/> sia <see cref="F"/> — l'inverso di Any (invece di fondere
+        /// M+F verso l'alto, cala le neutre giù in entrambi). Include la ristorazione epicene e vari
+        /// mestieri gender-neutral (anche "maschili" tipo elettricista → così una donna può farlo).</summary>
+        public static readonly Tag Neutre = new("professioni-neutre")
         {
-            ("addetto al caricamento e scaricamento delle merci", 3),
-            ("addetto al customer service", 3),
-            ("addetto alle pulizie", 3),
-            ("addetto alle consegne", 3),
-            ("agente immobiliare", 2),
-            ("agricoltore", 2),
-            ("apprendista cuoco", 2),
-            ("assistente di magazzino", 3),
-            ("autista di Uber", 3),
-            ("avvocato", 2),
-            ("barista", 2),
-            ("cameriere", 2),
-            ("commesso", 2),
-            ("elettricista", 2),
-            ("giardiniere", 2),
-            ("idraulico", 2),
-            ("impiegato in un fast food", 3),
-            ("impiegato statale", 2),
-            ("istruttore di fitness", 3),
-            ("lavoratore in un magazzino", 3),
-            ("meccanico", 2),
-            ("musicista", 2),
-            ("operatore di call center", 3),
-            ("operatore di telemarketing", 3),
-            ("poliziotto", 2),
-            ("receptionist", 2),
-            ("tassista", 2),
-            ("tecnico informatico", 2),
-            ("venditore di strada", 3),
-            ("pensionato", 2),
-            ("disoccupato", 2),
-            ("studente universitario", 2),
-            ("studente fallito", 2),
-            ("studente di medicina", 3),
-            // Voci arrivate dal generatore di startup, che ne teneva un doppione generico.
-            "geometra",
-            "rappresentante",
-            "magazziniere",
-            "personal trainer",
-            "neo-diplomato",
-            "parrucchiere",
-            "promotore finanziario",
-            "cassiere al discount",
-            "studente al primo anno",
+            ("barista", 2), ("musicista", 2), ("receptionist", 2), ("tassista", 2),
+            ("personal trainer", 2), ("geometra", 2), ("rappresentante", 2),
+            ("agente immobiliare", 2), ("nutrizionista", 2), ("giornalista", 2),
+            ("commercialista", 2), ("farmacista", 2), ("fisioterapista", 3),
+            ("dietista", 3), ("consulente", 2), ("dentista", 2), ("elettricista", 2),
+            ("insegnante di sostegno", 3), ("dog-sitter", 3), ("baby-sitter", 2),
+            ("influencer", 2), ("custode", 2),
         };
+
+        /// <summary>Mestieri al solo MASCHILE (forme -o/-e). Mix bilanciato: colletti bianchi + manuale/
+        /// precario (serve alla satira del "basico"). Ristorazione al maschile. Building block: le frasi
+        /// usano <see cref="M"/> (che aggiunge le <see cref="Neutre"/>).</summary>
+        public static readonly Tag SoloM = new("professioni-m-solo")
+        {
+            ("avvocato", 2), ("ingegnere", 2), ("architetto", 2), ("dottore", 2),
+            ("professore", 2), ("ragioniere", 2), ("imprenditore", 2),
+            ("impiegato statale", 2), ("poliziotto", 2), ("agricoltore", 2),
+            ("idraulico", 2), ("meccanico", 2), ("muratore", 2), ("magazziniere", 2),
+            ("autista di Uber", 3), ("addetto alle consegne", 3), ("operatore di call center", 3),
+            ("tecnico informatico", 2), ("pensionato", 2), ("disoccupato", 2),
+            ("studente universitario", 2), ("studente di medicina", 3), ("neo-diplomato", 2),
+            // ristorazione (M) — le neutre/femminili hanno le controparti
+            ("cameriere", 2), ("cuoco", 2), ("pizzaiolo", 2), ("pasticcere", 2),
+        };
+
+        /// <summary>Mestieri al solo FEMMINILE: stereotipati ma DIGNITOSI + non-stereotipici (ingegnera,
+        /// architetta…) per non incasellare. Niente voci oggettificanti/sessualizzate. Ristorazione al
+        /// femminile. Building block: le frasi usano <see cref="F"/> (che aggiunge le <see cref="Neutre"/>).</summary>
+        public static readonly Tag SoloF = new("professioni-f-solo")
+        {
+            ("ingegnera", 2), ("architetta", 2), ("avvocata", 2), ("dottoressa", 2),
+            ("professoressa", 2), ("ragioniera", 2), ("imprenditrice", 2),
+            ("impiegata statale", 2), ("poliziotta", 2), ("agricoltrice", 2),
+            ("infermiera", 2), ("ostetrica", 3), ("psicologa", 2), ("veterinaria", 2),
+            ("estetista", 2), ("parrucchiera", 2), ("maestra d'asilo", 3), ("maestra elementare", 3),
+            ("commessa", 2), ("sarta", 2), ("fioraia", 2), ("bibliotecaria", 2), ("traduttrice", 2),
+            ("istruttrice di pilates", 3), ("insegnante di yoga", 3),
+            ("studentessa universitaria", 2), ("neolaureata", 3),
+            // ristorazione (F)
+            ("cameriera", 2), ("cuoca", 2), ("pizzaiola", 2), ("pasticcera", 2),
+        };
+
+        /// <summary>Maschile completo (= <see cref="SoloM"/> + <see cref="Neutre"/>): il tag da usare nelle frasi con soggetto uomo.</summary>
+        public static readonly Tag M = Tag.Unione("professioni-m", SoloM, Neutre);
+        /// <summary>Femminile completo (= <see cref="SoloF"/> + <see cref="Neutre"/>): il tag da usare con soggetto donna.</summary>
+        public static readonly Tag F = Tag.Unione("professioni-f", SoloF, Neutre);
+        /// <summary>Entrambi i generi: <see cref="SoloM"/> + <see cref="SoloF"/> + <see cref="Neutre"/>
+        /// (composta da liste OWNING, non da M/F, così niente unione-di-unioni). Solo dove il genere non è fissato.</summary>
+        public static readonly Tag Any = Tag.Unione("professioni", SoloM, SoloF, Neutre);
     }
 
     /// <summary>
@@ -1162,7 +1179,7 @@ public static class SharedContent
         private static Tag CostruisciGiorni()
         {
             var giorni = new Tag("giorno");
-            foreach (var nome in System.Globalization.CultureInfo.GetCultureInfo("it-IT").DateTimeFormat.DayNames)
+            foreach (var nome in CulturaIt.DateTimeFormat.DayNames)
                 giorni.Add(nome);
             return giorni;
         }
@@ -1190,10 +1207,10 @@ public static class SharedContent
             /// <summary>La data di oggi, calcolata al momento della generazione (cultura it-IT esplicita,
             /// così il mese è quello giusto a prescindere dalla locale del server).</summary>
             public static string Valore() =>
-                DateTime.Now.ToString("d MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("it-IT"));
+                DateTime.Now.ToString("d MMMM yyyy", CulturaIt);
         }
 
-        /// <summary>
+            /// <summary>
         /// I valori calcolati a OGNI generazione (chiave del tag → produttore): il motore li pre-appunta
         /// come seed condivisi prima di comporre, così i relativi <c>[$chiave]</c> escono col valore del
         /// momento in qualunque generatore. È il gancio per aggiungerne altri (ora solo la data di oggi).
@@ -1203,6 +1220,119 @@ public static class SharedContent
             {
                 [DataOggi.Any.Key] = DataOggi.Valore,
             };
+    }
+
+    /// <summary>Fascia oraria interpolabile: genera un orario "HH:mm di &lt;fascia&gt;" (es. "03:47 di notte").
+    /// Usa così nei generatori: <c>{TimeSlot.Mattina}</c>. <see cref="Locuzione"/> è la parola detta accanto
+    /// all'orario. Le fasce PRINCIPALI coprono l'INTERA giornata senza buchi, alla convenzione italiana:
+    /// notte 1-4, mattina 5-12, pomeriggio 13-18, sera 19→1 (19:00 fino a mezzanotte inclusa, 00:xx —
+    /// l'ora 24 fa il giro di boa a 00 via modulo nel motore). <see cref="Serata"/> è una fascia AGGIUNTIVA
+    /// che si sovrappone (aperitivo/dopocena, 17-21): essendo una forzatura nostra, la sua locuzione è "sera".</summary>
+    /// <param name="Nome">Nome della fascia (identità del token <c>[time-nome]</c>).</param>
+    /// <param name="OraMin">Ora minima inclusa.</param>
+    /// <param name="OraMax">Ora massima inclusa (24 = mezzanotte, resa 00 col modulo).</param>
+    /// <param name="Locuzione">La parola detta accanto all'orario ("03:47 di {Locuzione}").</param>
+    public sealed record TimeSlot(string Nome, int OraMin, int OraMax, string Locuzione)
+    {
+        /// <summary>Notte: 1-4 → "di notte".</summary>
+        public static readonly TimeSlot Notte = new("notte", 1, 4, "notte");
+        /// <summary>Mattina: 5-12 → "di mattina".</summary>
+        public static readonly TimeSlot Mattina = new("mattina", 5, 12, "mattina");
+        /// <summary>Pomeriggio: 13-18 → "di pomeriggio".</summary>
+        public static readonly TimeSlot Pomeriggio = new("pomeriggio", 13, 18, "pomeriggio");
+        /// <summary>Sera: 19→1 (19:00-00:59) → "di sera". OraMax=24 → mezzanotte (00) col modulo nel motore.</summary>
+        public static readonly TimeSlot Sera = new("sera", 19, 24, "sera");
+        /// <summary>Serata (aperitivo/dopocena): 17-21, si sovrappone a pomeriggio/sera. Forzatura nostra → locuzione "sera".</summary>
+        public static readonly TimeSlot Serata = new("serata", 17, 21, "sera");
+
+        /// <summary>Token per il <c>Raw</c> (identità della frase); l'orario vero lo genera il motore.</summary>
+        public override string ToString() => $"[time-{Nome}]";
+    }
+
+    /// <summary>
+    /// Intervallo di date interpolabile in una frase: <c>{new DateRangeSlot(new(2026, 6, 1), new(2026, 8, 31))}</c>.
+    /// I due filtri sono OPT-IN e indipendenti: <see cref="SoloFeriali"/> scarta sab/dom, <see cref="SaltaFestivi"/>
+    /// scarta i festivi nazionali FISSI (non le mobili come Pasquetta, fuori scope). Per periodi comodi ci sono le
+    /// preset <see cref="Estate"/>/<see cref="Feste"/>. Il motore rende il testo con <see cref="Formatta"/>.
+    /// <para>AUTHORING: per un range <see cref="Formatta"/> emette GIÀ la clausola completa ("dal 1° giugno
+    /// al 31 agosto", o "da lunedì … a domenica …" con <see cref="ConGiornoSettimana"/>): nel template NON
+    /// premettere "dal"/"durante" o esce doppio. Scrivi "l'ha lasciato {range}".</para>
+    /// <para>Il GIORNO DELLA SETTIMANA è opt-in (<see cref="ConGiornoSettimana"/>): utile per un evento
+    /// SPECIFICO e datato, ma fuorviante per periodi ricorrenti (le "feste" cadono in giorni diversi ogni
+    /// anno) → di default è spento.</para>
+    /// </summary>
+    /// <param name="Start">Primo giorno dell'intervallo (incluso).</param>
+    /// <param name="End">Ultimo giorno dell'intervallo (incluso).</param>
+    /// <param name="SoloFeriali">Se true, scarta sabato e domenica.</param>
+    /// <param name="SaltaFestivi">Se true, scarta i festivi nazionali a data fissa.</param>
+    /// <param name="ConGiornoSettimana">Se true, antepone il giorno della settimana ("lunedì 1° giugno")
+    /// e usa il connettore "da … a …"; se false (default) resta "dal 1° giugno al 31 agosto".</param>
+    public sealed record DateRangeSlot(DateTime Start, DateTime End,
+        bool SoloFeriali = false, bool SaltaFestivi = false, bool ConGiornoSettimana = false)
+    {
+        // Festivi nazionali italiani a data FISSA (mese, giorno). Pasquetta è mobile → non inclusa.
+        private static readonly HashSet<(int Mese, int Giorno)> FestiviFissi =
+        [
+            (1, 1),   // Capodanno
+            (1, 6),   // Epifania
+            (4, 25),  // Festa della Liberazione
+            (5, 1),   // Festa del Lavoro
+            (6, 2),   // Festa della Repubblica
+            (8, 15),  // Ferragosto
+            (11, 1),  // Ognissanti
+            (12, 8),  // Immacolata Concezione
+            (12, 25), // Natale
+            (12, 26), // Santo Stefano
+        ];
+
+        /// <summary>Preset: l'estate dell'anno corrente (21 giugno – 22 settembre). Anno fissato al boot.</summary>
+        public static DateRangeSlot Estate => new(new(DateTime.Now.Year, 6, 21), new(DateTime.Now.Year, 9, 22));
+        /// <summary>Preset: le feste natalizie (24 dicembre – 6 gennaio dell'anno dopo). Anno fissato al boot.</summary>
+        public static DateRangeSlot Feste => new(new(DateTime.Now.Year, 12, 24), new(DateTime.Now.Year + 1, 1, 6));
+        /// <summary>Preset: i giorni LAVORATIVI dell'anno corrente (feriali, festivi esclusi).</summary>
+        public static DateRangeSlot Lavorativi => new(new(DateTime.Now.Year, 1, 1), new(DateTime.Now.Year, 12, 31), SoloFeriali: true, SaltaFestivi: true);
+
+        /// <summary>Token per il <c>Raw</c> (identità della frase); il testo vero lo produce <see cref="Formatta"/>.</summary>
+        public override string ToString() => $"[date-{Start:yyyyMMdd}-{End:yyyyMMdd}{(SoloFeriali ? "-fe" : "")}{(SaltaFestivi ? "-nf" : "")}{(ConGiornoSettimana ? "-gg" : "")}]";
+
+        /// <summary>Rende l'intervallo in italiano. Default: "dal 1° giugno al 31 agosto". Con
+        /// <see cref="ConGiornoSettimana"/>: "da lunedì 1° giugno a domenica 22 settembre" — connettore
+        /// "da … a …" senza articolo (regge anche il femminile "domenica", dove "al domenica" sarebbe errato).</summary>
+        public string Formatta()
+        {
+            var giorni = GiorniValidi();
+            return giorni.Count switch
+            {
+                0 => "in un periodo indefinito",
+                1 => DataItaliana(giorni[0], ConGiornoSettimana),
+                _ when ConGiornoSettimana => $"da {DataItaliana(giorni[0], true)} a {DataItaliana(giorni[^1], true)}",
+                _ => $"dal {DataItaliana(giorni[0], false)} al {DataItaliana(giorni[^1], false)}",
+            };
+        }
+
+        /// <summary>I giorni dell'intervallo (inclusi) dopo i filtri OPT-IN feriali/festivi.</summary>
+        private List<DateTime> GiorniValidi()
+        {
+            var giorni = new List<DateTime>();
+            for (var d = Start.Date; d <= End.Date; d = d.AddDays(1))
+            {
+                if (SaltaFestivi && FestiviFissi.Contains((d.Month, d.Day))) continue;
+                if (SoloFeriali && d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) continue;
+                giorni.Add(d);
+            }
+            return giorni;
+        }
+
+        /// <summary>Data all'italiana: "1° giugno" o, con <paramref name="conGiorno"/>, "lunedì 1° giugno".
+        /// Mese e giorno-settimana li dà la cultura (<c>MMMM</c>/<c>dddd</c>, già in italiano minuscolo);
+        /// l'UNICA cosa che nessun format string produce è l'ordinale del primo ("1°") → a mano.</summary>
+        private static string DataItaliana(DateTime data, bool conGiorno)
+        {
+            var mese = data.ToString("MMMM", CulturaIt);
+            var giorno = data.Day == 1 ? "1°" : data.Day.ToString(CulturaIt);
+            var testa = conGiorno ? $"{data.ToString("dddd", CulturaIt)} " : "";
+            return $"{testa}{giorno} {mese}";
+        }
     }
 
     /// <summary>

@@ -4,6 +4,7 @@ using Eta = Backend.Generators.SharedContent.Eta;
 using Nome = Backend.Generators.SharedContent.Nome;
 using Parente = Backend.Generators.SharedContent.Parente;
 using Piatti = Backend.Generators.SharedContent.Piatti;
+using Professioni = Backend.Generators.SharedContent.Professioni;
 using Social = Backend.Generators.SharedContent.Social;
 
 namespace Backend.Generators.Catalog;
@@ -206,6 +207,15 @@ public sealed class AntivegGenerator : GeneratorBase
         "capito come", "e non se ne parla più", "svegliati", "questo è quanto",
     };
 
+    // Le due FIRME della citazione finale: una maschile e una femminile, ognuna col tag professione del
+    // genere giusto (nome + lavoro + età concordi). Il motore ne pesca una: metà rant firmati da un uomo,
+    // metà da una donna, sempre coerenti.
+    internal static readonly Tag Firma = new("firma")
+    {
+        new($"{Nome.M} {Eta.Adulto} anni, {Professioni.M}, su {Social.Any}, {2016..2025}"),
+        new($"{Nome.F} {Eta.Adulto} anni, {Professioni.F}, su {Social.Any}, {2016..2025}"),
+    };
+
 
     /// <inheritdoc />
     public override string Slug => "antiveg";
@@ -220,7 +230,7 @@ public sealed class AntivegGenerator : GeneratorBase
     public override Frase? Apertura => "``";
 
     /// <inheritdoc />
-    public override Frase? Chiusura => new($"``\n\n- _{Nome.Any} {Eta.Adulto} anni, su {Social.Any}_");
+    public override Frase? Chiusura => new($"``\n\n- _{Firma}_");
 
     /// <inheritdoc />
     // Le prime tre etichette SONO i segnaposto (unicità sul token, conversione implicita Tag→Etichetta);

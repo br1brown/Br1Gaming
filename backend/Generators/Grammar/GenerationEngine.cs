@@ -38,6 +38,10 @@ public enum SlotKind
     Range,
     /// <summary>Innesto: esegue un ALTRO generatore (la Key è il suo slug) e ne incolla il testo.</summary>
     Innesto,
+    /// <summary>Fascia oraria: mattina/pomeriggio/sera/notte risolto in un orario italiano.</summary>
+    Time,
+    /// <summary>Range di date risolto in formato leggibile italiano (es. "dal 1° luglio al 15 agosto").</summary>
+    DateRange,
 }
 
 /// <summary>

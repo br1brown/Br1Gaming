@@ -8,6 +8,8 @@ using Nome = Backend.Generators.SharedContent.Nome;
 using Parente = Backend.Generators.SharedContent.Parente;
 using Professioni = Backend.Generators.SharedContent.Professioni;
 using Social = Backend.Generators.SharedContent.Social;
+using TimeSlot = Backend.Generators.SharedContent.TimeSlot;
+using DateRangeSlot = Backend.Generators.SharedContent.DateRangeSlot;
 
 namespace Backend.Generators.Catalog;
 
@@ -58,7 +60,7 @@ public sealed class IncelGenerator : GeneratorBase
         ("il righello scolastico di Spongebob", 3),
         ("un calibro stampato in 3D storto", 3),
         ("un metro a nastro dell'IKEA", 3),
-        ("un'app chiamata _«AlphaMeasure Pro»_ scaricata da un forum", 3),
+        ("un'app chiamata _‘AlphaMeasure Pro’_ scaricata da un forum", 3),
         new($"il regolo calcolatore di suo {Parente.Anziano.M}", 3),
         ("un metro pieghevole da geometra preso all'Obi", 3),
         ("il calibro del corso di disegno tecnico delle superiori", 4),
@@ -83,7 +85,7 @@ public sealed class IncelGenerator : GeneratorBase
         ("misurata subito dopo una doccia bollente e in condizioni climatiche ottimali", 4),
         ("dato che include anche i due centimetri di margine di sicurezza", 4),
         ("un primato omologato solo dalla giuria di suo cugino", 4),
-        ("calcolata col metodo scientifico del _«fidati»_", 3),
+        ("calcolata col metodo scientifico del _‘fidati’_", 3),
     };
 
     internal static readonly Tag OggettiStatus = new("oggetti_status")
@@ -163,15 +165,15 @@ public sealed class IncelGenerator : GeneratorBase
     };
 
     // Bersagli dell'incel, CATEGORIZZATI: estendono i sottogruppi del mbeb, così finiscono sia nella
-    // categoria giusta (per i retarget: «A Morte [concetto]» ecc.) sia nell'unione {Hating} — che il
+    // categoria giusta (per i retarget: ‘A Morte [concetto]’ ecc.) sia nell'unione {Hating} — che il
     // RuntimeBuilder ricompone dopo il merge. L'incel non nomina persone reali → niente "hating-persone".
     internal static readonly Tag HatingGruppiIncel = new(MbebGenerator.HatingGruppi)
     {
         ("le femministe", 2),
-        ("le ragazze _«che la danno a tutti»_", 3),
+        ("le ragazze _‘che la danno a tutti’_", 3),
         ("le femmine di oggi", 3),
         ("tutte le donne", 3),
-        ("le _«tipe di Tinder»_", 3),
+        ("le _‘tipe di Tinder’_", 3),
         ("donne che cercano solo soldi", 3),
         ("i chad", 2),
         ("i simp", 2),
@@ -203,7 +205,7 @@ public sealed class IncelGenerator : GeneratorBase
         ("ragazza che non gli risponde ai messaggi", 3),
         ("sua crush che sta con un altro", 3),
         ("ragazza che lo ha ghostato", 3),
-        ("ragazza che _«va con i chad»_", 3),
+        ("ragazza che _‘va con i chad’_", 3),
         ("ragazza che lo respinge", 3),
     };
 
@@ -350,7 +352,7 @@ public sealed class IncelGenerator : GeneratorBase
 
     // Estende la lista CONDIVISA sotto la stessa chiave (RuntimeBuilder concatena): la vena
     // cripto dell'incel si aggiunge alle professioni comuni, non le sostituisce.
-    internal static readonly Tag ProfessioniIncel = new(Professioni.Any)
+    internal static readonly Tag ProfessioniIncel = new(Professioni.M)
     {
         ("esperto in criptovalute", 3),
         ("web developer", 2),
@@ -371,7 +373,7 @@ public sealed class IncelGenerator : GeneratorBase
     internal static readonly Tag CommentiSprezzantiGenericiIncel = new(CommentiSprezzantiGenerici)
     {
         ("peccato non abbia ancora imparato ad avviare la lavatrice da solo", 3),
-        new($"alle {2..5} di notte, illuminato solo dal monitor mentre mangia merendine sottomarca al buio", 3),
+        new($"alle {TimeSlot.Notte}, illuminato solo dal monitor mentre mangia merendine sottomarca al buio", 3),
         new($"nella sua testa sta pensando a {Idoli}", 3),
         new($"ma in realtà è palesemente {Vibes}", 3),
         new($"la sua ultima interazione umana risale al {2019..2025}", 3),
@@ -394,60 +396,64 @@ public sealed class IncelGenerator : GeneratorBase
     public override List<Frase> Core { get; } =
     [
         new($"{Idoli} è la sua guida spirituale (forse gli ha dato dei soldi in un corso non ho capito)", 8),
-        new($"{Professioni.Any.Fissato} che odia {Hating}", 2),
+        new($"{Professioni.M.Fissato} che odia {Hating}", 2),
         new($"odia solo {Hating}, per il resto ok, gode persino {Hating}", 4),
         new($"è convinto di non essere più giovane per la riproduzione (anche se ha solo {Eta.Minorenne} anni)", 7),
-        new($"{Professioni.Any.Fissato} che non apprezza {Hating}", 3),
-        new($"ha un tatuaggio con scritto _«{Percezione}»_ (fatto nello scantinato di un tizio a {City.Any} e rigorosamente con un errore di battitura)", 25),
-        new($"ha {Eta.Giovane} anni, ma già malsopporta {Hating} e lo dimostra lamentandosi con frasi di circostanza tipo _«{FrasiTipiche}»_", 7),
-        new($"fa commenti da {DifettiSociali} su {Social.Any}, sempre con frasi tipo _«{FrasiTipiche}»_", 6),
+        new($"{Professioni.M.Fissato} che non apprezza {Hating}", 3),
+        new($"ha un tatuaggio con scritto _‘{Percezione}’_ (fatto nello scantinato di un tizio a {City.Any} e rigorosamente con un errore di battitura)", 25),
+        new($"ha {Eta.Giovane} anni, ma già malsopporta {Hating} e lo dimostra lamentandosi con frasi di circostanza tipo _‘{FrasiTipiche}’_", 7),
+        new($"fa commenti da {DifettiSociali} su {Social.Any}, sempre con frasi tipo _‘{FrasiTipiche}’_", 6),
         new($"fa commenti da {DifettiSociali} sul suo {Social.Any} (da un profilo rigorosamente con l'avatar di un personaggio degli anime)", 8),
         new($"cerca di emulare lo stile di {Idoli} (comprando online {AbbigliamentoScadente} di {2..3} taglie più grandi)", 25),
         new($"{DifettiSociali} nei commenti ai post su {Hating}", 3),
-        new($"ha {Eta.Giovane} anni e si comporta sempre da {DifettiSociali}, dicendo cose tipo _«{FrasiTipiche}»_, o comunque un concetto simile", 7),
+        new($"ha {Eta.Giovane} anni e si comporta sempre da {DifettiSociali}, dicendo cose tipo _‘{FrasiTipiche}’_, o comunque un concetto simile", 7),
         new($"ha {Eta.Giovane} anni e una tendenza a essere {Vibes}", 4),
         new($"ha un modo distorto di vedere {Hating}, in realtà è solo {DifettiSociali}", 4),
         new($"il perfetto ritratto di un {Eta.Giovane}enne {Vibes}", 3),
         new($"considera l'uso quotidiano del deodorante un'inutile imposizione indovinate di chi?... Esatto, {Hating}!", 4),
         new($"la prima cosa sulla sua lista nera è: {HatingConcetti}", 4),
-        new($"se c'è una cosa che crede di aver imparato da {Idoli} è che: _«{FrasiTipiche}»_ ({CommentiSprezzantiGenerici})", 10),
-        new($"non ha mai avuto successo con la {Donne} (non mi sorprende dato che dice sempre _«{FrasiTipiche}»_)", 9),
-        new($"non si è mai fidanzato, lui è un _«{Percezione}»_", 6),
+        new($"se c'è una cosa che crede di aver imparato da {Idoli} è che: _‘{FrasiTipiche}’_ ({CommentiSprezzantiGenerici})", 10),
+        new($"non ha mai avuto successo con la {Donne} (non mi sorprende dato che dice sempre _‘{FrasiTipiche}’_)", 9),
+        new($"non si è mai fidanzato, lui è un _‘{Percezione}’_", 6),
         new($"nonostante i suoi {Eta.Giovane} anni è ancora {DifettiSociali}", 3),
-        new($"nonostante i suoi {Eta.Giovane} anni, è sempre {DifettiSociali} e la sua frase distintiva è _«{FrasiTipiche}»_ (ultimamente ha il coraggio di dirlo persino quando si parla di {Hating})", 10),
+        new($"nonostante i suoi {Eta.Giovane} anni, è sempre {DifettiSociali} e la sua frase distintiva è _‘{FrasiTipiche}’_ (ultimamente ha il coraggio di dirlo persino quando si parla di {Hating})", 10),
         new($"odia {Hating} oltre che se stesso", 3),
         new($"odia oltre ogni limite {Hating}", 3),
         new($"odia tutto ciò che riguarda {Hating} e lo dice sommessamente su {Social.Any} ({CommentiSprezzantiGenerici})", 10),
         new($"sempre e comunque {DifettiSociali}", 2),
-        new($"si autodefinisce un _«{Percezione}»_ su {Social.Any} ({CommentiSprezzantiGenerici})", 9),
-        new($"si definisce un _«{Percezione}»_ e su {Social.Any} continua a dire cose tipo _«{FrasiTipiche}»_", 6),
-        new($"si definisce un _«{Percezione}»_ ma è solo {Vibes}", 5),
+        new($"si autodefinisce un _‘{Percezione}’_ su {Social.Any} ({CommentiSprezzantiGenerici})", 9),
+        new($"si definisce un _‘{Percezione}’_ e su {Social.Any} continua a dire cose tipo _‘{FrasiTipiche}’_", 6),
+        new($"si definisce un _‘{Percezione}’_ ma è solo {Vibes}", 5),
         new($"si dimostra sempre {DifettiSociali} su {Social.Any}", 4),
-        new($"è un _«{Percezione} di {Eta.Giovane} anni e {Percezione}»_ ({CommentiSprezzantiGenerici})", 8),
-        new($"si vanta su {Social.Any} di essere un _«{Percezione}»_ e ripete _«{FrasiTipiche}»_ con un tono da {Vibes}", 7),
-        new($"si vanta su {Social.Any} di essere un _«{Percezione}»_ ({CommentiSprezzantiGenerici})", 9),
-        new($"{Vibes} di {Eta.Giovane} anni che su {Social.Any} ripete sempre cose strane tipo _«{FrasiTipiche}»_", 6),
+        new($"è un _‘{Percezione} di {Eta.Giovane} anni e {Percezione}’_ ({CommentiSprezzantiGenerici})", 8),
+        new($"si vanta su {Social.Any} di essere un _‘{Percezione}’_ e ripete _‘{FrasiTipiche}’_ con un tono da {Vibes}", 7),
+        new($"si vanta su {Social.Any} di essere un _‘{Percezione}’_ ({CommentiSprezzantiGenerici})", 9),
+        new($"{Vibes} di {Eta.Giovane} anni che su {Social.Any} ripete sempre cose strane tipo _‘{FrasiTipiche}’_", 6),
         new($"{Vibes} di {Eta.Giovane} anni", 2),
-        new($"{Professioni.Any.Fissato} {DifettiSociali}", 2),
-        new($"ascolta le OST dei videogiochi (perché _«la musica commerciale è in mano a...? Esatto, {HatingPersone}!»_)", 6),
+        new($"{Professioni.M.Fissato} {DifettiSociali}", 2),
+        new($"ascolta le OST dei videogiochi (perché _‘la musica commerciale è in mano a...? Esatto, {HatingPersone}!’_)", 6),
         new($"con complessi sulle dimensioni del suo pene ({CommentiSprezzantiPene})", 15),
-        new($"{Eta.Giovane}enne {Vibes} che si lamenta spesso dicendo cose tipo _«{FrasiTipiche}»_", 6),
-        new($"{Eta.Giovane}enne {Vibes} che su {Social.Any} dice _«{FrasiTipiche}»_ ogni giorno", 6),
-        new($"{Eta.Minorenne}enne che si definisce un _«{Percezione} che ha capito come gira il mondo: {FrasiTipiche}»_", 6),
-        new($"su {Social.Any} ha la bio _«{Percezione} - {FrasiTipiche}»_ te lo ricordi perché è {DifettiSociali}", 6),
-        new($"{Eta.Giovane}enne che su {Social.Any} si lamenta con argomenti riassumibili in una frase: _«{FrasiTipiche}»_", 6),
+        new($"{Eta.Giovane}enne {Vibes} che si lamenta spesso dicendo cose tipo _‘{FrasiTipiche}’_", 6),
+        new($"{Eta.Giovane}enne {Vibes} che su {Social.Any} dice _‘{FrasiTipiche}’_ ogni giorno", 6),
+        new($"{Eta.Minorenne}enne che si definisce un _‘{Percezione} che ha capito come gira il mondo: {FrasiTipiche}’_", 6),
+        new($"su {Social.Any} ha la bio _‘{Percezione} - {FrasiTipiche}’_ te lo ricordi perché è {DifettiSociali}", 6),
+        new($"{Eta.Giovane}enne che su {Social.Any} si lamenta con argomenti riassumibili in una frase: _‘{FrasiTipiche}’_", 6),
         new($"{Eta.Giovane}enne con una tendenza a essere {Vibes}", 3),
         new($"è contro: {Hating}, {Hating}, {Hating}, {Hating}, {Hating} e sorpresa sorpresa... {Hating}!", 4),
-        new($"{Vibes} di {Eta.Giovane} anni che ama dire _«{FrasiTipiche}»_ su {Social.Any}", 6),
+        new($"{Vibes} di {Eta.Giovane} anni che ama dire _‘{FrasiTipiche}’_ su {Social.Any}", 6),
         new($"si vanta del pene sopra i {6..12} cm ({CommentiSprezzantiPene})", 25),
-        new($"ha fondato il fanclub _«A Morte {HatingConcetti}»_ (che attualmente conta l'incredibile cifra di {4..25} membri)", 9),
+        new($"ha fondato il fanclub _‘A Morte {HatingConcetti}’_ (che attualmente conta l'incredibile cifra di {4..25} membri)", 9),
         new($"ha uno strano feticcio per i piedi (che si aggrava quando pensa alla {Donne}), forse dovuto al suo essere {Vibes}", 8),
         new($"misura i polsi ogni mattina per controllare di non aver perso circonferenza ossea (ed è terrorizzato che {OggettiStatus} preso a {City.Any} sembri troppo grande)", 25),
         new($"ha calcolato l'angolo perfetto della sua mandibola usando un goniometro comprato dai cinesi e lo paragona a quello dei modelli su {Social.Any}", 35),
         new($"conserva una cartella criptata {Dispositivo} con le foto delle mani di altri uomini per fare confronti ossessivi", 35),
         new($"ha comprato delle solette rialzanti da {2..5} cm su {Marketplace.Any} per sembrare più alto", 15),
-        new($"si atteggia a _«{Percezione}»_ con tutti, ma la sua più grande paura è {TerroriQuotidiani}", 12),
+        new($"si atteggia a _‘{Percezione}’_ con tutti, ma la sua più grande paura è {TerroriQuotidiani}", 12),
         new($"nella sua testa è un alfa intoccabile, nella realtà è terrorizzato da una cosa: {TerroriQuotidiani}", 12),
-        new($"si definisce un _«{Percezione}»_ su {Social.Any} (eppure va nel panico al solo pensiero di {TerroriQuotidiani})", 9),
+        new($"si definisce un _‘{Percezione}’_ su {Social.Any} (eppure va nel panico al solo pensiero di {TerroriQuotidiani})", 9),
+        // NB: DateRangeSlot rende già "dal … al …" per i range → il template NON premette "dal"/"durante".
+        new($"è stato mollato dalla {Donne} {DateRangeSlot.Estate}, giusto per rovinargli l'estate", 12),
+        new($"alle {TimeSlot.Notte} controlla il cellulare ogni {2..5} minuti cercando messaggi che non arriveranno mai", 12),
+        new($"il {Parente.M} l'ha sconosciuto {DateRangeSlot.Lavorativi} (troppo tardi per rimediare)", 9),
     ];
 }

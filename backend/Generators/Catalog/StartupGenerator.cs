@@ -7,12 +7,13 @@ using Nome = Backend.Generators.SharedContent.Nome;
 using Parente = Backend.Generators.SharedContent.Parente;
 using Professioni = Backend.Generators.SharedContent.Professioni;
 using Social = Backend.Generators.SharedContent.Social;
+using TimeSlot = Backend.Generators.SharedContent.TimeSlot;
 
 namespace Backend.Generators.Catalog;
 
 /// <summary>
-/// Generatore di IDEE "da terza birra": NON un imprenditore, ma il tizio qualunque che ha «un'idea
-/// incredibile» per un'app — una roba banale o che esiste già — e la racconta all'amico informatico,
+/// Generatore di IDEE "da terza birra": NON un imprenditore, ma il tizio qualunque che ha ‘un'idea
+/// incredibile’ per un'app — una roba banale o che esiste già — e la racconta all'amico informatico,
 /// convinto di essere un genio. Niente pitch/round/business plan. Ordine dell'output:
 /// <list type="bullet">
 ///   <item><b>l'IDEA</b> (<see cref="Apertura"/>): il titolo — <c>[piattaforma]</c> per una
@@ -20,7 +21,7 @@ namespace Backend.Generators.Catalog;
 ///   <item><b>il TIPO</b> (sempre in <see cref="Apertura"/>): chi l'ha avuta — <c>[nome-m]</c>,
 ///         <c>[professioni]</c>, un <c>[tratto]</c> da genio-illuso e la <c>[genesi]</c> (dove/quando);</item>
 ///   <item><b>la DESCRIZIONE</b> (<see cref="Core"/>): il core annida molte questioni come mbeb/incel —
-///         sottovaluta la difficoltà («la fa il cugino»), è inutile/esiste già, è euforico, l'amico
+///         sottovaluta la difficoltà (‘la fa il cugino’), è inutile/esiste già, è euforico, l'amico
 ///         incassa, e a farla dovrebbe pensarci qualcun altro.</item>
 /// </list>
 /// Gruppi esclusivi (anche locali multi-tag): un solo tema per testo, niente ripetizioni.
@@ -284,7 +285,7 @@ public sealed class StartupGenerator : GeneratorBase
         ("ne parla come se avesse inventato il fuoco", 3),
         ("è convintissimo che stavolta è la volta buona", 3),
         ("già si vede ricco sfondato", 3),
-        ("giura che è «l'idea del secolo», minimo", 3),
+        ("giura che è ‘l'idea del secolo’, minimo", 3),
         ("ti guarda con gli occhi che brillano, aspettando l'applauso", 3),
         ("ha paura che gliela rubino, quindi la dice solo a te", 3),
         ("è persuaso di essere l'unico al mondo ad averci pensato", 3),
@@ -308,11 +309,11 @@ public sealed class StartupGenerator : GeneratorBase
         ("fai finta di prendere appunti mentali", 3),
         ("ti chiedi come reggere fino alla fine del discorso", 3),
         ("ordini un'altra birra, che serve", 3),
-        ("per educazione dici «bella idea» e muori un po' dentro", 3),
+        ("per educazione dici ‘bella idea’ e muori un po' dentro", 3),
         ("calcoli mentalmente quanti mesi di lavoro sta liquidando in una frase", 3),
         ("annuisci e cambi discorso sul calcio prima che sia troppo tardi", 3),
         ("provi a spiegargli cos'è un database e vedi lo sguardo spegnersi", 3),
-        ("gli chiedi «e chi la scrive?» e cala il silenzio", 3),
+        ("gli chiedi ‘e chi la scrive?’ e cala il silenzio", 3),
         ("controlli l'orologio sperando sia ora di andare", 3),
         ("gli dici che ci penserai, sapendo già che non lo farai", 3),
         ("sorridi e pensi a quanto era meglio restare a casa stasera", 3),
@@ -322,20 +323,20 @@ public sealed class StartupGenerator : GeneratorBase
     internal static readonly Tag PretendeAltri = new("pretende_altri")
     {
         ("a scriverla, ovviamente, ci pensa qualcun altro", 3),
-        ("manca solo un amico «che smanetta» disposto a farla per la gloria", 3),
-        ("conta su di te per la parte «facile», cioè tutta", 3),
+        ("manca solo un amico ‘che smanetta’ disposto a farla per la gloria", 3),
+        ("conta su di te per la parte ‘facile’, cioè tutta", 3),
         new($"tanto la fa suo {Parente.Pari.M}, no?", 2),
         ("il codice, quisquilia trascurabile, lo scrive qualcun altro", 3),
-        ("conta sul fatto che «tu che sei del mestiere» gliela fai gratis", 3),
+        ("conta sul fatto che ‘tu che sei del mestiere’ gliela fai gratis", 3),
         ("basta uno bravo che ci lavori gratis un paio di weekend", 3),
         ("l'idea è sua, il lavoro (cioè tutto) è degli altri", 3),
         ("ti offre il 5% di società in cambio di sei mesi di lavoro gratis", 3),
         new($"tanto la scrive mio {Parente.Giovane.M}, che ha la play e quindi ci sa fare", 2),
-        ("il difficile lo fa qualcun altro, lui ci mette «la visione»", 3),
+        ("il difficile lo fa qualcun altro, lui ci mette ‘la visione’", 3),
         ("cerca solo un socio tecnico che faccia il 100% del lavoro", 3),
-        ("«tu la programmi e ci dividiamo i guadagni», che ancora non esistono", 3),
+        ("‘tu la programmi e ci dividiamo i guadagni’, che ancora non esistono", 3),
         new($"delega la parte tecnica a suo {Parente.Giovane.M} in cambio della merenda", 2),
-        ("basta che qualcuno la scriva, poi lui «ci mette la faccia»", 3),
+        ("basta che qualcuno la scriva, poi lui ‘ci mette la faccia’", 3),
     };
 
     // ══ IL TIPO ══ (nell'apertura, dopo il titolo). Non un imprenditore: il tizio qualunque convinto di
@@ -345,17 +346,17 @@ public sealed class StartupGenerator : GeneratorBase
         "convinto di essere un genio incompreso",
         "sicuro di tutto ed esperto di niente",
         "che di informatica sa giusto accendere il computer",
-        "che chiama «svilupparla» il girarla a qualcun altro",
+        "che chiama ‘svilupparla’ il girarla a qualcun altro",
         "che ha già in mente come spenderli, i soldi",
-        new($"reduce da altre {2..5} idee «geniali» morte lì"),
+        new($"reduce da altre {2..5} idee ‘geniali’ morte lì"),
         "che le idee ce le ha, è il farle che è un dettaglio",
         "con lo sguardo di chi ha appena visto il futuro",
         "che non ha ancora capito perché nessuno l'ha fatta prima",
         "che una volta ha quasi finito un corso di programmazione",
         "che ha guardato un video di Elon Musk e si è sentito imprenditore",
-        "che pronuncia «startup» con l'accento sbagliato",
+        "che pronuncia ‘startup’ con l'accento sbagliato",
         "che ha comprato il dominio ma non sa cosa metterci",
-        "che parla di «scalabilità» senza sapere cosa significhi",
+        "che parla di ‘scalabilità’ senza sapere cosa significhi",
         "con la partita IVA aperta da un mese e già in crisi",
     };
 
@@ -365,15 +366,15 @@ public sealed class StartupGenerator : GeneratorBase
         "al terzo spritz",
         new($"dopo l'ennesima ora su {Social.Any}"),
         new($"una sera sul divano, scrollando {Social.Any}"),
-        new($"al _«{Genera("locali")}»_, verso il terzo giro"),
+        new($"al _‘{Genera("locali")}’_, verso il terzo giro"),
         "davanti all'ennesimo tutorial per diventare ricchi",
         "in coda da qualche parte, per ammazzare il tempo",
-        new($"sotto un reel di un motivatore, a notte fonda su {Social.Any}"),
+        new($"sotto un reel di un motivatore, alle {TimeSlot.Notte} su {Social.Any}"),
         "dopo un documentario sui miliardari",
         "tornando a casa dall'aperitivo",
         new($"leggendo i commenti di un video su {Social.Any}"),
         "in pausa pranzo, fissando il vuoto",
-        "alle tre di notte, aspettando il sonno",
+        new($"alle {TimeSlot.Notte}, aspettando il sonno"),
         "in bagno, col telefono in mano da mezz'ora",
         "in tangenziale, imbottigliato nel traffico",
         new($"al matrimonio di suo {Parente.Pari.M}, annoiato a morte", 2),
@@ -391,7 +392,7 @@ public sealed class StartupGenerator : GeneratorBase
     public override GenerationSettings? PhraseSettings { get; } = new() { MinPhrases = 3, MaxPhrases = 4, MinScore = 12, Separators = [". ", ".\n"], MarkovChaos = 0 };
 
     /// <summary>Apertura = l'IDEA (titolo) + IL TIPO che l'ha avuta. Poi il Core fa la DESCRIZIONE.</summary>
-    public override Frase? Apertura => new($"## {Piattaforma} per {Funzione}{Dettaglio}\n\n_L'ha avuta {Nome.M}, {Professioni.Any} {Tratto}, {Genesi}._\n\n");
+    public override Frase? Apertura => new($"## {Piattaforma} per {Funzione}{Dettaglio}\n\n_L'ha avuta {Nome.M}, {Professioni.M} {Tratto}, {Genesi}._\n\n");
 
     /// <inheritdoc />
     // Un gruppo LOCALE multi-tag per "sottovaluta" (lavoro-reale ≡ sicumera: stesso tema); gli altri
@@ -411,10 +412,10 @@ public sealed class StartupGenerator : GeneratorBase
     // inutile, è euforico, l'amico incassa, e a farla dovrebbe pensarci un altro.
     public override List<Frase> Core { get; } =
     [
-        // ── SOTTOVALUTA: per lui è facile, «la fa il cugino» (gruppo "sottovaluta") ──
-        new($"La parte difficile — {LavoroReale} — per lui non esiste: _«{Percepito}»_", 5),
-        new($"Gli fai notare cosa ci vorrebbe davvero — {LavoroReale} — e lui, serissimo: _«{Percepito}»_", 5),
-        new($"Per lui tirarla su è {Sicumera}: _«{Percepito}»_", 4),
+        // ── SOTTOVALUTA: per lui è facile, ‘la fa il cugino’ (gruppo "sottovaluta") ──
+        new($"La parte difficile — {LavoroReale} — per lui non esiste: _‘{Percepito}’_", 5),
+        new($"Gli fai notare cosa ci vorrebbe davvero — {LavoroReale} — e lui, serissimo: _‘{Percepito}’_", 5),
+        new($"Per lui tirarla su è {Sicumera}: _‘{Percepito}’_", 4),
         new($"Ne parla come se fosse {Sicumera}, ignaro che servirebbe {LavoroReale}", 4),
         // ── INUTILE: esiste già / non serve a nessuno (gruppo "inutilita") ──
         new($"Il dettaglio è che {Inutilita}", 5),

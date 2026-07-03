@@ -138,6 +138,64 @@ public sealed class OroscopoGenerator : GeneratorBase
         ("Prima di rispondere rileggi, rifletti, rimanda di un'ora e poi sbaglia comunque: almeno sarà una tua scelta consapevole.", 4),
     };
 
+    // ── Vena "MBEB/incel" dell'oroscopo: più mordente e specifica del generico, MA senza nomi reali
+    // (resta oroscopo) e senza volgarità. Tre registri: la sfiga precisa, lo scocciatore-archetipo,
+    // la fuffa astrologica sgonfiata dall'ironia. ──
+
+    // Sfighe puntuali e moderne del giorno: predicati che seguono "oggi …". Ognuna porta un tag condiviso
+    // (nome/città/marketplace/giorno/range): dove c'è un riferimento per cui abbiamo un tag, lo usiamo.
+    internal static readonly Tag Sventura = new("sventura")
+    {
+        new($"il POS non funzionerà proprio quando tocca a te, e dietro in fila {Nome.M} sbuffa", 2),
+        new($"a {City.Any} troverai parcheggio solo cinque minuti prima di ripartire", 2),
+        new($"ti si spegnerà il telefono all'1% proprio mentre stai chiamando {Nome.F}", 2),
+        new($"la fila che lascerai diventerà la più veloce, e ci sfilerà davanti {Nome.M}", 3),
+        new($"a {City.Any} un monopattino ti taglierà la strada sulle strisce", 2),
+        new($"il pacco da {Marketplace.Any} arriverà proprio mentre sei sotto la doccia", 3),
+        new($"l'autovelox sulla strada per {City.Any} ti beccherà per {2..6} chilometri orari di troppo", 3),
+        new($"il barista — un certo {Nome.M} — ti darà tutto il resto in monetine", 2),
+        new($"un {Professioni.M} ti rifilerà l'ennesimo ‘ci pensiamo e ti facciamo sapere’", 3),
+        new($"il collega {Nome.M} rimetterà in discussione una cosa decisa da settimane", 2),
+        new($"a {City.Any} ti toccherà il carrello con la ruota impazzita", 2),
+        new($"il gruppo WhatsApp del condominio si accenderà proprio di {Giorni.Any}", 3),
+        new($"scoprirai una spesa ricorrente su {Marketplace.Any} che giuravi di aver disdetto", 3),
+        new($"prenderai tutti i semafori rossi verso {City.Any}, ma solo quando hai fretta", 2),
+        new($"l'ombrello si romperà al primo colpo di vento, puntuale come un {Giorni.Any}", 2),
+    };
+
+    // Lo scocciatore-archetipo che incroci: sintagmi nominali (seguono "incrocerai …" / "attenzione a …").
+    // Nome, professione, parente, social, range: pescati dai tag, non scritti a mano.
+    internal static readonly Tag TipoMolesto = new("tipo-molesto")
+    {
+        new($"un {Professioni.M} che ti spiega la tua stessa battuta", 2),
+        new($"un certo {Nome.M} che risponde ‘a tutti’ alle mail aziendali", 3),
+        new($"una {Parente.F} che ti chiede di nuovo quando ti sposi", 2),
+        new($"un certo {Nome.M} che ti parla di criptovalute a cena", 2),
+        new($"il collega {Nome.M} che dice ‘buttiamo giù due righe’", 3),
+        new($"una {Parente.Anziano.F} che ti manda un vocale di {3..8} minuti per dire ‘ok’", 3),
+        new($"{Nome.F} che ti aggiunge a un gruppo senza chiedere", 2),
+        new($"una {Professioni.F} che spiega il tuo lavoro a te", 3),
+        new($"un certo {Nome.M} che mette le quattro frecce e parcheggia dove gli pare", 3),
+        new($"il vicino {Nome.M} che trapana la domenica alle otto di mattina", 2),
+        new($"un tale conosciuto su {Social.Any} che scrive ‘ciao come va?’ e poi sparisce", 4),
+        new($"{Nome.F} che ti dice ‘te l'avevo detto’ senza avertelo mai detto", 3),
+        new($"un {Professioni.M} che risponde alla domanda che non hai fatto", 2),
+    };
+
+    // La fuffa astrologica, ma sgonfiata: frasi complete (chiudono da sole).
+    internal static readonly Tag PseudoMistico = new("pseudo-mistico")
+    {
+        ("Mercurio retrogrado ti darà l'alibi perfetto per non combinare niente.", 3),
+        ("L'allineamento dei pianeti coincide, guarda caso, con la tua pigrizia.", 3),
+        ("Venere in dissonanza ti autorizza ufficialmente a ignorare i messaggi.", 3),
+        ("Saturno ti impartisce una lezione che ignorerai come le precedenti.", 3),
+        ("L'energia cosmica di oggi è quella di un martedì qualunque.", 2),
+        ("Le stelle sono allineate; tu un po' meno.", 3),
+        ("Giove ti sorride, ma con l'aria di chi ha fretta.", 2),
+        ("La Luna è nel tuo segno: non significa niente, ma suona bene.", 3),
+        ("Il tuo ascendente oggi rema contro, come del resto tutto il resto.", 3),
+    };
+
     /// <inheritdoc />
     public override string Slug => "oroscopo";
 
@@ -188,15 +246,26 @@ public sealed class OroscopoGenerator : GeneratorBase
 
         // ── Previsioni "inquinate" coi tag condivisi, come gli altri generatori ──
         new($"{Ambito}, una collega di nome {Nome.F} ti metterà in difficoltà senza accorgersene.", 3),
-        new($"Occhio a un {Professioni.Any} conosciuto su {Social.Any}: {Previsione}.", 3),
+        new($"Occhio a un {Professioni.M} conosciuto su {Social.Any}: {Previsione}.", 3),
+        new($"Occhio a una {Professioni.F} conosciuta su {Social.Any}: {Previsione}.", 3),
         new($"Una gita a {City.Any} ti tenterà, ma la rimanderai come tutto il resto.", 3),
         new($"{Giorni.Any} è il giorno giusto per NON rispondere a {Nome.M}.", 3),
         new($"Le stelle vedono un piatto di {Piatti.Any} e un rimorso lungo la strada per {City.Any}.", 3),
         new($"Una {Parente.F} ti chiederà notizie che non hai voglia di dare.", 2),
         new($"Un {Parente.M} ti darà una lezione di vita che non avevi chiesto.", 2),
-        new($"Un {Professioni.Any} di {Eta.Cresciuto} anni ti darà un consiglio pessimo: seguilo pure.", 4),
+        new($"Un {Professioni.M} di {Eta.Cresciuto} anni ti darà un consiglio pessimo: seguilo pure.", 4),
+        new($"Una {Professioni.F} di {Eta.Cresciuto} anni ti darà un consiglio pessimo: seguilo pure.", 4),
         new($"Numeri fortunati: {1..90} e {1..90}. Non ci prenderai comunque.", 2),
         new($"Attenzione agli acquisti d'impulso su {Marketplace.Any}: {Nome.M} lo scoprirà.", 3),
+
+        // ── Vena "MBEB/incel": la sfiga precisa, lo scocciatore, la fuffa astrologica ironica ──
+        new($"Le stelle prevedono una sfiga precisa: oggi {Sventura}.", 4),
+        new($"{Ambito}, oggi {Sventura}.", 3),
+        new($"E occhio, perché {Sventura} — e gli astri, in tutto questo, se la ridono.", 4),
+        new($"Oggi incrocerai {TipoMolesto}: sorridi e sopravvivi.", 4),
+        new($"Attenzione a {TipoMolesto}; gli astri, per la cronaca, non muoveranno un dito per te.", 4),
+        new($"{PseudoMistico}", 3),
+        new($"{PseudoMistico} {Consiglio}", 4),
 
         // ── Chiusure-consiglio ──
         new($"Il consiglio degli astri: {Consiglio}", 2),

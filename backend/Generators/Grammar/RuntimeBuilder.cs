@@ -315,7 +315,8 @@ file static class Condivisi
         [
             SharedContent.Social.Any, SharedContent.City.Any,
             SharedContent.Nome.M, SharedContent.Nome.F,
-            SharedContent.Cognome.Any, SharedContent.Professioni.Any,
+            SharedContent.Cognome.Any,
+            SharedContent.Professioni.SoloM, SharedContent.Professioni.SoloF, SharedContent.Professioni.Neutre,
             SharedContent.Piatti.M, SharedContent.Piatti.F,
             SharedContent.Marketplace.Any, SharedContent.Giorni.Any,
             SharedContent.Dinamici.DataOggi.Any,
@@ -331,7 +332,7 @@ file static class Condivisi
         // "identità": età E professione nello stesso gruppo, così un testo definisce il soggetto
         // una sola volta (niente "50 anni, nonno" + "studente universitario" nella stessa descrizione).
         [SharedContent.Gruppi.Identita] =
-            [SharedContent.Professioni.Any.Key, .. SharedContent.Eta.Tutte.Select(fascia => fascia.Tag.Key)],
+            [SharedContent.Professioni.M.Key, SharedContent.Professioni.F.Key, .. SharedContent.Eta.Tutte.Select(fascia => fascia.Tag.Key)],
     };
 
     /// <summary>Le UNIONI condivise (<see cref="Tag.Unione"/>): il RuntimeBuilder le compone come quelle
@@ -341,6 +342,7 @@ file static class Condivisi
     internal static Tag[] Unioni { get; } =
     [
         SharedContent.Nome.Any, SharedContent.Piatti.Any,
+        SharedContent.Professioni.M, SharedContent.Professioni.F, SharedContent.Professioni.Any,
         SharedContent.Parente.M, SharedContent.Parente.F, SharedContent.Parente.Any,
         .. SharedContent.Parente.Fasce.Select(fascia => fascia.Any),
     ];

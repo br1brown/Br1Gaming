@@ -217,7 +217,7 @@ public sealed class AutoGenerator : GeneratorBase
         ("come si usano gli specchietti", 3),
         ("la precedenza", 2),
         ("il cervello a casa", 3),
-        ("l'esame di teoria del 1998", 4),
+        new($"l'esame di teoria del {1988..2005}", 4),
         ("il manuale di guida sotto il sedile", 4),
         ("che esiste anche la retromarcia", 3),
         ("come si esce da una rotonda", 4),
