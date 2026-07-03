@@ -98,7 +98,10 @@ public class BaseController : EngineApiController
     [HttpPost("generators/{slug}/generate")]
     public IActionResult Generate(string slug)
     {
-        var result = _generators.Generate(slug);
+        // Tutti i query param diventano il "dizionario d'ingresso" del generatore: oggi lo usa la
+        // variante (es. ?segno=ariete), domani qualunque dato senza toccare la firma dell'endpoint.
+        var inputs = Request.Query.ToDictionary(q => q.Key, q => q.Value.ToString(), StringComparer.OrdinalIgnoreCase);
+        var result = _generators.Generate(slug, inputs);
         return Ok(new GenerationResultDto(result.Text, result.Markdown, result.Score, _signer.Sign(slug, result.Markdown)));
     }
 
@@ -140,5 +143,11 @@ public class BaseController : EngineApiController
     public IActionResult GetSharesCounts() => Ok(_shares.Counts());
 
     private static GeneratorInfoDto ToInfoDto(IGenerator item)
-        => new(item.Slug, item.Info?.Name ?? item.Slug, item.Info?.Description);
+        => new(item.Slug, item.Info?.Name ?? item.Slug, item.Info?.Description, ToVariantDto(item.Variant));
+
+    private static GeneratorVariantDto? ToVariantDto(GeneratorVariant? variant)
+        => variant is null
+            ? null
+            : new(variant.Key, variant.Label,
+                  variant.Options.Select(o => new GeneratorVariantOptionDto(o.Key, o.Label)).ToList());
 }

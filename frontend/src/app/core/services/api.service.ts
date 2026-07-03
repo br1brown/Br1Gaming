@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpParams } from '@angular/common/http';
+import type { HttpResourceRef } from '@angular/common/http';
 import { BaseApiService } from '../engine/services/base-api.service';
 import { StorySummary, StorySnapshotDto } from '../dto/story.dto';
 import { GeneratorInfo, GenerateResponse, ShareEntry, ShareSaveResult } from '../dto/generator.dto';
@@ -106,6 +107,15 @@ export class ApiService extends BaseApiService {
         return this.api_get<StorySummary[]>(API.stories);
     }
 
+    /**
+     * Versione reattiva del catalogo storie, per i componenti che si auto-caricano l'elenco
+     * (es. la sezione "Storie"). Si ricarica da sé ai cambi dei segnali letti dagli header
+     * (lingua) ed è ottimizzata per SSR. Per un fetch una-tantum resta `getStories()`.
+     */
+    storiesResource(): HttpResourceRef<StorySummary[] | undefined> {
+        return this.api_resource<StorySummary[]>(API.stories);
+    }
+
     /** Info della storia "Siamo Maschi". */
     getStoryPoveriMaschi(): Promise<StorySummary> { return this.getStory('poveri-maschi'); }
 
@@ -149,6 +159,15 @@ export class ApiService extends BaseApiService {
         return this.api_get<GeneratorInfo[]>(API.generators);
     }
 
+    /**
+     * Versione reattiva del catalogo generatori, per i componenti che si auto-caricano l'elenco
+     * (es. la sezione "Generatori", in home e nella pagina dedicata). Si ricarica da sé ai cambi
+     * dei segnali letti dagli header (lingua) ed è ottimizzata per SSR. Fetch una-tantum: `getGenerators()`.
+     */
+    generatorsResource(): HttpResourceRef<GeneratorInfo[] | undefined> {
+        return this.api_resource<GeneratorInfo[]>(API.generators);
+    }
+
     /** Info del generatore Incel. */
     getIncel(): Promise<GeneratorInfo> { return this.getGenerator('incel'); }
 
@@ -169,6 +188,9 @@ export class ApiService extends BaseApiService {
 
     /** Info del generatore Kebabbari. */
     getKebab(): Promise<GeneratorInfo> { return this.getGenerator('kebab'); }
+
+    /** Info del generatore Oroscopo (include la variante: i 12 segni). */
+    getOroscopo(): Promise<GeneratorInfo> { return this.getGenerator('oroscopo'); }
 
     /** Genera un nuovo testo Incel. */
     generateIncel(): Promise<GenerateResponse> { return this.generate('incel'); }
@@ -191,12 +213,22 @@ export class ApiService extends BaseApiService {
     /** Genera un nuovo nome di kebabbaro/locale straniero. */
     generateKebab(): Promise<GenerateResponse> { return this.generate('kebab'); }
 
+    /** Genera l'oroscopo per il segno scelto: passa il segno nel dizionario d'ingresso (chiave 'segno',
+     *  = la dimensione della variante), che il backend usa per fissare i dati astrologici del segno. */
+    generateOroscopo(segno: string): Promise<GenerateResponse> { return this.generate('oroscopo', { segno }); }
+
     private getGenerator(slug: string): Promise<GeneratorInfo> {
         return this.api_get<GeneratorInfo>(API.generator(slug));
     }
 
-    private generate(slug: string): Promise<GenerateResponse> {
-        return this.api_post<GenerateResponse>(API.generate(slug), {});
+    private generate(slug: string, inputs?: Record<string, string>): Promise<GenerateResponse> {
+        // Il "dizionario d'ingresso" del generatore viaggia come query param: il backend lo usa per
+        // pilotare la generazione (oggi la variante, es. `?segno=ariete`). Assente per i normali.
+        const entries = Object.entries(inputs ?? {});
+        const qs = entries.length
+            ? '?' + entries.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&')
+            : '';
+        return this.api_post<GenerateResponse>(`${API.generate(slug)}${qs}`, {});
     }
 
     // ─── Condivisi (raccolta pubblica) ───────────────────────────────────

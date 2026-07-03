@@ -1,5 +1,5 @@
 import { DOCUMENT } from '@angular/common';
-import { afterNextRender, Component, computed, inject, input, signal } from '@angular/core';
+import { afterNextRender, Component, computed, ElementRef, HostListener, inject, input, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { GeneratorInfo, GenerateResponse, GeneratorPageContent } from '../../core/dto/generator.dto';
 import { ContestoSito, PageType } from '../../site';
@@ -34,6 +34,9 @@ import { SpeechActionComponent } from '../../components/shared/action/speech-act
             from { opacity: 0; transform: translateY(8px); }
             to   { opacity: 1; transform: none; }
         }
+        /* Senza il JS di Bootstrap non c'è Popper a piazzare il menu: replichiamo la
+           regola [data-bs-popper] (sotto il toggle, allineato a sinistra). */
+        .dropdown-menu.show { top: 100%; left: 0; margin-top: .125rem; }
     `],
 })
 export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageContent> {
@@ -44,11 +47,45 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
     /** Arrotonda il punteggio per il badge rarità. */
     protected readonly rounded = (n: number): number => Math.round(n);
     private readonly document = inject(DOCUMENT);
+    private readonly host = inject(ElementRef<HTMLElement>);
     private readonly router = inject(Router);
     private readonly speech = inject(SpeechService);
     private readonly imgBuilder = inject(ImgBuilderService);
 
     readonly generator = computed<GeneratorInfo | null>(() => this.pageContent()?.generator ?? null);
+
+    /** La variante del generatore (es. i 12 segni dell'oroscopo), o null per i generatori normali. */
+    readonly variant = computed(() => this.generator()?.variant ?? null);
+    /** Opzione scelta dall'utente (chiave), o null finché non ne tocca una. */
+    private readonly pickedVariant = signal<string | null>(null);
+    /** Opzione attiva: quella scelta, altrimenti la prima (default). Usata sia per l'evidenza dei
+     *  pulsanti sia come parametro di generazione. */
+    readonly activeVariant = computed<string | null>(() =>
+        this.pickedVariant() ?? this.variant()?.options?.[0]?.key ?? null);
+
+    /** Etichetta dell'opzione attiva, mostrata sul toggle della dropdown. */
+    readonly activeVariantLabel = computed<string>(() => {
+        const key = this.activeVariant();
+        return this.variant()?.options?.find(o => o.key === key)?.label ?? '';
+    });
+
+    /** Apertura della dropdown variante: gestita a mano (niente JS di Bootstrap, come la navbar). */
+    readonly variantOpen = signal(false);
+
+    /** Sceglie un'opzione della variante (es. un segno), chiude la dropdown e rigenera subito. */
+    pickVariant(key: string): void {
+        this.pickedVariant.set(key);
+        this.variantOpen.set(false);
+        void this.generate(true);
+    }
+
+    /** Click fuori dalla dropdown → la chiude (la navbar fa lo stesso col proprio stato). */
+    @HostListener('document:click', ['$event'])
+    protected onDocumentClick(event: MouseEvent): void {
+        if (this.variantOpen() && !this.host.nativeElement.contains(event.target)) {
+            this.variantOpen.set(false);
+        }
+    }
 
     readonly coverAssetId = computed(() => {
         const slug = this.generator()?.slug;
@@ -203,6 +240,7 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
             case PageType.GeneratorLocali: return this.api.generateLocali();
             case PageType.GeneratorKebab: return this.api.generateKebab();
             case PageType.GeneratorMbeb: return this.api.generateMbeb();
+            case PageType.GeneratorOroscopo: return this.api.generateOroscopo(this.activeVariant() ?? '');
             default: throw new Error(`PageType non è un generatore: ${this.pageType()}`);
         }
     }

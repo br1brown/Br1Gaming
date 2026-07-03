@@ -1,15 +1,33 @@
-<!-- Si rendono TUTTE le card; quando è ripiegato si nascondono le eccedenti con le utility responsive:
-     oltre la collapseMobile-esima su mobile (d-none) e oltre la collapseDesktop-esima da desktop. Le
-     posizioni intermedie restano nascoste solo su mobile (d-md-block le riporta da ≥ md). -->
+<!-- Barra di ricerca: unica, filtra per nome o descrizione. Compare solo con liste lunghe
+     (searchThreshold), dove scorrere a occhio non basta. -->
+@if (searchable()) {
+<div class="mb-3">
+    <input type="search" class="form-control rounded-pill"
+           [value]="query()"
+           (input)="query.set($any($event.target).value)"
+           [placeholder]="'cardGridCerca' | translate"
+           [attr.aria-label]="'cardGridCerca' | translate" />
+</div>
+}
+
+<!-- Si rendono TUTTE le card visibili; quando è ripiegato si nascondono le eccedenti con le utility
+     responsive: oltre la collapseMobile-esima su mobile (d-none) e oltre la collapseDesktop-esima da
+     desktop. Le posizioni intermedie restano nascoste solo su mobile (d-md-block le riporta da ≥ md). -->
 <div class="row g-3">
-    @for (item of items(); track item.pageType; let i = $index) {
+    @for (item of visibleItems(); track item.pageType; let i = $index) {
     <app-content-card [class]="itemColClass()"
-                      [class.d-none]="!espanso() && i >= collapseMobile()"
-                      [class.d-md-block]="!espanso() && i >= collapseMobile() && i < collapseDesktop()"
+                      [class.d-none]="collapsed() && i >= collapseMobile()"
+                      [class.d-md-block]="collapsed() && i >= collapseMobile() && i < collapseDesktop()"
                       [title]="item.title"
                       [subtitle]="item.subtitle"
                       [imageId]="item.imageId"
                       [pageType]="item.pageType" />
+    } @empty {
+    <!-- Vuoto durante una ricerca = nessun match. Il vuoto "normale" (lista non caricata / senza
+         elementi) lo gestisce la sezione che ospita la griglia, con un messaggio dedicato. -->
+    @if (searching()) {
+    <p class="text-secondary mb-0">{{ 'cardGridNessunRisultato' | translate }}</p>
+    }
     }
 </div>
 

@@ -14,6 +14,32 @@ public record GeneratorInfo
     public int? Order { get; init; }
 }
 
+/// <summary>
+/// Una "variante" del generatore: una dimensione di scelta offerta all'utente PRIMA di generare
+/// (es. il segno zodiacale dell'oroscopo). A differenza degli altri generatori — un bottone e via —
+/// un generatore con variante fa scegliere un'opzione, che il motore usa per FISSARE alcuni segnaposto
+/// (<c>[$chiave]</c>) del testo. <c>null</c> = generatore senza scelta (il caso normale).
+/// </summary>
+/// <param name="Key">Chiave della dimensione (es. <c>"segno"</c>): identifica la variante lato API/UI.</param>
+/// <param name="Label">Etichetta mostrata all'utente (es. <c>"Segno zodiacale"</c>).</param>
+/// <param name="Options">Le opzioni selezionabili (es. i 12 segni).</param>
+public sealed record GeneratorVariant(string Key, string Label, IReadOnlyList<GeneratorVariantOption> Options);
+
+/// <summary>
+/// Un'opzione di una <see cref="GeneratorVariant"/>. <see cref="Seeds"/> sono i segnaposto che
+/// l'opzione inietta nella generazione: chiave del segnaposto → POOL di candidati. A ogni generazione
+/// il motore ne pesca UNO per chiave e lo appunta come variabile condivisa (così i relativi
+/// <c>[$chiave]</c> restano coerenti in tutto il testo). Un pool di un solo elemento è un valore
+/// FISSO (es. l'elemento del segno è sempre quello); un pool più ampio dà varietà pur restando "del
+/// segno" (es. i tratti caratteriali, che cambiano a ogni oroscopo). Es. per l'Ariete:
+/// <c>{"segno":["Ariete"], "elemento":["Fuoco"], "pregio":["coraggioso","diretto"], …}</c>.
+/// I <see cref="Seeds"/> NON sono esposti al client: la UI vede solo Key/Label.
+/// </summary>
+/// <param name="Key">Chiave dell'opzione, passata all'API (es. <c>"ariete"</c>).</param>
+/// <param name="Label">Etichetta mostrata all'utente (es. <c>"Ariete"</c>).</param>
+/// <param name="Seeds">Segnaposto → pool di valori; se ne pesca uno per generazione.</param>
+public sealed record GeneratorVariantOption(string Key, string Label, IReadOnlyDictionary<string, IReadOnlyList<string>> Seeds);
+
 /// <summary>Regole di composizione del testo.</summary>
 public record GenerationSettings
 {
@@ -91,6 +117,11 @@ public interface IGenerator
 
     /// <summary>Informazioni di catalogo e identità.</summary>
     GeneratorInfo? Info { get; }
+
+    /// <summary>La dimensione di scelta offerta prima di generare (es. il segno zodiacale), o
+    /// <c>null</c> se il generatore non ne ha (il caso normale). Le sue opzioni fissano segnaposto
+    /// <c>[$chiave]</c> del testo tramite i loro binding.</summary>
+    GeneratorVariant? Variant { get; }
 
     /// <summary>
     /// Slug dei generatori "master" che fanno da base e vengono fusi PRIMA di questo (master-first),

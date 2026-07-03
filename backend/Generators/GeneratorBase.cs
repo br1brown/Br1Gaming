@@ -4,9 +4,22 @@ using System.Reflection;
 namespace Backend.Generators;
 
 /// <summary>
-/// Base comune dei generatori: fornisce i default neutri per tutti i membri opzionali di
-/// <see cref="IGenerator"/>. Una classe concreta deve fornire almeno <see cref="Slug"/> e
-/// <see cref="Info"/>, e fa override solo dei contenuti che le appartengono.
+/// La <b>base "blackbox"</b> di ogni generatore: chiude dentro di sé tutta la parte tecnologica del
+/// motore (scoperta dei tag via reflection, default neutri per ogni membro di <see cref="IGenerator"/>,
+/// aggancio a compilazione/validazione/composizione) ed espone all'autore una superficie minima e
+/// documentata. Per scrivere un generatore si estende questa classe e si sovrascrive:
+/// <list type="number">
+///   <item><b>OBBLIGATORIO</b> — <see cref="Slug"/> (l'URL) e <see cref="Info"/> (nome, descrizione, ordine).</item>
+///   <item><b>CONTENUTO</b> — quello che il generatore ha da dire: <see cref="Core"/> (le frasi), e a
+///         piacere <see cref="Apertura"/>/<see cref="Chiusura"/>, <see cref="PhraseSettings"/> (min/max
+///         frasi, separatori, soglia) e <see cref="Variant"/> (una scelta offerta prima di generare,
+///         es. il segno; legge il dizionario d'ingresso passato a <c>GeneratorService.Generate</c>).</item>
+///   <item><b>TAG INTERNI</b> — i propri <see cref="Tag"/> come campi statici della classe: dichiararli
+///         È dichiarare le liste (li scopre <see cref="Liste"/>/<see cref="Composte"/> da soli).</item>
+/// </list>
+/// Tutto il resto (<see cref="ComposeWith"/>, <see cref="CoreRequired"/>, <see cref="UniqueLabels"/>,
+/// <see cref="ExclusiveGroups"/>, <see cref="PolicyGroups"/>) è <b>avanzato e opzionale</b>: ha default
+/// sensati e si tocca solo per composizioni/regole particolari. L'autore non vede né gestisce il motore.
 /// </summary>
 public abstract class GeneratorBase : IGenerator
 {
@@ -15,6 +28,9 @@ public abstract class GeneratorBase : IGenerator
 
     /// <inheritdoc />
     public abstract GeneratorInfo Info { get; }
+
+    /// <inheritdoc />
+    public virtual GeneratorVariant? Variant => null;
 
     /// <inheritdoc />
     public virtual IReadOnlyList<string> ComposeWith => [];

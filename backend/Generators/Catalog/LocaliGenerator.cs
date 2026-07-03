@@ -87,6 +87,10 @@ public sealed class LocaliGenerator : GeneratorBase
         ("Locanda", 2),
         ("Hosteria", 2),
         ("Agriturismo", 2),
+        ("Paninoteca", 2),
+        ("Enoteca", 2),
+        ("Vineria", 2),
+        ("Grill", 2),
     };
 
     // Vie, luoghi, proprietà. Le preposizioni restano minuscole (del Corso, all'angolo).
@@ -106,6 +110,9 @@ public sealed class LocaliGenerator : GeneratorBase
         ("al crocevia", 2),
         new($"D'Azeglio {3..180}", 3),
         new($"Civico {3..180}", 3),
+        ("Roma", 2),
+        ("dei Mille", 2),
+        new($"Vittorio Emanuele {3..180}", 3),
     };
 
     // Nomi d'atmosfera, già capitalizzati.
@@ -148,6 +155,10 @@ public sealed class LocaliGenerator : GeneratorBase
         ("Braciami Forte", 2),
         ("Che Brace!", 2),
         ("Sotto la Brace Niente", 3),
+        ("Brace Contro Brace", 2),
+        ("La Brace nel Cuore", 3),
+        ("Non è Vero ma ci Brace", 4),
+        ("Braciere che Passione", 3),
     };
 
 
@@ -155,7 +166,7 @@ public sealed class LocaliGenerator : GeneratorBase
     public override string Slug => "locali";
 
     /// <inheritdoc />
-    public override GeneratorInfo Info { get; } = new() { Order = 4, Name = "Generatore dei Nomi dei Bar", Description = "Trova il nome del tuo locale tutto italiano" };
+    public override GeneratorInfo Info { get; } = new() { Order = 5, Name = "Generatore dei Nomi dei Bar", Description = "Trova il nome del tuo locale tutto italiano" };
 
     /// <inheritdoc />
     public override List<Frase> Core { get; } =

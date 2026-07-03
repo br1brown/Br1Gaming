@@ -41,6 +41,11 @@ public sealed class IncelGenerator : GeneratorBase
         ("pantaloni cargo pseudo-militari", 3),
         ("camicie di raso con le tigri stampate", 3),
         ("gilet tattici da finto operatore", 3),
+        ("magliette con il lupo che ulula alla luna", 3),
+        ("giacche di pelle ecologica che sanno di plastica bruciata", 4),
+        ("felpe con il teschio e la scritta gotica in inglese sbagliato", 4),
+        ("polo tarocche col coccodrillo che guarda dalla parte opposta", 4),
+        ("infradito coi calzini bianchi tirati su", 3),
     };
 
     internal static readonly Tag StrumentiMisura = new("strumenti_misura")
@@ -55,6 +60,11 @@ public sealed class IncelGenerator : GeneratorBase
         ("un metro a nastro dell'IKEA", 3),
         ("un'app chiamata _«AlphaMeasure Pro»_ scaricata da un forum", 3),
         new($"il regolo calcolatore di suo {Parente.Anziano.M}", 3),
+        ("un metro pieghevole da geometra preso all'Obi", 3),
+        ("il calibro del corso di disegno tecnico delle superiori", 4),
+        ("una stecca da biliardo usata come riferimento", 3),
+        ("il righello flessibile con la tabellina dietro", 3),
+        ("un livello a bolla dell'IKEA tenuto in orizzontale", 4),
     };
 
     internal static readonly Tag CommentiSprezzantiPene = new("commenti_sprezzanti_pene")
@@ -70,6 +80,10 @@ public sealed class IncelGenerator : GeneratorBase
         ("un numero che cambia ogni volta che lo racconta", 3),
         ("certificata da nessuno tranne lui", 3),
         new($"e a smentirlo ci sono pure quelli che ha su {Social.Any}", 3),
+        ("misurata subito dopo una doccia bollente e in condizioni climatiche ottimali", 4),
+        ("dato che include anche i due centimetri di margine di sicurezza", 4),
+        ("un primato omologato solo dalla giuria di suo cugino", 4),
+        ("calcolata col metodo scientifico del _«fidati»_", 3),
     };
 
     internal static readonly Tag OggettiStatus = new("oggetti_status")
@@ -83,6 +97,12 @@ public sealed class IncelGenerator : GeneratorBase
         ("il suo bracciale magnetico anti-stress", 3),
         ("il suo smartband cinese", 3),
         ("il suo braccialetto in paracord", 3),
+        ("il suo portachiavi dell'Audi (ma la macchina è di sua madre)", 4),
+        ("la sua penna Montblanc taroccata comprata a Napoli", 4),
+        ("i suoi occhiali da sole specchiati indossati anche al chiuso", 4),
+        ("il suo accendino Zippo che non ha mai acceso una sigaretta", 4),
+        ("il suo powerbank da 30000 mAh grande come un mattone", 4),
+        ("la sua catenina d'oro col cornetto portafortuna", 4),
     };
 
     // Etichette uniche: quelle in comune col mbeb sono gli STESSI simboli; le altre sono proprie
@@ -360,6 +380,16 @@ public sealed class IncelGenerator : GeneratorBase
     };
 
 
+    // Piccola lista per dare una variante a una frase altrimenti fissa (senza cambiarne il senso).
+    internal static readonly Tag Dispositivo = new("dispositivo")
+    {
+        "sul pc", "sul telefono", "su un hard disk esterno", "nel cloud",
+        "su una chiavetta USB", "sul PC dell'ufficio", "su un vecchio Nokia",
+        "in una cartella chiamata 'documenti fiscali'", "su un floppy disk", "in un account Mega",
+        "su un NAS in cantina", "dietro una password di quaranta caratteri", "su un Raspberry Pi nascosto",
+        "in una nota di iCloud", "su un disco esterno in soffitta",
+    };
+
     /// <inheritdoc />
     public override List<Frase> Core { get; } =
     [
@@ -414,7 +444,7 @@ public sealed class IncelGenerator : GeneratorBase
         new($"ha uno strano feticcio per i piedi (che si aggrava quando pensa alla {Donne}), forse dovuto al suo essere {Vibes}", 8),
         new($"misura i polsi ogni mattina per controllare di non aver perso circonferenza ossea (ed è terrorizzato che {OggettiStatus} preso a {City.Any} sembri troppo grande)", 25),
         new($"ha calcolato l'angolo perfetto della sua mandibola usando un goniometro comprato dai cinesi e lo paragona a quello dei modelli su {Social.Any}", 35),
-        new($"conserva una cartella criptata sul pc con le foto delle mani di altri uomini per fare confronti ossessivi", 35),
+        new($"conserva una cartella criptata {Dispositivo} con le foto delle mani di altri uomini per fare confronti ossessivi", 35),
         new($"ha comprato delle solette rialzanti da {2..5} cm su {Marketplace.Any} per sembrare più alto", 15),
         new($"si atteggia a _«{Percezione}»_ con tutti, ma la sua più grande paura è {TerroriQuotidiani}", 12),
         new($"nella sua testa è un alfa intoccabile, nella realtà è terrorizzato da una cosa: {TerroriQuotidiani}", 12),

@@ -1169,6 +1169,43 @@ public static class SharedContent
     }
 
     /// <summary>
+    /// Contenuti CALCOLATI al momento della generazione, non fissabili al boot (il Runtime è compilato
+    /// una volta sola). A differenza delle liste — curate o derivate dal framework ma comunque FISSE —
+    /// questi valori cambiano nel tempo: oggi solo la <see cref="DataOggi"/>. Il motore li pre-appunta
+    /// come seed condiviso (<see cref="Seed"/>) a OGNI generazione, così qualunque generatore può usare
+    /// <c>{DataOggi.Any.Fissato}</c> e ottenere il valore del momento senza calcolarlo.
+    /// </summary>
+    internal static class Dinamici
+    {
+        /// <summary>
+        /// La data di OGGI in formato lungo it-IT (es. "12 settembre 2026"): variabile condivisa (token
+        /// <c>[$data-oggi]</c>). Il valore reale lo inietta il motore da <see cref="Seed"/> a ogni
+        /// generazione; la voce qui è solo fallback e validazione al boot (il token dev'esistere nella
+        /// fusione delle liste, come ogni altro segnaposto).
+        /// </summary>
+        internal static class DataOggi
+        {
+            public static readonly Tag Any = new("data-oggi") { "di oggi" };
+
+            /// <summary>La data di oggi, calcolata al momento della generazione (cultura it-IT esplicita,
+            /// così il mese è quello giusto a prescindere dalla locale del server).</summary>
+            public static string Valore() =>
+                DateTime.Now.ToString("d MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("it-IT"));
+        }
+
+        /// <summary>
+        /// I valori calcolati a OGNI generazione (chiave del tag → produttore): il motore li pre-appunta
+        /// come seed condivisi prima di comporre, così i relativi <c>[$chiave]</c> escono col valore del
+        /// momento in qualunque generatore. È il gancio per aggiungerne altri (ora solo la data di oggi).
+        /// </summary>
+        internal static IReadOnlyDictionary<string, Func<string>> Seed { get; } =
+            new Dictionary<string, Func<string>>
+            {
+                [DataOggi.Any.Key] = DataOggi.Valore,
+            };
+    }
+
+    /// <summary>
     /// Parenti, divisi per genere e per fascia generazionale (relativa a chi parla). Legami reali,
     /// non coniabili: il conio li renderebbe assurdi. Aggiungere una fascia =
     /// un campo + la voce in <see cref="Fasce"/>: registrazione e composte si derivano da lì.
@@ -1177,16 +1214,16 @@ public static class SharedContent
     {
         /// <summary>Generazione sotto (nipote, cuginetto…).</summary>
         public static readonly FasciaParente Giovane = new(
-            new("parente-giovane-m") { "nipote", "nipotino", "cuginetto", "figlioccio", "figlio", "figliastro", "pronipote", "bisnipote", "genero", "nipotastro" },
-            new("parente-giovane-f") { "nipote", "nipotina", "cuginetta", "figlioccia", "figlia", "figliastra", "pronipote", "bisnipote", "nuora", "nipotastra" });
+            new("parente-giovane-m") { "nipote", "nipotino", "cuginetto", "figlioccio", "figlio", "figliastro", "pronipote", "bisnipote", "genero", "nipotastro", "cuginetto piccolo", "figlio del cugino", "nipote acquisito", "figlio di primo letto", "erede designato" },
+            new("parente-giovane-f") { "nipote", "nipotina", "cuginetta", "figlioccia", "figlia", "figliastra", "pronipote", "bisnipote", "nuora", "nipotastra", "cuginetta piccola", "figlia del cugino", "nipote acquisita", "figlia di primo letto", "erede designata" });
         /// <summary>Stessa generazione (cugino, fratello, cognato…).</summary>
         public static readonly FasciaParente Pari = new(
-            new("parente-pari-m") { "cugino", "fratello", "cognato", "fratellastro", "gemello","marito", "cugino di secondo grado", "cugino di terzo grado", "cugino alla lontana", "consuocero", "cugino acquisito" },
-            new("parente-pari-f") { "cugina", "sorella", "cognata", "sorellastra", "gemella", "moglie", "cugina di secondo grado", "cugina di terzo grado", "cugina alla lontana", "consuocera", "cugina acquisita" });
+            new("parente-pari-m") { "cugino", "fratello", "cognato", "fratellastro", "gemello", "marito", new($"cugino di {2..5}° grado"), "cugino alla lontana", "consuocero", "cugino acquisito", "fratello di latte", "cognato del cognato", "cugino emigrato in Germania", "quasi-cognato", "cugino di campagna", "cognato juventino" },
+            new("parente-pari-f") { "cugina", "sorella", "cognata", "sorellastra", "gemella", "moglie", new($"cugina di {2..5}° grado"), "cugina alla lontana", "consuocera", "cugina acquisita", "sorella di latte", "cognata della cognata", "cugina emigrata in Germania", "quasi-cognata", "cugina di campagna", "cognata juventina" });
         /// <summary>Generazione sopra (zio, suocero, nonno…).</summary>
         public static readonly FasciaParente Anziano = new(
-            new("parente-anziano-m") { "zio", "suocero", "nonno", "prozio", "bisnonno", "trisnonno", "patrigno", "padrino", "nonnastro", "zio acquisito" },
-            new("parente-anziano-f") { "zia", "suocera", "nonna", "prozia", "bisnonna", "trisnonna", "matrigna", "madrina", "nonnastra", "zia acquisita" });
+            new("parente-anziano-m") { "zio", "suocero", "nonno", "prozio", "bisnonno", "trisnonno", "patrigno", "padrino", "nonnastro", "zio acquisito", "zio d'America", "prozio del Molise", "nonno materno", "suocero in pensione", "zio scapolo" },
+            new("parente-anziano-f") { "zia", "suocera", "nonna", "prozia", "bisnonna", "trisnonna", "matrigna", "madrina", "nonnastra", "zia acquisita", "zia d'America", "prozia del Molise", "nonna materna", "suocera in pensione", "zia zitella" });
         /// <summary>Tutte le fasce: la fonte unica da cui si deriva il resto.</summary>
         public static readonly FasciaParente[] Fasce = [Giovane, Pari, Anziano];
 

@@ -16,7 +16,7 @@ namespace Backend.Services;
 /// non l'output. La generazione (<see cref="Composer"/>) valuta l'AST: niente più regex a runtime.
 /// Le composizioni (es. l'Incel che estende il Maschio Basico) sono dato esplicito via
 /// <see cref="IGenerator.ComposeWith"/>. La superficie pubblica resta indicizzata per slug
-/// (<see cref="Get"/>, <see cref="Generate(string)"/>) e l'armonizzazione del testo resta qui.
+/// (<see cref="Get"/>, <see cref="Generate(string, IReadOnlyDictionary{string, string})"/>) e l'armonizzazione del testo resta qui.
 /// </remarks>
 public class GeneratorService
 {
@@ -61,14 +61,60 @@ public class GeneratorService
     /// <see cref="Runtime"/> compilato e applicando l'armonizzazione finale del testo.
     /// </summary>
     /// <param name="slug">Slug del generatore richiesto.</param>
+    /// <param name="inputs">
+    /// Il "dizionario d'ingresso" del generatore: dati passati dal chiamante (oggi i query param
+    /// dell'endpoint) che influenzano la generazione. È volutamente generico — chiave→valore — così
+    /// domani si può passare qualunque dato senza cambiare la firma. Oggi lo consuma la
+    /// <see cref="IGenerator.Variant"/>: legge la propria dimensione (es. <c>inputs["segno"]</c>) per
+    /// scegliere l'opzione. <c>null</c> o vuoto → i generatori con variante ne scelgono una a caso
+    /// (output sempre coerente); i generatori senza variante lo ignorano.
+    /// </param>
     /// <returns>Il risultato della generazione in triplice formato (Text, Markdown, Score).</returns>
     /// <exception cref="NotFoundException">Se nessun generatore ha quello slug.</exception>
-    public GenerationResult Generate(string slug)
+    public GenerationResult Generate(string slug, IReadOnlyDictionary<string, string>? inputs = null)
     {
-        var runtime = _runtimes[Get(slug).Slug];
-        var (rawText, score) = Composer.Generate(runtime, Random.Shared);
+        var generator = Get(slug);
+        var runtime = _runtimes[generator.Slug];
+        var seed = ResolveVariantSeed(generator, inputs);
+        var (rawText, score) = Composer.Generate(runtime, Random.Shared, seed);
         var markdown = ArmonizzaTesto(rawText);
         return new GenerationResult(MarkdownToPlain(markdown), markdown, score);
+    }
+
+    /// <summary>
+    /// Dal dizionario d'ingresso ricava i binding (segnaposto → valore) da pre-appuntare alla
+    /// generazione: i seed CONDIVISI calcolati al momento (<see cref="SharedContent.Dinamici.Seed"/>, es.
+    /// la data di oggi, disponibili a ogni generatore) più i seed della <see cref="IGenerator.Variant"/>
+    /// (l'opzione scelta). L'opzione si sceglie leggendo dal dizionario la dimensione della variante (es.
+    /// <c>inputs["segno"]</c>); opzione assente o sconosciuta → una a caso, così l'oroscopo di un segno è
+    /// sempre coerente, mai un mix di attributi di segni diversi. Nessun seed → <c>null</c> (comportamento normale).
+    /// </summary>
+    private static IReadOnlyDictionary<string, string>? ResolveVariantSeed(IGenerator generator, IReadOnlyDictionary<string, string>? inputs)
+    {
+        var seed = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        // Seed DINAMICI condivisi (calcolati alla generazione, es. la data di oggi): pre-appuntati per
+        // OGNI generatore, così i relativi [$chiave] escono col valore del momento ovunque siano usati.
+        foreach (var (key, produttore) in SharedContent.Dinamici.Seed)
+            seed[key] = produttore();
+
+        // Seed della VARIANTE: ogni chiave pesca UN valore dal suo pool — gli attributi fissi del segno
+        // (elemento, pianeta…) hanno pool di un elemento, sempre quello; i tratti hanno pool più ampi,
+        // così variano a ogni oroscopo pur restando "del segno".
+        var declared = generator.Variant;
+        if (declared is { Options.Count: > 0 })
+        {
+            string? chosen = null;
+            inputs?.TryGetValue(declared.Key, out chosen);
+            var option = chosen is null
+                ? null
+                : declared.Options.FirstOrDefault(o => string.Equals(o.Key, chosen, StringComparison.OrdinalIgnoreCase));
+            option ??= declared.Options[Random.Shared.Next(declared.Options.Count)];
+            foreach (var (key, pool) in option.Seeds)
+                if (pool.Count > 0) seed[key] = pool[Random.Shared.Next(pool.Count)];
+        }
+
+        return seed.Count > 0 ? seed : null;
     }
 
     /// <summary>

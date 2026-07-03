@@ -318,6 +318,7 @@ file static class Condivisi
             SharedContent.Cognome.Any, SharedContent.Professioni.Any,
             SharedContent.Piatti.M, SharedContent.Piatti.F,
             SharedContent.Marketplace.Any, SharedContent.Giorni.Any,
+            SharedContent.Dinamici.DataOggi.Any,
             .. SharedContent.Parente.Fasce.SelectMany(fascia => new[] { fascia.M, fascia.F }),
         ];
         return condivisi.ToDictionary(tag => tag.Key, tag => tag.Voci.ToList());

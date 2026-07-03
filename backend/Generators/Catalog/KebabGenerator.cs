@@ -44,6 +44,9 @@ public sealed class KebabGenerator : GeneratorBase
         ("Durum", 2),
         ("Hamburger", 2),
         ("Kebap", 3),
+        ("Arrosticini", 2),
+        ("Gyros", 2),
+        ("Adana", 3),
     };
 
     // Contenitori d'insegna postposti: "[cibo] [suffisso]" (Kebab House, Doner Express, Pizza Point).
@@ -60,6 +63,10 @@ public sealed class KebabGenerator : GeneratorBase
         ("Palace", 2),
         ("Mania", 2),
         ("Center", 2),
+        ("Corner", 2),
+        ("Zone", 2),
+        ("Palast", 3),
+        ("Sultanato", 3),
     };
 
     // Qualificatori anteposti: "[prefisso] [cibo]" deve sempre suonare bene (Super Kebab, Planet Doner).
@@ -77,7 +84,10 @@ public sealed class KebabGenerator : GeneratorBase
         ("Planet", 2),
         ("King", 2),
         ("Number One", 3),
-        ("Casa", 2)
+        ("Casa", 2),
+        ("Turbo", 2),
+        ("Big", 2),
+        ("Antico", 3),
     };
 
     // Qualità postposta.
@@ -93,6 +103,11 @@ public sealed class KebabGenerator : GeneratorBase
         ("Tipico", 2),
         ("Speciale", 2),
         ("d'Oro", 2),
+        ("Autentico", 2),
+        ("Doc", 2),
+        ("Extra", 2),
+        ("Deluxe", 2),
+        ("Family", 2),
     };
 
     internal static readonly Tag Titolare = new("titolare")
@@ -128,6 +143,9 @@ public sealed class KebabGenerator : GeneratorBase
         ("del Sultano", 2),
         ("dei Faraoni", 2),
         ("dello Sceicco", 3),
+        ("del Bosforo", 3),
+        ("delle Piramidi", 3),
+        ("di Istanbul", 2),
     };
 
     internal static readonly Tag Sovrano = new("sovrano")
@@ -145,6 +163,8 @@ public sealed class KebabGenerator : GeneratorBase
         ("Il Boss", 2),
         ("Il Dio", 2),
         ("Sua Altezza", 3),
+        ("L'Emiro", 2),
+        ("Il Padrone", 2),
     };
 
     internal static readonly Tag Pun = new("pun")
@@ -159,6 +179,11 @@ public sealed class KebabGenerator : GeneratorBase
         new($"{Cibo} Therapy {Aggettivo}", 3),
         new($"Mondo {Cibo}", 2),
         new($"Tutto {Cibo}", 2),
+        ("Kebabbo Mio", 3),
+        ("Obi Wan Kebabi", 4),
+        new($"Non Solo {Cibo}", 2),
+        new($"{Cibo} & Love", 2),
+        new($"La Casa del {Cibo}", 2),
     };
 
 
@@ -166,7 +191,7 @@ public sealed class KebabGenerator : GeneratorBase
     public override string Slug => "kebab";
 
     /// <inheritdoc />
-    public override GeneratorInfo Info { get; } = new() { Order = 5, Name = "Kebabaro di Fiducia", Description = "Trova il nome del tuo kebabbaro o locale straniero" };
+    public override GeneratorInfo Info { get; } = new() { Order = 6, Name = "Kebabaro di Fiducia", Description = "Trova il nome del tuo kebabbaro o locale straniero" };
 
     /// <inheritdoc />
     public override List<Frase> Core { get; } =

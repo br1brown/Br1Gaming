@@ -12,13 +12,18 @@ public static class Composer
     /// <summary>Tetto di rigenerazioni quando il punteggio non raggiunge <see cref="Runtime.MinScore"/>.</summary>
     private const int MaxComposeAttempts = 30;
 
-    /// <summary>Genera il testo migliore (rispetto alla soglia) e il suo punteggio.</summary>
-    public static (string Text, double Score) Generate(Runtime rt, Random rng)
+    /// <summary>
+    /// Genera il testo migliore (rispetto alla soglia) e il suo punteggio. <paramref name="seed"/>
+    /// pre-appunta alcune variabili condivise (segnaposto <c>[$chiave]</c>) a valori fissi: è il modo
+    /// con cui una VARIANTE del generatore (es. il segno scelto per l'oroscopo) fissa parti del testo
+    /// invece di lasciarle al caso. Assente = comportamento normale (tutto pescato a caso).
+    /// </summary>
+    public static (string Text, double Score) Generate(Runtime rt, Random rng, IReadOnlyDictionary<string, string>? seed = null)
     {
-        var best = ComposeOnce(rt, rng);
+        var best = ComposeOnce(rt, rng, seed);
         for (int attempt = 1; best.Score < rt.MinScore && attempt < MaxComposeAttempts; attempt++)
         {
-            var candidate = ComposeOnce(rt, rng);
+            var candidate = ComposeOnce(rt, rng, seed);
             if (candidate.Score > best.Score) best = candidate;
         }
         return best;
@@ -88,9 +93,9 @@ public static class Composer
         return chosen;
     }
 
-    private static (string Text, double Score) ComposeOnce(Runtime rt, Random rng)
+    private static (string Text, double Score) ComposeOnce(Runtime rt, Random rng, IReadOnlyDictionary<string, string>? seed = null)
     {
-        var ctx = new EvalContext(rt, rng);
+        var ctx = new EvalContext(rt, rng, seed);
         // Apertura/chiusura: risolte (condividono lo stato di unicità) ma NON contribuiscono al punteggio.
         var apertura = rt.Apertura is null ? null : EvalPhrase(rt.Apertura, ctx).Text;
         var chiusura = rt.Chiusura is null ? null : EvalPhrase(rt.Chiusura, ctx).Text;
@@ -113,14 +118,25 @@ public static class Composer
     }
 
     // ── Valutazione dell'AST ──
-    private sealed class EvalContext(Runtime rt, Random rng)
+    private sealed class EvalContext
     {
-        public readonly Runtime Rt = rt;
-        public readonly Random Rng = rng;
+        public readonly Runtime Rt;
+        public readonly Random Rng;
         public readonly Dictionary<string, HashSet<string>> Used = new(); // unicità per-chiave nel testo
         public readonly Dictionary<string, string> Bound = new();         // variabili `[$chiave]` appuntate (per composizione, anche tra frasi)
         public double Product = 1;                                        // prodotto dei pesi (per frase)
         public int PickCount;
+
+        // Il seed pre-appunta le variabili condivise di una VARIANTE (es. il segno scelto): i relativi
+        // `[$chiave]` leggono subito questo valore invece di pescarlo. Come le occorrenze successive di
+        // un `[$chiave]`, i valori seed NON concorrono al punteggio (non passano da EvalFlat).
+        public EvalContext(Runtime rt, Random rng, IReadOnlyDictionary<string, string>? seed = null)
+        {
+            Rt = rt;
+            Rng = rng;
+            if (seed is not null)
+                foreach (var (key, value) in seed) Bound[key] = value;
+        }
         // Reset solo degli accumulatori di punteggio (per-frase). Used e Bound NO: l'unicità e le
         // variabili condivise valgono per l'intera composizione (apertura, chiusura e tutte le frasi).
         public void ResetAccumulator() { Product = 1; PickCount = 0; }

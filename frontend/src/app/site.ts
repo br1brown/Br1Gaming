@@ -17,6 +17,7 @@ export enum PageType {
     LegalNotice,
     //PERSONALIZZABILI
     Home,
+    Generatori,
     GeneratorIncel,
     GeneratorStartup,
     GeneratorAuto,
@@ -24,6 +25,7 @@ export enum PageType {
     GeneratorLocali,
     GeneratorKebab,
     GeneratorMbeb,
+    GeneratorOroscopo,
     StoryPoveriMaschi,
     StoryMagrogamer09,
     StorySurviveUsa,
@@ -81,7 +83,8 @@ function storyPage(
 // (slug + PageType): alimentano sia le route (sotto i parent) sia la navbar.
 // ═══════════════════════════════════════════════════════════════════════
 // Ordine di navbar/route. La home segue invece l'ordine del backend (Info.Order); qui lo si rispecchia
-// per coerenza: incel, startupparo, mbeb, nomi bar, kebabbari, anti-vegani, invettive automobilistiche.
+// per coerenza, raggruppati per tema: personaggi (incel, startupparo, mbeb, oroscopo),
+// nomi di attività (nomi bar, kebabbari), invettive (automobilistiche, anti-vegani).
 const GENERATORS = [
     // 3° elemento = id OG dedicato (immagine OPACA, "forma OG"): serve quando la card è trasparente,
     // così l'anteprima social resta opaca e non esce lavata/nera. incel/mbeb/startup: ritaglio su fondo
@@ -89,10 +92,11 @@ const GENERATORS = [
     ['incel', PageType.GeneratorIncel, 'generator.incel.og'],
     ['startup', PageType.GeneratorStartup, 'generator.startup.og'],
     ['mbeb', PageType.GeneratorMbeb, 'generator.mbeb.og'],
+    ['oroscopo', PageType.GeneratorOroscopo, 'generator.oroscopo.og'],
     ['locali', PageType.GeneratorLocali, 'generator.locali.og'],
     ['kebab', PageType.GeneratorKebab, 'generator.kebab.og'],
-    ['antiveg', PageType.GeneratorAntiveg, 'generator.antiveg.og'],
     ['auto', PageType.GeneratorAuto, 'generator.auto.og'],
+    ['antiveg', PageType.GeneratorAntiveg, 'generator.antiveg.og'],
 ] as const;
 
 const STORIES = [
@@ -131,6 +135,17 @@ export const ContestoSito = buildSite({
             path: 'generatori',
             title: 'generatori',
             children: [
+                // Index del gruppo: `/generatori` rende l'elenco di tutti i generatori (la stessa lista
+                // della home, come pagina a sé). Path vuoto → l'URL resta `/generatori`.
+                {
+                    path: '',
+                    title: 'generatori',
+                    description: 'Tutti i generatori di testo demenziali di Br1: incel, startup, kebabbari e altri.',
+                    pageType: PageType.Generatori,
+                    layout: { showPanel: false },
+                    component: () => import('./pages/generatori/generatori.component')
+                        .then(m => m.GeneratoriComponent),
+                },
                 ...GENERATORS.map(([slug, pageType, ogImage]) => generatorPage(slug, pageType, ogImage)),
                 {
                     path: 'condivisi',

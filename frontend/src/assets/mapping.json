@@ -15,6 +15,8 @@
   "generator.mbeb.og": "generator/mbeb-og.jpg",
   "generator.startup": "generator/startup.png",
   "generator.startup.og": "generator/startup-og.jpg",
+  "generator.oroscopo": "generator/oroscopo.png",
+  "generator.oroscopo.og": "generator/oroscopo-og.jpg",
   "game.ducenonduce": "game/ducenonduce.png",
   "game.radar": "game/radar.png",
   "game.radar.og": "game/radar-og.jpg",

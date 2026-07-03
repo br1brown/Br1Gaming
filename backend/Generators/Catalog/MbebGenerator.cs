@@ -49,6 +49,12 @@ public sealed class MbebGenerator : GeneratorBase
         ("Diego Fusaro", 2),
         ("Gianluigi Paragone", 2),
         ("Bruno Vespa", 2),
+        ("Vittorio Feltri", 2),
+        ("Rita De Crescenzo", 2),
+        ("Gerry Scotti", 2),
+        ("il generale Vannacci", 3),
+        ("quel tizio che fa i video sulle monete d'argento", 4),
+        ("il suo commercialista", 2),
     };
 
     internal static readonly Tag Ossessioni = new("ossessioni")
@@ -63,6 +69,11 @@ public sealed class MbebGenerator : GeneratorBase
         new($"video di motori su {Social.Any}", 3),
         ("fai-da-te", 2),
         ("discorsi motivazionali", 2),
+        ("il barbecue a gas da 400 euro usato tre volte l'anno", 4),
+        ("le monete d'argento come bene rifugio", 3),
+        ("il trapano avvitatore comprato al Brico", 3),
+        ("il navigatore satellitare montato di traverso", 3),
+        ("le previsioni del meteo dell'aeronautica", 3),
     };
 
     // Il "hating" è diviso per NATURA del bersaglio, così ogni frase pesca il tipo giusto e non crea
@@ -79,6 +90,14 @@ public sealed class MbebGenerator : GeneratorBase
         ("Luciana Littizzetto", 2),
         ("Achille Lauro", 2),
         ("Alessandro Zan", 2),
+        ("Elly Schlein", 2),
+        ("Roberto Saviano", 2),
+        ("Michela Murgia", 2),
+        ("quello dei Måneskin con lo smalto", 3),
+        ("Damiano dei Måneskin", 2),
+        ("Greta Thunberg", 2),
+        ("Chef Rubio", 2),
+        ("il sindaco che ha messo la ZTL", 3),
     };
 
     // Categorie di persone (plurali): bersaglio collettivo, non un individuo.
@@ -88,6 +107,17 @@ public sealed class MbebGenerator : GeneratorBase
         ("i vegani", 2),
         ("chi paga il caffè col POS", 3),
         ("i giovani che non hanno voglia di lavorare", 3),
+        ("quelli del reddito di cittadinanza", 3),
+        ("i runner che corrono sul marciapiede", 3),
+        ("i turisti che si fermano in cima alle scale mobili", 4),
+        ("quelli che parcheggiano il SUV sulle strisce pedonali", 4),
+        ("i camerieri che ti portano il conto col QR code", 4),
+        ("quelli della raccolta differenziata coi sette bidoni", 4),
+        ("i condòmini che si lamentano del barbecue sul balcone", 4),
+        ("gli automobilisti della corsia di sinistra che vanno piano", 4),
+        ("chi mette le stories con la musica in inglese", 4),
+        ("quelli che ordinano la pizza con l'ananas", 3),
+        ("i vigili che multano solo lui", 3),
     };
 
     // Concetti / cose / fenomeni: il bersaglio "sicuro" per i contesti aggressivi.
@@ -100,6 +130,14 @@ public sealed class MbebGenerator : GeneratorBase
         ("la musica trap", 3),
         ("le ZTL", 2),
         ("le manifestazioni per il clima", 3),
+        ("gli autovelox nascosti dietro i cespugli", 4),
+        ("il bollo auto", 2),
+        ("le rotonde messe a caso", 3),
+        ("i pagamenti col POS sotto i cinque euro", 4),
+        ("le piste ciclabili disegnate sui parcheggi", 4),
+        ("la carne sintetica coltivata in laboratorio", 4),
+        ("le etichette col semaforo sui cibi", 4),
+        ("i corsi di formazione obbligatori sul lavoro", 4),
     };
 
     // Unione ("Any"): {Hating} = persone ∪ gruppi ∪ concetti. Il RuntimeBuilder la compone DOPO il merge
@@ -142,6 +180,7 @@ public sealed class MbebGenerator : GeneratorBase
         ("borioso", 2),
         ("lamentoso", 2),
         ("perennemente incazzato", 3),
+        ("permaloso col clacson facile", 3),
     };
 
     internal static readonly Tag Percezione = new("percezione")
@@ -197,6 +236,11 @@ public sealed class MbebGenerator : GeneratorBase
         ("e ci crede pure", 3),
         ("roba da chiamare un esorcista", 3),
         new($"e intanto dà la colpa a {Hating}", 3),
+        ("e lo scrive pure nel gruppo di famiglia su WhatsApp", 3),
+        new($"e ancora si chiede perché la {Donne} lo abbia lasciato", 3),
+        ("cosa che ripete a chiunque abbia la sfortuna di sedersi accanto a lui", 3),
+        ("e nemmeno il suo commercialista lo prende più sul serio", 3),
+        ("e pretende pure gli si dia ragione", 3),
     };
 
     // Il grosso arriva dai piatti CONDIVISI (concordanza per genere garantita dalle liste);
@@ -209,6 +253,15 @@ public sealed class MbebGenerator : GeneratorBase
         ("la cacio e pepe perfetta", 3),
         ("il risotto perfetto", 3),
         ("il tiramisù perfetto", 3),
+        ("la carbonara con la panna (che secondo lui è più cremosa)", 4),
+        ("la grigliata cotta rigorosamente al sangue", 3),
+        ("il ragù che deve sobbollire otto ore", 3),
+        ("la pizza fatta in casa col forno di casa a 250 gradi", 4),
+        ("la parmigiana come la faceva sua nonna", 3),
+        ("il caffè con la moka stretta stretta", 3),
+        ("la bistecca fiorentina da tre dita", 3),
+        ("le lasagne con la besciamella comprata al supermercato", 4),
+        ("gli spaghetti aglio olio e peperoncino delle due di notte", 4),
     };
 
     // Cose banalissime del vivere quotidiano che lo mandano nel panico: lo stereotipo del basico
@@ -247,12 +300,19 @@ public sealed class MbebGenerator : GeneratorBase
         ("un Tag Heuer", 3),
         ("un Panerai", 3),
         ("un Richard Mille", 3),
+        ("un Daytona con la lista d'attesa di sei anni", 4),
+        ("un Casio d'oro come Fantozzi", 3),
+        ("uno Swatch che spaccia per svizzero di lusso", 4),
+        ("un Festina preso all'autogrill", 3),
+        ("un Rolex comprato dal marocchino in spiaggia", 4),
     };
 
     /// <summary>Scarpe di marca riconoscibili: concordano tutte con "una … usata".</summary>
     internal static readonly Tag Scarpe = new("scarpe")
     {
         "DrMartin", "Nike", "Converse", "Vans", "Superga", "Timberland", "New Balance", "Adidas",
+        "Hogan", "Puma", "Reebok", "Geox che respira", "Lotto degli anni Novanta", "Diadora",
+        "Nike taroccata comprata al mercato",
     };
 
 
@@ -279,6 +339,20 @@ public sealed class MbebGenerator : GeneratorBase
 
     /// <inheritdoc />
     public override List<string>? ExclusiveGroups { get; } = [Gruppi.Identita, FrasiTipiche.Key, Donne.Key];
+
+    // Piccole liste per dare una variante anche a due frasi altrimenti fisse (senza cambiarne il senso).
+    internal static readonly Tag Sitcom = new("sitcom")
+    {
+        "Camera Café", "Zelig", "Colorado", "Boris", "Fantozzi",
+        "Un Medico in Famiglia", "il Bagaglino", "Mai dire Gol", "Paperissima", "Striscia la Notizia",
+        "il cinepanettone di Natale", "Vieni Avanti Cretino", "il TG satirico", "Don Matteo", "i Cesaroni",
+    };
+    internal static readonly Tag Sport = new("sport")
+    {
+        "le partite di calcio", "il fantacalcio", "la Serie A", "il calciomercato", "il derby",
+        "il Fantacalcio dell'ufficio", "la moviola", "il VAR", "le partite di Champions", "la Nazionale",
+        "il Motomondiale", "la Formula 1", "il ciclismo su pista", "la Serie B", "il calcetto del giovedì",
+    };
 
     /// <inheritdoc />
     public override List<Frase> Core { get; } =
@@ -344,7 +418,7 @@ public sealed class MbebGenerator : GeneratorBase
         new($"i figli si sono trasferiti a {City.Any} pur di stargli lontano", 5),
         new($"costringe chiunque a guardare video a tema {Ossessioni} sul suo telefono col vetro perennemente crepato", 6),
         new($"è sempre d'accordo con {Idoli}", 4),
-        new($"per lui Camera Café è la vera ironia", 20),
+        new($"per lui {Sitcom} è la vera ironia", 20),
         new($"ha scelto di essere {DifettiSociali} perché pensa che gli doni carisma", 4),
         new($"dice che il politicamente corretto è solo una questione di essere {DifettiSociali}, solo che lo dice anche nei commenti di {Hating}", 5),
         new($"ha una collezione di riviste Playboy nel seminterrato perché quelle cose lì lui non le fa mica ({CommentiSprezzantiGenerici})", 7),
@@ -421,7 +495,7 @@ public sealed class MbebGenerator : GeneratorBase
         new($"misura il suo successo in base al numero di bottiglie che ha ordinato in discoteca {2..5} anni fa", 18),
         new($"morbosamente geloso della {Donne}", 4),
         new($"tirannico con la {Donne}, altro che uomo di casa", 4),
-        new($"ossessionato dalle partite di calcio, non che sia nulla di male, ma non quando diventa superstizione", 5),
+        new($"ossessionato da {Sport}, non che sia nulla di male, ma non quando diventa superstizione", 5),
         new($"tifoso sfegatato di {Idoli}", 4),
     ];
 }

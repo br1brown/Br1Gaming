@@ -56,7 +56,20 @@ public sealed record StoryPlayRequestDto(string? SceneId, string? ChoiceId, Dict
 /// <param name="Slug">Slug univoco del generatore.</param>
 /// <param name="Name">Nome visualizzato (fallback: lo slug).</param>
 /// <param name="Description">Descrizione breve, o null.</param>
-public sealed record GeneratorInfoDto(string Slug, string Name, string? Description);
+/// <param name="Variant">La dimensione di scelta prima di generare (es. il segno), o null se il
+/// generatore non ne ha. Solo Key/Label delle opzioni: i binding interni restano lato server.</param>
+public sealed record GeneratorInfoDto(string Slug, string Name, string? Description, GeneratorVariantDto? Variant = null);
+
+/// <summary>Variante esposta al client: dimensione di scelta + opzioni selezionabili.</summary>
+/// <param name="Key">Chiave della dimensione (es. <c>"segno"</c>).</param>
+/// <param name="Label">Etichetta mostrata (es. <c>"Segno zodiacale"</c>).</param>
+/// <param name="Options">Le opzioni selezionabili.</param>
+public sealed record GeneratorVariantDto(string Key, string Label, IReadOnlyList<GeneratorVariantOptionDto> Options);
+
+/// <summary>Un'opzione di variante lato client (nessun binding: solo ciò che serve alla UI/API).</summary>
+/// <param name="Key">Chiave passata all'API alla generazione (es. <c>"ariete"</c>).</param>
+/// <param name="Label">Etichetta mostrata all'utente (es. <c>"Ariete"</c>).</param>
+public sealed record GeneratorVariantOptionDto(string Key, string Label);
 
 /// <summary>
 /// Prodotto finale di un ciclo di generazione. Il client renderizza il Markdown

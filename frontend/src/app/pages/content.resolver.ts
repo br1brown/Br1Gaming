@@ -8,15 +8,9 @@ import { TranslateService } from '../core/engine/services/translate.service';
 import { ApiService } from '../core/services/api.service';
 import { PageInfo } from '../core/engine/siteBuilder';
 import { GeneratorInfo, GenerateResponse, GeneratorPageContent } from '../core/dto/generator.dto';
-import { StorySummary } from '../core/dto/story.dto';
 import type { StructuredDataInput } from '../core/engine/services/structured-data';
 
 export type LegalFileReader = (slug: string, lang: string) => Promise<string | null>;
-
-export interface HomeContent {
-    generators: GeneratorInfo[];
-    stories: StorySummary[];
-}
 
 /**
  * Titolo della pagina dalla frase generata, recuperata con `?g=`. Qui si normalizza solo il
@@ -123,14 +117,9 @@ export class ContentResolver {
                 }
             } else {
                 switch (pageType) {
-                    case PageType.Home: {
-                        const [generators, stories] = await Promise.all([
-                            this.apiService.getGenerators().catch((): GeneratorInfo[] => []),
-                            this.apiService.getStories().catch((): StorySummary[] => []),
-                        ]);
-                        content = { generators, stories };
-                        break;
-                    }
+                    // Home e pagina /generatori non hanno un contenuto da risolvere qui: le sezioni
+                    // (app-generators-section / app-stories-section) si caricano da sé l'elenco via
+                    // resource reattiva (attiva anche in SSR). Restano solo i meta SEO da getPageInfo.
 
                     // ── Storie ───────────────────────────────────────────────────
                     case PageType.StoryPoveriMaschi: {
@@ -173,6 +162,7 @@ export class ContentResolver {
             case PageType.GeneratorLocali: return () => this.apiService.getLocali();
             case PageType.GeneratorKebab: return () => this.apiService.getKebab();
             case PageType.GeneratorMbeb: return () => this.apiService.getMbeb();
+            case PageType.GeneratorOroscopo: return () => this.apiService.getOroscopo();
             default: return null;
         }
     }

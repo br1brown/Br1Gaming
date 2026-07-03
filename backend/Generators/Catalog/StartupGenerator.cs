@@ -33,6 +33,7 @@ public sealed class StartupGenerator : GeneratorBase
     {
         "Un'app", "Un sito", "Un'applicazione desktop", "Un gestionale", "Un portale", "Un social", "Un marketplace", "Una piattaforma",
         "Un bot di Telegram", "Un'estensione del browser", "Un tool con l'IA", "Un aggregatore", "Un chatbot", "Un'app in realtà aumentata",
+        "Un canale WhatsApp", "Un widget da mettere sul telefono", "Un abbonamento in stile Netflix", "Un NFT (non ha capito cosa sia)",
     };
 
     // Pezzi VARIABILI che alcile filzioni pescano (come i "dove" della genesi): più combinazioni, meno noia.
@@ -41,21 +42,29 @@ public sealed class StartupGenerator : GeneratorBase
     {
         "l'elettricista", "l'idraulico", "il fabbro", "il tecnico della caldaia",
         "il tuttofare", "l'antennista", "il vetraio", "il giardiniere",
+        "il muratore", "l'imbianchino", "il piastrellista", "il condizionatorista",
+        "lo spazzacamino", "il gommista", "il corniciaio", "il tappezziere",
     };
     internal static readonly Tag Attrezzo = new("attrezzo")
     {
         "il trapano", "la scala", "il tagliaerba", "l'idropulitrice",
         "l'avvitatore", "il decespugliatore", "la levigatrice", "il carrello",
+        "il flessibile", "la betoniera", "il tagliasiepi", "la sega circolare",
+        "la chiave inglese", "il martello pneumatico", "la pistola termica", "il saldatore",
     };
     internal static readonly Tag Elettrodomestico = new("elettrodomestico")
     {
         "la cappa", "la lavatrice", "l'aspirapolvere", "il condizionatore",
         "l'addolcitore", "la caldaia", "il depuratore dell'acqua", "la lavastoviglie",
+        "il forno", "il congelatore", "l'asciugatrice", "il boiler",
+        "la friggitrice ad aria", "il robot da cucina", "lo scaldabagno", "il tritarifiuti",
     };
     internal static readonly Tag Alimento = new("alimento")
     {
         "il latte", "lo yogurt", "la panna", "il sugo aperto",
         "la maionese", "il pesto", "quel formaggio", "l'affettato",
+        "il tonno in scatola aperto", "la ricotta", "il mascarpone", "quel würstel",
+        "il ragù di domenica scorsa", "la mozzarella nel siero", "quello yogurt greco", "il burro dimenticato fuori",
     };
 
     /// <summary>Le IA che "fanno tutto loro": brand reali. Prima di Percepito, che le cita.</summary>
@@ -63,6 +72,7 @@ public sealed class StartupGenerator : GeneratorBase
     {
         "ChatGPT", "un'IA", "l'intelligenza artificiale", "Gemini", "Copilot", "Claude",
         "Grok", "Perplexity", "DeepSeek", "Mistral", "un modello open source", "un'AI cinese",
+        "un'IA che ha visto in un reel", "Alexa", "quel robot di ChatGPT",
     };
 
     // Funzioni generiche: versioni "da bar" di app che esistono già a bizzeffe. Nessun nome di brand.
@@ -165,6 +175,14 @@ public sealed class StartupGenerator : GeneratorBase
         new($"nel dialetto di {City.Any}"),
         "ma senza pubblicità, quindi gratis per sempre",
         "con un sistema di punti che non serve a niente",
+        "con la blockchain (non sa spiegare perché)",
+        "con un avatar 3D che ti fa l'occhiolino",
+        new($"ma solo in dialetto stretto di {City.Any}"),
+        "con un abbonamento premium a 99 centesimi al mese",
+        new($"con la voce di sua {Parente.F} come assistente"),
+        "che funziona anche offline (ma serve internet)",
+        "con un badge da sbloccare tipo Duolingo",
+        "gamificata, con le monetine finte",
     };
 
     // Il twist NON è vincolato alla parentesi: spesso il titolo resta pulito, quando c'è di solito scorre
@@ -229,6 +247,7 @@ public sealed class StartupGenerator : GeneratorBase
         ("scarico un template e cambio il logo", 2),
         new($"lo genero tutto con {Ai}, gratis", 2),
         ("prendo un tema di WordPress e via", 2),
+        new($"la fa mio {Parente.Giovane.M} che ha tredici anni ma ci sa fare col computer", 2),
     };
 
     // L'idea è INUTILE / esiste già / non la chiede nessuno — come la vede l'amico che ascolta (mai
@@ -245,12 +264,18 @@ public sealed class StartupGenerator : GeneratorBase
         ("è esattamente ciò che il mondo non stava aspettando", 3),
         ("risolve un problema che, a ben vedere, ha solo lui", 3),
         ("dopo due giorni la disinstalli e non ci pensi più", 3),
+        ("fa esattamente quello che fa un foglio Excel, ma peggio", 3),
+        ("la useresti una volta, il giorno del download, e mai più", 3),
+        ("la fa già Google da dieci anni e pure meglio", 3),
+        ("è il genere di cosa che risolvi chiedendo a un amico", 3),
+        ("occupa spazio sul telefono e basta", 2),
     };
 
     internal static readonly Tag Sicumera = new("sicumera")
     {
         "la cosa più semplice del mondo", "una passeggiata", "roba da niente", "una cosa già mezzo fatta",
         "una banalità", "un gioco da ragazzi", "due righe di codice", "una sciocchezza", "roba da un pomeriggio", "una passeggiata di salute",
+        "una cosa da fare in un weekend", "praticamente già fatta", "un copia-incolla", "una cavolata", "roba da mezz'ora",
     };
 
     // L'EUFORIA da terza birra: è convintissimo di avere in mano una cosa enorme. Frasi-clausola (3ª pers.).
@@ -265,6 +290,12 @@ public sealed class StartupGenerator : GeneratorBase
         ("è persuaso di essere l'unico al mondo ad averci pensato", 3),
         ("la considera già un successo, manca solo il dettaglio di farla", 3),
         ("parla di milioni con la serenità di chi non ne ha mai visti", 3),
+        ("ha già deciso il nome della società e il colore del logo", 3),
+        ("dice che Elon Musk ha iniziato così, dal garage", 3),
+        ("ha già in mente in che quartiere comprare l'attico", 3),
+        ("sostiene che tra un anno la vendono a Google", 3),
+        ("è pronto a mollare il lavoro appena parte tutto", 3),
+        ("dice che è come Uber, ma per una cosa che non serve", 3),
     };
 
     // La reazione dell'AMICO informatico che si becca il pistolotto (verbi in 2ª persona, dopo un "e"/virgola).
@@ -278,6 +309,13 @@ public sealed class StartupGenerator : GeneratorBase
         ("ti chiedi come reggere fino alla fine del discorso", 3),
         ("ordini un'altra birra, che serve", 3),
         ("per educazione dici «bella idea» e muori un po' dentro", 3),
+        ("calcoli mentalmente quanti mesi di lavoro sta liquidando in una frase", 3),
+        ("annuisci e cambi discorso sul calcio prima che sia troppo tardi", 3),
+        ("provi a spiegargli cos'è un database e vedi lo sguardo spegnersi", 3),
+        ("gli chiedi «e chi la scrive?» e cala il silenzio", 3),
+        ("controlli l'orologio sperando sia ora di andare", 3),
+        ("gli dici che ci penserai, sapendo già che non lo farai", 3),
+        ("sorridi e pensi a quanto era meglio restare a casa stasera", 3),
     };
 
     // Il dettaglio trascurabile: a farla, ovviamente, dovrebbe pensarci qualcun altro (gratis).
@@ -287,9 +325,17 @@ public sealed class StartupGenerator : GeneratorBase
         ("manca solo un amico «che smanetta» disposto a farla per la gloria", 3),
         ("conta su di te per la parte «facile», cioè tutta", 3),
         new($"tanto la fa suo {Parente.Pari.M}, no?", 2),
-        ("il codice, dettaglio trascurabile, lo scrive qualcun altro", 3),
-        ("già ti guarda con quel «ma tu che sei del mestiere...»", 3),
+        ("il codice, quisquilia trascurabile, lo scrive qualcun altro", 3),
+        ("conta sul fatto che «tu che sei del mestiere» gliela fai gratis", 3),
         ("basta uno bravo che ci lavori gratis un paio di weekend", 3),
+        ("l'idea è sua, il lavoro (cioè tutto) è degli altri", 3),
+        ("ti offre il 5% di società in cambio di sei mesi di lavoro gratis", 3),
+        new($"tanto la scrive mio {Parente.Giovane.M}, che ha la play e quindi ci sa fare", 2),
+        ("il difficile lo fa qualcun altro, lui ci mette «la visione»", 3),
+        ("cerca solo un socio tecnico che faccia il 100% del lavoro", 3),
+        ("«tu la programmi e ci dividiamo i guadagni», che ancora non esistono", 3),
+        new($"delega la parte tecnica a suo {Parente.Giovane.M} in cambio della merenda", 2),
+        ("basta che qualcuno la scriva, poi lui «ci mette la faccia»", 3),
     };
 
     // ══ IL TIPO ══ (nell'apertura, dopo il titolo). Non un imprenditore: il tizio qualunque convinto di
@@ -306,6 +352,11 @@ public sealed class StartupGenerator : GeneratorBase
         "con lo sguardo di chi ha appena visto il futuro",
         "che non ha ancora capito perché nessuno l'ha fatta prima",
         "che una volta ha quasi finito un corso di programmazione",
+        "che ha guardato un video di Elon Musk e si è sentito imprenditore",
+        "che pronuncia «startup» con l'accento sbagliato",
+        "che ha comprato il dominio ma non sa cosa metterci",
+        "che parla di «scalabilità» senza sapere cosa significhi",
+        "con la partita IVA aperta da un mese e già in crisi",
     };
 
     // Il QUANDO/DOVE: frammenti (scorrono in "…{tratto}, {genesi}."). Il "dove" pesca il social condiviso.
@@ -323,6 +374,9 @@ public sealed class StartupGenerator : GeneratorBase
         new($"leggendo i commenti di un video su {Social.Any}"),
         "in pausa pranzo, fissando il vuoto",
         "alle tre di notte, aspettando il sonno",
+        "in bagno, col telefono in mano da mezz'ora",
+        "in tangenziale, imbottigliato nel traffico",
+        new($"al matrimonio di suo {Parente.Pari.M}, annoiato a morte", 2),
     };
 
 
@@ -374,6 +428,6 @@ public sealed class StartupGenerator : GeneratorBase
         // ── A FARLA CI PENSA UN ALTRO (gruppo "pretende_altri") ──
         new($"Il piano è semplice: {PretendeAltri}", 5),
         new($"C'è solo un dettaglio: {PretendeAltri}", 5),
-        new($"Unica cosa {PretendeAltri}", 5),
+        new($"L'unica cosa: {PretendeAltri}", 5),
     ];
 }

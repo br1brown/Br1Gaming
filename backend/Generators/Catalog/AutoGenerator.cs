@@ -65,6 +65,10 @@ public sealed class AutoGenerator : GeneratorBase
         ("obbrobrio", 2),
         ("manicomio", 2),
         ("schifo immondo", 3),
+        ("porcile", 2),
+        ("sfascio", 2),
+        ("delirio", 2),
+        ("cimitero di ferraglia", 3),
     };
 
     // Nomi volgari FEMMINILI per qualificare cose femminili ("una [espletivo-f] di pista").
@@ -81,6 +85,11 @@ public sealed class AutoGenerator : GeneratorBase
         ("tragedia", 2),
         ("vergogna", 2),
         ("barzelletta", 2),
+        ("pantomima", 2),
+        ("carnevalata", 2),
+        ("sciagura", 2),
+        ("sceneggiata napoletana", 3),
+        ("manfrina", 2),
     };
 
     // Intensificatori avverbiali ("ma dove [imprecazione] guardi", "chi [imprecazione] ti ha dato...").
@@ -97,6 +106,11 @@ public sealed class AutoGenerator : GeneratorBase
         ("porca miseria", 2),
         ("porco cane", 2),
         ("belino", 2),
+        ("madonna santa", 2),
+        ("accidenti", 2),
+        ("porca paletta", 2),
+        ("sacramento", 2),
+        ("boia deh", 3),
     };
 
     // Epiteti = vocativo del guidatore: insulto+ruolo, trovate comiche e qualche regionalismo (raro).
@@ -203,6 +217,11 @@ public sealed class AutoGenerator : GeneratorBase
         ("come si usano gli specchietti", 3),
         ("la precedenza", 2),
         ("il cervello a casa", 3),
+        ("l'esame di teoria del 1998", 4),
+        ("il manuale di guida sotto il sedile", 4),
+        ("che esiste anche la retromarcia", 3),
+        ("come si esce da una rotonda", 4),
+        ("che gli altri sulla strada esistono", 3),
     };
 
     // Etichetta unica: una sola frase sul "come guidi" per invettiva.

@@ -17,6 +17,7 @@ const GENERATOR_PAGE_TYPES: Partial<Record<string, PageType>> = {
     'locali': PageType.GeneratorLocali,
     'kebab': PageType.GeneratorKebab,
     'mbeb': PageType.GeneratorMbeb,
+    'oroscopo': PageType.GeneratorOroscopo,
 };
 
 // Quante generazioni mostrare per generatore nella panoramica prima del link "Vedi tutte".

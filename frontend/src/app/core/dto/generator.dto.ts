@@ -1,7 +1,30 @@
+/** Un'opzione di una variante (es. un segno zodiacale): solo ciò che serve a UI e API. */
+export interface GeneratorVariantOption {
+    /** Chiave passata all'API alla generazione (es. 'ariete'). */
+    key: string;
+    /** Etichetta mostrata all'utente (es. 'Ariete'). */
+    label: string;
+}
+
+/**
+ * La dimensione di scelta che alcuni generatori offrono PRIMA di generare (es. il segno per
+ * l'oroscopo). Assente per i generatori normali (un bottone e via).
+ */
+export interface GeneratorVariant {
+    /** Chiave della dimensione (es. 'segno'). */
+    key: string;
+    /** Etichetta della dimensione (es. 'Segno zodiacale'). */
+    label: string;
+    /** Le opzioni selezionabili. */
+    options: GeneratorVariantOption[];
+}
+
 export interface GeneratorInfo {
     slug: string;
     name: string;
     description: string;
+    /** Presente solo per i generatori "parametrici": la scelta da fare prima di generare. */
+    variant?: GeneratorVariant | null;
 }
 
 export interface GenerateResponse {

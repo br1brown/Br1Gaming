@@ -10,39 +10,21 @@
         </div>
     </section>
 
-    <!-- Generatori (sopra la piega: idratato subito) -->
+    <!-- Generatori (sopra la piega: idratato subito). La sezione si carica da sé l'elenco. -->
     <section class="mb-5">
-        <h2 class="h4 fw-bold mb-3">{{ 'generatori' | translate }}</h2>
-        @if (generatori().length === 0) {
-        <p class="text-secondary">Nessun generatore disponibile.</p>
-        }
-        <app-card-grid [items]="generatori()" />
-
-        <!-- Call-to-action verso i Condivisi: vivono accanto ai generatori (ne raccolgono gli output). -->
-        <div class="card border-0 bg-body-tertiary rounded-4 mt-3">
-            <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3 p-4">
-                <div>
-                    <h3 class="h5 fw-bold mb-1">{{ 'condivisi' | translate }}</h3>
-                    <p class="text-secondary mb-0">{{ 'condivisiSottotitolo' | translate }}</p>
-                </div>
-                <a class="btn btn-primary rounded-pill px-4 flex-shrink-0" [appPage]="PageType.Condivisi">
-                    {{ 'condivisiVaiAiCondivisi' | translate }}
-                </a>
-            </div>
-        </div>
+        <app-generators-section />
     </section>
 
     <!-- Storie e Giochi affiancati: metà colonne ciascuno → una riga unica da desktop, impilati su mobile.
-         Ogni colonna resta un @defer indipendente (idratazione incrementale on viewport). Le card interne
-         usano itemColClass="col-12" per impilarsi in colonna singola nella mezza larghezza. -->
+         Ogni colonna resta un @defer indipendente (idratazione incrementale on viewport). Le sezioni
+         usano itemColClass="col-12" per impilare le card in colonna singola nella mezza larghezza. -->
     <div class="row g-4">
 
         <!-- Storie -->
         <div class="col-12 col-md-6">
             @defer (hydrate on viewport) {
             <section class="mb-5 mb-md-0">
-                <h2 class="h4 fw-bold mb-3">{{ 'storie' | translate }}</h2>
-                <app-card-grid [items]="storie()" itemColClass="col-12" />
+                <app-stories-section itemColClass="col-12" />
             </section>
             } @placeholder {
             <section class="mb-5 mb-md-0" aria-hidden="true">
@@ -67,8 +49,7 @@
         <div class="col-12 col-md-6">
             @defer (hydrate on viewport) {
             <section class="mb-5 mb-md-0">
-                <h2 class="h4 fw-bold mb-3">{{ 'giochi' | translate }}</h2>
-                <app-card-grid [items]="giochi" itemColClass="col-12" />
+                <app-games-section itemColClass="col-12" />
             </section>
             } @placeholder {
             <section class="mb-5 mb-md-0" aria-hidden="true">
