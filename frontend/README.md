@@ -334,6 +334,12 @@ export const COOKIE_MAP = {
         descriptionKey: 'mioTrackerDescrizioneListaCookie', // chiave i18n per la Cookie Policy
         valueType: 'boolean',                       // opzionale: 'string' (default) | 'number' | 'boolean' | 'json'
     },
+    '_ga': {                                        // cookie di TERZA PARTE
+        category: ConsentCategory.Analytics,
+        provider: 'Google Analytics',               // terzo che lo imposta (omesso = prima parte)
+        providerUrl: 'https://policies.google.com/privacy', // → nome provider cliccabile alla sua policy
+        durationKey: 'gaDurataListaCookie',         // chiave i18n della durata (default: "1 anno")
+    },
     'mioSalvataggio': {
         category: ConsentCategory.Technical,
         storage: 'local',                           // → localStorage (omesso = cookie; 'session' = sessionStorage)
@@ -343,7 +349,7 @@ export const COOKIE_MAP = {
 } as const satisfies Readonly<Record<string, CookieConfig>>;
 ```
 
-`CookieConfig`: `category`, `descriptionKey?` (i18n per la Cookie Policy), `valueType?` (cast automatico) e `storage?` (mezzo: cookie / local / session). La descrizione è localizzata tramite `descriptionKey`.
+`CookieConfig`: `category`, `descriptionKey?` (i18n per la Cookie Policy), `valueType?` (cast automatico), `storage?` (mezzo: cookie / local / session) e — per la **dichiarazione standard** nella policy (allineata a Cookiebot/OneTrust) — `provider?` (omesso = prima parte; valorizzato = nome del terzo), `providerUrl?` (link alla policy del terzo → il nome diventa cliccabile) e `durationKey?` (chiave i18n della durata dichiarata del cookie; default "1 anno" = Max-Age di default di `set()`; per il Web Storage la durata è derivata dal mezzo). Le stringhe localizzate (`descriptionKey`, `durationKey`) vivono negli i18n.
 
 Nel componente:
 ```typescript
@@ -421,8 +427,10 @@ La pagina Cookie Policy deve elencare categorie e cookie usati dal sito (richies
 
 | Placeholder | Cosa rende |
 | :--- | :--- |
-| `{{cookieCategories}}` | Card delle categorie effettivamente presenti nel sito (Technical / Analytics / Profiling) |
-| `{{cookieList}}` | Tabella delle singole voci (cookie **e Web Storage**) con nome fisico, categoria, **mezzo** e descrizione |
+| `{{cookieList}}` | **Elenco riepilogo-first**: le voci (cookie **e** Web Storage) raggruppate per categoria in pannelli collassabili (`<details>` nativo), **chiusi di default** — così regge anche con centinaia di voci. Header del gruppo con nome, conteggio e descrizione della categoria; per ogni voce: nome fisico, mezzo, descrizione, **provider** (cliccabile se ha `providerUrl`) e **durata**. |
+| `{{cookieCategories}}` | Card delle categorie presenti (Technical / Analytics / Profiling). *Ridondante col nuovo `{{cookieList}}`, che ne fonde già le descrizioni negli header: il markdown demo non lo usa più, ma il token resta supportato per chi lo vuole.* |
+
+**Extra automatici, solo sulla Cookie Policy** (identificata per `PageType`): oltre ai placeholder, il `PolicyComponent` aggiunge da sé la riga **«Ultimo aggiornamento»** (data per pagina legale dal dizionario `legalUpdated`, `Date` hardcoded, resa con `<time>` semantico e formattata per lingua via `Intl`), la sezione **«Come controllare i cookie»** (guide dei browser localizzate per lingua) e un **pannello di gestione del consenso in pagina** (il cookie-banner in `panelMode`: stessi toggle/pulsanti, in-flusso, mostrato dopo che si è risposto).
 
 I dati provengono direttamente da `CookieConsentService`: il `PolicyComponent` legge i signal reattivi e costruisce le liste localizzate.
 
@@ -441,7 +449,7 @@ this.cookieConsent.activeEngine(); // → Record<string, CookieConfig>
 buildPhysicalCookieKey(rawKey, config);
 ```
 
-La lista finale è l'unione di `activeEngine()` (voci built-in: lingua se multilingua, Service Worker se `isWebApp`, memorie del consenso, più `consent_log` e `bearerToken` su Web Storage) e `COOKIE_MAP` (voci del progetto). Per ogni voce il `PolicyComponent` mostra anche il **mezzo** (Cookie / Archiviazione locale / di sessione). Le descrizioni usano le `descriptionKey`; le etichette di categoria e mezzo le chiavi i18n in `basic.{lang}.json`.
+La lista finale è l'unione di `activeEngine()` (voci built-in: lingua se multilingua, Service Worker se `isWebApp`, memorie del consenso, più `consent_log` e `bearerToken` su Web Storage) e `COOKIE_MAP` (voci del progetto). Per ogni voce il `PolicyComponent` mostra **mezzo** (Cookie / Archiviazione locale / di sessione), **provider** (con link se `providerUrl` è dichiarato; assente = «Prima parte») e **durata**. Le descrizioni usano le `descriptionKey`, le durate le `durationKey`; le etichette di categoria e mezzo le chiavi i18n in `basic.{lang}.json`.
 
 ---
 
@@ -825,7 +833,7 @@ Le traduzioni vivono in `src/assets/i18n/` (la copia in `public/` è output di b
 | `addon.{lang}.json` | Stringhe del **progetto** — qui vanno le chiavi personalizzate. A parità di chiave **sovrascrive** `basic` (i cataloghi sono fusi con `addon` per ultimo): per cambiare il testo di una stringa dell'Engine si ridefinisce la chiave qui, senza mai toccare `basic.*.json` |
 
 **Aggiungere una lingua:**
-1. In `global-settings.json`: `"Localization.SupportedLanguages": ["it", "en", "fr"]` (codici a 2 lettere). Il backend li arricchisce nelle culture tipizzate (BCP-47, nome nativo, giorni) e li serve via `GET /localization` — la tendina prende da lì il nome "Français", non lo scrivi tu.
+1. In `global-settings.json`: `"Localization.SupportedLanguages": ["it", "en", "fr"]` (codici a 2 lettere). Il nome nativo ("Français") lo deriva il frontend via `Intl.DisplayNames` (`LocalizationService`) — la tendina lo prende da lì, non lo scrivi tu.
 2. Creare `basic.fr.json` e `addon.fr.json` in `src/assets/i18n/`.
 3. `i18n-check.sh` in CI verifica che nessuna chiave sia mancante.
 
@@ -1871,7 +1879,7 @@ Nel template chiami `onClick()` sul bottone, leggi `displayLabel()` per il testo
 
 ## 🏗️ Script di Build: `generate-statics.ts`
 
-Lo script sincronizza i file statici e **inietta nel frontend** (via `src/environments/environment.ts`) identità ed estetica del progetto: `project.name`/`project.version`, i codici lingua (`Localization`) e la sezione `site` (descrizione, tema, smoke) da `global-settings.json`. I codici lingua qui sono il seed di build (shell, fallback `pickLocaleText`, pagina cookie); il backend li arricchisce nelle culture tipizzate servite via `GET /localization`. La **struttura e il comportamento** (pagine, menu, `shell`, `isWebApp`, `loginPage`, `legalPages`) restano in `site.ts`. **Va eseguito ogni volta che si modifica `global-settings.json` o `site.ts`** (è già nei passi `prebuild`/`prestart`; in Docker la config arriva via l'ARG `BR1_PROJECT_JSON`).
+Lo script sincronizza i file statici e **inietta nel frontend** (via `src/environments/environment.ts`) identità ed estetica del progetto: `project.name`/`project.version`, i codici lingua (`Localization`) e la sezione `site` (descrizione, tema, smoke) da `global-settings.json`. I codici lingua qui sono il seed di build (shell, fallback `pickLocaleText`, pagina cookie); la cultura runtime (nomi nativi, giorni, formattazione) la deriva il frontend via `Intl`. La **struttura e il comportamento** (pagine, menu, `shell`, `isWebApp`, `loginPage`, `legalPages`) restano in `site.ts`. **Va eseguito ogni volta che si modifica `global-settings.json` o `site.ts`** (è già nei passi `prebuild`/`prestart`; in Docker la config arriva via l'ARG `BR1_PROJECT_JSON`).
 
 ```bash
 npm run generate:statics
@@ -1904,7 +1912,7 @@ Il punto pratico: **un solo asset, `favIcon`, alimenta tutto** — favicon del s
 | :--- | :--- | :--- |
 | `FRONTEND_BASE_URL` | URL canonico del sito (es. `https://tuodominio.it`), per gli URL assoluti `og:image` | `https://example.com` con warning |
 
-Lingua di default e lingue supportate **non** sono variabili d'ambiente: lo script le ricava dalla sezione `Localization` del progetto (codici a 2 lettere). Su host/CI legge direttamente `global-settings.json`; nelle immagini Docker (dove il file non è nel build context) legge gli stessi dati da `BR1_PROJECT_JSON`, il JSON di progetto che `deploy.sh` passa come build-arg. È il seed di build; i nomi nativi e i primitivi di cultura li dà il backend via `GET /localization`.
+Lingua di default e lingue supportate **non** sono variabili d'ambiente: lo script le ricava dalla sezione `Localization` del progetto (codici a 2 lettere). Su host/CI legge direttamente `global-settings.json`; nelle immagini Docker (dove il file non è nel build context) legge gli stessi dati da `BR1_PROJECT_JSON`, il JSON di progetto che `deploy.sh` passa come build-arg. È il seed di build; i nomi nativi e i primitivi di cultura li deriva il frontend via `Intl` (`LocalizationService`).
 
 ### Esclusioni Automatiche da Sitemap e Indicizzazione
 

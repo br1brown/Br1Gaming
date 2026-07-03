@@ -117,7 +117,7 @@ const serverConfig: ApplicationConfig = {
             useFactory: (transferState: TransferState): LocaleConfig => {
                 // Codici lingua dichiarati in global-settings.json (Localization): seed sincrono per la
                 // risoluzione lingua e la decisione cookie multilingua. I nomi nativi e i primitivi di
-                // cultura (BCP-47, giorni) li dà il backend via GET /localization (culture tipizzate).
+                // cultura (BCP-47, giorni) li deriva il frontend via Intl (LocalizationService).
                 const s = getBr1Settings();
                 const loc = s['Localization'] as Record<string, unknown> | undefined;
                 const normLang = (tag: unknown): string | null => {

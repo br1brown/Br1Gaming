@@ -48,7 +48,7 @@ type ContactChannel =
 })
 export class IdentityRenderComponent {
     private readonly translate = inject(TranslateService);
-    // Primitivi di cultura (tag BCP-47 + nomi giorno) dalle culture C# via GET /localization:
+    // Primitivi di cultura (locale + nomi giorno) derivati via Intl dal LocalizationService:
     // niente mappe lingua→regione né calcolo dei nomi giorno nel componente.
     private readonly localization = inject(LocalizationService);
 
@@ -214,17 +214,11 @@ export class IdentityRenderComponent {
         // Valuta = fatto dichiarato dall'identità; il locale (lingua corrente) decide solo il formato.
         const code = (currency ?? '').trim().toUpperCase() || 'EUR';
         try {
-            return new Intl.NumberFormat(this.localeTag(), { style: 'currency', currency: code }).format(value);
+            return this.localization.formatter.currency(value, code);
         } catch {
             // Codice valuta non valido → ripiega su EUR senza rompere il render.
-            return new Intl.NumberFormat(this.localeTag(), { style: 'currency', currency: 'EUR' }).format(value);
+            return this.localization.formatter.currency(value, 'EUR');
         }
-    }
-
-    /** Tag BCP-47 della lingua corrente per le API Intl, dalle culture C# (GET /localization).
-     *  Fallback alla lingua a due lettere (Intl la accetta) finché la risorsa non è risolta. */
-    private localeTag(): string {
-        return this.localization.current() ?? this.translate.currentLang();
     }
 
     /**
@@ -303,11 +297,7 @@ export class IdentityRenderComponent {
     private countryName(code: string | null | undefined): string | null {
         const c = code?.trim();
         if (!c) return null;
-        try {
-            return new Intl.DisplayNames([this.localeTag()], { type: 'region' }).of(c) ?? c;
-        } catch {
-            return c;
-        }
+        return this.localization.formatter.regionName(c);
     }
 
     private isNonEmptyString(value: unknown): value is string {

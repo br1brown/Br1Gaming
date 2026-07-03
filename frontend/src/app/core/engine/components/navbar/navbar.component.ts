@@ -55,8 +55,8 @@ export class NavbarComponent {
     readonly showBrandIconInHeader = ContestoSito.config.showBrandIconInHeader;
     /** Mostra il campanellino delle notifiche realtime (shell.showNotifications, default false). */
     readonly showNotifications = ContestoSito.config.showNotifications;
-    // Set di lingue dalla risoluzione (coerente coi cataloghi i18n presenti → setLanguage funziona
-    // sempre); il NOME mostrato è quello nativo derivato dalle culture C# (GET /localization).
+    // Set di lingue dalla config (coerente coi cataloghi i18n presenti → setLanguage funziona
+    // sempre); il NOME mostrato è quello nativo derivato via Intl (LocalizationService).
     readonly languages = this.translate.availableLangs;
     /** True se l'area login/logout deve essere mostrata nella navbar. */
     readonly hasAuthPage = ContestoSito.config.loginPage != null && ContestoSito.config.showLoginInHeader;
@@ -127,7 +127,7 @@ export class NavbarComponent {
         return 'fa-solid fa-globe';
     }
 
-    /** Nome nativo della lingua dal codice (dalle culture C#), con fallback al codice in MAIUSCOLO. */
+    /** Nome nativo della lingua dal codice (via Intl), con fallback al codice in MAIUSCOLO. */
     langName(code: string): string {
         return this.localization.nameOf()(code);
     }

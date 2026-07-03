@@ -1,11 +1,5 @@
 # Cookie Policy
 
-Questo sito utilizza le seguenti categorie di cookie previa autorizzazione:
-
-{{cookieCategories}}
-
-Crediamo che l'utente debba avere il controllo totale sui dati salvati sul proprio dispositivo. Di seguito i cookie specifici che verranno utilizzati in caso di tuo consenso e le relative categorie di provenienza:
+Crediamo che l'utente debba avere il controllo totale sui dati salvati sul proprio dispositivo. Di seguito le categorie di cookie che questo sito può utilizzare previa autorizzazione, con i cookie specifici di ciascuna:
 
 {{cookieList}}
-
-Puoi gestire o revocare le tue preferenze in qualsiasi momento tramite il banner del sito.

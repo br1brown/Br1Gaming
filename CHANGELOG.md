@@ -4,6 +4,17 @@ Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspetta
 
 ## [Non rilasciato]
 
+### Cookie Policy: elenco a livelli, dichiarazione standard, gestione in-pagina
+
+La pagina Cookie Policy passa da un elenco piatto (una card per voce, ingestibile oltre le ~200 voci) a un **riepilogo a livelli** allineato agli standard di settore (Cookiebot/OneTrust/CookieYes).
+
+- **Elenco riepilogo-first:** le voci sono raggruppate per categoria in pannelli collassabili (`<details>` nativo, niente JS: come il banner), chiusi di default. L'header del gruppo fonde nome, conteggio e descrizione della categoria — spariscono i "quadrati" `{{cookieCategories}}` dal markdown demo (il token resta supportato). I nomi lunghi vanno a capo (`word-break`); l'elenco regge da 320px in su (stress-test su viewport/zoom/lingua).
+- **Dichiarazione standard per voce:** oltre a nome/categoria/mezzo/descrizione, ora **Provider** (omesso = prima parte; valorizzato = terzo, con `providerUrl` opzionale → nome cliccabile alla sua policy) e **Durata** (dal mezzo, o `durationKey`, o default "1 anno" = Max-Age di `set()`). Nuovi campi opzionali `provider`/`providerUrl`/`durationKey` in `CookieConfig`.
+- **Gestione consenso in pagina:** nuovo input `panelMode` sul cookie-banner → rende gli stessi controlli (toggle + accetta/rifiuta/salva) come blocco in-flusso, organico, in fondo alla Cookie Policy — per ri-gestire il consenso senza riaprire il banner. Mostrato **solo dopo** aver risposto (pre-consenso ci pensa il banner: niente due UI insieme).
+- **"Come controllare i cookie":** sezione con le guide ufficiali dei browser (Edge/Chrome/Safari/Firefox/Opera), localizzate per lingua (Apple pretende il locale pieno, gli altri no — verificato sul campo).
+- **"Ultimo aggiornamento":** data per pagina legale (dizionario per `PageType` nella PolicyComponent, hardcoded a mano), resa con `<time>` semantico e formattata per lingua via `Intl`.
+- **A11y:** verificato con pa11y (WCAG 2.1 AA) su cookie/privacy/termini, anche coi gruppi espansi: nessuna violazione.
+
 ### Identità del sito centralizzata nell'Engine
 
 L'identità del sito — dati legali/anagrafici, profili social del brand, natura dell'entità — è ora un **sottosistema dell'Engine**, sorgente unica per footer, pagine legali e SEO (JSON-LD).
@@ -26,13 +37,14 @@ L'identità del sito — dati legali/anagrafici, profili social del brand, natur
 - **Rappresentante legale tipizzato:** `rappresentanteLegale` è un campo noto di `SiteIdentity` (anche localizzato), non più pescato da `metadatiAggiuntivi` per chiave magica (un typo lo faceva sparire). `metadatiAggiuntivi` resta sul modello ma **non è più reso** dall'identità: il render mostra solo dati noti/tipizzati.
 - **Fix:** i badge booleani passano a `bg-*-subtle`/`text-*-emphasis` (WCAG-safe sul tema, risolve un contrasto 2.89:1).
 
-### Localizzazione: codici dichiarati, cultura derivata dal framework
+### Localizzazione: codici dichiarati, cultura derivata via Intl (tutto front-end)
 
-I codici lingua restano una **dichiarazione semplice** (2 lettere) in `global-settings.json` → `Localization`; il backend li **arricchisce nelle culture .NET tipizzate** e serve tutto via API — niente più mappe hardcoded nel frontend né calcolo dei giorni a mano. "Dichiari il noto — i codici — e il framework deriva il resto."
+I codici lingua sono una **dichiarazione semplice** (2 lettere) in `global-settings.json` → `Localization`: **sorgente unica**, consumata in modo indipendente dalle due parti. Il backend li arricchisce nelle culture .NET tipizzate per i **suoi** usi (`UseRequestLocalization`, messaggi d'errore localizzati); il **frontend** deriva cultura e formattazione via **`Intl`** (ECMA-402/CLDR), senza chiamare il backend.
 
-- **Nuovo endpoint `GET /localization` (`SiteLocalization`):** dai codici di `Localization.SupportedLanguages` l'Engine ricava, via `CultureInfo`, `current` (tag BCP-47 specifico, es. `it-IT`), `default`, `dayNames` (`{ Mo: "lun", … }` da `DateTimeFormat`) e `languages` (`[{ code, code3, name }]` — codici a 2/3 lettere e nome nativo da `NativeName`). `EngineCultures` è l'helper codici→cultura (con deduplica difensiva contro l'append del binder di config). Nuovo `LocalizationService` frontend (risorsa condivisa, SSR-resolved come l'identità).
-- **Frontend: via le ruote reinventate.** `app-identity-render` non mappa più `it→it-IT`/`en→en-GB` a mano né calcola i nomi giorno con un trucco su una data ancorata: legge tag BCP-47 e nomi giorno da `/localization` (orari e valuta formattati con quel locale). Il **selettore lingua** mostra i **nomi nativi** ("Italiano"/"English"), non più il codice in maiuscolo.
-- **`Localization` in `global-settings.json` resta** la sorgente dei codici (la leggono anche i consumatori sincroni a module-load: pagina cookie multilingua, fallback `pickLocaleText`, `RequestLocalization`); l'API ne è l'arricchimento tipizzato.
+- **`LocalizationService` (frontend) è interamente client, via `Intl`.** Dai codici in config (`availableLangs`) deriva: locale corrente, formattazione (`formatter`: date, numeri, valuta, `regionName`), nomi giorno abbreviati (`Intl.DateTimeFormat`) e nomi nativi delle lingue (`Intl.DisplayNames`). Niente round-trip, sempre corretto (offline incluso), disaccoppiato da come il backend gestisce la propria cultura. `EngineCultures` (backend) resta per `UseRequestLocalization`.
+- **`formatter` come facciata unica.** La formattazione culture-aware passa da `localization.formatter.*` (date/valuta/numeri/regioni): `Intl` è nascosto dietro, cambiare motore non tocca i chiamanti. `app-identity-render` non duplica più `Intl.NumberFormat`/`DisplayNames` né mappa `it→it-IT` a mano.
+- **Selettore lingua:** mostra i **nomi nativi** ("Italiano"/"English") derivati via `Intl.DisplayNames`, non il codice in maiuscolo.
+- **`Localization` in `global-settings.json` resta** la sorgente dei codici (letta anche dai consumatori sincroni a module-load: pagina cookie multilingua, fallback `pickLocaleText`, `RequestLocalization` backend).
 - **Paese come codice ISO, nome dal framework:** `sedeLegale.nazione` passa da testo libero a **codice ISO 3166-1 alpha-2** (`"IT"`). Il footer ne deriva il nome localizzato con `Intl.DisplayNames` (il gemello JS di `RegionInfo`, come `Intl.NumberFormat` per la valuta); il JSON-LD `addressCountry` usa il codice (forma preferita da schema.org/Google). Testo legacy non-codice → reso così com'è (migrazione morbida). *Migrazione figlio: `"nazione": "Italia"` → `"nazione": "IT"`.*
 
 ### Lettura di global-settings.json tipizzata
@@ -45,4 +57,4 @@ I codici lingua restano una **dichiarazione semplice** (2 lettere) in `global-se
 - **Identità validata con le primitive del framework, non con regex a mano:** gli URL social via `Uri.TryCreate` (assoluto http/https; fuori `javascript:`/relativi/garbage), le **email/PEC** via `System.Net.Mail.MailAddress`, il **telefono** (lascamente) via `PhoneAttribute` (DataAnnotations) — malformati → scartati (non resi, fuori dal JSON-LD); le voci social scartate non lasciano `null` nella risposta (compattate nello store). Gli **orari** sono tipizzati (`TimeOnly`): un orario impossibile è errore al deserialize, e il frontend ha guardie `isHm` per dati sporchi a runtime. Un `identity.json` con tipi errati fa rispondere `GET /identity` con 500 (loggato) ma il sito resta su e degrada (footer/JSON-LD si nascondono); i campi fuori schema vengono scartati. `extra` resta l'unico canale per dati off-schema.
 - **`twitter:site` da parsing `URL`, non regex:** l'handle Twitter/X per `twitter:site` si estrae con la primitiva `URL` (host esatto + handle dal path), più robusta della vecchia regex sul testo dell'URL.
 
-**Migrazione per un figlio:** rinomina `backend/data/irl.json` in `identity.json`, sposta dentro i profili social del brand (`"social": [ … ]`, lista di URL) e l'eventuale `"personal": true`; rimuovi `site.social`/`site.personal` da `global-settings.json`. La sezione `Localization` di `global-settings.json` resta (codici a 2 lettere); il backend la arricchisce nelle culture tipizzate e le serve via `GET /localization` — niente da migrare lì.
+**Migrazione per un figlio:** rinomina `backend/data/irl.json` in `identity.json`, sposta dentro i profili social del brand (`"social": [ … ]`, lista di URL) e l'eventuale `"personal": true`; rimuovi `site.social`/`site.personal` da `global-settings.json`. La sezione `Localization` di `global-settings.json` resta (codici a 2 lettere): il backend la arricchisce nelle culture tipizzate per i suoi usi, il frontend deriva la cultura via `Intl` — niente da migrare lì.

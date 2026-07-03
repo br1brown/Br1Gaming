@@ -26,6 +26,32 @@ app-cookie-banner .cookie-banner {
     z-index: var(--z-cookie-banner);
 }
 
+/* Modalità pannello: stesso shell del banner, ma in-flusso invece che fisso in overlay.
+   Riusa tutte le regole di .cookie-banner(-modern)/__shell qui sotto; sovrascrive solo il
+   posizionamento e il padding/pointer-events pensati per l'overlay. */
+app-cookie-banner .cookie-banner.cookie-banner--panel {
+    position: static;
+    z-index: auto;
+}
+
+app-cookie-banner .cookie-banner--panel.cookie-banner-modern {
+    padding: 0;
+    pointer-events: auto;
+}
+
+app-cookie-banner .cookie-banner--panel .cookie-banner__shell {
+    /* In-flusso nella pagina NON è un overlay: contenuto "organico", non una card.
+       Niente sfondo/bordo/ombra/raggio, e niente padding laterale così i controlli
+       si allineano al testo della policy. Toggle e bottoni tengono il loro stile. */
+    width: 100%;
+    padding-left: 0;
+    padding-right: 0;
+    background: transparent;
+    box-shadow: none;
+    border: none;
+    border-radius: 0;
+}
+
 app-cookie-banner .cookie-banner a {
     color: inherit !important;
     text-decoration: underline;

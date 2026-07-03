@@ -1,5 +1,29 @@
 @if (cookieConsent.isNeeded()) {
-@if (!cookieConsent.responded()) {
+@if (panelMode()) {
+    <!-- Modalità pannello: stessi controlli del banner, ma in-flusso e sempre visibili
+         (es. in fondo alla Cookie Policy). Nessun overlay, nessun gate su responded(). -->
+    <section class="cookie-banner cookie-banner-modern cookie-banner--panel"
+             [attr.aria-label]="'titoloPannelloCookie' | translate">
+        <div class="cookie-banner__shell cookie-banner__shell--detailed">
+            <div class="cookie-banner__content">
+                <h2 class="h5 fw-bold mb-1">{{ 'titoloPannelloCookie' | translate }}</h2>
+                @if (hasDetailedCategories()) {
+                    <div class="mt-2">
+                        <ng-container [ngTemplateOutlet]="categoryToggles"></ng-container>
+                    </div>
+                }
+                @if (justSaved()) {
+                    <p class="text-success small mb-0 mt-3" role="status">
+                        <i class="fa-solid fa-check me-1" aria-hidden="true"></i>{{ 'preferenzeSalvateCookie' | translate }}
+                    </p>
+                }
+            </div>
+            <div class="cookie-banner__actions d-flex flex-column-reverse flex-md-row flex-wrap gap-3 justify-content-md-end">
+                <ng-container [ngTemplateOutlet]="consentActions"></ng-container>
+            </div>
+        </div>
+    </section>
+} @else if (!cookieConsent.responded()) {
     <div class="cookie-banner cookie-banner-modern"
          role="alert"
          aria-live="polite">
@@ -8,51 +32,7 @@
                 <div class="cookie-banner__text" [innerHTML]="bannerText() | markdown"></div>
                 @if (hasDetailedCategories()) {
                     <div class="mt-3">
-                        @if (cookieConsent.isTechnicalNeeded()) {
-                            <hr class="mt-0 mb-0">
-                            <div class="d-flex align-items-center gap-3">
-                                <details class="cookie-category flex-grow-1">
-                                    <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">{{ 'tecniciCategoriaCookie' | translate }}</summary>
-                                    <p class="small opacity-75 mb-0 mt-1">{{ 'tecniciDescrizioneCategoriaCookie' | translate }}</p>
-                                </details>
-                                <div class="form-check form-switch mb-0 flex-shrink-0">
-                                    <input class="form-check-input" type="checkbox" role="switch"
-                                           [attr.aria-label]="'tecniciCategoriaCookie' | translate"
-                                           [checked]="pendingTechnical()"
-                                           (change)="pendingTechnical.set($any($event.target).checked)">
-                                </div>
-                            </div>
-                        }
-                        @if (cookieConsent.isAnalyticsNeeded()) {
-                            <hr class="mt-0 mb-0">
-                            <div class="d-flex align-items-center gap-3">
-                                <details class="cookie-category flex-grow-1">
-                                    <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">{{ 'analyticsCategoriaCookie' | translate }}</summary>
-                                    <p class="small opacity-75 mb-0 mt-1">{{ 'analyticsDescrizioneCategoriaCookie' | translate }}</p>
-                                </details>
-                                <div class="form-check form-switch mb-0 flex-shrink-0">
-                                    <input class="form-check-input" type="checkbox" role="switch"
-                                           [attr.aria-label]="'analyticsCategoriaCookie' | translate"
-                                           [checked]="pendingAnalytics()"
-                                           (change)="pendingAnalytics.set($any($event.target).checked)">
-                                </div>
-                            </div>
-                        }
-                        @if (cookieConsent.isProfilingNeeded()) {
-                            <hr class="mt-0 mb-0">
-                            <div class="d-flex align-items-center gap-3">
-                                <details class="cookie-category flex-grow-1">
-                                    <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">{{ 'profilazioneCategoriaCookie' | translate }}</summary>
-                                    <p class="small opacity-75 mb-0 mt-1">{{ 'profilazioneDescrizioneCategoriaCookie' | translate }}</p>
-                                </details>
-                                <div class="form-check form-switch mb-0 flex-shrink-0">
-                                    <input class="form-check-input" type="checkbox" role="switch"
-                                           [attr.aria-label]="'profilazioneCategoriaCookie' | translate"
-                                           [checked]="pendingProfiling()"
-                                           (change)="pendingProfiling.set($any($event.target).checked)">
-                                </div>
-                            </div>
-                        }
+                        <ng-container [ngTemplateOutlet]="categoryToggles"></ng-container>
                     </div>
                 }
             </div>
@@ -60,25 +40,7 @@
                  l'accettazione). Accetta / Salva: btn-success (verde universale,
                  segnale positivo indipendente dal colorTema del sito). -->
             <div class="cookie-banner__actions d-flex flex-column-reverse flex-md-row flex-wrap gap-3 justify-content-md-end">
-                <button class="btn btn-outline-secondary fw-semibold text-nowrap rounded-pill"
-                        [class.flex-fill]="hasMixedCategories()"
-                        type="button"
-                        (click)="reject()">
-                    {{ 'rifiutaTuttiBannerCookie' | translate }}
-                </button>
-                <button class="btn btn-success fw-semibold text-nowrap rounded-pill"
-                        [class.flex-fill]="hasMixedCategories()"
-                        type="button"
-                        (click)="accept()">
-                    {{ 'accettaTuttiBannerCookie' | translate }}
-                </button>
-                <button class="btn btn-success fw-semibold text-nowrap rounded-pill"
-                        [class.flex-fill]="hasMixedCategories()"
-                        [hidden]="!hasMixedCategories()"
-                        type="button"
-                        (click)="saveSelected()">
-                    {{ 'salvaBannerCookie' | translate }}
-                </button>
+                <ng-container [ngTemplateOutlet]="consentActions"></ng-container>
             </div>
         </div>
     </div>
@@ -90,3 +52,75 @@
     </button>
 }
 }
+
+<!-- Toggle per categoria — condivisi da banner e pannello. -->
+<ng-template #categoryToggles>
+    @if (cookieConsent.isTechnicalNeeded()) {
+        <hr class="mt-0 mb-0">
+        <div class="d-flex align-items-center gap-3">
+            <details class="cookie-category flex-grow-1">
+                <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">{{ 'tecniciCategoriaCookie' | translate }}</summary>
+                <p class="small opacity-75 mb-0 mt-1">{{ 'tecniciDescrizioneCategoriaCookie' | translate }}</p>
+            </details>
+            <div class="form-check form-switch mb-0 flex-shrink-0">
+                <input class="form-check-input" type="checkbox" role="switch"
+                       [attr.aria-label]="'tecniciCategoriaCookie' | translate"
+                       [checked]="pendingTechnical()"
+                       (change)="setPending('technical', $any($event.target).checked)">
+            </div>
+        </div>
+    }
+    @if (cookieConsent.isAnalyticsNeeded()) {
+        <hr class="mt-0 mb-0">
+        <div class="d-flex align-items-center gap-3">
+            <details class="cookie-category flex-grow-1">
+                <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">{{ 'analyticsCategoriaCookie' | translate }}</summary>
+                <p class="small opacity-75 mb-0 mt-1">{{ 'analyticsDescrizioneCategoriaCookie' | translate }}</p>
+            </details>
+            <div class="form-check form-switch mb-0 flex-shrink-0">
+                <input class="form-check-input" type="checkbox" role="switch"
+                       [attr.aria-label]="'analyticsCategoriaCookie' | translate"
+                       [checked]="pendingAnalytics()"
+                       (change)="setPending('analytics', $any($event.target).checked)">
+            </div>
+        </div>
+    }
+    @if (cookieConsent.isProfilingNeeded()) {
+        <hr class="mt-0 mb-0">
+        <div class="d-flex align-items-center gap-3">
+            <details class="cookie-category flex-grow-1">
+                <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">{{ 'profilazioneCategoriaCookie' | translate }}</summary>
+                <p class="small opacity-75 mb-0 mt-1">{{ 'profilazioneDescrizioneCategoriaCookie' | translate }}</p>
+            </details>
+            <div class="form-check form-switch mb-0 flex-shrink-0">
+                <input class="form-check-input" type="checkbox" role="switch"
+                       [attr.aria-label]="'profilazioneCategoriaCookie' | translate"
+                       [checked]="pendingProfiling()"
+                       (change)="setPending('profiling', $any($event.target).checked)">
+            </div>
+        </div>
+    }
+</ng-template>
+
+<!-- Azioni — condivise da banner e pannello. -->
+<ng-template #consentActions>
+    <button class="btn btn-outline-secondary fw-semibold text-nowrap rounded-pill"
+            [class.flex-fill]="hasMixedCategories()"
+            type="button"
+            (click)="reject()">
+        {{ 'rifiutaTuttiBannerCookie' | translate }}
+    </button>
+    <button class="btn btn-success fw-semibold text-nowrap rounded-pill"
+            [class.flex-fill]="hasMixedCategories()"
+            type="button"
+            (click)="accept()">
+        {{ 'accettaTuttiBannerCookie' | translate }}
+    </button>
+    <button class="btn btn-success fw-semibold text-nowrap rounded-pill"
+            [class.flex-fill]="hasMixedCategories()"
+            [hidden]="!hasMixedCategories()"
+            type="button"
+            (click)="saveSelected()">
+        {{ 'salvaBannerCookie' | translate }}
+    </button>
+</ng-template>

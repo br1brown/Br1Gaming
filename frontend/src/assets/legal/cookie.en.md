@@ -1,11 +1,5 @@
 # Cookie Policy
 
-This site uses the following categories of cookies subject to your authorization:
-
-{{cookieCategories}}
-
-We believe that the user should have total control over the data saved on their device. Below are the specific cookies that will be used if you give your consent, along with their respective categories:
+We believe that the user should have total control over the data saved on their device. Below are the categories of cookies this site may use subject to your authorization, together with the specific cookies of each:
 
 {{cookieList}}
-
-You can manage or revoke your preferences at any time through the site's banner.
