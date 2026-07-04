@@ -34,7 +34,7 @@
 </section>
 
 <!-- ═══════════════════════════════════════ SEZIONE: AZIONI -->
-<div class="d-flex align-items-center gap-2 mb-3 small fw-bold text-uppercase text-primary-emphasis" aria-hidden="true">
+<div class="d-flex align-items-center gap-2 mb-3 small fw-bold text-uppercase text-primary" aria-hidden="true">
     <i class="fa-solid fa-bolt-lightning"></i>
     <span>{{ 'sectionActions' | translate }}</span>
     <hr class="flex-grow-1 m-0 opacity-25">
@@ -96,7 +96,7 @@
 </section>
 
 <!-- ══════════════════════════════════ SEZIONE: GENERATORI -->
-<div class="d-flex align-items-center gap-2 mb-3 small fw-bold text-uppercase text-primary-emphasis" aria-hidden="true">
+<div class="d-flex align-items-center gap-2 mb-3 small fw-bold text-uppercase text-primary" aria-hidden="true">
     <i class="fa-solid fa-wand-magic-sparkles"></i>
     <span>{{ 'sectionGenerators' | translate }}</span>
     <hr class="flex-grow-1 m-0 opacity-25">
@@ -140,6 +140,7 @@
                             <p class="form-label mt-3 mb-1" id="markdownPreviewLabel">{{ 'markdownPreviewTitle' | translate }}</p>
                             <div class="border rounded p-3 bg-body-tertiary"
                                  style="min-height: 180px;"
+                                 role="region"
                                  aria-labelledby="markdownPreviewLabel"
                                  [innerHTML]="markdownPreview"></div>
 
@@ -238,7 +239,7 @@
      (richiede withIncrementalHydration in app.config.ts). In navigazione client,
      senza SSR, caricano `on idle` mostrando brevemente il placeholder Bootstrap. -->
 @defer (hydrate on viewport) {
-<div class="d-flex align-items-center gap-2 mb-3 small fw-bold text-uppercase text-primary-emphasis" aria-hidden="true">
+<div class="d-flex align-items-center gap-2 mb-3 small fw-bold text-uppercase text-primary" aria-hidden="true">
     <i class="fa-solid fa-qrcode"></i>
     <span>{{ 'sectionQr' | translate }}</span>
     <hr class="flex-grow-1 m-0 opacity-25">
@@ -378,7 +379,7 @@
 
 <!-- ══════════════════════════════════════ SEZIONE: NOTIFICHE -->
 @defer (hydrate on viewport) {
-<div class="d-flex align-items-center gap-2 mb-3 small fw-bold text-uppercase text-primary-emphasis" aria-hidden="true">
+<div class="d-flex align-items-center gap-2 mb-3 small fw-bold text-uppercase text-primary" aria-hidden="true">
     <i class="fa-solid fa-comment-dots"></i>
     <span>{{ 'sectionNotify' | translate }}</span>
     <hr class="flex-grow-1 m-0 opacity-25">
@@ -445,7 +446,7 @@
 
 <!-- ══════════════════════════════════════ SEZIONE: SISTEMA -->
 @defer (hydrate on viewport) {
-<div class="d-flex align-items-center gap-2 mb-3 small fw-bold text-uppercase text-primary-emphasis" aria-hidden="true">
+<div class="d-flex align-items-center gap-2 mb-3 small fw-bold text-uppercase text-primary" aria-hidden="true">
     <i class="fa-solid fa-gear"></i>
     <span>{{ 'sectionSystem' | translate }}</span>
     <hr class="flex-grow-1 m-0 opacity-25">

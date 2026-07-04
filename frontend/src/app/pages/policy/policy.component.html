@@ -20,7 +20,7 @@
                                                     @case (ConsentCategory.Profiling) { <i class="fa-solid fa-user-gear text-warning fs-4"></i> }
                                                 }
                                             </div>
-                                            <h5 class="card-title mb-0 fw-bold">{{ cat.name }}</h5>
+                                            <h2 class="card-title h5 mb-0 fw-bold">{{ cat.name }}</h2>
                                         </div>
                                         <p class="card-text text-muted small mb-0">{{ cat.description }}</p>
                                     </div>
@@ -44,7 +44,7 @@
                                         }
                                     </div>
                                     <div class="flex-grow-1 min-w-0">
-                                        <h5 class="card-title mb-0 fw-bold">{{ group.name }} <span class="fw-normal text-muted small">· {{ group.countLabel }}</span></h5>
+                                        <h2 class="card-title h5 mb-0 fw-bold">{{ group.name }} <span class="fw-normal text-muted small">· {{ group.countLabel }}</span></h2>
                                         @if (group.description) {
                                             <p class="text-muted small mb-0 mt-1">{{ group.description }}</p>
                                         }
@@ -107,7 +107,7 @@
 
                 <!-- Solo sulla Cookie Policy: guida alla gestione dei cookie dal browser dell'utente. -->
                 <section class="mt-5">
-                    <h5 class="fw-bold mb-3">{{ manageCookiesTitle() }}</h5>
+                    <h2 class="fw-bold mb-3 h5">{{ manageCookiesTitle() }}</h2>
                     <div class="text-muted" [innerHTML]="manageCookiesIntro() | markdown"></div>
                     <p class="text-muted mb-2 mt-3">{{ manageCookiesBrowsers() }}</p>
                     <ul class="list-unstyled d-flex flex-column gap-2 mb-0">

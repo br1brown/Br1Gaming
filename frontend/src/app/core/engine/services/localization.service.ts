@@ -33,13 +33,19 @@ export class LocalizationService {
 
     /** Nomi giorno abbreviati per `DayName` (Monday..Sunday) nella lingua corrente, derivati da Intl.
      *  Chiavi allineate a `DAY_ORDER` così `dayNames[giorno]` funziona nei consumer (orari footer). */
-    readonly dayNames = computed<Record<string, string>>(() => {
-        const fmt = new Intl.DateTimeFormat(this.locale(), { weekday: 'short', timeZone: 'UTC' });
-        const monday = Date.UTC(2024, 0, 1); // 1 gennaio 2024 = lunedì → base per i 7 giorni
+    readonly dayNames = computed<Record<string, string>>(() => this.weekdayNames('short'));
+
+    /** Come `dayNames` ma in forma estesa ("lunedì"/"Monday"): per liste giorno per esteso (tabella orari). */
+    readonly dayNamesLong = computed<Record<string, string>>(() => this.weekdayNames('long'));
+
+    /** Nomi giorno per `DayName` nella lingua corrente, nello stile richiesto. Base: 1 gen 2024 = lunedì. */
+    private weekdayNames(style: 'short' | 'long'): Record<string, string> {
+        const fmt = new Intl.DateTimeFormat(this.locale(), { weekday: style, timeZone: 'UTC' });
+        const monday = Date.UTC(2024, 0, 1);
         const out: Record<string, string> = {};
         DAY_ORDER.forEach((day, i) => { out[day] = fmt.format(new Date(monday + i * 86_400_000)); });
         return out;
-    });
+    }
 
     /** Lingue disponibili (codici da `availableLangs`, config) col nome nativo derivato da Intl. */
     readonly languages = computed<readonly LanguageOption[]>(() =>
