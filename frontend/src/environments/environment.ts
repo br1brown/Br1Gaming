@@ -24,7 +24,7 @@ export interface AppEnvironment {
 
 export const environment: AppEnvironment = {
     appName: "Br1Gaming",
-    version: "2.3.0",
+    version: "2.5.0",
     defaultLang: 'it',
     availableLanguages: ["it"],
     config: {

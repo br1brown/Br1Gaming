@@ -4,6 +4,7 @@ import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { APP_CUSTOM } from '../../core/engine/app-custom';
 import { ThemeService } from '../../core/engine/services/theme.service';
+import { CookieConsentService } from '../../core/engine/services/cookie-consent.service';
 import type { Map as MbMap, Marker as MbMarker } from 'mapbox-gl';
 
 const SEARCH_LIMIT = 25;
@@ -40,6 +41,9 @@ export class RadarComponent extends PageBaseComponent<void> implements OnDestroy
     readonly errorMsg = signal('');
 
     private readonly theme = inject(ThemeService);
+    /** Il radar usa Mapbox, che scrive telemetria di terza parte (`mapbox.eventData*`, categoria
+     *  Analytics) nel Web Storage: senza quel consenso non carichiamo mapbox-gl (privacy by default). */
+    private readonly consent = inject(CookieConsentService);
     /** Token Mapbox: vive in `Custom` di global-settings.local.json (gitignored), non nel
      *  codice. L'SSR lo passa al browser via TransferState (vedi APP_CUSTOM). */
     private readonly mapboxToken = (inject(APP_CUSTOM)['MapboxToken'] as string | undefined) ?? '';
@@ -67,9 +71,21 @@ export class RadarComponent extends PageBaseComponent<void> implements OnDestroy
             // ri-aggiunto quando il nuovo stile è pronto.
             m.once('style.load', () => this.addRangeCircle());
         });
+        // Se il consenso Analytics arriva mentre siamo fermi sull'errore di consenso (l'utente lo
+        // dà dal banner riaperto col CTA), il radar riparte da solo — nessun reload a mano.
+        effect(() => {
+            if (this.consent.analyticsAccepted() && this.status() === 'error' && this.errorMsg() === 'radarErrConsent') {
+                void this.start();
+            }
+        });
         // afterNextRender gira solo nel browser, mai in SSR: nessun isBrowser check.
         // L'altezza senza-scroll è gestita dal layout fitViewport (flag in site.ts + .fit-viewport).
         afterNextRender(() => void this.start());
+    }
+
+    /** Riapre il banner del consenso: il radar richiede il consenso Analytics per caricare Mapbox. */
+    enableCookies(): void {
+        this.consent.reopen();
     }
 
     /** Stile Mapbox in base al tono del tema corrente. */
@@ -84,6 +100,13 @@ export class RadarComponent extends PageBaseComponent<void> implements OnDestroy
             // Token assente (manca Custom.MapboxToken in global-settings.local.json): senza
             // questo guard si arriverebbe a un errore mappa generico, poco diagnosticabile.
             this.fail('radarErrConfig');
+            return;
+        }
+        if (!this.consent.analyticsAccepted()) {
+            // Mapbox scrive telemetria di terza parte (Analytics) nel Web Storage: senza consenso
+            // non importiamo mapbox-gl. Il template mostra un CTA che riapre il banner; al consenso
+            // l'effect qui sotto fa ripartire il radar da solo.
+            this.fail('radarErrConsent');
             return;
         }
         if (!('geolocation' in navigator)) {

@@ -24,6 +24,9 @@
                     <div class="card text-center p-4">
                         <p class="h5 fw-bold text-danger mb-2">{{ 'radarOffline' | translate }}</p>
                         <p class="mb-3">{{ errorMsg() | translate }}</p>
+                        @if (errorMsg() === 'radarErrConsent') {
+                            <button type="button" class="btn btn-primary mb-2" (click)="enableCookies()">{{ 'radarEnableCookies' | translate }}</button>
+                        }
                         <a routerLink="/" class="btn btn-outline-secondary">{{ 'radarBack' | translate }}</a>
                     </div>
                 </div>

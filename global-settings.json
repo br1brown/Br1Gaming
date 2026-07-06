@@ -3,8 +3,8 @@
   "_nota": "File di PROGETTO (committabile): identità e configurazione del sito che il progetto figlio possiede e versiona. La pubblicazione e i SEGRETI (porte, hostname, ApiKeys, SecretKey, CORS) vivono in global-settings.local.json (gitignored); gli header di sicurezza fissi in security-headers.json (del template).",
   "project": {
     "name": "Br1Gaming",
-    "version": "2.3.0",
-    "lastModified": "26/06/2026"
+    "version": "2.5.0",
+    "lastModified": "03/07/2026"
   },
   "Localization": {
     "DefaultLanguage": "it",
