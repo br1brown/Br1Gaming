@@ -52,11 +52,6 @@ export class CookieBannerComponent {
         this.cookieConsent.isAnalyticsNeeded() || this.cookieConsent.isProfilingNeeded()
     );
 
-    /** True quando sono attive 2+ categorie non tecniche: ha senso la selezione mista. */
-    readonly hasMixedCategories = computed(() =>
-        this.cookieConsent.isAnalyticsNeeded() && this.cookieConsent.isProfilingNeeded()
-    );
-
     readonly bannerText = computed(() => {
         // La pagina Cookie Policy è quella valorizzata nello slot `legalPages.cookie`
         // (site.ts), non un PageType nominato qui: l'Engine resta agnostico ai nomi.

@@ -102,23 +102,24 @@
     }
 </ng-template>
 
-<!-- Azioni — condivise da banner e pannello. -->
+<!-- Azioni — condivise da banner e pannello. Rifiuta/Accetta tutto hanno senso solo se esiste
+     almeno una categoria non tecnica su cui applicarsi in blocco; Salva scelte è sempre presente
+     (anche con la sola categoria tecnica, per confermare il toggle). -->
 <ng-template #consentActions>
-    <button class="btn btn-outline-secondary fw-semibold text-nowrap rounded-pill"
-            [class.flex-fill]="hasMixedCategories()"
-            type="button"
-            (click)="reject()">
-        {{ 'rifiutaTuttiBannerCookie' | translate }}
-    </button>
+    @if (hasDetailedCategories()) {
+        <button class="btn btn-outline-secondary fw-semibold text-nowrap rounded-pill flex-fill"
+                type="button"
+                (click)="reject()">
+            {{ 'rifiutaTuttiBannerCookie' | translate }}
+        </button>
+        <button class="btn btn-success fw-semibold text-nowrap rounded-pill flex-fill"
+                type="button"
+                (click)="accept()">
+            {{ 'accettaTuttiBannerCookie' | translate }}
+        </button>
+    }
     <button class="btn btn-success fw-semibold text-nowrap rounded-pill"
-            [class.flex-fill]="hasMixedCategories()"
-            type="button"
-            (click)="accept()">
-        {{ 'accettaTuttiBannerCookie' | translate }}
-    </button>
-    <button class="btn btn-success fw-semibold text-nowrap rounded-pill"
-            [class.flex-fill]="hasMixedCategories()"
-            [hidden]="!hasMixedCategories()"
+            [class.flex-fill]="hasDetailedCategories()"
             type="button"
             (click)="saveSelected()">
         {{ 'salvaBannerCookie' | translate }}
