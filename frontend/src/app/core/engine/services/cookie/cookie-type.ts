@@ -26,6 +26,13 @@ export interface CookieConfig {
     valueType?: CookieValueType;
     /** Mezzo di archiviazione. Omesso = `'cookie'`. */
     storage?: StorageMedium;
+    /** Strategia di match della chiave per la pulizia sul Web Storage. Omesso/`'exact'` = chiave
+     *  esatta. `'prefix'` = la voce rappresenta una FAMIGLIA di chiavi che condividono questo
+     *  prefisso (tipico della telemetria di terza parte con suffisso dinamico, es. un token): alla
+     *  revoca vengono rimosse TUTTE le chiavi che iniziano per la chiave della voce. Ha senso solo
+     *  con `storage:'local'|'session'`. Su una voce `prefix` la scrittura via `set` è un no-op
+     *  (le chiavi reali le crea il provider, non noi): esiste per la policy + la pulizia. */
+    match?: 'exact' | 'prefix';
     /** Provider della voce, per la Cookie Policy. Omesso = prima parte (questo sito); valorizzato =
      *  nome del terzo che la imposta (es. `'Google Analytics'`). Il Web Storage è sempre prima parte. */
     provider?: string;
