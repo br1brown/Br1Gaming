@@ -220,11 +220,13 @@ export class IdentityRenderComponent {
     private formatCurrency(value: number | null | undefined, currency: string | null | undefined): string | null {
         if (typeof value !== 'number' || !Number.isFinite(value)) return null;
         // Valuta = fatto dichiarato dall'identità; il locale (lingua corrente) decide solo il formato.
+        // Il codice è già validato ISO 4217 dal backend (presente-ma-invalido → 500 al read), quindi qui
+        // si formatta fidandosi; assente → EUR (default dichiarato). Il catch resta solo come difesa
+        // (come regionName), non più per assorbire un codice sbagliato in silenzio.
         const code = (currency ?? '').trim().toUpperCase() || 'EUR';
         try {
             return this.localization.formatter.currency(value, code);
         } catch {
-            // Codice valuta non valido → ripiega su EUR senza rompere il render.
             return this.localization.formatter.currency(value, 'EUR');
         }
     }
@@ -252,7 +254,8 @@ export class IdentityRenderComponent {
     /**
      * Nome del paese localizzato dal codice ISO 3166-1 alpha-2 (es. "IT" → "Italia"), via
      * `Intl.DisplayNames` — il gemello JS di `RegionInfo`, come `Intl.NumberFormat` per la valuta.
-     * Codice non valido o testo libero legacy → reso così com'è (migrazione morbida).
+     * Il backend garantisce il codice ISO (presente-ma-non-valido → 500 alla lettura del file): qui si
+     * formatta e basta.
      */
     private countryName(code: string | null | undefined): string | null {
         const c = code?.trim();

@@ -1,7 +1,7 @@
 import { Component, Signal, computed, input } from '@angular/core';
 import { BaseLinkComponent } from '../../base/base-link.component';
 import { LinkBadgeComponent } from '../../link-badge/link-badge.component';
-import { ContactUrl } from '../../utils/contact-url.util';
+import { ContactUrl } from '../../utils/contact-url';
 
 @Component({
     selector: 'app-social-link',

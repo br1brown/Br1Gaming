@@ -96,6 +96,22 @@ jobs:
         working-directory: frontend
         run: npm run generate:icons
 
+      - name: Genera tipi da global-settings.schema.json
+        working-directory: frontend
+        run: npm run generate:types
+
+      - name: Verifica tipi allineati a global-settings.schema.json
+        # global-settings.types.ts è generato da json2ts a partire dallo schema MA versionato: è
+        # funzione pura di global-settings.schema.json. Se dopo la rigenerazione differisce dal
+        # committato, qualcuno ha toccato lo schema senza rigenerare i tipi (o li ha editati a mano).
+        # Stesso gate del seed environment.ts, applicato all'altro file generato-e-versionato.
+        run: |
+          if ! git diff --quiet -- frontend/src/app/core/engine/global-settings.types.ts; then
+            echo "::error file=frontend/src/app/core/engine/global-settings.types.ts::Tipi non allineati allo schema: cambia global-settings.schema.json, poi 'npm run generate:types' (cartella frontend) e committa il risultato."
+            git --no-pager diff -- frontend/src/app/core/engine/global-settings.types.ts
+            exit 1
+          fi
+
       - name: Compila frontend
         working-directory: frontend
         run: npx ng build --configuration production

@@ -107,7 +107,9 @@ public class SiteIdentity
     /// Valuta dei valori monetari dell'organizzazione (es. capitale sociale), in codice ISO 4217
     /// (es. <c>EUR</c>, <c>USD</c>, <c>CHF</c>). È un **fatto** dichiarato, non dedotto dal locale
     /// del visitatore: il frontend formatta gli importi con questa valuta nella lingua corrente.
-    /// Omessa ⇒ il frontend ripiega su <c>EUR</c>.
+    /// Validata dallo store con <see cref="System.Globalization.RegionInfo"/> (ISO 4217, gemello della
+    /// <c>nazione</c>): assente ⇒ il frontend usa <c>EUR</c> (default dichiarato); presente ma non un
+    /// codice valido ⇒ **errore** (niente più degrado silenzioso a EUR di un <c>"Euro"</c>/<c>"XYZ"</c>).
     /// </summary>
     public string? Currency { get; set; }
 
@@ -173,7 +175,10 @@ public class Address
 
     /// <summary>
     /// Paese come codice ISO 3166-1 alpha-2 (es. <c>IT</c>, <c>AE</c>). Il frontend ne deriva il nome
-    /// localizzato (<c>Intl.DisplayNames</c>); il JSON-LD <c>addressCountry</c> usa il codice.
+    /// localizzato (<c>Intl.DisplayNames</c>); il JSON-LD <c>addressCountry</c> usa il codice. Validato
+    /// dallo store con <see cref="System.Globalization.RegionInfo"/> (primitiva del framework): assente ⇒
+    /// omesso, presente ma non un codice ISO valido ⇒ **errore** (niente tolleranza sul testo libero:
+    /// <c>"Italia"</c> non è un codice, va scritto <c>"IT"</c>).
     /// </summary>
     public string? Nazione { get; set; }
 }
@@ -184,14 +189,19 @@ public class Address
 public class ContactInfo
 {
     /// <summary>
-    /// Numero di telefono principale. Validato (lascamente) con <see cref="System.ComponentModel.DataAnnotations.PhoneAttribute"/>,
-    /// primitiva del framework: garbage evidente scartato. La normalizzazione E.164 servirebbe una libreria terza, fuori scope.
+    /// Numero di telefono principale. Deve essere **un solo numero**: nel footer diventa un link
+    /// <c>tel:</c> cliccabile (non può puntare a due numeri) e un testo visibile. Ammessi **solo** cifre e
+    /// separatori visivi (spazi, <c>+ / - . ( )</c>) — niente lettere/testo/markup; ridotto alle sole cifre
+    /// + <c>+</c> dev'essere un unico numero E.164-plausibile. **Spazi, <c>/</c>, trattini e parentesi in un
+    /// numero solo sono ammessi** (es. <c>06/1234567</c>, <c>+39 06 1234 567</c>); due numeri, un secondo
+    /// <c>+</c> o caratteri estranei ⇒ errore. Assente ⇒ omesso.
     /// </summary>
     public string? Telefono { get; set; }
 
     /// <summary>
     /// Indirizzo email ordinario. Validato con <see cref="System.Net.Mail.MailAddress"/> (primitiva del
-    /// framework): se malformato viene scartato (non reso, fuori dal ContactPoint JSON-LD).
+    /// framework): assente ⇒ omesso, presente ma malformato ⇒ **errore** (<c>GET /identity</c> 500, non
+    /// uno scarto silenzioso).
     /// </summary>
     public string? Email { get; set; }
 
@@ -267,21 +277,30 @@ public class SocialLink
 /// Legge un <see cref="SocialLink"/> da una stringa nuda (<c>"https://…"</c> ⇒ solo URL) o da un
 /// oggetto <c>{ url, name }</c>; in uscita emette sempre l'oggetto (con <c>name</c> solo se
 /// valorizzato), così il frontend vede una forma uniforme. **Valida l'URL** (assoluto http/https via
-/// <see cref="Uri"/>): una voce con URL mancante o non valido viene scartata. La risoluzione i18n di
-/// <c>name</c> avviene a monte (<c>LocalizedJsonDeserializer</c>): qui <c>name</c> è già una stringa.
+/// <see cref="Uri"/>): una voce presente ma con URL mancante o non valido **lancia**
+/// (<see cref="JsonException"/>) — <c>identity.json</c> è config committata, un URL sbagliato è un
+/// errore da correggere (fail-fast), non da scartare in silenzio. L'eccezione risale a
+/// <c>GET /identity</c> (500 loggato) e il sito resta su, con footer/JSON-LD che si nascondono da sé.
+/// La risoluzione i18n di <c>name</c> avviene a monte (<c>LocalizedJsonDeserializer</c>): qui
+/// <c>name</c> è già una stringa.
 /// </summary>
 public sealed class SocialLinkJsonConverter : JsonConverter<SocialLink>
 {
+    /// <summary>
+    /// Forza <see cref="JsonConverter{T}.Read"/> a ricevere anche i token <c>null</c>. Di default
+    /// System.Text.Json li gestisce da sé (elemento <c>null</c>) senza chiamare il converter, così un
+    /// <c>null</c> nell'array <c>social</c> scivolerebbe dentro in silenzio; intercettandolo finisce nel
+    /// ramo <c>default</c> e **lancia** — una voce social nulla è un dato malformato, coerente col fail-fast.
+    /// </summary>
+    public override bool HandleNull => true;
+
     /// <inheritdoc />
-    public override SocialLink? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override SocialLink Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         switch (reader.TokenType)
         {
-            case JsonTokenType.Null:
-                return null;
             case JsonTokenType.String:
-                var single = ValidSocialUrl(reader.GetString());
-                return single is null ? null : new SocialLink { Url = single };
+                return new SocialLink { Url = RequireSocialUrl(reader.GetString()) };
             case JsonTokenType.StartObject:
                 string? url = null, name = null;
                 while (reader.Read() && reader.TokenType != JsonTokenType.EndObject)
@@ -293,30 +312,30 @@ public sealed class SocialLinkJsonConverter : JsonConverter<SocialLink>
                     else if (string.Equals(prop, "name", StringComparison.OrdinalIgnoreCase)) name = reader.GetString();
                     else reader.Skip();
                 }
-                var validUrl = ValidSocialUrl(url);
-                return validUrl is null
-                    ? null
-                    : new SocialLink { Url = validUrl, Name = string.IsNullOrWhiteSpace(name) ? null : name };
+                return new SocialLink { Url = RequireSocialUrl(url), Name = string.IsNullOrWhiteSpace(name) ? null : name };
             default:
-                reader.Skip();
-                return null;
+                // null, numero, array…: una voce 'social' non è né stringa né oggetto ⇒ dato malformato.
+                throw new JsonException(
+                    $"identity.json: voce 'social' non valida (atteso un URL come stringa o un oggetto {{ url, name }}, trovato {reader.TokenType}).");
         }
     }
 
     /// <summary>
-    /// Restituisce l'URL (trimmato) se è un **assoluto http/https valido**, altrimenti <c>null</c>
-    /// (la voce social viene scartata). Validazione con la primitiva del framework
+    /// Restituisce l'URL (trimmato) se è un **assoluto http/https valido**, altrimenti **lancia**
+    /// <see cref="JsonException"/> (la voce social è presente ma sbagliata: fail-fast, non scarto
+    /// silenzioso). Validazione con la primitiva del framework
     /// (<see cref="Uri.TryCreate(string, UriKind, out Uri)"/>), non con una regex a mano: copre
     /// schema, host e forma senza falsi positivi, e tiene fuori `javascript:`/`file:`/relativi.
     /// </summary>
-    private static string? ValidSocialUrl(string? raw)
+    private static string RequireSocialUrl(string? raw)
     {
         var s = raw?.Trim();
-        if (string.IsNullOrEmpty(s)) return null;
-        return Uri.TryCreate(s, UriKind.Absolute, out var uri)
-            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
-            ? s
-            : null;
+        if (string.IsNullOrEmpty(s))
+            throw new JsonException("identity.json: voce 'social' con URL mancante.");
+        if (!(Uri.TryCreate(s, UriKind.Absolute, out var uri)
+              && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)))
+            throw new JsonException($"identity.json: URL social non valido (atteso http/https assoluto): '{s}'.");
+        return s;
     }
 
     /// <inheritdoc />

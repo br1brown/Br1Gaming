@@ -28,7 +28,8 @@ export class LocaleFormatter {
     }
 
     /** Nome di regione/paese dal codice ISO 3166-1 alpha-2 (es. 'IT' → "Italia" / "Italy").
-     *  Codice non valido / testo libero → reso com'è. */
+     *  Per l'identità il codice è già validato a monte (backend); il fallback "reso com'è" resta solo
+     *  come difesa generica del formatter per input non risolvibili da Intl. */
     regionName(code: string): string {
         try {
             return new Intl.DisplayNames([this.localeOf()], { type: 'region' }).of(code) ?? code;

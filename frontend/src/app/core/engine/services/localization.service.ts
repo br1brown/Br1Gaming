@@ -40,7 +40,14 @@ export class LocalizationService {
 
     /** Nomi giorno per `DayName` nella lingua corrente, nello stile richiesto. Base: 1 gen 2024 = lunedì. */
     private weekdayNames(style: 'short' | 'long'): Record<string, string> {
-        const fmt = new Intl.DateTimeFormat(this.locale(), { weekday: style, timeZone: 'UTC' });
+        let fmt: Intl.DateTimeFormat;
+        try {
+            fmt = new Intl.DateTimeFormat(this.locale(), { weekday: style, timeZone: 'UTC' });
+        } catch {
+            // Locale di config malformato → ripiega sul default runtime senza rompere il render dei
+            // nomi giorno del footer (stessa difesa di `nativeName`/`regionName`).
+            fmt = new Intl.DateTimeFormat(undefined, { weekday: style, timeZone: 'UTC' });
+        }
         const monday = Date.UTC(2024, 0, 1);
         const out: Record<string, string> = {};
         DAY_ORDER.forEach((day, i) => { out[day] = fmt.format(new Date(monday + i * 86_400_000)); });

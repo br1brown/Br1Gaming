@@ -3,6 +3,7 @@ import { Injectable, PLATFORM_ID, inject } from '@angular/core';
 import * as QRCode from 'qrcode';
 import { ThemeService } from './theme.service';
 import { TranslateService } from './translate.service';
+import { Validation } from './validation';
 
 /**
  * Configurazioni supportate per la generazione del QR Code.
@@ -67,19 +68,16 @@ export class QrCodeService {
     }
 
     // ─── VALIDATORI ───────────────────────────────────────────────────────
-
-    private readonly validators = {
-        phone: (p: string) => /^\+?[1-9]\d{1,14}$/.test(p),
-        email: (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e),
-        iban: (i: string) => /^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(i.replace(/\s/g, '')),
-    };
+    // Regole nel modulo condiviso `Validation` (stesso posto per QR, link contatto e contratto
+    // backend dell'identità). Il telefono WhatsApp richiede E.164 internazionale (`wa.me`): controllo
+    // più severo di quello "numero singolo" usato altrove.
 
     // ─── BUILDER PAYLOAD ──────────────────────────────────────────────────
     // Genera le stringhe nel formato standard per essere interpretate dalle fotocamere.
 
     private readonly builders = {
         whatsapp: (p: string, t = '') =>
-            `https://wa.me/${p.replace(/\+/g, '')}?text=${encodeURIComponent(t)}`,
+            `https://wa.me/${Validation.phone.toDial(p).replace(/\+/g, '')}?text=${encodeURIComponent(t)}`,
         email: (to: string, s = '', b = '') =>
             `mailto:${to}?subject=${encodeURIComponent(s)}&body=${encodeURIComponent(b)}`,
         wifi: (ssid: string, pwd = '', enc = 'WPA') =>
@@ -125,17 +123,17 @@ export class QrCodeService {
     private buildPayload(config: QrConfig): string | QrResponse {
         switch (config.type) {
             case 'whatsapp':
-                return this.validators.phone(config.phone)
+                return Validation.phone.isE164(config.phone)
                     ? this.builders.whatsapp(config.phone, config.text)
                     : this.err(QrError.INVALID_INPUT);
             case 'email':
-                return this.validators.email(config.to)
+                return Validation.email(config.to)
                     ? this.builders.email(config.to, config.subject, config.body)
                     : this.err(QrError.INVALID_INPUT);
             case 'wifi':
                 return this.builders.wifi(config.ssid, config.password, config.encryption);
             case 'sepa':
-                return this.validators.iban(config.iban)
+                return Validation.iban(config.iban)
                     ? this.builders.sepa(config.iban, config.name, config.amount, config.remittance)
                     : this.err(QrError.INVALID_INPUT);
             case 'text':
