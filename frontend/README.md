@@ -346,10 +346,18 @@ export const COOKIE_MAP = {
         valueType: 'json',
         descriptionKey: 'mioSalvataggioDescrizioneListaCookie',
     },
+    'sdkTerzaParte.telemetria': {                   // FAMIGLIA di chiavi Web Storage con suffisso dinamico
+        category: ConsentCategory.Analytics,        //   (tipico di SDK di terza parte: es. `…:<hash-del-token>`)
+        storage: 'local',
+        match: 'prefix',                            // → una sola voce censisce/pulisce TUTTE le chiavi che iniziano così
+        provider: 'Fornitore SDK',
+        providerUrl: 'https://esempio.tld/privacy',
+        descriptionKey: 'sdkTelemetriaDescrizioneListaCookie',
+    },
 } as const satisfies Readonly<Record<string, CookieConfig>>;
 ```
 
-`CookieConfig`: `category`, `descriptionKey?` (i18n per la Cookie Policy), `valueType?` (cast automatico), `storage?` (mezzo: cookie / local / session) e — per la **dichiarazione standard** nella policy (allineata a Cookiebot/OneTrust) — `provider?` (omesso = prima parte; valorizzato = nome del terzo), `providerUrl?` (link alla policy del terzo → il nome diventa cliccabile) e `durationKey?` (chiave i18n della durata dichiarata del cookie; default "1 anno" = Max-Age di default di `set()`; per il Web Storage la durata è derivata dal mezzo). Le stringhe localizzate (`descriptionKey`, `durationKey`) vivono negli i18n.
+`CookieConfig`: `category`, `descriptionKey?` (i18n per la Cookie Policy), `valueType?` (cast automatico), `storage?` (mezzo: cookie / local / session), `match?` (strategia di match della chiave sul Web Storage: omesso/`'exact'` = chiave singola; `'prefix'` = famiglia di chiavi — vedi sotto) e — per la **dichiarazione standard** nella policy (allineata a Cookiebot/OneTrust) — `provider?` (omesso = prima parte; valorizzato = nome del terzo), `providerUrl?` (link alla policy del terzo → il nome diventa cliccabile) e `durationKey?` (chiave i18n della durata dichiarata del cookie; default "1 anno" = Max-Age di default di `set()`; per il Web Storage la durata è derivata dal mezzo). Le stringhe localizzate (`descriptionKey`, `durationKey`) vivono negli i18n.
 
 Nel componente:
 ```typescript
@@ -358,6 +366,10 @@ this.consent.set('mioSalvataggio', { livello: 3 }); // → localStorage, seriali
 ```
 
 La voce è scritta solo se la categoria è accettata. Per i **cookie** il nome fisico è prefissato con la categoria (`{category}_{rawKey}`, es. `analytics_mioTracker`, via `buildPhysicalCookieKey()`); per il **Web Storage** la chiave è raw (`mioSalvataggio`).
+
+**Censire una famiglia di chiavi (`match: 'prefix'`).** Alcuni SDK di terza parte scrivono nel Web Storage **più chiavi con un suffisso dinamico** — tipicamente derivato dal token o da un identificativo di sessione (es. `sdkTerzaParte.telemetria:<hash>`, `sdkTerzaParte.telemetria.uuid:<hash>`). Non potendo censirle una a una (il suffisso non è noto a priori), una **singola** voce con `match: 'prefix'` le rappresenta tutte: la chiave della voce diventa un **prefisso**, e alla revoca del consenso vengono rimosse **tutte** le chiavi dello Storage che iniziano così. La voce compare in policy come una riga normale (nome = il prefisso). Attenzione: una voce `prefix` è **solo lettura dal lato consenso** — `set()` su di essa è un **no-op** (le chiavi reali le crea l'SDK, non tu); esiste per **elencarle in policy** e **pulirle alla revoca**. Vale solo per il Web Storage (`storage: 'local' | 'session'`). Il consenso a monte lo gestisci tu: carica l'SDK di terza parte **solo** dopo che la sua categoria è accettata (`consent.analyticsAccepted()` ecc.), così senza consenso quelle chiavi non vengono nemmeno scritte (Privacy by Default).
+
+> **Chiavi essenziali protette.** La pulizia per prefisso **non tocca mai** le chiavi essenziali del motore (`consent_log`, `bearerToken`): sono la prova del consenso e la sessione, il progetto non le conosce e un prefisso troppo largo (es. `consent`) le prenderebbe in pieno — l'Engine le salta sempre. **Caveat sul tuo lato:** il prefisso è "cieco", cattura *qualunque* chiave che inizi così — comprese **altre tue voci esatte** che gli finiscono sotto (es. prefisso `dati` + voce `dati.salvati`). Scegli un prefisso abbastanza specifico da non collidere con le tue altre chiavi.
 
 ### Stato del Consenso e Azioni (reattivo)
 

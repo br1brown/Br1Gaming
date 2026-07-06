@@ -23,6 +23,13 @@ La pagina Cookie Policy passa da un elenco piatto (una card per voce, ingestibil
 - **"Ultimo aggiornamento":** data per pagina legale (dizionario per `PageType` nella PolicyComponent, hardcoded a mano), resa con `<time>` semantico e formattata per lingua via `Intl`.
 - **A11y:** verificato con pa11y (WCAG 2.1 AA) su cookie/privacy/termini, anche coi gruppi espansi: nessuna violazione.
 
+### Consenso: censire una famiglia di chiavi Web Storage (`match: 'prefix'`)
+
+- **Nuovo campo `match` in `CookieConfig`** (`'exact'` default | `'prefix'`): una **singola** voce del `COOKIE_MAP` può rappresentare un'intera **famiglia di chiavi** che condividono un prefisso. Serve per gli SDK di terza parte che scrivono più chiavi con **suffisso dinamico** (tipicamente derivato dal token/sessione, es. `sdk.telemetria:<hash>`, `sdk.telemetria.uuid:<hash>`) e che non si possono censire una a una.
+- **Pulizia per prefisso alla revoca:** con `match: 'prefix'` la voce, quando la sua categoria è rifiutata, rimuove **tutte** le chiavi dello Storage che iniziano per la chiave della voce (prima si poteva togliere solo la chiave esatta, che con suffisso dinamico non matchava mai). Vale solo per il Web Storage (`storage: 'local' | 'session'`). Le **chiavi essenziali del motore** (`consent_log`, `bearerToken`) sono sempre saltate dalla scansione — un prefisso troppo largo non può cancellare la prova del consenso o la sessione.
+- **Voce di sola-dichiarazione:** su una voce `prefix`, `set()` è un **no-op** (le chiavi reali le scrive l'SDK, non l'app): esiste per **elencare** la famiglia in policy e **pulirla** alla revoca. Il gating a monte resta a carico del progetto (caricare l'SDK solo dopo il consenso della sua categoria).
+- **Generico, non legato a un fornitore:** l'Engine non conosce lo specifico SDK; il prefisso, il provider e la categoria li dichiara il figlio nel proprio `COOKIE_MAP`.
+
 ### Identità del sito centralizzata nell'Engine
 
 L'identità del sito — dati legali/anagrafici, profili social del brand, natura dell'entità — è ora un **sottosistema dell'Engine**, sorgente unica per footer, pagine legali e SEO (JSON-LD).

@@ -341,6 +341,10 @@ export class CookieConsentService {
         const config = this._cm[rawKey];
         if (!config || !this.isBrowser) return;
 
+        // Voce a prefisso: rappresenta una famiglia di chiavi create dal provider (non da noi) →
+        // la scrittura via API non ha una chiave singola su cui operare. È solo policy + pulizia.
+        if (config.match === 'prefix') return;
+
         // I memo del consenso bypassano il gate, altrimenti non potremmo salvare uno "0" su rifiuto.
         const isConsentMemo = (Object.values(CONSENT_KEYS) as string[]).includes(rawKey);
         if (!this.isCategoryAccepted(config.category) && !isConsentMemo) return;
@@ -448,7 +452,7 @@ export class CookieConsentService {
             const fullKey = config ? buildPhysicalCookieKey(key, config) ?? (key as string) : (key as string);
             this.document.cookie = `${fullKey}=; Max-Age=0${this.cookieSecurityAttributes()}`;
         } else {
-            this.removeWebStorage(key as string, medium);
+            this.removeWebStorage(key as string, medium, config?.match);
         }
     }
 
@@ -551,12 +555,27 @@ export class CookieConsentService {
     }
 
     /** Rimuove una voce dal Web Storage (browser-only, best-effort). Il nome è la chiave raw,
-     *  non prefissata come i cookie. */
-    private removeWebStorage(rawKey: string, medium: StorageMedium): void {
+     *  non prefissata come i cookie. Con `match:'prefix'` rimuove l'intera famiglia di chiavi che
+     *  iniziano per `rawKey` (telemetria di terza parte con suffisso dinamico), altrimenti la
+     *  singola chiave esatta. */
+    private removeWebStorage(rawKey: string, medium: StorageMedium, match: 'exact' | 'prefix' = 'exact'): void {
         if (!this.isBrowser) return;
         try {
-            if (medium === 'session') sessionStorage.removeItem(rawKey);
-            else localStorage.removeItem(rawKey);
+            const store = medium === 'session' ? sessionStorage : localStorage;
+            if (match === 'prefix') {
+                // Snapshot delle chiavi: removeItem muta l'indice dello Storage durante il ciclo.
+                // Le chiavi ESSENZIALI del motore (consent_log, bearerToken) sono saltate SEMPRE: un
+                // prefisso del progetto non può conoscerle né distinguerle, ma cancellarle vuol dire
+                // perdere la prova del consenso o la sessione. Sono protette a monte in
+                // clearRevokedCookies per le loro voci; qui va difeso anche il match collaterale.
+                for (const k of Object.keys(store)) {
+                    if (k.startsWith(rawKey) && !(ESSENTIAL_ENGINE_STORAGE_KEYS as readonly string[]).includes(k)) {
+                        store.removeItem(k);
+                    }
+                }
+            } else {
+                store.removeItem(rawKey);
+            }
         } catch { }
     }
 }
