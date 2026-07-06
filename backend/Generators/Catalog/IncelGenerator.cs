@@ -124,7 +124,7 @@ public sealed class IncelGenerator : GeneratorBase
     public override GeneratorInfo Info { get; } = new() { Order = 1, Name = "Generatore Incel", Description = "Genera il tuo incel di fiducia" };
 
     /// <inheritdoc />
-    public override GenerationSettings? PhraseSettings { get; } = new() { MinPhrases = 3, MaxPhrases = 5, MinScore = 36, Separators = [". ", "; ", ".\n"] };
+    public override GenerationSettings? PhraseSettings { get; } = new() { MinPhrases = 3, MaxPhrases = 4, MinScore = 36, Separators = [". ", "; ", ".\n"] };
 
     /// <inheritdoc />
     public override Frase? Apertura => new($"## {Nome.M},\n");
@@ -418,7 +418,6 @@ public sealed class IncelGenerator : GeneratorBase
         new($"nonostante i suoi {Eta.Giovane} anni è ancora {DifettiSociali}", 3),
         new($"nonostante i suoi {Eta.Giovane} anni, è sempre {DifettiSociali} e la sua frase distintiva è _‘{FrasiTipiche}’_ (ultimamente ha il coraggio di dirlo persino quando si parla di {Hating})", 10),
         new($"odia {Hating} oltre che se stesso", 3),
-        new($"odia oltre ogni limite {Hating}", 3),
         new($"odia tutto ciò che riguarda {Hating} e lo dice sommessamente su {Social.Any} ({CommentiSprezzantiGenerici})", 10),
         new($"sempre e comunque {DifettiSociali}", 2),
         new($"si autodefinisce un _‘{Percezione}’_ su {Social.Any} ({CommentiSprezzantiGenerici})", 9),
@@ -438,12 +437,11 @@ public sealed class IncelGenerator : GeneratorBase
         new($"{Eta.Minorenne}enne che si definisce un _‘{Percezione} che ha capito come gira il mondo: {FrasiTipiche}’_", 6),
         new($"su {Social.Any} ha la bio _‘{Percezione} - {FrasiTipiche}’_ te lo ricordi perché è {DifettiSociali}", 6),
         new($"{Eta.Giovane}enne che su {Social.Any} si lamenta con argomenti riassumibili in una frase: _‘{FrasiTipiche}’_", 6),
-        new($"{Eta.Giovane}enne con una tendenza a essere {Vibes}", 3),
         new($"è contro: {Hating}, {Hating}, {Hating}, {Hating}, {Hating} e sorpresa sorpresa... {Hating}!", 4),
         new($"{Vibes} di {Eta.Giovane} anni che ama dire _‘{FrasiTipiche}’_ su {Social.Any}", 6),
         new($"si vanta del pene sopra i {6..12} cm ({CommentiSprezzantiPene})", 25),
         new($"ha fondato il fanclub _‘A Morte {HatingConcetti}’_ (che attualmente conta l'incredibile cifra di {4..25} membri)", 9),
-        new($"ha uno strano feticcio per i piedi (che si aggrava quando pensa alla {Donne}), forse dovuto al suo essere {Vibes}", 8),
+        new($"ha uno strano feticcio per i piedi (che gli si aggrava quando pensa alla {Donne}), e sarà perché in fondo è {Vibes}", 8),
         new($"misura i polsi ogni mattina per controllare di non aver perso circonferenza ossea (ed è terrorizzato che {OggettiStatus} preso a {City.Any} sembri troppo grande)", 25),
         new($"ha calcolato l'angolo perfetto della sua mandibola usando un goniometro comprato dai cinesi e lo paragona a quello dei modelli su {Social.Any}", 35),
         new($"conserva una cartella criptata {Dispositivo} con le foto delle mani di altri uomini per fare confronti ossessivi", 35),

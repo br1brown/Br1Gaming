@@ -317,6 +317,10 @@ public sealed class StartupGenerator : GeneratorBase
         ("controlli l'orologio sperando sia ora di andare", 3),
         ("gli dici che ci penserai, sapendo già che non lo farai", 3),
         ("sorridi e pensi a quanto era meglio restare a casa stasera", 3),
+        // Accattivanti: sotto l'ironia, l'affetto vero per il sognatore innocuo.
+        ("in fondo gli vuoi bene, anche se stavolta la spara davvero grossa", 3),
+        ("per un secondo, contro ogni logica, speri quasi che ce la faccia", 3),
+        ("gli offri tu la prossima birra, che almeno quella se la merita", 3),
     };
 
     // Il dettaglio trascurabile: a farla, ovviamente, dovrebbe pensarci qualcun altro (gratis).
@@ -380,6 +384,8 @@ public sealed class StartupGenerator : GeneratorBase
         new($"al matrimonio di suo {Parente.Pari.M}, annoiato a morte", 2),
     };
 
+    internal static readonly Etichetta LblDettaglio = new("dettagli");
+
 
     /// <inheritdoc />
     public override string Slug => "startup";
@@ -393,6 +399,9 @@ public sealed class StartupGenerator : GeneratorBase
 
     /// <summary>Apertura = l'IDEA (titolo) + IL TIPO che l'ha avuta. Poi il Core fa la DESCRIZIONE.</summary>
     public override Frase? Apertura => new($"## {Piattaforma} per {Funzione}{Dettaglio}\n\n_L'ha avuta {Nome.M}, {Professioni.M} {Tratto}, {Genesi}._\n\n");
+
+    public override List<Etichetta>? UniqueLabels { get; } = [LblDettaglio];
+
 
     /// <inheritdoc />
     // Un gruppo LOCALE multi-tag per "sottovaluta" (lavoro-reale ≡ sicumera: stesso tema); gli altri
@@ -416,7 +425,7 @@ public sealed class StartupGenerator : GeneratorBase
         new($"La parte difficile — {LavoroReale} — per lui non esiste: _‘{Percepito}’_", 5),
         new($"Gli fai notare cosa ci vorrebbe davvero — {LavoroReale} — e lui, serissimo: _‘{Percepito}’_", 5),
         new($"Per lui tirarla su è {Sicumera}: _‘{Percepito}’_", 4),
-        new($"Ne parla come se fosse {Sicumera}, ignaro che servirebbe {LavoroReale}", 4),
+        new($"Ne parla come se fosse {Sicumera}, manco sapesse che ci vorrebbe {LavoroReale}", 4),
         // ── INUTILE: esiste già / non serve a nessuno (gruppo "inutilita") ──
         new($"Il dettaglio è che {Inutilita}", 5),
         new($"Quello che non gli dici è che {Inutilita}", 4),
