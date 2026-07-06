@@ -58,7 +58,7 @@ export interface GlobalSettings {
     publicPort?: number | null;
   };
   /**
-   * Lingue del sito come codici a due lettere: dichiarazione semplice letta a build/module-load (pagina cookie multilingua, fallback di pickLocaleText, RequestLocalization). Il backend le arricchisce nelle culture .NET tipizzate (BCP-47, nomi nativi, nomi giorno) e le serve via GET /localization.
+   * Lingue del sito come codici a due lettere: SORGENTE UNICA, consumata in modo indipendente da entrambe le parti — il backend le arricchisce nelle culture .NET tipizzate (RequestLocalization, messaggi d'errore localizzati), il frontend deriva cultura e formattazione (BCP-47, nomi nativi, giorni) via Intl. Lette anche a build/module-load (pagina cookie multilingua, fallback di pickLocaleText).
    */
   Localization?: {
     /**

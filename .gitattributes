@@ -1,6 +1,12 @@
-# Gli script bash devono avere LF obbligatorio.
-# Su Windows Git potrebbe salvare CRLF, che rompe lo shebang nei container Linux.
-*.sh text eol=lf
+# Tutti i file testuali: LF nel repo E nel working tree, su ogni OS. Rende git
+# coerente con .editorconfig (end_of_line = lf) invece di lasciar decidere alla
+# config locale di ognuno. Elimina i diff spuri di fine-riga (es. un generatore
+# che scrive LF su un checkout Windows a CRLF) e protegge lo shebang degli .sh
+# nei container Linux.
+* text=auto eol=lf
+
+# Eccezione: la solution di Visual Studio segue la convenzione Windows (CRLF).
+*.sln text eol=crlf
 
 # File interamente del figlio: il merge dal template non li tocca mai.
 # Il figlio li riscrive da zero ad ogni progetto.

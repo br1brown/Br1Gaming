@@ -51,12 +51,14 @@ getArticolo(id: string): Promise<Articolo> {
 export const COOKIE_MAP = {
   'mioSalvataggio': { category: ConsentCategory.Technical, storage: 'local', valueType: 'json',
                       descriptionKey: 'mioSalvataggioDescrizioneListaCookie' },
+  '_ga': { category: ConsentCategory.Analytics, provider: 'Google Analytics',      // terza parte, opzionali:
+           providerUrl: 'https://policies.google.com/privacy', durationKey: 'gaDurataListaCookie' }, // link + durata
 } as const satisfies Readonly<Record<string, CookieConfig>>;
 // nel componente/service — instrada sul mezzo, tipizzato su valueType
 this.consent.set('mioSalvataggio', { x: 1 });   // gated dal consenso; in SSR è no-op (Web Storage browser-only)
 const v = this.consent.get('mioSalvataggio');    // → tipo da valueType | null
 ```
-Registrare la voce basta per: toggle nel banner, riga in policy (col mezzo), pulizia alla revoca. **MAI `localStorage`/`sessionStorage` diretti** (lo vieta una regola ESLint, eccetto il `CookieConsentService` e `TokenService`): tutto passa dal gate, l'inventario in policy resta completo. `setCookie/getCookie/removeCookie` sono alias deprecati di `set/get/remove`.
+Registrare la voce basta per: toggle nel banner, riga in policy (con mezzo, provider e durata), pulizia alla revoca. Campi opzionali per la dichiarazione standard nella policy: `provider` (omesso = prima parte), `providerUrl` (link cliccabile alla policy del terzo), `durationKey` (durata i18n; default "1 anno"). **MAI `localStorage`/`sessionStorage` diretti** (lo vieta una regola ESLint, eccetto il `CookieConsentService` e `TokenService`): tutto passa dal gate, l'inventario in policy resta completo. `setCookie/getCookie/removeCookie` sono alias deprecati di `set/get/remove`.
 
 **Leggere `global-settings.json` tipizzato** — il tipo `GlobalSettings` è **generato dallo schema** (sorgente unica), non scritto a mano. Dopo aver toccato `global-settings.schema.json`, rigeneralo; un typo di chiave diventa errore a `tsc`.
 ```bash

@@ -710,7 +710,7 @@ Il `RequestCultureProviders` è impostato con solo `AcceptLanguageHeaderRequestC
 
 #### Riferimento `LocalizationOptions` (`global-settings.json` → `Localization.*`)
 
-Le lingue sono **codici a due lettere** dichiarati in `global-settings.json` → `Localization` (dichiarazione semplice, letta anche dai consumatori sincroni a module-load del frontend). Il backend li **arricchisce** nelle `CultureInfo` tipizzate via `EngineCultures` (`Engine/Localization/EngineCultures.cs`), che alimenta `UseRequestLocalization` e l'endpoint `GET /localization`. Aggiungere una lingua = aggiungere il codice qui (più i cataloghi i18n e i file legali del frontend).
+Le lingue sono **codici a due lettere** dichiarati in `global-settings.json` → `Localization` (dichiarazione semplice, letta anche dai consumatori sincroni a module-load del frontend). Il backend li **arricchisce** nelle `CultureInfo` tipizzate via `EngineCultures` (`Engine/Localization/EngineCultures.cs`), che alimenta `UseRequestLocalization`. Aggiungere una lingua = aggiungere il codice qui (più i cataloghi i18n e i file legali del frontend).
 
 | Chiave | Tipo | Default | Comportamento |
 | :--- | :--- | :--- | :--- |
@@ -719,9 +719,12 @@ Le lingue sono **codici a due lettere** dichiarati in `global-settings.json` →
 
 > `LocalizationOptions.SupportedLanguages` ha default **vuoto** di proposito: il binder di config .NET *appende* l'array bound al default della proprietà, quindi un default non vuoto si sommerebbe ai codici di `global-settings.json` (`["it","en"]` default + `["it","en"]` config ⇒ 4 voci duplicate). Con default vuoto il config sostituisce pulito.
 
-#### L'endpoint `GET /localization` (`EngineLocalizationController`, `SiteLocalization`)
+#### Backend e frontend: stessa fonte, culture indipendenti
 
-Dai codici dichiarati l'Engine **deriva** i primitivi di localizzazione tramite le culture (`EngineCultures` + `CultureInfo.CurrentCulture`), così il frontend non rimappa lingue→regione né calcola i nomi giorno a mano: `current` (tag BCP-47 specifico, es. `it-IT`), `default`, `dayNames` (`{ "Mo": "lun", … }` da `DateTimeFormat`) e `languages` (`[{ code, code3, name }]` — codici a 2/3 lettere e nome nativo da `NativeName`). `current`/`dayNames` seguono l'`Accept-Language` della richiesta; il footer ne deriva orari/valuta, la tendina i nomi delle lingue.
+Le lingue sono dichiarate **una volta** in `Localization.SupportedLanguages`; backend e frontend ne derivano la cultura **in modo indipendente**, senza un endpoint condiviso a fare da ponte:
+
+- **Backend** — dai codici, via `EngineCultures`/`CultureInfo`, per i propri usi: `UseRequestLocalization` (la cultura della richiesta da `Accept-Language`) e i **messaggi d'errore/validazione localizzati** (`.resx`).
+- **Frontend** — deriva tutto da `Intl` (ECMA-402/CLDR): locale, formattazione (date/valuta/numeri), nomi giorno e nomi nativi delle lingue. Autonomo (nessuna chiamata al backend, corretto anche offline) e disaccoppiato da come il backend gestisce la propria cultura.
 
 ### Sezione `Custom` (Configurazione Libera)
 

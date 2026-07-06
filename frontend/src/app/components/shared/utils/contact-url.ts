@@ -1,15 +1,18 @@
+import { Validation } from '../../../core/engine/services/validation';
+
 /**
  * CONTACT URL BUILDERS
  *
  * Funzioni pure che costruiscono gli URL dei canali di contatto/navigazione.
  * Rispecchiano i formati standard usati anche da `QrCodeService.builders`
  * (vedi core/engine/services/qr-code.service.ts), così l'app produce lo stesso
- * link sia nel QR sia nei bottoni di contatto.
+ * link sia nel QR sia nei bottoni di contatto. La normalizzazione del numero passa
+ * dal modulo di validazione condiviso (`Validation.phone`), stessa regola del backend.
  */
 
-/** Tiene solo cifre (rimuove spazi, trattini, parentesi e il + iniziale). */
+/** Tiene solo cifre (per `wa.me`, che vuole prefisso+numero senza `+` né separatori). */
 function digitsOnly(phone: string): string {
-    return phone.replace(/[^\d]/g, '');
+    return Validation.phone.toDial(phone).replace(/\+/g, '');
 }
 
 export const ContactUrl = {
@@ -22,8 +25,8 @@ export const ContactUrl = {
         return `mailto:${to.trim()}${query ? '?' + query : ''}`;
     },
 
-    /** tel: mantenendo l'eventuale prefisso internazionale. */
-    phone: (number: string): string => `tel:${number.replace(/[^\d+]/g, '')}`,
+    /** tel: nella forma dialabile condivisa (cifre + eventuale `+`), separatori rimossi. */
+    phone: (number: string): string => `tel:${Validation.phone.toDial(number)}`,
 
     /** https://wa.me/<cifre> con testo precompilato opzionale. */
     whatsapp: (phone: string, text = ''): string =>

@@ -1,7 +1,7 @@
 import { Component, Signal, computed, input } from '@angular/core';
 import { BaseContactComponent } from '../base-contact.component';
 import { LinkBadgeComponent } from '../../link-badge/link-badge.component';
-import { ContactUrl } from '../../utils/contact-url.util';
+import { ContactUrl } from '../../utils/contact-url';
 
 @Component({
     selector: 'app-telegram-contact',

@@ -142,8 +142,11 @@ for path in "${PATHS[@]}"; do
         --quiet \
         "$URL" 2>/dev/null || lh_exit=$?
 
+    # Fail-CLOSED: se Lighthouse non ha prodotto un report, NON abbiamo misurato → è un fallimento,
+    # non un warn. Un budget "verde" senza misura è falsa sicurezza.
     if [[ $lh_exit -ne 0 && ! -f "$REPORT" ]]; then
-        warn "Lighthouse non ha completato correttamente (exit ${lh_exit}) — ${path}"
+        fail "Lighthouse non ha completato (exit ${lh_exit}) — ${path}: NON misurato, tratto come fallimento"
+        FAILURES=$((FAILURES + 1))
         rm -f "$REPORT"
         echo
         continue
@@ -176,7 +179,9 @@ process.exit(failures > 0 ? 1 : 0);
     rm -f "$REPORT"
 
     if [[ $page_exit -eq 2 ]]; then
-        warn "Server non raggiungibile — Lighthouse saltato per ${path}"
+        # runtimeError (server irraggiungibile / pagina in errore): NON misurato → fallimento.
+        fail "Server non raggiungibile / pagina in errore — ${path}: NON misurato, tratto come fallimento"
+        FAILURES=$((FAILURES + 1))
     elif [[ $page_exit -gt 0 ]]; then
         fail "Budget Lighthouse fallito — ${path}"
         FAILURES=$((FAILURES + 1))
@@ -188,7 +193,7 @@ process.exit(failures > 0 ? 1 : 0);
 done
 
 if [[ $FAILURES -gt 0 ]]; then
-    fail "${FAILURES} pagina/e sotto il budget Lighthouse"
+    fail "${FAILURES} pagina/e sotto il budget Lighthouse o non misurate"
     exit 1
 fi
 

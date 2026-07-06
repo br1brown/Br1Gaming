@@ -13,15 +13,16 @@
                                     <span class="badge rounded-pill border bg-body-secondary text-body font-monospace fw-normal">{{ item.value }}</span>
                                 }
                                 @case ('bool') {
-                                    <!-- Coppie Bootstrap 5.3 subtle/emphasis: WCAG-safe e tone-adaptive (data-bs-theme),
-                                         a differenza di text-bg-* che col tema brand non garantisce 4.5:1 sul testo. -->
-                                    <span class="badge rounded-pill border"
-                                          [class.bg-success-subtle]="item.tone === 'success'" [class.text-success-emphasis]="item.tone === 'success'"
-                                          [class.bg-secondary-subtle]="item.tone === 'secondary'" [class.text-secondary-emphasis]="item.tone === 'secondary'"
-                                          [class.bg-warning-subtle]="item.tone === 'warning'" [class.text-warning-emphasis]="item.tone === 'warning'"
-                                          [class.bg-danger-subtle]="item.tone === 'danger'" [class.text-danger-emphasis]="item.tone === 'danger'"
-                                          [class.bg-info-subtle]="item.tone === 'info'" [class.text-info-emphasis]="item.tone === 'info'"
-                                          [class.bg-primary-subtle]="item.tone === 'primary'" [class.text-primary-emphasis]="item.tone === 'primary'">{{ item.value }}</span>
+                                    <!-- Badge "surface" (bg-body): garantisce contrasto rispetto al footer scuro (Non-text Contrast).
+                                         Uso text-*-emphasis invece di text-* standard perché Bootstrap calcola
+                                         le varianti emphasis apposta per garantire 4.5:1 (WCAG AA) su sfondi body/subtle. -->
+                                    <span class="badge rounded-pill border bg-body"
+                                          [class.border-success]="item.tone === 'success'" [class.text-success-emphasis]="item.tone === 'success'"
+                                          [class.border-secondary]="item.tone === 'secondary'" [class.text-body-emphasis]="item.tone === 'secondary'"
+                                          [class.border-warning]="item.tone === 'warning'" [class.text-warning-emphasis]="item.tone === 'warning'"
+                                          [class.border-danger]="item.tone === 'danger'" [class.text-danger-emphasis]="item.tone === 'danger'"
+                                          [class.border-info]="item.tone === 'info'" [class.text-info-emphasis]="item.tone === 'info'"
+                                          [class.border-primary]="item.tone === 'primary'" [class.text-primary-emphasis]="item.tone === 'primary'">{{ item.value }}</span>
                                 }
                                 @default { <strong>{{ item.value }}</strong> }
                             }
@@ -44,6 +45,12 @@
                             </li>
                         }
                     </ul>
+                }
+
+                @if (showOpeningHours()) {
+                    <div class="my-1 mb-2">
+                        <app-opening-hours [hours]="identity()?.openingHours" [label]="'orariContattoAzienda' | translate" [accordion]="hoursAccordion()" />
+                    </div>
                 }
 
                 @if (contacts().length > 0) {

@@ -98,8 +98,8 @@ const _normLang = (tag: unknown): string | null => {
 
 // Lingue di build dai codici dichiarati in global-settings.json (Localization): le leggono i
 // consumatori sincroni a module-load (pagina cookie multilingua, fallback di pickLocaleText, shell
-// statica). Il backend arricchisce gli stessi codici nelle culture tipizzate, servite via
-// GET /localization (BCP-47, nomi nativi, giorni) — l'SSR riscrive comunque lang/meta per richiesta.
+// statica). Gli stessi codici alimentano la cultura runtime derivata via Intl (LocalizationService);
+// l'SSR riscrive comunque lang/meta per richiesta.
 const _defaultRaw   = _fileLoc.DefaultLanguage;
 const _supportedRaw = _fileLoc.SupportedLanguages;
 
@@ -274,8 +274,8 @@ function updateIndexHtml(): void {
 
     // Genera il file TS con identità, lingue e config di sito per il frontend (invece di esporre
     // JSON nel meta tag). Sorgente: global-settings.json (project / Localization / site). Le lingue
-    // qui sono il seed di build (shell, fallback pickLocaleText, pagina cookie); il backend le
-    // arricchisce nelle culture tipizzate servite via GET /localization.
+    // qui sono il seed di build (shell, fallback pickLocaleText, pagina cookie); la cultura runtime
+    // (nomi nativi, giorni, formati) la deriva il frontend via Intl.
     const generatedTsPath = join(ROOT, 'src', 'environments', 'environment.ts');
     const generatedTsContent = `// FILE GENERATO AUTOMATICAMENTE DA scripts/generate-statics.ts
 // Non modificare manualmente. Sorgente di verità: global-settings.json (sezioni project / Localization / site)

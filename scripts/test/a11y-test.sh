@@ -142,10 +142,13 @@ for path in "${PATHS[@]}"; do
         "$URL" || pa11y_exit=$?
 
     # pa11y exit codes: 0 = nessun problema, 2 = violazioni trovate, altri = errore
+    # Fail-CLOSED: un errore dello strumento (Chrome assente, pagina 404, crash) significa "NON
+    # misurato" → conta come fallimento, non come warn. Un gate che diventa verde quando non ha
+    # misurato nulla è peggio di nessun gate: darebbe falsa sicurezza.
     case $pa11y_exit in
         0) ok "Nessuna violazione WCAG 2.1 AA — ${path}" ;;
         2) fail "Violazioni WCAG 2.1 AA — ${path}"; FAILURES=$((FAILURES + 1)) ;;
-        *) warn "pa11y non ha completato correttamente (exit ${pa11y_exit}) — ${path}" ;;
+        *) fail "pa11y non ha completato (exit ${pa11y_exit}) — ${path}: NON misurato, tratto come fallimento"; FAILURES=$((FAILURES + 1)) ;;
     esac
 
     echo
@@ -153,7 +156,7 @@ done
 
 # ─── exit finale ─────────────────────────────────────────────────────────────
 if [[ $FAILURES -gt 0 ]]; then
-    fail "${FAILURES} pagina/e con violazioni WCAG 2.1 AA"
+    fail "${FAILURES} pagina/e con violazioni WCAG 2.1 AA o non misurate"
     exit 1
 fi
 

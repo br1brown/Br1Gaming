@@ -26,6 +26,16 @@ export interface CookieConfig {
     valueType?: CookieValueType;
     /** Mezzo di archiviazione. Omesso = `'cookie'`. */
     storage?: StorageMedium;
+    /** Provider della voce, per la Cookie Policy. Omesso = prima parte (questo sito); valorizzato =
+     *  nome del terzo che la imposta (es. `'Google Analytics'`). Il Web Storage è sempre prima parte. */
+    provider?: string;
+    /** URL alla privacy/cookie policy del provider terzo (opzionale). Se presente, nella policy il
+     *  nome del provider diventa un link. Ha senso solo insieme a `provider`. */
+    providerUrl?: string;
+    /** Chiave i18n della durata dichiarata (solo cookie), per la Cookie Policy. Omessa → default
+     *  "1 anno" (il Max-Age predefinito di `set()`). Per il Web Storage la durata è derivata dal
+     *  mezzo (sessione / persistente) e questo campo è ignorato. */
+    durationKey?: string;
 }
 
 export const CONSENT_KEYS = {

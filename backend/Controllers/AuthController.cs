@@ -6,6 +6,7 @@ using Backend.Services;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Hosting;
 
 namespace Backend.Controllers;
 
@@ -16,14 +17,17 @@ namespace Backend.Controllers;
 public class AuthController : EngineAuthController
 {
     private readonly IValidator<LoginRequest> _validator;
+    private readonly IHostEnvironment _env;
 
     /// <summary>
-    /// Inizializza il controller con il servizio JWT, il logger e il validator FluentValidation.
+    /// Inizializza il controller con il servizio JWT, il logger, il validator FluentValidation e
+    /// l'ambiente di hosting (per il fail-closed sulle credenziali demo in Production).
     /// </summary>
-    public AuthController(AuthService auth, ILogger<AuthController> logger, IValidator<LoginRequest> validator)
+    public AuthController(AuthService auth, ILogger<AuthController> logger, IValidator<LoginRequest> validator, IHostEnvironment env)
         : base(auth, logger)
     {
         _validator = validator;
+        _env = env;
     }
 
     /// <summary>
@@ -45,6 +49,16 @@ public class AuthController : EngineAuthController
         // progetto ha la propria sorgente di identità (IdP, DB...) con cui sostituire questa verifica.
         const string validUsername = "admin";
         const string validPassword = "Password1!";
+
+        // Fail-closed: in Production le credenziali demo del template non devono MAI autenticare.
+        // Se un progetto accende il login (valorizzando SecretKey) ma dimentica di sostituire questa
+        // verifica, la porta resta chiusa invece di aprirsi con una password pubblica nel repo. Quando
+        // il figlio cambia le costanti qui sopra, la condizione si spegne da sé (sono compile-time).
+        if (_env.IsProduction() && validUsername == "admin" && validPassword == "Password1!")
+        {
+            Logger.LogError("Login demo del template ancora attivo in Production: credenziali non sostituite in AuthController. Login rifiutato (fail-closed).");
+            throw new UnauthorizedException();
+        }
 
         // Username case-insensitive, password esatta: entrambi confrontati in tempo costante,
         // come le API key (un confronto ordinario uscirebbe al primo carattere divergente).

@@ -1,0 +1,67 @@
+@if (open()) {
+    @if (accordion()) {
+        <!-- Footer: accordion su <details> nativo (niente JS Bootstrap), chiuso di default, header con
+             stato Aperto/Chiuso di oggi + chevron che ruota su [open]; il corpo mostra la settimana. -->
+        <details class="opening-hours border rounded overflow-hidden">
+            <summary class="d-flex align-items-center gap-2 px-3 py-2 fw-semibold">
+                <i class="fa-solid fa-calendar-days opacity-75" aria-hidden="true"></i>
+                @if (label()) { <span>{{ label() }}</span> }
+                <span class="ms-auto d-flex align-items-center gap-2 fw-normal">
+                    @if (todayRow(); as t) {
+                        <!-- Stato del GIORNO (non "aperto adesso": l'ora reale dipenderebbe dal fuso del
+                             visitatore, insensata da confrontare). "Oggi aperto/chiuso"; le fasce nel corpo. -->
+                        <span class="text-nowrap">
+                            @if (t.ranges.length) {
+                                <i class="fa-solid fa-door-open me-1 opacity-75" aria-hidden="true"></i>{{ 'oggiApertoOrariAzienda' | translate }}
+                            } @else {
+                                <i class="fa-solid fa-door-closed me-1 opacity-75" aria-hidden="true"></i>{{ 'oggiChiusoOrariAzienda' | translate }}
+                            }
+                        </span>
+                    }
+                    <i class="oh-caret fa-solid fa-chevron-down opacity-75" aria-hidden="true"></i>
+                </span>
+            </summary>
+            <div class="px-3 pb-2 pt-1 border-top">
+                <ng-container [ngTemplateOutlet]="week" />
+            </div>
+        </details>
+    } @else {
+        <!-- Pagine legali: tabella settimanale piena, sempre visibile. -->
+        @if (label()) {
+            <div class="mb-2 fw-semibold">
+                <i class="fa-solid fa-calendar-days me-2 opacity-75" aria-hidden="true"></i>{{ label() }}
+            </div>
+        }
+        <ng-container [ngTemplateOutlet]="week" />
+    }
+}
+
+<!-- Tabella settimanale (una sola definizione, riusata da entrambe le forme). Tabella bare + sfondo
+     trasparente: nel footer .theme-bg un .table di BS dipingerebbe un rettangolo chiaro sul navy.
+     A11y: giorno = <th scope="row">; icone decorative (aria-hidden); "oggi" = aria-current + grassetto
+     + icona diversa (non solo colore, che sul footer navy sparirebbe). -->
+<ng-template #week>
+    <table class="mb-0" [attr.aria-label]="label() || null">
+        <tbody>
+            @for (row of rows(); track row.day) {
+                <tr [class.fw-bold]="row.isToday" [attr.aria-current]="row.isToday ? 'date' : null">
+                    <th scope="row" class="pe-4 py-1 align-top text-nowrap">
+                        @if (row.isToday) {
+                            <i class="fa-solid fa-calendar-check me-2" aria-hidden="true"></i>
+                        } @else {
+                            <i class="fa-solid fa-calendar-day me-2 opacity-75" aria-hidden="true"></i>
+                        }
+                        {{ row.name }}
+                    </th>
+                    <td class="py-1">
+                        @if (row.ranges.length) {
+                            <i class="fa-solid fa-clock me-2 opacity-75" aria-hidden="true"></i>@for (r of row.ranges; track r) {<span class="text-nowrap">{{ r }}</span>@if (!$last) {, }}
+                        } @else {
+                            <i class="fa-solid fa-door-closed me-2 opacity-75" aria-hidden="true"></i>{{ 'chiusoOrariAzienda' | translate }}
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</ng-template>

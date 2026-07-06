@@ -4,6 +4,8 @@
             @for (seg of segments(); track $index) {
                 @if (seg.type === 'markdown') {
                     <div [innerHTML]="seg.content | markdown"></div>
+                } @else if (seg.type === 'updateDate') {
+                    <p class="fst-italic text-muted mb-4">{{ seg.label }}: <time [attr.datetime]="seg.iso">{{ seg.formatted }}</time></p>
                 } @else if (seg.type === 'categories') {
                     <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 my-3">
                         @for (cat of cookieCategories(); track cat.key) {
@@ -18,7 +20,7 @@
                                                     @case (ConsentCategory.Profiling) { <i class="fa-solid fa-user-gear text-warning fs-4"></i> }
                                                 }
                                             </div>
-                                            <h5 class="card-title mb-0 fw-bold">{{ cat.name }}</h5>
+                                            <h2 class="card-title h5 mb-0 fw-bold">{{ cat.name }}</h2>
                                         </div>
                                         <p class="card-text text-muted small mb-0">{{ cat.description }}</p>
                                     </div>
@@ -27,43 +29,63 @@
                         }
                     </div>
                 } @else if (seg.type === 'cookieList') {
-                    <div class="list-group my-4 shadow-sm border-light">
-                        @for (cookie of cookieList(); track cookie.name) {
-                            <div class="list-group-item bg-white p-4">
-                                <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
-                                    <div class="d-flex align-items-center gap-2 flex-wrap">
-                                        <code>{{ cookie.name }}</code>
-                                        @switch (cookie.category) {
-                                            @case (ConsentCategory.Technical) {
-                                                <span class="badge px-3 py-1 rounded-pill text-uppercase bg-success-subtle text-success-emphasis" style="letter-spacing: 0.5px; font-size: 0.75rem;">
-                                                    {{ cookie.categoryName }}
-                                                </span>
-                                            }
-                                            @case (ConsentCategory.Analytics) {
-                                                <span class="badge px-3 py-1 rounded-pill text-uppercase bg-info-subtle text-info-emphasis" style="letter-spacing: 0.5px; font-size: 0.75rem;">
-                                                    {{ cookie.categoryName }}
-                                                </span>
-                                            }
-                                            @case (ConsentCategory.Profiling) {
-                                                <span class="badge px-3 py-1 rounded-pill text-uppercase bg-warning-subtle text-warning-emphasis" style="letter-spacing: 0.5px; font-size: 0.75rem;">
-                                                    {{ cookie.categoryName }}
-                                                </span>
-                                            }
+                    <!-- Riepilogo-first: un pannello collassabile per categoria (chiuso di default),
+                         così l'elenco resta leggibile anche con centinaia di voci. Le voci restano
+                         nel DOM (trasparenza/SEO), solo nascoste visivamente finché non si espande. -->
+                    <div class="d-flex flex-column gap-3 my-4">
+                        @for (group of cookieGroups(); track group.category) {
+                            <details class="cookie-group card shadow-sm border-light overflow-hidden">
+                                <summary class="card-body d-flex align-items-center gap-3 p-4 user-select-none">
+                                    <div class="bg-light rounded p-3 d-flex align-items-center justify-content-center flex-shrink-0">
+                                        @switch (group.category) {
+                                            @case (ConsentCategory.Technical) { <i class="fa-solid fa-shield-halved text-success fs-5"></i> }
+                                            @case (ConsentCategory.Analytics) { <i class="fa-solid fa-chart-line text-info fs-5"></i> }
+                                            @case (ConsentCategory.Profiling) { <i class="fa-solid fa-user-gear text-warning fs-5"></i> }
                                         }
-                                        <span class="badge px-3 py-1 rounded-pill text-uppercase bg-secondary-subtle text-secondary-emphasis" style="letter-spacing: 0.5px; font-size: 0.75rem;">
-                                            @switch (cookie.medium) {
-                                                @case ('local') { <i class="fa-solid fa-database me-1" aria-hidden="true"></i> }
-                                                @case ('session') { <i class="fa-solid fa-hourglass-half me-1" aria-hidden="true"></i> }
-                                                @default { <i class="fa-solid fa-cookie-bite me-1" aria-hidden="true"></i> }
-                                            }
-                                            {{ cookie.mediumLabel }}
-                                        </span>
                                     </div>
+                                    <div class="flex-grow-1 min-w-0">
+                                        <h2 class="card-title h5 mb-0 fw-bold">{{ group.name }} <span class="fw-normal text-muted small">· {{ group.countLabel }}</span></h2>
+                                        @if (group.description) {
+                                            <p class="text-muted small mb-0 mt-1">{{ group.description }}</p>
+                                        }
+                                    </div>
+                                    <span class="cookie-group__hint text-muted small d-none d-sm-inline text-nowrap">{{ showListLabel() }}</span>
+                                    <i class="cookie-group__caret fa-solid fa-chevron-down text-muted flex-shrink-0" aria-hidden="true"></i>
+                                </summary>
+                                <div class="list-group list-group-flush border-top">
+                                    @for (cookie of group.cookies; track cookie.name) {
+                                        <div class="list-group-item bg-white px-4 py-3">
+                                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                                <code>{{ cookie.name }}</code>
+                                                <span class="badge px-3 py-1 rounded-pill text-uppercase bg-secondary-subtle text-secondary-emphasis" style="letter-spacing: 0.5px; font-size: 0.75rem;">
+                                                    @switch (cookie.medium) {
+                                                        @case ('local') { <i class="fa-solid fa-database me-1" aria-hidden="true"></i> }
+                                                        @case ('session') { <i class="fa-solid fa-hourglass-half me-1" aria-hidden="true"></i> }
+                                                        @default { <i class="fa-solid fa-cookie-bite me-1" aria-hidden="true"></i> }
+                                                    }
+                                                    {{ cookie.mediumLabel }}
+                                                </span>
+                                            </div>
+                                            @if (cookie.description) {
+                                                <p class="text-secondary small mb-0 mt-2 lh-base">{{ cookie.description }}</p>
+                                            }
+                                            <div class="d-flex flex-wrap gap-3 mt-2 text-muted small">
+                                                <span [attr.aria-label]="providerFieldLabel() + ': ' + cookie.provider">
+                                                    <i class="fa-solid fa-building me-1" aria-hidden="true"></i>
+                                                    @if (cookie.providerUrl) {
+                                                        <a [href]="cookie.providerUrl" target="_blank" rel="noopener noreferrer">{{ cookie.provider }}</a>
+                                                    } @else {
+                                                        {{ cookie.provider }}
+                                                    }
+                                                </span>
+                                                <span [attr.aria-label]="durationFieldLabel() + ': ' + cookie.duration">
+                                                    <i class="fa-solid fa-clock me-1" aria-hidden="true"></i>{{ cookie.duration }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    }
                                 </div>
-                                @if (cookie.description) {
-                                    <p class="text-secondary small mb-0 mt-2 lh-base">{{ cookie.description }}</p>
-                                }
-                            </div>
+                            </details>
                         }
                     </div>
                 } @else if (seg.type === 'profile') {
@@ -73,6 +95,32 @@
                         </div>
                     }
                 }
+            }
+
+            @if (isCookiePolicy()) {
+                <!-- Solo sulla Cookie Policy, e solo DOPO che si è risposto: pannello per ri-gestire il
+                     consenso senza riaprire il banner (riusa il cookie-banner in modalità in-flusso).
+                     Pre-consenso ci pensa il banner fisso: niente due UI di consenso insieme. -->
+                @if (consentResponded()) {
+                    <app-cookie-banner [panelMode]="true" class="d-block mt-5"></app-cookie-banner>
+                }
+
+                <!-- Solo sulla Cookie Policy: guida alla gestione dei cookie dal browser dell'utente. -->
+                <section class="mt-5">
+                    <h2 class="fw-bold mb-3 h5">{{ manageCookiesTitle() }}</h2>
+                    <div class="text-muted" [innerHTML]="manageCookiesIntro() | markdown"></div>
+                    <p class="text-muted mb-2 mt-3">{{ manageCookiesBrowsers() }}</p>
+                    <ul class="list-unstyled d-flex flex-column gap-2 mb-0">
+                        @for (b of browserLinks(); track b.name) {
+                            <li>
+                                <a class="link-primary text-decoration-none d-inline-flex align-items-center gap-2"
+                                   [href]="b.url" target="_blank" rel="noopener noreferrer">
+                                    <i class="fa-solid fa-arrow-up-right-from-square small" aria-hidden="true"></i>{{ b.name }}
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                </section>
             }
         }
     </div>

@@ -58,6 +58,12 @@ export class SmokeEffectComponent {
             const ctx = canvas.getContext('2d');
             if (!ctx) return;
 
+            // Accessibilità: chi ha `prefers-reduced-motion: reduce` non deve vedere l'animazione.
+            // La decisione vive qui (lato browser, dopo l'idratazione) e non nell'`@if` del template:
+            // così l'elemento è presente identico in SSR e client (niente mismatch di idratazione) e il
+            // canvas resta semplicemente vuoto e invisibile — nessuna particella, nessun rAF.
+            if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+
             this.resizeCanvas(canvas);
 
             const onResize = () => this.resizeCanvas(canvas);

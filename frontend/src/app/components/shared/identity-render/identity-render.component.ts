@@ -1,11 +1,12 @@
 import { booleanAttribute, Component, computed, inject, input } from '@angular/core';
-import { Identity, SocialLink, DayName, DAY_ORDER } from '../../../core/engine/dto/identity.dto';
+import { Identity, SocialLink } from '../../../core/engine/dto/identity.dto';
 import { TranslateService } from '../../../core/engine/services/translate.service';
 import { LocalizationService } from '../../../core/engine/services/localization.service';
 import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
 import { PhoneContactComponent } from '../contact/phone-contact/phone-contact.component';
 import { MailContactComponent, MailContactConfig } from '../contact/mail-contact/mail-contact.component';
 import { SocialLinkComponent } from '../navigation/social-link/social-link.component';
+import { OpeningHoursComponent, hasOpeningHours } from '../opening-hours/opening-hours.component';
 
 /** Tono Bootstrap del badge (suffisso di `text-bg-*`). */
 type BadgeTone = 'success' | 'secondary' | 'warning' | 'danger' | 'info' | 'primary';
@@ -43,12 +44,12 @@ type ContactChannel =
 @Component({
     selector: 'app-identity-render',
     standalone: true,
-    imports: [TranslatePipe, PhoneContactComponent, MailContactComponent, SocialLinkComponent],
+    imports: [TranslatePipe, PhoneContactComponent, MailContactComponent, SocialLinkComponent, OpeningHoursComponent],
     templateUrl: './identity-render.component.html',
 })
 export class IdentityRenderComponent {
     private readonly translate = inject(TranslateService);
-    // Primitivi di cultura (tag BCP-47 + nomi giorno) dalle culture C# via GET /localization:
+    // Primitivi di cultura (locale + nomi giorno) derivati via Intl dal LocalizationService:
     // niente mappe lingua→regione né calcolo dei nomi giorno nel componente.
     private readonly localization = inject(LocalizationService);
 
@@ -56,6 +57,9 @@ export class IdentityRenderComponent {
     readonly inColonna = input(false, { transform: booleanAttribute });
     /** Mostra le icone dei social del brand (footer sì, pagine legali no). */
     readonly showSocial = input(false, { transform: booleanAttribute });
+    /** Rende gli orari come accordion collassabile (footer, compatto) invece della tabella piena
+     *  sempre visibile (pagine legali). Solo la FORMA cambia: gli orari si mostrano in entrambi. */
+    readonly hoursAccordion = input(false, { transform: booleanAttribute });
 
     readonly sections = computed<IdentitySection[]>(() => {
         const identity = this.identity();
@@ -75,7 +79,8 @@ export class IdentityRenderComponent {
         ]);
     });
 
-    /** Voci testuali della sezione Contatti (nome, sede, rappresentante, orari). */
+    /** Voci testuali della sezione Contatti (nome, sede, rappresentante). Gli orari sono resi a parte
+     *  da `app-opening-hours` (componente autonomo), non più una riga di testo qui. */
     readonly contactItems = computed<IdentityItem[]>(() => {
         const identity = this.identity();
         if (!identity) return [];
@@ -83,12 +88,15 @@ export class IdentityRenderComponent {
             this.createTextItem(identity.ragioneSociale, this.label('ragioneSocialeAzienda')),
             this.createTextItem(this.formatAddress(identity), this.label('sedeLegaleAzienda')),
             this.createTextItem(identity.rappresentanteLegale, this.label('rappresentanteLegaleAzienda')),
-            this.createTextItem(this.formatOpeningHours(identity), this.label('orariContattoAzienda')),
         ]);
     });
 
-    /** Indica se la colonna Contatti ha qualcosa da mostrare (testo o badge). */
-    readonly hasContacts = computed<boolean>(() => this.contactItems().length > 0 || this.contacts().length > 0);
+    /** Gli orari (delegati a `app-opening-hours`) hanno almeno una fascia valida da mostrare. */
+    readonly showOpeningHours = computed<boolean>(() => hasOpeningHours(this.identity()?.openingHours));
+
+    /** Indica se la colonna Contatti ha qualcosa da mostrare (testo, orari o badge). */
+    readonly hasContacts = computed<boolean>(() =>
+        this.contactItems().length > 0 || this.showOpeningHours() || this.contacts().length > 0);
 
     /** Profili social del brand, solo quando `showSocial` è attivo (dato d'identità). L'icona la
      *  deduce `app-social-link` dall'URL; `name` (se c'è) è l'etichetta resa accanto nel footer. */
@@ -212,67 +220,15 @@ export class IdentityRenderComponent {
     private formatCurrency(value: number | null | undefined, currency: string | null | undefined): string | null {
         if (typeof value !== 'number' || !Number.isFinite(value)) return null;
         // Valuta = fatto dichiarato dall'identità; il locale (lingua corrente) decide solo il formato.
+        // Il codice è già validato ISO 4217 dal backend (presente-ma-invalido → 500 al read), quindi qui
+        // si formatta fidandosi; assente → EUR (default dichiarato). Il catch resta solo come difesa
+        // (come regionName), non più per assorbire un codice sbagliato in silenzio.
         const code = (currency ?? '').trim().toUpperCase() || 'EUR';
         try {
-            return new Intl.NumberFormat(this.localeTag(), { style: 'currency', currency: code }).format(value);
+            return this.localization.formatter.currency(value, code);
         } catch {
-            // Codice valuta non valido → ripiega su EUR senza rompere il render.
-            return new Intl.NumberFormat(this.localeTag(), { style: 'currency', currency: 'EUR' }).format(value);
+            return this.localization.formatter.currency(value, 'EUR');
         }
-    }
-
-    /** Tag BCP-47 della lingua corrente per le API Intl, dalle culture C# (GET /localization).
-     *  Fallback alla lingua a due lettere (Intl la accetta) finché la risorsa non è risolta. */
-    private localeTag(): string {
-        return this.localization.current() ?? this.translate.currentLang();
-    }
-
-    /**
-     * Orari (lista di intervalli) → testo localizzato. Si deriva la presentazione: gli intervalli si
-     * raggruppano per giorno, i giorni con orari identici si fondono (es. "Lun–Ven 9:00–18:00") e i
-     * nomi escono nella lingua corrente. Null se nessun giorno aperto.
-     */
-    private formatOpeningHours(identity: Identity): string | null {
-        const list = identity.openingHours;
-        if (!Array.isArray(list) || list.length === 0) return null;
-
-        // Intervalli validi raggruppati per giorno → fasce "09:00–18:00", in ordine di dichiarazione.
-        const byDay = new Map<DayName, string[]>();
-        for (const it of list) {
-            if (!it || !DAY_ORDER.includes(it.day) || !isHm(it.opens) || !isHm(it.closes)) continue;
-            const range = `${it.opens}–${it.closes}`;
-            const ranges = byDay.get(it.day);
-            if (ranges) ranges.push(range);
-            else byDay.set(it.day, [range]);
-        }
-
-        // Giorni aperti in ordine di settimana.
-        const open = DAY_ORDER.filter(d => byDay.has(d)).map(d => ({ day: d, ranges: byDay.get(d)! }));
-        if (open.length === 0) return null;
-
-        // Fusione per orari identici: i giorni che condividono la stessa firma di fasce stanno
-        // insieme (poi `formatDays` decide se renderli come intervallo "Lun–Ven" o lista "Lun, Mer").
-        const groups = new Map<string, { days: DayName[]; ranges: string[] }>();
-        for (const { day, ranges } of open) {
-            const sig = ranges.join('|');
-            const group = groups.get(sig);
-            if (group) group.days.push(day);
-            else groups.set(sig, { days: [day], ranges });
-        }
-
-        return [...groups.values()]
-            .map(g => `${this.formatDays(g.days)} ${g.ranges.join(', ')}`)
-            .join('; ');
-    }
-
-    /** Giorni → nomi brevi localizzati (mappa dalle culture C#, per nome `DayOfWeek`); un intervallo
-     *  contiguo (ordine settimana) diventa "Lun–Ven". Fallback al nome giorno finché non risolto. */
-    private formatDays(days: DayName[]): string {
-        const dayNames = this.localization.dayNames();
-        const idx = [...new Set(days.map(d => DAY_ORDER.indexOf(d)))].sort((a, b) => a - b);
-        const name = (i: number): string => dayNames[DAY_ORDER[i]] ?? DAY_ORDER[i];
-        const contiguous = idx.length > 1 && idx[idx.length - 1] - idx[0] === idx.length - 1;
-        return contiguous ? `${name(idx[0])}–${name(idx[idx.length - 1])}` : idx.map(name).join(', ');
     }
 
     private hasText(value: string | null | undefined): value is string {
@@ -298,25 +254,16 @@ export class IdentityRenderComponent {
     /**
      * Nome del paese localizzato dal codice ISO 3166-1 alpha-2 (es. "IT" → "Italia"), via
      * `Intl.DisplayNames` — il gemello JS di `RegionInfo`, come `Intl.NumberFormat` per la valuta.
-     * Codice non valido o testo libero legacy → reso così com'è (migrazione morbida).
+     * Il backend garantisce il codice ISO (presente-ma-non-valido → 500 alla lettura del file): qui si
+     * formatta e basta.
      */
     private countryName(code: string | null | undefined): string | null {
         const c = code?.trim();
         if (!c) return null;
-        try {
-            return new Intl.DisplayNames([this.localeTag()], { type: 'region' }).of(c) ?? c;
-        } catch {
-            return c;
-        }
+        return this.localization.formatter.regionName(c);
     }
 
     private isNonEmptyString(value: unknown): value is string {
         return typeof value === 'string' && value.trim().length > 0;
     }
-}
-
-/** Orario "HH:mm" (24h). Difesa contro valori sporchi (sorgente esterna/CMS) prima di renderli. */
-const HM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-function isHm(value: unknown): value is string {
-    return typeof value === 'string' && HM_RE.test(value);
 }

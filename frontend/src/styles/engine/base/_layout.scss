@@ -72,7 +72,10 @@ main#main-content {
     --colorSurfaceHover: color-mix(in srgb, white 90%, var(--colorTema) 10%);
     --colorSurfaceText: #212529;
     --colorSecondary: var(--colorSecondaryLt);
-    background-color: rgba(255, 255, 255, 0.82);
+    /* Superficie OPACA: il background lo mette .content-panel con var(--colorSurface) (opaco).
+       Un fondo translucido, su tema scuro, lascerebbe trasparire il body → il near-white
+       diventa grigio e il testo muted scende sotto 4.5:1. L'opacità è ciò che tiene il
+       contrasto WCAG del contenuto forzato-chiaro (dietro il pannello non c'è nulla da velare). */
     border-color: rgba(255, 255, 255, 0.38);
     color: #212529;
 }
