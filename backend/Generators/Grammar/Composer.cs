@@ -13,20 +13,54 @@ public static class Composer
     private const int MaxComposeAttempts = 30;
 
     /// <summary>
-    /// Genera il testo migliore (rispetto alla soglia) e il suo punteggio. <paramref name="seed"/>
-    /// pre-appunta alcune variabili condivise (segnaposto <c>[$chiave]</c>) a valori fissi: è il modo
-    /// con cui una VARIANTE del generatore (es. il segno scelto per l'oroscopo) fissa parti del testo
-    /// invece di lasciarle al caso. Assente = comportamento normale (tutto pescato a caso).
+    /// Genera il testo migliore (rispetto alla soglia, e senza etichette uniche ripetute) e il suo
+    /// punteggio. <paramref name="seed"/> pre-appunta alcune variabili condivise (segnaposto
+    /// <c>[$chiave]</c>) a valori fissi: è il modo con cui una VARIANTE del generatore (es. il segno
+    /// scelto per l'oroscopo) fissa parti del testo invece di lasciarle al caso. Assente = comportamento
+    /// normale (tutto pescato a caso).
     /// </summary>
     public static (string Text, double Score) Generate(Runtime rt, Random rng, IReadOnlyDictionary<string, string>? seed = null)
     {
         var best = ComposeOnce(rt, rng, seed);
-        for (int attempt = 1; best.Score < rt.MinScore && attempt < MaxComposeAttempts; attempt++)
+        for (int attempt = 1; attempt < MaxComposeAttempts && !IsGoodEnough(best, rt); attempt++)
         {
             var candidate = ComposeOnce(rt, rng, seed);
-            if (candidate.Score > best.Score) best = candidate;
+            if (IsBetter(candidate, best, rt)) best = candidate;
         }
         return best;
+    }
+
+    private static bool IsGoodEnough((string Text, double Score) c, Runtime rt) =>
+        c.Score >= rt.MinScore && !HasRepeatedLabel(c.Text, rt);
+
+    // Un candidato senza etichette ripetute batte sempre uno che le ripete, a prescindere dal
+    // punteggio: l'unicità è una regola di contenuto, non un criterio di qualità negoziabile. A parità
+    // di validità, vince il punteggio più alto (comportamento storico).
+    private static bool IsBetter((string Text, double Score) candidate, (string Text, double Score) current, Runtime rt)
+    {
+        bool candidateOk = !HasRepeatedLabel(candidate.Text, rt);
+        bool currentOk = !HasRepeatedLabel(current.Text, rt);
+        return candidateOk != currentOk ? candidateOk : candidate.Score > current.Score;
+    }
+
+    /// <summary>
+    /// Vero se una qualunque etichetta unica compare più di una volta nel testo FINALE (già
+    /// interpolato): a differenza del controllo "shallow" in fase di selezione (che vede solo il
+    /// template della singola frase), qui il match è un CONTAINS sul risultato — coglie anche
+    /// un'etichetta che spunta da dentro un Tag annidato pescato in uno slot.
+    /// </summary>
+    private static bool HasRepeatedLabel(string text, Runtime rt)
+    {
+        foreach (var label in rt.UniqueLabels)
+        {
+            int count = 0, idx = 0;
+            while ((idx = text.IndexOf(label, idx, StringComparison.Ordinal)) >= 0)
+            {
+                idx += label.Length;
+                if (++count > 1) return true;
+            }
+        }
+        return false;
     }
 
     /// <summary>
