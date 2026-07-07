@@ -452,6 +452,6 @@ public sealed class IncelGenerator : GeneratorBase
         // NB: DateRangeSlot rende già "dal … al …" per i range → il template NON premette "dal"/"durante".
         new($"è stato mollato dalla {Donne} {DateRangeSlot.Estate}, giusto per rovinargli l'estate", 12),
         new($"alle {TimeSlot.Notte} controlla il cellulare ogni {2..5} minuti cercando messaggi che non arriveranno mai", 12),
-        new($"il {Parente.M} l'ha sconosciuto {DateRangeSlot.Lavorativi} (troppo tardi per rimediare)", 9),
+        new($"il {Parente.M} l'ha disconosciuto {DateRangeSlot.Lavorativi} (troppo tardi per rimediare)", 9),
     ];
 }
