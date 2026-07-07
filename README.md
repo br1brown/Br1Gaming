@@ -14,7 +14,7 @@ Br1WebEngine si prende in carico la parte noiosa di ogni progetto web — routin
 
 ## 📚 Mappa della documentazione
 
-Cinque file, cinque mestieri diversi. Così sai dove guardare prima di mettere mano al codice.
+Un file, un mestiere. Così sai dove guardare prima di mettere mano al codice.
 
 | Documento | A cosa serve |
 | :--- | :--- |
@@ -22,7 +22,29 @@ Cinque file, cinque mestieri diversi. Così sai dove guardare prima di mettere m
 | [frontend/README.md](frontend/README.md) | **Direttive di implementazione** del frontend per i progetti figli: DSL `site.ts`, SSR, servizi (API, tema, i18n, cookie, share, QR…), directive Angular, SEO. |
 | [backend/README.md](backend/README.md) | **Direttive di implementazione** del backend per i progetti figli: Engine di sicurezza, eccezioni→`ProblemDetails`, `FileContentStore`, login JWT. |
 | [DOCKER_README.md](DOCKER_README.md) | Setup Docker, configurazione `global-settings(.local).json`, pubblicazione, backup dei volumi. |
+| [AGENTS.md](AGENTS.md) | Regole trasversali e ricette pratiche per chi sviluppa — umano o assistente di coding. |
+| [ENGINE.md](ENGINE.md) | Mappa dell'implementazione interna dell'Engine **non** citata per nome nei due README di dettaglio — dove trovarla e perché è fatta così, senza reverse engineering. |
 | [CHANGELOG.md](CHANGELOG.md) | Cosa cambia nel template tra una versione e l'altra. |
+
+---
+
+## 🗺️ Mappa delle aree tecniche
+
+La tabella sopra dice *in che file* cercare; questa dice *per argomento*, utile a chi arriva senza conoscere il progetto e vuole sapere subito cosa il template gli garantisce già e cosa resta da fare lui. Stato onesto, non arrotondato: **Coperto** = documentato e pronto all'uso, **Parziale** = esiste un punto d'aggancio ma senza guida operativa completa, **Fuori perimetro** = escluso per scelta di design (non una dimenticanza), **Mancante** = lacuna reale.
+
+| Area | Nel template | Stato | Approfondisci |
+| :--- | :--- | :---: | :--- |
+| **Integrazioni con servizi esterni** | Chiamare un'API terza (client HTTP tipizzato, config + segreti separati) e ricevere webhook (firma sul body grezzo, coda background) | Coperto | [backend/README.md](backend/README.md) §8 |
+| **Dati e persistenza** | `FileContentStore` (JSON in RAM, localizzato); nessun ORM/DB relazionale di default — è una scelta, il seam verso un DB reale (`IContentStore`) è già pronto | Coperto | [backend/README.md](backend/README.md) §4 |
+| **Cache e scalabilità multi-istanza** | `IMemoryCache` per-istanza ben documentato; un backplane distribuito (es. Redis) per notifiche/store multi-istanza è un seam segnalato, senza guida implementativa | Parziale | [backend/README.md](backend/README.md) §4, §6 |
+| **Sicurezza** | JWT opzionale, ruoli via claim di sessione, rate limiting, CORS, header di sicurezza, XSS-hardening, segreti fuori da git | Coperto | [backend/README.md](backend/README.md) §1 e «Sistema di Login e Sessioni JWT» |
+| **Asset e risorse** | Immagini (resize/formati server-side) e font centralizzati, ben documentati; CDN solo accennata (whitelisting CSP), niente guida di deploy dietro CDN | Coperto (immagini/font) · Parziale (CDN) | [frontend/README.md](frontend/README.md) — sezioni AssetService, Font |
+| **Bundling frontend** | Nessuna sezione dedicata su come Angular/esbuild impacchetta il progetto o su come intervenirci | Mancante | — |
+| **Configurazione applicativa** | Routing via DSL `site.ts`, i18n su entrambi i lati, errori uniformi (`ProblemDetails`); il logging è solo la property ambient `Logger`, senza strategia su livelli/sink | Coperto (routing/i18n/errori) · Parziale (logging) | [backend/README.md](backend/README.md) §2, «Dove mettere le mani» qui sopra |
+| **DevOps e deploy** | Docker Compose, pipeline CI (lint, i18n, tsc, cicli, a11y, Lighthouse, audit, gitleaks), health check; gestione processo/restart policy non commentata in prosa, nessun `nginx.conf` d'esempio | Coperto (Docker/CI) · Parziale (processo/reverse proxy) | [DOCKER_README.md](DOCKER_README.md) |
+| **Testing e qualità** | Gate automatici (lint/i18n/tsc/cicli/a11y/Lighthouse) in CI; unit/integration/E2E restano **deliberatamente** privati di ogni progetto figlio | Fuori perimetro (per scelta) | «🧪 Test Suite Automatica» qui sotto |
+| **Frontend specifico** | State via Signals nativi (no NgRx), Bootstrap 5 + libreria di componenti propria, SEO/JSON-LD automatico | Coperto | [frontend/README.md](frontend/README.md) |
+| **Manutenzione** | `npm audit` + vulnerabilità NuGet + gitleaks in CI; performance solo tramite gate Lighthouse, nessuna guida di diagnosi oltre il superamento del budget | Coperto (audit) · Parziale (performance) | «Supply chain» qui sotto |
 
 ---
 
@@ -113,7 +135,7 @@ sul **dominio vince il figlio**. Sui path engine prendi la versione del template
 | Proprietà | Path | Al merge |
 | :--- | :--- | :--- |
 | **Engine** | `backend/Engine/`, `frontend/src/app/core/engine/`, `frontend/src/styles/engine/`, `frontend/src/assets/i18n/basic.*.json` | vince il template |
-| **Scaffold** (infrastruttura e documentazione del template fuori dall'Engine) | `scripts/`, `deploy.sh`, `backup.sh`, `docker-compose*.yml`, `.github/workflows/`, `.nvmrc`, `global.json`, `setup.mjs`, `global-settings.schema.json`, `security-headers.json`*, `CHANGELOG.md`, `DOCKER_README.md`, `backend/README.md`, `frontend/README.md`, `backend/backend.csproj`, i due `Dockerfile`, `frontend/proxy*.cjs`, `frontend/tsconfig.json`, `frontend/eslint.config.mjs`, `main.ts`/`main.server.ts`, `app.config.ts`/`app.config.server.ts` | vince il template |
+| **Scaffold** (infrastruttura e documentazione del template fuori dall'Engine) | `scripts/`, `deploy.sh`, `backup.sh`, `docker-compose*.yml`, `.github/workflows/`, `.nvmrc`, `global.json`, `setup.mjs`, `global-settings.schema.json`, `security-headers.json`*, `CHANGELOG.md`, `DOCKER_README.md`, `AGENTS.md`, `ENGINE.md`, `backend/README.md`, `frontend/README.md`, `backend/backend.csproj`, i due `Dockerfile`, `frontend/proxy*.cjs`, `frontend/tsconfig.json`, `frontend/eslint.config.mjs`, `main.ts`/`main.server.ts`, `app.config.ts`/`app.config.server.ts` | vince il template |
 | **Condivisi con punti di contatto** (il template li evolve; il figlio tocca soltanto i punti indicati) | `backend/Program.cs` (soltanto il blocco "SERVIZI APPLICATIVI"), `frontend/angular.json` (assets/styles del progetto, budget, `allowedCommonJsDependencies`), `frontend/package.json` (dipendenze del progetto), `backend/Resources/*.resx` (chiavi aggiunte), `.gitignore`/`.dockerignore` (righe aggiunte) | si fondono riga per riga |
 | **Dominio** (la demo riusata + il codice del progetto) | `backend/Controllers|Services|Models|Store|Validation|data`, `site.ts`, `pages/`, `components/`, `core/services` e `core/dto`, `assets/` (i18n `addon`, legal, files), `styles.scss` + `styles/app/` (gli stili del progetto, non `styles/engine/`), `public/`, `global-settings.json`, la `.sln` rinominata | vince il figlio |
 
@@ -129,7 +151,8 @@ sul **dominio vince il figlio**. Sui path engine prendi la versione del template
 prodotto). Tutto il resto della documentazione **resta e si aggiorna dal template** — al merge vince il
 template, esattamente come per l'Engine: il `CHANGELOG.md` racconta al figlio cosa è cambiato nel template tra una
 versione e l'altra; `backend/README.md`, `frontend/README.md` e `DOCKER_README.md` sono le
-direttive di sviluppo — dicono cosa si modifica e con quali strumenti. Non si
+direttive di sviluppo — dicono cosa si modifica e con quali strumenti; `AGENTS.md` e `ENGINE.md`
+sono rispettivamente le ricette pratiche e la mappa dell'implementazione interna dell'Engine. Non si
 adattano nel figlio: la documentazione del prodotto, se serve, vive in un file a parte.
 
 ### 🧭 Dove mettere le mani
@@ -179,6 +202,7 @@ Senza scrivere una riga di codice infrastrutturale, dalla scatola esce già tutt
 - **Menu Multilivello**: supporto nativo a navigazione ricorsiva sia nella Navbar (con flyout desktop che evita di uscire dallo schermo e accordion su mobile) sia nel Footer. Basta annidare i gruppi in `site.ts`.
 - **Notifiche realtime**: canale server→client via SSE (`INotificationStream` / `NotificationStreamService`) per spingere notifiche ai client connessi — targeting per broadcast/connessione/gruppo, indipendente dal login, payload che non si ferma al testo. Dettagli in [backend](backend/README.md) e [frontend](frontend/README.md).
 - **Task in background e delivery**: coda generica in-memory (`IBackgroundTaskQueue` + hosted service, scope DI per task) per il pattern "POST risponde subito `202` → lavoro lungo → notifica a fine task", con un `IDeliveryService` che di **default consegna in realtime e stop** (niente email a sorpresa se l'utente è offline) e, su richiesta con `Auto`, aggiunge il **fallback email** quando il destinatario non è connesso.
+- **Integrazioni con servizi esterni**: schema pronto sia per chiamare API di terze parti (client HTTP tipizzato, URL/chiavi in configurazione, mai hardcoded) sia per ricevere webhook in ingresso (endpoint pubblico con verifica della firma sul body grezzo, elaborazione in background). Dettagli in [backend/README.md](backend/README.md).
 
 ---
 
