@@ -236,11 +236,9 @@ public sealed class MbebGenerator : GeneratorBase
     internal static readonly Tag CommentiSprezzantiGenerici = new("commenti_sprezzanti_generici")
     {
         ("e lo hanno capito tutti", 3),
-        new($"l'ultima donna che gli ha scritto su {Social.Any} era un bot asiatico di criptovalute", 3),
         ("pace all'anima sua", 3),
         new($"non è mica come {HatingPersone}", 3),
         ("ed è palesemente per compensare qualcosa", 3),
-        ("e nessuno ha avuto il coraggio di dirglielo", 3),
         ("come volevasi dimostrare", 3),
         ("e ci crede pure", 3),
         ("roba da chiamare un esorcista", 3),
