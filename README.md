@@ -18,6 +18,7 @@ Un file, un mestiere. Così sai dove guardare prima di mettere mano al codice.
 
 | Documento | A cosa serve |
 | :--- | :--- |
+| [QUICKSTART.md](QUICKSTART.md) | **Parti da qui se è la prima volta:** 3 comandi e sei in piedi, senza la teoria. |
 | **README.md** (questo) | Panoramica, architettura, **dove mettere le mani**, avvio rapido e la **vetrina della demo**: gli esempi del template vivono qui. |
 | [frontend/README.md](frontend/README.md) | **Direttive di implementazione** del frontend per i progetti figli: DSL `site.ts`, SSR, servizi (API, tema, i18n, cookie, share, QR…), directive Angular, SEO. |
 | [backend/README.md](backend/README.md) | **Direttive di implementazione** del backend per i progetti figli: Engine di sicurezza, eccezioni→`ProblemDetails`, `FileContentStore`, login JWT. |
@@ -135,7 +136,7 @@ sul **dominio vince il figlio**. Sui path engine prendi la versione del template
 | Proprietà | Path | Al merge |
 | :--- | :--- | :--- |
 | **Engine** | `backend/Engine/`, `frontend/src/app/core/engine/`, `frontend/src/styles/engine/`, `frontend/src/assets/i18n/basic.*.json` | vince il template |
-| **Scaffold** (infrastruttura e documentazione del template fuori dall'Engine) | `scripts/`, `deploy.sh`, `backup.sh`, `docker-compose*.yml`, `.github/workflows/`, `.nvmrc`, `global.json`, `setup.mjs`, `global-settings.schema.json`, `security-headers.json`*, `CHANGELOG.md`, `DOCKER_README.md`, `AGENTS.md`, `ENGINE.md`, `backend/README.md`, `frontend/README.md`, `backend/backend.csproj`, i due `Dockerfile`, `frontend/proxy*.cjs`, `frontend/tsconfig.json`, `frontend/eslint.config.mjs`, `main.ts`/`main.server.ts`, `app.config.ts`/`app.config.server.ts` | vince il template |
+| **Scaffold** (infrastruttura e documentazione del template fuori dall'Engine) | `scripts/`, `deploy.sh`, `backup.sh`, `docker-compose*.yml`, `.github/workflows/`, `.nvmrc`, `global.json`, `setup.mjs`, `global-settings.schema.json`, `security-headers.json`*, `CHANGELOG.md`, `QUICKSTART.md`, `DOCKER_README.md`, `AGENTS.md`, `ENGINE.md`, `backend/README.md`, `frontend/README.md`, `backend/backend.csproj`, i due `Dockerfile`, `frontend/proxy*.cjs`, `frontend/tsconfig.json`, `frontend/eslint.config.mjs`, `main.ts`/`main.server.ts`, `app.config.ts`/`app.config.server.ts` | vince il template |
 | **Condivisi con punti di contatto** (il template li evolve; il figlio tocca soltanto i punti indicati) | `backend/Program.cs` (soltanto il blocco "SERVIZI APPLICATIVI"), `frontend/angular.json` (assets/styles del progetto, budget, `allowedCommonJsDependencies`), `frontend/package.json` (dipendenze del progetto), `backend/Resources/*.resx` (chiavi aggiunte), `.gitignore`/`.dockerignore` (righe aggiunte) | si fondono riga per riga |
 | **Dominio** (la demo riusata + il codice del progetto) | `backend/Controllers|Services|Models|Store|Validation|data`, `site.ts`, `pages/`, `components/`, `core/services` e `core/dto`, `assets/` (i18n `addon`, legal, files), `styles.scss` + `styles/app/` (gli stili del progetto, non `styles/engine/`), `public/`, `global-settings.json`, la `.sln` rinominata | vince il figlio |
 
@@ -277,20 +278,11 @@ Oltre alla qualità del codice, la CI tiene d'occhio anche:
 
 ## 🚀 Quick Start
 
-Per i riferimenti completi vai alla **Mappa della documentazione** in cima a questo file. In breve: [frontend/README.md](frontend/README.md) e [backend/README.md](backend/README.md) per i due progetti, [DOCKER_README.md](DOCKER_README.md) per deploy e configurazione.
-
-### Primo setup di un progetto figlio
-
-```bash
-node setup.mjs "Nome Progetto"
-```
-*Battezza il progetto: imposta `project.name` in `global-settings.json`, genera `global-settings.local.json` con porte e **API key generata**, rinomina gli identificatori npm/Service Worker e `App.sln`. La `SecretKey` JWT resta **vuota**: un figlio nasce col **login spento** e accenderlo è una scelta esplicita (chiave ≥32 char + verifica propria in `AuthController`). Dettagli in [DOCKER_README.md](DOCKER_README.md).*
-
-Poi `setup.mjs` chiede conferma `[s/N]` per la **cerimonia "da template a progetto"** (distruttiva): rimuove la demo (galleria Social + store/`SiteService`/`social.json`, home svuotata a placeholder, `addon.*.json` → `{}`, `BaseController` ridotto a vuoto, `data/identity.json` azzerato a scheletro e `site.ts` riscritto allo scheletro Home + pagine legali, con **login spento di default** — coerente con `SecretKey` vuota — da riaccendere quando imposti il segreto). L'**identità** resta servita dall'Engine (`GET /identity`). Poi elimina **questo README** (la vetrina del template), esegue i controlli statici (lint/tsc/i18n/cicli) come gate, **auto-cancella `setup.mjs`** e chiude con un commit locale `init <Nome>`. Rispondendo `N` resti sul template completo (demo inclusa) e lo rilanci quando sei pronto.
-
-La versione Node di riferimento è dichiarata in `.nvmrc` (Node 24 LTS): con nvm basta `nvm install && nvm use`; la CI legge lo stesso file.
+Per il primo setup passo-passo (`setup.mjs` + Docker) vedi **[QUICKSTART.md](QUICKSTART.md)**. Qui sotto l'alternativa per chi sviluppa in locale senza Docker; per i riferimenti completi vai alla **Mappa della documentazione** in cima a questo file.
 
 ### Avvio Veloce in Locale
+
+La versione Node di riferimento è dichiarata in `.nvmrc` (Node 24 LTS): con nvm basta `nvm install && nvm use`; la CI legge lo stesso file.
 
 **Avvio Backend (.NET 9):**
 ```bash
