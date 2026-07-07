@@ -209,9 +209,9 @@ public sealed class StartupGenerator : GeneratorBase
         ("un sistema di riconoscimento immagini che funzioni davvero", 3),
         ("un modello di IA che nessuna multinazionale ha ancora fatto girare bene", 3),
         ("un'infrastruttura che regge milioni di utenti in contemporanea", 3),
-        ("un accordo con mezza grande distribuzione", 3),
-        ("un database aggiornato di ogni prodotto in commercio", 3),
-        ("una rete di rider e magazzini in tutta Italia", 3),
+        ("partnership con chi ha già milioni di utenti, non zero", 3),
+        ("una base dati che si aggiorna da sola, non a mano", 3),
+        ("un servizio clienti che risponda anche di notte", 3),
         ("la moderazione di milioni di contenuti al giorno", 3),
         ("un team di data scientist pagati a peso d'oro", 3),
         ("l'integrazione coi sistemi di pagamento di mezzo mondo", 3),
@@ -400,7 +400,12 @@ public sealed class StartupGenerator : GeneratorBase
     /// <summary>Apertura = l'IDEA (titolo) + IL TIPO che l'ha avuta. Poi il Core fa la DESCRIZIONE.</summary>
     public override Frase? Apertura => new($"## {Piattaforma} per {Funzione}{Dettaglio}\n\n_L'ha avuta {Nome.M}, {Professioni.M} {Tratto}, {Genesi}._\n\n");
 
-    public override List<Etichetta>? UniqueLabels { get; } = [LblDettaglio];
+    // Oltre a "dettagli": parole di contenuto che ricorrono in gruppi Core/Tag diversi e che, se
+    // duplicate nello stesso testo, si notano (brand, tecnicismi, il "weekend" onnipresente…). Scoperte
+    // scansionando le liste per parole condivise tra bucket distinti — non le particelle generiche
+    // ("cosa", "solo"…), che ricorrono ovunque e renderebbero la generazione quasi impossibile.
+    public override List<Etichetta>? UniqueLabels { get; } =
+        [LblDettaglio, "weekend", "gratis", "Elon Musk", "Google", "database", "logo", "codice", "corso"];
 
 
     /// <inheritdoc />

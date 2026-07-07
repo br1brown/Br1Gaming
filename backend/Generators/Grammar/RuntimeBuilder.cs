@@ -177,6 +177,7 @@ public static class RuntimeBuilder
             Separators: separators,
             Apertura: apertura,
             Chiusura: chiusura,
+            UniqueLabels: uniqueLabels,
             Markov: markov, MarkovChaos: markovChaos,
             RisolviInnesto: risolviInnesto);
     }

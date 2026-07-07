@@ -87,6 +87,10 @@ public sealed record Runtime(
     int MinPhrases, int MaxPhrases, double MinScore,
     IReadOnlyList<string> Separators,
     Phrase? Apertura, Phrase? Chiusura,
+    // Etichette uniche (vedi IGenerator.UniqueLabels): controllate a valle, sul testo FINALE generato
+    // (Composer.Generate le usa per scartare/rigenerare un candidato che ne ripete una), non più solo
+    // sul template della singola frase — così un'etichetta pescata da dentro un Tag annidato conta.
+    IReadOnlyList<string> UniqueLabels,
     // Catene di Markov per flatlist eleggibile (conio di varianti) e relativa probabilità.
     // Dizionario vuoto / probabilità 0 = feature disattiva (comportamento storico invariato).
     IReadOnlyDictionary<string, MarkovChain> Markov, double MarkovChaos,
