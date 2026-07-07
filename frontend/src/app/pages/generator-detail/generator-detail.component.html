@@ -27,11 +27,11 @@
              visualizzazione condivisa (recovered): lì si guarda una frase già fatta, non se ne
              genera una nuova. Cambiarla rigenera subito. -->
         @if (!recovered() && variant(); as v) {
-        <app-variant-tabs [options]="v.options"
-                          [active]="activeVariant()"
-                          [loading]="loading()"
-                          [ariaLabel]="'oroscopoSceltaSegno' | translate"
-                          [onPick]="pickVariant" />
+        <app-variant-picker [options]="v.options"
+                            [active]="activeVariant()"
+                            [loading]="loading()"
+                            [ariaLabel]="'oroscopoSceltaSegno' | translate"
+                            [onPick]="pickVariant" />
         }
         @if (recovered()) {
         <!-- Frase già generata e condivisa: niente "Ancora!", ma il ritorno al generatore "vuoto". -->
