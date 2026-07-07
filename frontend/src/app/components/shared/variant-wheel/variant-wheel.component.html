@@ -1,0 +1,13 @@
+<svg [attr.viewBox]="viewBox" role="radiogroup" [attr.aria-label]="ariaLabel()" [class.disabled]="loading()">
+    @for (w of wedges(); track w.key) {
+    <g class="wedge"
+       [class.active]="active() === w.key"
+       role="radio"
+       [attr.aria-checked]="active() === w.key"
+       (click)="onPick()(w.key)">
+        <title>{{ w.label }}</title>
+        <path [attr.d]="w.path" />
+        <text [attr.x]="w.labelX" [attr.y]="w.labelY" [attr.text-anchor]="w.anchor">{{ w.label }}</text>
+    </g>
+    }
+</svg>

@@ -12,7 +12,7 @@ import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { ShareActionComponent } from '../../components/shared/action/share-action/share-action.component';
 import { SpeechActionComponent } from '../../components/shared/action/speech-action/speech-action.component';
-import { VariantPickerComponent } from '../../components/shared/variant-picker/variant-picker.component';
+import { VariantWheelComponent } from '../../components/shared/variant-wheel/variant-wheel.component';
 
 
 @Component({
@@ -25,7 +25,7 @@ import { VariantPickerComponent } from '../../components/shared/variant-picker/v
         RouterLink,
         ShareActionComponent,
         SpeechActionComponent,
-        VariantPickerComponent,
+        VariantWheelComponent,
     ],
     templateUrl: './generator-detail.component.html',
     // Il risultato viene ricreato a ogni generazione (@if su result()): l'animazione
@@ -62,7 +62,7 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
         this.pickedVariant() ?? this.variant()?.options?.[0]?.key ?? null);
 
     /** Sceglie un'opzione della variante (es. un segno) e rigenera subito. Arrow function: passata
-     *  come valore a VariantPickerComponent (stesso pattern di speakText/buildShareCanvas). */
+     *  come valore a VariantWheelComponent (stesso pattern di speakText/buildShareCanvas). */
     readonly pickVariant = (key: string): void => {
         this.pickedVariant.set(key);
         void this.generate(true);
