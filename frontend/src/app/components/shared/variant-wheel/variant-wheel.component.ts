@@ -42,8 +42,8 @@ function point(deg: number, r: number): { x: number; y: number } {
         .wedge { cursor: pointer; }
         .wedge path {
             fill: var(--bs-tertiary-bg, #eee);
-            stroke: var(--bs-body-bg, #fff);
-            stroke-width: 2;
+            stroke: var(--bs-border-color);
+            stroke-width: 1.5;
             transition: fill .15s ease;
         }
         .wedge:hover:not(.disabled) path { fill: color-mix(in srgb, var(--bs-primary) 30%, var(--bs-tertiary-bg, #eee)); }
