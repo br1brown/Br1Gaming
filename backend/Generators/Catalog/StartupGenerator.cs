@@ -400,7 +400,12 @@ public sealed class StartupGenerator : GeneratorBase
     /// <summary>Apertura = l'IDEA (titolo) + IL TIPO che l'ha avuta. Poi il Core fa la DESCRIZIONE.</summary>
     public override Frase? Apertura => new($"## {Piattaforma} per {Funzione}{Dettaglio}\n\n_L'ha avuta {Nome.M}, {Professioni.M} {Tratto}, {Genesi}._\n\n");
 
-    public override List<Etichetta>? UniqueLabels { get; } = [LblDettaglio];
+    // Oltre a "dettagli": parole di contenuto che ricorrono in gruppi Core/Tag diversi e che, se
+    // duplicate nello stesso testo, si notano (brand, tecnicismi, il "weekend" onnipresente…). Scoperte
+    // scansionando le liste per parole condivise tra bucket distinti — non le particelle generiche
+    // ("cosa", "solo"…), che ricorrono ovunque e renderebbero la generazione quasi impossibile.
+    public override List<Etichetta>? UniqueLabels { get; } =
+        [LblDettaglio, "weekend", "gratis", "Elon Musk", "Google", "database", "logo", "codice", "corso"];
 
 
     /// <inheritdoc />
