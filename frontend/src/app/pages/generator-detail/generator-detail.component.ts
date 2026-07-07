@@ -12,6 +12,7 @@ import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { ShareActionComponent } from '../../components/shared/action/share-action/share-action.component';
 import { SpeechActionComponent } from '../../components/shared/action/speech-action/speech-action.component';
+import { VariantTabsComponent } from '../../components/shared/variant-tabs/variant-tabs.component';
 
 
 @Component({
@@ -24,6 +25,7 @@ import { SpeechActionComponent } from '../../components/shared/action/speech-act
         RouterLink,
         ShareActionComponent,
         SpeechActionComponent,
+        VariantTabsComponent,
     ],
     templateUrl: './generator-detail.component.html',
     // Il risultato viene ricreato a ogni generazione (@if su result()): l'animazione
@@ -34,10 +36,6 @@ import { SpeechActionComponent } from '../../components/shared/action/speech-act
             from { opacity: 0; transform: translateY(8px); }
             to   { opacity: 1; transform: none; }
         }
-        /* Tab-bar della variante: scorrevole in orizzontale sui pochi pixel del mobile,
-           senza andare a capo (le opzioni restano una riga sola, come dei "chip"). */
-        .variant-tabs { scrollbar-width: none; }
-        .variant-tabs::-webkit-scrollbar { display: none; }
     `],
 })
 export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageContent> {
@@ -63,11 +61,12 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
     readonly activeVariant = computed<string | null>(() =>
         this.pickedVariant() ?? this.variant()?.options?.[0]?.key ?? null);
 
-    /** Sceglie un'opzione della variante (es. un segno) e rigenera subito. */
-    pickVariant(key: string): void {
+    /** Sceglie un'opzione della variante (es. un segno) e rigenera subito. Arrow function: passata
+     *  come valore a VariantTabsComponent (stesso pattern di speakText/buildShareCanvas). */
+    readonly pickVariant = (key: string): void => {
         this.pickedVariant.set(key);
         void this.generate(true);
-    }
+    };
 
     readonly coverAssetId = computed(() => {
         const slug = this.generator()?.slug;

@@ -1,0 +1,13 @@
+<div class="variant-tabs d-flex flex-nowrap gap-3 overflow-x-auto w-100"
+     role="tablist"
+     [attr.aria-label]="ariaLabel()">
+    @for (opt of options(); track opt.key) {
+    <button type="button"
+            class="flex-shrink-0"
+            [class.active]="active() === opt.key"
+            role="tab"
+            [attr.aria-selected]="active() === opt.key"
+            [disabled]="loading()"
+            (click)="onPick()(opt.key)">{{ opt.label }}</button>
+    }
+</div>
