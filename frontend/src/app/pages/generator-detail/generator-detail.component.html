@@ -23,29 +23,24 @@
     </div>
 
     <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
-        <!-- Selettore della variante (es. i 12 segni) accanto alla generazione: una dropdown, non
-             tanti pulsanti. Nascosta in modalità visualizzazione condivisa (recovered): lì si guarda
-             una frase già fatta, non se ne genera una nuova. Cambiarla rigenera subito. -->
+        <!-- Selettore della variante (es. i 12 segni) accanto alla generazione: una tab-bar di
+             pulsanti, scorrevole in orizzontale. Nascosta in modalità visualizzazione condivisa
+             (recovered): lì si guarda una frase già fatta, non se ne genera una nuova. Cambiarla
+             rigenera subito. -->
         @if (!recovered() && variant(); as v) {
-        <div class="dropdown">
+        <div class="variant-tabs d-flex flex-nowrap gap-2 overflow-x-auto w-100"
+             role="tablist"
+             [attr.aria-label]="'oroscopoSceltaSegno' | translate">
+            @for (opt of v.options; track opt.key) {
             <button type="button"
-                    class="btn btn-outline-secondary btn-sm rounded-pill dropdown-toggle"
+                    class="btn btn-sm rounded-pill flex-shrink-0"
+                    [class.btn-primary]="activeVariant() === opt.key"
+                    [class.btn-outline-secondary]="activeVariant() !== opt.key"
+                    role="tab"
+                    [attr.aria-selected]="activeVariant() === opt.key"
                     [disabled]="loading()"
-                    [class.show]="variantOpen()"
-                    [attr.aria-expanded]="variantOpen()"
-                    [attr.aria-label]="'oroscopoSceltaSegno' | translate"
-                    (click)="variantOpen.set(!variantOpen())">
-                {{ activeVariantLabel() }}
-            </button>
-            <ul class="dropdown-menu" [class.show]="variantOpen()">
-                @for (opt of v.options; track opt.key) {
-                <li>
-                    <button type="button" class="dropdown-item"
-                            [class.active]="activeVariant() === opt.key"
-                            (click)="pickVariant(opt.key)">{{ opt.label }}</button>
-                </li>
-                }
-            </ul>
+                    (click)="pickVariant(opt.key)">{{ opt.label }}</button>
+            }
         </div>
         }
         @if (recovered()) {
