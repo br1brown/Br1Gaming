@@ -467,6 +467,70 @@ buildPhysicalCookieKey(rawKey, config);
 
 La lista finale è l'unione di `activeEngine()` (voci built-in: lingua se multilingua, Service Worker se `isWebApp`, memorie del consenso, più `consent_log` e `bearerToken` su Web Storage) e `COOKIE_MAP` (voci del progetto). Per ogni voce il `PolicyComponent` mostra **mezzo** (Cookie / Archiviazione locale / di sessione), **provider** (con link se `providerUrl` è dichiarato; assente = «Prima parte») e **durata**. Le descrizioni usano le `descriptionKey`, le durate le `durationKey`; le etichette di categoria e mezzo le chiavi i18n in `basic.{lang}.json`.
 
+### Google Consent Mode v2 — ricetta pronta (non attiva di default)
+
+L'Engine resta **provider-agnostico**: `COOKIE_MAP` nasce vuoto e nessun tag Google è caricato finché non lo aggiungi tu. Ma se il progetto usa (o userà) GA4/Google Ads, dal 28 marzo 2024 Google **richiede** il Consent Mode v2 — senza, i tag degradano o smettono di funzionare in UE. Non è nell'Engine perché è specifico di un vendor terzo (romperebbe la neutralità e obbligherebbe ogni sito a portarsi dietro codice morto); è però già cablato tutto il necessario lato consenso — questa è la ricetta da applicare il giorno in cui attivi Google, quattro punti, tutti nel Dominio:
+
+**1. `src/index.html` — stub di default, PRIMA di qualsiasi script `gtag.js`/GTM.** Consenso negato finché l'utente non risponde (obbligatorio: deve caricare prima del tag stesso):
+```html
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('consent', 'default', {
+    'ad_storage': 'denied',
+    'ad_user_data': 'denied',
+    'ad_personalization': 'denied',
+    'analytics_storage': 'denied',
+    'wait_for_update': 500
+  });
+</script>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXX"></script>
+<script>
+  gtag('js', new Date());
+  gtag('config', 'G-XXXXXXX');
+</script>
+```
+Aggiungilo a mano solo quando attivi davvero GA/Ads: prima di allora è codice morto che non ha ragione di stare nel seed di ogni sito.
+
+**2. `security-headers.json` — whitelisting CSP.** La CSP di default è `script-src 'self'` / `connect-src 'self'`: senza estenderla, il browser blocca `gtag.js` in silenzio. Usa l'override eccezionale già documentato nella `_nota` del file:
+```
+script-src 'self' {SCRIPT_NONCE_PLACEHOLDER} https://www.googletagmanager.com;
+connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com
+```
+
+**3. `cookie-registry.ts` — censisci i cookie di Google.** Stesso pattern già mostrato sopra per `_ga` (`provider: 'Google Analytics'`, `providerUrl`, `durationKey`): categoria `Analytics` per GA4, `Profiling` per Google Ads/remarketing.
+
+**4. Un servizio di progetto che aggiorna il consenso reattivamente.** Stesso pattern di gating già documentato (`effect()` su un signal di `CookieConsentService`), qui rivolto a `gtag('consent', 'update', …)` invece che al caricamento di uno script:
+```typescript
+// core/services/analytics.service.ts — iniettato una volta da app.component.ts (la shell)
+declare const gtag: (...args: unknown[]) => void;
+
+@Injectable({ providedIn: 'root' })
+export class AnalyticsService {
+    private readonly consent = inject(CookieConsentService);
+
+    constructor() {
+        effect(() => {
+            if (typeof gtag !== 'function') return;
+            gtag('consent', 'update', {
+                analytics_storage: this.consent.analyticsAccepted() ? 'granted' : 'denied',
+                ad_storage: this.consent.profilingAccepted() ? 'granted' : 'denied',
+                ad_user_data: this.consent.profilingAccepted() ? 'granted' : 'denied',
+                ad_personalization: this.consent.profilingAccepted() ? 'granted' : 'denied',
+            });
+        });
+    }
+}
+```
+Mappatura sulle categorie di questo Engine: `analytics_storage` ← `analyticsAccepted()`; `ad_storage`/`ad_user_data`/`ad_personalization` (pubblicità comportamentale) ← `profilingAccepted()`, non `analyticsAccepted()` — sono due consensi giuridicamente distinti anche per Google.
+
+### Altri due obblighi da tenere presenti (fuori scope Engine oggi)
+
+Nessuno dei due è una feature del template — nessun chatbot, nessuna generazione IA, nessuna newsletter integrata — ma diventano rilevanti nel momento in cui un progetto figlio li aggiunge:
+
+- **AI Act, trasparenza — dal 2 agosto 2026.** Se il progetto aggiunge un chatbot: avviso esplicito e immediatamente percepibile al primo messaggio ("Stai parlando con un sistema di IA"), non un testo nascosto in fondo alla pagina. Se pubblica contenuti (testo/immagini/video) generati da IA senza revisione editoriale umana: etichettatura visibile. Riguarda anche le PMI, non solo i grandi provider — l'Engine non ha nulla da gestire finché non esiste il chatbot/i contenuti, ma la scadenza è vicina: pianificalo per tempo.
+- **Newsletter/marketing — consenso separato dal consenso cookie.** Se il progetto aggiunge un form di iscrizione: l'autorizzazione a scrivere all'indirizzo email **non** è una categoria di `ConsentCategory` — quel sistema gestisce storage/tracciamento lato browser (Technical/Analytics/Profiling), non il permesso di inviare comunicazioni. Serve una checkbox dedicata, non pre-spuntata, e — se il progetto fa anche profilazione sugli iscritti — una seconda checkbox separata per quello: consensi granulari e specifici, non raggruppati in uno solo.
+
 ---
 
 ## 🎨 Tema e Sistema di Colori (OKLCH + WCAG)
@@ -837,6 +901,21 @@ Per pagine/viste a tutto schermo (mappe, giochi, dashboard) dove lo scroll spezz
 
 **Lato pagina serve una cosa sola:** fai crescere il root del componente con `flex-grow-1` (o `h-100`) sul suo elemento radice, così riempie l'altezza. Il resto è territorio dell'Engine: dà già `display: block` all'host di ogni pagina e, in full-bleed, costruisce la catena flex fino al viewport adattandosi da sé a navbar/footer/orientamento — layout nativo del browser, anche in SSR. Tu pensi al contenuto.
 
+### Stampa/PDF
+
+Ogni pagina è **sempre stampabile, senza configurazione e senza bottone dedicato**: i browser espongono già la stampa in modo prominente (Ctrl+P, menu, condivisione) — un bottone nel template la replicherebbe soltanto, pratica ormai considerata superata. Quello che l'Engine garantisce è la **resa**: un `@media print` condiviso (`styles/engine/base/_print.scss`, globale — non per-pagina) ripulisce automaticamente **qualunque** pagina, presente e futura (anche una che il progetto figlio scrive da sé domani, es. un articolo se il figlio è una testata giornalistica):
+- **Via del tutto:** navbar, i FAB fissi (`app-back-to-top`, `app-cookie-banner` — icone/pulsanti di UI, mai contenuto), lo sfondo smoke.
+- **Forzato tema chiaro** (nero su bianco, a prescindere dal tema attivo — la stampa non è mai scura) su `html`/`body`, così vale anche fuori dal pannello contenuti.
+- **Pannello contenuti** spogliato dell'identità "da card" (sfondo/bordo/ombra/griglia): resta solo il contenuto.
+- **Footer semplificato, non nascosto:** la riga di copyright/ragione sociale è informazione legittima su un documento stampato, quindi resta — via solo l'identità estesa (indirizzo/social/orari, con l'eventuale accordion interattivo) e il menu di navigazione (link non cliccabili su carta).
+- **`<details>` chiusi si aprono da soli** (es. i gruppi cookie della Cookie Policy, o un accordion FAQ in un articolo): altrimenti stamperebbero solo l'intestazione, non il contenuto (`AppComponent`, ascolta `matchMedia('print')`).
+
+È anche il "formato alternativo" richiesto dalla Dichiarazione di Accessibilità — vedi `app-print-action` più sotto se un progetto vuole comunque un bottone di stampa **puntuale** su una pagina specifica (non è nel template di default, ma il building block c'è già).
+
+### Navigazione SPA: focus e annuncio agli screen reader
+
+Un cambio pagina qui non ricarica il documento — è il router Angular a sostituire il contenuto sotto `<router-outlet>` — quindi il browser **non** sposta da solo il focus né annuncia nulla, come farebbe invece con un normale link multi-pagina. Senza intervento, chi naviga da tastiera o screen reader resta "fermo" sul link appena attivato, dentro un contenuto ormai sostituito. L'Engine applica l'approccio duale raccomandato (2025/2026): `AppComponent` ascolta `NavigationEnd` (saltando il primo, quello del caricamento iniziale — lì il focus del browser va lasciato dov'è) e sposta il focus su `#main-content` (`tabindex="-1"`, programmaticamente focalizzabile senza entrare nell'ordine di tabulazione), mentre una regione `role="status" aria-live="polite"` annuncia il nuovo titolo (`PageMetaService.announcedTitle`, lo stesso testo del `<title>`) — il solo focus non basta perché alcune combinazioni screen reader/browser (NVDA+Firefox, VoiceOver+Safari) non lo annunciano sempre in modo affidabile. Nessuna configurazione: vale su ogni pagina, presente e futura.
+
 ---
 
 ## 🌍 Internazionalizzazione (i18n)
@@ -1041,15 +1120,7 @@ La convenzione vive inline in `api.service.ts`. Tre passi:
 2. **Metodo pubblico** — esponi un metodo dedicato che chiama l'helper protetto del `BaseApiService`: `api_get<T>()` / `api_post<T>()` per le chiamate una-tantum, `api_resource<T>()` per i dati reattivi (si ri-fetchano al cambio di signal, es. lingua).
 3. **(Opzionale) ContentResolver** — se l'endpoint alimenta una pagina al primo render, aggiungi un `case` in `ContentResolver.loadResolved()` (vedi *Developer Journey → Passo 5*).
 
-```typescript
-// 1. Path
-const API = { /* … */ articolo: (id: string) => `articolo/${encodeURIComponent(id)}` } as const;
-
-// 2. Metodo pubblico — la gestione errori/notifica è automatica via interceptor
-getArticolo(id: string): Promise<Articolo> {
-    return this.api_get<Articolo>(API.articolo(id));
-}
-```
+Esempio (path parametrico + metodo che ne consuma il risultato): [AGENTS.md](../AGENTS.md#aggiungere-un-endpoint-al-client).
 
 > **Upload multipart/`FormData`:** per gli endpoint che ricevono file usa `this.api_post_form<T>(path, formData)` invece di `api_post` — è quello che usa già `uploadBlob`. Non impostare `Content-Type` a mano: il browser lo aggiunge con il boundary corretto; per il resto passa per le stesse `build_api_Headers` e l'`apiErrorInterceptor`.
 
@@ -1432,15 +1503,17 @@ L'Engine elabora i gruppi in modo automatico:
 Mappi gli slot legali dell'Engine ai tuoi `PageType`; il builder costruisce da solo il contenitore `/policy/*` con le sole pagine valorizzate:
 ```typescript
 legalPages: {
-    privacy: PageType.PrivacyPolicy,
-    cookie:  PageType.CookiePolicy,
-    tos:     PageType.TermsOfService,
-    legal:   PageType.LegalNotice,
+    privacy:       PageType.PrivacyPolicy,
+    cookie:        PageType.CookiePolicy,
+    tos:           PageType.TermsOfService,
+    legal:         PageType.LegalNotice,
+    accessibility: PageType.AccessibilityStatement,
 },
 ```
 - **Slot omesso** → quella pagina non viene creata (es. una vetrina con i soli cookie).
 - **Cookie obbligatoria**: se il sito usa cookie (multilingua, PWA o cookie di progetto) lo slot `cookie` dev'essere valorizzato, altrimenti il build si ferma con un errore esplicito.
-- **Contenuto**: Markdown localizzati in `src/assets/legal/` (slug `privacy`, `cookie`, `TOS`, `legal` → `<slug>.<lang>.md`); il `PolicyComponent` interpola i placeholder dell'identità del sito (`{{ragioneSociale}}`, `{{partitaIva}}`, …).
+- **Contenuto**: Markdown localizzati in `src/assets/legal/` (slug `privacy`, `cookie`, `TOS`, `legal`, `accessibility` → `<slug>.<lang>.md`); il `PolicyComponent` interpola i placeholder dell'identità del sito (`{{ragioneSociale}}`, `{{partitaIva}}`, …) e `{{companyProfile}}` (blocco identità completo, come in `legal.<lang>.md`).
+- **Dichiarazione di Accessibilità**: slot facoltativo come gli altri tre (non `cookie`) — nessun errore di build se lo ometti. Rilevante dal 28 giugno 2025 per i siti nello scope dell'European Accessibility Act (e-commerce, o fatturato >2M€/≥10 dipendenti, microimprese escluse). **Attenzione:** il regime esatto dipende da chi eroga il sito — Pubblica Amministrazione (Legge 4/2004, dichiarazione + obiettivi annuali via piattaforma AGID) e soggetti privati (D.Lgs. 82/2022, "informazioni sull'accessibilità" ex Allegato IV, senza obiettivi annuali) **non sono lo stesso adempimento**: il Markdown demo è un template generico di trasparenza (stato di conformità, limiti noti, canale di segnalazione), non un modulo ufficiale né un testo legale pronto all'uso — verifica con un consulente legale quale regime si applica al progetto.
 
 **Override per-pagina.** Per gestire una policy a modo tuo (rotta dedicata, contenuto da API invece che da Markdown) dichiari tu stesso la pagina in `pages` con lo stesso `PageType`: la tua vince, l'Engine non la crea e non ne carica il `.md`. Le altre policy restano automatiche.
 
@@ -1830,7 +1903,7 @@ Apre o scarica un PDF. Usa `config` al posto di `action`: lavora direttamente su
 | `config` | `PdfActionConfig` (required) | `{ url: string; openInTab: boolean }` — URL del PDF e modalità di apertura |
 
 #### `app-print-action`
-Apre la finestra di stampa nativa del browser tramite `window.print()`. Non richiede `action` né altri input aggiuntivi: stampa il contenuto della pagina corrente così com'è.
+Apre la finestra di stampa nativa del browser tramite `window.print()`. Non richiede `action`. Non è montato da nessuna parte nel template di default (niente bottone di stampa globale — vedi «Stampa/PDF» più sopra, che copre la resa senza bisogno di un bottone): usalo se un progetto vuole comunque un'affordance di stampa puntuale su una pagina specifica (es. una fattura, un articolo). Si auto-esclude sempre dalla propria stampa (`d-print-none` intrinseco): un bottone "stampa" non ha senso nel risultato stampato di se stesso.
 
 ### Componenti di Contatto
 

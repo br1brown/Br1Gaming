@@ -4,6 +4,87 @@ Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspetta
 
 ## [Non rilasciato]
 
+### Doc: tre snippet duplicati fra README e AGENTS.md, disallineati per drift
+
+Controllati tutti i punti dove AGENTS.md e i README (frontend/backend) trattano lo stesso argomento — non per titolo di sezione, per contenuto reale — per capire dove la separazione "README = cosa offre / AGENTS.md = ricetta pronta" (già dichiarata in apertura di AGENTS.md) fosse rispettata e dove no. La maggioranza dei casi era già corretta (es. "Aggiungere una pagina" e "JSON-LD" nel README frontend rimandano già ad AGENTS.md senza ripetere codice) o legittimamente complementare (tutorial esteso in un file, ricetta compatta nell'altro, non lo stesso testo due volte). Tre punti erano invece codice pressoché identico ripetuto in entrambi i file, senza alcun rimando fra loro — a rischio di andare fuori sincrono al primo refactor toccato da un lato solo:
+
+- **`frontend/README.md` §"Aggiungere un Endpoint"** (ApiService): duplicava l'esempio `getArticolo`/`api_get` già in AGENTS.md. Ora rimanda lì, mantenendo i tre passi concettuali e la nota su `FormData` (uniche a questo file).
+- **`AGENTS.md` §"Persistere dati lato client"**: la mappa `COOKIE_MAP` completa (con la variante `match: 'prefix'`) è coperta in modo più esteso nel README frontend — condensato a match del pattern già usato dalla ricetta gemella "Google Consent Mode v2" (solo la forma di chiamata `consent.set/get`, rimando al README per la struttura della voce).
+- **`backend/README.md` §"Leggere la Sessione"**: aveva lo stesso codice di AGENTS.md ma, a differenza delle sezioni vicine ("Notifiche Realtime", "Task in Background"), mancava il rimando "Ricetta rapida" che quelle già usano — aggiunto per coerenza interna al file.
+
+### `a11y-test.sh`: pagine auditate in parallelo (con un limite), Lighthouse resta seriale apposta
+
+Valutato se applicare la parallelizzazione anche dentro i singoli script, non solo fra loro a livello di job CI. Risposta diversa per i due strumenti, verificata separatamente:
+
+- **pa11y (`a11y-test.sh`): sì.** Misura struttura/DOM (axe-core/HTML_CodeSniffer), non tempi — la contesa di risorse fra pagine concorrenti rallenta ma non falsa l'esito. È anche il pattern che pa11y stesso documenta per il proprio tooling CI. Il browser persistente introdotto in precedenza ora audita le pagine con un **pool a concorrenza limitata** (nuovo `A11Y_CONCURRENCY`, default 3): abbastanza per un guadagno reale senza esaurire la memoria del runner aprendo troppe tab Puppeteer insieme. Ogni pagina bufferizza il proprio output e lo stampa tutto insieme, in ordine originale, a fine corsa — leggibile anche se le pagine finiscono in un ordine diverso da quello di partenza. Verificato in locale (8 pagine, backend/SSR reali): ~17.6s seriale → ~11.7s con concorrenza 3, stesso esito; verificato anche che i conteggi di fallimento restano esatti sotto concorrenza (3 pagine irraggiungibili in parallelo → 3 fallimenti contati, non un numero sballato da una race condition).
+- **Lighthouse (`lighthouse-test.sh`): no.** È la guidance ufficiale del team Lighthouse: gli audit di performance misurano condizioni reali (`--throttling-method=provided`, già in uso qui), quindi Chrome in concorrenza sulla stessa macchina si contende CPU/rete e si falsano a vicenda i punteggi — non un rischio teorico, sconsigliato esplicitamente da Google. Parallelizzare lì reintrodurrebbe silenziosamente la flakiness appena eliminata (punteggi sbagliati anziché errori). Resta seriale.
+
+### CI: accessibilità e Lighthouse non si bloccano più a vicenda nel job "Test live"
+
+I due audit erano step sequenziali senza `continue-on-error`: se l'audit di accessibilità falliva, quello Lighthouse non partiva nemmeno — un push con un problema di accessibilità E uno di performance li segnalava uno alla volta, a colpi di push-e-riattendi (~7 minuti a giro) invece che in un solo run.
+
+- Entrambi gli step ora hanno `continue-on-error: true` (girano sempre fino in fondo, indipendenti l'uno dall'altro) e un `id`. Un nuovo step finale "Esito test live" (`if: always()`) rilegge esplicitamente `steps.a11y.outcome` / `steps.lighthouse.outcome` e fa fallire il job se anche uno solo dei due non è `success` — `continue-on-error` a livello di step farebbe risultare lo step (e di riflesso il job, se non controllato) sempre verde anche a script fallito, quindi va riletto a mano, non lasciato al default.
+- Notare per il futuro: GitHub ha introdotto step realmente paralleli in-job (`background`/`wait`/`parallel`, changelog 25 giugno 2026) che risparmierebbero anche il tempo — ma a due settimane dal rilascio la semantica di propagazione del fallimento non è ancora documentata nell'annuncio stesso: prematuro adottarla su una CI di template ereditata da ogni progetto figlio. Il pattern `continue-on-error` + `outcome` resta quello stabile, verificato.
+
+### `backup.sh`: immagine Alpine pinnata (non più `:latest` implicito)
+
+Il container effimero usato per comprimere i volumi (`docker run --rm ... alpine tar czf ...`) usava `alpine` senza tag, che Docker risolve in `:latest`. `backup.sh` è pensato per girare da cron ogni notte, senza controllo umano: una breaking change silenziosa nell'immagine `latest` romperebbe i backup senza che nessuno se ne accorga fino al giorno del ripristino — il momento peggiore possibile per scoprirlo. Pinnato a `alpine:3.22` (major.minor, non una patch esatta: riceve comunque gli aggiornamenti di sicurezza sullo stesso tag, verificato attivo su Docker Hub). Allineato anche l'esempio di ripristino nell'header dello script.
+
+### CI: Lighthouse riusa un solo Chrome per tutte le pagine, invece di un avvio a testa
+
+`lighthouse-test.sh` lanciava un Chrome a freddo per ogni pagina scoperta da `/health` (uno per URL, avviato e distrutto ogni volta). Con poche pagine costava solo tempo; ma la pressione su CPU/memoria del runner CI — già condiviso coi container backend/frontend sotto test — sale a ogni riavvio, terreno tipico per `NO_NAVSTART`/`NO_FCP` (la trace di performance viene registrata prima che Chrome sia davvero pronto a navigare): il rischio di flake cresce con ogni pagina aggiunta al sito, non solo con l'ultima.
+
+- **Chrome persistente:** un solo processo headless avviato all'inizio dello script (porta di debug remota su una porta libera, verificata pronta via polling su `/json/version`), riusato per tutte le pagine passando `--port` a Lighthouse invece di `--chrome-flags` — il pattern che Lighthouse stesso raccomanda per audit multi-URL. Se `CHROME_PATH` non è risolto (bundled/npx) si ricade sul comportamento precedente, un avvio per pagina.
+- **Retry mirato sui soli errori transitori:** `NO_NAVSTART`, `NO_FCP`, `NO_LCP`, `PAGE_HUNG`, `TARGET_CRASHED`, `PROTOCOL_TIMEOUT` e simili (sintomi di timing/risorse, non di una pagina rotta) vengono ritentati una volta prima di dichiarare fallimento. Errori deterministici (`DNS_FAILURE`, `INVALID_URL`, `ERRORED_DOCUMENT_REQUEST` — una 404 vera) restano fail-fast, senza retry sprecato: verificato che una pagina inesistente fallisce ancora al primo tentativo.
+- **Verificato in locale** (server SSR reale + backend .NET reale, tutte le 8 pagine demo): stesso esito del comportamento precedente ma con un solo avvio Chrome invece di 8.
+
+### CI: stesso trattamento per `a11y-test.sh` (pa11y) — un solo browser, non uno a pagina
+
+Stesso pattern del punto sopra, stessa causa: la CLI pa11y invocata una volta a pagina apriva e chiudeva un intero Chromium ad ogni URL. L'API JS di pa11y espone per questo un'opzione `browser` — passandole un'istanza Puppeteer già avviata, pa11y apre solo una nuova *tab* per pagina invece di un intero processo, il pattern che pa11y stesso documenta per testare più URL in sequenza.
+
+- Lo script ora genera un piccolo runner Node temporaneo (`frontend/.a11y-run-*.cjs`, autopulito a fine corsa) che lancia Puppeteer una volta sola e vi passa ogni pagina; l'output resta identico (stesso reporter `cli` di pa11y, stesso formato "OK/ERR" del resto della suite).
+- **Fallback invariato:** se `pa11y` non è un pacchetto locale (npm ci non eseguito, si scarica al volo via `npx`) resta il vecchio comportamento CLI-per-pagina — percorso già degradato, non quello raccomandato.
+- **Verificato in locale**, stessi 8 path: nessuna violazione, un solo avvio Chromium invece di 8; verificato anche il percorso di errore (pagina irraggiungibile → fallimento corretto, conteggio esatto) e quello di successo.
+
+### Pulizia `.gitignore`: due pattern morti, mai stati corretti
+
+Trovati controllando dove i due script sopra scrivono davvero i loro file temporanei: `frontend/lh-report.json` non ha mai corrisposto a nulla (il report è sempre stato nominato con PID, `lh-report-$$.json`, e scritto dalla working directory dello script — root del repo in CI, non `frontend/`) e `frontend/ssr-server*.log` non ha zero riferimenti in tutto il repo, nessuno script lo produce. Corretti in `lh-report-*.json` (radice, glob sul PID) e rimossa la voce morta.
+
+### Navigazione SPA: focus e annuncio agli screen reader ad ogni cambio pagina
+
+Un cambio pagina in una SPA non ricarica il documento — il browser non sposta da solo il focus né annuncia nulla, come farebbe con un normale link multi-pagina. Chi naviga da tastiera o screen reader restava "fermo" sul link appena attivato, dentro un contenuto ormai sostituito. Nessuna configurazione: vale su ogni pagina, presente e futura.
+
+- **Approccio duale (best practice 2025/2026):** `AppComponent` ascolta `Router.events` (`NavigationEnd`, saltando il **primo** — il caricamento iniziale, dove il focus va lasciato dov'è il browser lo mette di default) e sposta il focus su `#main-content` (nuovo `tabindex="-1"`, programmaticamente focalizzabile senza entrare nell'ordine di tabulazione a schermo). In parallelo, una regione `role="status" aria-live="polite"` annuncia il nuovo titolo.
+- **`PageMetaService.announcedTitle`:** nuovo signal, valorizzato dentro `setPageMeta()` con lo stesso testo già scritto nel `<title>` del browser — nessuna logica duplicata, un solo punto di verità per il titolo di pagina.
+- **Perché entrambi:** il solo focus non basta — alcune combinazioni screen reader/browser (NVDA+Firefox, VoiceOver+Safari) non annunciano sempre in modo affidabile l'elemento appena focalizzato; la regione live è il backup.
+- **Cambio lingua non innesca il focus:** `setLanguage()` non naviga (nessun `NavigationEnd`), quindi non sposta mai il focus — solo `announcedTitle` si aggiorna (il titolo tradotto viene comunque annunciato, utile di per sé).
+- Verificato con Playwright (server SSR reale + backend .NET reale): caricamento iniziale non ruba il focus, navigazioni SPA successive (via `routerLink`, non full-reload) spostano correttamente il focus su `#main-content` e la regione live rispecchia il nuovo `document.title`.
+
+### Quinta pagina legale: Dichiarazione di Accessibilità
+
+`legalPages` supporta ora uno slot `accessibility`, sullo stesso identico meccanismo di `privacy`/`cookie`/`tos`/`legal` — nessuna pagina nuova da costruire a mano, stesso `PolicyComponent`, stessa interpolazione identità.
+
+- **Rilevanza normativa:** dal 28 giugno 2025 l'European Accessibility Act (Direttiva UE 2019/882) riguarda anche i siti privati nello scope (e-commerce, fatturato >2M€ o ≥10 dipendenti; microimprese escluse) — ma con un adempimento diverso da quello della Pubblica Amministrazione. La PA resta sulla Legge 4/2004 (dichiarazione + obiettivi annuali via piattaforma AGID entro il 31 marzo); i privati seguono invece il D.Lgs. 82/2022 ("informazioni sull'accessibilità" ex Allegato IV, senza obiettivi annuali). Il Markdown demo copre il primo modello (più adatto a una pagina pubblica di trasparenza); quale regime si applica esattamente va verificato con un consulente legale.
+- **`LegalPagesConfig`/`ResolvedLegalPages`:** nuovo campo opzionale `accessibility?: PageType | null` — slot facoltativo come `privacy`/`tos`/`legal` (nessun errore di build se omesso, a differenza di `cookie`).
+- **`legal-pages.ts`:** nuova voce nel registry (`path: 'accessibilita'`, `markdownSlug: 'accessibility'`) — routing, sitemap, SEO e menu si cablano da soli, stesso meccanismo generico delle altre quattro.
+- **Markdown demo generico** (`assets/legal/accessibility.{it,en}.md`): stato di conformità (WCAG 2.1 AA, lo standard già verificato in CI da `pa11y`), contenuti non accessibili, come è stata redatta, segnalazioni/procedura di attuazione — un template da compilare, non un modulo ufficiale né un testo legale pronto all'uso.
+- **Demo e skeleton "eject" aggiornati in coppia** (`site.ts` e `MINIMAL_SITE_TS` in `setup.mjs`): stesso `PageType.AccessibilityStatement`, stesso posizionamento nel menu (`menuPolicy`, accanto a Privacy/Cookie).
+
+### Ogni pagina sempre stampabile — resa pulita, niente bottone
+
+Ogni pagina, presente e futura (anche una che il progetto figlio scrive da sé domani — es. un articolo, se il figlio è una testata giornalistica), stampa bene **senza che nessuno debba configurarlo**, e senza un bottone di stampa nel template: i browser espongono già la stampa in modo prominente (Ctrl+P, menu, condivisione), un bottone dedicato la replicherebbe soltanto — pratica ormai considerata superata (i redesign recenti tendono a toglierlo, tenendo solo il CSS di stampa). Un `@media print` condiviso e **globale** (`styles/engine/base/_print.scss`, non per-pagina, non un flag DSL — nessuna configurazione possibile, quindi nessuna svista possibile) ripulisce automaticamente qualunque pagina:
+
+- **Via del tutto:** navbar, i FAB fissi (`app-back-to-top`, `app-cookie-banner` — pura UI, mai contenuto), lo sfondo smoke.
+- **Forzato tema chiaro su `html`/`body`** (nero su bianco, `color-scheme: light`) a prescindere dal tema attivo — non solo su `.content-panel`, così copre anche le pagine senza pannello o full-bleed.
+- **Pannello contenuti** spogliato dell'identità "da card" (sfondo/bordo/ombra/raggio/griglia): resta solo il contenuto.
+- **Footer semplificato, non nascosto:** la riga di copyright/ragione sociale è informazione legittima su un documento stampato, quindi resta — via solo l'identità estesa (indirizzo/social/orari con l'eventuale accordion) e il menu di navigazione (link non cliccabili su carta).
+- **`<details>` chiusi si aprono per la stampa** (i gruppi cookie della Cookie Policy, o qualunque `<details>` in un Markdown di progetto): un `<details>` chiuso non stampa il suo contenuto per comportamento nativo, corretto a schermo ma sbagliato sul "formato alternativo" — chi lo stampa deve vedere l'elenco completo, non intestazioni collassate senza modo di espanderle su carta. `AppComponent` ascolta `matchMedia('print')` (non `beforeprint`/`afterprint`: più affidabile in Safari) e riapre solo i `<details>` che erano chiusi, richiudendo solo quelli appena finita la stampa — uno che l'utente aveva già aperto a mano resta aperto anche dopo.
+
+È anche il "formato alternativo" richiesto dalla Dichiarazione di Accessibilità. `app-print-action` (il componente azione, non montato di default da nessuna parte) resta disponibile per un'affordance di stampa puntuale su una pagina specifica, se un progetto la vuole — si auto-esclude sempre dalla propria stampa (`d-print-none` intrinseco).
+
+- **Specificità CSS, non ovvio:** `app-navbar` applica `d-block` come host class; l'utility Bootstrap `.d-block{display:block!important}` ha specificità di classe (0,1,0), più alta del solo selettore di tag (0,0,1) — a parità di `!important` un semplice `app-navbar{display:none!important}` **perde**. Selettore composito `app-navbar.d-block` per pareggiare e vincere. Verificato con screenshot/PDF Playwright in `media: 'print'`, anche partendo da tema scuro (bug silenzioso: nessun errore, navbar/sfondo scuro restavano visibili in stampa finché non trovato così).
+- **Verificato oltre la Cookie Policy** (pagine temporanee di stress-test, non committate): tutte e 5 le pagine legali in tema chiaro/scuro; `fitViewport:true` (niente `.content-panel`, navbar comunque nascosta in stampa); `showPanel:false`; 3 categorie cookie simultanee (tutte si aprono/richiudono correttamente); banner cookie non ancora risposto (resta escluso dalla stampa a prescindere dallo stato del consenso). Nessun bug emerso.
+
 ### Validazione: un unico modulo condiviso, e valuta/orari/telefono in fail-fast
 
 - **Modulo `Validation` condiviso (frontend):** le regole prima sparse (validatori inline di `QrCodeService`, strip del telefono in `ContactUrl`) vivono ora in `core/engine/services/validation.ts` — un solo posto per `phone` (charset + numero singolo + forma dialabile `toDial` + `isE164` stretto), `email`, `url`, `iban`. Lo usano i builder di link (`ContactUrl`) e il generatore QR (`QrCodeService`); nessuna regex duplicata resta nel frontend. **Telefono, Opzione A:** la regola base accetta anche i nazionali (`06/1234567`); l'E.164 stretto (`isE164`) è un controllo *in più* solo dove serve un numero internazionale (WhatsApp/`wa.me`).
@@ -22,6 +103,16 @@ La pagina Cookie Policy passa da un elenco piatto (una card per voce, ingestibil
 - **"Come controllare i cookie":** sezione con le guide ufficiali dei browser (Edge/Chrome/Safari/Firefox/Opera), localizzate per lingua (Apple pretende il locale pieno, gli altri no — verificato sul campo).
 - **"Ultimo aggiornamento":** data per pagina legale (dizionario per `PageType` nella PolicyComponent, hardcoded a mano), resa con `<time>` semantico e formattata per lingua via `Intl`.
 - **A11y:** verificato con pa11y (WCAG 2.1 AA) su cookie/privacy/termini, anche coi gruppi espansi: nessuna violazione.
+
+### Cookie banner: barra fissa full-width, pari peso Accetta/Rifiuta, consenso 180gg
+
+Allineamento allo standard di settore 2026 (bottom-bar non modale, tre azioni a pari peso) e alle Linee guida del Garante Privacy.
+
+- **Layout:** da card fluttuante centrata (max-width 1080px, radius 1.5rem) a barra fissa full-width agganciata ai tre bordi, come la maggior parte dei siti — niente più raggio, ombra verso l'alto per il distacco visivo dal contenuto.
+- **Pari peso Accetta/Rifiuta:** i due bottoni condividono ora lo stesso stile `outline-secondary` — un "Accetta" pieno/verde contro un "Rifiuta" in outline è il dark pattern esplicitamente vietato dalla guidance EDPB sui banner cookie (pari prominenza visiva, non solo dimensione). "Salva scelte" resta evidenziato: non è un'alternativa accetta/rifiuta, conferma qualunque combinazione di toggle.
+- **Memoria del consenso a 180 giorni** (`CookieConsentService.CONSENT_MAX_AGE_SECONDS`), non più 1 anno: oltre questa soglia il Garante richiede di riproporre il banner. `durationKey` dedicato in `CONSENT_COOKIE_MAP` così la Cookie Policy dichiara "6 mesi" invece di ereditare il default "1 anno".
+- **ARIA:** `role="alert"` (implicitamente assertive) sostituito da `role="region"` + `aria-label` sul banner principale — non è un'interruzione urgente ma un landmark non modale, coerente con WCAG 2.2/ARIA per i consent banner.
+- **Nuovo in `frontend/README.md`:** ricetta pronta (non attiva di default) per Google Consent Mode v2 — obbligatorio da marzo 2024 per chi usa GA4/Google Ads in UE. Quattro punti nel Dominio (stub di default in `index.html`, whitelisting CSP in `security-headers.json`, censimento in `cookie-registry.ts`, `effect()` di aggiornamento reattivo): l'Engine resta provider-agnostico, la ricetta si applica solo il giorno in cui Google viene davvero attivato.
 
 ### Consenso: censire una famiglia di chiavi Web Storage (`match: 'prefix'`)
 
