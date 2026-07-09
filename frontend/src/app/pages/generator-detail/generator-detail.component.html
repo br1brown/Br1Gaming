@@ -50,7 +50,9 @@
         @if (result(); as res) {
         <div class="row">
                 <app-speech-action [action]="speakText" class="col" />
+                @if (!recovered()) {
                 <app-like-action [action]="likeThis" [liked]="liked()" class="col" />
+                }
                 <app-share-action [action]="buildShareCanvas" class="col"
                                   [title]="shareTitle()" [filename]="shareFilename()" />
         </div>

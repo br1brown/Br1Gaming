@@ -130,7 +130,7 @@ export const ContestoSito = buildSite({
 
         // ── Generatori (+ Condivisi) sotto /generatori ───────────────
         // Parent senza component: fa solo da prefisso di path (gli URL figli
-        // restano /generatori/<slug> e /generatori/condivisi).
+        // restano /generatori/<slug> e /generatori/piaciuti).
         {
             path: 'generatori',
             title: 'generatori',
@@ -148,7 +148,7 @@ export const ContestoSito = buildSite({
                 },
                 ...GENERATORS.map(([slug, pageType, ogImage]) => generatorPage(slug, pageType, ogImage)),
                 {
-                    path: 'condivisi',
+                    path: 'piaciuti',
                     title: 'condivisi',
                     description: 'Le frasi più belle piaciute agli utenti: la raccolta pubblica dei generatori.',
                     pageType: PageType.Condivisi,
