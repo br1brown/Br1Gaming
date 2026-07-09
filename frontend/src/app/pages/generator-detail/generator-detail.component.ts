@@ -89,7 +89,7 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
     /** true quando il risultato mostrato proviene dai condivisi (recupero `?g=`), non da una generazione client. */
     readonly recovered = computed(() => this.localResult() === null && (this.pageContent()?.recovered ?? false));
     /** true se il risultato mostrato è già tra i piaciuti (registrato o recuperato da lì). */
-    readonly liked = computed(() => this.savedId() !== null || this.g() !== null);
+    readonly liked = computed(() => this.savedId() !== null || this.g() != null);
 
     constructor() {
         super();
