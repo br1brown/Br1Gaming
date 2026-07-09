@@ -166,7 +166,7 @@ public sealed class LocaliGenerator : GeneratorBase
     public override string Slug => "locali";
 
     /// <inheritdoc />
-    public override GeneratorInfo Info { get; } = new() { Order = 5, Name = "Generatore dei Nomi dei Bar", Description = "Trova il nome del tuo locale tutto italiano" };
+    public override GeneratorInfo Info { get; } = new() { Order = 5, Name = "Generatore dei Nomi dei Bar", Description = "Trova il nome del bar sotto casa tua, quello con la macchinetta del caffè rotta da tre anni" };
 
     /// <inheritdoc />
     public override List<Frase> Core { get; } =

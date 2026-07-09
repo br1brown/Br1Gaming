@@ -150,7 +150,7 @@ export const ContestoSito = buildSite({
                 {
                     path: 'condivisi',
                     title: 'condivisi',
-                    description: 'Le frasi più belle condivise dagli utenti: la raccolta pubblica dei generatori.',
+                    description: 'Le frasi più belle piaciute agli utenti: la raccolta pubblica dei generatori.',
                     pageType: PageType.Condivisi,
                     layout: { showPanel: false },
                     component: () => import('./pages/condivisi/condivisi.component')
