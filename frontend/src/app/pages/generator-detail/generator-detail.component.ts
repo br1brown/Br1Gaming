@@ -10,6 +10,7 @@ import { PageDirective } from '../../core/engine/directives/page.directive';
 import { MarkdownPipe } from '../../core/engine/pipes/markdown.pipe';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
+import { LikeActionComponent } from '../../components/shared/action/like-action/like-action.component';
 import { ShareActionComponent } from '../../components/shared/action/share-action/share-action.component';
 import { SpeechActionComponent } from '../../components/shared/action/speech-action/speech-action.component';
 import { VariantWheelComponent } from '../../components/shared/variant-wheel/variant-wheel.component';
@@ -23,6 +24,7 @@ import { VariantWheelComponent } from '../../components/shared/variant-wheel/var
         AssetDirective,
         PageDirective,
         RouterLink,
+        LikeActionComponent,
         ShareActionComponent,
         SpeechActionComponent,
         VariantWheelComponent,
@@ -41,10 +43,8 @@ import { VariantWheelComponent } from '../../components/shared/variant-wheel/var
 export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageContent> {
     /** Esposto al template per i link interni via [appPage] (es. verso i condivisi). */
     protected readonly PageType = PageType;
-    /** Path della pagina condivisi, per il link "Condivisi di questo generatore" (con `?gen=`). */
-    protected readonly condivisiPath = ContestoSito.getPath(PageType.Condivisi) ?? '/';
-    /** Arrotonda il punteggio per il badge rarità. */
-    protected readonly rounded = (n: number): number => Math.round(n);
+    /** Path della pagina piaciuti, per il link "Piaciuti di questo generatore" (con `?gen=`). */
+    protected readonly piaciutiPath = ContestoSito.getPath(PageType.Piaciuti) ?? '/';
     private readonly document = inject(DOCUMENT);
     private readonly router = inject(Router);
     private readonly speech = inject(SpeechService);
@@ -88,6 +88,8 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
     readonly savedId = signal<string | null>(null);
     /** true quando il risultato mostrato proviene dai condivisi (recupero `?g=`), non da una generazione client. */
     readonly recovered = computed(() => this.localResult() === null && (this.pageContent()?.recovered ?? false));
+    /** true se il risultato mostrato è già tra i piaciuti (registrato o recuperato da lì). */
+    readonly liked = computed(() => this.savedId() !== null || this.g() !== null);
 
     constructor() {
         super();
@@ -120,17 +122,15 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
     }
 
     /**
-     * Assicura che il risultato corrente sia tra i condivisi e restituisce il link
-     * condivisibile che punta a *quell'* oggetto (`?g=<id>`). È il cuore del nuovo flusso di
-     * condivisione: prima si registra (una volta sola: l'id viene riusato), poi il chiamante usa
-     * il link come URL allegato alla condivisione (`shareTitle`).
+     * Assicura che il risultato corrente sia tra i piaciuti e restituisce il link
+     * condivisibile che punta a *quell'* oggetto (`?g=<id>`). È il cuore del "mi piace": registra
+     * (una volta sola: l'id viene riusato) e dà al chiamante un link stabile verso quella frase.
      *
-     * - Generazione genuina (con firma HMAC) non ancora condivisa → la condivide e ottiene l'id.
-     * - Già condivisa in questa sessione → riusa `savedId`, niente doppia registrazione.
-     * - Risultato recuperato dai condivisi (`?g=`, sig vuota) → è già un oggetto: link al suo id.
+     * - Generazione genuina (con firma HMAC) non ancora piaciuta → la registra e ottiene l'id.
+     * - Già registrata in questa sessione → riusa `savedId`, niente doppia registrazione.
+     * - Risultato recuperato dai piaciuti (`?g=`, sig vuota) → è già un oggetto: link al suo id.
      *
-     * Un errore di registrazione propaga: la share-action annulla la condivisione e notifica,
-     * così non si finisce mai a condividere un link "nudo" che non punta alla frase mostrata.
+     * Un errore propaga: il chiamante (like-action) lo mostra come toast d'errore.
      */
     private async ensureSavedLink(): Promise<string> {
         if (this.savedId()) return `${this.getCurrentUrl()}?g=${this.savedId()}`;
@@ -164,7 +164,7 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
             this.document.querySelector('.gen-result')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
     }
 
-    // ── Sorgenti dati per i bottoni azione (share / speech) ──────────────
+    // ── Sorgenti dati per i bottoni azione (like / share / speech) ────────
     //
     // I componenti `action` del template ricevono una funzione che produce il
     // dato e gestiscono da soli il servizio, lo stato di loading, il toast di
@@ -173,18 +173,18 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
     /** Testo da leggere ad alta voce. */
     readonly speakText = (): string => this.result()?.text ?? '';
 
+    /** Registra il risultato mostrato tra i piaciuti (bottone "mi piace"). */
+    readonly likeThis = async (): Promise<void> => {
+        await this.ensureSavedLink();
+    };
+
     /**
-     * Canvas immagine da condividere. Prima registra la generazione tra i condivisi (`ensureSavedLink`),
-     * così `shareTitle()` può allegare il link a *quell'* oggetto; l'immagine però mostra solo la frase
-     * (niente URL trascritto). La share-action smista verso shareCanvas e, dopo questo await, legge
-     * `shareTitle()` con l'id ormai disponibile.
+     * Canvas immagine da condividere. Non registra più nulla tra i piaciuti (quello lo fa il
+     * bottone "mi piace" a parte): condivisione e "mi piace" sono azioni indipendenti.
      */
     readonly buildShareCanvas = async (): Promise<HTMLCanvasElement> => {
         const res = this.result();
         if (!res) throw new Error('Nessun risultato da condividere');
-        // Registra la generazione tra i condivisi (serve per il link allegato alla condivisione via
-        // shareTitle), ma NON trascriviamo l'URL nell'immagine: lì resterebbe testo morto, non cliccabile.
-        await this.ensureSavedLink();
         const footer = `\n\nDal ${this.generator()?.name ?? ''}`;
         const canvas = await this.imgBuilder.buildCanvas(`${res.text}\n${footer}`, { maxWidth: 1200 });
         if (!canvas) throw new Error('Errore nella generazione dell\'immagine');
@@ -192,9 +192,9 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
     };
 
     /**
-     * Titolo per la Web Share API, con il link all'oggetto condiviso. Letto dalla share-action
-     * dopo `buildShareCanvas`, quindi `savedId()` è già valorizzato per una generazione appena
-     * salvata; `g()` copre il caso di frase recuperata.
+     * Titolo per la Web Share API. Se il risultato è già tra i piaciuti (like-action premuto prima,
+     * o frase recuperata via `g()`) allega il link a *quell'* oggetto; altrimenti il link generico
+     * alla pagina del generatore.
      */
     readonly shareTitle = computed(() => {
         const gen = this.generator();

@@ -22,7 +22,7 @@ export const GENERATOR_PAGE_TYPES: Partial<Record<string, PageType>> = {
 };
 
 /**
- * Sezione "Generatori": titolo + griglia di card dei generatori, con la CTA verso i Condivisi
+ * Sezione "Generatori": titolo + griglia di card dei generatori, con la CTA verso i Piaciuti
  * (che ne raccolgono gli output, quindi vivono accanto). È la "lista di generatori" riusabile sia in
  * home sia nella pagina dedicata `/generatori`: recupera da sé l'elenco (resource reattiva, attiva
  * anche in SSR) e fa il mapping slug→card/rotta — chi la ospita non deve passarle i dati.
@@ -37,10 +37,10 @@ export class GeneratorsSectionComponent {
 
     /** Classi di colonna passate alla griglia (le sezioni a mezza pagina passano 'col-12'). */
     readonly itemColClass = input('col-12 col-md-6');
-    /** Mostra la CTA verso i Condivisi. Default: true (vivono accanto ai generatori). */
-    readonly showCondivisiCta = input(true);
+    /** Mostra la CTA verso i Piaciuti. Default: true (vivono accanto ai generatori). */
+    readonly showPiaciutiCta = input(true);
 
-    /** Per il link interno nel template (CTA verso i Condivisi). */
+    /** Per il link interno nel template (CTA verso i Piaciuti). */
     protected readonly PageType = PageType;
     /** Slot per lo scheletro mostrato durante il caricamento. */
     protected readonly skeletonSlots = [0, 1, 2, 3];

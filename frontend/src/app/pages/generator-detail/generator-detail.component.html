@@ -50,14 +50,17 @@
         @if (result(); as res) {
         <div class="row">
                 <app-speech-action [action]="speakText" class="col" />
-                <app-share-action [action]="buildShareCanvas" class="col" [showLabel]="true"
+                @if (!recovered()) {
+                <app-like-action [action]="likeThis" [liked]="liked()" class="col" />
+                }
+                <app-share-action [action]="buildShareCanvas" class="col"
                                   [title]="shareTitle()" [filename]="shareFilename()" />
         </div>
         }
     </div>
 
     <p class="mb-4">
-        <a class="small text-decoration-none" [routerLink]="condivisiPath" [queryParams]="{ gen: gen.slug }">
+        <a class="small text-decoration-none" [routerLink]="piaciutiPath" [queryParams]="{ gen: gen.slug }">
             {{ 'condivisiDiQuesto' | translate }}
         </a>
     </p>
@@ -65,20 +68,13 @@
     @if (recovered()) {
     <p class="text-secondary small mb-3">
         {{ 'condivisiDaCondivisi' | translate }}
-        <a [appPage]="PageType.Condivisi" class="ms-1">{{ 'condivisiVaiAiCondivisi' | translate }}</a>
+        <a [appPage]="PageType.Piaciuti" class="ms-1">{{ 'condivisiVaiAiCondivisi' | translate }}</a>
     </p>
     }
 
     @if (result(); as res) {
     <div class="gen-result p-4 shadow-sm">
         <div [innerHTML]="res.markdown | markdown"></div>
-        <!-- Rarità: il backend calcola un peso (quanto è estrema/rara la frase). Mostrarlo
-             trasforma "Ancora!" in una caccia alla frase rara; stesso badge ★ dei condivisi. -->
-        <div class="text-end mt-3">
-            <span class="badge rounded-pill text-bg-primary" [title]="'condivisiPunteggio' | translate">
-                ★ {{ rounded(res.score) }}
-            </span>
-        </div>
     </div>
     } @else if (loading()) {
     <div class="gen-result p-4 shadow-sm placeholder-glow" aria-hidden="true">

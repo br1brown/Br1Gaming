@@ -391,7 +391,7 @@ public sealed class StartupGenerator : GeneratorBase
     public override string Slug => "startup";
 
     /// <inheritdoc />
-    public override GeneratorInfo Info { get; } = new() { Order = 2, Name = "Generatore di Idee Fallimentari per Applicazioni", Description = "L'idea geniale che ti viene alla terza birra: esiste già e non serve a nessuno" };
+    public override GeneratorInfo Info { get; } = new() { Order = 2, Name = "Generatore di Idee Fallimentari per Applicazioni", Description = "L'idea è assolutamente geniale e non ha nessun problema, a scriverla ci pensa qualcun altro" };
 
     /// <inheritdoc />
     // MarkovChaos = 0: niente conio dei nomi. Qui vogliamo realismo (nomi veri), non varianti inventate.

@@ -191,7 +191,7 @@ public sealed class KebabGenerator : GeneratorBase
     public override string Slug => "kebab";
 
     /// <inheritdoc />
-    public override GeneratorInfo Info { get; } = new() { Order = 6, Name = "Kebabaro di Fiducia", Description = "Trova il nome del tuo kebabbaro o locale straniero" };
+    public override GeneratorInfo Info { get; } = new() { Order = 6, Name = "Kebabaro di Fiducia", Description = "Trova il nome del tuo kebabbaro di fiducia, aperto anche fino alle due di notte" };
 
     /// <inheritdoc />
     public override List<Frase> Core { get; } =

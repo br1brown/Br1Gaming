@@ -4,7 +4,7 @@
 
     @if (filterName(); as name) {
     <p class="mb-4">
-        <a [routerLink]="condivisiPath" class="text-decoration-none small">{{ 'condivisiTuttiIGeneratori' | translate }}</a>
+        <a [routerLink]="piaciutiPath" class="text-decoration-none small">{{ 'condivisiTuttiIGeneratori' | translate }}</a>
         <span class="text-secondary mx-2">/</span>
         <span class="fw-semibold">{{ name }}</span>
     </p>
@@ -29,7 +29,7 @@
                         }
                     </h2>
                     @if (group.hasMore) {
-                    <a class="small text-decoration-none" [routerLink]="condivisiPath" [queryParams]="{ gen: group.slug }">
+                    <a class="small text-decoration-none" [routerLink]="piaciutiPath" [queryParams]="{ gen: group.slug }">
                         {{ 'condivisiVediTutte' | translate }} ({{ group.total }})
                     </a>
                     }
@@ -37,7 +37,7 @@
                 <div class="row g-3">
                     @for (card of group.cards; track card.id) {
                     <div class="col-12 col-md-6 col-lg-4">
-                        <div class="condivisi-card card h-100 shadow-sm">
+                        <div class="piaciuti-card card h-100 shadow-sm">
                             <div class="card-body">
                                 <div [innerHTML]="card.markdown | markdown"></div>
                             </div>
