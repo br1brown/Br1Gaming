@@ -60,8 +60,30 @@ interface PiaciutoGroup {
     imports: [RouterLink, PageDirective, MarkdownPipe, TranslatePipe],
     templateUrl: './piaciuti.component.html',
     styles: [`
-        .piaciuti-card { transition: box-shadow .2s ease; }
+        /* position: relative è richiesto da .stretched-link (Bootstrap) sul bottone "Leggi tutto":
+           estende l'area cliccabile a tutta la card, non solo al bottone. */
+        .piaciuti-card { position: relative; transition: box-shadow .2s ease; cursor: pointer; }
         .piaciuti-card:hover { box-shadow: var(--shadowElevatedHover); }
+        /* Anteprima troncata: si vede solo l'inizio della generazione, il resto si apre
+           cliccando la card o il bottone "Leggi tutto" (link a ?g=<id> sulla pagina del generatore). */
+        .piaciuti-preview {
+            position: relative;
+            display: -webkit-box;
+            -webkit-line-clamp: 4;
+            -webkit-box-orient: vertical;
+            line-clamp: 4;
+            overflow: hidden;
+        }
+        /* Sfumatura sull'ultima riga: segnala che il testo continua oltre il taglio,
+           altrimenti il troncamento sembra un contenuto interrotto per errore. */
+        .piaciuti-preview::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 1.4em;
+            background: linear-gradient(to bottom, transparent, var(--bs-card-bg, Canvas));
+            pointer-events: none;
+        }
     `],
 })
 export class PiaciutiComponent extends PageBaseComponent<unknown> {

@@ -39,26 +39,23 @@
                     <div class="col-12 col-md-6 col-lg-4">
                         <div class="piaciuti-card card h-100 shadow-sm">
                             <div class="card-body">
-                                <div [innerHTML]="card.markdown | markdown"></div>
+                                <div class="piaciuti-preview" [innerHTML]="card.markdown | markdown"></div>
                             </div>
                             <div class="card-footer bg-transparent">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <span class="badge rounded-pill text-bg-primary" [title]="'condivisiPunteggio' | translate">
-                                        ★ {{ card.score }}
-                                    </span>
+                                <div class="d-flex justify-content-end align-items-center">
                                     <small class="text-secondary">{{ ago(card.createdUtc) }}</small>
                                 </div>
                                 @if (group.path) {
                                 <div class="d-flex gap-2 mt-2">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3"
+                                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 position-relative z-1"
                                             (click)="copyLink(group.path, card.id)"
                                             [attr.aria-label]="'condivisiCopiaLink' | translate"
                                             [title]="'condivisiCopiaLink' | translate">
                                         <i class="fa-solid fa-link" aria-hidden="true"></i>
                                     </button>
-                                    <a class="btn btn-sm btn-outline-primary rounded-pill px-3 flex-grow-1 text-center"
+                                    <a class="btn btn-sm btn-outline-primary rounded-pill px-3 flex-grow-1 text-center stretched-link"
                                        [routerLink]="group.path" [queryParams]="{ g: card.id }">
-                                        {{ 'condivisiApri' | translate }}
+                                        {{ 'condivisiApri' | translate }} <i class="fa-solid fa-arrow-right ms-1" aria-hidden="true"></i>
                                     </a>
                                 </div>
                                 }
