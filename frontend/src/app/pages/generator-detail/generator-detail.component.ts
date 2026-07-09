@@ -43,8 +43,8 @@ import { VariantWheelComponent } from '../../components/shared/variant-wheel/var
 export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageContent> {
     /** Esposto al template per i link interni via [appPage] (es. verso i condivisi). */
     protected readonly PageType = PageType;
-    /** Path della pagina condivisi, per il link "Condivisi di questo generatore" (con `?gen=`). */
-    protected readonly condivisiPath = ContestoSito.getPath(PageType.Condivisi) ?? '/';
+    /** Path della pagina piaciuti, per il link "Piaciuti di questo generatore" (con `?gen=`). */
+    protected readonly piaciutiPath = ContestoSito.getPath(PageType.Piaciuti) ?? '/';
     private readonly document = inject(DOCUMENT);
     private readonly router = inject(Router);
     private readonly speech = inject(SpeechService);

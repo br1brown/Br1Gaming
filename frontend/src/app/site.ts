@@ -32,7 +32,7 @@ export enum PageType {
     GameDuceNonDuce,
     GameRadar,
     GameBurocrazia,
-    Condivisi,
+    Piaciuti,
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -128,7 +128,7 @@ export const ContestoSito = buildSite({
             component: () => import('./pages/home/home.component').then(m => m.HomeComponent),
         },
 
-        // ── Generatori (+ Condivisi) sotto /generatori ───────────────
+        // ── Generatori (+ Piaciuti) sotto /generatori ────────────────
         // Parent senza component: fa solo da prefisso di path (gli URL figli
         // restano /generatori/<slug> e /generatori/piaciuti).
         {
@@ -151,10 +151,10 @@ export const ContestoSito = buildSite({
                     path: 'piaciuti',
                     title: 'condivisi',
                     description: 'Le frasi più belle piaciute agli utenti: la raccolta pubblica dei generatori.',
-                    pageType: PageType.Condivisi,
+                    pageType: PageType.Piaciuti,
                     layout: { showPanel: false },
-                    component: () => import('./pages/condivisi/condivisi.component')
-                        .then(m => m.CondivisiComponent),
+                    component: () => import('./pages/piaciuti/piaciuti.component')
+                        .then(m => m.PiaciutiComponent),
                 },
             ],
         },
@@ -207,12 +207,12 @@ export const ContestoSito = buildSite({
 
     headerNav: (nav) => {
         nav.addGroup('generatori', (g) => {
-            // I generatori veri e propri stanno in un sottogruppo annidato, così i Condivisi
+            // I generatori veri e propri stanno in un sottogruppo annidato, così i Piaciuti
             // (che raccolgono i loro output) vivono accanto a loro senza sembrare un generatore.
             g.addGroup('tuttiIGeneratori', (gg) => {
                 GENERATORS.forEach(([, pageType]) => gg.addPage(pageType));
             });
-            g.addPage(PageType.Condivisi);
+            g.addPage(PageType.Piaciuti);
         });
         nav.addGroup('giochi', (g) => {
             // Le storie (avventure a bivi) in un sottogruppo annidato; gli altri giochi restano fuori.

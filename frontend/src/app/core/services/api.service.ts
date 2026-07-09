@@ -231,7 +231,7 @@ export class ApiService extends BaseApiService {
         return this.api_post<GenerateResponse>(`${API.generate(slug)}${qs}`, {});
     }
 
-    // ─── Condivisi (raccolta pubblica) ───────────────────────────────────
+    // ─── Piaciuti (raccolta pubblica) ─────────────────────────────────────
     // Lo slug arriva dalla GeneratorInfo già caricata (un valore, non una stringa scritta a mano):
     // la condivisione rimanda al backend Markdown, punteggio e firma HMAC ottenuti dalla generazione.
 

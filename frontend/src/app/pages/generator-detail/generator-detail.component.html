@@ -60,7 +60,7 @@
     </div>
 
     <p class="mb-4">
-        <a class="small text-decoration-none" [routerLink]="condivisiPath" [queryParams]="{ gen: gen.slug }">
+        <a class="small text-decoration-none" [routerLink]="piaciutiPath" [queryParams]="{ gen: gen.slug }">
             {{ 'condivisiDiQuesto' | translate }}
         </a>
     </p>
@@ -68,7 +68,7 @@
     @if (recovered()) {
     <p class="text-secondary small mb-3">
         {{ 'condivisiDaCondivisi' | translate }}
-        <a [appPage]="PageType.Condivisi" class="ms-1">{{ 'condivisiVaiAiCondivisi' | translate }}</a>
+        <a [appPage]="PageType.Piaciuti" class="ms-1">{{ 'condivisiVaiAiCondivisi' | translate }}</a>
     </p>
     }
 

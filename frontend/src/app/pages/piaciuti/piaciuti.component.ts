@@ -23,24 +23,24 @@ const GENERATOR_PAGE_TYPES: Partial<Record<string, PageType>> = {
 // Quante generazioni mostrare per generatore nella panoramica prima del link "Vedi tutte".
 const PREVIEW_LIMIT = 6;
 
-interface CondivisoCard {
+interface PiaciutoCard {
     id: string;
     markdown: string;
     /** Punteggio (peso/rarità) della generazione, arrotondato per la visualizzazione. */
     score: number;
-    /** Istante di condivisione (ISO), per il "tempo fa". */
+    /** Istante in cui è stata messa tra i piaciuti (ISO), per il "tempo fa". */
     createdUtc: string;
 }
 
-/** Un blocco dei condivisi: le generazioni condivise di uno stesso generatore. */
-interface CondivisoGroup {
+/** Un blocco dei piaciuti: le generazioni piaciute di uno stesso generatore. */
+interface PiaciutoGroup {
     slug: string;
     name: string;
     pageType: PageType | null;
     /** Path della pagina del generatore, per i link di recupero `?g=<id>`. */
     path: string | null;
     /** Carte mostrate (in panoramica sono troncate a PREVIEW_LIMIT). */
-    cards: CondivisoCard[];
+    cards: PiaciutoCard[];
     /** Totale caricato per questo generatore (per il contatore di "Vedi tutte"). */
     total: number;
     /** true se ci sono più generazioni di quelle mostrate (panoramica). */
@@ -48,7 +48,7 @@ interface CondivisoGroup {
 }
 
 /**
- * Raccolta pubblica dei condivisi, con due modalità distinte dal query param `?gen=<slug>` (bind via
+ * Raccolta pubblica dei piaciuti, con due modalità distinte dal query param `?gen=<slug>` (bind via
  * withComponentInputBinding):
  *  - panoramica (senza `gen`): una sezione per generatore, in ordine di catalogo, con anteprima
  *    troncata e link "Vedi tutte" verso la modalità filtrata;
@@ -56,15 +56,15 @@ interface CondivisoGroup {
  * Lista dinamica e non SEO-critica → caricata lato client.
  */
 @Component({
-    selector: 'app-condivisi',
+    selector: 'app-piaciuti',
     imports: [RouterLink, PageDirective, MarkdownPipe, TranslatePipe],
-    templateUrl: './condivisi.component.html',
+    templateUrl: './piaciuti.component.html',
     styles: [`
-        .condivisi-card { transition: box-shadow .2s ease; }
-        .condivisi-card:hover { box-shadow: var(--shadowElevatedHover); }
+        .piaciuti-card { transition: box-shadow .2s ease; }
+        .piaciuti-card:hover { box-shadow: var(--shadowElevatedHover); }
     `],
 })
-export class CondivisiComponent extends PageBaseComponent<unknown> {
+export class PiaciutiComponent extends PageBaseComponent<unknown> {
     private readonly platform = inject(PLATFORM_ID);
     private readonly document = inject(DOCUMENT);
 
@@ -93,11 +93,11 @@ export class CondivisiComponent extends PageBaseComponent<unknown> {
         }
     }
 
-    /** Query param `?gen=<slug>`: se presente, mostra i condivisi del solo generatore. */
+    /** Query param `?gen=<slug>`: se presente, mostra i piaciuti del solo generatore. */
     readonly gen = input<string>();
 
-    /** Path della pagina condivisi, per i link "Vedi tutte" / "Tutti i generatori". */
-    protected readonly condivisiPath = ContestoSito.getPath(PageType.Condivisi) ?? '/';
+    /** Path della pagina piaciuti, per i link "Vedi tutte" / "Tutti i generatori". */
+    protected readonly piaciutiPath = ContestoSito.getPath(PageType.Piaciuti) ?? '/';
 
     private readonly entries = signal<ShareEntry[] | null>(null);
     /** Catalogo dei generatori in ordine, per raggruppare e dare i nomi. */
@@ -117,14 +117,14 @@ export class CondivisiComponent extends PageBaseComponent<unknown> {
     });
 
     /** null = ancora in caricamento; [] = caricata ma vuota. */
-    readonly groups = computed<CondivisoGroup[] | null>(() => {
+    readonly groups = computed<PiaciutoGroup[] | null>(() => {
         const list = this.entries();
         if (list === null) return null;
         const filtered = this.filterSlug();
 
         // Indice slug → carte, poi ordinate per punteggio decrescente (le generazioni "migliori"
         // — più rare/estreme — in cima a ogni generatore).
-        const bySlug = new Map<string, CondivisoCard[]>();
+        const bySlug = new Map<string, PiaciutoCard[]>();
         for (const e of list) {
             const cards = bySlug.get(e.slug) ?? [];
             cards.push({ id: e.id, markdown: e.markdown, score: Math.round(e.score), createdUtc: e.createdUtc });
