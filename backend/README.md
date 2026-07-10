@@ -16,11 +16,13 @@ L'obiettivo di questa separazione è **levarti dai piedi i problemi noiosi** per
 
 L'Engine si estende **dall'esterno**: si eredita da una classe base, si registra un servizio in DI, si aggiunge un validator o una sottoclasse — mai modificando `Engine/`. Qui sotto la mappa dei punti di aggancio raggruppata per area; ogni paragrafo rimanda (*Vedi «…»*) alla sezione col dettaglio più avanti in questa pagina.
 
-**Aggiungere endpoint.** Erediti una classe base e scrivi solo i tuoi metodi: `EngineApiController` (pubblico, solo API key), `EngineProtectedController` (richiede login JWT), `EngineAuthController` (login ed emissione del token), `EngineBlobController` (file binari: upload, PDF, export). La base ti consegna già pronta l'infrastruttura *ambient* — notifiche, coda di task, delivery, `connectionId`, cultura corrente — come proprietà, senza iniettare nulla. *Vedi «Eredita sempre dalle classi base dell'Engine», «Il contesto "ambient" del controller base», «Sistema di Login e Sessioni JWT», «BlobController».* Ricetta rapida: [AGENTS.md](../AGENTS.md#aggiungere-un-endpoint).
+**Aggiungere endpoint.** Erediti una classe base e scrivi solo i tuoi metodi: `EngineApiController` (pubblico, solo API key), `EngineProtectedController` (richiede login JWT), `EngineAuthController` (login ed emissione del token), `EngineBlobController` (file binari: upload, PDF, export). La base ti consegna già pronta l'infrastruttura *ambient* — notifiche, coda di task, delivery, cifratura (`Crypto`), `connectionId`, cultura corrente — come proprietà, senza iniettare nulla. *Vedi «Eredita sempre dalle classi base dell'Engine», «Il contesto "ambient" del controller base», «Sistema di Login e Sessioni JWT», «BlobController».* Ricetta rapida: [AGENTS.md](../AGENTS.md#aggiungere-un-endpoint).
 
-**Sostituire un servizio dell'Engine.** Lo storage dati (`IContentStore`, es. per passare a un database), il mailer (`IEngineMailer`), lo stream delle notifiche (`INotificationStream`, es. un backplane Redis), la policy di consegna (`IDeliveryService`) e il targeting per utente/tenant (`INotificationGroupResolver`) si rimpiazzano registrando la propria implementazione in DI nel blocco `── SERVIZI APPLICATIVI ──`: vince l'ultima registrazione, quindi la tua. *Vedi «Sostituire un servizio dell'Engine (override via DI)».* (Lo storage dei file caricati è invece la classe concreta `BlobStore` in `Store/`, che apri e modifichi direttamente — vedi «BlobController».) Ricetta rapida: [AGENTS.md](../AGENTS.md#sostituire-un-servizio-dellengine).
+**Sostituire un servizio dell'Engine.** Lo storage dati (`IContentStore`, es. per passare a un database), il mailer (`IEngineMailer`), lo stream delle notifiche (`INotificationStream`, es. un backplane Redis), la policy di consegna (`IDeliveryService`), il targeting per utente/tenant (`INotificationGroupResolver`) e la sorgente dei dati personali (`IPersonalDataStore`, *vedi sotto*) si rimpiazzano registrando la propria implementazione in DI nel blocco `── SERVIZI APPLICATIVI ──`: vince l'ultima registrazione, quindi la tua. *Vedi «Sostituire un servizio dell'Engine (override via DI)».* (Lo storage dei file caricati è invece la classe concreta `BlobStore` in `Store/`, che apri e modifichi direttamente — vedi «BlobController».) Ricetta rapida: [AGENTS.md](../AGENTS.md#sostituire-un-servizio-dellengine).
 
-**Validazione, errori e sessione.** La validazione degli input è un `AbstractValidator<T>` (auto-registrato); un nuovo tipo d'errore è una sottoclasse di `ApiException` con la sua chiave nei `.resx`; la forma del payload di sessione è il record `SessionInfo` incapsulato nel claim del JWT. *Vedi «Usa FluentValidation per gli Input», «Lancia Eccezioni per gli Errori», «Sistema di Login e Sessioni JWT».* Ricette rapide: [AGENTS.md](../AGENTS.md#errori) (errori), [AGENTS.md](../AGENTS.md#leggere-la-sessione) (sessione).
+**Validazione, errori e sessione.** La validazione degli input è un `AbstractValidator<T>` (auto-registrato); un nuovo tipo d'errore è una sottoclasse di `ApiException` con la sua chiave nei `.resx`; la forma del payload di sessione è il record `SessionInfo` incapsulato nel claim del JWT, rileggibile nei controller protetti con `CurrentSession<T>()`. *Vedi «Usa FluentValidation per gli Input», «Lancia Eccezioni per gli Errori», «Sistema di Login e Sessioni JWT».* Ricette rapide: [AGENTS.md](../AGENTS.md#errori) (errori), [AGENTS.md](../AGENTS.md#leggere-la-sessione) (sessione).
+
+**Dati personali (export e diritto all'oblio).** `GET`/`DELETE /me/data` sono già pronti e protetti da login: implementi `IPersonalDataStore` (due metodi, export e cancellazione) e l'Engine si occupa di autenticazione, cifratura della risposta e di escludere l'endpoint quando il login è spento — un solo punto per tutto il sito, non un endpoint per ogni controller di dominio. *Vedi «9. Dati Personali (Export & Diritto all'Oblio)».* Ricetta rapida: [AGENTS.md](../AGENTS.md#esportare-e-cancellare-i-dati-personali).
 
 **Configurazione.** Sicurezza, mailer e lingue si regolano dalle sezioni `Security.*` / `Mail.*` / `Localization.*` (le lingue sono codici a 2 lettere, che il backend arricchisce nelle culture .NET); per i valori liberi di progetto c'è `Custom:`, letta da `IConfiguration`. Gli header di sicurezza del browser vivono in `security-headers.json` (override eccezionale solo dove annotato nella sua `_nota`). *Vedi i riferimenti «SecurityOptions», «MailOptions», «LocalizationOptions», «Sezione Custom» e il [README root](../README.md) per la policy di override.*
 
@@ -459,6 +461,37 @@ Tre regole non negoziabili:
 
 ---
 
+### 9. Dati Personali (Export & Diritto all'Oblio)
+
+**Perché è utile:** l'export e la cancellazione dei dati personali (GDPR artt. 15/17) non sono una feature di dominio come le altre — sono un obbligo che vale per **qualunque** progetto figlio raccolga dati personali, a prescindere da cosa fa il sito. Per questo l'Engine non li lascia interamente al figlio come farebbe con un catalogo o un carrello: prepara l'endpoint, l'autenticazione e la cifratura, e lascia al figlio un solo punto da riempire.
+
+**Un solo endpoint per l'intero sito.** `EngineDataPrivacyController` (`Engine/Controllers/`) espone `GET`/`DELETE /me/data`, protetto da login (eredita `EngineProtectedController`, quindi viene escluso dalla discovery quando il login è spento, come `AuthController`/`ProtectedController` — *vedi «Routing Adattivo (JWT Opzionale)»*). Non è un pattern da ripetere: un progetto con un controller `Profilo` e uno `Acquisti` non scrive un export per ciascuno, ne implementa uno solo che aggrega da entrambi.
+
+```csharp
+public interface IPersonalDataStore
+{
+    Task<object?> ExportAsync(ClaimsPrincipal user, CancellationToken cancellationToken = default);
+    Task EraseAsync(ClaimsPrincipal user, CancellationToken cancellationToken = default);
+}
+```
+
+Riceve il `ClaimsPrincipal` della richiesta, non un id già estratto: l'Engine non conosce (e non deve conoscere) la forma di `SessionInfo`, che è Dominio — la tua implementazione la rilegge con `user.GetSession<SessionInfo>()` e da lì aggrega quanto le serve dai propri store.
+
+Il default (`NullPersonalDataStore`) non esporta né cancella nulla — l'endpoint resta attivo ma inerte finché non registri la tua, stesso meccanismo di `IIdentityStore` (*vedi §4/Identità*):
+
+```csharp
+// Program.cs, blocco "── SERVIZI APPLICATIVI ──"
+builder.Services.AddSingleton<IPersonalDataStore, MyPersonalDataStore>();
+```
+
+**La risposta dell'export è cifrata — ma solo quando c'è davvero qualcosa da proteggere.** Se `ExportAsync` ritorna `null` (lo store di default, o un tuo store senza dati per quella sessione), l'endpoint risponde subito `{ "data": null }` senza toccare la cifratura. Solo quando c'è un payload reale lo serializza e lo cifra con `Crypto` (AES-256-GCM, nonce casuale a ogni chiamata), rispondendo `{ "data": "<base64>" }`. `Crypto` è una property ambient di `EngineApiController` (stesso pattern di `Notifications`/`BackgroundQueue`/`Delivery`: risolta on-demand da DI, non iniettata nel costruttore) che espone `IEngineCrypto` — un servizio "cappello" generico dell'Engine (`Engine/Security/EngineCrypto.cs`), non specifico dell'export: qualunque controller del progetto che debba cifrare un payload legge `Crypto.Encrypt(...)`/`Crypto.Decrypt(...)`.
+
+Il motivo per cui non è iniettato nel costruttore: `EngineCrypto` lancia se `Security.CryptoSecret` è vuota, e se lo iniettassi nel costruttore lo costruiresti (quindi falliresti) a **ogni** richiesta al controller, anche quando l'azione non ha nulla da cifrare — esattamente il caso dello store di default. Risolvendolo solo nel ramo che ne ha davvero bisogno, un progetto con login già attivo che riceve questo aggiornamento non vede l'endpoint rompersi per una chiave che, finché non implementa l'export, non gli serve.
+
+La chiave viene da `Security.CryptoSecret`, **separata** da `Security.Token.SecretKey`: riusare la stessa chiave per firmare JWT e per cifrare dati sarebbe riuso di materiale crittografico su due scopi diversi. `setup.mjs` la genera già alla nascita del progetto (come `Security.ApiKeys`), indipendentemente dal login — non serve attivarla a mano. `deploy.sh` la controlla come le altre chiavi prima di pubblicare (segnaposto o troppo corta ⇒ blocca il deploy).
+
+---
+
 ## 📜 Le Regole del Gioco (cosa impone l'Engine)
 
 Perché l'Engine possa proteggere il progetto, vanno rispettate queste convenzioni architetturali ferree:
@@ -481,12 +514,15 @@ Ereditando da queste classi ogni controller riceve, **senza nulla nel costruttor
 | `Notifications` | `INotificationStream` | Pubblica notifiche realtime SSE. |
 | `BackgroundQueue` | `IBackgroundTaskQueue` | Accoda un task lungo. |
 | `Delivery` | `IDeliveryService` | Consegna l'esito con switch realtime/email. |
+| `Crypto` | `IEngineCrypto` | Cifra/decifra byte arbitrari (AES-GCM). |
 | `ConnectionId` | `string?` | connectionId della SSE del chiamante, o `null`. |
 | `CurrentCulture` | `CultureInfo` | Cultura della richiesta. |
 | `CurrentLanguage` | `string` | Codice lingua a due lettere (es. `"it"`). |
 | `User` | `ClaimsPrincipal` | I claim della sessione. |
 
-I tre servizi (`Notifications`, `BackgroundQueue`, `Delivery`) sono **singleton risolti pigramente** da `HttpContext.RequestServices`: il getter scatta solo quando lo invochi dentro un'azione. Non vanno iniettati nel costruttore.
+I servizi sopra (`Notifications`, `BackgroundQueue`, `Delivery`, `Crypto`) sono **singleton risolti pigramente** da `HttpContext.RequestServices`: il getter scatta solo quando lo invochi dentro un'azione. Non vanno iniettati nel costruttore — per `Crypto` in particolare, farlo costruirebbe (e quindi fallirebbe, se `Security.CryptoSecret` è vuota) `EngineCrypto` a ogni richiesta, anche in un'azione che non cifra nulla.
+
+`EngineProtectedController` aggiunge inoltre `CurrentSession<T>()`: rilegge il payload di sessione tipizzato (`User.GetSession<T>()`) senza dover importare l'extension method — *vedi «Sistema di Login e Sessioni JWT»*.
 
 > *Nota: Gli snippet pratici (le "ricette") su come scrivere un controller o usare la sessione sono riassunti in `AGENTS.md`.*
 
@@ -1097,6 +1133,8 @@ if (session is null)
     throw new UnauthorizedException(); // token valido ma senza payload di sessione
 ```
 
+Dentro un controller derivato da `EngineProtectedController` c'è la comodità equivalente `CurrentSession<T>()` (stesso spirito di `CurrentLanguage` per la lingua): `CurrentSession<SessionInfo>()` invece di `User.GetSession<SessionInfo>()`, niente da importare. Fuori da un controller (es. in un servizio che implementa `IPersonalDataStore`) resta `User.GetSession<T>()` sul `ClaimsPrincipal` ricevuto: è il meccanismo, `CurrentSession<T>()` è solo lo zucchero sintattico per chi eredita già dalla base.
+
 Le opzioni JSON sono identiche in scrittura e lettura: non cambiare la serializzazione in `Claim<T>` senza aggiornare anche `session.dto.ts` nel frontend.
 
 ### Emettere un Token (in `AuthController`)
@@ -1162,7 +1200,7 @@ Per far valere davvero un ruolo di dominio, due strade:
 [HttpGet("ping")]
 public IActionResult Ping()
 {
-    var session = User.GetSession<SessionInfo>(); // null se token assente o malformato
+    var session = CurrentSession<SessionInfo>(); // null se token assente o malformato
     return Ok(new { status = "ok", session });
 }
 ```

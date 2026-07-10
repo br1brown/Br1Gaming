@@ -417,6 +417,8 @@ async function main() {
     // Porte, dominio, CORS e le chiavi vivono SOLO qui, fuori dal repo.
     // SecretKey resta VUOTA: il login è spento finché non la si valorizza (≥32 char) —
     // attivarlo deve essere una scelta esplicita, non un effetto collaterale del setup.
+    // CryptoSecret invece si genera SEMPRE (come ApiKeys): è indipendente dal login, serve al
+    // servizio di cifratura generico dell'engine (EngineCrypto) fin da subito.
     const localPath = join(ROOT, 'global-settings.local.json');
     if (existsSync(localPath)) {
         console.log('  =  global-settings.local.json già presente — non sovrascritto');
@@ -430,10 +432,11 @@ async function main() {
                 CorsOrigins: [],
                 BehindProxy: false,
                 Token: { SecretKey: '' },
+                CryptoSecret: randomBytes(32).toString('base64'),
             },
         };
         writeFileSync(localPath, JSON.stringify(local, null, 2) + '\n', 'utf-8');
-        console.log('  ✓  creato global-settings.local.json (porte/deploy + API key generata; login spento: SecretKey vuota)');
+        console.log('  ✓  creato global-settings.local.json (porte/deploy + API key e CryptoSecret generati; login spento: SecretKey vuota)');
     }
 
     // ── 3. Nomi npm "app" → slug del prodotto ────────────────────────────

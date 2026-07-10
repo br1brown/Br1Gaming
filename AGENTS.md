@@ -175,9 +175,10 @@ public class PaymentRequiredException : ApiException {
 
 #### Leggere la sessione
 ```csharp
-var session = User.GetSession<SessionInfo>();   // null se token assente/malformato
+var session = CurrentSession<SessionInfo>();   // null se token assente/malformato (in un controller EngineProtectedController)
 if (session is null) throw new UnauthorizedException();
 ```
+Fuori da un controller (es. un servizio) resta `user.GetSession<SessionInfo>()` sul `ClaimsPrincipal` ricevuto — `CurrentSession<T>()` è solo lo zucchero sintattico di chi eredita già la base.
 
 #### Pubblicare una notifica realtime
 Proprietà ambient, niente inject:
@@ -205,6 +206,32 @@ Vince l'ultima registrazione:
 // Program.cs, blocco "── SERVIZI APPLICATIVI ──" — es. l'identità da un DB invece che da identity.json
 builder.Services.AddSingleton<IIdentityStore, DbIdentityStore>();
 ```
+
+#### Esportare e cancellare i dati personali
+`GET`/`DELETE /me/data` esistono già (protetti da login, cifrati in export): implementi **una sola** `IPersonalDataStore`, non un export per controller di dominio. Riceve il `ClaimsPrincipal`, non un id — la forma di `SessionInfo` è tua, non dell'Engine:
+```csharp
+// Services/MyPersonalDataStore.cs (di proprietà del progetto)
+public class MyPersonalDataStore : IPersonalDataStore
+{
+    public async Task<object?> ExportAsync(ClaimsPrincipal user, CancellationToken ct)
+    {
+        var session = user.GetSession<SessionInfo>();
+        if (session is null) return null;
+        return new { profilo = await _profili.GetAsync(session.UserId, ct) /* , acquisti = ... */ };
+    }
+
+    public async Task EraseAsync(ClaimsPrincipal user, CancellationToken ct)
+    {
+        var session = user.GetSession<SessionInfo>();
+        if (session is not null) await _profili.DeleteAsync(session.UserId, ct);
+    }
+}
+```
+```csharp
+// Program.cs, blocco "── SERVIZI APPLICATIVI ──"
+builder.Services.AddSingleton<IPersonalDataStore, MyPersonalDataStore>();
+```
+Dettagli (cifratura della risposta, `Security.CryptoSecret`) in [backend/README.md](backend/README.md) §9.
 
 #### Chiamare un'API esterna
 Outbound: URL/chiave in config, client tipizzato, errori verso l'upstream:

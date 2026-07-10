@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using Backend.Models;
-using Backend.Security;
 
 namespace Backend.Controllers;
 
@@ -23,7 +22,7 @@ public class ProtectedController : EngineProtectedController
     {
         // Il middleware ha già validato il token: qui rileggiamo il payload di sessione
         // che il progetto ha messo nel claim "session" durante il login.
-        var session = User.GetSession<SessionInfo>();
+        var session = CurrentSession<SessionInfo>();
         return Ok(new { status = "ok", session });
     }
 }

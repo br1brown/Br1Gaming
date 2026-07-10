@@ -10,6 +10,7 @@ using Backend.Identity;
 using Backend.Mail;
 using Backend.Models.Configuration;
 using Backend.Notifications;
+using Backend.Privacy;
 using Backend.Security;
 using Backend.Tasks;
 using Backend.Services;
@@ -138,6 +139,12 @@ builder.Services.AddTemplateDelivery();
 // da GET /identity. Sorgente di default file-based (data/identity.json); un figlio la sostituisce
 // registrando la propria IIdentityStore (DB/API esterna). Vedi Engine/Identity/.
 builder.Services.AddTemplateIdentity();
+
+// Dati personali (export + diritto all'oblio): sottosistema dell'engine servito su
+// GET/DELETE /me/data (dietro login). Default vuoto (nessun dato); un figlio che raccoglie
+// dati personali registra la propria IPersonalDataStore, aggregando da qui i propri store di
+// dominio (profilo, acquisti, ...). Vedi Engine/Privacy/.
+builder.Services.AddTemplatePrivacy();
 
 // Registra tutti i validator FluentValidation dell'assembly corrente (Validation/).
 // I controller iniettano IValidator<T> ed eseguono la validazione esplicitamente.
