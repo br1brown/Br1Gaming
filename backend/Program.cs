@@ -99,7 +99,8 @@ var mail = builder.Configuration
 // ── SERVIZI APPLICATIVI ─────────────────────────────────────────────
 // IContentStore (FileContentStore): accesso dati demo (galleria social), sostituibile con DB.
 // SiteService: logica di business del progetto. L'identità del sito è servita dall'engine (vedi AddTemplateIdentity).
-// AuthService: infrastruttura JWT, registrata solo se LoginEnabled.
+// AuthService: infrastruttura JWT; AccountService/AppPersonalDataStore: account utenti e dati
+// personali del progetto — tutti e tre registrati solo se LoginEnabled (vedi sotto).
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IContentStore, FileContentStore>();
 builder.Services.AddSingleton<BlobStore>();
@@ -122,7 +123,18 @@ builder.Services.AddSingleton<IEmailQueue>(sp => sp.GetRequiredService<ChannelEm
 builder.Services.AddHostedService<EmailSenderHostedService>();
 
 if (security.LoginEnabled)
+{
     builder.Services.AddSingleton<AuthService>();
+
+    // Account utenti e dati personali del progetto, sensati solo col login acceso (spento, gli
+    // endpoint che li usano vengono esclusi dalla discovery — vedi TemplateControllerFeatureProvider).
+    // AccountService (Services/) è l'unico posto che conosce gli account: verifica credenziali per
+    // AuthController, cancellazione account per l'oblio. AppPersonalDataStore (Store/) risponde
+    // dietro GET/DELETE /me/data — vince sul default vuoto di AddTemplatePrivacy (TryAdd), come
+    // AppIdentityStore — e delega la parte account ad AccountService.
+    builder.Services.AddSingleton<AccountService>();
+    builder.Services.AddSingleton<IPersonalDataStore, AppPersonalDataStore>();
+}
 
 // Notifiche realtime (SSE): stream singleton + resolver di gruppo di default. Meccanismo
 // dell'engine, indipendente dal login — i figli possono targetizzare per utente registrando
@@ -141,9 +153,9 @@ builder.Services.AddTemplateDelivery();
 builder.Services.AddTemplateIdentity();
 
 // Dati personali (export + diritto all'oblio): sottosistema dell'engine servito su
-// GET/DELETE /me/data (dietro login). Default vuoto (nessun dato); un figlio che raccoglie
-// dati personali registra la propria IPersonalDataStore, aggregando da qui i propri store di
-// dominio (profilo, acquisti, ...). Vedi Engine/Privacy/.
+// GET/DELETE /me/data (dietro login). Registra il default vuoto (TryAdd): col login acceso è
+// già stata registrata AppPersonalDataStore qui sopra, che quindi vince — è lì che il progetto
+// aggrega i propri store di dominio (profilo, acquisti, ...). Vedi Engine/Privacy/.
 builder.Services.AddTemplatePrivacy();
 
 // Registra tutti i validator FluentValidation dell'assembly corrente (Validation/).

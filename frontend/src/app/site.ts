@@ -59,7 +59,11 @@ export type PageType = (typeof PageType)[keyof typeof PageType];
 export const ContestoSito = buildSite({
 
     // Pagina di login: dove mandare gli utenti non autenticati (se omessa → /error/401).
-    loginPage: PageType.Login,
+    // Un PageType nudo la userebbe solo per il redirect auth, FUORI dall'header (default). Qui la
+    // demo la espone in navbar (showInHeader: true) per mostrarsi; una vetrina la lascerebbe nascosta
+    // (basta `loginPage: PageType.Login`). È automaticamente noindex (fuori sitemap + X-Robots-Tag);
+    // per un login pubblico da indicizzare metti otherSEO:{noindex:false} sulla pagina.
+    loginPage: { page: PageType.Login, showInHeader: true },
 
     // Pagina del brand/logo nel navbar.
     homePage: PageType.Home,
@@ -75,7 +79,6 @@ export const ContestoSito = buildSite({
         showFooter: true,
         fixedTopHeader: true,
         showBrandIconInHeader: true,
-        showLoginInHeader: true,
         forcedLightPanel: true,
         pageFade: true,
     },

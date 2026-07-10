@@ -58,8 +58,11 @@ export class NavbarComponent {
     // Set di lingue dalla config (coerente coi cataloghi i18n presenti → setLanguage funziona
     // sempre); il NOME mostrato è quello nativo derivato via Intl (LocalizationService).
     readonly languages = this.translate.availableLangs;
-    /** True se l'area login/logout deve essere mostrata nella navbar. */
-    readonly hasAuthPage = ContestoSito.config.loginPage != null && ContestoSito.config.showLoginInHeader;
+    /** True se il sito ha un'area auth in navbar: basta una `loginPage` configurata. Non dipende da
+     *  `showLoginInHeader` — quel flag nasconde il *link di login* ai visitatori, ma il logout (da
+     *  loggato) resta, quindi l'area può comunque renderizzare qualcosa. Governa la comparsa del
+     *  toggler mobile quando non ci sono altre voci di menu. */
+    readonly hasAuthPage = ContestoSito.config.loginPage != null;
     readonly menuOpen = signal(false);
     protected readonly openDropdownIndex = signal(-1);
     protected readonly langOpen = signal(false);

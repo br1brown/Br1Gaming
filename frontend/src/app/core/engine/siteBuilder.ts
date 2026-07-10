@@ -178,7 +178,10 @@ export interface SiteConfig {
      * Si somma alla crossfade del router (`withViewTransitions`); azzerato da `prefers-reduced-motion`.
      */
     pageFade: boolean;
-    /** Pagina a cui reindirizzare l'utente se non autenticato (se null o non impostata fa redirect a /error/401) */
+    /** Pagina a cui reindirizzare l'utente se non autenticato (se null o non impostata fa redirect a /error/401).
+     *  Risolta dallo slot d'ingresso `loginPage` (PageType nudo o `{ page, showInHeader }`); la visibilità
+     *  in navbar è in `showLoginInHeader`. La pagina è `noindex` per default (fuori sitemap + `X-Robots-Tag`),
+     *  salvo `otherSEO.noindex` esplicito. */
     loginPage?: PageType | null;
     /** Pagina "home" usata dal navbar per brand/logo. Se non valorizzata, il brand non è un link. */
     homePage?: PageType | null;
@@ -361,7 +364,10 @@ export type LeafPageInput = BasePageInput & {
          */
         structuredData?: StructuredDataInput;
         /**
-         * Esclude la pagina dall'indicizzazione. Default automatico: `false`.
+         * Esclude la pagina dall'indicizzazione. Default automatico: `false` — **tranne** la
+         * pagina puntata dallo slot `loginPage`, che l'Engine porta a `true` di default (un login
+         * non si indicizza né si pubblicizza; dichiararlo qui a `false` esplicito ripristina
+         * l'indicizzazione, es. sito con registrazione aperta).
          * Come per `requiresAuth`, l'Engine la marca a runtime con `X-Robots-Tag: noindex,
          * nofollow` (header autoritativo, vale anche per chi ignora il meta) e la esclude dalla
          * sitemap. A differenza di `requiresAuth` NON forza il client-render: la pagina resta
@@ -726,8 +732,6 @@ export interface SiteShellConfig {
     fixedTopHeader?: boolean;
     /** Mostra la favicon accanto al nome nella navbar-brand. Default: true. */
     showBrandIconInHeader?: boolean;
-    /** Mostra il pulsante di login nella navbar. Default: true. */
-    showLoginInHeader?: boolean;
     /** Mostra il campanellino delle notifiche realtime, con storico. Default: false (opt-in):
      *  attivalo solo se il sito spinge davvero notizie, così non mostri un'icona mai usata
      *  né apri una connessione SSE inutile. */
@@ -740,12 +744,29 @@ export interface SiteShellConfig {
 }
 
 /**
+ * Slot `loginPage` in forma estesa: la pagina di login **più** se esporla in navbar.
+ * `showInHeader` sta qui, non nello `shell`, perché non è una scelta grafica come `showNav`:
+ * cambia la *natura* del login — nascosto = login per addetti che conoscono l'URL, esposto =
+ * login per tutti — ed è privo di senso senza una pagina di login. Default `false`: configurare
+ * `loginPage` serve prima di tutto al redirect delle pagine `requiresAuth`, mostrarlo è opt-in.
+ */
+export interface LoginPageConfig {
+    /** La pagina di login (target del redirect auth e, se `showInHeader`, del link in navbar). */
+    page: PageType;
+    /** Espone il link di login in navbar. Default `false` (login "di servizio"); il logout, da
+     *  loggato, compare comunque. Un sito a registrazione aperta lo mette a `true`. */
+    showInHeader?: boolean;
+}
+
+/**
  * Struttura e comportamento del sito passati a `buildSite`. Identità ed estetica
  * (nome, versione, lingue, descrizione, tema, smoke) stanno in global-settings.json.
  */
 export interface SiteDefinition {
-    /** Pagina a cui reindirizzare l'utente non autenticato (se null/assente → /error/401). */
-    loginPage?: PageType | null;
+    /** Pagina a cui reindirizzare l'utente non autenticato (se null/assente → /error/401).
+     *  `PageType` nudo = login solo per il redirect, **fuori** dall'header e `noindex`; per esporlo
+     *  in navbar usa la forma `{ page, showInHeader: true }` (vedi {@link LoginPageConfig}). */
+    loginPage?: PageType | LoginPageConfig | null;
     /** Pagina "home" usata dal navbar per brand/logo. Se non valorizzata, il brand non è un link. */
     homePage?: PageType | null;
     /** Mappa gli slot legali (privacy, cookie, tos, legal) ai `PageType` del figlio. Slot omesso = pagina non creata. */
@@ -907,12 +928,25 @@ function normalizeVersion(v?: string): string {
 }
 
 /**
+ * Scioglie lo slot `loginPage` (PageType nudo o {@link LoginPageConfig}) nella coppia risolta
+ * pagina + visibilità in navbar. `showInHeader` default `false`: un `PageType` nudo significa
+ * "login per il redirect auth, non in navbar" — l'esposizione è opt-in via forma estesa.
+ * Il discriminante è il tipo: un `PageType` è una stringa, la forma estesa un oggetto.
+ */
+function normalizeLoginPage(input: SiteDefinition['loginPage']): { page: PageType | null; showInHeader: boolean } {
+    if (input == null) return { page: null, showInHeader: false };
+    if (typeof input === 'object') return { page: input.page, showInHeader: input.showInHeader ?? false };
+    return { page: input, showInHeader: false };
+}
+
+/**
  * SiteConfig finale: identità ed estetica da `environment.ts` (global-settings.json),
  * struttura e comportamento da `site.ts` (`definition`). I default li applica qui.
  */
 function buildFinalConfig(definition: SiteDefinition): SiteConfig {
     const cfg = environment.config;
     const shell = definition.shell ?? {};
+    const login = normalizeLoginPage(definition.loginPage);
     return {
         appName: environment.appName,
         version: normalizeVersion(environment.version) || '1.0.0',
@@ -922,14 +956,14 @@ function buildFinalConfig(definition: SiteDefinition): SiteConfig {
         showNav: shell.showNav ?? true,
         fixedTopHeader: shell.fixedTopHeader ?? false,
         showBrandIconInHeader: shell.showBrandIconInHeader ?? true,
-        showLoginInHeader: shell.showLoginInHeader ?? true,
+        showLoginInHeader: login.showInHeader,
         showNotifications: shell.showNotifications ?? false,
         isWebApp: definition.isWebApp ?? true,
         onlyPlainImage: definition.onlyPlainImage ?? false,
         forcedLightPanel: shell.forcedLightPanel ?? true,
         pageFade: shell.pageFade ?? true,
         smoke: { ...DEFAULT_SMOKE, ...(cfg.smoke ?? {}) },
-        loginPage: definition.loginPage ?? null,
+        loginPage: login.page,
         homePage: definition.homePage ?? null,
         legalPages: {
             privacy: definition.legalPages?.privacy ?? null,
@@ -980,12 +1014,19 @@ function collectNavigation(definition: SiteDefinition): { rawHeader: RawNavItem[
  * (path → render mode); ritorna le voci sitemap. Esclude le pagine disabilitate, registra
  * le esterne solo in mappa ed esclude dalla sitemap quelle protette (`requiresAuth`).
  *
+ * La pagina puntata dallo slot `loginPage` è `noindex` per default (l'Engine sa che è il
+ * login: non ha senso indicizzarlo su un sito a pochi account/admin, e non va pubblicizzato).
+ * Resta un default, non un vincolo: un figlio che vuole indicizzarla — es. un sito con
+ * registrazione aperta — dichiara `otherSEO: { noindex: false }` esplicito e vince (tri-stato:
+ * non dichiarato ⇒ default dell'Engine; dichiarato ⇒ comanda il figlio).
+ *
  * @throws Se due pagine condividono lo stesso PageType o lo stesso path interno.
  */
 function processPages(
     pages: SitePage[],
     pageMap: Map<PageType, PageInfo>,
     serverRenderEntries: ServerRenderEntry[],
+    loginPageType: PageType | null,
 ): SitemapEntry[] {
     const seenInternalPaths = new Set<string>();
 
@@ -1023,41 +1064,43 @@ function processPages(
                 ogType: page.ogType ?? 'website',
                 structuredData: page.structuredData,
             });
+            // La pagina di login (slot `loginPage`) è noindex per default; qualunque altra pagina
+            // segue il proprio flag (undefined ⇒ false). Un `noindex: false` esplicito sul login vince.
+            const noindex = page.pageType === loginPageType ? (page.noindex ?? true) : !!page.noindex;
+
             // requiresAuth → 'client' (i bot non loggano, l'SSR è inutile); altrimenti renderMode esplicito o 'server'.
             // noindex NON forza il client-render: la pagina resta SSR/pubblica, solo non indicizzabile.
-            serverRenderEntries.push({ path: fullPath, renderMode: page.requiresAuth ? 'client' : (page.renderMode ?? 'server'), requiresAuth: !!page.requiresAuth, noindex: !!page.noindex });
+            serverRenderEntries.push({ path: fullPath, renderMode: page.requiresAuth ? 'client' : (page.renderMode ?? 'server'), requiresAuth: !!page.requiresAuth, noindex });
 
             // Fuori dalla sitemap le pagine protette (crawler non accede) e quelle noindex (non indicizzabili).
-            return page.requiresAuth || page.noindex ? [] : [{ path: fullPath, description: page.description }];
+            return page.requiresAuth || noindex ? [] : [{ path: fullPath, description: page.description }];
         });
 
     return walk(pages, '');
 }
 
-/** Avvisa (solo in dev) che uno slot puntava a un PageType non registrato ed è stato azzerato:
- *  altrimenti l'effetto (login/brand/pagina legale che smette di funzionare) è silenzioso. */
-function warnUnresolvedSlot(slotName: string, type: PageType): void {
-    if (isDevMode()) {
-        console.warn(`[SiteBuilder] Slot "${slotName}" punta a "${String(type)}", non registrato (disabilitato o mai dichiarato in pages). Slot azzerato.`);
+/** Lancia se uno slot valorizzato punta a un `PageType` non registrato — mai dichiarato in `pages`,
+ *  oppure disabilitato via `enabled: false`. Fail-fast coerente con PageType/path duplicati e cookie
+ *  policy mancante: uno slot rotto non deve degradare in silenzio (men che meno muto in produzione,
+ *  dove un `console.warn` non si vedrebbe). Un `loginPage` azzerato, ad esempio, manderebbe ogni
+ *  pagina `requiresAuth` a `/error/401` col login irraggiungibile — meglio fermare build/avvio. */
+function assertSlotResolved(slotName: string, type: PageType, pageMap: Map<PageType, PageInfo>): void {
+    if (!pageMap.has(type)) {
+        throw new Error(
+            `[SiteBuilder] Slot "${slotName}" punta a "${String(type)}", non registrato: ` +
+            `dichiaralo in "pages" (e verifica che non sia "enabled: false"), oppure rimuovi lo slot.`
+        );
     }
 }
 
-/** Azzera gli slot (`loginPage`, `homePage`, `legalPages`) che puntano a pagine non registrate. */
-function sanitizePageRefs(config: SiteConfig, pageMap: Map<PageType, PageInfo>): void {
-    if (config.loginPage && !pageMap.has(config.loginPage)) {
-        warnUnresolvedSlot('loginPage', config.loginPage);
-        config.loginPage = null;
-    }
-    if (config.homePage && !pageMap.has(config.homePage)) {
-        warnUnresolvedSlot('homePage', config.homePage);
-        config.homePage = null;
-    }
+/** Valida gli slot di ruolo pagina (`loginPage`, `homePage`, `legalPages`): ognuno, se valorizzato,
+ *  deve puntare a una pagina realmente registrata. Lancia al primo slot rotto. */
+function validatePageRefs(config: SiteConfig, pageMap: Map<PageType, PageInfo>): void {
+    if (config.loginPage) assertSlotResolved('loginPage', config.loginPage, pageMap);
+    if (config.homePage) assertSlotResolved('homePage', config.homePage, pageMap);
     for (const slot of Object.keys(config.legalPages) as (keyof ResolvedLegalPages)[]) {
         const ref = config.legalPages[slot];
-        if (ref != null && !pageMap.has(ref)) {
-            warnUnresolvedSlot(`legalPages.${slot}`, ref);
-            config.legalPages[slot] = null;
-        }
+        if (ref != null) assertSlotResolved(`legalPages.${slot}`, ref, pageMap);
     }
 }
 
@@ -1136,9 +1179,10 @@ function resolveNavigation(items: RawNavItem[], pageMap: Map<PageType, PageInfo>
 /**
  * Orchestratore: assembla il `ContestoSito` dalla definizione in `site.ts`.
  * Config finale → pagine (con override legale + sezione policy iniettata) → mappa
- * PageType/sitemap/render-mode → sanitizzazione slot → navigazione risolta.
+ * PageType/sitemap/render-mode → validazione slot → navigazione risolta.
  *
- * @throws Se ci sono PageType/path duplicati, o se servono cookie senza Cookie Policy.
+ * @throws Se ci sono PageType/path duplicati, se uno slot (`loginPage`/`homePage`/`legalPages`)
+ *   punta a una pagina non registrata, o se servono cookie senza Cookie Policy.
  */
 export function buildSite(definition: SiteDefinition): BuiltSite {
 
@@ -1162,10 +1206,10 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
 
     const pageMap = new Map<PageType, PageInfo>();
     const serverRenderEntries: ServerRenderEntry[] = [];
-    const sitemap = processPages(sitePages, pageMap, serverRenderEntries);
+    const sitemap = processPages(sitePages, pageMap, serverRenderEntries, finalConfig.loginPage ?? null);
 
-    // Slot che puntano a pagine non registrate → null; poi la conformità cookie.
-    sanitizePageRefs(finalConfig, pageMap);
+    // Slot che puntano a pagine non registrate → errore bloccante; poi la conformità cookie.
+    validatePageRefs(finalConfig, pageMap);
     if (cookiesEnabled && finalConfig.legalPages.cookie == null) {
         throw new Error(
             '[SiteBuilder] Il sito usa cookie (multilingua, PWA o cookie di progetto) ma ' +

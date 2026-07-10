@@ -19,13 +19,16 @@ import { NavLink } from '../../../core/engine/siteBuilder';
  * Personalizza l'interno; non rinominare/rimuovere la classe o il selettore.
  *
  * Responsabilità:
- *  - Mostra il link di login (quando sloggato) o il bottone di logout (quando loggato).
+ *  - Mostra il link di login (sloggato, solo se `showLoginInHeader`) o il bottone di
+ *    logout (loggato, SEMPRE — vedi sotto).
  *  - Gestisce la conferma di logout via NotificationService.
  *  - Dopo il logout, ricarica la route corrente per forzare la ri-valutazione
  *    dell'authGuard: se la pagina è protetta, l'utente viene rediretto.
  *
- * Non renderizza nulla se nessuna pagina di login è configurata in site.ts
- * (loginPage è null).
+ * Login e logout sono su assi indipendenti: `showLoginInHeader` nasconde il *link di login*
+ * ai visitatori (es. la vetrina di un professionista che non vuole il login in navbar), ma
+ * NON il logout — chi è entrato deve sempre poter uscire, e quel bottone lo vede solo lui.
+ * Non renderizza nulla se nessuna pagina di login è configurata in site.ts (loginPage è null).
  */
 @Component({
     selector: 'app-user-nav',
@@ -43,9 +46,14 @@ export class UserNavComponent {
     /** Stato di sessione reattivo: decide se mostrare Login (sloggato) o Logout (loggato). */
     readonly isLoggedIn = this.auth.isLoggedIn;
 
+    /** True se il sito ha un concetto di login (`config.loginPage` valorizzato): gate del logout,
+     *  indipendente da `showLoginInHeader`. Se `false`, nessuna area auth viene renderizzata. */
+    readonly hasLoginPage = ContestoSito.config.loginPage != null;
+
     /**
-     * Voce di login derivata dall'unica sorgente di verità: `config.loginPage`.
-     * `null` se nessuna pagina di login è configurata → l'intera area auth non viene renderizzata.
+     * Voce di login per lo stato SLOGGATO, derivata dall'unica sorgente di verità `config.loginPage`.
+     * Rispetta `showLoginInHeader`: se il flag è `false` (login nascosto ai visitatori) resta `null`.
+     * `null` anche senza `loginPage`. Il logout (stato loggato) NON dipende da questo — vedi template.
      */
     readonly loginLink: NavLink | null = (() => {
         if (!ContestoSito.config.showLoginInHeader) return null;

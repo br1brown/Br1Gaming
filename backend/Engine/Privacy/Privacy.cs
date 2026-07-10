@@ -28,6 +28,16 @@ public interface IPersonalDataStore
     /// Cancella (o anonimizza) tutti i dati personali associati all'utente autenticato.
     /// Nessuna sorgente da cancellare ⇒ no-op.
     /// </summary>
+    /// <remarks>
+    /// "Tutti" include l'account stesso (credenziali, identificativi): un account superstite
+    /// identifica ancora la persona, quindi l'oblio non sarebbe esercitato — il bottone
+    /// "cancella il mio account" di una pagina profilo e' questo metodo, non un endpoint a parte.
+    /// Fanno eccezione solo i dati con obbligo legale di conservazione (es. documenti fiscali),
+    /// da scollegare o anonimizzare invece che cancellare. Con un IdP esterno (es. Google) si
+    /// cancella la propria copia dei dati e il collegamento, non l'account presso l'IdP.
+    /// Il JWT del chiamante resta valido fino a scadenza (e' stateless): l'implementazione e gli
+    /// store a valle devono tollerare una sessione che punta a dati non piu' esistenti.
+    /// </remarks>
     Task EraseAsync(ClaimsPrincipal user, CancellationToken cancellationToken = default);
 }
 

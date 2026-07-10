@@ -1,12 +1,9 @@
-using System.Security.Cryptography;
-using System.Text;
 using Backend.Models;
 using Backend.Security;
 using Backend.Services;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.Extensions.Hosting;
 
 namespace Backend.Controllers;
 
@@ -17,21 +14,22 @@ namespace Backend.Controllers;
 public class AuthController : EngineAuthController
 {
     private readonly IValidator<LoginRequest> _validator;
-    private readonly IHostEnvironment _env;
+    private readonly AccountService _accounts;
 
     /// <summary>
     /// Inizializza il controller con il servizio JWT, il logger, il validator FluentValidation e
-    /// l'ambiente di hosting (per il fail-closed sulle credenziali demo in Production).
+    /// il servizio account del progetto, che custodisce la verifica delle credenziali.
     /// </summary>
-    public AuthController(AuthService auth, ILogger<AuthController> logger, IValidator<LoginRequest> validator, IHostEnvironment env)
+    public AuthController(AuthService auth, ILogger<AuthController> logger, IValidator<LoginRequest> validator, AccountService accounts)
         : base(auth, logger)
     {
         _validator = validator;
-        _env = env;
+        _accounts = accounts;
     }
 
     /// <summary>
-    /// Endpoint di login. Valida le credenziali e restituisce un token JWT.
+    /// Endpoint di login. Valida l'input, delega la verifica delle credenziali ad
+    /// <see cref="AccountService"/> e restituisce un token JWT.
     /// </summary>
     [HttpPost("login")]
     [EnableRateLimiting(SecurityDefaults.LoginRateLimitPolicy)]
@@ -45,28 +43,11 @@ public class AuthController : EngineAuthController
             return ValidationProblem();
         }
 
-        // Credenziali demo del template, volutamente hardcoded: il login è opzionale e ogni
-        // progetto ha la propria sorgente di identità (IdP, DB...) con cui sostituire questa verifica.
-        const string validUsername = "admin";
-        const string validPassword = "Password1!";
+        // La verifica vive in AccountService (Dominio), non qui: il controller resta il punto
+        // HTTP — input, esito, emissione del token — e non sa da dove vengono gli account.
+        var session = await _accounts.ValidateCredentialsAsync(request.Username, request.Pwd, HttpContext.RequestAborted);
 
-        // Fail-closed: in Production le credenziali demo del template non devono MAI autenticare.
-        // Se un progetto accende il login (valorizzando SecretKey) ma dimentica di sostituire questa
-        // verifica, la porta resta chiusa invece di aprirsi con una password pubblica nel repo. Quando
-        // il figlio cambia le costanti qui sopra, la condizione si spegne da sé (sono compile-time).
-        if (_env.IsProduction() && validUsername == "admin" && validPassword == "Password1!")
-        {
-            Logger.LogError("Login demo del template ancora attivo in Production: credenziali non sostituite in AuthController. Login rifiutato (fail-closed).");
-            throw new UnauthorizedException();
-        }
-
-        // Username case-insensitive, password esatta: entrambi confrontati in tempo costante,
-        // come le API key (un confronto ordinario uscirebbe al primo carattere divergente).
-        // Il validator ha già escluso i campi vuoti: il coalesce copre il nullable del record.
-        var usernameOk = FixedTimeEquals((request.Username ?? "").ToLowerInvariant(), validUsername);
-        var passwordOk = FixedTimeEquals(request.Pwd ?? "", validPassword);
-
-        if (!usernameOk || !passwordOk)
+        if (session is null)
         {
             Logger.LogWarning("Tentativo di login fallito per username '{Username}'.", request.Username);
             // Chiave generica: non riveliamo se a sbagliare e' username o password. L'handler la localizza.
@@ -75,26 +56,6 @@ public class AuthController : EngineAuthController
 
         Logger.LogInformation("Login riuscito per username '{Username}'.", request.Username);
 
-        // Payload di sessione del progetto: serializzato nel claim "session" del token,
-        // poi rileggibile via User.GetSession<SessionInfo>() e lato frontend.
-        // Sostituire i valori demo con quelli reali (id utente, ruoli, ecc.).
-        var session = new SessionInfo
-        {
-            UserId = validUsername,
-            DisplayName = "Amministratore",
-            Roles = new[] { "admin" }
-        };
-
         return Ok(new LoginResult(true, Token: Auth.GenerateToken(new[] { SessionPayload.Claim(session) })));
-    }
-
-    /// <summary>
-    /// Confronto di stringhe in tempo costante (UTF-8, byte per byte).
-    /// </summary>
-    private static bool FixedTimeEquals(string presented, string expected)
-    {
-        return CryptographicOperations.FixedTimeEquals(
-            Encoding.UTF8.GetBytes(presented),
-            Encoding.UTF8.GetBytes(expected));
     }
 }

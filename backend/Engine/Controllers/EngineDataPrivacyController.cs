@@ -12,7 +12,7 @@ namespace Backend.Controllers;
 /// <remarks>
 /// Eredita da <see cref="EngineProtectedController"/>: richiede login, e viene quindi escluso
 /// automaticamente dalla discovery quando il login e' disabilitato (stesso meccanismo di
-/// <c>AuthController</c>/<c>ProtectedController</c> — vedi <see cref="TemplateControllerFeatureProvider"/>),
+/// <c>AuthController</c>/<c>ProtectedController</c> — vedi <see cref="Backend.Security.TemplateControllerFeatureProvider"/>),
 /// senza bisogno di un flag dedicato. Come <see cref="EngineIdentityController"/>, e' un endpoint
 /// dell'engine offerto ai figli: un progetto non scrive ne' controller ne' rotta per questo,
 /// implementa <see cref="IPersonalDataStore"/> via DI (o la lascia com'e', vuota di default).
@@ -33,9 +33,10 @@ public sealed class EngineDataPrivacyController : EngineProtectedController
 
     /// <summary>
     /// Esporta tutti i dati personali dell'utente autenticato: JSON cifrato (AES-GCM) e
-    /// codificato base64. Nessun dato configurato (store di default) ⇒ <c>{ "data": null }</c>,
-    /// senza nemmeno toccare <c>Crypto</c> (<c>Security.CryptoSecret</c> può restare vuota finché
-    /// un progetto non implementa davvero <see cref="IPersonalDataStore"/>).
+    /// codificato base64. Nessun dato (store di default, o nessun dato per la sessione) ⇒
+    /// <c>data</c> a <c>null</c> — che le opzioni JSON globali omettono: al client arriva
+    /// <c>{}</c> — senza nemmeno toccare <c>Crypto</c> (<c>Security.CryptoSecret</c> può restare
+    /// vuota finché un progetto non implementa davvero <see cref="IPersonalDataStore"/>).
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> Export(CancellationToken cancellationToken)
@@ -50,8 +51,16 @@ public sealed class EngineDataPrivacyController : EngineProtectedController
     }
 
     /// <summary>
-    /// Cancella (o anonimizza) tutti i dati personali dell'utente autenticato.
+    /// Cancella (o anonimizza) tutti i dati personali dell'utente autenticato,
+    /// account incluso (vedi <see cref="IPersonalDataStore.EraseAsync"/> per la semantica).
     /// </summary>
+    /// <remarks>
+    /// Il <c>204</c> non revoca il JWT del chiamante, che resta formalmente valido fino a
+    /// scadenza: il frontend deve scartare il token subito dopo la chiamata (logout locale),
+    /// e gli endpoint protetti devono trattare una sessione ormai orfana come "nessun dato",
+    /// non come errore. Una revoca server-side (denylist) oggi non esiste: se un progetto ne
+    /// ha bisogno, e' un seam da aprire nell'Engine — che il JWT lo possiede — non nel figlio.
+    /// </remarks>
     [HttpDelete]
     public async Task<IActionResult> Erase(CancellationToken cancellationToken)
     {

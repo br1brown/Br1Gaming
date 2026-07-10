@@ -130,9 +130,11 @@ export type PageType = (typeof PageType)[keyof typeof PageType];
 //
 // LOGIN SPENTO di default, coerente con Security.Token.SecretKey vuota.
 // Per attivarlo: valorizza la SecretKey (>=32 char), poi qui aggiungi
-// PageType.Login + la sua pagina in pages, imposta loginPage: PageType.Login
-// e shell.showLoginInHeader: true. I pezzi pronti (pagina login, app-login-form,
-// app-user-nav) sono gia' nel progetto: vanno solo ricablati.
+// PageType.Login + la sua pagina in pages e imposta loginPage: PageType.Login
+// (login solo per il redirect auth, fuori dall'header). Per mostrarlo anche in
+// navbar usa la forma estesa: loginPage: { page: PageType.Login, showInHeader: true }.
+// I pezzi pronti (pagina login, app-login-form, app-user-nav) sono gia' nel
+// progetto: vanno solo ricablati.
 export const ContestoSito = buildSite({
     homePage: PageType.Home,
 
@@ -149,7 +151,6 @@ export const ContestoSito = buildSite({
         showFooter: true,
         fixedTopHeader: true,
         showBrandIconInHeader: true,
-        showLoginInHeader: false,
         forcedLightPanel: true,
     },
 

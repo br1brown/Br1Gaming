@@ -208,30 +208,17 @@ builder.Services.AddSingleton<IIdentityStore, DbIdentityStore>();
 ```
 
 #### Esportare e cancellare i dati personali
-`GET`/`DELETE /me/data` esistono già (protetti da login, cifrati in export): implementi **una sola** `IPersonalDataStore`, non un export per controller di dominio. Riceve il `ClaimsPrincipal`, non un id — la forma di `SessionInfo` è tua, non dell'Engine:
+`GET`/`DELETE /me/data` esistono già (protetti da login, cifrati in export) e il punto da riempire pure: `Store/AppPersonalDataStore.cs`, l'**unica** `IPersonalDataStore` del sito (già registrata in `Program.cs`, non un export per controller di dominio). Aggreghi lì i tuoi store:
 ```csharp
-// Services/MyPersonalDataStore.cs (di proprietà del progetto)
-public class MyPersonalDataStore : IPersonalDataStore
+// Store/AppPersonalDataStore.cs — aggiungi i tuoi store di dominio ai due metodi
+public async Task<object?> ExportAsync(ClaimsPrincipal user, CancellationToken ct)
 {
-    public async Task<object?> ExportAsync(ClaimsPrincipal user, CancellationToken ct)
-    {
-        var session = user.GetSession<SessionInfo>();
-        if (session is null) return null;
-        return new { profilo = await _profili.GetAsync(session.UserId, ct) /* , acquisti = ... */ };
-    }
-
-    public async Task EraseAsync(ClaimsPrincipal user, CancellationToken ct)
-    {
-        var session = user.GetSession<SessionInfo>();
-        if (session is not null) await _profili.DeleteAsync(session.UserId, ct);
-    }
+    var session = user.GetSession<SessionInfo>();   // la forma di SessionInfo è tua, non dell'Engine
+    if (session is null) return null;
+    return new { profilo = await _profili.GetAsync(session.UserId, ct) /* , acquisti = ... */ };
 }
 ```
-```csharp
-// Program.cs, blocco "── SERVIZI APPLICATIVI ──"
-builder.Services.AddSingleton<IPersonalDataStore, MyPersonalDataStore>();
-```
-Dettagli (cifratura della risposta, `Security.CryptoSecret`) in [backend/README.md](backend/README.md) §9.
+`EraseAsync` è il diritto all'oblio completo: cancella **anche l'account** (credenziali e identificativi sono dati personali), salvo i dati con obbligo legale di conservazione, da anonimizzare. La parte account è già delegata a `Services/AccountService.cs` — l'unico posto che conosce gli account, lo stesso che verifica le credenziali per `AuthController`: con account reali riempi `DeleteAccountAsync` lì. Dopo la `DELETE` il JWT resta valido fino a scadenza → il frontend fa logout locale e gli store tollerano un `UserId` orfano come "nessun dato". Dettagli (semantica, token, cifratura della risposta, `Security.CryptoSecret`) in [backend/README.md](backend/README.md) §9.
 
 #### Chiamare un'API esterna
 Outbound: URL/chiave in config, client tipizzato, errori verso l'upstream:
