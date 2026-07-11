@@ -67,8 +67,8 @@
        offcanvas 1045 · modal-backdrop 1050 · modal 1055 · popover 1070 ·
        toast 1090): i widget persistenti (cookie banner, back-to-top) stanno
        sopra la navbar fissa ma SOTTO offcanvas e modali, che devono coprirli. */
-    --z-cookie-banner: 1035;
-    --z-fab: 1040;
+    --z-cookie-banner: 1040;
+    --z-fab: 1035;
     --z-skip-link: 1095;
     --z-cdk-overlay: 1100;
 

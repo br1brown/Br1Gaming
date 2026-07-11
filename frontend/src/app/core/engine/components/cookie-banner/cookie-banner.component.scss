@@ -82,7 +82,7 @@ app-cookie-banner .cookie-banner-modern .cookie-banner__shell {
     /* .surface-elevated (nell'HTML) dà un'ombra pensata per una card isolata;
        qui la barra è agganciata al bordo schermo, quindi serve solo il distacco
        dal contenuto sopra. */
-    box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.08);
 }
 
 app-cookie-banner .cookie-banner-modern .cookie-banner__content {
@@ -196,7 +196,7 @@ app-cookie-banner .cookie-banner-modern .cookie-banner__actions .btn {
         font-size: 0.875rem;
     }
 
-    /* "Salva scelte" (3° bottone, visibile solo con categorie miste) → riga intera */
+    /* "Salva scelte" (3° bottone) → riga intera */
     app-cookie-banner .cookie-banner-modern .cookie-banner__actions .btn:last-child:nth-child(3) {
         grid-column: 1 / -1;
     }

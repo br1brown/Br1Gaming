@@ -1,4 +1,4 @@
-import { type CookieConfig } from "../engine/services/cookie/cookie-type";
+import { ConsentCategory, type CookieConfig } from "../engine/services/cookie/cookie-type";
 
 /**
  * Registro UNICO dell'archiviazione client del progetto (cookie + Web Storage).

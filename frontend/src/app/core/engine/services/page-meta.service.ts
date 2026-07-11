@@ -1,8 +1,9 @@
-import { CSP_NONCE, inject, Injectable, InjectionToken, DOCUMENT, signal } from '@angular/core';
+import { CSP_NONCE, inject, Injectable, InjectionToken, DOCUMENT, signal, Signal } from '@angular/core';
 
 import { Meta, Title } from '@angular/platform-browser';
-import { ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
-import { ContestoSito } from '../../../site';
+import { ActivatedRouteSnapshot, RouterStateSnapshot, Router } from '@angular/router';
+import { ContestoSito, PageType } from '../../../site';
+import { onNavigationEnd } from '../routing';
 import { pickLocaleText } from '../siteBuilder';
 import { CdnCgi } from './asset.service';
 import { TranslateService } from './translate.service';
@@ -485,6 +486,11 @@ export class PageMetaService {
             return this.frontendOrigin?.replace(/\/$/, '') || '/';
         }
     }
+
+    public readonly currentPageType: Signal<PageType | undefined> = onNavigationEnd(
+        router => PageMetaService.getLeaf(router.routerState.snapshot).data['pageType'] as PageType | undefined,
+        PageMetaService.getLeaf(inject(Router).routerState.snapshot).data['pageType'] as PageType | undefined
+    );
 
     private getCanonicalOrigin(canonicalUrl: string): string {
         try { return new URL(canonicalUrl).origin; } catch { return ''; }

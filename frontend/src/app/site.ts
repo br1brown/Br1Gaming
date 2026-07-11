@@ -1,6 +1,6 @@
 import { buildSite } from './core/engine/siteBuilder';
 import { AppPages, appPagesDecl } from './pages/app.pages';
-import { LegalPages, legalSlots } from './pages/legal.pages';
+import { LegalPages, legalSlots } from './pages/policy/legal.pages';
 
 export type {
     SiteConfig,

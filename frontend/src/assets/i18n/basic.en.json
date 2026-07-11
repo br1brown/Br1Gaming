@@ -143,6 +143,8 @@
   "introBannerCookie": "This site uses cookies for the purposes listed below. [Read the cookie policy]({0})",
   "accettaTuttiBannerCookie": "Accept all",
   "rifiutaTuttiBannerCookie": "Reject all",
+  "accettaBannerCookie": "Accept",
+  "rifiutaBannerCookie": "Reject",
   "salvaBannerCookie": "Save choices",
   "obbligatorioBannerCookie": "Required",
   "impostazioniCookie": "Cookie settings",

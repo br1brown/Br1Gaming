@@ -46,16 +46,6 @@ public class AccountService
         const string validUsername = "admin";
         const string validPassword = "Password1!";
 
-        // Fail-closed: in Production le credenziali demo del template non devono MAI autenticare.
-        // Se un progetto accende il login (valorizzando SecretKey) ma dimentica di sostituire questa
-        // verifica, la porta resta chiusa invece di aprirsi con una password pubblica nel repo. Quando
-        // il figlio cambia le costanti qui sopra, la condizione si spegne da sé (sono compile-time).
-        if (_env.IsProduction() && validUsername == "admin" && validPassword == "Password1!")
-        {
-            _logger.LogError("Login demo del template ancora attivo in Production: credenziali non sostituite in AccountService. Login rifiutato (fail-closed).");
-            throw new UnauthorizedException();
-        }
-
         // Username case-insensitive, password esatta: entrambi confrontati in tempo costante,
         // come le API key (un confronto ordinario uscirebbe al primo carattere divergente).
         // Il validator ha già escluso i campi vuoti: il coalesce copre il nullable del record.

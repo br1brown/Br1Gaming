@@ -1,4 +1,4 @@
-import type { LegalPagesConfig } from '../core/engine/siteBuilder';
+import type { LegalPagesConfig } from '../../core/engine/siteBuilder';
 
 // ═══════════════════════════════════════════════════════════════════════
 // AREA "legal" — pagine legali del progetto
