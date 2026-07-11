@@ -180,6 +180,9 @@ if (session is null) throw new UnauthorizedException();
 ```
 Fuori da un controller (es. un servizio) resta `user.GetSession<SessionInfo>()` sul `ClaimsPrincipal` ricevuto — `CurrentSession<T>()` è solo lo zucchero sintattico di chi eredita già la base.
 
+#### Ruoli di dominio e `[Authorize]`
+`AuthController.Login` emette già un `ClaimTypes.Role` per ogni voce di `session.Roles`, quindi `[Authorize(Roles = "admin")]` **funziona nativamente** — i ruoli li governi da `SessionInfo.Roles` (in `AccountService`), non toccando il controller. `session.Roles` resta anche leggibile via `User.GetSession<SessionInfo>()` per un enforce puntuale (`session.Roles.Contains("admin")` → `ForbiddenException`). Le due nozioni di "ruolo": [backend/README.md](backend/README.md) §"Sistema di Login e Sessioni JWT".
+
 #### Pubblicare una notifica realtime
 Proprietà ambient, niente inject:
 ```csharp

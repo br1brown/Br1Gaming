@@ -17,9 +17,8 @@ export class ShareActionComponent extends BaseActionComponent {
     protected readonly defaultLabelKey = 'condividiAzione';
 
     /**
-     * Funzione che restituisce il dato da condividere (sync o async).
-     * Il componente smista da solo verso shareText / shareBlob / shareCanvas
-     * in base al tipo: il chiamante non tocca mai ShareService.
+     * Restituisce il dato da condividere (sync o async). Il componente smista da solo verso
+     * shareText/shareBlob/shareCanvas: il chiamante non tocca mai ShareService.
      */
     readonly action = input.required<() => ShareInput | Promise<ShareInput>>();
 

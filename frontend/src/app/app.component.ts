@@ -26,11 +26,8 @@ import { TranslatePipe } from './core/engine/pipes/translate.pipe';
 const SHELL_FLAGS_STATE_KEY = makeStateKey<ShellFlags>(SHELL_DATA_KEY);
 
 /**
- * Shell principale dell'app.
- *
- * Qui non si decide quali pagine esistono: il componente consuma la
- * configurazione gia' trasformata in route Angular e reagisce ai flag
- * di shell della pagina attiva (showPanel, showNav, showFooter).
+ * Shell principale dell'app: non decide quali pagine esistono, consuma le route già trasformate e
+ * reagisce ai flag di shell della pagina attiva (showPanel, showNav, showFooter).
  */
 @Component({
     selector: 'app-root',
@@ -51,11 +48,10 @@ export class AppComponent {
     readonly smoke = ContestoSito.config.smoke;
 
     /**
-     * Flag di shell della rotta attiva (slice tipato `route.data[SHELL_DATA_KEY]`, scritto da
-     * routing.ts). `initialValue` = flag serializzati dall'SSR (TransferState): sul client il PRIMO
-     * render usa esattamente i flag con cui l'SSR ha generato l'HTML, quindi nessuno sfarfallio
-     * (navbar/pannello che appaiono e spariscono) prima del primo NavigationEnd. Poi il signal si
-     * aggiorna ad ogni navigazione dalla rotta dal vivo. Senza SSR la chiave non c'è → `{}` → default.
+     * Flag di shell della rotta attiva (`route.data[SHELL_DATA_KEY]`, scritto da routing.ts).
+     * `initialValue` = flag serializzati dall'SSR (TransferState): il primo render client usa gli
+     * stessi flag dell'HTML SSR → niente sfarfallio prima del primo NavigationEnd. Poi si aggiorna a
+     * ogni navigazione; senza SSR → `{}` → default.
      */
     private readonly shellFlags = onNavigationEnd(
         router => (PageMetaService.getLeaf(router.routerState.snapshot).data[SHELL_DATA_KEY] ?? {}) as ShellFlags,
@@ -93,14 +89,10 @@ export class AppComponent {
 
         inject(VersionCheckService).init();
 
-        // <details> chiusi (es. i gruppi cookie della Cookie Policy) non stampano il loro
-        // contenuto: è comportamento corretto di `<details>`, sia a schermo sia in stampa, ma
-        // sul "formato alternativo" stampato vogliamo vedere tutto, non un elenco di intestazioni
-        // collassate senza modo di espanderle su carta. matchMedia('print'), non
-        // beforeprint/afterprint: più affidabile in Safari (anteprima di stampa basata su
-        // preview, dove beforeprint/afterprint non sempre scattano). Riapre solo i `<details>`
-        // che erano chiusi, e li richiude — solo quelli — appena usciti dalla stampa: uno che
-        // l'utente aveva già aperto a mano resta aperto anche dopo.
+        // <details> chiusi (gruppi cookie della Cookie Policy) non stampano il contenuto: corretto a
+        // schermo, ma in stampa vogliamo vedere tutto. matchMedia('print') (più affidabile di
+        // beforeprint in Safari) riapre solo i <details> chiusi e li richiude all'uscita — quelli
+        // già aperti a mano restano aperti.
         if (isPlatformBrowser(this.platformId)) {
             let reopenedByPrint: HTMLDetailsElement[] = [];
             window.matchMedia('print').addEventListener('change', ({ matches }) => {
@@ -113,17 +105,10 @@ export class AppComponent {
                 }
             });
 
-            // Gestione del focus in una SPA: un cambio pagina non ricarica il documento, quindi
-            // il browser non sposta il focus né lo annuncia da solo (come farebbe con un normale
-            // <a href> multi-pagina) — chi naviga da tastiera/screen reader resta "fermo" sul link
-            // appena cliccato, nel contenuto ormai sostituito. Best practice 2025/2026: approccio
-            // duale, focus programmatico su #main-content (tabindex="-1" in app.component.html) +
-            // regione aria-live che annuncia il nuovo titolo (announcedTitle, sotto in template) —
-            // il solo focus non basta perché alcune combinazioni screen reader/browser (es. NVDA+
-            // Firefox, VoiceOver+Safari) non annunciano sempre in modo affidabile l'elemento
-            // focalizzato. skip(1): il PRIMO NavigationEnd è il load iniziale della pagina, dove il
-            // focus deve restare quello di default del browser (barra indirizzo/primo elemento),
-            // non essere rubato subito dal main-content.
+            // Focus in una SPA: un cambio pagina non ricarica il documento, il browser non sposta né
+            // annuncia il focus (chi usa tastiera/screen reader resta sul link cliccato). Approccio
+            // duale: focus su #main-content + aria-live che annuncia il titolo (il solo focus non
+            // basta su alcune combo SR/browser). skip(1): il primo NavigationEnd è il load iniziale.
             inject(Router).events.pipe(
                 filter((e): e is NavigationEnd => e instanceof NavigationEnd),
                 skip(1),

@@ -6,39 +6,22 @@ using Backend.Engine;
 namespace Backend.Store;
 
 /// <summary>
-/// Implementa <see cref="IContentStore"/> leggendo i contenuti da file JSON nella cartella <c>data/</c>.
+/// Implementa <see cref="IContentStore"/> leggendo i contenuti da file JSON in <c>data/</c>, con
+/// cache: centralizza la lettura fisica, i servizi restano indipendenti dal formato di persistenza.
 /// </summary>
-/// <remarks>
-/// Centralizza la lettura fisica dei file (con cache), così i servizi restano indipendenti dal
-/// formato di persistenza. L'identità del sito non passa di qui: vive nel sottosistema Engine
-/// <c>IIdentityStore</c> (file <c>data/identity.json</c>).
-/// </remarks>
 public class FileContentStore : IContentStore
 {
     private readonly string _dataPath;
     private readonly IMemoryCache _cache;
 
-    /// <summary>
-    /// Inizializza lo store file-based partendo dalla root dell'applicazione ASP.NET.
-    /// </summary>
-    /// <param name="env">
-    /// Ambiente host usato per ricavare il percorso assoluto della cartella <c>data</c>.
-    /// </param>
-    /// <param name="cache">
-    /// Cache in memoria condivisa usata da <see cref="FileUtils.ReadStaticFileAsync"/> per i file JSON.
-    /// </param>
+    /// <summary>Inizializza lo store file-based sulla cartella <c>data/</c> della content root (con cache condivisa).</summary>
     public FileContentStore(IWebHostEnvironment env, IMemoryCache cache)
     {
         _cache = cache;
         _dataPath = Path.Combine(env.ContentRootPath, "data");
     }
 
-    /// <summary>
-    /// Recupera la configurazione completa dei social dal file <c>social.json</c>.
-    /// </summary>
-    /// <returns>
-    /// Una mappa nome-URL pronta per essere filtrata o esposta dai servizi applicativi.
-    /// </returns>
+    /// <summary>Recupera i social da <c>social.json</c>: mappa nome→URL, pronta per filtro/esposizione.</summary>
     public async Task<Dictionary<string, string>> GetSocialAsync(CancellationToken cancellationToken = default)
     {
         var json = await FileUtils.ReadStaticFileAsync("social", _dataPath, _cache, cancellationToken: cancellationToken);

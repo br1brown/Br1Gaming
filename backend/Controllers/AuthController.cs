@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Backend.Models;
 using Backend.Security;
 using Backend.Services;
@@ -56,6 +57,11 @@ public class AuthController : EngineAuthController
 
         Logger.LogInformation("Login riuscito per username '{Username}'.", request.Username);
 
-        return Ok(new LoginResult(true, Token: Auth.GenerateToken(new[] { SessionPayload.Claim(session) })));
+        // Nel token: il payload di sessione + un ClaimTypes.Role per ogni ruolo di dominio. Così
+        // [Authorize(Roles = "admin")] e le policy native li vedono (session.Roles da solo è invisibile).
+        var claims = new List<Claim> { SessionPayload.Claim(session) };
+        claims.AddRange(session.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
+
+        return Ok(new LoginResult(true, Token: Auth.GenerateToken(claims)));
     }
 }

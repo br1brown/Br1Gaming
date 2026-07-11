@@ -6,29 +6,16 @@ using Microsoft.Extensions.Hosting;
 namespace Backend.Services;
 
 /// <summary>
-/// L'unico posto del progetto che conosce gli account degli utenti: verifica delle credenziali
-/// (chiamata da <c>AuthController</c>) e cancellazione dell'account (chiamata da
-/// <c>AppPersonalDataStore</c> per il diritto all'oblio).
+/// Unico posto del progetto che conosce gli account utenti: verifica credenziali (per AuthController)
+/// e cancella l'account (per AppPersonalDataStore, diritto all'oblio). Da non confondere con
+/// <c>IIdentityStore</c> (identità del brand) né <c>AuthService</c> (JWT Engine). Reali → riscrivi solo qui.
 /// </summary>
-/// <remarks>
-/// Account degli <b>utenti</b>: da non confondere con l'identità del sito (<c>IIdentityStore</c>,
-/// i dati legali del brand) né con <c>AuthService</c> (l'infrastruttura JWT dell'Engine).
-/// Classe concreta di Dominio, senza contratto engine-side, di proposito: le firme parlano
-/// <see cref="SessionInfo"/>, che l'Engine non conosce — i confini contrattuali restano
-/// <c>EngineAuthController</c> (login) e <c>IPersonalDataStore</c> (dati personali), e questo
-/// servizio vive dietro entrambi. Quando gli account diventano reali (DB, file utenti, IdP
-/// esterno come Google) si riscrive l'interno di questa classe e nient'altro: controller e
-/// store privacy non cambiano.
-/// </remarks>
 public class AccountService
 {
     private readonly IHostEnvironment _env;
     private readonly ILogger<AccountService> _logger;
 
-    /// <summary>
-    /// Inizializza il servizio con l'ambiente di hosting (per il fail-closed sulle credenziali
-    /// demo in Production) e il logger.
-    /// </summary>
+    /// <summary>Inizializza con l'ambiente host (fail-closed sulle credenziali demo in Production) e il logger.</summary>
     public AccountService(IHostEnvironment env, ILogger<AccountService> logger)
     {
         _env = env;
@@ -67,15 +54,10 @@ public class AccountService
     }
 
     /// <summary>
-    /// Cancella l'account dell'utente — credenziali e identificativi, cioè la parte "account"
-    /// del diritto all'oblio; la cancellazione dei dati di dominio resta in
-    /// <c>AppPersonalDataStore</c>, che chiama questo metodo per ultima cosa.
+    /// Cancella l'account (credenziali e identificativi), la parte "account" dell'oblio; i dati di
+    /// dominio restano ad <c>AppPersonalDataStore</c>, che chiama questo per ultimo. Demo: no-op
+    /// (account = costanti compile-time). Reali → rimuovi record/file; IdP esterno → scollega copia locale.
     /// </summary>
-    /// <remarks>
-    /// Demo: no-op — l'account demo è una coppia di costanti compile-time, non c'è nulla da
-    /// cancellare. Con account reali qui si rimuove il record/riga/file dell'utente; con un IdP
-    /// esterno si cancella il collegamento e la copia locale dei dati, non l'account presso l'IdP.
-    /// </remarks>
     public Task DeleteAccountAsync(SessionInfo session, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Cancellazione account richiesta per '{UserId}': demo, nessuno storage account da cui rimuovere.", session.UserId);

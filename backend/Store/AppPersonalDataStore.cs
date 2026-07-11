@@ -7,18 +7,10 @@ using Backend.Services;
 namespace Backend.Store;
 
 /// <summary>
-/// Sorgente dei dati personali **di proprietà del progetto**, dietro <c>GET</c>/<c>DELETE /me/data</c>
-/// (vince sul default vuoto dell'Engine, <see cref="NullPersonalDataStore"/> — stesso meccanismo di
-/// <see cref="AppIdentityStore"/>). È l'unico punto di aggregazione del sito: export e oblio di
-/// tutti gli store di dominio passano da qui.
+/// Sorgente dei dati personali di proprietà del progetto, dietro <c>GET</c>/<c>DELETE /me/data</c>
+/// (vince sul default vuoto <c>NullPersonalDataStore</c>). Unico punto di aggregazione: export e oblio
+/// degli store di dominio passano da qui; la parte account è delegata ad <see cref="AccountService"/>.
 /// </summary>
-/// <remarks>
-/// La parte account dell'oblio è delegata ad <see cref="AccountService"/> (vedi
-/// <see cref="IPersonalDataStore.EraseAsync"/> per la semantica: l'account è incluso). La demo non
-/// conserva dati personali propri — l'export risponde <c>null</c> e la cancellazione si esaurisce
-/// nella delega — ma il cablaggio è già quello giusto: quando il progetto avrà store di dominio
-/// (profilo, ordini, ...), si aggregano qui, senza toccare endpoint né Engine.
-/// </remarks>
 public class AppPersonalDataStore : IPersonalDataStore
 {
     private readonly AccountService _accounts;

@@ -34,25 +34,9 @@ export interface ResolvedPage<T = unknown> {
 }
 
 /**
- * Servizio centralizzato per il caricamento dei contenuti di pagina.
- *
- * ⚙️ Contratto fisso: l'Engine importa `ContentResolver`, `ResolvedPage` e `contentLoaderResolver`
- * (routing.ts + PageBaseComponent). Aggiungi `case` a loadResolved(); non rinominare/rimuovere gli export.
- *
- * Per aggiungere il contenuto di una nuova pagina:
- *   1. Aggiungere il metodo in ApiService (o usare tryLoadPolicy per file statici)
- *   2. Aggiungere un case nello switch di loadResolved()
- *
- * Il try-catch esterno protegge il router: se l'API fallisce, BaseApiService
- * ha già mostrato il dialog all'utente e il resolver restituisce content = null
- * invece di rigettare (che cancellerebbe la navigazione).
- *
- * In SSR i file .md delle policy vengono letti direttamente da disco tramite
- * LEGAL_FILE_READER (fornito da app.config.server.ts), eliminando la chiamata
- * HTTP loopback. Nel browser resta una semplice fetch relativa.
- *
- * I placeholder {{cookieList}} e {{ragioneSociale}} ecc. sono gestiti
- * interamente da PolicyComponent — il resolver restituisce Markdown grezzo.
+ * Carica i contenuti di pagina: un `case` per pagina in `loadResolved` (via ApiService, o
+ * `tryLoadPolicy` per i .md legali). Ricetta: frontend/README.md §"Developer Journey".
+ * ⚙️ Contratto Engine: non rinominare gli export ContentResolver/ResolvedPage/contentLoaderResolver.
  */
 @Injectable({ providedIn: 'root' })
 export class ContentResolver {

@@ -13,17 +13,9 @@ interface DayRow {
 }
 
 /**
- * OPENING HOURS COMPONENT
- *
- * Rende gli orari (lista di intervalli per-giorno) come tabella "alla Google": una riga per ciascun
- * giorno della settimana, con le fasce del giorno o "Chiuso", e il giorno corrente in grassetto. I
- * dati arrivano già strutturati (OpeningInterval[]): qui si deriva solo la presentazione. I nomi
- * giorno escono nella lingua corrente (LocalizationService, via Intl).
- *
- * Autonomo: si inietta da sé la cultura, il consumer passa solo i dati. Se `label` è valorizzata fa
- * da intestazione. Si nasconde da sé se nessun giorno ha una fascia valida (`hasOpeningHours`). Il
- * giorno "oggi" è risolto solo lato browser (afterNextRender) per non sporcare l'idratazione SSR
- * (il fuso del server può differire da quello del visitatore).
+ * Rende gli orari (intervalli per-giorno) come tabella "alla Google": una riga per giorno con fasce
+ * o "Chiuso", oggi in grassetto. Autonomo: si inietta la cultura da sé, si nasconde se non ci sono
+ * fasce. "Oggi" risolto solo lato browser (afterNextRender): il fuso server ≠ visitatore sporcherebbe l'SSR.
  */
 @Component({
     selector: 'app-opening-hours',

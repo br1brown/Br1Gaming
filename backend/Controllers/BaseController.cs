@@ -7,23 +7,15 @@ using Backend.Services;
 namespace Backend.Controllers;
 
 /// <summary>
-/// Controller concreto del progetto per gli endpoint pubblici (API key).
+/// Controller del progetto per gli endpoint pubblici (sola API key), eredita sicurezza e logger da
+/// <see cref="EngineApiController"/>. Aggiungi qui gli endpoint senza auth utente; <see cref="GetSocial"/> è demo.
 /// </summary>
-/// <remarks>
-/// Eredita sicurezza e logger da <see cref="EngineApiController"/>.
-/// Aggiungere qui gli endpoint del progetto che non richiedono autenticazione utente.
-/// <see cref="GetSocial"/> e' un endpoint dimostrativo incluso nel template.
-/// </remarks>
 [Route("")]
 public class BaseController : EngineApiController
 {
     private readonly SiteService _service;
 
-    /// <summary>
-    /// Inizializza il controller con il servizio di business (di dominio) e il logger. Notifiche,
-    /// coda di task e delivery sono infrastruttura ambient ereditata da <see cref="EngineApiController"/>:
-    /// non vanno iniettate qui.
-    /// </summary>
+    /// <summary>Inizializza col servizio di dominio e il logger. Notifiche/coda/delivery sono ambient da <see cref="EngineApiController"/>, non si iniettano.</summary>
     public BaseController(SiteService service, ILogger<BaseController> logger)
         : base(logger)
     {
@@ -31,10 +23,9 @@ public class BaseController : EngineApiController
     }
 
     /// <summary>
-    /// Restituisce i social network configurati, con filtro opzionale per nome.
-    /// Endpoint dimostrativo: mostra come aggiungere funzionalita' al controller ereditato dall'engine.
-    /// Se il chiamante ha lo stream notifiche aperto (header <c>X-Connection-Id</c>) consegna anche una
-    /// notifica realtime d'esempio col canale di default (<see cref="DeliveryChannel.Realtime"/>): nessuna email.
+    /// Restituisce i social network configurati, con filtro opzionale per nome. Endpoint dimostrativo:
+    /// mostra come aggiungere funzionalità al controller ereditato dall'Engine (con notifica realtime
+    /// d'esempio, vedi corpo).
     /// </summary>
     [HttpGet("social")]
     public async Task<IActionResult> GetSocial([FromQuery] string[]? nomi, CancellationToken cancellationToken)
@@ -81,11 +72,9 @@ public class BaseController : EngineApiController
     }
 
     /// <summary>
-    /// Demo del pattern "task lungo": accoda un import simulato e risponde subito <c>202 Accepted</c>.
-    /// A fine task il <see cref="IDeliveryService"/> consegna l'esito in <see cref="DeliveryChannel.Auto"/>:
-    /// toast realtime se il client che ha avviato il job è ancora connesso (header <c>X-Connection-Id</c>),
-    /// altrimenti email (<paramref name="email"/>) come fallback durevole — così un job che "non può
-    /// restare pending" notifica comunque l'esito.
+    /// Demo del pattern "task lungo": accoda un import simulato e risponde subito <c>202 Accepted</c>;
+    /// a fine task notifica l'esito via <see cref="IDeliveryService"/> (toast realtime, o email di
+    /// fallback — vedi corpo).
     /// </summary>
     [HttpPost("tasks/demo/import")]
     public IActionResult StartDemoImport([FromQuery] string? email)

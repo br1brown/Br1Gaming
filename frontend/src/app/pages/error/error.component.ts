@@ -5,19 +5,9 @@ import { PageDirective } from '../../core/engine/directives/page.directive';
 import { ContestoSito } from '../../site';
 
 /**
- * Pagina di errore generica, usata per qualsiasi codice HTTP (404, 500, ecc.).
- *
- * Il codice errore viene passato come path param (es. `error/:errorCode`) e letto
- * tramite component input binding, grazie a `withComponentInputBinding()` nel router.
- *
- * Le chiavi di traduzione seguono questo pattern:
- *   - "errore{codice}Titolo" → titolo breve (es. "errore404Titolo" → "Pagina non trovata")
- *   - "errore{codice}Descrizione" → descrizione estesa
- *   Se la chiave non esiste nei file di traduzione, vengono usati messaggi di ripiego
- *   generici "erroreGenerico" e "erroreImprevisto".
- *
- * Per gestire un nuovo codice errore basta aggiungere le chiavi di traduzione
- * corrispondenti (es. "errore403Titolo" e "errore403Descrizione") nei file JSON delle lingue.
+ * Pagina di errore generica per qualsiasi codice HTTP. Il codice arriva come path param
+ * (`error/:errorCode`) via input binding. Chiavi i18n `errore{codice}Titolo`/`Descrizione`
+ * (fallback `erroreGenerico`/`erroreImprevisto`); un nuovo codice = aggiungi le sue chiavi negli i18n.
  */
 @Component({
     selector: 'app-error',
@@ -43,16 +33,9 @@ export class ErrorComponent {
         let titleKey = `errore${code}Titolo`;
         let descKey = `errore${code}Descrizione`;
 
-        // NOTA BENE: Questo switch serve SOLO per mappare gli errori di PAGINA
-        // generati dal routing (es. l'utente naviga manualmente verso una route protetta).
-        // 
-        // Gli errori legati alle RISORSE (chiamate API che falliscono) vengono gestiti 
-        // e mappati dinamicamente dentro `base-api.service.ts` usando le chiavi `risorsaXXX`.
-        //
-        // Questa separazione permette di avere messaggi diversi:
-        // - "Pagina non trovata" (Router) vs "Risorsa non trovata" (API)
-        // - "Accesso vietato alla pagina" (Router) vs "Non hai privilegi su questo elemento" (API)
-        
+        // Questo switch mappa SOLO gli errori di PAGINA (routing, es. navigazione a route protetta).
+        // Gli errori di RISORSA (API che fallisce) li mappa base-api.service.ts con chiavi `risorsaXXX`.
+        // Separati apposta: "Pagina non trovata" (Router) vs "Risorsa non trovata" (API).
         switch (code) {
             case 401:
                 titleKey = 'errore401Titolo';

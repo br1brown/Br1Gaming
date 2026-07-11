@@ -9,26 +9,9 @@ import { ContestoSito } from '../../../site';
 import { NavLink } from '../../../core/engine/siteBuilder';
 
 /**
- * USER NAV COMPONENT
- *
- * Componente shared che gestisce l'area login/logout della navbar.
- * Estratto dall'engine per consentire ai progetti figli di personalizzare
- * la navigazione senza modificare i file interni dell'engine.
- *
- * ⚙️ Contratto fisso: la navbar dell'Engine importa `UserNavComponent` (selettore `app-user-nav`).
- * Personalizza l'interno; non rinominare/rimuovere la classe o il selettore.
- *
- * Responsabilità:
- *  - Mostra il link di login (sloggato, solo se `showLoginInHeader`) o il bottone di
- *    logout (loggato, SEMPRE — vedi sotto).
- *  - Gestisce la conferma di logout via NotificationService.
- *  - Dopo il logout, ricarica la route corrente per forzare la ri-valutazione
- *    dell'authGuard: se la pagina è protetta, l'utente viene rediretto.
- *
- * Login e logout sono su assi indipendenti: `showLoginInHeader` nasconde il *link di login*
- * ai visitatori (es. la vetrina di un professionista che non vuole il login in navbar), ma
- * NON il logout — chi è entrato deve sempre poter uscire, e quel bottone lo vede solo lui.
- * Non renderizza nulla se nessuna pagina di login è configurata in site.ts (loginPage è null).
+ * Area login/logout della navbar: dopo il logout ricarica la route per rivalutare l'authGuard.
+ * Login e logout su assi indipendenti; nulla se `loginPage` è null. Dettagli: README §"Autenticazione".
+ * ⚙️ Contratto Engine: la navbar importa `app-user-nav` — non rinominare classe/selettore.
  */
 @Component({
     selector: 'app-user-nav',

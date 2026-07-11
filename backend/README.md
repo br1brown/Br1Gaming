@@ -1170,33 +1170,30 @@ Il token è firmato con HMAC-SHA256. La scadenza assoluta è `Security.Token.Exp
 
 > **In test di integrazione:** per raggiungere un endpoint `EngineProtectedController`, il token fake deve includere il ruolo `"Authenticated"` oltre alla firma corretta. Senza quel ruolo la risposta sarà 403, non 401.
 
-#### ⚠️ `SessionInfo.Roles` non sono ruoli JWT — footgun di autorizzazione
+#### Ruoli: payload di sessione e `ClaimTypes.Role`
 
-Distinzione importante per chi imposta i permessi. Nel token convivono **due nozioni diverse di "ruolo"**:
+Nel token convivono **due nozioni di "ruolo"**, ed è utile tenerle distinte:
 
-- **L'unico vero claim di ruolo** (`ClaimTypes.Role`) emesso da `AuthService.GenerateToken` è
-  **`"Authenticated"`**, e serve solo a soddisfare la policy `RequireLogin` (`RequireRole("Authenticated")`)
-  che protegge `EngineProtectedController`. È un interruttore "loggato/non loggato", non un sistema di
-  permessi granulari.
-- **`SessionInfo.Roles`** (es. `["admin"]`) vive **dentro il claim `"session"`** (un blob JSON), **non**
-  è registrato come `ClaimTypes.Role`. Sono ruoli **di dominio**, leggibili ma invisibili al motore di
+- **`SessionInfo.Roles`** (es. `["admin"]`) vive nel blob JSON del claim `"session"`: sono i ruoli **di
+  dominio**, che rileggi con `User.GetSession<SessionInfo>()`. Da soli sarebbero invisibili al motore di
   autorizzazione di ASP.NET.
+- **`ClaimTypes.Role`** è ciò che leggono le policy native e `[Authorize(Roles = …)]`.
+  `AuthService.GenerateToken` emette sempre `"Authenticated"` (l'interruttore loggato/non-loggato della
+  policy `RequireLogin` che protegge `EngineProtectedController`).
 
-Conseguenza concreta: **`[Authorize(Roles = "admin")]` NON vede `SessionInfo.Roles`** — cercherebbe un
-claim `ClaimTypes.Role` con valore `"admin"`, che `GenerateToken` non emette. L'attributo passerebbe solo
-per `"Authenticated"`. Il `Roles = ["admin"]` della demo in `AuthController` è **illustrativo del payload**,
-non un permesso attivo.
+Il template **collega le due cose**: `AuthController.Login` emette un `ClaimTypes.Role` per ogni voce di
+`session.Roles` accanto al payload. Quindi nel progetto **`[Authorize(Roles = "admin")]` funziona
+nativamente** — la demo logga `admin` come ruolo reale, non solo come dato di sessione.
 
-Per far valere davvero un ruolo di dominio, due strade:
-- **Enforce nel codice** (più semplice, nessuna policy nativa):
-  ```csharp
-  var session = User.GetSession<SessionInfo>();
-  if (session?.Roles.Contains("admin") != true)
-      throw new ForbiddenException(); // 403
-  ```
-- **Emetti veri `ClaimTypes.Role`** in `GenerateToken` passando i ruoli di dominio negli
-  `additionalClaims` (`new Claim(ClaimTypes.Role, "admin")`), così `[Authorize(Roles = "admin")]` e le
-  policy native li riconoscono. È la via giusta se vuoi usare l'autorizzazione dichiarativa di ASP.NET.
+```csharp
+// AuthController.Login — i ruoli di dominio diventano claim che le policy native riconoscono
+var claims = new List<Claim> { SessionPayload.Claim(session) };
+claims.AddRange(session.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
+return Ok(new LoginResult(true, Token: Auth.GenerateToken(claims)));
+```
+
+Per un controllo puntuale resta possibile anche l'enforce imperativo, senza policy:
+`if (User.GetSession<SessionInfo>()?.Roles.Contains("admin") != true) throw new ForbiddenException();`.
 
 ### Leggere la Sessione (in `ProtectedController`)
 
@@ -1212,7 +1209,7 @@ Ricetta rapida: [AGENTS.md](../AGENTS.md#leggere-la-sessione).
 
 ### Logout
 
-Il JWT è stateless: il logout sul client (rimozione del token) non invalida il token sul backend, che resta tecnicamente valido fino alla scadenza (`exp`). Per la revoca immediata serve una denylist server-side — da implementare se il requisito è presente.
+Il JWT è stateless: il logout sul client (rimozione del token) non invalida il token sul backend, che resta tecnicamente valido fino alla scadenza (`exp`). Vale anche per la cancellazione dell'account (*§9*): un token già emesso sopravvive alla `DELETE` fino a `exp`. La finestra di esposizione è al massimo `Security.Token.ExpirationSeconds` — abbassarlo è la prima mitigazione. Se il progetto richiede la revoca immediata, il seam c'è già senza infrastruttura esterna: ogni token porta il claim `loginTime`, basta salvare accanto all'account un "nessun token emesso prima di X" e confrontarlo a richiesta. Una denylist server-side (cache condivisa dei token revocati) è l'alternativa classica, sproporzionata per un processo singolo.
 
 ---
 

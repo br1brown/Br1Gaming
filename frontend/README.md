@@ -147,7 +147,9 @@ Tutto ciò che un progetto figlio configura per fare suo il sito **senza modific
 
 ### Pagine & rotte (`site.ts`)
 
-Tutto parte da `site.ts`. Dichiari una pagina con un oggetto in `pages` (`pageType` + `component` lazy); un oggetto con `children` crea un gruppo di menu annidato (le `/policy/*` sono l'esempio dell'Engine), uno con `externalUrl` un link verso un sito esterno, e `enabled: false` spegne la pagina ovunque in un colpo solo (rotta, menu, sitemap, padre incluso).
+Le pagine vivono nei **file di area** `pages/*.pages.ts` (uno per gruppo tematico, es. `app.pages.ts`): ogni area dichiara i propri ID `PageType` (stringhe prefissate, es. `app.home`) e le proprie dichiarazioni di pagina; `site.ts` li assembla con uno spread e tiene per sé gli slot globali (`homePage`, `loginPage`, `legalPages`, `shell`) e i menu. Una dichiarazione con `component` (lazy) è una pagina interna; con `children` un gruppo di menu annidato (le `/policy/*` sono l'esempio dell'Engine); con `externalUrl` un link verso un sito esterno; `enabled: false` spegne la pagina ovunque in un colpo solo (rotta, menu, sitemap, padre incluso).
+
+I link interni puntano al `PageType`, mai al path: rinominare un path è una riga nella dichiarazione (menu, footer e link continuano a funzionare), rimuovere un ID fa segnalare a TypeScript ogni punto che ancora lo usa, e gli ID restano leggibili anche fuori dal codice — query string (`?returnPageType=…`), log, messaggi d'errore del builder.
 
 Per ogni pagina regoli login (`requiresAuth`), strategia di rendering (`renderMode`), shell e layout (`layout: { showNav, showFooter, showPanel, fitViewport }`) e SEO/social (`description`, `otherSEO`). A livello globale imposti il brand link e il redirect d'autenticazione (`homePage`/`loginPage`), i flag della `shell`, `isWebApp`/`onlyPlainImage`, gli slot `legalPages` (con override per-`PageType`) e i menu `headerNav`/`footerNav` (callback builder con `addPage`/`addLink`/`addGroup`). *Vedi «Developer Journey», «Opzioni Avanzate di site.ts», «Navigazione Multilivello», «Vista a tutto schermo», «Pagine legali».* Ricetta rapida: [AGENTS.md](../AGENTS.md#aggiungere-una-pagina).
 
@@ -176,7 +178,7 @@ Il peso del bundle si regola con `budgets` (soglie warning/errore, già gate di 
 Per creare una nuova schermata, segui questo workflow per mantenere integro e type-safe il routing dell'Engine:
 
 1. **Registrare l'identità:** Aggiungi un nuovo `PageType` nel file della sua area (`src/app/pages/*.pages.ts`) — una nuova area è un nuovo file dello stesso pattern, assemblato in `src/app/site.ts`.
-2. **Dichiarare la rotta:** Aggiungi la configurazione della pagina nell'array `pages` di `site.ts` (definendo path, SEO ed eventuali guardie).
+2. **Dichiarare la rotta:** Aggiungi la dichiarazione della pagina nell'array del suo file di area (path, SEO ed eventuali guardie); `site.ts` resta invariato se l'area esiste già.
 3. **Creare il componente:** Crea il componente in `pages/` estendendo `PageBaseComponent` per ereditare i servizi dell'Engine (api, traduzioni, asset, notify e meta-tag automatici).
 4. **Proteggere la pagina (opzionale):** Usa `requiresAuth: true` nella dichiarazione in `site.ts` per demandare all'Engine il controllo auth e il redirect.
 5. **Navigare in Sicurezza:** Usa la direttiva `[appPage]="PageType.MioNuovoComponente"` nell'HTML per delegare al framework il calcolo della rotta corretta.
@@ -203,8 +205,8 @@ Il sistema di login è **opzionale** e si attiva configurando `Security.Token.Se
 
 ```typescript
 // site.ts → tutto strutturale, sta insieme
-shell: { showLoginInHeader: true },     // mostra il link Login/pulsante Logout nella navbar
-loginPage: PageType.Login,       // pagina dove redirigere gli utenti non autenticati
+loginPage: { page: PageType.Login, showInHeader: true },  // redirect auth + link Login in navbar
+// loginPage: PageType.Login,   // forma nuda: solo redirect auth, login fuori dalla navbar
 ```
 
 ### Proteggere una Pagina
@@ -256,7 +258,7 @@ Aggiungere un campo al profilo di sessione (es. `brandColor`) è quindi un'unica
 | Componente | Selector | Ruolo |
 | :--- | :--- | :--- |
 | `LoginFormComponent` | `app-login-form` | Form username/password riusabile; emette `(loggedIn)` al successo. Non naviga da solo. |
-| `UserNavComponent` | `app-user-nav` | Area Login/Logout nella navbar. Appare solo se `showLoginInHeader: true`. Gestisce il logout con modale di conferma. |
+| `UserNavComponent` | `app-user-nav` | Area Login/Logout nella navbar. Il link di login appare solo con `loginPage: { page, showInHeader: true }`; il logout, da loggati, appare comunque. Gestisce il logout con modale di conferma. |
 | `UploadFormComponent` | `app-upload-form` | Componente "dumb" per drag-and-drop e selezione file. Emette il `File` nativo delegando la chiamata API al componente genitore. |
 
 ### Ciclo di Vita del Token
@@ -1383,7 +1385,7 @@ La versione è dichiarata in `global-settings.json` (`project.version`) e distri
 
 ## ⚙️ Opzioni Avanzate di `site.ts`
 
-Oltre a `path`, `title` e `description`, ogni pagina in `pages` accetta:
+Oltre a `path`, `title` e `description`, ogni dichiarazione di pagina (nei file di area `pages/*.pages.ts`, assemblati nell'array `pages` di `site.ts`) accetta:
 
 ```typescript
 {
@@ -1413,14 +1415,14 @@ A livello top di `site.ts` (oltre a `pages` / `headerNav` / `footerNav`) dichiar
 ```typescript
 // site.ts
 homePage: PageType.Home,           // pagina del brand/logo nel navbar (se omessa, il brand non è un link)
-loginPage: PageType.Login,  // dove mandare gli utenti non autenticati (se omessa → /error/401)
+loginPage: PageType.Login,         // dove mandare gli utenti non autenticati (se omessa → /error/401)
+// loginPage: { page: PageType.Login, showInHeader: true },  // forma estesa: espone anche il link Login in navbar
 
 shell: {                           // comportamento di navbar / footer / header / pannello contenuti
     showNav: true,                 // mostra la navbar (false nasconde anche il language picker)
     showFooter: true,              // mostra il footer
     fixedTopHeader: false,         // navbar fissa in alto allo scroll
     showBrandIconInHeader: true,   // favicon accanto al nome nel brand
-    showLoginInHeader: true,       // link Login / pulsante Logout nella navbar
     showNotifications: false,      // campanellino notifiche realtime con storico (default false, opt-in)
     forcedLightPanel: true,        // pannello contenuti sempre chiaro, a prescindere dal tema OS
     pageFade: true,                // fade-in d'ingresso pagina (gate: col globale off nessuna pagina può riattivarlo)

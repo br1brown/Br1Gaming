@@ -1,16 +1,10 @@
 import { Directive, Signal, computed, input } from '@angular/core';
 
 /**
- * BASE LINK COMPONENT
- *
- * Base condivisa dalle famiglie "contatti" e "navigazione": entrambe sono
- * semplici link (`<a href>`) con un'icona-badge e una label opzionale, senza
- * alcun servizio da iniettare.
- *
- * Centralizza gli input comuni (label/showLabel/fullWidth). Ogni componente
- * concreto fornisce i 4 dati che lo rendono specifico — `href`, `glyph`,
- * `color`, `displayLabel` — e delega il rendering a `LinkBadgeComponent`,
- * l'unico posto in cui vive il template del link.
+ * Base condivisa dalle famiglie "contatti" e "navigazione": semplici link (`<a href>`) con
+ * icona-badge e label opzionale, nessun servizio da iniettare. Centralizza gli input comuni
+ * (label/showLabel/fullWidth); il concreto fornisce href/glyph/color/displayLabel e delega il
+ * rendering a `LinkBadgeComponent`.
  */
 @Directive({
     host: {
@@ -24,20 +18,16 @@ export abstract class BaseLinkComponent {
     /** Mostra la label testuale accanto all'icona. */
     readonly showLabel = input(false);
     /**
-     * Mostra il CONTENUTO (numero, email, handle…) al posto dell'etichetta.
-     * Es. invece di "PEC" stampa "xxx@pec.it" — accessibilità e onestà verso
-     * l'utente (leggi il dato senza doverci cliccare sopra). Implica testo
-     * visibile anche se `showLabel` è false.
+     * Mostra il CONTENUTO (numero, email, handle…) invece dell'etichetta — es. "xxx@pec.it" al posto
+     * di "PEC" (accessibilità: leggi il dato senza cliccare). Implica testo visibile anche con `showLabel` false.
      */
     readonly showValue = input(false);
     /** Occupa tutta la larghezza del contenitore. */
     readonly fullWidth = input(false);
 
     /**
-     * Override opzionale del comportamento standard. Se fornita, al click viene
-     * eseguita questa funzione al posto della navigazione (es. aprire una modale
-     * per la mail). L'`href` resta come fallback per no-JS, click destro e
-     * "copia indirizzo link".
+     * Override opzionale: se fornita, al click esegue questa funzione invece di navigare (es. modale
+     * mail). L'`href` resta come fallback per no-JS, click destro e "copia indirizzo link".
      */
     readonly action = input<() => void | Promise<void>>();
 

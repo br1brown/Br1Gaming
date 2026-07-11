@@ -15,9 +15,8 @@ export class SocialLinkComponent extends BaseLinkComponent {
     readonly value = input.required<string>();
 
     /**
-     * Chiave social effettiva: il `type` esplicito se passato, altrimenti dedotta dall'URL.
-     * Così l'icona non dipende da una chiave fornita: una lista può contenere più profili dello
-     * stesso social (es. due pagine LinkedIn) senza collisioni. Stringa vuota = social non noto.
+     * Chiave social: il `type` esplicito o, se omesso, dedotta dall'URL — così una lista può avere
+     * più profili dello stesso social (es. due pagine LinkedIn) senza collisioni. Vuota = non noto.
      */
     readonly socialKey: Signal<string> = computed(() => {
         const explicit = this.type().trim().toLowerCase();

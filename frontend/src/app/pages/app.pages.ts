@@ -1,15 +1,8 @@
 import type { SitePageInput } from '../core/engine/siteBuilder';
 
-// ═══════════════════════════════════════════════════════════════════════
-// AREA "app" — pagine applicative del progetto
-// ═══════════════════════════════════════════════════════════════════════
-//
-// Un file per area tematica (qui la demo: "app"; un progetto reale aggiunge
-// le proprie — es. "shop", "blog"), assemblato in site.ts (vedi il
-// commento "PageType — identita' di ogni pagina" lì). Ogni ID è una
-// stringa prefissata per area — leggibile in query string/log, univoca
-// per costruzione anche sommando più aree.
-//
+// Area "app": pagine applicative del progetto. Un file per area (demo: "app"; reali: "shop", "blog"…),
+// assemblato in site.ts con uno spread. ID prefissati per area, leggibili in query string/log.
+// Riferimento campi: frontend/README.md §"Pagine & rotte" e §"Opzioni Avanzate di site.ts".
 export const AppPages = {
     Home: 'app.home',
     Social: 'app.social',

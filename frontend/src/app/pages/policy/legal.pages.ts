@@ -1,17 +1,9 @@
 import type { LegalPagesConfig } from '../../core/engine/siteBuilder';
 
-// ═══════════════════════════════════════════════════════════════════════
-// AREA "legal" — pagine legali del progetto
-// ═══════════════════════════════════════════════════════════════════════
-//
-// Tutto ciò che il figlio deve compilare per il legale sta qui, non in
-// site.ts: gli ID, quali pagine esistono (slot valorizzato = pagina
-// creata, omesso = pagina assente — utile es. per una vetrina con solo i
-// cookie) e le date di "ultimo aggiornamento". Il builder (Engine) crea
-// le rotte /policy/* da questi slot; se il sito usa cookie (vedi
-// `cookie-registry.ts` → COOKIE_MAP, o multilingua, o PWA) lo slot
-// `cookie` è obbligatorio — ometterlo è un errore al build.
-//
+// Area "legal": ID, slot attivi e date delle pagine legali (non in site.ts).
+// Slot valorizzato = pagina creata, omesso = assente; con cookie/multilingua/PWA
+// lo slot `cookie` è obbligatorio (errore al build se manca).
+// Dettagli: frontend/README.md §"Pagine legali".
 export const LegalPages = {
     PrivacyPolicy: 'legal.privacy',
     CookiePolicy: 'legal.cookie',
@@ -32,9 +24,8 @@ export const legalSlots: LegalPagesConfig = {
 };
 
 /**
- * Data di "ultimo aggiornamento" per pagina legale (formato ISO `YYYY-MM-DD`), consumata da
- * `PolicyComponent`. Volutamente NON da git/filesystem (la mtime non sopravvive a clone/Docker →
- * varrebbe la data di build). Un ID senza data → nessuna riga mostrata.
+ * Data di "ultimo aggiornamento" per pagina legale, consumata da `PolicyComponent`. Dichiarata a
+ * mano, non da git/mtime (non sopravvive a clone/Docker). ID senza data → nessuna riga mostrata.
  *
  * ⚠️ COOKIE: aggiorna la data di `CookiePolicy` ogni volta che modifichi `COOKIE_MAP`
  *    (`core/services/cookie-registry.ts`) — l'elenco cambia → la policy è "aggiornata".

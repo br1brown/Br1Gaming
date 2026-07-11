@@ -49,11 +49,9 @@ export class PolicyComponent extends PageBaseComponent<string> {
      *  consenso insieme sulla Cookie Policy. */
     readonly consentResponded = computed(() => this.cookieConsent.responded());
 
-    /** Link alle guide ufficiali dei browser per gestire i cookie. Ogni vendor vuole il proprio
-     *  formato di locale (verificato sul campo): Microsoft/Mozilla/Opera accettano la sola lingua
-     *  (`it`, `en`) ed espandono/ricadono da sé; Google usa il parametro `hl`; Apple invece perde la
-     *  versione localizzata con la sola lingua e pretende il locale completo `lingua-regione`
-     *  (es. `it-it`) — la regione probabile la ricava `Intl` dalla lingua. IE escluso (EOL 2022). */
+    /** Link alle guide browser per i cookie. Ogni vendor vuole il suo formato di locale (verificato):
+     *  Microsoft/Mozilla/Opera la sola lingua; Google il parametro `hl`; Apple il locale completo
+     *  `lingua-regione` (es. `it-it`, regione ricavata da `Intl`). IE escluso (EOL 2022). */
     readonly browserLinks = computed(() => {
         const lang = this.translate.currentLang().toLowerCase();
         let appleLocale = lang;

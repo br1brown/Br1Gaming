@@ -11,12 +11,8 @@ import { ContestoSito, PageType } from '../../site';
     templateUrl: './login.component.html',
 })
 /**
- * Pagina di login del progetto.
- *
- * Contiene `LoginFormComponent` (form riusabile) e gestisce la navigazione
- * al ritorno: se l'utente è arrivato qui rediretto dall'authGuard, il
- * parametro `returnPageType` in querystring indica la pagina da riaprire
- * dopo il login riuscito.
+ * Pagina di login: contiene `LoginFormComponent` e gestisce il ritorno — dopo il login riapre la
+ * pagina indicata da `returnPageType` in querystring (settata dall'authGuard al redirect).
  */
 export class LoginComponent extends PageBaseComponent<void> {
     private readonly router = inject(Router);

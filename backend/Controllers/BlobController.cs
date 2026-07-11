@@ -7,13 +7,10 @@ using Backend.Store;
 namespace Backend.Controllers;
 
 /// <summary>
-/// Espone i file caricati dagli utenti tramite <see cref="BlobStore"/> (volume persistente <c>uploads/</c>).
+/// Espone i file caricati (<see cref="BlobStore"/>, volume <c>uploads/</c>). Lettura con sola API key,
+/// nessuna auth utente. Storage e sicurezza vivono nello store; qui solo il wiring HTTP (resize
+/// on-demand, difesa XSS, cache).
 /// </summary>
-/// <remarks>
-/// L'accesso in lettura richiede API key (ereditata da <see cref="EngineApiController"/>), ma nessuna
-/// autenticazione utente. Lo storage e la sua sicurezza vivono nello store; qui resta solo il wiring HTTP
-/// (resize on-demand, difesa XSS, cache).
-/// </remarks>
 [Route("blob")]
 public class BlobController : EngineBlobController
 {
@@ -27,14 +24,9 @@ public class BlobController : EngineBlobController
     }
 
     /// <summary>
-    /// Restituisce il file corrispondente allo slug fornito.
+    /// Restituisce il file dello <c>slug</c> (con estensione). <c>webopt</c>: chiede la versione
+    /// web-ottimizzata (oggi = resize immagini max 1920px→WebP; altri tipi invariati).
     /// </summary>
-    /// <param name="slug">Identificativo univoco del file, inclusa l'estensione (es. <c>abc123.jpg</c>).</param>
-    /// <param name="webopt">
-    /// Se <c>true</c> richiede la versione ottimizzata per il web del file. Flag generico, non
-    /// legato alle immagini: oggi l'unica ottimizzazione implementata è il resize delle immagini
-    /// (lato più lungo max 1920 px, WebP), mentre i tipi non ancora gestiti vengono restituiti invariati.
-    /// </param>
     [HttpGet("{slug}")]
     public IActionResult Get(string slug, [FromQuery] bool webopt = false)
     {
@@ -45,11 +37,9 @@ public class BlobController : EngineBlobController
 
         Logger.LogInformation("Blob richiesto: {Slug}", slug);
 
-        // Cache HTTP: lo slug è immutabile (ogni upload conia un nuovo GUID), quindi la risposta è
-        // cacheabile a lungo. L'ETag (mtime+size+variante) è la cintura di sicurezza per cache
-        // condivise e per eventuali evoluzioni: se un domani si introducesse l'overwrite dello STESSO
-        // slug, andrebbe rimosso `immutable` (il browser non rivalida durante max-age). La variante
-        // r/w distingue l'originale dalla versione ottimizzata, che hanno corpo diverso.
+        // Cache HTTP: lo slug è immutabile (ogni upload conia un GUID nuovo), la risposta è cacheabile
+        // a lungo. L'ETag (mtime+size+variante) copre le cache condivise; la variante r/w distingue
+        // l'originale dalla versione ottimizzata (corpo diverso).
         var variant = webopt ? "w" : "r";
         var etag = $"\"{blob.LastModified.ToUnixTimeSeconds():x}-{blob.Length:x}-{variant}\"";
         Response.Headers.ETag = etag;
@@ -69,11 +59,9 @@ public class BlobController : EngineBlobController
 
         var stream = _blobs.OpenRead(slug) ?? throw new NotFoundException("blob");
 
-        // Difesa XSS stored: solo i formati immagine raster noti vengono serviti inline col loro
-        // content-type. Tutto il resto — inclusi .html/.svg/.xml che un utente autenticato potrebbe
-        // caricare (l'upload non filtra l'estensione) — è forzato a download (attachment) con
-        // application/octet-stream, così non viene mai interpretato/eseguito sull'origin del backend.
-        // nosniff resta attivo dagli header di sicurezza.
+        // Difesa XSS stored: solo le immagini raster note vanno servite inline col loro content-type.
+        // Il resto — inclusi .html/.svg/.xml che un utente autenticato può caricare (l'upload non filtra
+        // l'estensione) — è forzato a download (attachment, octet-stream), mai interpretato sull'origin.
         if (blob.IsImage)
             return File(stream, blob.ContentType, enableRangeProcessing: true);
 
@@ -101,13 +89,9 @@ public class BlobController : EngineBlobController
     }
 
     /// <summary>
-    /// Carica un file nel volume persistente e restituisce lo slug univoco con cui recuperarlo.
+    /// Carica un file e restituisce lo slug univoco (con estensione, serve alla GET per il
+    /// content-type). Richiede API key + JWT. Altri form: usa direttamente <see cref="BlobStore.SaveAsync(IFormFile,System.Threading.CancellationToken)"/>.
     /// </summary>
-    /// <remarks>
-    /// Richiede API key valida e token JWT (utente autenticato). Lo slug include l'estensione
-    /// originale del file, necessaria alla GET per determinare il content-type. Il codice di dominio
-    /// che riceve file in altri form usa direttamente <see cref="BlobStore.SaveAsync(IFormFile,System.Threading.CancellationToken)"/>.
-    /// </remarks>
     [HttpPost("up")]
     [Authorize(Policy = SecurityDefaults.RequireLoginPolicy)]
     [RequestSizeLimit(10 * 1024 * 1024)] // 10 MB — i progetti figli possono sovrascrivere con [RequestSizeLimit] sul proprio controller
