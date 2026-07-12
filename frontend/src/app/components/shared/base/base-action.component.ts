@@ -3,21 +3,10 @@ import { TranslateService } from '../../../core/engine/services/translate.servic
 import { NotificationService } from '../../../core/engine/services/notification.service';
 
 /**
- * BASE ACTION COMPONENT
- *
- * Punto unico che centralizza la parte "sporca" comune a tutti i componenti
- * azione (copy, share, speech, download, pdf, mail):
- *  - input di label/showLabel/fullWidth
- *  - traduzione della label (displayLabel)
- *  - stato di loading
- *  - esecuzione protetta del lavoro asincrono con gestione errori + notifica
- *
- * Ogni componente concreto dichiara solo:
- *  - quale chiave i18n usare di default (`defaultLabelKey`)
- *  - quale servizio iniettare e cosa farci dentro `run()`
- *
- * Così chi usa il componente non inietta mai il servizio: passa al massimo una
- * funzione che produce il dato e il componente fa il resto.
+ * Base dei componenti azione (copy, share, speech, download, pdf, mail): centralizza input
+ * label/showLabel/fullWidth, traduzione della label, stato di loading ed esecuzione protetta del
+ * lavoro asincrono (errori + notifica). Il concreto dichiara solo `defaultLabelKey` e cosa fa in
+ * `run()`; il consumer non inietta mai il servizio (componenti autonomi).
  */
 @Directive({
     host: {
@@ -50,10 +39,8 @@ export abstract class BaseActionComponent {
     );
 
     /**
-     * Esegue il lavoro specifico del componente in modo protetto:
-     * gestisce il flag di loading, previene la doppia esecuzione e notifica
-     * un eventuale errore. I componenti concreti passano solo la logica
-     * (la chiamata al servizio), senza occuparsi del resto.
+     * Esegue il lavoro del componente in modo protetto: gestisce loading, previene la doppia
+     * esecuzione e notifica l'errore. Il concreto passa solo la logica (la chiamata al servizio).
      */
     protected async run(work: () => void | Promise<void>): Promise<void> {
         if (this.loading()) return;

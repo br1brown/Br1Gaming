@@ -1,8 +1,9 @@
-import { CSP_NONCE, inject, Injectable, InjectionToken, DOCUMENT } from '@angular/core';
+import { CSP_NONCE, inject, Injectable, InjectionToken, DOCUMENT, signal, Signal } from '@angular/core';
 
 import { Meta, Title } from '@angular/platform-browser';
-import { ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
-import { ContestoSito } from '../../../site';
+import { ActivatedRouteSnapshot, RouterStateSnapshot, Router } from '@angular/router';
+import { ContestoSito, PageType } from '../../../site';
+import { onNavigationEnd } from '../routing';
 import { pickLocaleText } from '../siteBuilder';
 import { CdnCgi } from './asset.service';
 import { TranslateService } from './translate.service';
@@ -74,6 +75,10 @@ export class PageMetaService {
     /** Origin del frontend: fornito in SSR, null nel browser. */
     private readonly frontendOrigin = inject(SSR_FRONTEND_ORIGIN, { optional: true });
 
+    /** Titolo browser dell'ultima `setPageMeta`: la shell lo annuncia (regione `aria-live`) agli
+     *  screen reader dopo ogni navigazione SPA, dove il cambio pagina non ricarica il documento e
+     *  quindi non genera di per sé alcun annuncio automatico. Stesso testo del tag `<title>`. */
+    readonly announcedTitle = signal('');
 
     /**
      * Utility statica per navigare l'albero delle rotte di Angular.
@@ -106,6 +111,7 @@ export class PageMetaService {
 
         // Aggiorna il tag <title> del browser
         this.title.setTitle(browserTitle);
+        this.announcedTitle.set(browserTitle);
 
         // Aggiorna i tag per i social (Open Graph e Twitter)
         this.meta.updateTag({ name: 'twitter:title', content: browserTitle });
@@ -480,6 +486,11 @@ export class PageMetaService {
             return this.frontendOrigin?.replace(/\/$/, '') || '/';
         }
     }
+
+    public readonly currentPageType: Signal<PageType | undefined> = onNavigationEnd(
+        router => PageMetaService.getLeaf(router.routerState.snapshot).data['pageType'] as PageType | undefined,
+        PageMetaService.getLeaf(inject(Router).routerState.snapshot).data['pageType'] as PageType | undefined
+    );
 
     private getCanonicalOrigin(canonicalUrl: string): string {
         try { return new URL(canonicalUrl).origin; } catch { return ''; }

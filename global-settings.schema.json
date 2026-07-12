@@ -131,6 +131,11 @@
               "minimum": 60
             }
           }
+        },
+        "CryptoSecret": {
+          "type": "string",
+          "description": "Chiave segreta per il servizio di cifratura generico dell'engine (EngineCrypto, AES-256-GCM) — usata ad es. dall'export dati personali (GET /me/data). Volutamente separata da Token.SecretKey: non va derivata da essa né riusata altrove. setup.mjs la genera già alla nascita del progetto, indipendentemente dal login. Rigenerarla con: openssl rand -base64 32.",
+          "examples": ["", "supersecretcryptokeyatleast32characters"]
         }
       }
     },

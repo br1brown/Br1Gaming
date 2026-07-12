@@ -1,8 +1,6 @@
 /**
- * CONFIGURAZIONE PRINCIPALE - Punto di ingresso Angular
- *
- * Provider Angular: servizi, interceptor, router e PWA.
- * La configurazione del sito vive in `site.ts` ed e' condivisa con gli script di build.
+ * Config Angular (punto d'ingresso): provider di servizi, interceptor, router e PWA.
+ * La struttura del sito vive in `site.ts` (condivisa con gli script di build).
  */
 
 import { ApplicationConfig, TransferState, inject, isDevMode, provideAppInitializer, provideZonelessChangeDetection } from '@angular/core';
@@ -43,13 +41,10 @@ export const appConfig: ApplicationConfig = {
                 scrollPositionRestoration: 'enabled',
                 anchorScrolling: 'enabled'
             }),
-            // Transizioni di pagina con la View Transitions API (cross-fade del browser).
-            // Progressive enhancement: i browser senza supporto navigano senza animazione.
-            // Il movimento è disattivato sotto prefers-reduced-motion (vedi base/_a11y.scss).
-            // skipInitialTransition: il primo caricamento NON è una transizione "tra pagine".
-            // Senza questo, la View Transitions API farebbe il cross-fade dallo stato-shell
-            // ancora-da-risolvere (default permissivi: pannello + nav, prima del primo
-            // NavigationEnd) verso la pagina reale — uno sfarfallio visibile su home full-bleed.
+            // Transizioni di pagina (View Transitions API). Progressive enhancement + off sotto
+            // prefers-reduced-motion (base/_a11y.scss). skipInitialTransition: il primo load non è
+            // una transizione "tra pagine" — senza, cross-fade dallo stato-shell non risolto →
+            // sfarfallio su home full-bleed.
             withViewTransitions({ skipInitialTransition: true })
         ),
 

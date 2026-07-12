@@ -16,13 +16,17 @@ L'obiettivo di questa separazione è **levarti dai piedi i problemi noiosi** per
 
 L'Engine si estende **dall'esterno**: si eredita da una classe base, si registra un servizio in DI, si aggiunge un validator o una sottoclasse — mai modificando `Engine/`. Qui sotto la mappa dei punti di aggancio raggruppata per area; ogni paragrafo rimanda (*Vedi «…»*) alla sezione col dettaglio più avanti in questa pagina.
 
-**Aggiungere endpoint.** Erediti una classe base e scrivi solo i tuoi metodi: `EngineApiController` (pubblico, solo API key), `EngineProtectedController` (richiede login JWT), `EngineAuthController` (login ed emissione del token), `EngineBlobController` (file binari: upload, PDF, export). La base ti consegna già pronta l'infrastruttura *ambient* — notifiche, coda di task, delivery, `connectionId`, cultura corrente — come proprietà, senza iniettare nulla. *Vedi «Eredita sempre dalle classi base dell'Engine», «Il contesto "ambient" del controller base», «Sistema di Login e Sessioni JWT», «BlobController».*
+**Aggiungere endpoint.** Erediti una classe base e scrivi solo i tuoi metodi: `EngineApiController` (pubblico, solo API key), `EngineProtectedController` (richiede login JWT), `EngineAuthController` (login ed emissione del token), `EngineBlobController` (file binari: upload, PDF, export). La base ti consegna già pronta l'infrastruttura *ambient* — notifiche, coda di task, delivery, cifratura (`Crypto`), `connectionId`, cultura corrente — come proprietà, senza iniettare nulla. *Vedi «Eredita sempre dalle classi base dell'Engine», «Il contesto "ambient" del controller base», «Sistema di Login e Sessioni JWT», «BlobController».* Ricetta rapida: [AGENTS.md](../AGENTS.md#aggiungere-un-endpoint).
 
-**Sostituire un servizio dell'Engine.** Lo storage dati (`IContentStore`, es. per passare a un database), il mailer (`IEngineMailer`), lo stream delle notifiche (`INotificationStream`, es. un backplane Redis), la policy di consegna (`IDeliveryService`) e il targeting per utente/tenant (`INotificationGroupResolver`) si rimpiazzano registrando la propria implementazione in DI nel blocco `── SERVIZI APPLICATIVI ──`: vince l'ultima registrazione, quindi la tua. *Vedi «Sostituire un servizio dell'Engine (override via DI)».* (Lo storage dei file caricati è invece la classe concreta `BlobStore` in `Store/`, che apri e modifichi direttamente — vedi «BlobController».)
+**Sostituire un servizio dell'Engine.** Lo storage dati (`IContentStore`, es. per passare a un database), il mailer (`IEngineMailer`), lo stream delle notifiche (`INotificationStream`, es. un backplane Redis), la policy di consegna (`IDeliveryService`), il targeting per utente/tenant (`INotificationGroupResolver`) e la sorgente dei dati personali (`IPersonalDataStore`, *vedi sotto*) si rimpiazzano registrando la propria implementazione in DI nel blocco `── SERVIZI APPLICATIVI ──`: vince l'ultima registrazione, quindi la tua. *Vedi «Sostituire un servizio dell'Engine (override via DI)».* (Lo storage dei file caricati è invece la classe concreta `BlobStore` in `Store/`, che apri e modifichi direttamente — vedi «BlobController».) Ricetta rapida: [AGENTS.md](../AGENTS.md#sostituire-un-servizio-dellengine).
 
-**Validazione, errori e sessione.** La validazione degli input è un `AbstractValidator<T>` (auto-registrato); un nuovo tipo d'errore è una sottoclasse di `ApiException` con la sua chiave nei `.resx`; la forma del payload di sessione è il record `SessionInfo` incapsulato nel claim del JWT. *Vedi «Usa FluentValidation per gli Input», «Lancia Eccezioni per gli Errori», «Sistema di Login e Sessioni JWT».*
+**Validazione, errori e sessione.** La validazione degli input è un `AbstractValidator<T>` (auto-registrato); un nuovo tipo d'errore è una sottoclasse di `ApiException` con la sua chiave nei `.resx`; la forma del payload di sessione è il record `SessionInfo` incapsulato nel claim del JWT, rileggibile nei controller protetti con `CurrentSession<T>()`. *Vedi «Usa FluentValidation per gli Input», «Lancia Eccezioni per gli Errori», «Sistema di Login e Sessioni JWT».* Ricette rapide: [AGENTS.md](../AGENTS.md#errori) (errori), [AGENTS.md](../AGENTS.md#leggere-la-sessione) (sessione).
+
+**Dati personali (export e diritto all'oblio).** `GET`/`DELETE /me/data` sono già pronti e protetti da login: implementi `IPersonalDataStore` (due metodi, export e cancellazione) e l'Engine si occupa di autenticazione, cifratura della risposta e di escludere l'endpoint quando il login è spento — un solo punto per tutto il sito, non un endpoint per ogni controller di dominio. *Vedi «9. Dati Personali (Export & Diritto all'Oblio)».* Ricetta rapida: [AGENTS.md](../AGENTS.md#esportare-e-cancellare-i-dati-personali).
 
 **Configurazione.** Sicurezza, mailer e lingue si regolano dalle sezioni `Security.*` / `Mail.*` / `Localization.*` (le lingue sono codici a 2 lettere, che il backend arricchisce nelle culture .NET); per i valori liberi di progetto c'è `Custom:`, letta da `IConfiguration`. Gli header di sicurezza del browser vivono in `security-headers.json` (override eccezionale solo dove annotato nella sua `_nota`). *Vedi i riferimenti «SecurityOptions», «MailOptions», «LocalizationOptions», «Sezione Custom» e il [README root](../README.md) per la policy di override.*
+
+**Parlare con un servizio esterno.** Chiamare un'API di terze parti è un `HttpClient` tipizzato (`AddHttpClient<T>`) registrato nel blocco `── SERVIZI APPLICATIVI ──`, con URL/chiavi in configurazione (mai hardcoded); ricevere un webhook è un endpoint su `EngineApiController` con `[AllowAnonymous]` e verifica della firma sul body grezzo. *Vedi «Integrazioni con servizi esterni».* Ricette rapide: [AGENTS.md](../AGENTS.md#chiamare-unapi-esterna) (outbound), [AGENTS.md](../AGENTS.md#ricevere-un-webhook) (inbound).
 
 ---
 
@@ -232,6 +236,7 @@ Notifications.Publish(
 // In un service (che NON eredita dal controller base): inietta INotificationStream nel costruttore
 // e ricevi il connectionId come parametro dal controller (che lo legge dalla property ConnectionId).
 ```
+Ricetta rapida: [AGENTS.md](../AGENTS.md#pubblicare-una-notifica-realtime).
 
 > **Contratto i18n.** Per il toast il payload porta preferibilmente una **chiave** di traduzione
 > (`messageKey` + eventuali `messageParams` per l'interpolazione `{0}`), non una stringa già fatta:
@@ -344,6 +349,7 @@ var enqueued = BackgroundQueue.TryEnqueue(async (services, ct) =>
 });
 return enqueued ? Accepted() : StatusCode(StatusCodes.Status503ServiceUnavailable); // 202, o 503 se la coda è satura
 ```
+Ricetta rapida: [AGENTS.md](../AGENTS.md#task-lungo-con-notifica-a-fine-lavoro-email-o-realtime).
 
 **Delivery con switch notifica/email.** `IDeliveryService` consegna l'esito sul canale scelto. Il **default è `Realtime`**: pubblica il toast SSE ai client connessi e si ferma lì — nessuna email a sorpresa se l'utente è offline. Con **`Auto`** prova il realtime e, se *nessuna connessione viva* l'ha ricevuto (lo riporta `Publish` col proprio valore di ritorno, senza finestra TOCTOU tra "verifica" e "pubblica"), ripiega su **email** durevole (così un esito non si perde se la scheda è chiusa). Con **`Email`** forza la coda email. Lo switch è controllabile da fuori su due livelli: **per-chiamata** (il `channel` passato a `DeliverAsync`) e **per-policy** (il servizio è registrato con `TryAddSingleton` in `AddTemplateDelivery`, un figlio lo sostituisce via DI). Internamente è uno `switch` per canale: un canale nuovo = un nuovo `case`.
 
@@ -364,6 +370,129 @@ La firma è `DeliverAsync(DeliveryMessage message, DeliveryChannel channel = Del
 | `Icon` | `string` | Icona del toast (`success` \| `error` \| `info` \| `warning`, default `info`). |
 
 **Demo.** `POST /tasks/demo/import[?email=...]` accoda un import simulato (3 s), risponde `202` (`503` se la coda è satura), e a fine task consegna l'esito scegliendo **esplicitamente `Auto`** (per mostrare il fallback email): toast realtime se la scheda che ha avviato il job è ancora connessa (header `X-Connection-Id`), altrimenti email a `?email=...`. Il `GET /social[?nomi=...]` invece, se il chiamante ha lo stream aperto (header `X-Connection-Id`), consegna col **default `Realtime`**: notifica solo quel client, senza email. Il connectionId in entrambi arriva dall'header `X-Connection-Id`, non più da un parametro `?connectionId=...`.
+
+### 8. Integrazioni con servizi esterni
+
+**Perché è utile:** prima o poi ogni progetto parla con un servizio terzo — un provider di pagamenti, una mappa, un CRM — sia **chiamandolo** (outbound) sia **ricevendone eventi** (webhook, inbound). L'Engine non fornisce un client pronto (non può conoscere l'API di terzi), ma fissa *dove* vivono URL/chiavi e *come* si registra il client, così ogni integrazione segue lo stesso schema invece di reinventarlo endpoint per endpoint.
+
+#### Chiamare un'API esterna (outbound)
+
+Tre passi, stesso schema già visto per `Mail`/`Security`:
+
+1. **Configurazione** — l'URL (se non è un segreto) in `global-settings.json`; la chiave/API secret in `global-settings.local.json` (gitignored) o, in produzione, come **variabile d'ambiente** (`NomeSezione__ApiKey` sovrascrive il JSON, stessa convenzione di `Mail__Password`):
+   ```json
+   // global-settings.json (committabile)
+   "PaymentProvider": { "BaseUrl": "https://api.provider.com/v1" }
+   ```
+   ```json
+   // global-settings.local.json (gitignored)
+   "PaymentProvider": { "ApiKey": "INCOLLA-QUI-LA-CHIAVE" }
+   ```
+
+2. **Binding + registrazione**, nel blocco `── SERVIZI APPLICATIVI ──` di `Program.cs`:
+   ```csharp
+   builder.Services.Configure<PaymentProviderOptions>(builder.Configuration.GetSection("PaymentProvider"));
+   builder.Services.AddHttpClient<PaymentProviderService>(); // client tipizzato: un HttpClient dedicato, pool gestito dal factory
+   ```
+
+3. **Servizio** in `Services/` (mai in `Engine/`): inietta `HttpClient` + `IOptions<PaymentProviderOptions>`, imposta `BaseAddress`/header (es. `Authorization: Bearer …`) nel costruttore, ed espone metodi di dominio (non un wrapper 1:1 di ogni rotta esterna):
+   ```csharp
+   public class PaymentProviderService
+   {
+       private readonly HttpClient _http;
+       public PaymentProviderService(HttpClient http, IOptions<PaymentProviderOptions> options)
+       {
+           _http = http;
+           _http.BaseAddress = new Uri(options.Value.BaseUrl);
+           _http.DefaultRequestHeaders.Authorization = new("Bearer", options.Value.ApiKey);
+       }
+
+       public async Task<PaymentResult> ChargeAsync(ChargeRequest request, CancellationToken ct)
+       {
+           var response = await _http.PostAsJsonAsync("charges", request, ct);
+           if (!response.IsSuccessStatusCode)
+               throw new BadGatewayException(); // 502: il servizio ha risposto, ma con un errore
+           return await response.Content.ReadFromJsonAsync<PaymentResult>(ct)
+               ?? throw new BadGatewayException();
+       }
+   }
+   ```
+
+**Errori verso l'upstream, non verso il client.** Un servizio esterno irraggiungibile o lento non è un `500` generico: è `ServiceUnavailableException()` (503, il servizio non risponde) o `GatewayTimeoutException()` (504, risponde ma troppo tardi) o `BadGatewayException()` (502, risponde ma con un payload/status inatteso) — le stesse eccezioni già mappate in tabella (*vedi «Lancia Eccezioni per gli Errori»*), così il client riceve lo stesso `ProblemDetails` uniforme che riceverebbe per un errore interno.
+
+**Timeout ed enable-gate.** Segui il pattern già usato dal mailer: un timeout esplicito su `HttpClient` (`.AddHttpClient<T>().SetHandlerLifetime(...)` o `Timeout` sul client) e un predicato `IsEnabled` quando la sezione di configurazione è vuota, per fallire subito e in modo esplicito invece di lasciare che la richiesta esterna vada in timeout ad ogni chiamata.
+
+#### Ricevere un webhook (inbound)
+
+Un webhook è un endpoint **pubblico per forza** (il servizio terzo non conosce la tua `X-Api-Key`), quindi la difesa si sposta dalla API key alla **verifica della firma**:
+
+```csharp
+[Route("api/v1/webhooks/payment-provider")]
+public class PaymentWebhookController : EngineApiController
+{
+    public PaymentWebhookController(ILogger<PaymentWebhookController> logger) : base(logger) { }
+
+    [HttpPost]
+    [AllowAnonymous] // bypassa anche l'API key: il chiamante è il servizio terzo, non il tuo frontend
+    public async Task<IActionResult> Receive(CancellationToken ct)
+    {
+        using var reader = new StreamReader(Request.Body);
+        var rawBody = await reader.ReadToEndAsync(ct);           // firma HMAC = sul BODY GREZZO, non sul DTO deserializzato
+
+        if (!Request.Headers.TryGetValue("X-Signature", out var signature)
+            || !WebhookSignature.IsValid(rawBody, signature!, _secret))
+            throw new UnauthorizedException();                  // firma assente o non valida: 401, niente elaborazione
+
+        var evento = JsonSerializer.Deserialize<PaymentEvent>(rawBody)
+            ?? throw new DecodingException();
+
+        BackgroundQueue.TryEnqueue(async (services, ct) =>       // rispondi in fretta, elabora dopo
+            await services.GetRequiredService<PaymentEventHandler>().HandleAsync(evento, ct));
+
+        return Ok();                                             // 200 rapido: il provider spesso ritenta se non risponde entro pochi secondi
+    }
+}
+```
+
+Tre regole non negoziabili:
+- **Verifica sempre la firma sul body grezzo**, prima di qualunque deserializzazione o validazione — un JSON malformato non deve mai raggiungere la logica di dominio senza essere prima autenticato come proveniente dal servizio terzo.
+- **`[AllowAnonymous]` solo sull'azione webhook**, non sull'intero controller: se nello stesso controller servono altre rotte, quelle restano protette dalla API key ereditata da `EngineApiController`.
+- **Rispondi in fretta, elabora in coda.** I provider (Stripe, GitHub…) ritentano l'invio se non ricevono un `2xx` entro pochi secondi: valida la firma, accoda con `BackgroundQueue` (*vedi §7*) ed elabora fuori dalla richiesta HTTP, così un handler lento non genera consegne duplicate.
+
+---
+
+### 9. Dati Personali (Export & Diritto all'Oblio)
+
+**Perché è utile:** l'export e la cancellazione dei dati personali (GDPR artt. 15/17) non sono una feature di dominio come le altre — sono un obbligo che vale per **qualunque** progetto figlio raccolga dati personali, a prescindere da cosa fa il sito. Per questo l'Engine non li lascia interamente al figlio come farebbe con un catalogo o un carrello: prepara l'endpoint, l'autenticazione e la cifratura, e lascia al figlio un solo punto da riempire.
+
+**Un solo endpoint per l'intero sito.** `EngineDataPrivacyController` (`Engine/Controllers/`) espone `GET`/`DELETE /me/data`, protetto da login (eredita `EngineProtectedController`, quindi viene escluso dalla discovery quando il login è spento, come `AuthController`/`ProtectedController` — *vedi «Routing Adattivo (JWT Opzionale)»*). Non è un pattern da ripetere: un progetto con un controller `Profilo` e uno `Acquisti` non scrive un export per ciascuno, ne implementa uno solo che aggrega da entrambi.
+
+```csharp
+public interface IPersonalDataStore
+{
+    Task<object?> ExportAsync(ClaimsPrincipal user, CancellationToken cancellationToken = default);
+    Task EraseAsync(ClaimsPrincipal user, CancellationToken cancellationToken = default);
+}
+```
+
+Riceve il `ClaimsPrincipal` della richiesta, non un id già estratto: l'Engine non conosce (e non deve conoscere) la forma di `SessionInfo`, che è Dominio — la tua implementazione la rilegge con `user.GetSession<SessionInfo>()` e da lì aggrega quanto le serve dai propri store.
+
+Il default dell'Engine (`NullPersonalDataStore`) non esporta né cancella nulla — l'endpoint resta attivo ma inerte. Il template però registra già la propria sorgente di Dominio, **`Store/AppPersonalDataStore.cs`** (col login acceso; vince sul default con lo stesso meccanismo di `AppIdentityStore` — *vedi §4/Identità*): oggi non ha dati propri da esportare, ma il cablaggio è quello giusto — è il file che apri per aggregare i tuoi store di dominio quando ci saranno.
+
+```csharp
+// Program.cs, blocco "── SERVIZI APPLICATIVI ──" (già presente nel template)
+builder.Services.AddSingleton<IPersonalDataStore, AppPersonalDataStore>();
+```
+
+**`EraseAsync` è il diritto all'oblio, account compreso.** Credenziali e identificativi dell'account (email, username) sono a loro volta dati personali: cancellare "tutto" lasciando in piedi l'account non esercita l'art. 17, perché resta un record che identifica la persona. La tua implementazione rimuove quindi anche l'account — con l'eccezione dei dati soggetti a obbligo di conservazione (es. documenti fiscali), che si scollegano o anonimizzano invece di cancellarli. Il bottone «cancella il mio account» di una pagina profilo è *questo* endpoint, non un secondo endpoint da scrivere; una cancellazione parziale («svuota la mia cronologia») è invece una feature di dominio, fuori da questo seam. Con un IdP esterno (es. login Google) "cancellare l'account" significa cancellare la propria copia dei dati e il collegamento: l'account presso l'IdP non è tuo da cancellare. Come per l'export, *cosa* significhi concretamente cancellare lo sa solo il figlio — l'Engine non conosce la forma degli account (il login demo è pensato per essere sostituito), quindi non c'è un `IAccountService` dell'Engine da implementare: l'aggregazione sta tutta nella tua `IPersonalDataStore`, e la parte account il template la delega già a `Services/AccountService.cs`, l'unico posto di Dominio che conosce gli account (*vedi «Sistema di Login e Sessioni JWT»*).
+
+**Dopo la cancellazione il JWT resta valido fino a scadenza.** Il token è stateless: il `DELETE` risponde `204` ma non revoca nulla, quindi il chiamante ha ancora in mano una sessione formalmente valida che punta a dati che non esistono più. Due conseguenze pratiche per il figlio: il frontend deve scartare il token subito dopo la chiamata (logout locale), e gli store devono tollerare un `UserId` orfano senza errori (trattarlo come "nessun dato", non come 500). Una revoca server-side (denylist dei token) oggi non c'è: se un progetto ne ha bisogno, è un seam da aprire nell'Engine — che il JWT lo possiede — non da improvvisare nel figlio.
+
+**La risposta dell'export è cifrata — ma solo quando c'è davvero qualcosa da proteggere.** Se `ExportAsync` ritorna `null` (lo store di default, o un tuo store senza dati per quella sessione), l'endpoint risponde subito con `data` a `null` — che le opzioni JSON globali omettono dal payload, quindi al client arriva `{}` — senza toccare la cifratura. Solo quando c'è un payload reale lo serializza e lo cifra con `Crypto` (AES-256-GCM, nonce casuale a ogni chiamata), rispondendo `{ "data": "<base64>" }`. `Crypto` è una property ambient di `EngineApiController` (stesso pattern di `Notifications`/`BackgroundQueue`/`Delivery`: risolta on-demand da DI, non iniettata nel costruttore) che espone `IEngineCrypto` — un servizio "cappello" generico dell'Engine (`Engine/Security/EngineCrypto.cs`), non specifico dell'export: qualunque controller del progetto che debba cifrare un payload legge `Crypto.Encrypt(...)`/`Crypto.Decrypt(...)`.
+
+Il motivo per cui non è iniettato nel costruttore: `EngineCrypto` lancia se `Security.CryptoSecret` è vuota, e se lo iniettassi nel costruttore lo costruiresti (quindi falliresti) a **ogni** richiesta al controller, anche quando l'azione non ha nulla da cifrare — esattamente il caso dello store di default. Risolvendolo solo nel ramo che ne ha davvero bisogno, un progetto con login già attivo che riceve questo aggiornamento non vede l'endpoint rompersi per una chiave che, finché non implementa l'export, non gli serve.
+
+La chiave viene da `Security.CryptoSecret`, **separata** da `Security.Token.SecretKey`: riusare la stessa chiave per firmare JWT e per cifrare dati sarebbe riuso di materiale crittografico su due scopi diversi. `setup.mjs` la genera già alla nascita del progetto (come `Security.ApiKeys`), indipendentemente dal login — non serve attivarla a mano. `deploy.sh` la controlla come le altre chiavi prima di pubblicare (segnaposto o troppo corta ⇒ blocca il deploy).
 
 ---
 
@@ -389,12 +518,15 @@ Ereditando da queste classi ogni controller riceve, **senza nulla nel costruttor
 | `Notifications` | `INotificationStream` | Pubblica notifiche realtime SSE. |
 | `BackgroundQueue` | `IBackgroundTaskQueue` | Accoda un task lungo. |
 | `Delivery` | `IDeliveryService` | Consegna l'esito con switch realtime/email. |
+| `Crypto` | `IEngineCrypto` | Cifra/decifra byte arbitrari (AES-GCM). |
 | `ConnectionId` | `string?` | connectionId della SSE del chiamante, o `null`. |
 | `CurrentCulture` | `CultureInfo` | Cultura della richiesta. |
 | `CurrentLanguage` | `string` | Codice lingua a due lettere (es. `"it"`). |
 | `User` | `ClaimsPrincipal` | I claim della sessione. |
 
-I tre servizi (`Notifications`, `BackgroundQueue`, `Delivery`) sono **singleton risolti pigramente** da `HttpContext.RequestServices`: il getter scatta solo quando lo invochi dentro un'azione. Non vanno iniettati nel costruttore.
+I servizi sopra (`Notifications`, `BackgroundQueue`, `Delivery`, `Crypto`) sono **singleton risolti pigramente** da `HttpContext.RequestServices`: il getter scatta solo quando lo invochi dentro un'azione. Non vanno iniettati nel costruttore — per `Crypto` in particolare, farlo costruirebbe (e quindi fallirebbe, se `Security.CryptoSecret` è vuota) `EngineCrypto` a ogni richiesta, anche in un'azione che non cifra nulla.
+
+`EngineProtectedController` aggiunge inoltre `CurrentSession<T>()`: rilegge il payload di sessione tipizzato (`User.GetSession<T>()`) senza dover importare l'extension method — *vedi «Sistema di Login e Sessioni JWT»*.
 
 > *Nota: Gli snippet pratici (le "ricette") su come scrivere un controller o usare la sessione sono riassunti in `AGENTS.md`.*
 
@@ -955,7 +1087,7 @@ public class UsersController : EngineProtectedController
 
 Il login è **opzionale**: si attiva valorizzando `Security.Token.SecretKey` (≥32 char) in `global-settings.local.json`. Se la chiave è vuota, i controller di autenticazione vengono rimossi fisicamente dalla memoria al boot.
 
-> `setup.mjs` lascia la `SecretKey` **vuota**: un figlio nasce col login spento. Attivarlo è una scelta esplicita — chiave ≥32 char nel `.local.json` e verifica propria al posto della demo (`admin`/`Password1!`) in `AuthController`.
+> `setup.mjs` lascia la `SecretKey` **vuota**: un figlio nasce col login spento. Attivarlo è una scelta esplicita — chiave ≥32 char nel `.local.json` e verifica propria al posto della demo (`admin`/`Password1!`) in `Services/AccountService.cs`.
 
 ### Architettura del Payload di Sessione
 
@@ -1005,6 +1137,8 @@ if (session is null)
     throw new UnauthorizedException(); // token valido ma senza payload di sessione
 ```
 
+Dentro un controller derivato da `EngineProtectedController` c'è la comodità equivalente `CurrentSession<T>()` (stesso spirito di `CurrentLanguage` per la lingua): `CurrentSession<SessionInfo>()` invece di `User.GetSession<SessionInfo>()`, niente da importare. Fuori da un controller (es. in un servizio che implementa `IPersonalDataStore`) resta `User.GetSession<T>()` sul `ClaimsPrincipal` ricevuto: è il meccanismo, `CurrentSession<T>()` è solo lo zucchero sintattico per chi eredita già dalla base.
+
 Le opzioni JSON sono identiche in scrittura e lettura: non cambiare la serializzazione in `Claim<T>` senza aggiornare anche `session.dto.ts` nel frontend.
 
 ### Emettere un Token (in `AuthController`)
@@ -1019,7 +1153,7 @@ var session = new SessionInfo
 return Ok(new LoginResult(true, Token: Auth.GenerateToken(new[] { SessionPayload.Claim(session) })));
 ```
 
-La verifica delle credenziali è logica di dominio del progetto: `AuthController` è un punto di partenza — il controller resta, si sostituisce solo la verifica con la propria sorgente di identità (Identity Provider, DB, ecc.) — per questo il template non aggiunge file o configurazione dedicati al login. Nella demo le credenziali (`admin`/`Password1!`) vivono hardcoded nel controller e il confronto è in tempo costante, come per le API key. Il meccanismo di emissione del token (`Auth.GenerateToken`, `SessionPayload.Claim`) è invece fornito dall'Engine.
+La verifica delle credenziali è logica di dominio del progetto e vive in **`Services/AccountService.cs`** — l'unico posto del progetto che conosce gli account degli utenti: `AuthController` le delega la verifica (e resta il punto HTTP: input, esito, emissione del token), `AppPersonalDataStore` le delega la cancellazione dell'account per il diritto all'oblio (*vedi §9*). Quando la sorgente cambia (Identity Provider, DB, file utenti) si riscrive l'interno di questa classe e nient'altro. Nella demo le credenziali (`admin`/`Password1!`) vivono hardcoded lì e il confronto è in tempo costante, come per le API key, con fail-closed in Production finché non vengono sostituite. È una classe concreta senza contratto engine-side, di proposito: le sue firme parlano `SessionInfo`, che l'Engine non conosce — i confini contrattuali restano `EngineAuthController` e `IPersonalDataStore`. (Da non confondere con l'*identità del sito*, `IIdentityStore`: quella sono i dati legali del brand, non gli utenti.) Il meccanismo di emissione del token (`Auth.GenerateToken`, `SessionPayload.Claim`) è invece fornito dall'Engine.
 
 #### `AuthService` — Claim Impliciti in Ogni Token
 
@@ -1036,33 +1170,30 @@ Il token è firmato con HMAC-SHA256. La scadenza assoluta è `Security.Token.Exp
 
 > **In test di integrazione:** per raggiungere un endpoint `EngineProtectedController`, il token fake deve includere il ruolo `"Authenticated"` oltre alla firma corretta. Senza quel ruolo la risposta sarà 403, non 401.
 
-#### ⚠️ `SessionInfo.Roles` non sono ruoli JWT — footgun di autorizzazione
+#### Ruoli: payload di sessione e `ClaimTypes.Role`
 
-Distinzione importante per chi imposta i permessi. Nel token convivono **due nozioni diverse di "ruolo"**:
+Nel token convivono **due nozioni di "ruolo"**, ed è utile tenerle distinte:
 
-- **L'unico vero claim di ruolo** (`ClaimTypes.Role`) emesso da `AuthService.GenerateToken` è
-  **`"Authenticated"`**, e serve solo a soddisfare la policy `RequireLogin` (`RequireRole("Authenticated")`)
-  che protegge `EngineProtectedController`. È un interruttore "loggato/non loggato", non un sistema di
-  permessi granulari.
-- **`SessionInfo.Roles`** (es. `["admin"]`) vive **dentro il claim `"session"`** (un blob JSON), **non**
-  è registrato come `ClaimTypes.Role`. Sono ruoli **di dominio**, leggibili ma invisibili al motore di
+- **`SessionInfo.Roles`** (es. `["admin"]`) vive nel blob JSON del claim `"session"`: sono i ruoli **di
+  dominio**, che rileggi con `User.GetSession<SessionInfo>()`. Da soli sarebbero invisibili al motore di
   autorizzazione di ASP.NET.
+- **`ClaimTypes.Role`** è ciò che leggono le policy native e `[Authorize(Roles = …)]`.
+  `AuthService.GenerateToken` emette sempre `"Authenticated"` (l'interruttore loggato/non-loggato della
+  policy `RequireLogin` che protegge `EngineProtectedController`).
 
-Conseguenza concreta: **`[Authorize(Roles = "admin")]` NON vede `SessionInfo.Roles`** — cercherebbe un
-claim `ClaimTypes.Role` con valore `"admin"`, che `GenerateToken` non emette. L'attributo passerebbe solo
-per `"Authenticated"`. Il `Roles = ["admin"]` della demo in `AuthController` è **illustrativo del payload**,
-non un permesso attivo.
+Il template **collega le due cose**: `AuthController.Login` emette un `ClaimTypes.Role` per ogni voce di
+`session.Roles` accanto al payload. Quindi nel progetto **`[Authorize(Roles = "admin")]` funziona
+nativamente** — la demo logga `admin` come ruolo reale, non solo come dato di sessione.
 
-Per far valere davvero un ruolo di dominio, due strade:
-- **Enforce nel codice** (più semplice, nessuna policy nativa):
-  ```csharp
-  var session = User.GetSession<SessionInfo>();
-  if (session?.Roles.Contains("admin") != true)
-      throw new ForbiddenException(); // 403
-  ```
-- **Emetti veri `ClaimTypes.Role`** in `GenerateToken` passando i ruoli di dominio negli
-  `additionalClaims` (`new Claim(ClaimTypes.Role, "admin")`), così `[Authorize(Roles = "admin")]` e le
-  policy native li riconoscono. È la via giusta se vuoi usare l'autorizzazione dichiarativa di ASP.NET.
+```csharp
+// AuthController.Login — i ruoli di dominio diventano claim che le policy native riconoscono
+var claims = new List<Claim> { SessionPayload.Claim(session) };
+claims.AddRange(session.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
+return Ok(new LoginResult(true, Token: Auth.GenerateToken(claims)));
+```
+
+Per un controllo puntuale resta possibile anche l'enforce imperativo, senza policy:
+`if (User.GetSession<SessionInfo>()?.Roles.Contains("admin") != true) throw new ForbiddenException();`.
 
 ### Leggere la Sessione (in `ProtectedController`)
 
@@ -1070,14 +1201,15 @@ Per far valere davvero un ruolo di dominio, due strade:
 [HttpGet("ping")]
 public IActionResult Ping()
 {
-    var session = User.GetSession<SessionInfo>(); // null se token assente o malformato
+    var session = CurrentSession<SessionInfo>(); // null se token assente o malformato
     return Ok(new { status = "ok", session });
 }
 ```
+Ricetta rapida: [AGENTS.md](../AGENTS.md#leggere-la-sessione).
 
 ### Logout
 
-Il JWT è stateless: il logout sul client (rimozione del token) non invalida il token sul backend, che resta tecnicamente valido fino alla scadenza (`exp`). Per la revoca immediata serve una denylist server-side — da implementare se il requisito è presente.
+Il JWT è stateless: il logout sul client (rimozione del token) non invalida il token sul backend, che resta tecnicamente valido fino alla scadenza (`exp`). Vale anche per la cancellazione dell'account (*§9*): un token già emesso sopravvive alla `DELETE` fino a `exp`. La finestra di esposizione è al massimo `Security.Token.ExpirationSeconds` — abbassarlo è la prima mitigazione. Se il progetto richiede la revoca immediata, il seam c'è già senza infrastruttura esterna: ogni token porta il claim `loginTime`, basta salvare accanto all'account un "nessun token emesso prima di X" e confrontarlo a richiesta. Una denylist server-side (cache condivisa dei token revocati) è l'alternativa classica, sproporzionata per un processo singolo.
 
 ---
 

@@ -24,22 +24,9 @@ const API = {
 } as const;
 
 /**
- * Client HTTP centralizzato. Ogni endpoint del backend ha un metodo pubblico dedicato.
- *
- * ⚙️ Contratto fisso: `PageBaseComponent` (Engine) inietta questa classe come `this.api`.
- * Aggiungi metodi; non rinominare/rimuovere la classe `ApiService`.
- *
- * La gestione errori e' automatica per default: l'apiErrorInterceptor notifica l'utente via
- * NotificationService e ri-lancia un ApiError tipizzato per chi vuole gestire lo stato localmente.
- * Passando { silent: true } la notifica automatica viene saltata e l'errore (ApiError) resta solo
- * da gestire al chiamante: usarlo per i flussi con UI d'errore propria (es. il form di login).
- *
- * Per aggiungere un endpoint:
- *   1. Aggiungere il path nella costante API (sopra)
- *   2. Aggiungere il metodo pubblico:
- *      - chiamate una-tantum  → this.api_get<T>() / this.api_post<T>()
- *      - componenti reattivi  → this.api_resource<T>()  (si aggiorna ai cambi di signal)
- *   3. Se il dato carica una pagina, aggiungere un case in ContentResolver.loadResolved()
+ * Client HTTP: un metodo pubblico per ogni endpoint. Errori gestiti dall'apiErrorInterceptor;
+ * `{ silent: true }` li lascia al chiamante (UI d'errore propria). Ricetta: AGENTS.md §"Aggiungere un endpoint al client".
+ * ⚙️ Contratto Engine: `PageBaseComponent` la inietta come `this.api` — non rinominare la classe.
  */
 @Injectable({ providedIn: 'root' })
 export class ApiService extends BaseApiService {
@@ -53,19 +40,9 @@ export class ApiService extends BaseApiService {
     }
 
     /**
-     * Restituisce l'URL relativo del blob per usarlo direttamente in template
-     * (`<img [src]="url">`, `<a [href]="url">`, ecc.) senza scaricare il file in memoria.
-     *
-     * Restituisce sempre un path relativo (`/api/blob/{slug}`) anche in SSR:
-     * il browser deve poterlo raggiungere tramite il proxy del frontend,
-     * non attraverso l'URL interno del backend.
-     *
-     * @param slug  Identificativo del file restituito dall'upload.
-     * @param webopt  Se `true` richiede al backend la versione ottimizzata per il web del file.
-     *                Flag generico, non legato alle immagini: oggi l'unica ottimizzazione
-     *                implementata è il resize delle immagini (max 1920 px lato lungo, conversione
-     *                in WebP), quindi i tipi non ancora gestiti vengono restituiti invariati.
-     *                È il punto di aggancio per future riduzioni lato API di altri contenuti.
+     * URL relativo del blob (`/api/blob/{slug}`) per l'uso diretto in template, senza scaricarlo in
+     * memoria. Sempre relativo, anche in SSR: il browser lo raggiunge via proxy, non l'URL interno.
+     * `webopt`: versione web-ottimizzata (oggi = resize immagini max 1920px→WebP; altri tipi invariati).
      */
     getBlobUrl(slug: string, webopt = true): string {
         const base = `${this.apiProxyPrefix}/${API.blob(slug)}`;
@@ -73,14 +50,8 @@ export class ApiService extends BaseApiService {
     }
 
     /**
-     * Carica un file nel volume uploads del backend e restituisce lo slug univoco
-     * con cui recuperarlo in seguito tramite `getBlob()` o `getBlobUrl()`.
-     *
-     * Richiede che l'utente sia autenticato (JWT valido): il backend applica
-     * `[Authorize(Policy = "RequireLogin")]` sull'endpoint POST.
-     *
-     * @param file  Il file da caricare (da `<input type="file">` o drag-and-drop).
-     * @returns  `{ slug }` — lo slug del file appena salvato.
+     * Carica un file negli uploads e ne restituisce lo slug (poi `getBlob`/`getBlobUrl`).
+     * Richiede login (JWT): l'endpoint POST è `[Authorize(Policy = "RequireLogin")]`.
      */
     uploadBlob(file: File): Promise<{ slug: string }> {
         const formData = new FormData();
@@ -89,9 +60,8 @@ export class ApiService extends BaseApiService {
     }
 
     /**
-     * Effettua il login inviando le credenziali al backend.
-     * `silent: true`: niente notifica automatica — l'esito (anche l'errore) è gestito
-     * inline dal form di login tramite AuthService.
+     * Login: invia le credenziali. `silent: true` → niente notifica automatica, l'esito (anche
+     * l'errore) lo gestisce inline il form di login via AuthService.
      */
     login(username: string, password: string): Promise<LoginResult> {
         const request: LoginRequest = { username, pwd: password };

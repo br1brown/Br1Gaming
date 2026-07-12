@@ -1,6 +1,7 @@
 using System.Globalization;
 using Backend.Delivery;
 using Backend.Notifications;
+using Backend.Security;
 using Backend.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -38,6 +39,18 @@ public abstract class EngineApiController : ControllerBase
 
     /// <summary>Consegna esiti con switch realtime/email: <c>Delivery.DeliverAsync(message)</c>.</summary>
     protected IDeliveryService Delivery => HttpContext.RequestServices.GetRequiredService<IDeliveryService>();
+
+    /// <summary>
+    /// Cifratura generica AES-GCM: <c>Crypto.Encrypt(bytes)</c> / <c>Crypto.Decrypt(blob)</c>.
+    /// </summary>
+    /// <remarks>
+    /// Risolta on-demand come le altre proprietà ambient sopra, non iniettata nel costruttore:
+    /// <see cref="EngineCrypto"/> lancia se <c>Security.CryptoSecret</c> è vuota, e un'iniezione nel
+    /// costruttore la costruirebbe (quindi farebbe fallire) a ogni richiesta del controller, anche
+    /// quando l'azione non ha alcun payload da cifrare — es. <c>EngineDataPrivacyController</c> con lo
+    /// store di dati personali di default (nessun dato, niente da proteggere).
+    /// </remarks>
+    protected IEngineCrypto Crypto => HttpContext.RequestServices.GetRequiredService<IEngineCrypto>();
 
     /// <summary>
     /// connectionId della SSE del chiamante (header <c>X-Connection-Id</c>, aggiunto in automatico dal

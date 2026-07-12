@@ -3,7 +3,10 @@ import { NgTemplateOutlet } from '@angular/common';
 import { CookieConsentService } from '../../services/cookie-consent.service';
 import { ThemeService } from '../../services/theme.service';
 import { TranslateService } from '../../services/translate.service';
+import { PageMetaService } from '../../services/page-meta.service';
+import { onNavigationEnd } from '../../routing';
 import { ContestoSito } from '../../../../site';
+import { Router } from '@angular/router';
 import { MarkdownPipe } from '../../pipes/markdown.pipe';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 
@@ -18,6 +21,11 @@ export class CookieBannerComponent {
     readonly cookieConsent = inject(CookieConsentService);
     readonly theme = inject(ThemeService);
     private readonly translate = inject(TranslateService);
+    private readonly pagemeta = inject(PageMetaService);
+    
+    readonly isCookiePolicy = computed(() => {
+        return ContestoSito.config.legalPages.cookie != null && this.pagemeta.currentPageType() === ContestoSito.config.legalPages.cookie;
+    });
 
     /**
      * Modalità pannello: invece del banner fisso in overlay, rende gli stessi controlli di consenso
@@ -47,9 +55,23 @@ export class CookieBannerComponent {
         });
     }
 
-    /** True quando è attiva almeno una categoria non tecnica: mostra toggle e layout esteso. */
+    /** True quando è attiva almeno una categoria non tecnica: sceglie il testo introduttivo del
+     *  banner (toggle e azioni ci sono sempre — il consenso qui copre anche i tecnici). */
     readonly hasDetailedCategories = computed(() =>
         this.cookieConsent.isAnalyticsNeeded() || this.cookieConsent.isProfilingNeeded()
+    );
+
+    /** Numero di categorie attive: con una sola, Rifiuta/Accetta perdono il "tutto"
+     *  (non c'è nessun insieme su cui agire in blocco). */
+    private readonly activeCategoryCount = computed(() =>
+        [this.cookieConsent.isTechnicalNeeded(), this.cookieConsent.isAnalyticsNeeded(), this.cookieConsent.isProfilingNeeded()]
+            .filter(Boolean).length
+    );
+    readonly rejectLabel = computed(() =>
+        this.translate.translate(this.activeCategoryCount() > 1 ? 'rifiutaTuttiBannerCookie' : 'rifiutaBannerCookie')
+    );
+    readonly acceptLabel = computed(() =>
+        this.translate.translate(this.activeCategoryCount() > 1 ? 'accettaTuttiBannerCookie' : 'accettaBannerCookie')
     );
 
     readonly bannerText = computed(() => {

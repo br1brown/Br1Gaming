@@ -1,16 +1,10 @@
 namespace Backend.Models;
 
 /// <summary>
-/// Payload di sessione serializzato nel claim "session" del JWT.
-/// Rileggibile nei controller protetti via <c>User.GetSession&lt;SessionInfo&gt;()</c>.
+/// Payload di sessione nel claim "session" del JWT (leggibile via <c>User.GetSession&lt;SessionInfo&gt;()</c>).
+/// Deve rispecchiare a mano <c>frontend/src/app/core/dto/session.dto.ts</c> (niente codegen). Solo dati
+/// NON sensibili (il JWT è leggibile dal client). Esempio del template — adatta i campi al progetto.
 /// </summary>
-/// <remarks>
-/// Deve rispecchiare l'interfaccia TypeScript <c>frontend/src/app/core/dto/session.dto.ts</c>:
-/// tieni le due in sincronia a mano (contratto piccolo e stabile, niente codegen).
-/// Solo dati NON sensibili: il JWT è leggibile dal client.
-///
-/// Esempio fornito col template — sostituisci i campi con quelli reali del progetto.
-/// </remarks>
 public record SessionInfo
 {
     /// <summary>Identificativo del principale autenticato.</summary>

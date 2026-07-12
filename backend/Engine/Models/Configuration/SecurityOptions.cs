@@ -34,6 +34,17 @@ public class SecurityOptions
     public TokenOptions Token { get; set; } = new();
 
     /// <summary>
+    /// Chiave segreta per la cifratura simmetrica generica dell'engine (<see cref="Security.EngineCrypto"/>).
+    /// </summary>
+    /// <remarks>
+    /// Volutamente separata da <see cref="TokenOptions.SecretKey"/>: riusare la stessa chiave per firmare
+    /// JWT e per cifrare dati sarebbe riuso di materiale crittografico su due scopi diversi. Generata da
+    /// <c>setup.mjs</c> alla nascita del progetto (come <see cref="SecurityOptions.ApiKeys"/>), indipendente
+    /// da <see cref="LoginEnabled"/>.
+    /// </remarks>
+    public string CryptoSecret { get; set; } = "";
+
+    /// <summary>
     /// Indica se l'app e' dietro un reverse proxy (es. Nginx, Cloudflare, Azure App Service).
     /// Se <c>true</c>, attiva il middleware ForwardedHeaders per ricostruire l'IP reale
     /// del client dagli header <c>X-Forwarded-For</c> e <c>X-Forwarded-Proto</c>.

@@ -1,13 +1,9 @@
 import { Validation } from '../../../core/engine/services/validation';
 
 /**
- * CONTACT URL BUILDERS
- *
- * Funzioni pure che costruiscono gli URL dei canali di contatto/navigazione.
- * Rispecchiano i formati standard usati anche da `QrCodeService.builders`
- * (vedi core/engine/services/qr-code.service.ts), così l'app produce lo stesso
- * link sia nel QR sia nei bottoni di contatto. La normalizzazione del numero passa
- * dal modulo di validazione condiviso (`Validation.phone`), stessa regola del backend.
+ * Funzioni pure che costruiscono gli URL dei canali di contatto/navigazione. Rispecchiano i formati
+ * di `QrCodeService.builders` (stesso link nel QR e nei bottoni) e normalizzano il numero via
+ * `Validation.phone`, stessa regola del backend.
  */
 
 /** Tiene solo cifre (per `wa.me`, che vuole prefisso+numero senza `+` né separatori). */

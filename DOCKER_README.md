@@ -18,12 +18,7 @@ La configurazione è divisa in tre file per **proprietario** (tutti validati da 
 
 ### Avvio di un progetto derivato
 
-```bash
-# Edita global-settings.json, poi:
-./deploy.sh
-```
-
-`deploy.sh` legge `global-settings.json`, verifica la configurazione e avvia i container. Il file viene montato in entrambi i container in sola lettura (`/app/global-settings.json:ro`): cambiare il file e rieseguire il deploy è sufficiente per applicare la configurazione a tutti i livelli.
+Per il percorso guidato passo-passo vedi **[QUICKSTART.md](QUICKSTART.md)**. Il meccanismo sotto: `./deploy.sh` legge `global-settings.json`, verifica la configurazione e avvia i container. Il file viene montato in entrambi i container in sola lettura (`/app/global-settings.json:ro`): cambiare il file e rieseguire il deploy è sufficiente per applicare la configurazione a tutti i livelli.
 
 ### Esposizione dei servizi
 
@@ -90,7 +85,7 @@ lingue supportate (sezione `Localization`) per SEO e `environment.ts`: non servo
 | `site.smoke` | — | Effetto particellare di sfondo (ometti/`enable:false` per disattivarlo). Sottocampi: `enable`, `color`, `opacity`, `maximumVelocity`, `particleRadius`, `density` |
 | `Custom` | `{}` | Valori liberi leggibili da backend (`IConfiguration["Custom:..."]`) e Node SSR (`getBr1Settings().Custom`) |
 
-> I flag di **comportamento** (`showNav`, `showFooter`, `fixedTopHeader`, `showBrandIconInHeader`, `showLoginInHeader`, `showNotifications`, `forcedLightPanel`, `isWebApp`, `onlyPlainImage`) sono struttura e vivono in `frontend/src/app/site.ts` (`shell` / `isWebApp` / `onlyPlainImage`).
+> I flag di **comportamento** (`showNav`, `showFooter`, `fixedTopHeader`, `showBrandIconInHeader`, `showNotifications`, `forcedLightPanel`, `isWebApp`, `onlyPlainImage`, il `showInHeader` di `loginPage`) sono struttura e vivono in `frontend/src/app/site.ts` (`shell` / `isWebApp` / `onlyPlainImage` / `loginPage`).
 
 ### `global-settings.local.json` — pubblicazione + segreti (gitignored)
 

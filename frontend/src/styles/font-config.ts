@@ -1,20 +1,9 @@
 /**
- * FONT CONFIG
- *
- * Fonte di verità centralizzata per i font del sito.
- * Nessuna dipendenza Angular o da altri moduli del progetto: importabile ovunque
- * senza rischi di dipendenze circolari (siteBuilder, ThemeService, ImgBuilderService, server.ts).
- *
- * Due dizionari distinti per due contesti distinti:
- *
- *   WEB_FONTS   → browser e Canvas (ImgBuilderService). Font di sistema, zero dipendenze esterne.
- *   SERVER_FONTS → Sharp / immagini OG (server.ts). Font fisicamente installati nel Docker.
- *
- * Per cambiare il font di default: modifica DEFAULT_WEB_FONT (web) o DEFAULT_SERVER_FONT_KEY (server).
- * Per aggiungere un font web: aggiungerlo a WEB_FONTS (nessuna installazione richiesta).
- * Per aggiungere un font server: aggiungerlo all'enum ServerFont + SERVER_FONTS + FONT_METRICS
- * (il compilatore le pretende tutte) e installarlo nel Dockerfile.
+ * Fonte di verità centralizzata per i font del sito, senza dipendenze (importabile ovunque).
+ * `WEB_FONTS` = browser/Canvas (font di sistema); `SERVER_FONTS` = Sharp/OG (installati nel Docker).
+ * Default nei membri `DEFAULT_WEB_FONT` / `DEFAULT_SERVER_FONT_KEY` (le ricette per aggiungerli sotto).
  */
+
 /** Font server installati nel container Docker. Enum (non stringhe magiche) per tipizzare default e
  *  metriche: si seleziona il font scrivendo `ServerFont.Liberation`, mai `'Liberation'`. */
 export enum ServerFont {
@@ -34,10 +23,7 @@ const stack = (families: string, generic: 'sans-serif' | 'serif' | 'monospace' =
 
 export class FontConfig {
 
-    /**
-     * Font per il browser e Canvas — font di sistema, zero dipendenze esterne.
-     * Ogni OS usa il suo font nativo senza bisogno di file aggiuntivi.
-     */
+    /** Font browser/Canvas — di sistema, zero dipendenze. Aggiungerne uno: basta una voce qui. */
     static readonly WEB_FONTS = {
         System: stack('system-ui, "Segoe UI", Arial'),
         Arial: stack('Arial'),
@@ -47,10 +33,8 @@ export class FontConfig {
         CourierNew: stack('"Courier New"', 'monospace'),
     } as const;
 
-    /**
-     * Font per Sharp / immagini OG — font fisicamente installati nel container Docker.
-     * Usati da ImgBuilderService (SVG path) e PreviewBuilder in server.ts.
-     */
+    /** Font Sharp/OG installati nel Docker (ImgBuilderService, PreviewBuilder).
+     *  Aggiungerne uno: enum `ServerFont` + qui + `FONT_METRICS` (obbligatorie) + install nel Dockerfile. */
     static readonly SERVER_FONTS: Record<ServerFont, string> = {
         [ServerFont.Roboto]: stack('Roboto'),
         [ServerFont.DejaVu]: stack('DejaVu Sans'),

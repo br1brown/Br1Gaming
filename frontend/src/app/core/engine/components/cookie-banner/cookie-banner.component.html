@@ -7,11 +7,9 @@
         <div class="cookie-banner__shell cookie-banner__shell--detailed">
             <div class="cookie-banner__content">
                 <h2 class="h5 fw-bold mb-1">{{ 'titoloPannelloCookie' | translate }}</h2>
-                @if (hasDetailedCategories()) {
-                    <div class="mt-2">
-                        <ng-container [ngTemplateOutlet]="categoryToggles"></ng-container>
-                    </div>
-                }
+                <div class="mt-2">
+                    <ng-container [ngTemplateOutlet]="categoryToggles"></ng-container>
+                </div>
                 @if (justSaved()) {
                     <p class="text-success small mb-0 mt-3" role="status">
                         <i class="fa-solid fa-check me-1" aria-hidden="true"></i>{{ 'preferenzeSalvateCookie' | translate }}
@@ -25,26 +23,24 @@
     </section>
 } @else if (!cookieConsent.responded()) {
     <div class="cookie-banner cookie-banner-modern"
-         role="alert"
+         role="region"
+         [attr.aria-label]="'titoloPannelloCookie' | translate"
          aria-live="polite">
-        <div class="cookie-banner__shell surface-elevated align-items-center mx-auto" [class.cookie-banner__shell--detailed]="hasDetailedCategories()">
+        <div class="cookie-banner__shell cookie-banner__shell--detailed surface-elevated align-items-center mx-auto">
             <div class="cookie-banner__content">
                 <div class="cookie-banner__text" [innerHTML]="bannerText() | markdown"></div>
-                @if (hasDetailedCategories()) {
-                    <div class="mt-3">
-                        <ng-container [ngTemplateOutlet]="categoryToggles"></ng-container>
-                    </div>
-                }
+                <div class="mt-3">
+                    <ng-container [ngTemplateOutlet]="categoryToggles"></ng-container>
+                </div>
             </div>
-            <!-- Rifiuta tutto: outline-secondary (neutro adattivo, non spinge verso
-                 l'accettazione). Accetta / Salva: btn-success (verde universale,
-                 segnale positivo indipendente dal colorTema del sito). -->
+            <!-- Rifiuta/Accetta tutto: stesso stile outline-secondary, pari peso visivo (vedi
+                 template #consentActions). Solo Salva scelte resta btn-success. -->
             <div class="cookie-banner__actions d-flex flex-column-reverse flex-md-row flex-wrap gap-3 justify-content-md-end">
                 <ng-container [ngTemplateOutlet]="consentActions"></ng-container>
             </div>
         </div>
     </div>
-} @else {
+} @else if (!isCookiePolicy()) {
     <button class="cookie-reopen-btn surface-elevated fab rounded-circle d-flex align-items-center justify-content-center fs-5" type="button"
             (click)="reopen()"
             [attr.aria-label]="'impostazioniCookie' | translate">
@@ -58,10 +54,14 @@
     @if (cookieConsent.isTechnicalNeeded()) {
         <hr class="mt-0 mb-0">
         <div class="d-flex align-items-center gap-3">
-            <details class="cookie-category flex-grow-1">
-                <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">{{ 'tecniciCategoriaCookie' | translate }}</summary>
-                <p class="small opacity-75 mb-0 mt-1">{{ 'tecniciDescrizioneCategoriaCookie' | translate }}</p>
-            </details>
+            @if (panelMode()) {
+                <span class="fw-semibold flex-grow-1">{{ 'tecniciCategoriaCookie' | translate }}</span>
+            } @else {
+                <details class="cookie-category flex-grow-1">
+                    <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">{{ 'tecniciCategoriaCookie' | translate }}</summary>
+                    <p class="small opacity-75 mb-0 mt-1">{{ 'tecniciDescrizioneCategoriaCookie' | translate }}</p>
+                </details>
+            }
             <div class="form-check form-switch mb-0 flex-shrink-0">
                 <input class="form-check-input" type="checkbox" role="switch"
                        [attr.aria-label]="'tecniciCategoriaCookie' | translate"
@@ -73,10 +73,14 @@
     @if (cookieConsent.isAnalyticsNeeded()) {
         <hr class="mt-0 mb-0">
         <div class="d-flex align-items-center gap-3">
-            <details class="cookie-category flex-grow-1">
-                <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">{{ 'analyticsCategoriaCookie' | translate }}</summary>
-                <p class="small opacity-75 mb-0 mt-1">{{ 'analyticsDescrizioneCategoriaCookie' | translate }}</p>
-            </details>
+            @if (panelMode()) {
+                <span class="fw-semibold flex-grow-1">{{ 'analyticsCategoriaCookie' | translate }}</span>
+            } @else {
+                <details class="cookie-category flex-grow-1">
+                    <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">{{ 'analyticsCategoriaCookie' | translate }}</summary>
+                    <p class="small opacity-75 mb-0 mt-1">{{ 'analyticsDescrizioneCategoriaCookie' | translate }}</p>
+                </details>
+            }
             <div class="form-check form-switch mb-0 flex-shrink-0">
                 <input class="form-check-input" type="checkbox" role="switch"
                        [attr.aria-label]="'analyticsCategoriaCookie' | translate"
@@ -88,10 +92,14 @@
     @if (cookieConsent.isProfilingNeeded()) {
         <hr class="mt-0 mb-0">
         <div class="d-flex align-items-center gap-3">
-            <details class="cookie-category flex-grow-1">
-                <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">{{ 'profilazioneCategoriaCookie' | translate }}</summary>
-                <p class="small opacity-75 mb-0 mt-1">{{ 'profilazioneDescrizioneCategoriaCookie' | translate }}</p>
-            </details>
+            @if (panelMode()) {
+                <span class="fw-semibold flex-grow-1">{{ 'profilazioneCategoriaCookie' | translate }}</span>
+            } @else {
+                <details class="cookie-category flex-grow-1">
+                    <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">{{ 'profilazioneCategoriaCookie' | translate }}</summary>
+                    <p class="small opacity-75 mb-0 mt-1">{{ 'profilazioneDescrizioneCategoriaCookie' | translate }}</p>
+                </details>
+            }
             <div class="form-check form-switch mb-0 flex-shrink-0">
                 <input class="form-check-input" type="checkbox" role="switch"
                        [attr.aria-label]="'profilazioneCategoriaCookie' | translate"
@@ -102,26 +110,31 @@
     }
 </ng-template>
 
-<!-- Azioni — condivise da banner e pannello. Rifiuta/Accetta tutto hanno senso solo se esiste
-     almeno una categoria non tecnica su cui applicarsi in blocco; Salva scelte è sempre presente
-     (anche con la sola categoria tecnica, per confermare il toggle). -->
+<!-- Azioni — condivise da banner e pannello, sempre tutte e tre: qui il consenso copre anche i
+     tecnici (rifiutarli spegne SW e cookie lingua), quindi Rifiuta/Accetta restano anche quando
+     la tecnica è l'unica categoria — con una sola categoria l'etichetta perde il "tutto".
+     Rifiuta e Accetta condividono LO STESSO stile (outline-secondary): pari peso visivo richiesto
+     da EDPB/Garante — un "Accetta" pieno/verde contro un "Rifiuta" in outline nudgerebbe l'utente
+     verso il consenso (dark pattern). Solo "Salva scelte" resta evidenziato: non è un'alternativa
+     accetta/rifiuta, conferma qualunque combinazione l'utente abbia scelto (anche tutta negativa). -->
 <ng-template #consentActions>
+    <button class="btn btn-outline-secondary fw-semibold text-nowrap rounded-pill flex-fill"
+            type="button"
+            (click)="reject()">
+        {{ rejectLabel() }}
+    </button>
+    <button class="btn fw-semibold text-nowrap rounded-pill flex-fill"
+            [class.btn-outline-secondary]="hasDetailedCategories()"
+            [class.btn-success]="!hasDetailedCategories()"
+            type="button"
+            (click)="accept()">
+        {{ acceptLabel() }}
+    </button>
     @if (hasDetailedCategories()) {
-        <button class="btn btn-outline-secondary fw-semibold text-nowrap rounded-pill flex-fill"
-                type="button"
-                (click)="reject()">
-            {{ 'rifiutaTuttiBannerCookie' | translate }}
-        </button>
         <button class="btn btn-success fw-semibold text-nowrap rounded-pill flex-fill"
                 type="button"
-                (click)="accept()">
-            {{ 'accettaTuttiBannerCookie' | translate }}
+                (click)="saveSelected()">
+            {{ 'salvaBannerCookie' | translate }}
         </button>
     }
-    <button class="btn btn-success fw-semibold text-nowrap rounded-pill"
-            [class.flex-fill]="hasDetailedCategories()"
-            type="button"
-            (click)="saveSelected()">
-        {{ 'salvaBannerCookie' | translate }}
-    </button>
 </ng-template>

@@ -27,19 +27,10 @@ type ContactChannel =
     | { kind: 'mail'; key: string; label: string; config: MailContactConfig };
 
 /**
- * IDENTITY RENDER COMPONENT
- *
- * Riceve l'Identity del sito (la risposta di GET /identity) e la rende in sezioni a colonne:
- * "Dati societari", "Dati legali" e "Contatti". Ogni voce appare solo se valorizzata
- * (skip-empty), con label tradotta e markup adeguato al tipo (testo / codice / badge).
- *
- * Con `[showSocial]="true"` aggiunge anche le icone dei profili social del brand: i social sono
- * dati d'identità, quindi vivono qui (non sparsi nel footer). Il footer li attiva, le pagine
- * legali no — così l'identità ha un solo punto di rendering, gateato da un flag.
- *
- * Tiene insieme tutta la logica di formato (currency, boolean, indirizzo) e la regola "se manca
- * il dato non lo vedi": il consumer passa l'identità (e il flag) e la composizione non si perde
- * a ogni refactor del layout esterno.
+ * Rende l'Identity del sito (GET /identity) in sezioni a colonne (societari, legali, contatti): ogni
+ * voce solo se valorizzata (skip-empty), label tradotta, markup per tipo, più la logica di formato.
+ * `[showSocial]="true"` aggiunge le icone social (un solo punto di rendering gateato da un flag:
+ * footer sì, pagine legali no).
  */
 @Component({
     selector: 'app-identity-render',
@@ -108,10 +99,8 @@ export class IdentityRenderComponent {
     });
 
     /**
-     * Identificativi dell'entità — ciò che serve per verificare che esista:
-     * P.IVA, Codice Fiscale, Registro Imprese, REA, SDI. Se CF e P.IVA
-     * coincidono mostra una sola voce "Codice Fiscale / P.IVA" per non
-     * ripetere due volte lo stesso dato.
+     * Identificativi dell'entità (P.IVA, CF, Registro Imprese, REA, SDI). Se CF e P.IVA coincidono,
+     * una sola voce "Codice Fiscale / P.IVA" per non ripetere lo stesso dato.
      */
     private identifierItems(identity: Identity): IdentityItem[] {
         const piva = identity.partitaIva?.trim();
@@ -134,12 +123,9 @@ export class IdentityRenderComponent {
     }
 
     /**
-     * Canali di contatto cliccabili (telefono, email, PEC) estratti dall'identità
-     * e resi come badge dai componenti contatto in cima, fuori dalle due colonne.
-     *
-     * `label` è la CHIAVE i18n (non il valore tradotto): il componente contatto
-     * la traduce da sé. Pre-tradurre qui causerebbe un doppio translate (la
-     * stringa già tradotta verrebbe ricercata come chiave → "key not found").
+     * Canali di contatto cliccabili (telefono, email, PEC) resi come badge in cima, fuori dalle colonne.
+     * `label` è la CHIAVE i18n, non il valore: il contatto traduce da sé (pre-tradurre → doppio
+     * translate → "key not found").
      */
     readonly contacts = computed<ContactChannel[]>(() => {
         const c = this.identity()?.contatti;
@@ -252,10 +238,8 @@ export class IdentityRenderComponent {
     }
 
     /**
-     * Nome del paese localizzato dal codice ISO 3166-1 alpha-2 (es. "IT" → "Italia"), via
-     * `Intl.DisplayNames` — il gemello JS di `RegionInfo`, come `Intl.NumberFormat` per la valuta.
-     * Il backend garantisce il codice ISO (presente-ma-non-valido → 500 alla lettura del file): qui si
-     * formatta e basta.
+     * Nome del paese localizzato dal codice ISO 3166-1 alpha-2 (es. "IT"→"Italia") via
+     * `Intl.DisplayNames`. Il backend garantisce il codice ISO valido: qui si formatta e basta.
      */
     private countryName(code: string | null | undefined): string | null {
         const c = code?.trim();

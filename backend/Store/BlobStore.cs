@@ -12,10 +12,7 @@ namespace Backend.Store;
 /// <param name="ContentType">MIME type dedotto dall'estensione, o <c>application/octet-stream</c>.</param>
 /// <param name="Length">Dimensione in byte.</param>
 /// <param name="LastModified">Ultima modifica (UTC): alimenta ETag/Last-Modified e l'invalidazione cache.</param>
-/// <param name="IsImage">
-/// <c>true</c> se e' un'immagine raster gestita (no SVG/GIF): guida sia il resize per il web
-/// sia la difesa XSS (solo le immagini note vengono servite inline col loro content-type).
-/// </param>
+/// <param name="IsImage"><c>true</c> se immagine raster gestita (no SVG/GIF): guida resize web e difesa XSS (inline solo le immagini note).</param>
 public readonly record struct BlobInfo(
     string Slug,
     string AbsolutePath,
@@ -25,25 +22,10 @@ public readonly record struct BlobInfo(
     bool IsImage);
 
 /// <summary>
-/// Utility di storage per i file binari caricati (upload utente): un <c>File</c>/<c>Directory</c>
-/// dedicato alla cartella <c>uploads/</c> del nostro sistema, con le policy gia' cablate dentro
-/// (slug immutabile, guardia path-traversal, deduzione content-type).
+/// Utility di storage per i file caricati (<c>uploads/</c>): slug immutabile, guardia path-traversal,
+/// content-type già cablati. Di proprietà del progetto — la apri per validazioni/quote/antivirus.
+/// Separata da <see cref="FileContentStore"/> (binari vs read-only): backend/README.md §"BlobStore".
 /// </summary>
-/// <remarks>
-/// Classe concreta e <b>di proprieta' del progetto</b>: la apri e la modifichi (o ridefinisci un
-/// metodo <c>virtual</c>) per aggiungere validazioni, quote o antivirus — come fai con
-/// <c>AuthController</c>/<c>BlobController</c>. Registrata come singleton in DI per ricevere la content
-/// root; la usi come una utility: <c>_blobs.Save(...)</c>, <c>_blobs.OpenRead(...)</c>.
-///
-/// Sorella di <see cref="FileContentStore"/> (stesso posto, <c>Store/</c>) ma tenuta SEPARATA dai
-/// contenuti del sito: e' un'altra responsabilita' (binari mutevoli in volume runtime vs contenuti
-/// localizzati read-only, con traiettorie di evoluzione diverse — S3 di qua, DB di la').
-///
-/// Lo slug e' immutabile per costruzione: <see cref="SaveAsync(Stream,string,System.Threading.CancellationToken)"/>
-/// conia sempre un nuovo identificativo, quindi "sostituire" un blob = salvarne uno nuovo (nuovo
-/// slug = nuovo URL) ed eventualmente cancellare il vecchio. Niente overwrite dello stesso slug:
-/// e' cio' che rende sicura la cache HTTP a lunga scadenza lato chiamante.
-/// </remarks>
 public class BlobStore
 {
     // image/gif escluso: SkiaSharp decodifica solo il primo frame e produrrebbe un WebP statico,

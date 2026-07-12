@@ -2,12 +2,8 @@ import { Component, ChangeDetectionStrategy, input } from '@angular/core';
 import { IconComponent } from '../icon/icon.component';
 
 /**
- * LINK BADGE — presentazionale.
- *
- * Unico posto in cui vive il template di un link "a badge": un `<a>` che apre
- * in nuova scheda, con icona-pastiglia (IconComponent) e testo opzionale.
- * Le famiglie "contatti" e "navigazione" (social) gli passano solo i dati
- * (href/glyph/color/text) — nessuna logica vive qui.
+ * Presentazionale: l'unico posto col template del link "a badge" — un `<a target=_blank>` con
+ * icona-pastiglia (IconComponent) e testo opzionale. Le famiglie contatti/social gli passano solo i dati.
  */
 @Component({
     selector: 'app-link-badge',

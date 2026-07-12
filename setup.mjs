@@ -108,26 +108,33 @@ export type {
 } from './core/engine/siteBuilder';
 
 // ═══════════════════════════════════════════════════════════════════════
-// ENUM PageType — identità di ogni pagina
+// PageType — identità di ogni pagina
 // ═══════════════════════════════════════════════════════════════════════
 // Ogni pagina DEVE avere un valore qui. Aggiungine uno e usalo in
 // pages / headerNav / footerNav: rotte, menu e sitemap si aggiornano da soli.
-export enum PageType {
-    PrivacyPolicy,
-    CookiePolicy,
-    TermsOfService,
-    LegalNotice,
-    Home,
-}
+// A poche pagine un oggetto piatto come questo basta; se il progetto cresce,
+// dividilo in più file (uno per area tematica, sotto pages/) e assemblalo
+// qui con lo spread — pattern descritto in AGENTS.md § "Aggiungere una pagina".
+export const PageType = {
+    PrivacyPolicy: 'legal.privacy',
+    CookiePolicy: 'legal.cookie',
+    TermsOfService: 'legal.tos',
+    LegalNotice: 'legal.notice',
+    AccessibilityStatement: 'legal.accessibility',
+    Home: 'home',
+} as const;
+export type PageType = (typeof PageType)[keyof typeof PageType];
 
 // Struttura del sito: opzioni globali, pagine e menu. Identità ed estetica
 // (nome, versione, lingue, descrizione, tema) vivono in global-settings.json.
 //
 // LOGIN SPENTO di default, coerente con Security.Token.SecretKey vuota.
 // Per attivarlo: valorizza la SecretKey (>=32 char), poi qui aggiungi
-// PageType.Login + la sua pagina in pages, imposta loginPage: PageType.Login
-// e shell.showLoginInHeader: true. I pezzi pronti (pagina login, app-login-form,
-// app-user-nav) sono gia' nel progetto: vanno solo ricablati.
+// PageType.Login + la sua pagina in pages e imposta loginPage: PageType.Login
+// (login solo per il redirect auth, fuori dall'header). Per mostrarlo anche in
+// navbar usa la forma estesa: loginPage: { page: PageType.Login, showInHeader: true }.
+// I pezzi pronti (pagina login, app-login-form, app-user-nav) sono gia' nel
+// progetto: vanno solo ricablati.
 export const ContestoSito = buildSite({
     homePage: PageType.Home,
 
@@ -136,6 +143,7 @@ export const ContestoSito = buildSite({
         cookie: PageType.CookiePolicy,
         tos: PageType.TermsOfService,
         legal: PageType.LegalNotice,
+        accessibility: PageType.AccessibilityStatement,
     },
 
     shell: {
@@ -143,7 +151,6 @@ export const ContestoSito = buildSite({
         showFooter: true,
         fixedTopHeader: true,
         showBrandIconInHeader: true,
-        showLoginInHeader: false,
         forcedLightPanel: true,
     },
 
@@ -166,6 +173,7 @@ export const ContestoSito = buildSite({
         h.addGroup('menuPolicy', g => {
             g.addPage(PageType.PrivacyPolicy);
             g.addPage(PageType.CookiePolicy);
+            g.addPage(PageType.AccessibilityStatement);
             g.addGroup('menuLegale', sg => {
                 sg.addPage(PageType.TermsOfService);
                 sg.addPage(PageType.LegalNotice);
@@ -177,6 +185,7 @@ export const ContestoSito = buildSite({
         f.addGroup('menuPolicy', g => {
             g.addPage(PageType.PrivacyPolicy);
             g.addPage(PageType.CookiePolicy);
+            g.addPage(PageType.AccessibilityStatement);
             g.addGroup('menuLegale', sg => {
                 sg.addPage(PageType.TermsOfService);
                 sg.addPage(PageType.LegalNotice);
@@ -409,6 +418,8 @@ async function main() {
     // Porte, dominio, CORS e le chiavi vivono SOLO qui, fuori dal repo.
     // SecretKey resta VUOTA: il login è spento finché non la si valorizza (≥32 char) —
     // attivarlo deve essere una scelta esplicita, non un effetto collaterale del setup.
+    // CryptoSecret invece si genera SEMPRE (come ApiKeys): è indipendente dal login, serve al
+    // servizio di cifratura generico dell'engine (EngineCrypto) fin da subito.
     const localPath = join(ROOT, 'global-settings.local.json');
     if (existsSync(localPath)) {
         console.log('  =  global-settings.local.json già presente — non sovrascritto');
@@ -422,10 +433,11 @@ async function main() {
                 CorsOrigins: [],
                 BehindProxy: false,
                 Token: { SecretKey: '' },
+                CryptoSecret: randomBytes(32).toString('base64'),
             },
         };
         writeFileSync(localPath, JSON.stringify(local, null, 2) + '\n', 'utf-8');
-        console.log('  ✓  creato global-settings.local.json (porte/deploy + API key generata; login spento: SecretKey vuota)');
+        console.log('  ✓  creato global-settings.local.json (porte/deploy + API key e CryptoSecret generati; login spento: SecretKey vuota)');
     }
 
     // ── 3. Nomi npm "app" → slug del prodotto ────────────────────────────

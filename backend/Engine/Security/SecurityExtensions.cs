@@ -191,6 +191,18 @@ public static class SecurityExtensions
                     }));
         });
 
+        // ── CIFRATURA GENERICA ───────────────────────────────────────────
+        //
+        // Servizio "cappello" AES-GCM per chi deve cifrare un payload (es. l'export dati
+        // personali in EngineDataPrivacyController). Indipendente da LoginEnabled: la chiave
+        // viene da Security.CryptoSecret, non da Token.SecretKey. Singleton costruito pigramente
+        // da DI: se CryptoSecret manca, l'eccezione emerge solo quando qualcosa risolve
+        // IEngineCrypto (property ambient Crypto su EngineApiController), non prima — così un
+        // controller che espone Crypto ma non la usa in un dato ramo (es. nessun dato da cifrare)
+        // non fallisce per una chiave che, in quel momento, non gli serve davvero.
+        //
+        services.AddSingleton<IEngineCrypto, EngineCrypto>();
+
         // ── GESTIONE ERRORI CENTRALIZZATA ───────────────────────────────
         //
         // I controller lanciano ApiException, ApiExceptionHandler le converte

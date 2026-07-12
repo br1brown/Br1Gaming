@@ -3,11 +3,8 @@ import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
 import { TranslateService } from '../../../core/engine/services/translate.service';
 
 /**
- * Form di selezione file riusabile (click o drag-and-drop).
- *
- * È un componente UI puro (dumb component).
- * Emette `fileConfirmed` con il file selezionato quando l'utente preme il pulsante,
- * lasciando al contenitore genitore la responsabilità di fare l'upload vero e proprio.
+ * Form di selezione file riusabile (click o drag-and-drop), componente UI puro (dumb).
+ * Emette `fileConfirmed` col file scelto; l'upload vero lo fa il contenitore genitore.
  */
 @Component({
     selector: 'app-upload-form',

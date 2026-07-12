@@ -1,6 +1,8 @@
 import { Component, computed, effect, inject, makeStateKey, PLATFORM_ID, TransferState } from '@angular/core';
-import { isPlatformServer } from '@angular/common';
-import { RouterOutlet } from '@angular/router';
+import { isPlatformBrowser, isPlatformServer } from '@angular/common';
+import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { filter, skip } from 'rxjs';
 
 import { ContestoSito } from './site';
 import { ShellFlags, SHELL_DATA_KEY } from './core/engine/siteBuilder';
@@ -24,11 +26,8 @@ import { TranslatePipe } from './core/engine/pipes/translate.pipe';
 const SHELL_FLAGS_STATE_KEY = makeStateKey<ShellFlags>(SHELL_DATA_KEY);
 
 /**
- * Shell principale dell'app.
- *
- * Qui non si decide quali pagine esistono: il componente consuma la
- * configurazione gia' trasformata in route Angular e reagisce ai flag
- * di shell della pagina attiva (showPanel, showNav, showFooter).
+ * Shell principale dell'app: non decide quali pagine esistono, consuma le route già trasformate e
+ * reagisce ai flag di shell della pagina attiva (showPanel, showNav, showFooter).
  */
 @Component({
     selector: 'app-root',
@@ -44,15 +43,15 @@ export class AppComponent {
     private readonly platformId = inject(PLATFORM_ID);
     private readonly transferState = inject(TransferState);
     readonly theme = inject(ThemeService);
+    readonly pageMeta = inject(PageMetaService);
 
     readonly smoke = ContestoSito.config.smoke;
 
     /**
-     * Flag di shell della rotta attiva (slice tipato `route.data[SHELL_DATA_KEY]`, scritto da
-     * routing.ts). `initialValue` = flag serializzati dall'SSR (TransferState): sul client il PRIMO
-     * render usa esattamente i flag con cui l'SSR ha generato l'HTML, quindi nessuno sfarfallio
-     * (navbar/pannello che appaiono e spariscono) prima del primo NavigationEnd. Poi il signal si
-     * aggiorna ad ogni navigazione dalla rotta dal vivo. Senza SSR la chiave non c'è → `{}` → default.
+     * Flag di shell della rotta attiva (`route.data[SHELL_DATA_KEY]`, scritto da routing.ts).
+     * `initialValue` = flag serializzati dall'SSR (TransferState): il primo render client usa gli
+     * stessi flag dell'HTML SSR → niente sfarfallio prima del primo NavigationEnd. Poi si aggiorna a
+     * ogni navigazione; senza SSR → `{}` → default.
      */
     private readonly shellFlags = onNavigationEnd(
         router => (PageMetaService.getLeaf(router.routerState.snapshot).data[SHELL_DATA_KEY] ?? {}) as ShellFlags,
@@ -89,5 +88,34 @@ export class AppComponent {
         }
 
         inject(VersionCheckService).init();
+
+        // <details> chiusi (gruppi cookie della Cookie Policy) non stampano il contenuto: corretto a
+        // schermo, ma in stampa vogliamo vedere tutto. matchMedia('print') (più affidabile di
+        // beforeprint in Safari) riapre solo i <details> chiusi e li richiude all'uscita — quelli
+        // già aperti a mano restano aperti.
+        if (isPlatformBrowser(this.platformId)) {
+            let reopenedByPrint: HTMLDetailsElement[] = [];
+            window.matchMedia('print').addEventListener('change', ({ matches }) => {
+                if (matches) {
+                    reopenedByPrint = Array.from(document.querySelectorAll('details:not([open])'));
+                    reopenedByPrint.forEach(d => { d.open = true; });
+                } else {
+                    reopenedByPrint.forEach(d => { d.open = false; });
+                    reopenedByPrint = [];
+                }
+            });
+
+            // Focus in una SPA: un cambio pagina non ricarica il documento, il browser non sposta né
+            // annuncia il focus (chi usa tastiera/screen reader resta sul link cliccato). Approccio
+            // duale: focus su #main-content + aria-live che annuncia il titolo (il solo focus non
+            // basta su alcune combo SR/browser). skip(1): il primo NavigationEnd è il load iniziale.
+            inject(Router).events.pipe(
+                filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+                skip(1),
+                takeUntilDestroyed()
+            ).subscribe(() => {
+                document.getElementById('main-content')?.focus();
+            });
+        }
     }
 }

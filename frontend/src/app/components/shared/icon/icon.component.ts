@@ -1,14 +1,9 @@
 import { Component, ChangeDetectionStrategy, computed, input } from '@angular/core';
 
 /**
- * Componente generico per un'icona "badge" (glifo dentro una pastiglia).
- *
- * Nato dalla ex `.social-icon`: la forma (tonda/quadrata) e l'effetto hover
- * non vivono più sparsi nei template ma qui, in un unico posto riusabile.
- *
- * Gli input testuali `shape` e `animation` sono validati internamente contro
- * un set chiuso di valori: qualunque stringa fuori lista ricade sul default,
- * così il componente non si rompe mai per un valore inatteso.
+ * Icona "badge" (glifo dentro una pastiglia): forma (tonda/quadrata) ed effetto hover in un unico
+ * posto riusabile. Gli input `shape` e `animation` sono validati contro un set chiuso — valore fuori
+ * lista → default, così il componente non si rompe mai.
  */
 
 export const ICON_SHAPES = ['circle', 'rounded', 'square'] as const;

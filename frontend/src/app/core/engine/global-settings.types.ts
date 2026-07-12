@@ -103,6 +103,10 @@ export interface GlobalSettings {
        */
       ExpirationSeconds?: number;
     };
+    /**
+     * Chiave segreta per il servizio di cifratura generico dell'engine (EngineCrypto, AES-256-GCM) — usata ad es. dall'export dati personali (GET /me/data). Volutamente separata da Token.SecretKey: non va derivata da essa né riusata altrove. setup.mjs la genera già alla nascita del progetto, indipendentemente dal login. Rigenerarla con: openssl rand -base64 32.
+     */
+    CryptoSecret?: string;
   };
   /**
    * Configurazione SMTP del mailer dell'engine (EngineMailer). Contiene SEGRETI (password) → vive in global-settings.local.json. Si attiva come il login: senza Host e FromAddress il mailer resta spento e ogni invio risponde 503. Volutamente generica (SMTP standard): lo stesso codice spedisce con OVH, Brevo, Mailgun, Amazon SES, Gmail o un relay locale cambiando solo questi valori. Per non finire in spam, FromAddress deve stare sul tuo dominio e vanno configurati i record DNS SPF/DKIM/DMARC.

@@ -40,7 +40,7 @@ Prima di scrivere una riga, tieni a mente una sola linea di confine. Tutto ciò 
 | Area | Di chi è | Cosa ci fai |
 | :--- | :--- | :--- |
 | `core/engine/**` | **Engine** (intoccabile) | Servizi, direttive, componenti shell, builder, server SSR, script di build. Lo consumi tramite token, signal e direttive — non lo modifichi |
-| `site.ts` | Tuo | Il DSL del sito: enum `PageType`, pagine, menu, shell, tema. È il primo file che apri |
+| `site.ts` | Tuo | Il DSL del sito: assembla `PageType` dai file di area (`pages/*.pages.ts`), pagine, menu, shell, tema. È il primo file che apri |
 | `app.component.ts` / `.html` | Tuo (la **shell**) | Monta navbar, footer, cookie banner, back-to-top e smoke, e avvia `VersionCheckService.init()`. È il posto naturale dove iniettare un servizio sempre-attivo (es. `NotificationStreamService`) |
 | `components/shared/**` | Tuo (riusabili) | Le famiglie pronte — azione, contatto, social, `app-identity-render`, `app-login-form`, `app-upload-form`, footer. Riusabili così come sono, ma di proprietà del figlio: estendibili e modificabili |
 | `core/services/**` | Tuo | `api.service.ts` (il client API che estendi con i tuoi endpoint), `auth.service.ts`, `cookie-registry.ts` (`COOKIE_MAP`) |
@@ -54,11 +54,24 @@ Il confine non è arbitrario: `app.component.ts` (che è *tuo*) importa `FooterC
 
 ## 📜 Le Regole del Gioco (cosa impone l'Engine)
 
-### 1. Stabilità dei Riferimenti: L'Enum `PageType`
-Per ogni schermata aggiungi un identificatore all'enum `PageType` in `site.ts` e naviga sempre tramite quell'ID, così il link resta valido anche cambiando l'URL.
+### 1. Stabilità dei Riferimenti: `PageType`
+Per ogni schermata aggiungi un identificatore a `PageType`, l'identità stabile della pagina, e naviga sempre tramite quell'ID (mai l'URL), così il link resta valido anche cambiando il path. `PageType` è assemblato in `site.ts` dai file di area sotto `pages/` — uno per gruppo tematico (la demo ha `app.pages.ts` e `legal.pages.ts`): ogni area resta un file breve e indipendente, da aprire e mantenere senza scorrere le altre. Ogni area segue lo stesso pattern — un oggetto `as const` di ID stringa (prefissati per area: leggibili anche fuori da TypeScript, in query string o log) più l'array delle relative dichiarazioni pagina:
 ```typescript
-export enum PageType { Home, AboutUs }
+// pages/blog.pages.ts
+export const BlogPages = { List: 'blog.list', Post: 'blog.post' } as const;
+export const blogPagesDecl: SitePageInput[] = [
+    { path: 'blog', pageType: BlogPages.List, title: 'blogNav', component: () => import('./blog/list.component').then(m => m.ListComponent) },
+];
 ```
+```typescript
+// site.ts
+import { BlogPages, blogPagesDecl } from './pages/blog.pages';
+export const PageType = { ...LegalPages, ...AppPages, ...BlogPages } as const;
+export type PageType = (typeof PageType)[keyof typeof PageType];
+// ...
+pages: () => [...appPagesDecl, ...blogPagesDecl],
+```
+Aggiungere una nuova area è un file + una riga di spread; aggiungere una pagina in un'area esistente è un nuovo identificatore nell'oggetto dell'area più la sua dichiarazione.
 
 ### 2. Componenti Pagina vs Componenti UI
 - **`pages/`**: Sono le schermate. Ereditano da `PageBaseComponent` per ottenere l'accesso rapido ad API, logger e traduttore senza iniezioni ridondanti.
@@ -134,13 +147,15 @@ Tutto ciò che un progetto figlio configura per fare suo il sito **senza modific
 
 ### Pagine & rotte (`site.ts`)
 
-Tutto parte da `site.ts`. Dichiari una pagina con un oggetto in `pages` (`pageType` + `component` lazy); un oggetto con `children` crea un gruppo di menu annidato (le `/policy/*` sono l'esempio dell'Engine), uno con `externalUrl` un link verso un sito esterno, e `enabled: false` spegne la pagina ovunque in un colpo solo (rotta, menu, sitemap, padre incluso).
+Le pagine vivono nei **file di area** `pages/*.pages.ts` (uno per gruppo tematico, es. `app.pages.ts`): ogni area dichiara i propri ID `PageType` (stringhe prefissate, es. `app.home`) e le proprie dichiarazioni di pagina; `site.ts` li assembla con uno spread e tiene per sé gli slot globali (`homePage`, `loginPage`, `legalPages`, `shell`) e i menu. Una dichiarazione con `component` (lazy) è una pagina interna; con `children` un gruppo di menu annidato (le `/policy/*` sono l'esempio dell'Engine); con `externalUrl` un link verso un sito esterno; `enabled: false` spegne la pagina ovunque in un colpo solo (rotta, menu, sitemap, padre incluso).
 
-Per ogni pagina regoli login (`requiresAuth`), strategia di rendering (`renderMode`), shell e layout (`layout: { showNav, showFooter, showPanel, fitViewport }`) e SEO/social (`description`, `otherSEO`). A livello globale imposti il brand link e il redirect d'autenticazione (`homePage`/`loginPage`), i flag della `shell`, `isWebApp`/`onlyPlainImage`, gli slot `legalPages` (con override per-`PageType`) e i menu `headerNav`/`footerNav` (callback builder con `addPage`/`addLink`/`addGroup`). *Vedi «Developer Journey», «Opzioni Avanzate di site.ts», «Navigazione Multilivello», «Vista a tutto schermo», «Pagine legali».*
+I link interni puntano al `PageType`, mai al path: rinominare un path è una riga nella dichiarazione (menu, footer e link continuano a funzionare), rimuovere un ID fa segnalare a TypeScript ogni punto che ancora lo usa, e gli ID restano leggibili anche fuori dal codice — query string (`?returnPageType=…`), log, messaggi d'errore del builder.
+
+Per ogni pagina regoli login (`requiresAuth`), strategia di rendering (`renderMode`), shell e layout (`layout: { showNav, showFooter, showPanel, fitViewport }`) e SEO/social (`description`, `otherSEO`). A livello globale imposti il brand link e il redirect d'autenticazione (`homePage`/`loginPage`), i flag della `shell`, `isWebApp`/`onlyPlainImage`, gli slot `legalPages` (con override per-`PageType`) e i menu `headerNav`/`footerNav` (callback builder con `addPage`/`addLink`/`addGroup`). *Vedi «Developer Journey», «Opzioni Avanzate di site.ts», «Navigazione Multilivello», «Vista a tutto schermo», «Pagine legali».* Ricetta rapida: [AGENTS.md](../AGENTS.md#aggiungere-una-pagina).
 
 ### Dati a una pagina
 
-Per passare qualcosa a una pagina hai quattro canali, tutti letti come `@Input()` per nome: `data` statico, parametro di rotta `:x`, query `?x=` e il resolver. Per avere il contenuto già al primo render aggiungi un `case` in `ContentResolver.loadResolved()`. La configurazione libera di progetto si legge con `inject(APP_CUSTOM)` (la sezione `Custom`), mentre la configurazione risolta e normalizzata del sito con `inject(SITE_CONFIG)`. *Vedi «Passare Dati a una Pagina», «ContentResolver», «Configurazione di progetto (Custom)», «Token SITE_CONFIG».*
+Per passare qualcosa a una pagina hai quattro canali, tutti letti come `@Input()` per nome: `data` statico, parametro di rotta `:x`, query `?x=` e il resolver. Per avere il contenuto già al primo render aggiungi un `case` in `ContentResolver.loadResolved()`. La configurazione libera di progetto si legge con `inject(APP_CUSTOM)` (la sezione `Custom`), mentre la configurazione risolta e normalizzata del sito con `inject(SITE_CONFIG)`. *Vedi «Passare Dati a una Pagina», «ContentResolver», «Configurazione di progetto (Custom)», «Token SITE_CONFIG».* Ricetta rapida (tipi generati per `global-settings.json`): [AGENTS.md](../AGENTS.md#leggere-global-settingsjson-tipizzato).
 
 ### Aspetto & i18n
 
@@ -148,9 +163,13 @@ Il colore del brand è `colorTema`, modificabile a runtime con `ThemeService.set
 
 ### Servizi & componenti
 
-Estendi il client API aggiungendo path e metodo pubblico in `api.service.ts` (con `{ silent: true }` quando vuoi gestire l'errore con una UI tua); abiliti le notifiche realtime con il campanellino via `shell: { showNotifications: true }`; registri un cookie o una voce di Web Storage aggiungendo una riga a `COOKIE_MAP`; adatti i DTO di sessione e login in `core/dto/` (`session.dto.ts` e `auth.dto.ts`, allineati ai record C#).
+Estendi il client API aggiungendo path e metodo pubblico in `api.service.ts` (con `{ silent: true }` quando vuoi gestire l'errore con una UI tua); abiliti le notifiche realtime con il campanellino via `shell: { showNotifications: true }`; registri un cookie o una voce di Web Storage aggiungendo una riga a `COOKIE_MAP`; adatti i DTO di sessione e login in `core/dto/` (`session.dto.ts` e `auth.dto.ts`, allineati ai record C#). Ricette rapide: [AGENTS.md](../AGENTS.md#aggiungere-un-endpoint-al-client) (endpoint), [AGENTS.md](../AGENTS.md#persistere-dati-lato-client-cookie-web-storage-consenso) (cookie/Web Storage).
 
 Per comporre le UI riusi le direttive dichiarative (`[appPage]` per i link interni, `[appImgRender]`/`[appQrContent]` per immagini e QR generati, `[appContextMenu]` per i menu contestuali), la pipe `markdown` (sanitizzata) e i componenti pronti (`app-link-badge` e le famiglie azione/contatto). La PWA si attiva con `isWebApp`. *Vedi «Aggiungere un Endpoint», «Errori Silenziosi per UI Custom», «NotificationStreamService», «Aggiungere un Nuovo Cookie», «DTO di Sessione e Login», «[appPage]», «Directive di Rendering Dichiarativo», «Componenti di Azione/Contatto».*
+
+### Bundling & build (`angular.json`)
+
+Il peso del bundle si regola con `budgets` (soglie warning/errore, già gate di `ng build`), la whitelist `allowedCommonJsDependencies` per librerie di terze parti senza ESM, e gli array `styles`/`scripts`/`assets` per CSS/JS/file globali. Il code-splitting per pagina è già automatico (`site.ts → component: () => import(...)`); per un SDK pesante applichi lo stesso `import()` dinamico a mano, dentro il componente che lo usa. *Vedi «Bundling frontend: budget, code-splitting e i confini del builder».*
 
 ---
 
@@ -158,8 +177,8 @@ Per comporre le UI riusi le direttive dichiarative (`[appPage]` per i link inter
 
 Per creare una nuova schermata, segui questo workflow per mantenere integro e type-safe il routing dell'Engine:
 
-1. **Registrare l'identità:** Aggiungi un nuovo `PageType` nell'enum centrale in `src/app/site.ts`.
-2. **Dichiarare la rotta:** Aggiungi la configurazione della pagina nell'array `pages` di `site.ts` (definendo path, SEO ed eventuali guardie).
+1. **Registrare l'identità:** Aggiungi un nuovo `PageType` nel file della sua area (`src/app/pages/*.pages.ts`) — una nuova area è un nuovo file dello stesso pattern, assemblato in `src/app/site.ts`.
+2. **Dichiarare la rotta:** Aggiungi la dichiarazione della pagina nell'array del suo file di area (path, SEO ed eventuali guardie); `site.ts` resta invariato se l'area esiste già.
 3. **Creare il componente:** Crea il componente in `pages/` estendendo `PageBaseComponent` per ereditare i servizi dell'Engine (api, traduzioni, asset, notify e meta-tag automatici).
 4. **Proteggere la pagina (opzionale):** Usa `requiresAuth: true` nella dichiarazione in `site.ts` per demandare all'Engine il controllo auth e il redirect.
 5. **Navigare in Sicurezza:** Usa la direttiva `[appPage]="PageType.MioNuovoComponente"` nell'HTML per delegare al framework il calcolo della rotta corretta.
@@ -186,8 +205,8 @@ Il sistema di login è **opzionale** e si attiva configurando `Security.Token.Se
 
 ```typescript
 // site.ts → tutto strutturale, sta insieme
-shell: { showLoginInHeader: true },     // mostra il link Login/pulsante Logout nella navbar
-loginPage: PageType.Login,       // pagina dove redirigere gli utenti non autenticati
+loginPage: { page: PageType.Login, showInHeader: true },  // redirect auth + link Login in navbar
+// loginPage: PageType.Login,   // forma nuda: solo redirect auth, login fuori dalla navbar
 ```
 
 ### Proteggere una Pagina
@@ -239,7 +258,7 @@ Aggiungere un campo al profilo di sessione (es. `brandColor`) è quindi un'unica
 | Componente | Selector | Ruolo |
 | :--- | :--- | :--- |
 | `LoginFormComponent` | `app-login-form` | Form username/password riusabile; emette `(loggedIn)` al successo. Non naviga da solo. |
-| `UserNavComponent` | `app-user-nav` | Area Login/Logout nella navbar. Appare solo se `showLoginInHeader: true`. Gestisce il logout con modale di conferma. |
+| `UserNavComponent` | `app-user-nav` | Area Login/Logout nella navbar. Il link di login appare solo con `loginPage: { page, showInHeader: true }`; il logout, da loggati, appare comunque. Gestisce il logout con modale di conferma. |
 | `UploadFormComponent` | `app-upload-form` | Componente "dumb" per drag-and-drop e selezione file. Emette il `File` nativo delegando la chiamata API al componente genitore. |
 
 ### Ciclo di Vita del Token
@@ -442,7 +461,7 @@ La pagina Cookie Policy deve elencare categorie e cookie usati dal sito (richies
 | `{{cookieList}}` | **Elenco riepilogo-first**: le voci (cookie **e** Web Storage) raggruppate per categoria in pannelli collassabili (`<details>` nativo), **chiusi di default** — così regge anche con centinaia di voci. Header del gruppo con nome, conteggio e descrizione della categoria; per ogni voce: nome fisico, mezzo, descrizione, **provider** (cliccabile se ha `providerUrl`) e **durata**. |
 | `{{cookieCategories}}` | Card delle categorie presenti (Technical / Analytics / Profiling). *Ridondante col nuovo `{{cookieList}}`, che ne fonde già le descrizioni negli header: il markdown demo non lo usa più, ma il token resta supportato per chi lo vuole.* |
 
-**Extra automatici, solo sulla Cookie Policy** (identificata per `PageType`): oltre ai placeholder, il `PolicyComponent` aggiunge da sé la riga **«Ultimo aggiornamento»** (data per pagina legale dal dizionario `legalUpdated`, `Date` hardcoded, resa con `<time>` semantico e formattata per lingua via `Intl`), la sezione **«Come controllare i cookie»** (guide dei browser localizzate per lingua) e un **pannello di gestione del consenso in pagina** (il cookie-banner in `panelMode`: stessi toggle/pulsanti, in-flusso, mostrato dopo che si è risposto).
+**Extra automatici, solo sulla Cookie Policy** (identificata per `PageType`): oltre ai placeholder, il `PolicyComponent` aggiunge da sé la riga **«Ultimo aggiornamento»** (data per pagina legale dal dizionario `legalUpdated` in `pages/legal.pages.ts`, `Date` hardcoded, resa con `<time>` semantico e formattata per lingua via `Intl`), la sezione **«Come controllare i cookie»** (guide dei browser localizzate per lingua) e un **pannello di gestione del consenso in pagina** (il cookie-banner in `panelMode`: stessi toggle/pulsanti, in-flusso, mostrato dopo che si è risposto).
 
 I dati provengono direttamente da `CookieConsentService`: il `PolicyComponent` legge i signal reattivi e costruisce le liste localizzate.
 
@@ -462,6 +481,70 @@ buildPhysicalCookieKey(rawKey, config);
 ```
 
 La lista finale è l'unione di `activeEngine()` (voci built-in: lingua se multilingua, Service Worker se `isWebApp`, memorie del consenso, più `consent_log` e `bearerToken` su Web Storage) e `COOKIE_MAP` (voci del progetto). Per ogni voce il `PolicyComponent` mostra **mezzo** (Cookie / Archiviazione locale / di sessione), **provider** (con link se `providerUrl` è dichiarato; assente = «Prima parte») e **durata**. Le descrizioni usano le `descriptionKey`, le durate le `durationKey`; le etichette di categoria e mezzo le chiavi i18n in `basic.{lang}.json`.
+
+### Google Consent Mode v2 — ricetta pronta (non attiva di default)
+
+L'Engine resta **provider-agnostico**: `COOKIE_MAP` nasce vuoto e nessun tag Google è caricato finché non lo aggiungi tu. Ma se il progetto usa (o userà) GA4/Google Ads, dal 28 marzo 2024 Google **richiede** il Consent Mode v2 — senza, i tag degradano o smettono di funzionare in UE. Non è nell'Engine perché è specifico di un vendor terzo (romperebbe la neutralità e obbligherebbe ogni sito a portarsi dietro codice morto); è però già cablato tutto il necessario lato consenso — questa è la ricetta da applicare il giorno in cui attivi Google, quattro punti, tutti nel Dominio:
+
+**1. `src/index.html` — stub di default, PRIMA di qualsiasi script `gtag.js`/GTM.** Consenso negato finché l'utente non risponde (obbligatorio: deve caricare prima del tag stesso):
+```html
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('consent', 'default', {
+    'ad_storage': 'denied',
+    'ad_user_data': 'denied',
+    'ad_personalization': 'denied',
+    'analytics_storage': 'denied',
+    'wait_for_update': 500
+  });
+</script>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXX"></script>
+<script>
+  gtag('js', new Date());
+  gtag('config', 'G-XXXXXXX');
+</script>
+```
+Aggiungilo a mano solo quando attivi davvero GA/Ads: prima di allora è codice morto che non ha ragione di stare nel seed di ogni sito.
+
+**2. `security-headers.json` — whitelisting CSP.** La CSP di default è `script-src 'self'` / `connect-src 'self'`: senza estenderla, il browser blocca `gtag.js` in silenzio. Usa l'override eccezionale già documentato nella `_nota` del file:
+```
+script-src 'self' {SCRIPT_NONCE_PLACEHOLDER} https://www.googletagmanager.com;
+connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com
+```
+
+**3. `cookie-registry.ts` — censisci i cookie di Google.** Stesso pattern già mostrato sopra per `_ga` (`provider: 'Google Analytics'`, `providerUrl`, `durationKey`): categoria `Analytics` per GA4, `Profiling` per Google Ads/remarketing.
+
+**4. Un servizio di progetto che aggiorna il consenso reattivamente.** Stesso pattern di gating già documentato (`effect()` su un signal di `CookieConsentService`), qui rivolto a `gtag('consent', 'update', …)` invece che al caricamento di uno script:
+```typescript
+// core/services/analytics.service.ts — iniettato una volta da app.component.ts (la shell)
+declare const gtag: (...args: unknown[]) => void;
+
+@Injectable({ providedIn: 'root' })
+export class AnalyticsService {
+    private readonly consent = inject(CookieConsentService);
+
+    constructor() {
+        effect(() => {
+            if (typeof gtag !== 'function') return;
+            gtag('consent', 'update', {
+                analytics_storage: this.consent.analyticsAccepted() ? 'granted' : 'denied',
+                ad_storage: this.consent.profilingAccepted() ? 'granted' : 'denied',
+                ad_user_data: this.consent.profilingAccepted() ? 'granted' : 'denied',
+                ad_personalization: this.consent.profilingAccepted() ? 'granted' : 'denied',
+            });
+        });
+    }
+}
+```
+Mappatura sulle categorie di questo Engine: `analytics_storage` ← `analyticsAccepted()`; `ad_storage`/`ad_user_data`/`ad_personalization` (pubblicità comportamentale) ← `profilingAccepted()`, non `analyticsAccepted()` — sono due consensi giuridicamente distinti anche per Google.
+
+### Altri due obblighi da tenere presenti (fuori scope Engine oggi)
+
+Nessuno dei due è una feature del template — nessun chatbot, nessuna generazione IA, nessuna newsletter integrata — ma diventano rilevanti nel momento in cui un progetto figlio li aggiunge:
+
+- **AI Act, trasparenza — dal 2 agosto 2026.** Se il progetto aggiunge un chatbot: avviso esplicito e immediatamente percepibile al primo messaggio ("Stai parlando con un sistema di IA"), non un testo nascosto in fondo alla pagina. Se pubblica contenuti (testo/immagini/video) generati da IA senza revisione editoriale umana: etichettatura visibile. Riguarda anche le PMI, non solo i grandi provider — l'Engine non ha nulla da gestire finché non esiste il chatbot/i contenuti, ma la scadenza è vicina: pianificalo per tempo.
+- **Newsletter/marketing — consenso separato dal consenso cookie.** Se il progetto aggiunge un form di iscrizione: l'autorizzazione a scrivere all'indirizzo email **non** è una categoria di `ConsentCategory` — quel sistema gestisce storage/tracciamento lato browser (Technical/Analytics/Profiling), non il permesso di inviare comunicazioni. Serve una checkbox dedicata, non pre-spuntata, e — se il progetto fa anche profilazione sugli iscritti — una seconda checkbox separata per quello: consensi granulari e specifici, non raggruppati in uno solo.
 
 ---
 
@@ -833,6 +916,21 @@ Per pagine/viste a tutto schermo (mappe, giochi, dashboard) dove lo scroll spezz
 
 **Lato pagina serve una cosa sola:** fai crescere il root del componente con `flex-grow-1` (o `h-100`) sul suo elemento radice, così riempie l'altezza. Il resto è territorio dell'Engine: dà già `display: block` all'host di ogni pagina e, in full-bleed, costruisce la catena flex fino al viewport adattandosi da sé a navbar/footer/orientamento — layout nativo del browser, anche in SSR. Tu pensi al contenuto.
 
+### Stampa/PDF
+
+Ogni pagina è **sempre stampabile, senza configurazione e senza bottone dedicato**: i browser espongono già la stampa in modo prominente (Ctrl+P, menu, condivisione) — un bottone nel template la replicherebbe soltanto, pratica ormai considerata superata. Quello che l'Engine garantisce è la **resa**: un `@media print` condiviso (`styles/engine/base/_print.scss`, globale — non per-pagina) ripulisce automaticamente **qualunque** pagina, presente e futura (anche una che il progetto figlio scrive da sé domani, es. un articolo se il figlio è una testata giornalistica):
+- **Via del tutto:** navbar, i FAB fissi (`app-back-to-top`, `app-cookie-banner` — icone/pulsanti di UI, mai contenuto), lo sfondo smoke.
+- **Forzato tema chiaro** (nero su bianco, a prescindere dal tema attivo — la stampa non è mai scura) su `html`/`body`, così vale anche fuori dal pannello contenuti.
+- **Pannello contenuti** spogliato dell'identità "da card" (sfondo/bordo/ombra/griglia): resta solo il contenuto.
+- **Footer semplificato, non nascosto:** la riga di copyright/ragione sociale è informazione legittima su un documento stampato, quindi resta — via solo l'identità estesa (indirizzo/social/orari, con l'eventuale accordion interattivo) e il menu di navigazione (link non cliccabili su carta).
+- **`<details>` chiusi si aprono da soli** (es. i gruppi cookie della Cookie Policy, o un accordion FAQ in un articolo): altrimenti stamperebbero solo l'intestazione, non il contenuto (`AppComponent`, ascolta `matchMedia('print')`).
+
+È anche il "formato alternativo" richiesto dalla Dichiarazione di Accessibilità — vedi `app-print-action` più sotto se un progetto vuole comunque un bottone di stampa **puntuale** su una pagina specifica (non è nel template di default, ma il building block c'è già).
+
+### Navigazione SPA: focus e annuncio agli screen reader
+
+Un cambio pagina qui non ricarica il documento — è il router Angular a sostituire il contenuto sotto `<router-outlet>` — quindi il browser **non** sposta da solo il focus né annuncia nulla, come farebbe invece con un normale link multi-pagina. Senza intervento, chi naviga da tastiera o screen reader resta "fermo" sul link appena attivato, dentro un contenuto ormai sostituito. L'Engine applica l'approccio duale raccomandato (2025/2026): `AppComponent` ascolta `NavigationEnd` (saltando il primo, quello del caricamento iniziale — lì il focus del browser va lasciato dov'è) e sposta il focus su `#main-content` (`tabindex="-1"`, programmaticamente focalizzabile senza entrare nell'ordine di tabulazione), mentre una regione `role="status" aria-live="polite"` annuncia il nuovo titolo (`PageMetaService.announcedTitle`, lo stesso testo del `<title>`) — il solo focus non basta perché alcune combinazioni screen reader/browser (NVDA+Firefox, VoiceOver+Safari) non lo annunciano sempre in modo affidabile. Nessuna configurazione: vale su ogni pagina, presente e futura.
+
 ---
 
 ## 🌍 Internazionalizzazione (i18n)
@@ -1037,15 +1135,7 @@ La convenzione vive inline in `api.service.ts`. Tre passi:
 2. **Metodo pubblico** — esponi un metodo dedicato che chiama l'helper protetto del `BaseApiService`: `api_get<T>()` / `api_post<T>()` per le chiamate una-tantum, `api_resource<T>()` per i dati reattivi (si ri-fetchano al cambio di signal, es. lingua).
 3. **(Opzionale) ContentResolver** — se l'endpoint alimenta una pagina al primo render, aggiungi un `case` in `ContentResolver.loadResolved()` (vedi *Developer Journey → Passo 5*).
 
-```typescript
-// 1. Path
-const API = { /* … */ articolo: (id: string) => `articolo/${encodeURIComponent(id)}` } as const;
-
-// 2. Metodo pubblico — la gestione errori/notifica è automatica via interceptor
-getArticolo(id: string): Promise<Articolo> {
-    return this.api_get<Articolo>(API.articolo(id));
-}
-```
+Esempio (path parametrico + metodo che ne consuma il risultato): [AGENTS.md](../AGENTS.md#aggiungere-un-endpoint-al-client).
 
 > **Upload multipart/`FormData`:** per gli endpoint che ricevono file usa `this.api_post_form<T>(path, formData)` invece di `api_post` — è quello che usa già `uploadBlob`. Non impostare `Content-Type` a mano: il browser lo aggiunge con il boundary corretto; per il resto passa per le stesse `build_api_Headers` e l'`apiErrorInterceptor`.
 
@@ -1295,7 +1385,7 @@ La versione è dichiarata in `global-settings.json` (`project.version`) e distri
 
 ## ⚙️ Opzioni Avanzate di `site.ts`
 
-Oltre a `path`, `title` e `description`, ogni pagina in `pages` accetta:
+Oltre a `path`, `title` e `description`, ogni dichiarazione di pagina (nei file di area `pages/*.pages.ts`, assemblati nell'array `pages` di `site.ts`) accetta:
 
 ```typescript
 {
@@ -1325,14 +1415,14 @@ A livello top di `site.ts` (oltre a `pages` / `headerNav` / `footerNav`) dichiar
 ```typescript
 // site.ts
 homePage: PageType.Home,           // pagina del brand/logo nel navbar (se omessa, il brand non è un link)
-loginPage: PageType.Login,  // dove mandare gli utenti non autenticati (se omessa → /error/401)
+loginPage: PageType.Login,         // dove mandare gli utenti non autenticati (se omessa → /error/401)
+// loginPage: { page: PageType.Login, showInHeader: true },  // forma estesa: espone anche il link Login in navbar
 
 shell: {                           // comportamento di navbar / footer / header / pannello contenuti
     showNav: true,                 // mostra la navbar (false nasconde anche il language picker)
     showFooter: true,              // mostra il footer
     fixedTopHeader: false,         // navbar fissa in alto allo scroll
     showBrandIconInHeader: true,   // favicon accanto al nome nel brand
-    showLoginInHeader: true,       // link Login / pulsante Logout nella navbar
     showNotifications: false,      // campanellino notifiche realtime con storico (default false, opt-in)
     forcedLightPanel: true,        // pannello contenuti sempre chiaro, a prescindere dal tema OS
     pageFade: true,                // fade-in d'ingresso pagina (gate: col globale off nessuna pagina può riattivarlo)
@@ -1428,15 +1518,17 @@ L'Engine elabora i gruppi in modo automatico:
 Mappi gli slot legali dell'Engine ai tuoi `PageType`; il builder costruisce da solo il contenitore `/policy/*` con le sole pagine valorizzate:
 ```typescript
 legalPages: {
-    privacy: PageType.PrivacyPolicy,
-    cookie:  PageType.CookiePolicy,
-    tos:     PageType.TermsOfService,
-    legal:   PageType.LegalNotice,
+    privacy:       PageType.PrivacyPolicy,
+    cookie:        PageType.CookiePolicy,
+    tos:           PageType.TermsOfService,
+    legal:         PageType.LegalNotice,
+    accessibility: PageType.AccessibilityStatement,
 },
 ```
 - **Slot omesso** → quella pagina non viene creata (es. una vetrina con i soli cookie).
 - **Cookie obbligatoria**: se il sito usa cookie (multilingua, PWA o cookie di progetto) lo slot `cookie` dev'essere valorizzato, altrimenti il build si ferma con un errore esplicito.
-- **Contenuto**: Markdown localizzati in `src/assets/legal/` (slug `privacy`, `cookie`, `TOS`, `legal` → `<slug>.<lang>.md`); il `PolicyComponent` interpola i placeholder dell'identità del sito (`{{ragioneSociale}}`, `{{partitaIva}}`, …).
+- **Contenuto**: Markdown localizzati in `src/assets/legal/` (slug `privacy`, `cookie`, `TOS`, `legal`, `accessibility` → `<slug>.<lang>.md`); il `PolicyComponent` interpola i placeholder dell'identità del sito (`{{ragioneSociale}}`, `{{partitaIva}}`, …) e `{{companyProfile}}` (blocco identità completo, come in `legal.<lang>.md`).
+- **Dichiarazione di Accessibilità**: slot facoltativo come gli altri tre (non `cookie`) — nessun errore di build se lo ometti. Rilevante dal 28 giugno 2025 per i siti nello scope dell'European Accessibility Act (e-commerce, o fatturato >2M€/≥10 dipendenti, microimprese escluse). **Attenzione:** il regime esatto dipende da chi eroga il sito — Pubblica Amministrazione (Legge 4/2004, dichiarazione + obiettivi annuali via piattaforma AGID) e soggetti privati (D.Lgs. 82/2022, "informazioni sull'accessibilità" ex Allegato IV, senza obiettivi annuali) **non sono lo stesso adempimento**: il Markdown demo è un template generico di trasparenza (stato di conformità, limiti noti, canale di segnalazione), non un modulo ufficiale né un testo legale pronto all'uso — verifica con un consulente legale quale regime si applica al progetto.
 
 **Override per-pagina.** Per gestire una policy a modo tuo (rotta dedicata, contenuto da API invece che da Markdown) dichiari tu stesso la pagina in `pages` con lo stesso `PageType`: la tua vince, l'Engine non la crea e non ne carica il `.md`. Le altre policy restano automatiche.
 
@@ -1546,7 +1638,7 @@ La directive `PageDirective` traduce un `PageType` nel path corrispondente e lo 
 | Caratteristica | Dettaglio |
 | :--- | :--- |
 | Comportamento | Identico a `[routerLink]` — SPA navigation, keyboard, right-click "Apri in nuova scheda" |
-| Fallback | Se il `PageType` non è registrato in `site.ts`, naviga verso `/` **in silenzio**: nessun errore a runtime né a compile-time (il `PageType` esiste come enum, manca solo la rotta). Un link che porta a casa senza motivo apparente di solito è un `PageType` dichiarato nell'enum ma mai aggiunto a `pages`. |
+| Fallback | Se il `PageType` non è registrato in `site.ts`, naviga verso `/` con un avviso in console (solo in dev-mode — nessun errore a runtime né a compile-time, il `PageType` è comunque valido come identificatore, manca solo la rotta). Un link che porta a casa senza motivo apparente di solito è un `PageType` dichiarato ma mai aggiunto a `pages`. |
 | `href` | Bindato esplicitamente: RouterLink come `hostDirective` non aggiorna il proprio `@HostBinding` via effect → senza questo binding, l'elemento avrebbe `href=null` e cursore testo invece di cursore link |
 | Tipo | `input.required<PageType>()` — errore TypeScript a compile-time se mancante |
 
@@ -1826,7 +1918,14 @@ Apre o scarica un PDF. Usa `config` al posto di `action`: lavora direttamente su
 | `config` | `PdfActionConfig` (required) | `{ url: string; openInTab: boolean }` — URL del PDF e modalità di apertura |
 
 #### `app-print-action`
-Apre la finestra di stampa nativa del browser tramite `window.print()`. Non richiede `action` né altri input aggiuntivi: stampa il contenuto della pagina corrente così com'è.
+Apre la finestra di stampa nativa del browser tramite `window.print()`. Non richiede `action`. Non è montato da nessuna parte nel template di default (niente bottone di stampa globale — vedi «Stampa/PDF» più sopra, che copre la resa senza bisogno di un bottone): usalo se un progetto vuole comunque un'affordance di stampa puntuale su una pagina specifica (es. una fattura, un articolo). Si auto-esclude sempre dalla propria stampa (`d-print-none` intrinseco): un bottone "stampa" non ha senso nel risultato stampato di se stesso.
+
+#### `app-like-action`
+Registra un apprezzamento tramite `action` (nessun contenuto prodotto o trasformato: segnala solo un evento). Bottone a stato piatto: una volta `liked`, il click è no-op (niente "togli mi piace") e il bottone resta attivo (`.active`, `aria-pressed="true"`).
+
+| Input aggiuntivo | Tipo | Descrizione |
+| :--- | :--- | :--- |
+| `liked` | `boolean` | Stato iniziale "già piaciuto" (default `false`) |
 
 ### Componenti di Contatto
 
@@ -1952,6 +2051,23 @@ Entrambi sono impostati a `project.lastModified` in `global-settings.json` (form
 ### `og:locale`
 
 `og:locale` in `index.html` usa il formato regionale OpenGraph `lingua_REGIONE` (es. `it` → `it_IT`), derivato dalla `DEFAULT_LANG` via `Intl.Locale().maximize()` — coerente con il formato emesso a runtime da `PageMetaService`.
+
+---
+
+## 📦 Bundling frontend: budget, code-splitting e i confini del builder
+
+Il builder è `@angular/build:application` (`angular.json → architect.build.builder`): impacchetta con **esbuild**, ma dietro un'interfaccia dichiarativa — non c'è un `esbuild.config.*`/`webpack.config.*` da aprire ed estendere. È un confine di design, non una lacuna: le leve su cui un progetto figlio interviene stanno tutte in `angular.json`, negli stessi punti di contatto elencati nella tabella «Condivisi con punti di contatto» del [README radice](../README.md).
+
+| Leva | Dove | Effetto |
+| :--- | :--- | :--- |
+| `budgets` (`configurations.production`) | `angular.json` | Soglia di warning/errore sul peso del bundle iniziale (default `850kB`/`1MB`) e per stile-per-componente (`6kB`/`10kB`). **È già il gate anti-regressione**: superarla fa fallire `ng build`, quindi la CI |
+| `allowedCommonJsDependencies` | `angular.json` | Whitelist delle dipendenze CommonJS (niente tree-shaking, altrimenti warning bloccante). Aggiungi qui una libreria di terze parti che non spedisce ESM (`qrcode` è già presente per il template) |
+| `styles` / `scripts` | `angular.json` | CSS/JS globali da `node_modules` caricati prima del bundle applicativo (Bootstrap, FontAwesome, SweetAlert2 sono già qui) |
+| `assets` | `angular.json` | Glob di file copiati così come sono, fuori dal bundle JS |
+
+**Code-splitting: già automatico, segui il pattern esistente.** Ogni pagina in `site.ts` si dichiara con `component: () => import('./pages/.../x.component')`: il router genera un chunk lazy per pagina senza altra configurazione. Per un SDK di terze parti pesante (mappe, player video, chat) applica lo stesso principio a mano — `import()` dinamico dentro il componente/servizio che lo usa, non un import statico in cima al file — così il codice entra nel bundle iniziale solo se e quando serve (e, se l'SDK scrive cookie/Web Storage, dietro il gate del consenso: vedi «Aggiungere un cookie o una voce di Web Storage», [AGENTS.md](../AGENTS.md#persistere-dati-lato-client-cookie-web-storage-consenso)).
+
+**Cosa resta fuori per scelta.** Chunking manuale, plugin esbuild custom o un builder alternativo (webpack, Vite) non sono seam supportati: richiederebbero sostituire `architect.build.builder`, che è scaffold del template (vince il template al merge). Se un progetto arriva davvero a un limite che budget/code-splitting/CommonJS-allowlist non risolvono, è un segnale da portare a monte (Engine), non da aggirare nel figlio.
 
 ---
 

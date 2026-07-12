@@ -1,19 +1,27 @@
-@if (loginLink) {
+@if (isLoggedIn()) {
+<!-- Loggato: logout SEMPRE disponibile (se esiste una loginPage), a prescindere da
+     showLoginInHeader. Il link di login può essere nascosto ai visitatori, ma chi è entrato
+     deve poter uscire; e questo bottone lo vede solo l'utente loggato. -->
+@if (hasLoginPage) {
 <ul class="navbar-nav ms-md-auto">
     <li class="nav-item">
-        @if (isLoggedIn()) {
         <button type="button"
                 class="nav-link nav-logout-link"
                 [attr.aria-label]="'logoutAzione' | translate"
                 (click)="onLogout()">
             {{ 'logoutNav' | translate }}
         </button>
-        } @else {
+    </li>
+</ul>
+}
+} @else if (loginLink) {
+<!-- Sloggato: link di login solo se showLoginInHeader (loginLink lo incapsula già). -->
+<ul class="navbar-nav ms-md-auto">
+    <li class="nav-item">
         <app-nav-link [link]="loginLink"
                       cssClass="nav-link"
                       activeCssClass="nav-current-link active"
                       (linkClick)="onNavigationClick()" />
-        }
     </li>
 </ul>
 }

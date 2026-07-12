@@ -57,3 +57,5 @@ frontend/public/
 frontend/src/assets/files/image-cache
 frontend/lh-report.json
 frontend/ssr-server*.log
+lh-report-*.json
+frontend/.a11y-run-*.cjs

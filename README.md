@@ -35,15 +35,39 @@ Br1WebEngine si prende in carico la parte noiosa di ogni progetto web — routin
 
 ## 📚 Mappa della documentazione
 
-Cinque file, cinque mestieri diversi. Così sai dove guardare prima di mettere mano al codice.
+Un file, un mestiere. Così sai dove guardare prima di mettere mano al codice.
 
 | Documento | A cosa serve |
 | :--- | :--- |
+| [QUICKSTART.md](QUICKSTART.md) | **Parti da qui se è la prima volta:** 3 comandi e sei in piedi, senza la teoria. |
 | **README.md** (questo) | Panoramica, architettura, **dove mettere le mani**, avvio rapido e la **vetrina della demo**: gli esempi del template vivono qui. |
 | [frontend/README.md](frontend/README.md) | **Direttive di implementazione** del frontend per i progetti figli: DSL `site.ts`, SSR, servizi (API, tema, i18n, cookie, share, QR…), directive Angular, SEO. |
 | [backend/README.md](backend/README.md) | **Direttive di implementazione** del backend per i progetti figli: Engine di sicurezza, eccezioni→`ProblemDetails`, `FileContentStore`, login JWT. |
 | [DOCKER_README.md](DOCKER_README.md) | Setup Docker, configurazione `global-settings(.local).json`, pubblicazione, backup dei volumi. |
+| [AGENTS.md](AGENTS.md) | Regole trasversali e ricette pratiche per chi sviluppa — umano o assistente di coding. |
+| [ENGINE.md](ENGINE.md) | Mappa dell'implementazione interna dell'Engine **non** citata per nome nei due README di dettaglio — dove trovarla e perché è fatta così, senza reverse engineering. |
 | [CHANGELOG.md](CHANGELOG.md) | Cosa cambia nel template tra una versione e l'altra. |
+
+---
+
+## 🗺️ Mappa delle aree tecniche
+
+La tabella sopra dice *in che file* cercare; questa dice *per argomento* — utile a chi arriva senza conoscere il progetto e vuole sapere subito cosa il template gli mette a disposizione, area per area.
+
+| Area | Nel template | Approfondisci |
+| :--- | :--- | :--- |
+| **Integrazioni con servizi esterni** | Chiamare un'API terza (client HTTP tipizzato, config + segreti separati) e ricevere webhook (firma sul body grezzo, coda background) | [backend/README.md](backend/README.md) §8 |
+| **Dati e persistenza** | `FileContentStore` (JSON in RAM, localizzato); nessun ORM/DB relazionale di default — è una scelta, il seam verso un DB reale (`IContentStore`) è già pronto | [backend/README.md](backend/README.md) §4 |
+| **Cache e scalabilità multi-istanza** | `IMemoryCache` per-istanza; il seam verso un backplane distribuito (es. Redis) per notifiche/store multi-istanza è già segnalato per chi estende oltre la singola istanza | [backend/README.md](backend/README.md) §4, §6 |
+| **Sicurezza** | JWT opzionale, ruoli via claim di sessione, rate limiting, CORS, header di sicurezza, XSS-hardening, segreti fuori da git | [backend/README.md](backend/README.md) §1 e «Sistema di Login e Sessioni JWT» |
+| **Dati personali (GDPR)** | Export e diritto all'oblio (`GET`/`DELETE /me/data`) già cablati dietro login, con cifratura della risposta (`IEngineCrypto`, chiave dedicata `Security.CryptoSecret`); il figlio implementa una sola `IPersonalDataStore` | [backend/README.md](backend/README.md) §9 |
+| **Asset e risorse** | Immagini (resize/formati server-side) e font centralizzati; CDN abilitata via whitelisting del dominio in CSP | [frontend/README.md](frontend/README.md) — sezioni AssetService, Font |
+| **Bundling frontend** | Budget di produzione (`angular.json`, già gate CI in `ng build`), whitelist CommonJS, code-splitting per pagina/SDK via `import()` dinamico | [frontend/README.md](frontend/README.md) — sezione Bundling |
+| **Configurazione applicativa** | Routing via DSL `site.ts`, i18n su entrambi i lati, errori uniformi (`ProblemDetails`), logging via property ambient `Logger` | [backend/README.md](backend/README.md) §2, «Dove mettere le mani» qui sopra |
+| **DevOps e deploy** | Docker Compose, pipeline CI (lint, i18n, tsc, cicli, a11y, Lighthouse, audit, gitleaks), health check | [DOCKER_README.md](DOCKER_README.md) |
+| **Testing e qualità** | Gate automatici (lint/i18n/tsc/cicli/a11y/Lighthouse) in CI; unit/integration/E2E restano di ogni progetto figlio, per scelta di isolamento | «🧪 Test Suite Automatica» qui sotto |
+| **Frontend specifico** | State via Signals nativi (no NgRx), Bootstrap 5 + libreria di componenti propria, SEO/JSON-LD automatico | [frontend/README.md](frontend/README.md) |
+| **Manutenzione** | `npm audit` + vulnerabilità NuGet + gitleaks in CI; performance monitorata tramite gate Lighthouse | «Supply chain» qui sotto |
 
 ---
 
@@ -134,14 +158,14 @@ sul **dominio vince il figlio**. Sui path engine prendi la versione del template
 | Proprietà | Path | Al merge |
 | :--- | :--- | :--- |
 | **Engine** | `backend/Engine/`, `frontend/src/app/core/engine/`, `frontend/src/styles/engine/`, `frontend/src/assets/i18n/basic.*.json` | vince il template |
-| **Scaffold** (infrastruttura e documentazione del template fuori dall'Engine) | `scripts/`, `deploy.sh`, `backup.sh`, `docker-compose*.yml`, `.github/workflows/`, `.nvmrc`, `global.json`, `setup.mjs`, `global-settings.schema.json`, `security-headers.json`*, `CHANGELOG.md`, `DOCKER_README.md`, `backend/README.md`, `frontend/README.md`, `backend/backend.csproj`, i due `Dockerfile`, `frontend/proxy*.cjs`, `frontend/tsconfig.json`, `frontend/eslint.config.mjs`, `main.ts`/`main.server.ts`, `app.config.ts`/`app.config.server.ts` | vince il template |
+| **Scaffold** (infrastruttura e documentazione del template fuori dall'Engine) | `scripts/`, `deploy.sh`, `backup.sh`, `docker-compose*.yml`, `.github/workflows/`, `.nvmrc`, `global.json`, `setup.mjs`, `global-settings.schema.json`, `security-headers.json`*, `CHANGELOG.md`, `QUICKSTART.md`, `DOCKER_README.md`, `AGENTS.md`, `ENGINE.md`, `backend/README.md`, `frontend/README.md`, `backend/backend.csproj`, i due `Dockerfile`, `frontend/proxy*.cjs`, `frontend/tsconfig.json`, `frontend/eslint.config.mjs`, `main.ts`/`main.server.ts`, `app.config.ts`/`app.config.server.ts` | vince il template |
 | **Condivisi con punti di contatto** (il template li evolve; il figlio tocca soltanto i punti indicati) | `backend/Program.cs` (soltanto il blocco "SERVIZI APPLICATIVI"), `frontend/angular.json` (assets/styles del progetto, budget, `allowedCommonJsDependencies`), `frontend/package.json` (dipendenze del progetto), `backend/Resources/*.resx` (chiavi aggiunte), `.gitignore`/`.dockerignore` (righe aggiunte) | si fondono riga per riga |
 | **Dominio** (la demo riusata + il codice del progetto) | `backend/Controllers|Services|Models|Store|Validation|data`, `site.ts`, `pages/`, `components/`, `core/services` e `core/dto`, `assets/` (i18n `addon`, legal, files), `styles.scss` + `styles/app/` (gli stili del progetto, non `styles/engine/`), `public/`, `global-settings.json`, la `.sln` rinominata | vince il figlio |
 
 \* `security-headers.json`: unica eccezione, l'override documentato nella `_nota` (vedi sopra).
 
 > **Dominio a contratto fisso.** Alcuni file di Dominio sono **importati dall'Engine per path e nome**: il figlio ne cambia liberamente il **corpo**, ma deve preservarne **path, nome dell'export e forma** — altrimenti l'Engine non compila. Non sono "campo libero", sono punti di contatto a contratto fisso:
-> - `site.ts` → `ContestoSito` (da `buildSite`), enum `PageType`, tipi `SmokeSettings`/`SitePageInput`. È il DSL: l'Engine lo legge ovunque (routing, builder, meta, tema…).
+> - `site.ts` → `ContestoSito` (da `buildSite`), `PageType` (un oggetto `as const`, tipicamente assemblato da file di area sotto `pages/*.pages.ts`, ma l'Engine pretende solo che `site.ts` lo esporti con questo nome — la forma interna è libera), tipi `SmokeSettings`/`SitePageInput`. È il DSL: l'Engine lo legge ovunque (routing, builder, meta, tema…).
 > - `pages/content.resolver.ts` → `ContentResolver` (con `loadResolved`), `ResolvedPage`, `contentLoaderResolver` — usati da `routing.ts` e `PageBaseComponent`. Aggiungi `case` allo switch, non rinominare gli export.
 > - `core/services/api.service.ts` → la classe `ApiService` iniettabile (`PageBaseComponent` espone `this.api`). La estendi con metodi, non la elimini.
 > - `components/shared/user-nav/` → `UserNavComponent` / selettore `app-user-nav`, montato dalla navbar dell'Engine. Personalizzi l'interno, non il selettore/export.
@@ -150,7 +174,8 @@ sul **dominio vince il figlio**. Sui path engine prendi la versione del template
 prodotto). Tutto il resto della documentazione **resta e si aggiorna dal template** — al merge vince il
 template, esattamente come per l'Engine: il `CHANGELOG.md` racconta al figlio cosa è cambiato nel template tra una
 versione e l'altra; `backend/README.md`, `frontend/README.md` e `DOCKER_README.md` sono le
-direttive di sviluppo — dicono cosa si modifica e con quali strumenti. Non si
+direttive di sviluppo — dicono cosa si modifica e con quali strumenti; `AGENTS.md` e `ENGINE.md`
+sono rispettivamente le ricette pratiche e la mappa dell'implementazione interna dell'Engine. Non si
 adattano nel figlio: la documentazione del prodotto, se serve, vive in un file a parte.
 
 ### 🧭 Dove mettere le mani
@@ -196,10 +221,12 @@ Senza scrivere una riga di codice infrastrutturale, dalla scatola esce già tutt
 
 - **SEO e social**: tag OpenGraph e JSON-LD per pagina, SSR granulare guidato da `site.ts`, più `sitemap.xml`, `robots.txt` e anteprime `og:image` dinamiche.
 - **Sicurezza by-design**: protezione attiva contro Stored XSS (file isolati, markdown sanificato, JSON-LD inline escapato contro il breakout dal `<script>`), rate limiting, CORS, API key, header di sicurezza (incluso HSTS subdomains); prevenzione Host Header Injection e script di deploy fail-fast sui segreti. Errori API standardizzati in `ProblemDetails` (RFC 9457) senza leak di stack trace.
+- **Dati personali (GDPR)**: `GET`/`DELETE /me/data` già pronti e protetti da login per export e diritto all'oblio — l'Engine fornisce endpoint, autenticazione e cifratura della risposta (chiave dedicata, separata da quella JWT); il figlio implementa una sola `IPersonalDataStore` che aggrega dai propri store di dominio.
 - **Pronto all'uso**: routing, navigazione, i18n, PWA, consenso cookie e pagine legali già funzionanti — si parte dritti dalla logica di dominio.
 - **Menu Multilivello**: supporto nativo a navigazione ricorsiva sia nella Navbar (con flyout desktop che evita di uscire dallo schermo e accordion su mobile) sia nel Footer. Basta annidare i gruppi in `site.ts`.
 - **Notifiche realtime**: canale server→client via SSE (`INotificationStream` / `NotificationStreamService`) per spingere notifiche ai client connessi — targeting per broadcast/connessione/gruppo, indipendente dal login, payload che non si ferma al testo. Dettagli in [backend](backend/README.md) e [frontend](frontend/README.md).
 - **Task in background e delivery**: coda generica in-memory (`IBackgroundTaskQueue` + hosted service, scope DI per task) per il pattern "POST risponde subito `202` → lavoro lungo → notifica a fine task", con un `IDeliveryService` che di **default consegna in realtime e stop** (niente email a sorpresa se l'utente è offline) e, su richiesta con `Auto`, aggiunge il **fallback email** quando il destinatario non è connesso.
+- **Integrazioni con servizi esterni**: schema pronto sia per chiamare API di terze parti (client HTTP tipizzato, URL/chiavi in configurazione, mai hardcoded) sia per ricevere webhook in ingresso (endpoint pubblico con verifica della firma sul body grezzo, elaborazione in background). Dettagli in [backend/README.md](backend/README.md).
 
 ---
 
@@ -274,20 +301,11 @@ Oltre alla qualità del codice, la CI tiene d'occhio anche:
 
 ## 🚀 Quick Start
 
-Per i riferimenti completi vai alla **Mappa della documentazione** in cima a questo file. In breve: [frontend/README.md](frontend/README.md) e [backend/README.md](backend/README.md) per i due progetti, [DOCKER_README.md](DOCKER_README.md) per deploy e configurazione.
-
-### Primo setup di un progetto figlio
-
-```bash
-node setup.mjs "Nome Progetto"
-```
-*Battezza il progetto: imposta `project.name` in `global-settings.json`, genera `global-settings.local.json` con porte e **API key generata**, rinomina gli identificatori npm/Service Worker e `App.sln`. La `SecretKey` JWT resta **vuota**: un figlio nasce col **login spento** e accenderlo è una scelta esplicita (chiave ≥32 char + verifica propria in `AuthController`). Dettagli in [DOCKER_README.md](DOCKER_README.md).*
-
-Poi `setup.mjs` chiede conferma `[s/N]` per la **cerimonia "da template a progetto"** (distruttiva): rimuove la demo (galleria Social + store/`SiteService`/`social.json`, home svuotata a placeholder, `addon.*.json` → `{}`, `BaseController` ridotto a vuoto, `data/identity.json` azzerato a scheletro e `site.ts` riscritto allo scheletro Home + pagine legali, con **login spento di default** — coerente con `SecretKey` vuota — da riaccendere quando imposti il segreto). L'**identità** resta servita dall'Engine (`GET /identity`). Poi elimina **questo README** (la vetrina del template), esegue i controlli statici (lint/tsc/i18n/cicli) come gate, **auto-cancella `setup.mjs`** e chiude con un commit locale `init <Nome>`. Rispondendo `N` resti sul template completo (demo inclusa) e lo rilanci quando sei pronto.
-
-La versione Node di riferimento è dichiarata in `.nvmrc` (Node 24 LTS): con nvm basta `nvm install && nvm use`; la CI legge lo stesso file.
+Per il primo setup passo-passo (`setup.mjs` + Docker) vedi **[QUICKSTART.md](QUICKSTART.md)**. Qui sotto l'alternativa per chi sviluppa in locale senza Docker; per i riferimenti completi vai alla **Mappa della documentazione** in cima a questo file.
 
 ### Avvio Veloce in Locale
+
+La versione Node di riferimento è dichiarata in `.nvmrc` (Node 24 LTS): con nvm basta `nvm install && nvm use`; la CI legge lo stesso file.
 
 **Avvio Backend (.NET 9):**
 ```bash

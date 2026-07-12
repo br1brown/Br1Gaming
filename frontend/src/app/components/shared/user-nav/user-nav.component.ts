@@ -9,23 +9,9 @@ import { ContestoSito } from '../../../site';
 import { NavLink } from '../../../core/engine/siteBuilder';
 
 /**
- * USER NAV COMPONENT
- *
- * Componente shared che gestisce l'area login/logout della navbar.
- * Estratto dall'engine per consentire ai progetti figli di personalizzare
- * la navigazione senza modificare i file interni dell'engine.
- *
- * ⚙️ Contratto fisso: la navbar dell'Engine importa `UserNavComponent` (selettore `app-user-nav`).
- * Personalizza l'interno; non rinominare/rimuovere la classe o il selettore.
- *
- * Responsabilità:
- *  - Mostra il link di login (quando sloggato) o il bottone di logout (quando loggato).
- *  - Gestisce la conferma di logout via NotificationService.
- *  - Dopo il logout, ricarica la route corrente per forzare la ri-valutazione
- *    dell'authGuard: se la pagina è protetta, l'utente viene rediretto.
- *
- * Non renderizza nulla se nessuna pagina di login è configurata in site.ts
- * (loginPage è null).
+ * Area login/logout della navbar: dopo il logout ricarica la route per rivalutare l'authGuard.
+ * Login e logout su assi indipendenti; nulla se `loginPage` è null. Dettagli: README §"Autenticazione".
+ * ⚙️ Contratto Engine: la navbar importa `app-user-nav` — non rinominare classe/selettore.
  */
 @Component({
     selector: 'app-user-nav',
@@ -43,9 +29,14 @@ export class UserNavComponent {
     /** Stato di sessione reattivo: decide se mostrare Login (sloggato) o Logout (loggato). */
     readonly isLoggedIn = this.auth.isLoggedIn;
 
+    /** True se il sito ha un concetto di login (`config.loginPage` valorizzato): gate del logout,
+     *  indipendente da `showLoginInHeader`. Se `false`, nessuna area auth viene renderizzata. */
+    readonly hasLoginPage = ContestoSito.config.loginPage != null;
+
     /**
-     * Voce di login derivata dall'unica sorgente di verità: `config.loginPage`.
-     * `null` se nessuna pagina di login è configurata → l'intera area auth non viene renderizzata.
+     * Voce di login per lo stato SLOGGATO, derivata dall'unica sorgente di verità `config.loginPage`.
+     * Rispetta `showLoginInHeader`: se il flag è `false` (login nascosto ai visitatori) resta `null`.
+     * `null` anche senza `loginPage`. Il logout (stato loggato) NON dipende da questo — vedi template.
      */
     readonly loginLink: NavLink | null = (() => {
         if (!ContestoSito.config.showLoginInHeader) return null;

@@ -8,12 +8,8 @@ export interface PdfActionConfig {
 }
 
 /**
- * PDF ACTION — ibrido fra le due nature:
- *  - openInTab=true  → comportamento di NAVIGAZIONE: apre il PDF in una scheda.
- *  - openInTab=false → comportamento d'AZIONE: forza davvero il download
- *    scaricando il file come Blob (riusa ShareService.downloadBlob, come la
- *    famiglia download). `<a download>` non basterebbe: i browser lo ignorano
- *    per i file cross-origin e si limitano ad aprirli.
+ * PDF action ibrida: `openInTab=true` apre il PDF in scheda (navigazione); `false` forza il download
+ * come Blob via ShareService (`<a download>` non basta: i browser lo ignorano cross-origin).
  */
 @Component({
     selector: 'app-pdf-action',

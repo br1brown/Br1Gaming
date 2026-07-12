@@ -6,11 +6,7 @@ import { ApiError } from '../engine/services/base-api.service';
 import { TranslateService } from '../engine/services/translate.service';
 import { TokenService } from '../engine/services/token.service';
 
-/**
- * AUTH SERVICE
- * Facciata di alto livello per la gestione dell'autenticazione.
- * Coordina le chiamate API e l'aggiornamento dello stato nel TokenService.
- */
+/** Facciata dell'autenticazione: coordina le chiamate API e lo stato nel TokenService. */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
     private readonly api = inject(ApiService);
@@ -28,15 +24,8 @@ export class AuthService {
     readonly session = computed(() => this.tokenService.session<SessionInfo>());
 
     /**
-     * Effettua il login inviando la password al backend.
-     *
-     * La chiamata è `silent` (vedi ApiService.login): un errore arriva come `ApiError` e fa
-     * rigettare la promise. Lo intercettiamo e lo traduciamo in un messaggio per il form,
-     * scelto in base allo stato HTTP:
-     *   - 401 → credenziali non valide
-     *   - 404 / 0 (endpoint disattivato o server irraggiungibile) → servizio non disponibile
-     *   - altro → errore imprevisto
-     * In caso di successo salva il token e ritorna { valid: true }.
+     * Login: la chiamata è `silent`, l'errore torna come `ApiError` e `mapLoginError` lo traduce per
+     * il form in base allo stato HTTP. Successo → salva il token e ritorna { valid: true }.
      */
     async login(request: LoginRequest): Promise<{ valid: boolean; error?: string }> {
         try {
@@ -71,10 +60,8 @@ export class AuthService {
 
     /** Termina la sessione dell'utente. */
     logout(): void {
-        // TODO (pulizia lato server): il JWT è stateless, quindi azzerare il token sul client
-        // NON lo invalida sul backend: resta tecnicamente valido fino alla scadenza (exp).
-        // Per una revoca immediata servirebbe un endpoint dedicato (es. POST /auth/logout) che
-        // aggiunga il token a una blocklist/denylist server-side. Da valutare se richiesto.
+        // TODO (revoca lato server): il JWT è stateless — azzerarlo sul client non lo invalida sul
+        // backend (valido fino a exp). Per revoca immediata servirebbe una denylist server-side.
         // await this.api.logout();
 
         this.tokenService.clear();

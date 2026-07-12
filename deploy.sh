@@ -179,6 +179,7 @@ const s = JSON.parse(readFileSync('${BR1_SETTINGS_FILE}','utf-8'));
 const DEV = 'dev-only-change-me-chiave-di-sviluppo-min-32-byte';
 const sk = String(s.Security?.Token?.SecretKey ?? '').trim();
 const keys = Array.isArray(s.Security?.ApiKeys) ? s.Security.ApiKeys : [];
+const cryptoSecret = String(s.Security?.CryptoSecret ?? '').trim();
 const errs = [];
 if (sk) {
   if (sk === DEV) errs.push('Security.Token.SecretKey e ancora il segreto di sviluppo. Generane uno: openssl rand -base64 48');
@@ -189,6 +190,8 @@ for (const k of keys) {
   if (k === 'frontend') errs.push('Security.ApiKeys contiene la chiave segnaposto \"frontend\". Sostituiscila: openssl rand -base64 32');
   else if (String(k).length < 32) errs.push('Security.ApiKeys contiene una chiave troppo corta (<32 caratteri): ' + k);
 }
+if (cryptoSecret === 'INCOLLA-QUI-openssl-rand-base64-32') errs.push('Security.CryptoSecret e ancora il segnaposto dell\'esempio. Generane uno: openssl rand -base64 32');
+else if (cryptoSecret && cryptoSecret.length < 32) errs.push('Security.CryptoSecret e troppo corta (<32 caratteri). Generane una robusta: openssl rand -base64 32');
 if (errs.length) { console.error(errs.join('\n')); process.exit(1); }
 " 2>"$_secret_errs"; then
     ok "Segreti di produzione validi"
