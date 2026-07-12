@@ -75,8 +75,14 @@ export class AppComponent {
     // il server non legge, causando un mismatch di idratazione (SSR rende lo smoke, il client lo toglie).
     // Il rispetto del reduced-motion vive dentro SmokeEffectComponent (non anima, canvas vuoto), così
     // l'`@if` dipende solo da config/layout — identico in SSR e client.
+    //
+    // `smoke.enable` (global-settings.json) è il gate: se off, nessuna pagina mostra lo smoke.
+    // Passato quello, il flag per-pagina `showSmoke` decide: se assente eredita il comportamento
+    // storico (mostrato dove c'è pannello e non full-bleed), altrimenti vince l'override esplicito —
+    // così una pagina senza pannello (es. una home) può comunque forzare lo smoke con `showSmoke: true`.
     readonly showSmoke = computed(() =>
-        this.showPanel() && !this.fitViewport() && this.smoke.enable
+        this.smoke.enable &&
+        (this.shellFlags().showSmoke ?? (this.showPanel() && !this.fitViewport()))
     );
 
     constructor() {
