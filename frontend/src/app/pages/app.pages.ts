@@ -65,6 +65,9 @@ function storyPage(
         path: urlSegment,
         title: `avventura-${urlSegment}`,
         pageType,
+        // Lo smoke è voluto SOLO sulla home: qui le storie hanno pannello e col default storico
+        // lo mostrerebbero, quindi lo spegniamo esplicitamente.
+        layout: { showSmoke: false },
         otherSEO: { ogImage },
         component: () => import('./story-player/story-player.component')
             .then(m => m.StoryPlayerComponent),
@@ -106,7 +109,9 @@ export const appPagesDecl: SitePageInput[] = [
         title: 'homeNav',
         pageType: AppPages.Home,
         // La home espone già Generatori/Storie/Giochi come sezioni: la navbar sarebbe ridondante.
-        layout: { showPanel: false, showNav: false },
+        // showSmoke:true — lo smoke decorativo è voluto SOLO qui; la home non ha pannello, quindi
+        // senza questo flag (default storico = pannello && !full-bleed) non lo mostrerebbe.
+        layout: { showPanel: false, showNav: false, showSmoke: true },
         description: 'Generatori casuali, avventure interattive e tanto altro da Br1.',
         component: () => import('./home/home.component').then(m => m.HomeComponent),
     },

@@ -34,7 +34,9 @@ html {
     // schermi larghi e si rispettano le preferenze di accessibilità dell'utente. Tutto il resto
     // del sito è in rem e scala di conseguenza.
     scroll-behavior: smooth;
-    background: linear-gradient(180deg, color-mix(in srgb, var(--colorBase) 92%, white 8%), color-mix(in srgb, var(--colorBase) 86%, black 14%));
+    // NESSUNO sfondo qui: lo sfondo di pagina lo dà l'engine su `body` (background-color: --colorBase,
+    // vedi styles/engine/base/_base.scss), come nella demo. Mettere un background su `html` annulla la
+    // propagazione html/body→canvas e coprirebbe lo smoke (z-index:-100).
 }
 
 body {
@@ -43,7 +45,8 @@ body {
        rubber-band e dei comandi full-bleed finiti sotto la chrome). 100vh = fallback pre-dvh. */
     min-height: 100vh;
     min-height: 100dvh;
-    background: linear-gradient(180deg, color-mix(in srgb, var(--colorBase) 92%, white 8%), color-mix(in srgb, var(--colorBase) 84%, black 16%));
+    // Nessun override di sfondo: si eredita lo sfondo piatto dell'engine (--colorBase), identico alla
+    // demo. Così il body propaga il colore al backdrop del canvas e lo smoke resta visibile sotto i contenuti.
     color: var(--colorSurfaceText);
 }
 
@@ -123,6 +126,20 @@ main#main-content {
 
 .content-panel {
     border-radius: 2rem;
+}
+
+/* Titoli di sezione che sulla home galleggiano SOPRA lo smoke, senza pannello dietro
+   (Generatori/Storie/Giochi). Uno scrim = --colorBase semi-opaco fa da fondo locale al testo:
+   - dove NON c'è smoke (es. /generatori) è colorBase su colorBase → invisibile;
+   - dove una nuvola chiara passa dietro il titolo, la scurisce quanto basta a tenere il
+     contrasto WCAG del testo (senza scrim il bianco su nuvola scende ~1.5, sotto la soglia 3.0).
+   Il blur/text-shadow non basterebbero: non sono conteggiati dal calcolo di contrasto WCAG. */
+.section-heading-scrim {
+    display: inline-block;
+    padding: 0.05em 0.5em;
+    margin-inline-start: -0.5em;   /* il padding non deve spostare l'allineamento a sinistra */
+    border-radius: 0.6rem;
+    background-color: color-mix(in srgb, var(--colorBase) 60%, transparent);
 }
 
 .background-wrapper {

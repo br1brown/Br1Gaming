@@ -29,6 +29,14 @@ export const environment: AppEnvironment = {
     availableLanguages: ["it"],
     config: {
             "colorTema": "#add8e6",
+            "smoke": {
+                    "enable": true,
+                    "color": "#add8e6",
+                    "opacity": 0.7,
+                    "maximumVelocity": 120,
+                    "particleRadius": 350,
+                    "density": 18
+            },
             "description": {
                     "it": "Generatori ignoranti, avventure interattive, universo Br1."
             }
