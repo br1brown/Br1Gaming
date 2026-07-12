@@ -29,6 +29,10 @@ export interface ShellFlags {
     showFooter?: boolean;
     /** Vista full-bleed (niente pannello/container). Default (assente): off. */
     fitViewport?: boolean;
+    /** Mostra l'effetto smoke su questa pagina, indipendentemente dal pannello.
+     *  Default (assente): eredita il comportamento storico (mostrato dove c'è pannello e non full-bleed);
+     *  `true` lo forza anche senza pannello, `false` lo spegne. Subordinato al gate globale `site.smoke.enable`. */
+    showSmoke?: boolean;
 }
 
 /** Chiave RISERVATA in `route.data` sotto cui l'Engine mette i `ShellFlags`. Non usarla nei `data`
@@ -313,6 +317,12 @@ export type LeafPageInput = BasePageInput & {
          * suo elemento radice e non mettere utility di display `d-*` sull'host del componente
          * (batterebbero il flex del full-bleed — vedi la regola `.fit-viewport` in base.scss). */
         fitViewport?: boolean;
+        /**
+         * Mostra o nasconde l'effetto smoke SOLO su questa pagina, in modo indipendente dal pannello.
+         * Subordinato al gate globale `site.smoke.enable` (se off, nessuna pagina può accenderlo).
+         * Default (assente): eredita il comportamento storico — smoke dove c'è pannello e non è full-bleed.
+         * `true` lo forza anche su pagine senza pannello (es. una home senza pannello); `false` lo spegne. */
+        showSmoke?: boolean;
         /**
          * Override per-pagina del fade-in d'ingresso, SUBORDINATO al globale `shell.pageFade`
          * (come showNav/showFooter): se il globale è off nessuna pagina può riattivarlo; se è on,
@@ -638,6 +648,7 @@ const normalizeSitePage = (
                 showPanel: layout?.showPanel,
                 showFooter: layout?.showFooter ?? (layout?.fitViewport ? false : undefined),
                 fitViewport: layout?.fitViewport,
+                showSmoke: layout?.showSmoke,
             } satisfies ShellFlags,
             pageFade: layout?.pageFade,
             ogImage: otherSEO?.ogImage,
