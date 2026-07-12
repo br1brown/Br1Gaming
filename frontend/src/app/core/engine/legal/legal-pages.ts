@@ -36,7 +36,10 @@ export function buildPolicySection(legalPages: ResolvedLegalPages): ParentPageIn
     for (const spec of LEGAL_PAGES) {
         const pageType = legalPages[spec.slot];
         if (pageType == null) continue;
-        children.push({ path: spec.path, title: spec.titleKey, description: spec.descriptionKey, pageType, component: loadPolicyComponent });
+        // Le pagine legali sono testo: niente smoke decorativo di default (il gate globale
+        // `site.smoke.enable` resta comunque sovraordinato). Un figlio che lo volesse può
+        // ridichiarare la pagina legale con un proprio `layout`.
+        children.push({ path: spec.path, title: spec.titleKey, description: spec.descriptionKey, pageType, component: loadPolicyComponent, layout: { showSmoke: false } });
     }
     return children.length > 0 ? { path: 'policy', title: 'policies', children } : null;
 }
