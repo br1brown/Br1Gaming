@@ -23,6 +23,7 @@ public class BaseController : EngineApiController
     private readonly IShareStore _shares;
     private readonly ShareSigner _signer;
     private readonly IValidator<StoryPlayRequestDto> _playValidator;
+    private readonly FintoSpagnoloTranslator _translator;
 
     /// <summary>Inizializza il controller con i servizi di dominio, il validator del play e il logger.</summary>
     public BaseController(
@@ -31,6 +32,7 @@ public class BaseController : EngineApiController
         IShareStore shares,
         ShareSigner signer,
         IValidator<StoryPlayRequestDto> playValidator,
+        FintoSpagnoloTranslator translator,
         ILogger<BaseController> logger)
         : base(logger)
     {
@@ -39,6 +41,7 @@ public class BaseController : EngineApiController
         _shares = shares;
         _signer = signer;
         _playValidator = playValidator;
+        _translator = translator;
     }
 
     // ── Storie ───────────────────────────────────────────────────────
@@ -104,6 +107,13 @@ public class BaseController : EngineApiController
         var result = _generators.Generate(slug, inputs);
         return Ok(new GenerationResultDto(result.Text, result.Markdown, result.Score, _signer.Sign(slug, result.Markdown)));
     }
+
+    // ── Translator (finto spagnolo) ────────────────────────────────────
+
+    /// <summary>Traduce un testo italiano nel "finto spagnolo" (parodia). Testo vuoto → risposta vuota.</summary>
+    [HttpPost("translate")]
+    public IActionResult Translate([FromBody] TranslateRequestDto? body)
+        => Ok(new TranslateResultDto(_translator.Translate(body?.Text)));
 
     // ── Condivisi (raccolta pubblica) ──────────────────────────────────
 

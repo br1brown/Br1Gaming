@@ -1,0 +1,76 @@
+<main class="col-12 col-lg-10 offset-lg-1">
+
+    <header class="text-center mb-4">
+        <h1 class="h4 fw-bold mb-0">{{ 'translator' | translate }}</h1>
+    </header>
+
+    <!-- Un'unica superficie (stile DeepL): sorgente e destinazione dentro la stessa card, divise
+         da una linea — orizzontale impilati su mobile, verticale affiancati da desktop. -->
+    <div class="card shadow-sm overflow-hidden">
+        <div class="d-flex flex-column flex-md-row">
+
+            <!-- Sorgente: italiano -->
+            <div class="flex-fill d-flex flex-column">
+                <div class="d-flex align-items-center justify-content-between px-3 pt-3 pb-2">
+                    <span class="fw-semibold text-secondary text-uppercase small">{{ 'translatorItaliano' | translate }}</span>
+                    @if (testo()) {
+                    <button type="button"
+                            class="btn btn-sm btn-link text-secondary text-decoration-none p-0 lh-1"
+                            (click)="pulisci()"
+                            [title]="'translatorPulisci' | translate"
+                            [attr.aria-label]="'translatorPulisci' | translate">
+                        <i class="fa-solid fa-xmark fs-4" aria-hidden="true"></i>
+                    </button>
+                    }
+                </div>
+                <textarea class="form-control border-0 shadow-none rounded-0 flex-grow-1 fs-5"
+                          rows="6"
+                          [value]="testo()"
+                          (input)="onInput($event)"
+                          [attr.maxlength]="maxChars"
+                          [attr.placeholder]="'translatorPlaceholder' | translate"
+                          [attr.aria-label]="'translatorItaliano' | translate"></textarea>
+                <div class="d-flex align-items-center justify-content-between px-3 py-2">
+                    <app-speech-action [action]="leggiTesto" />
+                    <small class="text-secondary">{{ testo().length }} / {{ maxChars }}</small>
+                </div>
+            </div>
+
+            <!-- Divisori: linea orizzontale su mobile, verticale da desktop -->
+            <hr class="m-0 d-md-none">
+            <div class="vr d-none d-md-block"></div>
+
+            <!-- Destinazione: spagnolo (leggero sfondo per distinguerla, come DeepL) -->
+            <div class="flex-fill d-flex flex-column bg-body-tertiary">
+                <div class="px-3 pt-3 pb-2">
+                    <span class="fw-semibold text-secondary text-uppercase small">{{ 'translatorSpagnolo' | translate }}</span>
+                </div>
+                <textarea class="form-control border-0 shadow-none rounded-0 flex-grow-1 fs-5 bg-body-tertiary"
+                          rows="6"
+                          readonly
+                          [value]="tradotto()"
+                          [attr.placeholder]="'translatorOutputVuoto' | translate"
+                          [attr.aria-label]="'translatorSpagnolo' | translate"></textarea>
+                <div class="d-flex align-items-center justify-content-end gap-2 px-3 py-2">
+                    <button type="button"
+                            class="btn btn-outline-secondary btn-touch d-inline-flex align-items-center justify-content-center gap-2"
+                            [class.active]="parla()"
+                            [disabled]="!tradotto()"
+                            [attr.aria-pressed]="parla()"
+                            (click)="ascolta()"
+                            [title]="(parla() ? 'speechStop' : 'speechPlay') | translate"
+                            [attr.aria-label]="(parla() ? 'speechStop' : 'speechPlay') | translate">
+                        <i class="fa-solid fs-5"
+                           [class.fa-volume-high]="!parla()"
+                           [class.fa-stop]="parla()"
+                           aria-hidden="true"></i>
+                    </button>
+                    <app-copy-action [action]="esportaTradotto" />
+                    <app-share-action [action]="esportaTradotto" [title]="'translator' | translate" />
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</main>

@@ -71,4 +71,28 @@
         </div>
 
     </div>
+
+    <!-- Utility (radar chiese, traduttore): sezione a larghezza piena sotto le altre.
+         @defer indipendente (idratazione on viewport), come Storie/Giochi. -->
+    @defer (hydrate on viewport) {
+    <section class="mt-5">
+        <app-utility-section />
+    </section>
+    } @placeholder {
+    <section class="mt-5" aria-hidden="true">
+        <span class="placeholder col-3 col-md-4 d-block mb-3" style="height: 1.75rem"></span>
+        <div class="row g-3 placeholder-glow">
+            @for (n of skeletonSlots; track n) {
+            <div class="col-12 col-md-6">
+                <div class="card" style="min-height: 96px">
+                    <div class="card-body">
+                        <span class="placeholder col-7 mb-2 d-block"></span>
+                        <span class="placeholder col-10 d-block"></span>
+                    </div>
+                </div>
+            </div>
+            }
+        </div>
+    </section>
+    }
 </main>

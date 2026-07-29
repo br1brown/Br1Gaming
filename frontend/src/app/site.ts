@@ -10,7 +10,7 @@ export type {
 
 // PageType: identità stabile di ogni pagina, assemblato dai file di area sotto pages/ (uno per area,
 // ID prefissati — es. "app.", "legal."). Area nuova = nuovo file + uno spread qui sotto. I riferimenti
-// nel codice (`PageType.GameRadar`, `PageType.CookiePolicy`, …) restano identici: cambia solo che ora
+// nel codice (`PageType.GameBurocrazia`, `PageType.CookiePolicy`, …) restano identici: cambia solo che ora
 // il valore è una stringa d'identità invece di un intero enum.
 export const PageType = {
     ...LegalPages,
@@ -48,8 +48,12 @@ export const ContestoSito = buildSite({
                 STORIES.forEach(([, pageType]) => gg.addPage(pageType));
             });
             g.addPage(PageType.GameDuceNonDuce);
-            g.addPage(PageType.GameRadar);
             g.addPage(PageType.GameBurocrazia);
+        });
+        // Utility: strumenti che non sono giochi (radar chiese + traduttore ITA→ESP).
+        nav.addGroup('utility', (g) => {
+            g.addPage(PageType.UtilityRadar);
+            g.addPage(PageType.UtilityTranslator);
         });
     },
 

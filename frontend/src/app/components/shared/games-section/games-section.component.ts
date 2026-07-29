@@ -20,12 +20,6 @@ const STATIC_GIOCHI: CardEntry[] = [
         imageId: 'game.ducenonduce',
         pageType: PageType.GameDuceNonDuce,
     },
-    {
-        title: 'Chiese Radar',
-        subtitle: 'Il radar delle chiese: apri la mappa e vedi quelle intorno a te.',
-        imageId: 'game.radar',
-        pageType: PageType.GameRadar,
-    },
 ];
 
 /**

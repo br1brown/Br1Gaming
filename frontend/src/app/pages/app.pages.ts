@@ -20,9 +20,11 @@ export const AppPages = {
     StoryMagrogamer09: 'app.avventura.magrogamer09',
     StorySurviveUsa: 'app.avventura.sopravvivi-agli-usa',
     GameDuceNonDuce: 'app.gioco.ducenonduce',
-    GameRadar: 'app.gioco.radar',
     GameBurocrazia: 'app.gioco.burocrazia',
     Piaciuti: 'app.piaciuti',
+    // Utility: strumenti che non sono giochi (il radar chiese, spostato qui, e il traduttore).
+    UtilityRadar: 'app.utility.radar',
+    UtilityTranslator: 'app.utility.translator',
 } as const;
 
 /** Identità delle pagine di quest'area (sottoinsieme di PageType). Usato dai catalogo/helper sotto. */
@@ -169,18 +171,6 @@ export const appPagesDecl: SitePageInput[] = [
     },
 
     {
-        path: `radar`,
-        title: `radar`,
-        description: 'Il radar delle chiese intorno a te',
-        pageType: AppPages.GameRadar,
-        // OG opaca dedicata (la card può diventare trasparente senza rovinare l'anteprima social).
-        otherSEO: { ogImage: 'game.radar.og' },
-        layout: { fitViewport: true },
-        component: () => import('./radar/radar.component')
-            .then(m => m.RadarComponent),
-    },
-
-    {
         path: `burocrazia`,
         title: `burocrazia`,
         description: 'Attraversa la città a colpi di passaggi in auto e chiudi la pratica prima che chiudano gli sportelli.',
@@ -190,5 +180,35 @@ export const appPagesDecl: SitePageInput[] = [
         otherSEO: { ogImage: 'game.burocrazia.og' },
         component: () => import('./burocrazia/burocrazia.component')
             .then(m => m.BurocraziaComponent),
+    },
+
+    // ── Utility sotto /utility ───────────────────────────────────
+    // Parent senza component: fa solo da prefisso di path (URL figli /utility/radar,
+    // /utility/translator). Il radar chiese vive qui, non più tra i giochi.
+    {
+        path: 'utility',
+        title: 'utility',
+        children: [
+            {
+                path: 'radar',
+                title: 'radar',
+                description: 'Il radar delle chiese intorno a te',
+                pageType: AppPages.UtilityRadar,
+                // OG opaca dedicata (la card può diventare trasparente senza rovinare l'anteprima social).
+                otherSEO: { ogImage: 'game.radar.og' },
+                layout: { fitViewport: true },
+                component: () => import('./radar/radar.component')
+                    .then(m => m.RadarComponent),
+            },
+            {
+                path: 'translator',
+                title: 'translator',
+                description: 'Traduttore istantaneo dall\'italiano allo spagnolo. Traduci parole, frasi e testi in tempo reale, ascolta la pronuncia e condividi la traduzione. Veloce, gratuito e sempre a portata di mano.',
+                pageType: AppPages.UtilityTranslator,
+                layout: { showPanel: false },
+                component: () => import('./translator/translator.component')
+                    .then(m => m.TranslatorComponent),
+            },
+        ],
     },
 ];

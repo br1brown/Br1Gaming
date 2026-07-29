@@ -3,12 +3,13 @@ import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { GeneratorsSectionComponent } from '../../components/shared/generators-section/generators-section.component';
 import { StoriesSectionComponent } from '../../components/shared/stories-section/stories-section.component';
 import { GamesSectionComponent } from '../../components/shared/games-section/games-section.component';
+import { UtilitySectionComponent } from '../../components/shared/utility-section/utility-section.component';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { SITE_CONFIG } from '../../core/engine/siteBuilder';
 
 @Component({
     selector: 'app-home',
-    imports: [TranslatePipe, GeneratorsSectionComponent, StoriesSectionComponent, GamesSectionComponent],
+    imports: [TranslatePipe, GeneratorsSectionComponent, StoriesSectionComponent, GamesSectionComponent, UtilitySectionComponent],
     templateUrl: './home.component.html',
 })
 export class HomeComponent extends PageBaseComponent<unknown> {

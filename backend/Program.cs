@@ -110,6 +110,8 @@ builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IContentStore, FileContentStore>();
 builder.Services.AddSingleton<BlobStore>();
 builder.Services.AddScoped<SiteService>();
+// Translator "finto spagnolo": logica pura e stateless (fonte unica in C#), servita da BaseController.
+builder.Services.AddSingleton<FintoSpagnoloTranslator>();
 // Generatori: factory di registrazione che auto-scopre gli IGenerator dell'assembly e li indicizza
 // (vedi GeneratorRegistration). Aggiungere un generatore = creare la classe.
 builder.Services.AddGenerators();

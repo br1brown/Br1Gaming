@@ -5,6 +5,7 @@ import { BaseApiService } from '../engine/services/base-api.service';
 import { StorySummary, StorySnapshotDto } from '../dto/story.dto';
 import { GeneratorInfo, GenerateResponse, ShareEntry, ShareSaveResult } from '../dto/generator.dto';
 import { LoginResult, LoginRequest } from '../dto/auth.dto';
+import { TranslateResult } from '../dto/translator.dto';
 
 /** Endpoint backend. Aggiungere il path qui, poi il metodo pubblico sotto. */
 const API = {
@@ -21,6 +22,7 @@ const API = {
     generation: (id: string) => `g/${encodeURIComponent(id)}`,
     shares: 'shares',
     sharesCounts: 'shares/counts',
+    translate: 'translate',
 } as const;
 
 /**
@@ -231,5 +233,11 @@ export class ApiService extends BaseApiService {
     /** Conteggio delle generazioni condivise per generatore (slug → totale), per la panoramica. */
     getSharesCounts(): Promise<Record<string, number>> {
         return this.api_get<Record<string, number>>(API.sharesCounts);
+    }
+
+    /** Traduce un testo italiano nel "finto spagnolo" (logica lato backend). Errori silenziosi: il chiamante degrada.
+     *  Nome `tradurre` (non `translate`): `translate` è già il TranslateService ereditato da BaseApiService. */
+    tradurre(text: string): Promise<string> {
+        return this.api_post<TranslateResult>(API.translate, { text }, { silent: true }).then(r => r.text);
     }
 }
