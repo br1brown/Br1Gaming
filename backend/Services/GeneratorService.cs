@@ -138,13 +138,32 @@ public class GeneratorService
     // ARMONIZZAZIONE DEL TESTO (passata finale, indipendente dalla grammatica)
     // ══════════════════════════════════════════════════════════════════
 
+    /// <summary>
+    /// Forza la maiuscola a inizio testo e dopo la punteggiatura FORTE (. ! ?), a inizio riga inclusa —
+    /// così un testo tutto minuscolo esce con gli inizi-frase corretti e "sembra autentico". NON tocca il
+    /// ";" (in italiano non apre una frase nuova) e NON abbassa mai una maiuscola già presente: aggiunge
+    /// solo le maiuscole d'inizio frase mancanti, lasciando intatte quelle interne. Fonte unica: la usano
+    /// sia l'armonizzazione dei generatori sia il <see cref="FintoSpagnoloTranslator"/>.
+    /// </summary>
+    public static string CapitalizzaFrasi(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return text;
+
+        // Prima lettera assoluta in maiuscolo (anche se preceduta da non-lettere: virgolette, ¿, ecc.).
+        text = Regex.Replace(text, @"^([^\p{L}]*)(\p{Ll})",
+            m => m.Groups[1].Value + m.Groups[2].Value.ToUpper());
+
+        // Maiuscola dopo la punteggiatura FORTE (. ! ?) e a inizio riga. NON dopo ";": in italiano il
+        // punto e virgola non apre una frase nuova, quindi ciò che segue resta minuscolo (le frasi-
+        // template sono unite anche con "; ", e diversi template hanno ";" interni → "…; peccato" resta minuscolo).
+        return Regex.Replace(text, @"(^|[.!?]\s+|^[ \t]*)(\p{Ll})",
+            m => m.Groups[1].Value + m.Groups[2].Value.ToUpper(),
+            RegexOptions.Multiline);
+    }
+
     private static string ArmonizzaTesto(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return text;
-
-        // Prima lettera assoluta in maiuscolo
-        text = Regex.Replace(text, @"^([^\p{L}]*)(\p{Ll})",
-            m => m.Groups[1].Value + m.Groups[2].Value.ToUpper());
 
         // Armonizza la punteggiatura multipla tenendo i segni semanticamente più forti
         text = Regex.Replace(text, @"([.,:;!?](?:\s*[.,:;!?])+)", m =>
@@ -171,12 +190,8 @@ public class GeneratorService
         // Collassa 3 o più newline in massimo due (mantiene il concetto di paragrafo)
         text = Regex.Replace(text, @"(\r?\n){3,}", "\n\n");
 
-        // Maiuscola dopo la punteggiatura FORTE (. ! ?) e a inizio riga. NON dopo ";": in italiano il
-        // punto e virgola non apre una frase nuova, quindi ciò che segue resta minuscolo (le frasi-
-        // template sono unite anche con "; ", e diversi template hanno ";" interni → "…; peccato" resta minuscolo).
-        text = Regex.Replace(text, @"(^|[.!?]\s+|^[ \t]*)(\p{Ll})",
-            m => m.Groups[1].Value + m.Groups[2].Value.ToUpper(),
-            RegexOptions.Multiline);
+        // Maiuscola a inizio testo/riga e dopo la punteggiatura forte (fonte unica, condivisa col traduttore).
+        text = CapitalizzaFrasi(text);
 
         // Contrazioni/elisioni articolo-preposizione (vedi ContraiPreposizioni): ultimo passo,
         // dopo le maiuscole, così intercetta anche la preposizione a inizio frase.

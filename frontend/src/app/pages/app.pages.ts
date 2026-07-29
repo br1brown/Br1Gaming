@@ -203,7 +203,7 @@ export const appPagesDecl: SitePageInput[] = [
             {
                 path: 'translator',
                 title: 'translator',
-                description: 'Traduttore istantaneo dall\'italiano allo spagnolo. Traduci parole, frasi e testi in tempo reale, ascolta la pronuncia e condividi la traduzione. Veloce, gratuito e sempre a portata di mano.',
+                description: 'Traduttore italiano spagnolo, ma giuro che traduce le cose vere, giuste e perfette',
                 pageType: AppPages.UtilityTranslator,
                 layout: { showPanel: false },
                 component: () => import('./translator/translator.component')

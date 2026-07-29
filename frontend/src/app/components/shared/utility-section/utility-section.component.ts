@@ -16,7 +16,7 @@ const STATIC_UTILITY: CardEntry[] = [
     },
     {
         title: 'Translator ITA → ESP',
-        subtitle: 'Il traduttore che trasforma l\'italiano nello spagnolo che gli italiani credono di sapere.',
+        subtitle: 'Traduttore italiano spagnolo, ma giuro che traduce le cose vere, giuste e perfette',
         imageId: null,
         pageType: PageType.UtilityTranslator,
     },

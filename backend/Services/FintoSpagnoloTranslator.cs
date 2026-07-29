@@ -14,7 +14,8 @@ namespace Backend.Services;
 /// ha la precedenza e NON riceve la "s"; 2) suffissi "-ità"→"-idad" e "-zione/-zioni"→"-ciones";
 /// 3) "gn"→"ñ"; 4) "s impura" (s+consonante a inizio parola → "e" davanti: spagnolo→españolo);
 /// 5) la "s" finale (vocale → +s; consonante → ultima vocale + s). Le parole elise dall'apostrofo
-/// restano invariate; maiuscole/minuscole si preservano; alla fine i ¿/¡ davanti a domande/esclamazioni.
+/// restano invariate; il case delle parole si preserva, poi <see cref="GeneratorService.CapitalizzaFrasi"/>
+/// forza le maiuscole d'inizio frase in base alla punteggiatura; alla fine i ¿/¡ davanti a domande/esclamazioni.
 /// </remarks>
 public sealed class FintoSpagnoloTranslator
 {
@@ -136,7 +137,11 @@ public sealed class FintoSpagnoloTranslator
             }
             return TrasformaParola(parola);
         });
-        return InvertiPunteggiatura(tradotto);
+        // Riusa l'armonizzatore dei generatori: forza le maiuscole d'inizio frase in base alla punteggiatura
+        // (così anche un input tutto minuscolo esce "autentico"), senza toccare le maiuscole interne. Prima
+        // dell'inversione, così i ¿/¡ anteposti restano davanti alla lettera già capitalizzata.
+        var capitalizzato = GeneratorService.CapitalizzaFrasi(tradotto);
+        return InvertiPunteggiatura(capitalizzato);
     }
 
     /// <summary>Se il testo supera <paramref name="max"/> caratteri, taglia all'ultima parola intera (niente parole spezzate).</summary>
