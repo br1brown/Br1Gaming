@@ -5,6 +5,7 @@ import { LocalizationService } from '../../../core/engine/services/localization.
 import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
 import { PhoneContactComponent } from '../contact/phone-contact/phone-contact.component';
 import { MailContactComponent, MailContactConfig } from '../contact/mail-contact/mail-contact.component';
+import { PecContactComponent } from '../contact/pec-contact/pec-contact.component';
 import { SocialLinkComponent } from '../navigation/social-link/social-link.component';
 import { OpeningHoursComponent, hasOpeningHours } from '../opening-hours/opening-hours.component';
 
@@ -24,7 +25,8 @@ interface IdentitySection {
 /** Canale di contatto cliccabile, reso come badge dai componenti contatto. */
 type ContactChannel =
     | { kind: 'phone'; key: string; label: string; number: string }
-    | { kind: 'mail'; key: string; label: string; config: MailContactConfig };
+    | { kind: 'mail'; key: string; label: string; config: MailContactConfig }
+    | { kind: 'pec'; key: string; label: string; config: MailContactConfig };
 
 /**
  * Rende l'Identity del sito (GET /identity) in sezioni a colonne (societari, legali, contatti): ogni
@@ -35,7 +37,7 @@ type ContactChannel =
 @Component({
     selector: 'app-identity-render',
     standalone: true,
-    imports: [TranslatePipe, PhoneContactComponent, MailContactComponent, SocialLinkComponent, OpeningHoursComponent],
+    imports: [TranslatePipe, PhoneContactComponent, MailContactComponent, PecContactComponent, SocialLinkComponent, OpeningHoursComponent],
     templateUrl: './identity-render.component.html',
 })
 export class IdentityRenderComponent {
@@ -139,7 +141,7 @@ export class IdentityRenderComponent {
             list.push({ kind: 'mail', key: 'email', label: 'emailAzienda', config: { to: c.email.trim() } });
         }
         if (this.hasText(c.pec)) {
-            list.push({ kind: 'mail', key: 'pec', label: 'pecAzienda', config: { to: c.pec.trim() } });
+            list.push({ kind: 'pec', key: 'pec', label: 'pecAzienda', config: { to: c.pec.trim() } });
         }
         return list;
     });
