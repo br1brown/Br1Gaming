@@ -1,4 +1,5 @@
 import { Component, ElementRef, inject, isDevMode, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter } from 'rxjs/operators';
@@ -17,7 +18,7 @@ import { NotificationBellComponent } from '../notification-bell/notification-bel
 
 @Component({
     selector: 'app-navbar',
-    imports: [TranslatePipe, AssetDirective, NavLinkComponent, NavDropdownComponent, RouterLink, UserNavComponent, NotificationBellComponent],
+    imports: [TranslatePipe, AssetDirective, NavLinkComponent, NavDropdownComponent, RouterLink, UserNavComponent, NotificationBellComponent, NgTemplateOutlet],
     templateUrl: './navbar.component.html',
     styleUrl: './navbar.component.scss',
     host: {

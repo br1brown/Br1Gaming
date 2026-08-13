@@ -134,7 +134,10 @@
         border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
     }
 
-    .language-picker {
+    /* Solo l'istanza dentro il pannello collassabile prende il layout "sezione impilata":
+       quella inline nella barra (lingua unica voce da collassare, niente hamburger) resta
+       compatta come su desktop anche sotto il breakpoint md. */
+    .navbar-collapse .language-picker {
         display: grid;
         gap: 0.45rem;
         width: 100%;
@@ -142,23 +145,23 @@
         border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
     }
 
-    .language-picker-label {
+    .navbar-collapse .language-picker-label {
         display: block;
     }
 
-    .language-dropdown,
-    .language-toggle {
+    .navbar-collapse .language-dropdown,
+    .navbar-collapse .language-toggle {
         width: 100%;
     }
 
-    .language-toggle {
+    .navbar-collapse .language-toggle {
         font-size: 0.95rem;
         min-height: 2.5rem;
         padding-inline-start: 0;
         padding-inline-end: 0.25rem;
     }
 
-    .language-link {
+    .navbar-collapse .language-link {
         font-size: 0.95rem;
     }
 

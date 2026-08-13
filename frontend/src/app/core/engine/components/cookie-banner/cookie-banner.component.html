@@ -63,10 +63,12 @@
                 </details>
             }
             <div class="form-check form-switch mb-0 flex-shrink-0">
-                <input class="form-check-input" type="checkbox" role="switch"
-                       [attr.aria-label]="'tecniciCategoriaCookie' | translate"
-                       [checked]="pendingTechnical()"
-                       (change)="setPending('technical', $any($event.target).checked)">
+                <label class="cookie-switch-hit" for="cookieSwitchTechnical">
+                    <input id="cookieSwitchTechnical" class="form-check-input" type="checkbox" role="switch"
+                           [attr.aria-label]="'tecniciCategoriaCookie' | translate"
+                           [checked]="pendingTechnical()"
+                           (change)="setPending('technical', $any($event.target).checked)">
+                </label>
             </div>
         </div>
     }
@@ -82,10 +84,12 @@
                 </details>
             }
             <div class="form-check form-switch mb-0 flex-shrink-0">
-                <input class="form-check-input" type="checkbox" role="switch"
-                       [attr.aria-label]="'analyticsCategoriaCookie' | translate"
-                       [checked]="pendingAnalytics()"
-                       (change)="setPending('analytics', $any($event.target).checked)">
+                <label class="cookie-switch-hit" for="cookieSwitchAnalytics">
+                    <input id="cookieSwitchAnalytics" class="form-check-input" type="checkbox" role="switch"
+                           [attr.aria-label]="'analyticsCategoriaCookie' | translate"
+                           [checked]="pendingAnalytics()"
+                           (change)="setPending('analytics', $any($event.target).checked)">
+                </label>
             </div>
         </div>
     }
@@ -101,10 +105,12 @@
                 </details>
             }
             <div class="form-check form-switch mb-0 flex-shrink-0">
-                <input class="form-check-input" type="checkbox" role="switch"
-                       [attr.aria-label]="'profilazioneCategoriaCookie' | translate"
-                       [checked]="pendingProfiling()"
-                       (change)="setPending('profiling', $any($event.target).checked)">
+                <label class="cookie-switch-hit" for="cookieSwitchProfiling">
+                    <input id="cookieSwitchProfiling" class="form-check-input" type="checkbox" role="switch"
+                           [attr.aria-label]="'profilazioneCategoriaCookie' | translate"
+                           [checked]="pendingProfiling()"
+                           (change)="setPending('profiling', $any($event.target).checked)">
+                </label>
             </div>
         </div>
     }

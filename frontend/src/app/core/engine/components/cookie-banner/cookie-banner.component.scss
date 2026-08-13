@@ -157,6 +157,19 @@ app-cookie-banner .cookie-category[open] summary::after {
     app-cookie-banner .cookie-category summary::after { transition: none; }
 }
 
+/* Target di tap 44×44 (WCAG 2.5.5) sullo switch senza ingrandirlo visivamente:
+   il <label> avvolge solo l'input, non l'intera riga — la riga contiene anche
+   il <summary> dell'accordion, e un <label> più ampio farebbe scattare ANCHE
+   il consenso al tap sul testo (voluto solo espandere la descrizione). */
+app-cookie-banner .cookie-switch-hit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    cursor: pointer;
+}
+
 /* Tipografia dei bottoni — min-height + padding + font-size custom non hanno
    utility Bootstrap di pari valore; layout/forma (d-flex, rounded-pill) sono
    nell'HTML. */
@@ -191,7 +204,8 @@ app-cookie-banner .cookie-banner-modern .cookie-banner__actions .btn {
 
     app-cookie-banner .cookie-banner-modern .cookie-banner__actions .btn {
         width: 100%;
-        min-height: 2.5rem;
+        /* 2.75rem = 44px, target di tap minimo WCAG 2.5.5 */
+        min-height: 2.75rem;
         padding: 0.5rem 0.75rem;
         font-size: 0.875rem;
     }

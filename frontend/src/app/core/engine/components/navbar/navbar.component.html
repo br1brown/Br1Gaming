@@ -21,7 +21,7 @@
         }
         }
 
-        @if (menuItems.length > 0 || languages().length > 1 || hasAuthPage) {
+        @if (menuItems.length > 0 || hasAuthPage) {
         <button class="navbar-toggler" type="button"
                 (click)="toggleMenu()"
                 aria-controls="navbar-menu"
@@ -29,6 +29,14 @@
                 [attr.aria-label]="'toggleNav' | translate">
             <span class="navbar-toggler-icon"></span>
         </button>
+        }
+
+        <!-- Se lingua è l'unica cosa da mostrare (niente menu, niente area auth), niente hamburger:
+             il selettore resta inline nella barra sempre visibile, come già succede su desktop. -->
+        @if (languages().length > 1 && menuItems.length === 0 && !hasAuthPage) {
+        <div class="ms-auto">
+            <ng-container [ngTemplateOutlet]="languagePicker"></ng-container>
+        </div>
         }
 
         <div id="navbar-menu" class="collapse navbar-collapse" [class.show]="menuOpen()">
@@ -62,44 +70,9 @@
             <app-notification-bell />
             }
 
-            @if (languages().length > 1) {
-            <div class="language-picker mt-3 mt-md-0">
-                <span class="language-picker-label">{{ 'selezionaLinguaAzione' | translate }}</span>
-                <div class="dropdown language-dropdown" [class.show]="langOpen()">
-                    <button type="button"
-                            class="nav-link nav-dropdown-toggle language-toggle"
-                            [attr.aria-label]="'selezionaLinguaAzione' | translate"
-                            aria-haspopup="true"
-                            [attr.aria-expanded]="langOpen()"
-                            (click)="toggleLang()">
-                        <span class="nav-dropdown-label">
-                            <i [class]="getFlagClass(translate.currentLang())" aria-hidden="true" class="me-1"></i>
-                            {{ langName(translate.currentLang()) }}
-                        </span>
-                        <span class="nav-dropdown-caret" aria-hidden="true"></span>
-                    </button>
-                    <ul class="dropdown-menu language-dropdown-menu list-unstyled"
-                        [attr.aria-label]="'selezionaLinguaAzione' | translate"
-                        [class.show]="langOpen()">
-                        @for (lingua of languages(); track lingua) {
-                        <li>
-                            @if (lingua === translate.currentLang()) {
-                            <span class="dropdown-item language-link nav-current-link active d-flex align-items-center justify-content-between"
-                                  aria-current="true">
-                                {{ langName(lingua) }}
-                                <i class="fa-solid fa-check ms-2" aria-hidden="true"></i>
-                            </span>
-                            } @else {
-                            <button type="button"
-                                    class="dropdown-item language-link"
-                                    (click)="setLanguage(lingua)">
-                                {{ langName(lingua) }}
-                            </button>
-                            }
-                        </li>
-                        }
-                    </ul>
-                </div>
+            @if (languages().length > 1 && (menuItems.length > 0 || hasAuthPage)) {
+            <div class="mt-3 mt-md-0">
+                <ng-container [ngTemplateOutlet]="languagePicker"></ng-container>
             </div>
             }
         </div>
@@ -108,3 +81,46 @@
 @if (fixTop) {
 <div aria-hidden="true" style="height: 3.5rem;"></div>
 }
+
+<!-- Selettore lingua — condiviso: inline nella barra (lingua unica voce collassabile) oppure
+     dentro il pannello mobile (quando c'è anche altro da collassare). -->
+<ng-template #languagePicker>
+    <div class="language-picker">
+        <span class="language-picker-label">{{ 'selezionaLinguaAzione' | translate }}</span>
+        <div class="dropdown language-dropdown" [class.show]="langOpen()">
+            <button type="button"
+                    class="nav-link nav-dropdown-toggle language-toggle"
+                    [attr.aria-label]="'selezionaLinguaAzione' | translate"
+                    aria-haspopup="true"
+                    [attr.aria-expanded]="langOpen()"
+                    (click)="toggleLang()">
+                <span class="nav-dropdown-label">
+                    <i [class]="getFlagClass(translate.currentLang())" aria-hidden="true" class="me-1"></i>
+                    {{ langName(translate.currentLang()) }}
+                </span>
+                <span class="nav-dropdown-caret" aria-hidden="true"></span>
+            </button>
+            <ul class="dropdown-menu language-dropdown-menu list-unstyled"
+                [attr.aria-label]="'selezionaLinguaAzione' | translate"
+                [class.show]="langOpen()">
+                @for (lingua of languages(); track lingua) {
+                <li>
+                    @if (lingua === translate.currentLang()) {
+                    <span class="dropdown-item language-link nav-current-link active d-flex align-items-center justify-content-between"
+                          aria-current="true">
+                        {{ langName(lingua) }}
+                        <i class="fa-solid fa-check ms-2" aria-hidden="true"></i>
+                    </span>
+                    } @else {
+                    <button type="button"
+                            class="dropdown-item language-link"
+                            (click)="setLanguage(lingua)">
+                        {{ langName(lingua) }}
+                    </button>
+                    }
+                </li>
+                }
+            </ul>
+        </div>
+    </div>
+</ng-template>
