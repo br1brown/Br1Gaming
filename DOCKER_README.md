@@ -14,11 +14,13 @@ La configurazione è divisa in tre file per **proprietario** (tutti validati da 
 - **`global-settings.local.json`** — **gitignored**: pubblicazione e segreti del singolo ambiente (`frontend`, `backend`, `Security`, `Mail`).
 - **`security-headers.json`** — del **template**, non si tocca: header di sicurezza fissi.
 
-`deploy.sh` fonde i primi due e monta il risultato; backend e Node SSR lo leggono. La scorciatoia `node setup.mjs "Nome Progetto"` imposta il nome nel file di progetto e crea il `.local` coi segreti generati.
+`scripts/deploy.sh` fonde i primi due e monta il risultato; backend e Node SSR lo leggono. La scorciatoia `node setup.mjs "Nome Progetto"` imposta il nome nel file di progetto e crea il `.local` coi segreti generati.
 
 ### Avvio di un progetto derivato
 
-Per il percorso guidato passo-passo vedi **[QUICKSTART.md](QUICKSTART.md)**. Il meccanismo sotto: `./deploy.sh` legge `global-settings.json`, verifica la configurazione e avvia i container. Il file viene montato in entrambi i container in sola lettura (`/app/global-settings.json:ro`): cambiare il file e rieseguire il deploy è sufficiente per applicare la configurazione a tutti i livelli.
+Per il percorso guidato passo-passo vedi **[QUICKSTART.md](QUICKSTART.md)**. Il meccanismo sotto: `./scripts/deploy.sh` legge `global-settings.json`, verifica la configurazione e avvia i container. Il file viene montato in entrambi i container in sola lettura (`/app/global-settings.json:ro`): cambiare il file e rieseguire il deploy è sufficiente per applicare la configurazione a tutti i livelli.
+
+> **Produzione vs test.** `./scripts/deploy.sh` **builda le immagini sulla macchina** dove lo lanci: comodo per lo sviluppo locale e i test, ma **sconsigliato in produzione**. Per la produzione il modello consigliato è *artifact-based*: la CI builda le immagini a ogni tag e le pubblica su GHCR, la VPS le **scarica** con `./scripts/deploy-release.sh` — niente sorgente, niente `git pull`, niente build in loco. Guida completa in **[RELEASE.md](RELEASE.md)**.
 
 ### Esposizione dei servizi
 
@@ -42,7 +44,8 @@ Risultato:
 
 ## File Compose
 
-- **`docker-compose.yml`** — base: servizi, build, rete, volumi. Usato in produzione.
+- **`docker-compose.yml`** — base: servizi, build, rete, volumi.
+- **`docker-compose.release.yml`** — override di **produzione**: usa immagini pre-costruite da GHCR (`image:`) invece di ricostruire da sorgente (`build:`). Lo usa `./scripts/deploy-release.sh` (vedi [RELEASE.md](RELEASE.md)).
 - **`docker-compose.backend-exposed.yml`** — opzionale: espone il backend verso l'host su `BACKEND_PORT` (quando `backend.public: true`)
 - **`docker-compose.public-test.yml`** — overlay per simulare un reverse proxy pubblico davanti al frontend SSR (usato dai test a11y/Lighthouse via `scripts/test/public-test.sh`). Indicizzazione lasciata attiva (il test SEO/Lighthouse misura la pagina reale); per un'anteprima non-indicizzabile avviala con `PUBLIC_TEST_NOINDEX=true`
 
@@ -58,7 +61,7 @@ sono documentati in `global-settings.schema.json`, quindi l'editor offre autocom
 > A mano: `cp global-settings.local.example.json global-settings.local.json` poi
 > `openssl rand -base64 48` (SecretKey) e `openssl rand -base64 32` (ApiKey).
 
-Al deploy, `deploy.sh` **fonde** `global-settings.local.json` sopra `global-settings.json` (merge
+Al deploy, `scripts/deploy.sh` **fonde** `global-settings.local.json` sopra `global-settings.json` (merge
 profondo; gli array come `ApiKeys`/`SupportedLanguages` vengono sostituiti), genera
 `.br1-settings.effective.json` (gitignorato) e monta **quello** nei container. L'intero
 `global-settings.json` del progetto (`project`/`Localization`/`site`/`Custom`, senza segreti) viene
@@ -66,10 +69,14 @@ inoltre passato al build del frontend come ARG `BR1_PROJECT_JSON` e iniettato in
 Da questo stesso JSON il generatore di file statici (`generate-statics.ts`) ricava lingua di default e
 lingue supportate (sezione `Localization`) per SEO e `environment.ts`: non servono build-arg dedicati.
 
-> **Primo avvio senza `.local`.** Se `Security.ApiKeys` manca (es. CI, prima esecuzione senza
-> `global-settings.local.json`), `scripts/lib/br1-config.sh` genera una API key **effimera** usa-e-getta
-> così lo stack parte comunque e backend e SSR ne condividono una uguale. In produzione fornisci sempre
-> chiavi reali (≥32 caratteri) nel `.local`.
+> **Manca `global-settings.local.json`?** Gli script di pubblicazione (`scripts/deploy.sh`,
+> `scripts/deploy-release.sh`) lo **creano da soli generando i segreti** (`SecretKey`/`ApiKeys`/`CryptoSecret`)
+> ma lasciando **`frontend.hostname` vuoto di proposito**: le chiavi sono boilerplate, il **dominio è una
+> tua scelta consapevole**. Il deploy quindi **si ferma** finché non imposti il dominio (fail-closed:
+> niente dominio ⇒ niente 421 al dominio reale) — e la **porta** se hai altri progetti sulla stessa VPS.
+> Il mailer resta spento finché non aggiungi una sezione `Mail`. Niente valori finti che aggirerebbero i
+> controlli. (Nei **test**/CI invece si resta senza `.local`: `scripts/lib/br1-config.sh` usa una API key
+> **effimera** in memoria, senza scrivere file.)
 
 ### `global-settings.json` — progetto (committabile)
 
@@ -123,7 +130,7 @@ Variabili lette al boot dal container Node frontend (`frontend/src/app/core/engi
 | `NG_ALLOWED_HOSTS` | — | Allowlist host SSR, lista separata da virgole. **Ha precedenza su `frontend.hostname`** (utile per multi-dominio). Se né questa né l'hostname sono valorizzati, fallback fail-closed agli host locali → gli host reali ricevono `421` |
 | `IMAGE_CACHE_DIR` | `<temp di sistema>/…` | Cartella dei thumbnail di `/cdn-cgi/asset` e `/cdn-cgi/preview`. Default nella temp (isolata per progetto), quindi **effimera**: riparte fredda a ogni riavvio. Per una cache **calda tra i deploy**, monta un volume persistente e puntalo qui (dettaglio in [frontend/README.md](frontend/README.md)) |
 | `IMAGE_CACHE_MAX_MB` | `500` | Cap della cache immagini su disco; oltre la soglia uno sweep LRU ogni 6 ore la riporta al 90% del cap |
-| `SEO_NOINDEX` | `false` | Se `true` (`1`/`yes`/`on`), rende l'intero deploy **non indicizzabile**: `X-Robots-Tag: noindex, nofollow` su ogni risposta + `robots.txt` dinamico `Disallow: /`. Per staging/anteprima dietro lo stesso reverse proxy della produzione. **Lascialo spento in produzione (default).** Su un deploy si imposta come passthrough prima del comando: `export SEO_NOINDEX=true; ./deploy.sh` (stessa convenzione di `Mail__Password`). L'overlay `docker-compose.public-test.yml` lo lascia spento (così il test SEO/Lighthouse è significativo); per un'anteprima non indicizzabile avviala con `PUBLIC_TEST_NOINDEX=true` |
+| `SEO_NOINDEX` | `false` | Se `true` (`1`/`yes`/`on`), rende l'intero deploy **non indicizzabile**: `X-Robots-Tag: noindex, nofollow` su ogni risposta + `robots.txt` dinamico `Disallow: /`. Per staging/anteprima dietro lo stesso reverse proxy della produzione. **Lascialo spento in produzione (default).** Su un deploy si imposta come passthrough prima del comando: `export SEO_NOINDEX=true; ./scripts/deploy.sh` (stessa convenzione di `Mail__Password`). L'overlay `docker-compose.public-test.yml` lo lascia spento (così il test SEO/Lighthouse è significativo); per un'anteprima non indicizzabile avviala con `PUBLIC_TEST_NOINDEX=true` |
 
 ## Sviluppo locale
 
@@ -139,14 +146,17 @@ cd frontend && npm install && npm run start
 
 Il frontend si connette al backend tramite proxy. Docker resta per la pubblicazione e per i test simili alla produzione.
 
-## Pubblicazione (`deploy.sh`)
+## Pubblicazione (`scripts/deploy.sh`)
+
+> **In produzione** il modello consigliato è *artifact-based* (`scripts/deploy-release.sh`: la CI builda le immagini, la VPS le scarica — vedi **[RELEASE.md](RELEASE.md)**). `scripts/deploy.sh` qui sotto è *source-based* (builda sulla macchina): ottimo per **test e sviluppo locale**. I due condividono preflight, guard e swap; cambia solo *chi* costruisce le immagini.
 
 ```bash
 # Configurare global-settings.local.json con i valori del progetto, poi:
-./deploy.sh                # pubblica frontend + backend
-./deploy.sh --frontend     # solo il frontend
-./deploy.sh --backend      # solo il backend
-./deploy.sh --no-cache     # rebuild immagini ignorando la cache Docker (combinabile coi flag sopra)
+# (se manca, lo script lo crea con le chiavi generate e hostname VUOTO: imposti tu il dominio)
+./scripts/deploy.sh                # pubblica frontend + backend
+./scripts/deploy.sh --frontend     # solo il frontend
+./scripts/deploy.sh --backend      # solo il backend
+./scripts/deploy.sh --no-cache     # rebuild immagini ignorando la cache Docker (combinabile coi flag sopra)
 ```
 
 In produzione:
@@ -156,22 +166,22 @@ In produzione:
 
 Frontend e backend sono **disaccoppiati**: puoi pubblicarli insieme o uno alla volta (anche su VPS diverse). Il backend è privato o pubblico secondo `backend.public`.
 
-> **Guard segreti (automatico):** al deploy `deploy.sh` verifica che non siano rimasti i segreti segnaposto/deboli di default. Se `Security.Token.SecretKey` è ancora la chiave di sviluppo o è < 32 caratteri, o se `Security.ApiKeys` contiene `frontend` / chiavi < 32 caratteri, il deploy si ferma con un messaggio esplicito (e il comando `openssl` per generarne uno sicuro). I segreti si generano con `openssl rand -base64 48` (JWT) e `openssl rand -base64 32` (API key).
+> **Guard segreti (automatico):** al deploy `scripts/deploy.sh` verifica che non siano rimasti i segreti segnaposto/deboli di default. Se `Security.Token.SecretKey` è ancora la chiave di sviluppo o è < 32 caratteri, o se `Security.ApiKeys` contiene `frontend` / chiavi < 32 caratteri, il deploy si ferma con un messaggio esplicito (e il comando `openssl` per generarne uno sicuro). I segreti si generano con `openssl rand -base64 48` (JWT) e `openssl rand -base64 32` (API key).
 
 > **Guard pubblicazione (automatico):** due errori silenziosi tipici dietro reverse proxy, intercettati prima della build:
 > - **`frontend.hostname` mancante** → il deploy si **ferma**. Senza hostname l'SSR è fail-closed e risponderebbe **421** al dominio reale (e sitemap/canonical/og userebbero `example.com`); insidioso perché l'healthcheck del preflight gira su `localhost` e *passerebbe* — il deploy sembrerebbe riuscito mentre il sito è irraggiungibile dal dominio vero.
 > - **`Security.BehindProxy` non `true`** → **avviso** (non bloccante): dietro nginx il rate limiter conterebbe tutti gli utenti come un solo IP (l'IP del proxy), condividendo lo stesso budget di 100 req/min. Impostalo a `true` se usi un proxy; ignora l'avviso se esponi il sito senza proxy.
 
-> **Password SMTP fuori dal disco:** `docker-compose.yml` dichiara un passthrough `Mail__Password` (convenzione .NET: `Mail:Password`). Esportandola nell'ambiente prima del deploy — `export Mail__Password='...'; ./deploy.sh` — il backend la legge con **precedenza sul JSON montato** e la password non finisce mai nel file su disco. Se la variabile non è impostata vale il valore (eventuale) di `Mail.Password` nel `.local`.
+> **Password SMTP fuori dal disco:** `docker-compose.yml` dichiara un passthrough `Mail__Password` (convenzione .NET: `Mail:Password`). Esportandola nell'ambiente prima del deploy — `export Mail__Password='...'; ./scripts/deploy.sh` — il backend la legge con **precedenza sul JSON montato** e la password non finisce mai nel file su disco. Se la variabile non è impostata vale il valore (eventuale) di `Mail.Password` nel `.local`.
 
 Il frontend gira su Node SSR: serve l'app Angular e proxya `/api/*` al backend sulla rete Docker interna, iniettando l'API key lato server.
 
-Come funziona `deploy.sh`, in breve:
+Come funziona `scripts/deploy.sh`, in breve:
 1. **Build + preflight isolato**: costruisce le nuove immagini (incluso `npm run lint`) e le avvia in una **copia usa-e-getta su porte effimere** (`FRONTEND_PORT=0`/`BACKEND_PORT=0`: niente collisioni con la produzione), attendendo che diventino **sane** tramite gli HEALTHCHECK dei Dockerfile (`--wait`). Se la build non compila **o** non parte sana, ci si ferma qui e il sito attuale **resta intatto**.
 2. **Swap**: solo se il preflight è verde, `docker compose up -d --wait` sostituisce i container di produzione (immagini riusate dalla cache, ricontrollo salute sulle porte reali). È un blue/green leggero: zero-downtime se la nuova build parte male.
-3. **Porte**: se una porta è occupata da un altro progetto, `deploy.sh` lo **segnala** soltanto e prosegue (è Docker a riportare l'eventuale errore di bind). Nessun container viene fermato automaticamente.
+3. **Porte**: se una porta è occupata da un altro progetto, `scripts/deploy.sh` lo **segnala** soltanto e prosegue (è Docker a riportare l'eventuale errore di bind). Nessun container viene fermato automaticamente.
 
-La suite di qualità (lint, i18n, type checking, dipendenze circolari, accessibilità WCAG, Lighthouse) **non** è rieseguita da `deploy.sh`: gira in CI a ogni push/PR. In locale, on-demand: `./scripts/test/run-all.sh`.
+La suite di qualità (lint, i18n, type checking, dipendenze circolari, accessibilità WCAG, Lighthouse) **non** è rieseguita da `scripts/deploy.sh`: gira in CI a ogni push/PR. In locale, on-demand: `./scripts/test/run-all.sh`.
 
 ## Test pubblico dietro reverse proxy
 
@@ -235,30 +245,30 @@ In quel caso il frontend dovrebbe loggare il rifiuto dell'host e smettere di com
 
 ### Esporre il backend
 
-Imposta `backend.public: true` (e `backend.publicPort`) in `global-settings.local.json`. `deploy.sh` ne deriva l'esposizione e applica l'overlay `docker-compose.backend-exposed.yml`.
+Imposta `backend.public: true` (e `backend.publicPort`) in `global-settings.local.json`. `scripts/deploy.sh` ne deriva l'esposizione e applica l'overlay `docker-compose.backend-exposed.yml`.
 
 Nota: la porta pubblicata controlla solo la porta sull'host. Il container backend continua ad ascoltare internamente su `8080`, quindi l'overlay `docker-compose.backend-exposed.yml` mappa `publicPort:8080`.
 
 ### Controlli all'avvio
 
-`deploy.sh` verifica che `COMPOSE_PROJECT_NAME` e `FRONTEND_PORT` siano impostati prima di avviare Docker.
+`scripts/deploy.sh` verifica che `COMPOSE_PROJECT_NAME` e `FRONTEND_PORT` siano impostati prima di avviare Docker.
 Lo script esegue anche un controllo intelligente sulle porte: legge le etichette (`com.docker.compose.project`) dei container Docker per capire se una porta occupata appartiene allo stesso progetto (che sta per essere aggiornato) o a un altro progetto, prevenendo conflitti incrociati.
 Con `--no-cache` forza la ricostruzione delle immagini partendo da zero.
 
-## Backup dei dati (`backup.sh`)
+## Backup dei dati (`scripts/backup.sh`)
 
-I dati che sopravvivono ai deploy vivono in due volumi Docker: `<progetto>_uploads-data` (file caricati) e `<progetto>_db-data`. Lo script `backup.sh` ne crea archivi `.tar.gz` datati con retention automatica.
+I dati che sopravvivono ai deploy vivono in due volumi Docker: `<progetto>_uploads-data` (file caricati) e `<progetto>_db-data`. Lo script `scripts/backup.sh` ne crea archivi `.tar.gz` datati con retention automatica.
 
 ```bash
-./backup.sh                  # backup in ./backups, tiene i 14 archivi più recenti (per volume)
-RETENTION=30 ./backup.sh     # cambia quanti archivi tenere (è un conteggio, non giorni)
-BACKUP_DIR=/mnt/dati ./backup.sh
+./scripts/backup.sh                  # backup in ./backups, tiene i 14 archivi più recenti (per volume)
+RETENTION=30 ./scripts/backup.sh     # cambia quanti archivi tenere (è un conteggio, non giorni)
+BACKUP_DIR=/mnt/dati ./scripts/backup.sh
 ```
 
 Pianificalo via cron (la cartella `backups/` è gitignorata):
 
 ```bash
-0 3 * * * cd /percorso/progetto && ./backup.sh >> backups/backup.log 2>&1
+0 3 * * * cd /percorso/progetto && ./scripts/backup.sh >> backups/backup.log 2>&1
 ```
 
 Ripristino di un volume da un archivio (**sovrascrive i dati**):
@@ -299,12 +309,12 @@ docker compose exec backend sh
 |---|---|---|
 | Frontend | `npm run start` (Angular dev server) | Node SSR su `FRONTEND_PORT` |
 | Backend | `dotnet run` / Visual Studio | ASP.NET Core Production su `8080` (interno o esposto) |
-| Avvio | due processi separati | `./deploy.sh` |
+| Avvio | due processi separati | `./scripts/deploy.sh` (build locale) — in prod meglio `./deploy-release.sh` da release ([RELEASE.md](RELEASE.md)) |
 
 ## Nota pratica
 
 Lo sviluppo quotidiano si fa con Visual Studio (backend) e Angular CLI (frontend); Docker non è obbligatorio. Docker resta utile per:
 
-- pubblicazione (`deploy.sh`)
+- pubblicazione: `scripts/deploy.sh` (build locale) o, consigliato in prod, release artifact-based ([RELEASE.md](RELEASE.md))
 - test della configurazione container
 - ambienti simili alla produzione (`scripts/test/public-test.sh`)

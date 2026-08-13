@@ -3,7 +3,7 @@
 # run-all.sh  —  Orchestratore: esegue tutti gli script di test in sequenza
 #
 # Chiama ogni script di test uno per uno, raccoglie i fallimenti e riporta
-# il risultato complessivo. Progettato per deploy.sh (fase isolata di Pre-flight)
+# il risultato complessivo. Progettato per scripts/deploy.sh (fase isolata di Pre-flight)
 # e per audit completi in locale.
 #
 # Utilizzo:

@@ -4,7 +4,7 @@
 #                  un visitatore esterno, e lo lascia acceso per i test live
 #                  (a11y / Lighthouse). NON fa deploy in produzione.
 #
-# deploy.sh resta dedicato alla sola pubblicazione; questo harness di test vive qui.
+# scripts/deploy.sh resta dedicato alla sola pubblicazione; questo harness di test vive qui.
 # Lo usa la CI (job live-tests).
 #
 # Uso:

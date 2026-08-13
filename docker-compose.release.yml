@@ -1,0 +1,30 @@
+# =============================================================================
+# Docker Compose - Override di RELEASE (immagini pre-costruite da GHCR).
+#
+# Sovrappone al base (docker-compose.yml) l'uso di IMMAGINI GIÀ PRONTE invece di
+# ricostruirle da sorgente. È il modello "artifact-based": la CI builda e pubblica
+# le immagini su GHCR a ogni tag, la produzione le SCARICA e basta — niente `git pull`,
+# niente sorgente, niente compilazione sulla VPS.
+#
+# Uso (in produzione, tramite ./scripts/deploy-release.sh che imposta le variabili):
+#   RELEASE_TAG=1.2.3 docker compose -f docker-compose.yml -f docker-compose.release.yml pull
+#   RELEASE_TAG=1.2.3 docker compose -f docker-compose.yml -f docker-compose.release.yml up -d --wait
+#
+# Variabili:
+#   RELEASE_TAG              versione da tirare giù (default: latest). Deve combaciare con
+#                            un tag pubblicato dalla CI (es. 1.2.3, senza la 'v' iniziale).
+#   RELEASE_IMAGE_FRONTEND   base image del frontend (default: questo repo su GHCR). I fork
+#   RELEASE_IMAGE_BACKEND    base image del backend  (default: questo repo su GHCR). la
+#                            sovrascrivono per puntare al proprio namespace GHCR.
+#
+# Nota: il base file conserva la sezione `build:`; qui aggiungiamo `image:`. `pull` e
+# `up` (senza --build) usano l'immagine scaricata, mai la build. Per ricostruire da
+# sorgente in locale si usa ./scripts/deploy.sh SENZA questo override.
+# =============================================================================
+
+services:
+  frontend:
+    image: "${RELEASE_IMAGE_FRONTEND:-ghcr.io/br1brown/br1webengine-frontend}:${RELEASE_TAG:-latest}"
+
+  backend:
+    image: "${RELEASE_IMAGE_BACKEND:-ghcr.io/br1brown/br1webengine-backend}:${RELEASE_TAG:-latest}"

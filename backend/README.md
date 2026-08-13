@@ -105,7 +105,7 @@ I contenuti di `data/` sono **parte del codice**: in produzione non cambiano mai
 
 > **Git e dati di runtime.** Le cartelle `db/` e `uploads/` sono tracciate nel repo (la struttura serve ai mount point), ma il loro **contenuto** no: ognuna ha un `.gitignore` che ignora tutto tranne se stesso (`*` + `!.gitignore`). È il pattern "keep-the-folder, ignore-the-data" — sostituisce il vecchio `.gitkeep`, facendo committare la cartella e scartare i dati runtime in un colpo solo. Lo stesso vale per il build context Docker, dove `.dockerignore` esclude `db/*` e `uploads/*`.
 
-Il percorso di crescita è già predisposto: la cartella `backend/db/` è il mount point del volume Docker `<progetto>_db-data` (vedi `docker-compose.yml` e `backup.sh`). Quando il progetto migra da `FileContentStore` a un database reale — cioè una nuova implementazione di `IContentStore` — i file del DB vivono lì e sopravvivono ai deploy.
+Il percorso di crescita è già predisposto: la cartella `backend/db/` è il mount point del volume Docker `<progetto>_db-data` (vedi `docker-compose.yml` e `scripts/backup.sh`). Quando il progetto migra da `FileContentStore` a un database reale — cioè una nuova implementazione di `IContentStore` — i file del DB vivono lì e sopravvivono ai deploy.
 
 #### `LocalizedJsonDeserializer` — regole dettagliate della risoluzione i18n
 
@@ -492,7 +492,7 @@ builder.Services.AddSingleton<IPersonalDataStore, AppPersonalDataStore>();
 
 Il motivo per cui non è iniettato nel costruttore: `EngineCrypto` lancia se `Security.CryptoSecret` è vuota, e se lo iniettassi nel costruttore lo costruiresti (quindi falliresti) a **ogni** richiesta al controller, anche quando l'azione non ha nulla da cifrare — esattamente il caso dello store di default. Risolvendolo solo nel ramo che ne ha davvero bisogno, un progetto con login già attivo che riceve questo aggiornamento non vede l'endpoint rompersi per una chiave che, finché non implementa l'export, non gli serve.
 
-La chiave viene da `Security.CryptoSecret`, **separata** da `Security.Token.SecretKey`: riusare la stessa chiave per firmare JWT e per cifrare dati sarebbe riuso di materiale crittografico su due scopi diversi. `setup.mjs` la genera già alla nascita del progetto (come `Security.ApiKeys`), indipendentemente dal login — non serve attivarla a mano. `deploy.sh` la controlla come le altre chiavi prima di pubblicare (segnaposto o troppo corta ⇒ blocca il deploy).
+La chiave viene da `Security.CryptoSecret`, **separata** da `Security.Token.SecretKey`: riusare la stessa chiave per firmare JWT e per cifrare dati sarebbe riuso di materiale crittografico su due scopi diversi. `setup.mjs` la genera già alla nascita del progetto (come `Security.ApiKeys`), indipendentemente dal login — non serve attivarla a mano. `scripts/deploy.sh` la controlla come le altre chiavi prima di pubblicare (segnaposto o troppo corta ⇒ blocca il deploy).
 
 ---
 
@@ -796,7 +796,7 @@ dello schema è ciò che fa emergere il typo *mentre scrivi*, invece di lasciart
 non viene applicato".
 
 Cosa è importante capire: **non tutte le sezioni del file finiscono nel backend.** Il file è condiviso
-da tre consumer (backend ASP.NET, frontend Node SSR, `deploy.sh`), e ognuno legge la sua fetta.
+da tre consumer (backend ASP.NET, frontend Node SSR, `scripts/deploy.sh`), e ognuno legge la sua fetta.
 Lato **backend**, `Program.cs` lega come `IOptions<T>` **solo** `Security`, `Localization` e `Mail`
 (`builder.Services.Configure<…>`), e legge `Custom` ad-hoc via `IConfiguration` (non un `*Options`
 tipizzato). I codici di `Localization` vengono poi arricchiti nelle culture .NET da `EngineCultures`. Le sezioni `project` e `site` (più `frontend`/`backend` di deploy) **non sono lette dal

@@ -1614,7 +1614,7 @@ site.showNav;     // es. lettura di un singolo flag
 
 ### `FRONTEND_BASE_URL` per og:image
 
-L'URL canonico del sito è dichiarato in `FRONTEND_BASE_URL` (env var letta da `deploy.sh` / `global-settings.json`). Viene usato per costruire URL assoluti di `og:image` in SSR — indipendentemente dagli header del reverse proxy (Nginx, Cloudflare):
+L'URL canonico del sito è dichiarato in `FRONTEND_BASE_URL` (env var: in locale la passa `scripts/deploy.sh` da `frontend.hostname`; nelle release la passa la CI dalla repository variable omonima — vedi [RELEASE.md](../RELEASE.md)). Viene usato per costruire URL assoluti di `og:image` in SSR — indipendentemente dagli header del reverse proxy (Nginx, Cloudflare):
 
 ```bash
 FRONTEND_BASE_URL=https://tuodominio.it
@@ -2023,7 +2023,7 @@ Il punto pratico: **un solo asset, `favIcon`, alimenta tutto** — favicon del s
 | :--- | :--- | :--- |
 | `FRONTEND_BASE_URL` | URL canonico del sito (es. `https://tuodominio.it`), per gli URL assoluti `og:image` | `https://example.com` con warning |
 
-Lingua di default e lingue supportate **non** sono variabili d'ambiente: lo script le ricava dalla sezione `Localization` del progetto (codici a 2 lettere). Su host/CI legge direttamente `global-settings.json`; nelle immagini Docker (dove il file non è nel build context) legge gli stessi dati da `BR1_PROJECT_JSON`, il JSON di progetto che `deploy.sh` passa come build-arg. È il seed di build; i nomi nativi e i primitivi di cultura li deriva il frontend via `Intl` (`LocalizationService`).
+Lingua di default e lingue supportate **non** sono variabili d'ambiente: lo script le ricava dalla sezione `Localization` del progetto (codici a 2 lettere). Su host/CI legge direttamente `global-settings.json`; nelle immagini Docker (dove il file non è nel build context) legge gli stessi dati da `BR1_PROJECT_JSON`, il JSON di progetto che `scripts/deploy.sh` (build locale) o la CI di release passa come build-arg. È il seed di build; i nomi nativi e i primitivi di cultura li deriva il frontend via `Intl` (`LocalizationService`).
 
 ### Esclusioni Automatiche da Sitemap e Indicizzazione
 

@@ -1,7 +1,7 @@
 # =============================================================================
 # Docker Compose - Frontend SSR Node + Backend (.NET) come servizi separati.
 #
-# Pubblicazione: usa ./deploy.sh (legge global-settings.json e orchestra build + up).
+# Pubblicazione: usa ./scripts/deploy.sh (legge global-settings.json e orchestra build + up).
 #
 # PROD (stesso host):
 #   docker compose -f docker-compose.yml up -d --build
@@ -14,7 +14,7 @@
 #
 # La configurazione proviene da global-settings.json, montato in entrambi i container.
 # Frontend e backend leggono direttamente il file JSON alla loro avvio.
-# deploy.sh legge global-settings.json per le poche variabili necessarie a docker-compose
+# scripts/deploy.sh legge global-settings.json per le poche variabili necessarie a docker-compose
 # (porta host, project name) e le passa come variabili d'ambiente inline.
 # =============================================================================
 
@@ -32,7 +32,7 @@ services:
       SECURITY_HEADERS_PATH: /app/security-headers.json
       # Passthrough OPZIONALE: se NON imposti la variabile nell'ambiente, resta vuota = sito
       # indicizzabile (default di produzione). Per una copia di staging che NON deve finire su
-      # Google:  export SEO_NOINDEX=true; ./deploy.sh
+      # Google:  export SEO_NOINDEX=true; ./scripts/deploy.sh
       SEO_NOINDEX: "${SEO_NOINDEX:-}"
     ports:
       - "${FRONTEND_PORT:?ERRORE: impostare frontend.port in global-settings.json}:3000"
@@ -66,7 +66,7 @@ services:
       # Passaggio OPZIONALE di segreti via variabile d'ambiente (precedenza sul JSON montato).
       # Senza valore = "passthrough": il valore arriva dall'ambiente di chi lancia il deploy; se la
       # variabile non è impostata non viene passata e resta il valore del JSON. Esempio per tenere
-      # la password SMTP fuori dal file su disco:  export Mail__Password='...'; ./deploy.sh
+      # la password SMTP fuori dal file su disco:  export Mail__Password='...'; ./scripts/deploy.sh
       - Mail__Password
     volumes:
       - ${BR1_SETTINGS_FILE:-./global-settings.json}:/app/global-settings.json:ro

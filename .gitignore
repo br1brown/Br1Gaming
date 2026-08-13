@@ -32,13 +32,13 @@ yarn-error.log*
 .env
 
 # Override locale con i SEGRETI REALI di produzione (SecretKey, ApiKeys, ...).
-# deploy.sh/public-test.sh lo fondono su global-settings.json; senza questo file lo
+# scripts/deploy.sh/public-test.sh lo fondono su global-settings.json; senza questo file lo
 # stack parte comunque (br1-config.sh genera un ApiKey effimero), così il template gira
 # subito ma i segreti veri restano fuori dal repo. Vedi global-settings.local.example.json.
 global-settings.local.json
 # File di config effettivo generato dal merge (montato nei container).
 .br1-settings.effective.json
-# Backup dei volumi dati prodotti da backup.sh
+# Backup dei volumi dati prodotti da scripts/backup.sh
 /backups/
 
 # OS generated files

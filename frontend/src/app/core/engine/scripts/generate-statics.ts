@@ -42,7 +42,7 @@ const ROOT = join(__dirname, '../../../../../');
 
 // Config di progetto a build-time. Sorgente: global-settings.json (sezioni project /
 // Localization / site). Nel build dell'immagine Docker il file (nella root del repo) NON è
-// nel build context (./frontend), quindi deploy.sh passa il suo contenuto minificato come
+// nel build context (./frontend), quindi scripts/deploy.sh passa il suo contenuto minificato come
 // build ARG BR1_PROJECT_JSON (solo config di progetto, NIENTE segreti). Su host/CI il file
 // c'è e si legge direttamente (guardato). FRONTEND_BASE_URL resta un ARG a parte (deploy).
 // Tipizzato con GlobalSettings (generato dallo schema, `npm run generate:types`): le letture sono

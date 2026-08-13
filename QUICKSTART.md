@@ -42,10 +42,12 @@ Risponde `[s/N]`: `N` tiene la demo (comoda per esplorare), `s` parte puliti (*e
 ## 4. Su
 
 ```bash
-./deploy.sh
+./scripts/deploy.sh
 ```
 
 *(valida la configurazione e fa lui `docker compose up` con gli health check — se preferisci farlo a mano, `docker compose up --build -d` funziona uguale una volta che `global-settings.local.json` esiste.)*
+
+> **In produzione**, invece di buildare sulla VPS, il modello consigliato è la release artifact-based: la CI builda le immagini e la VPS le scarica. Vedi **[RELEASE.md](RELEASE.md)**. `./scripts/deploy.sh` qui sopra resta perfetto per provare in locale.
 
 ## Fatto
 
