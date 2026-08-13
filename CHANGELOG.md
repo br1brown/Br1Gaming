@@ -4,6 +4,14 @@ Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspetta
 
 ## [Non rilasciato]
 
+### QUICKSTART: la "nascita" (remote `template` + merge) è ora il primo passo
+
+Il flusso *nascita → aggiornamento* dell'Engine era descritto solo nel README (sezione *Template vivo*); il QUICKSTART partiva dritto da `node setup.mjs`, senza mai dire di aggiungere il remote `template`. Un progetto avviato seguendo solo il QUICKSTART nasceva quindi scollegato dal template, e il successivo `git merge template/main` non aveva con chi parlare.
+
+- Nuovo **passo 1 "Nasci dal template"** in `QUICKSTART.md`: il progetto vive in un repo proprio, il template entra come secondo remote e lo si innesta una volta sola con `git merge template/main --allow-unrelated-histories`. Gli aggiornamenti successivi sono `git fetch template && git merge template/main` (senza flag: la storia è ormai collegata), con rimando al README per le regole di conflitto. I passi successivi sono rinumerati (battesimo → 2, file → 3, up → 4).
+- **Niente `--squash`, niente clone come punto di partenza.** Lo squash reciderebbe la parentela git col template (ogni aggiornamento tornerebbe a pretendere `--allow-unrelated-histories` e una riconciliazione dell'intero albero); il `merge` normale la conserva, così `git log --first-parent` resta pulito ma gli update restano indolori.
+- **README (*Template vivo → Nascita*) e `DOCKER_README.md` allineati** allo stesso modello: la nascita non è più un clone ma un innesto via remote. Aggiunto l'avviso che il bottone GitHub **"Use this template"** non va usato per far nascere un figlio — riparte da un singolo *Initial commit* senza storia e lascia il progetto orfano del template. Solo documentazione: nessun cambiamento all'Engine o allo scaffold.
+
 ### La pagina di login è `noindex` per default (l'Engine sa qual è)
 
 La pagina puntata dallo slot `loginPage` in `site.ts` non ha motivo di finire nell'indice dei motori né nel `sitemap.xml`: su un sito a pochi account (o a singolo amministratore — il caso d'uso nativo del template) è una porta di servizio, non contenuto da promuovere. Finora però il builder la trattava come una pagina pubblica qualunque e la includeva nel sitemap: il figlio avrebbe dovuto ricordarsi di marcarla `noindex` a mano.

@@ -122,10 +122,17 @@ proprio dominio e nient'altro. Regola pratica: l'Engine non si tocca; i comporta
 **configurazione** (`global-settings.local.json`, `site.ts`, sezione `Custom`) o per **estensione**
 (sottoclassi dei controller `Engine*`, nuovi servizi).
 
-**Nascita.** Un figlio è un **vero discendente git** del template: si clona questo repository, si
-punta `origin` al repo del nuovo progetto e si tiene il template come secondo remote
-(`git remote add template <url-del-template>`); poi `node setup.mjs "Nome Progetto"` battezza il
-progetto. La storia git è il cordone ombelicale tra figlio e template — è ciò che gli porta gli aggiornamenti: conservala fin dalla clonazione.
+**Nascita.** Un figlio è un **discendente git** del template, ma non nasce da un clone: vive nel
+**proprio** repo, col template aggiunto come secondo remote e innestato una volta sola. Da dentro il
+repo del progetto (anche appena inizializzato): `git remote add template <url-del-template>`,
+`git fetch template`, poi `git merge template/main --allow-unrelated-histories` — il flag serve
+**solo** a questo primo innesto, da lì la storia è collegata e non torna più. Quindi
+`node setup.mjs "Nome Progetto"` battezza il progetto. Quella parentela git è il cordone ombelicale
+tra figlio e template — è ciò che gli porta gli aggiornamenti: da preservare, **mai reciderla** con uno
+`--squash` né rigenerarla dal bottone **"Use this template"** di GitHub (che riparte da un singolo
+*Initial commit* senza storia, lasciando il figlio orfano: ogni futuro merge tornerebbe a pretendere
+`--allow-unrelated-histories` e a rifondere l'intero albero). Il repo può restare marcato come *template*
+per la vetrina, ma la nascita è questo innesto, non quel bottone.
 
 **Aggiornamento.** Non è il `git pull` del figlio (quello parla con `origin`): è un merge dal
 template — `git fetch template && git merge template/main`. Regola d'oro sui conflitti: sui path

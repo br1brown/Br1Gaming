@@ -6,7 +6,7 @@ Guida operativa per eseguire Br1WebEngine con Docker. Per architettura completa,
 
 Il template Docker e' progettato per essere **riusabile su piu' progetti sulla stessa VPS**. Ogni progetto derivato dal template viene eseguito in una propria cartella con un proprio `global-settings.json` e una propria porta.
 
-### Inizializzazione (una sola volta dopo la clonazione)
+### Inizializzazione (una sola volta, alla nascita del progetto)
 
 La configurazione è divisa in tre file per **proprietario** (tutti validati da `global-settings.schema.json` per l'autocomplete):
 
