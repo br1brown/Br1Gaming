@@ -80,6 +80,9 @@ public sealed class FintoSpagnoloTranslator
         ["tempo"] = "tiempo", ["acqua"] = "agua", ["cibo"] = "comida", ["mangiare"] = "comer", ["bere"] = "beber",
         ["cane"] = "perro", ["gatto"] = "gato", ["bambino"] = "niño", ["bambina"] = "niña", ["bambini"] = "niños",
         ["festa"] = "fiesta", ["notte"] = "noche", ["giorno"] = "día", ["mare"] = "mar",
+        // ballare (to dance) → bailar: la parola "balla" diventa "baila", con le sue coniugazioni
+        ["ballo"] = "bailo", ["balli"] = "bailas", ["balla"] = "baila", ["balliamo"] = "bailamos", ["ballate"] = "bailáis", ["ballano"] = "bailan",
+        ["ballare"] = "bailar", ["ballando"] = "bailando",
         ["scuola"] = "escuela", ["auto"] = "coche", ["autobus"] = "autobús",
         ["soldi"] = "dinero", ["strada"] = "calle", ["casa"] = "casa", ["cuore"] = "corazón",
         ["signore"] = "señor", ["signora"] = "señora", ["signorina"] = "señorita",
