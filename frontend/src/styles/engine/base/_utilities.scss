@@ -6,8 +6,10 @@ code {
     background-color: transparent;
 }
 
-/* Schermi piccoli */
-@media only screen and (max-width: #{lib.$bp-md}) {
+/* Schermi piccoli. -0.02px per restare strettamente sotto lib.$bp-md (768px). 
+   Impedisce a overflow-x: hidden di forzare overflow-y: auto a 768px esatti, il che 
+   taglierebbe i dropdown verticali che fuoriescono dalla navbar. */
+@media only screen and (max-width: #{lib.$bp-md - 0.02px}) {
     .container-fluid {
         overflow-x: hidden;
     }

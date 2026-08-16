@@ -9,7 +9,9 @@ import {
     createNodeRequestHandler,
     isMainModule,
 } from '@angular/ssr/node';
-import { serverEnv, assertRequiredEnv } from './server-env';
+import { serverEnv, assertRequiredEnv, getBr1Settings } from './server-env';
+import { fingerprintIdentitySections } from '../scripts/config/config-fingerprint';
+import { environment } from '../../../../environments/environment';
 import { API_PREFIX } from '../asset-config';
 import { browserDistFolder } from './server-paths';
 import { pruneImageCache, CACHE_SWEEP_INTERVAL_MS } from './image-cache';
@@ -25,6 +27,21 @@ import { ogPreviewHandler } from './routes/og-preview';
 const { server: nodeCfg, site } = serverEnv;
 // serverEnv.backend (BACKEND_ORIGIN, BACKEND_API_KEY) è acceduto lazily
 // dentro i middleware delle rotte, mai al caricamento del modulo.
+
+// Avviso "environment.ts disallineato": confronta l'impronta embeddata nel bundle (scritta da
+// generate-statics.ts) con quella ricalcolata ORA da global-settings.json. Gira al boot, sia in
+// prod (node server.mjs) sia in dev sotto `ng serve` (che importa questo modulo comunque, vedi
+// isMainModule più sotto) — è proprio il caso "ng serve lanciato direttamente, senza passare da
+// npm run dev/start/build" (che hanno il pre-hook generate:statics) a lasciare project/Localization/
+// site del bundle stantii senza nessun errore. Solo un warning: environment.ts è comunque un seed
+// valido e versionato, l'app parte lo stesso — semplicemente con dati potenzialmente vecchi.
+if (environment.configFingerprint !== fingerprintIdentitySections(getBr1Settings())) {
+    console.warn(
+        '[br1-engine] src/environments/environment.ts sembra disallineato da global-settings.json ' +
+        '(project/Localization/site). Esegui `npm run generate:statics` (già incluso in ' +
+        '`npm run dev`/`start`/`build`: capita solo lanciando `ng serve` direttamente).'
+    );
+}
 
 /** Endpoint CDN CGI serviti da questo server. Specchio di CdnCgi in asset.service.ts. */
 const CdnCgiPaths = {

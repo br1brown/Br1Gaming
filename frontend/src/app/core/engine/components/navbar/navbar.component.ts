@@ -1,9 +1,10 @@
-import { Component, ElementRef, inject, isDevMode, signal } from '@angular/core';
+import { afterNextRender, Component, computed, DestroyRef, effect, ElementRef, inject, isDevMode, signal, viewChild, viewChildren } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { injectCurrentUrl } from '../../routing';
+import { isDesktopViewport } from '../../breakpoints';
 import { ThemeService } from '../../services/theme.service';
 import { TranslateService } from '../../services/translate.service';
 import { LocalizationService } from '../../services/localization.service';
@@ -11,10 +12,16 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
 import { NavLinkComponent } from '../nav-link/nav-link.component';
 import { NavDropdownComponent } from '../nav-dropdown/nav-dropdown.component';
 import { ContestoSito } from '../../../../site';
-import { isNavGroup } from '../../siteBuilder';
+import { filterNavByAuth, isNavGroup, NavLink } from '../../siteBuilder';
 import { AssetDirective } from '../../directives/asset.directive';
 import { UserNavComponent } from '../../../../components/shared/user-nav/user-nav.component';
 import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
+import { TokenService } from '../../services/token.service';
+
+/** Oltre questa soglia: warning dev (console) + calcolo overflow "Altro" attivo. Sotto, tutte le
+ *  voci restano sempre in riga senza costo (nessun ResizeObserver montato) — è la soglia stessa
+ *  già raccomandata nel warning, non un limite indipendente. */
+const MAX_RECOMMENDED_TOP_LEVEL_ITEMS = 6;
 
 @Component({
     selector: 'app-navbar',
@@ -45,13 +52,23 @@ export class NavbarComponent {
     private readonly localization = inject(LocalizationService);
     private readonly router = inject(Router);
     private readonly elRef = inject(ElementRef);
+    private readonly destroyRef = inject(DestroyRef);
+    private readonly tokenService = inject(TokenService);
 
     readonly appName = ContestoSito.config.appName;
     // Path della home dallo slot `homePage`; `null` se non valorizzato → il brand non è un link.
     readonly homePath: string | null = ContestoSito.config.homePage != null
         ? ContestoSito.getPath(ContestoSito.config.homePage)
         : null;
-    readonly menuItems = ContestoSito.menuNav;
+    /** Menu così come dichiarato in `site.ts`, senza filtro auth: usato solo per le decisioni
+     *  strutturali che devono restare stabili a prescindere dal login (soglia overflow "Altro",
+     *  warning di usabilità, sentinel `altroDropdownIndex`) — vedi `menuItems` per il render. */
+    private readonly rawMenuItems = ContestoSito.menuNav;
+    /** Menu effettivamente reso: filtra le voci/gruppi `authOnly` in base al login corrente
+     *  (`TokenService.isLoggedIn()`). In SSR e prima dell'idratazione l'utente risulta sempre
+     *  sloggato (nessun token), quindi anche i bot vedono solo le voci pubbliche — coerente con
+     *  `requiresAuth` che già forza quelle pagine fuori da sitemap/SSR. */
+    readonly menuItems = computed(() => filterNavByAuth(this.rawMenuItems, this.tokenService.isLoggedIn()));
     readonly fixTop = ContestoSito.config.fixedTopHeader;
     readonly showBrandIconInHeader = ContestoSito.config.showBrandIconInHeader;
     /** Mostra il campanellino delle notifiche realtime (shell.showNotifications, default false). */
@@ -68,18 +85,173 @@ export class NavbarComponent {
     protected readonly openDropdownIndex = signal(-1);
     protected readonly langOpen = signal(false);
     private readonly currentUrl = injectCurrentUrl();
+    private readonly navEl = viewChild<ElementRef<HTMLElement>>('navEl');
+    /** Altezza reale della navbar, esposta come custom property `--nav-height` (vedi template)
+     *  e usata in due punti: lo spacer sotto la navbar fixed, e il tetto di altezza del pannello
+     *  mobile aperto (`calc(100dvh - var(--nav-height))`, navbar.component.scss). 56px = 3.5rem
+     *  di default, coerente col valore fisso storico finché non viene misurata; da lì in poi
+     *  segue l'elemento vero (voci di menu che vanno a capo, zoom testo, ecc.), così né lo
+     *  spacer né il tetto restano tarati su un'altezza diversa da quella reale. */
+    readonly navHeight = signal(56);
+
+    // ── Overflow "Altro" (desktop) ──────────────────────────────────────────────────────
+    // Bootstrap forza flex-wrap:nowrap su .navbar-expand-md: con più voci di primo livello di
+    // quante ne entrino in riga (oltre le 6 consigliate, vedi warning sotto), il contenuto in
+    // eccesso uscirebbe dalla viewport senza scroll, cioè letteralmente irraggiungibile.
+    // Per gestire l'overflow, misuriamo la larghezza reale disponibile e decidiamo in TS 
+    // quante voci entrano, spostando le altre in un dropdown "Altro" finale.
+    private readonly containerFluidEl = viewChild<ElementRef<HTMLElement>>('containerFluidEl');
+    private readonly brandEl = viewChild<ElementRef<HTMLElement>>('brandEl');
+    private readonly navListEl = viewChild<ElementRef<HTMLElement>>('navListEl');
+    private readonly navItemEls = viewChildren<ElementRef<HTMLElement>>('navItemEl');
+    private readonly userNavWrapperEl = viewChild<ElementRef<HTMLElement>>('userNavWrapperEl');
+    private readonly langWrapEl = viewChild<ElementRef<HTMLElement>>('langWrapEl');
+    /** Esiste solo quando overflowMenuItems() non è vuoto (vedi template): usato per misurare
+     *  la larghezza vera del toggle "Altro" una volta che esiste, invece della sola stima
+     *  fissa iniziale (vedi ALTRO_WIDTH_ESTIMATE_FALLBACK in recomputeOverflow). */
+    private readonly altroToggleEl = viewChild<ElementRef<HTMLElement>>('altroToggleEl');
+    /** Quante voci di primo livello entrano in riga; le altre finiscono in "Altro".
+     *  Parte da "tutte visibili" (coerente col comportamento pre-misura, prima dell'idratazione)
+     *  e viene corretta da recomputeOverflow() appena il layout reale è misurabile. */
+    readonly visibleCount = signal(this.menuItems().length);
+    readonly overflowMenuItems = computed(() => this.menuItems().slice(this.visibleCount()));
+    /** Gruppo sintetico passato a <app-nav-dropdown>: stessa struttura di un gruppo dichiarato
+     *  in site.ts (addGroup), così il rendering (incluso l'annidamento di eventuali sotto-gruppi
+     *  finiti in overflow) è quello già esistente, nessuna duplicazione di template. */
+    readonly altroGroup = computed<NavLink & { children: NavLink[] }>(() => ({
+        label: 'altroNav',
+        path: '',
+        isExternal: false,
+        children: this.overflowMenuItems(),
+    }));
+    /** Indice dedicato per isNavDropdownOpen/onNavDropdownToggle: basato su rawMenuItems (il
+     *  massimo possibile, indipendente dal login) così non collide mai con un indice reale
+     *  del menu filtrato (0..length-1, sempre <= rawMenuItems.length) né con -1 ("nessun
+     *  dropdown aperto"). */
+    readonly altroDropdownIndex = this.rawMenuItems.length;
 
     constructor() {
-        if (isDevMode() && this.menuItems.length > 6) {
+        if (isDevMode() && this.rawMenuItems.length > MAX_RECOMMENDED_TOP_LEVEL_ITEMS) {
             console.warn(
-                `[Navbar] ${this.menuItems.length} voci di primo livello nel menu (max consigliato: 6). ` +
-                `Su desktop rischiano di andare a capo; su mobile richiedono scroll. ` +
-                `Raggruppa le voci in dropdown per ridurre il numero di item orizzontali.`
+                `[Navbar] ${this.rawMenuItems.length} voci di primo livello nel menu ` +
+                `(max consigliato: ${MAX_RECOMMENDED_TOP_LEVEL_ITEMS}). ` +
+                `Quelle che non entrano in riga finiscono nel dropdown "Altro"; su mobile restano ` +
+                `tutte nel pannello, ma richiedono scroll. Raggruppa le voci in dropdown per ridurre ` +
+                `il numero di item orizzontali.`
             );
         }
         this.router.events
             .pipe(filter(e => e instanceof NavigationEnd), takeUntilDestroyed())
             .subscribe(() => this.closeNavigation());
+
+        // Sempre osservata (non solo se fixTop): serve anche al tetto di altezza del pannello
+        // mobile aperto, indipendente dal fatto che la navbar sia fixed o in flusso normale.
+        afterNextRender(() => this.observeNavHeight());
+
+        // Overflow "Altro" attivo solo oltre la soglia raccomandata: sotto, si mostrano sempre
+        // tutte le voci senza il costo di ResizeObserver + calcolo a ogni resize/cambio lingua.
+        // Il gate usa rawMenuItems (il totale dichiarato, non il filtrato): se una parte delle
+        // voci è authOnly, il numero visibile può salire dopo un login, quindi l'osservatore va
+        // armato comunque ogni volta che è dichiarato abbastanza per poterlo servire.
+        if (this.rawMenuItems.length > MAX_RECOMMENDED_TOP_LEVEL_ITEMS) {
+            afterNextRender(() => this.setupOverflowObserver());
+            // Le voci in overflow sono position:absolute (vedi scss): un loro cambio di larghezza
+            // (es. etichette più lunghe/corte nella nuova lingua, o comparsa/sparizione di voci
+            // authOnly al login/logout) non fa scattare da solo il ResizeObserver su navListEl,
+            // perché non contribuiscono alla sua box — da qui il ricalcolo esplicito. queueMicrotask:
+            // il ResizeObserver in browser batcha gli aggiornamenti; TranslatePipe/isLoggedIn
+            // aggiornano già i rispettivi segnali appena cambiano, ma un microtask di margine
+            // evita di misurare durante lo stesso ciclo.
+            effect(() => {
+                this.translate.currentLang();
+                this.tokenService.isLoggedIn();
+                queueMicrotask(() => this.recomputeOverflow());
+            });
+        }
+    }
+
+    private observeNavHeight(): void {
+        const el = this.navEl()?.nativeElement;
+        if (!el) return;
+        this.navHeight.set(el.offsetHeight);
+        // Guardia menuOpen(): il pannello mobile espanso è DENTRO <nav>, quindi la aprirlo
+        // gonfia anche l'altezza di <nav> stesso. Se aggiornassimo navHeight anche a pannello
+        // aperto, il tetto del pannello (calc(100dvh - var(--nav-height)), navbar.component.scss)
+        // si ricalcolerebbe su un'altezza già gonfiata dal pannello stesso — un ciclo che lo
+        // schiaccia quasi a zero. L'altezza "a riposo" (barra chiusa) non cambia mentre il
+        // pannello è aperto, quindi ignorare gli aggiornamenti in quella finestra è corretto,
+        // non solo un modo per evitare il loop.
+        const observer = new ResizeObserver(([entry]) => {
+            if (!this.menuOpen()) this.navHeight.set(entry.target.clientHeight);
+        });
+        observer.observe(el);
+        this.destroyRef.onDestroy(() => observer.disconnect());
+    }
+
+    private setupOverflowObserver(): void {
+        this.recomputeOverflow();
+        const container = this.containerFluidEl()?.nativeElement;
+        const list = this.navListEl()?.nativeElement;
+        if (!container || !list) return;
+        const observer = new ResizeObserver(() => this.recomputeOverflow());
+        observer.observe(container);
+        observer.observe(list);
+        this.destroyRef.onDestroy(() => observer.disconnect());
+    }
+
+    /** Ricalcola quante voci di primo livello entrano in riga, dalla larghezza reale disponibile.
+     *  Sotto md il pannello collassabile impila già tutto verticalmente: nessun overflow da gestire,
+     *  si mostra sempre l'insieme completo. */
+    private recomputeOverflow(): void {
+        if (this.rawMenuItems.length <= MAX_RECOMMENDED_TOP_LEVEL_ITEMS) return;
+        const currentItems = this.menuItems();
+        if (!isDesktopViewport()) {
+            this.visibleCount.set(currentItems.length);
+            return;
+        }
+
+        const container = this.containerFluidEl()?.nativeElement;
+        const items = this.navItemEls();
+        if (!container || items.length !== currentItems.length) return;
+
+        const brand = this.brandEl()?.nativeElement;
+        const userNav = this.userNavWrapperEl()?.nativeElement;
+        const langWrap = this.langWrapEl()?.nativeElement;
+        const GAP = 16; // 1rem — coerente con .navbar-collapse{gap:1rem} in navbar.component.scss
+        const available = container.clientWidth
+            - (brand?.offsetWidth ?? 0)
+            - (userNav?.offsetWidth ?? 0)
+            - (langWrap?.offsetWidth ?? 0)
+            - GAP * 3; // brand↔collapse, ul↔user-nav, user-nav↔lingua
+
+        const widths = items.map(ref => ref.nativeElement.offsetWidth);
+        const fitCount = (budget: number): number => {
+            let used = 0;
+            let count = 0;
+            for (const w of widths) {
+                const next = used + (count > 0 ? GAP : 0) + w;
+                if (next > budget) break;
+                used = next;
+                count++;
+            }
+            return count;
+        };
+
+        let count = fitCount(available);
+        if (count < widths.length) {
+            // Non entrano tutte: si riserva anche lo spazio del toggle "Altro" stesso e si
+            // ricalcola. Se "Altro" esiste già da un giro precedente se ne misura la larghezza
+            // vera; altrimenti (primo giro in cui serve, non ancora nel DOM: comparirebbe solo
+            // dopo, effetto a cascata) una stima fissa volutamente un po' generosa — nel
+            // peggiore dei casi una voce in più nel dropdown al primo giro, mai un pixel di
+            // contenuto tagliato fuori dalla viewport.
+            const ALTRO_WIDTH_ESTIMATE_FALLBACK = 96;
+            const altroWidth = this.altroToggleEl()?.nativeElement.offsetWidth || ALTRO_WIDTH_ESTIMATE_FALLBACK;
+            count = fitCount(available - GAP - altroWidth);
+        }
+        if (count !== this.visibleCount()) {
+            this.visibleCount.set(count);
+        }
     }
 
     toggleMenu(): void {
@@ -125,10 +297,6 @@ export class NavbarComponent {
     setLanguage(lang: string): void {
         void this.translate.setLanguage(lang);
         this.closeNavigation();
-    }
-
-    getFlagClass(_lang: string): string {
-        return 'fa-solid fa-globe';
     }
 
     /** Nome nativo della lingua dal codice (via Intl), con fallback al codice in MAIUSCOLO. */
