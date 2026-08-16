@@ -9,7 +9,7 @@ ARG FRONTEND_BASE_URL
 ENV FRONTEND_BASE_URL=${FRONTEND_BASE_URL}
 
 # Identità e config di progetto congelate nel bundle a build-time (nome, versione, lingue,
-# descrizione, tema, flag, smoke → <html lang>, manifest, environment.ts). Passate da deploy.sh
+# descrizione, tema, flag, smoke → <html lang>, manifest, environment.ts). Passate da scripts/deploy.sh
 # come JSON minificato (project/Localization/site/Custom, NO segreti): il file non è nel build context.
 ARG BR1_PROJECT_JSON
 ENV BR1_PROJECT_JSON=${BR1_PROJECT_JSON}

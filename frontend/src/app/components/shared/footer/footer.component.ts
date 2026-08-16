@@ -5,8 +5,9 @@ import { LoadingComponent } from '../loading/loading.component';
 import { IdentityRenderComponent } from '../identity-render/identity-render.component';
 import { FooterNavComponent } from '../../../core/engine/components/footer-nav/footer-nav.component';
 import { ContestoSito } from '../../../site';
-import { pickLocaleText } from '../../../core/engine/siteBuilder';
+import { filterNavByAuth, pickLocaleText } from '../../../core/engine/siteBuilder';
 import { TranslateService } from '../../../core/engine/services/translate.service';
+import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
     selector: 'app-footer',
@@ -17,6 +18,7 @@ import { TranslateService } from '../../../core/engine/services/translate.servic
 export class FooterComponent {
     private readonly identityService = inject(IdentityService);
     private readonly translate = inject(TranslateService);
+    private readonly auth = inject(AuthService);
 
     // Identità dalla risorsa condivisa dell'engine: un solo fetch per tutta l'app, e regge i siti
     // che non espongono /identity (identity() è null → niente dati né social, sezione nascosta).
@@ -28,5 +30,8 @@ export class FooterComponent {
     /** Descrizione del sito risolta sulla lingua corrente (reattiva al cambio lingua). */
     readonly description = computed(() => pickLocaleText(ContestoSito.config.description, this.translate.currentLang()));
     readonly currentYear = new Date().getFullYear();
-    readonly footerNavLinks = ContestoSito.linkFooter;
+    /** Filtra le voci/gruppi `authOnly` in base al login corrente — stesso meccanismo della
+     *  navbar (`filterNavByAuth`), qui via `AuthService` (facciata di Dominio) invece del
+     *  `TokenService` d'Engine, come già fa `user-nav.component.ts`. */
+    readonly footerNavLinks = computed(() => filterNavByAuth(ContestoSito.linkFooter, this.auth.isLoggedIn()));
 }

@@ -44,6 +44,7 @@ Un file, un mestiere. Così sai dove guardare prima di mettere mano al codice.
 | [frontend/README.md](frontend/README.md) | **Direttive di implementazione** del frontend per i progetti figli: DSL `site.ts`, SSR, servizi (API, tema, i18n, cookie, share, QR…), directive Angular, SEO. |
 | [backend/README.md](backend/README.md) | **Direttive di implementazione** del backend per i progetti figli: Engine di sicurezza, eccezioni→`ProblemDetails`, `FileContentStore`, login JWT. |
 | [DOCKER_README.md](DOCKER_README.md) | Setup Docker, configurazione `global-settings(.local).json`, pubblicazione, backup dei volumi. |
+| [RELEASE.md](RELEASE.md) | **Pubblicazione in produzione consigliata:** release artifact-based (immagini su GHCR via CI), la VPS scarica e basta — niente `git pull`, niente build in loco. |
 | [AGENTS.md](AGENTS.md) | Regole trasversali e ricette pratiche per chi sviluppa — umano o assistente di coding. |
 | [ENGINE.md](ENGINE.md) | Mappa dell'implementazione interna dell'Engine **non** citata per nome nei due README di dettaglio — dove trovarla e perché è fatta così, senza reverse engineering. |
 | [CHANGELOG.md](CHANGELOG.md) | Cosa cambia nel template tra una versione e l'altra. |
@@ -143,10 +144,17 @@ proprio dominio e nient'altro. Regola pratica: l'Engine non si tocca; i comporta
 **configurazione** (`global-settings.local.json`, `site.ts`, sezione `Custom`) o per **estensione**
 (sottoclassi dei controller `Engine*`, nuovi servizi).
 
-**Nascita.** Un figlio è un **vero discendente git** del template: si clona questo repository, si
-punta `origin` al repo del nuovo progetto e si tiene il template come secondo remote
-(`git remote add template <url-del-template>`); poi `node setup.mjs "Nome Progetto"` battezza il
-progetto. La storia git è il cordone ombelicale tra figlio e template — è ciò che gli porta gli aggiornamenti: conservala fin dalla clonazione.
+**Nascita.** Un figlio è un **discendente git** del template, ma non nasce da un clone: vive nel
+**proprio** repo, col template aggiunto come secondo remote e innestato una volta sola. Da dentro il
+repo del progetto (anche appena inizializzato): `git remote add template <url-del-template>`,
+`git fetch template`, poi `git merge template/main --allow-unrelated-histories` — il flag serve
+**solo** a questo primo innesto, da lì la storia è collegata e non torna più. Quindi
+`node setup.mjs "Nome Progetto"` battezza il progetto. Quella parentela git è il cordone ombelicale
+tra figlio e template — è ciò che gli porta gli aggiornamenti: da preservare, **mai reciderla** con uno
+`--squash` né rigenerarla dal bottone **"Use this template"** di GitHub (che riparte da un singolo
+*Initial commit* senza storia, lasciando il figlio orfano: ogni futuro merge tornerebbe a pretendere
+`--allow-unrelated-histories` e a rifondere l'intero albero). Il repo può restare marcato come *template*
+per la vetrina, ma la nascita è questo innesto, non quel bottone.
 
 **Aggiornamento.** Non è il `git pull` del figlio (quello parla con `origin`): è un merge dal
 template — `git fetch template && git merge template/main`. Regola d'oro sui conflitti: sui path
@@ -158,7 +166,7 @@ sul **dominio vince il figlio**. Sui path engine prendi la versione del template
 | Proprietà | Path | Al merge |
 | :--- | :--- | :--- |
 | **Engine** | `backend/Engine/`, `frontend/src/app/core/engine/`, `frontend/src/styles/engine/`, `frontend/src/assets/i18n/basic.*.json` | vince il template |
-| **Scaffold** (infrastruttura e documentazione del template fuori dall'Engine) | `scripts/`, `deploy.sh`, `backup.sh`, `docker-compose*.yml`, `.github/workflows/`, `.nvmrc`, `global.json`, `setup.mjs`, `global-settings.schema.json`, `security-headers.json`*, `CHANGELOG.md`, `QUICKSTART.md`, `DOCKER_README.md`, `AGENTS.md`, `ENGINE.md`, `backend/README.md`, `frontend/README.md`, `backend/backend.csproj`, i due `Dockerfile`, `frontend/proxy*.cjs`, `frontend/tsconfig.json`, `frontend/eslint.config.mjs`, `main.ts`/`main.server.ts`, `app.config.ts`/`app.config.server.ts` | vince il template |
+| **Scaffold** (infrastruttura e documentazione del template fuori dall'Engine) | `scripts/` (inclusi `deploy.sh`, `deploy-release.sh`, `backup.sh`), `docker-compose*.yml`, `.github/workflows/`, `.nvmrc`, `global.json`, `setup.mjs`, `global-settings.schema.json`, `security-headers.json`*, `CHANGELOG.md`, `QUICKSTART.md`, `DOCKER_README.md`, `AGENTS.md`, `ENGINE.md`, `backend/README.md`, `frontend/README.md`, `backend/backend.csproj`, i due `Dockerfile`, `frontend/proxy*.cjs`, `frontend/tsconfig.json`, `frontend/eslint.config.mjs`, `main.ts`/`main.server.ts`, `app.config.ts`/`app.config.server.ts` | vince il template |
 | **Condivisi con punti di contatto** (il template li evolve; il figlio tocca soltanto i punti indicati) | `backend/Program.cs` (soltanto il blocco "SERVIZI APPLICATIVI"), `frontend/angular.json` (assets/styles del progetto, budget, `allowedCommonJsDependencies`), `frontend/package.json` (dipendenze del progetto), `backend/Resources/*.resx` (chiavi aggiunte), `.gitignore`/`.dockerignore` (righe aggiunte) | si fondono riga per riga |
 | **Dominio** (la demo riusata + il codice del progetto) | `backend/Controllers|Services|Models|Store|Validation|data`, `site.ts`, `pages/`, `components/`, `core/services` e `core/dto`, `assets/` (i18n `addon`, legal, files), `styles.scss` + `styles/app/` (gli stili del progetto, non `styles/engine/`), `public/`, `global-settings.json`, la `.sln` rinominata | vince il figlio |
 
@@ -289,7 +297,7 @@ Dove e come girano:
 - **In CI:** in automatico a ogni push e pull request (`.github/workflows/`). È il gate ufficiale.
 - **On-demand, in locale:** `./scripts/test/run-all.sh` dalla root del progetto (i test live a11y/Lighthouse girano soltanto se è attivo un server da testare).
 
-> **Nota sul deploy:** la rete di sicurezza di `deploy.sh` è semplice e mirata: il lint Angular gira dentro la build Docker (un errore blocca subito la build) e la pubblicazione (`docker compose up -d --wait`) parte soltanto se i container diventano sani (HEALTHCHECK). La suite completa resta demandata alla CI. Vedi [DOCKER_README.md](DOCKER_README.md).
+> **Nota sul deploy:** due modelli di pubblicazione convivono. In **produzione** usa il modello *artifact-based* — la CI builda le immagini a ogni tag e le pubblica su GHCR, la VPS le scarica e basta (niente `git pull`, niente build in loco): vedi **[RELEASE.md](RELEASE.md)**. Il modello *source-based* `scripts/deploy.sh` (build sulla macchina + swap solo se i container diventano sani via HEALTHCHECK) resta comodo per **test e sviluppo locale**, ma è sconsigliato in produzione. La suite di test completa resta demandata alla CI. Vedi [DOCKER_README.md](DOCKER_README.md).
 
 ### Supply chain
 

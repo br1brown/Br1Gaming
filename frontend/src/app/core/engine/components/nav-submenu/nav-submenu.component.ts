@@ -2,6 +2,7 @@ import { Component, ElementRef, PLATFORM_ID, computed, inject, input, output, si
 import { isPlatformBrowser } from '@angular/common';
 import { Router } from '@angular/router';
 import { injectCurrentUrl } from '../../routing';
+import { isDesktopViewport } from '../../breakpoints';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { NavLinkComponent } from '../nav-link/nav-link.component';
 import { NavLink, isNavGroup } from '../../siteBuilder';
@@ -56,7 +57,7 @@ export class NavSubmenuComponent {
 
     /** Apertura/chiusura dell'accordion mobile; su desktop il pannello è guidato da hover/focus. */
     toggle(): void {
-        if (this.isBrowser && window.matchMedia('(max-width: 767.98px)').matches) {
+        if (this.isBrowser && !isDesktopViewport()) {
             this.expanded.update(v => !v);
         }
     }

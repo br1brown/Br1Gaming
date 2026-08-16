@@ -226,6 +226,8 @@ pages: (ctx) => [
 ],
 ```
 
+> **`requiresAuth` protegge la rotta, non nasconde la voce di menu.** Sono due cose distinte: senza altro, un `addPage(PageType.AreaRiservata)` in `headerNav`/`footerNav` resta visibile anche a chi non è loggato (e verrebbe rimbalzato al login/401 al click). Per nascondere la voce stessa finché non si è loggati, usa `authOnly` sul builder di navigazione — vedi *"Navigazione Multilivello"* più sotto.
+
 ### Leggere la Sessione in una Pagina
 
 `AuthService` (iniettabile ovunque) espone segnali reattivi:
@@ -1513,6 +1515,22 @@ L'Engine elabora i gruppi in modo automatico:
 
 **Limiti di Profondità**: Se superi i 3 livelli di profondità, in fase di sviluppo riceverai un avviso di usabilità in console (`NAV_DEPTH_WARN`), e un errore bloccante se si superano i 5 livelli (`NAV_DEPTH_MAX`).
 
+**Limite di voci di primo livello (Navbar Desktop)**: superate le 6 voci dirette in `headerNav` (stessa soglia dell'avviso in console per l'usabilità), la Navbar desktop raccoglie automaticamente le voci in eccesso in un dropdown finale **"Altro"** — nessuna configurazione richiesta, l'Engine misura lo spazio disponibile a runtime (`ResizeObserver`) e sposta lì solo ciò che davvero non entra nella riga. Sotto la soglia, o su mobile (dove il menu è comunque impilato verticalmente), il comportamento non cambia.
+
+**Voci visibili solo da loggato (`authOnly`)**: `addPage`/`addLink`/`addGroup` accettano un terzo parametro opzionale `{ authOnly: true }` — la voce (o, su `addGroup`, l'intero gruppo coi suoi figli) compare in navbar e footer solo per utenti loggati, sparendo del tutto per visitatori e bot (nessun link verso una pagina a cui comunque non potrebbero accedere). È il complemento lato-menu di `requiresAuth` sulla pagina (vedi *"Proteggere una Pagina"*): quello protegge la rotta, questo nasconde la voce.
+
+```typescript
+headerNav: (h) => {
+    h.addPage(PageType.AreaRiservata, { authOnly: true }); // solo da loggato
+    h.addGroup('navAdmin', g => {                          // l'intero gruppo, non solo i figli
+        g.addPage(PageType.Utenti);
+        g.addPage(PageType.Impostazioni);
+    }, { authOnly: true });
+}
+```
+
+Volutamente binario (loggato/sloggato, via `TokenService.isLoggedIn()`), non un sistema di ruoli: la navbar è pensata per restare generica, un progetto che ha bisogno di granularità per-ruolo filtra a monte (nel proprio `AuthService`/store, prima che la voce raggiunga `site.ts`, oppure componendo il menu in base a `session<T>()`), non nell'Engine.
+
 ### Pagine legali (`legalPages`)
 
 Mappi gli slot legali dell'Engine ai tuoi `PageType`; il builder costruisce da solo il contenitore `/policy/*` con le sole pagine valorizzate:
@@ -1614,7 +1632,7 @@ site.showNav;     // es. lettura di un singolo flag
 
 ### `FRONTEND_BASE_URL` per og:image
 
-L'URL canonico del sito è dichiarato in `FRONTEND_BASE_URL` (env var letta da `deploy.sh` / `global-settings.json`). Viene usato per costruire URL assoluti di `og:image` in SSR — indipendentemente dagli header del reverse proxy (Nginx, Cloudflare):
+L'URL canonico del sito è dichiarato in `FRONTEND_BASE_URL` (env var: in locale la passa `scripts/deploy.sh` da `frontend.hostname`; nelle release la passa la CI dalla repository variable omonima — vedi [RELEASE.md](../RELEASE.md)). Viene usato per costruire URL assoluti di `og:image` in SSR — indipendentemente dagli header del reverse proxy (Nginx, Cloudflare):
 
 ```bash
 FRONTEND_BASE_URL=https://tuodominio.it
@@ -2007,7 +2025,9 @@ npm run generate:statics
 | `public/llms.txt` | Indice del sito per i crawler AI (convenzione `llms.txt`): nome, descrizione, elenco pagine |
 | `public/security.txt` | Contatto di sicurezza RFC 9116 (`Expires` rigenerato a ogni build); servito sul percorso canonico `/.well-known/security.txt` dal Node SSR |
 | `public/theme-init.js` | Script anti-flash del tema (vedi *Tema → Anti-flash*): sincrono nel `<head>`, imposta `data-bs-theme` da `prefers-color-scheme` prima che Bootstrap carichi gli stili |
-| `src/environments/environment.ts` | `defaultLang`, `availableLanguages` — **file generato automaticamente, non modificare manualmente** |
+| `src/environments/environment.ts` | `defaultLang`, `availableLanguages`, `configFingerprint` — **file generato automaticamente, non modificare manualmente** |
+
+> **`configFingerprint`: guardia contro un `environment.ts` non rigenerato.** Uno hash (12 caratteri) delle sole sezioni identity-critiche di `global-settings.json` (`project`/`Localization`/`site`). Il Node SSR lo ricalcola al boot dal config letto a runtime e lo confronta con quello scritto nel bundle: se non coincidono stampa un warning in log — capita tipicamente lanciando `ng serve` senza passare dai pre-hook (`predev`/`prestart`), o modificando `global-settings.json` senza rilanciare `npm run generate:statics`. Non blocca l'avvio: è un segnale di dev, non un gate.
 
 > **Versionati vs solo-build.** Solo due output generati sono **versionati** come seed — `src/index.html` e `src/environments/environment.ts` — perché servono al type-check e alla build prima della prima rigenerazione (`index.html` è il documento di build, `environment.ts` è importato dal TS): lo script li tiene aggiornati e la diff si committa insieme a `global-settings.json`. Tutto ciò che finisce in `public/` (`manifest.webmanifest`, `robots.txt`, `sitemap.xml`, `llms.txt`, `security.txt`, `theme-init.js`, `icons/`) è **solo output di build**, gitignored (`public/` è ignorata per intero): viene rigenerato dal pre-hook `prebuild` e non va mai committato.
 
@@ -2023,7 +2043,7 @@ Il punto pratico: **un solo asset, `favIcon`, alimenta tutto** — favicon del s
 | :--- | :--- | :--- |
 | `FRONTEND_BASE_URL` | URL canonico del sito (es. `https://tuodominio.it`), per gli URL assoluti `og:image` | `https://example.com` con warning |
 
-Lingua di default e lingue supportate **non** sono variabili d'ambiente: lo script le ricava dalla sezione `Localization` del progetto (codici a 2 lettere). Su host/CI legge direttamente `global-settings.json`; nelle immagini Docker (dove il file non è nel build context) legge gli stessi dati da `BR1_PROJECT_JSON`, il JSON di progetto che `deploy.sh` passa come build-arg. È il seed di build; i nomi nativi e i primitivi di cultura li deriva il frontend via `Intl` (`LocalizationService`).
+Lingua di default e lingue supportate **non** sono variabili d'ambiente: lo script le ricava dalla sezione `Localization` del progetto (codici a 2 lettere). Su host/CI legge direttamente `global-settings.json`; nelle immagini Docker (dove il file non è nel build context) legge gli stessi dati da `BR1_PROJECT_JSON`, il JSON di progetto che `scripts/deploy.sh` (build locale) o la CI di release passa come build-arg. È il seed di build; i nomi nativi e i primitivi di cultura li deriva il frontend via `Intl` (`LocalizationService`).
 
 ### Esclusioni Automatiche da Sitemap e Indicizzazione
 
@@ -2060,10 +2080,22 @@ Il builder è `@angular/build:application` (`angular.json → architect.build.bu
 
 | Leva | Dove | Effetto |
 | :--- | :--- | :--- |
-| `budgets` (`configurations.production`) | `angular.json` | Soglia di warning/errore sul peso del bundle iniziale (default `850kB`/`1MB`) e per stile-per-componente (`6kB`/`10kB`). **È già il gate anti-regressione**: superarla fa fallire `ng build`, quindi la CI |
+| `budgets` (`configurations.production`) | `angular.json` | Soglia sul peso del bundle iniziale (`950kB` warning, `1.1MB` errore — vedi sotto per il perché di questi numeri) e per stile-per-componente (`6kB`/`10kB`). **`maximumError` è il gate anti-regressione**: solo quello fa fallire `ng build` (quindi la CI); `maximumWarning` stampa solo un avviso, il build comunque riesce |
 | `allowedCommonJsDependencies` | `angular.json` | Whitelist delle dipendenze CommonJS (niente tree-shaking, altrimenti warning bloccante). Aggiungi qui una libreria di terze parti che non spedisce ESM (`qrcode` è già presente per il template) |
 | `styles` / `scripts` | `angular.json` | CSS/JS globali da `node_modules` caricati prima del bundle applicativo (Bootstrap, FontAwesome, SweetAlert2 sono già qui) |
 | `assets` | `angular.json` | Glob di file copiati così come sono, fuori dal bundle JS |
+
+**Budget iniziale (`950kB`).** Il bundle iniziale del template (senza ancora una riga di contenuto del progetto figlio) pesa ~860kB raw / ~190kB trasferiti (gzip) — la cifra che conta davvero per chi visita il sito è quella trasferita, il budget di Angular CLI invece misura il peso raw. La scomposizione, dal più pesante:
+
+| Voce | Peso raw sorgente | Nota |
+| :--- | ---: | :--- |
+| Bootstrap (CSS completo) | ~227kB | `bootstrap.min.css` intero, non un subset via Sass selettivo |
+| Angular stesso (core/common/router/forms/platform-browser) | ~90kB gzip | Costo fisso di qualunque app Angular con questi moduli, non ottimizzabile qui |
+| Font Awesome (solid + brands, classi icona) | ~72kB | Le glifi vere sono in file `.woff2` (caricati a parte, non pesano sul bundle): questo è il CSS che mappa ogni classe `.fa-*` al proprio carattere |
+| SweetAlert2 (solo tema CSS) | ~5kB | Il JS della libreria è già dietro `import()` dinamico (`notification.service.ts`) → in un chunk lazy, non qui |
+| Stili propri dell'Engine + CDK overlay | ~5kB | Trascurabile |
+
+Non è un limite che cresce con le pagine del progetto figlio: quelle sono già lazy-loaded una per una (`component: () => import(...)`, vedi sotto) e non contano nel bundle iniziale — l'ho verificato costruendo sia un progetto "vuoto" sia questo template con qualche pagina in più: il numero cambia di pochi kB, non a cascata. È invece il costo fisso di includere Bootstrap e Font Awesome **per intero** anziché un subset: la scelta deliberata del template è di non tagliare componenti Bootstrap o icone che un progetto figlio potrebbe usare senza che l'Engine lo sappia (un sito che non usa mai `.carousel` oggi potrebbe iniziare a usarlo domani). Il budget alzato è la conseguenza onesta di quella scelta, non una toppa: se un progetto figlio arriva a `950kB` aggiungendo **il proprio** codice (non solo caricando il template), è il segnale reale — a quel punto ha senso alzarlo ulteriormente lì, oppure spostare quel contenuto dietro un `import()` dinamico (vedi sotto). Se invece un `ng build` pulito del template appena clonato è già vicino alla soglia, il problema è a monte, qui, non nel figlio.
 
 **Code-splitting: già automatico, segui il pattern esistente.** Ogni pagina in `site.ts` si dichiara con `component: () => import('./pages/.../x.component')`: il router genera un chunk lazy per pagina senza altra configurazione. Per un SDK di terze parti pesante (mappe, player video, chat) applica lo stesso principio a mano — `import()` dinamico dentro il componente/servizio che lo usa, non un import statico in cima al file — così il codice entra nel bundle iniziale solo se e quando serve (e, se l'SDK scrive cookie/Web Storage, dietro il gate del consenso: vedi «Aggiungere un cookie o una voce di Web Storage», [AGENTS.md](../AGENTS.md#persistere-dati-lato-client-cookie-web-storage-consenso)).
 

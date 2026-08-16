@@ -33,42 +33,75 @@
 import '@angular/compiler';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'fs';
 import { join } from 'path';
-import { ContestoSito } from '../../../site';
-import { ThemeService } from '../services/theme.service';
-import { SitemapEntry } from '../siteBuilder';
-import type { GlobalSettings } from '../global-settings.types';
+import { ContestoSito } from '../../../../site';
+import { ThemeService } from '../../services/theme.service';
+import { SitemapEntry } from '../../siteBuilder';
+import { fingerprintIdentitySections } from '../config/config-fingerprint';
+import { deepMergeSettings } from '../config/settings-merge';
+import type { GlobalSettings } from '../../global-settings.types';
 
-const ROOT = join(__dirname, '../../../../../');
+const ROOT = join(__dirname, '../../../../../../');
 
 // Config di progetto a build-time. Sorgente: global-settings.json (sezioni project /
 // Localization / site). Nel build dell'immagine Docker il file (nella root del repo) NON è
-// nel build context (./frontend), quindi deploy.sh passa il suo contenuto minificato come
+// nel build context (./frontend), quindi scripts/deploy.sh passa il suo contenuto minificato come
 // build ARG BR1_PROJECT_JSON (solo config di progetto, NIENTE segreti). Su host/CI il file
 // c'è e si legge direttamente (guardato). FRONTEND_BASE_URL resta un ARG a parte (deploy).
 // Tipizzato con GlobalSettings (generato dallo schema, `npm run generate:types`): le letture sono
 // type-safe, un typo di chiave (es. `Localizaton`) è errore a `tsc`.
 function readProjectSettings(): GlobalSettings {
+    // BR1_PROJECT_JSON (build Docker): SOLO il file base, mai fuso con .local.json qui — è
+    // il confine di sicurezza voluto (vedi commento sopra l'export in br1-config.sh): i segreti
+    // di .local.json non devono finire in un build ARG. Il flusso automatico non mette mai
+    // identità/tema in .local.json (br1_ensure_local_secrets scrive solo frontend/backend/
+    // Security), quindi seguendo la convenzione questo ramo non diverge mai dal runtime.
     const inline = process.env['BR1_PROJECT_JSON'];
     if (inline) {
         try { return JSON.parse(inline) as GlobalSettings; } catch { /* fallback al file */ }
     }
+
     const candidates = [
         process.env['GLOBAL_SETTINGS_PATH'],
         join(ROOT, '../global-settings.json'), // host/CI: root del repo
         join(ROOT, 'global-settings.json'),
     ].filter((p): p is string => Boolean(p));
 
+    let base: GlobalSettings | null = null;
     for (const p of candidates) {
         try {
             if (existsSync(p)) {
-                return JSON.parse(readFileSync(p, 'utf-8')) as GlobalSettings;
+                base = JSON.parse(readFileSync(p, 'utf-8')) as GlobalSettings;
+                break;
             }
         } catch { /* file illeggibile: prova il prossimo candidato */ }
     }
-    return {};
+    if (!base) return {};
+
+    // Fusa con global-settings.local.json se presente, stessa deepMergeSettings usata da
+    // server-env.ts al boot (vedi config/settings-merge.ts): letture da file (dev locale/CI, non il
+    // ramo BR1_PROJECT_JSON sopra) devono vedere la stessa identità che vedrà il runtime,
+    // altrimenti un progetto che (contro convenzione) mette identità/tema in .local.json
+    // farebbe scattare l'avviso "environment.ts disallineato" a ogni riavvio, pure appena
+    // dopo un generate:statics pulito.
+    const localCandidates = [
+        join(ROOT, '../global-settings.local.json'),
+        join(ROOT, 'global-settings.local.json'),
+    ];
+    for (const p of localCandidates) {
+        try {
+            if (existsSync(p)) {
+                const local = JSON.parse(readFileSync(p, 'utf-8')) as Record<string, unknown>;
+                return deepMergeSettings(base as unknown as Record<string, unknown>, local) as GlobalSettings;
+            }
+        } catch { /* file illeggibile: ignora l'override, resta il solo base */ }
+    }
+    return base;
 }
 
 const _settings = readProjectSettings();
+// Scritta in environment.ts più sotto; letta di nuovo al boot da server.ts per accorgersi se
+// qualcuno lancia `ng serve` senza rigenerare gli statici dopo una modifica a global-settings.json.
+const CONFIG_FINGERPRINT = fingerprintIdentitySections(_settings);
 const _fileLoc = _settings.Localization ?? {};
 const _fileProject = _settings.project ?? {};
 // Config di sito: solo identità/estetica finisce in environment.ts. I flag di
@@ -277,7 +310,7 @@ function updateIndexHtml(): void {
     // qui sono il seed di build (shell, fallback pickLocaleText, pagina cookie); la cultura runtime
     // (nomi nativi, giorni, formati) la deriva il frontend via Intl.
     const generatedTsPath = join(ROOT, 'src', 'environments', 'environment.ts');
-    const generatedTsContent = `// FILE GENERATO AUTOMATICAMENTE DA scripts/generate-statics.ts
+    const generatedTsContent = `// FILE GENERATO AUTOMATICAMENTE DA scripts/build/generate-statics.ts
 // Non modificare manualmente. Sorgente di verità: global-settings.json (sezioni project / Localization / site)
 
 export interface AppSiteConfig {
@@ -299,6 +332,11 @@ export interface AppEnvironment {
     defaultLang: string;
     availableLanguages: string[];
     config: AppSiteConfig;
+    /** Impronta di project/Localization/site al momento della generazione (vedi
+     *  core/engine/scripts/config/config-fingerprint.ts). server.ts la confronta con quella
+     *  ricalcolata al boot per accorgersi se global-settings.json è cambiato da allora
+     *  senza rilanciare generate:statics (es. \`ng serve\` lanciato senza i pre-hook npm). */
+    configFingerprint: string;
 }
 
 export const environment: AppEnvironment = {
@@ -306,7 +344,8 @@ export const environment: AppEnvironment = {
     version: ${JSON.stringify(APP_VERSION)},
     defaultLang: '${DEFAULT_LANG}',
     availableLanguages: ${JSON.stringify(AVAILABLE_LANGS)},
-    config: ${JSON.stringify(SITE_CONFIG_OUT, null, 8).replace(/\n/g, '\n    ')}
+    config: ${JSON.stringify(SITE_CONFIG_OUT, null, 8).replace(/\n/g, '\n    ')},
+    configFingerprint: ${JSON.stringify(CONFIG_FINGERPRINT)}
 };
 `;
     writeFileSync(generatedTsPath, generatedTsContent, 'utf8');

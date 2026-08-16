@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { join } from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import sharp from 'sharp';
+import sharp, { type OverlayOptions } from 'sharp';
 import { ContestoSito } from '../../../../site';
 import { ThemeService } from '../../services/theme.service';
 import { ImgBuilderService } from '../../services/img-builder.service';
@@ -149,7 +149,7 @@ async function renderPreviewWithImage(res: Response, ogImageId: string, title: s
                 .png()
                 .toBuffer();
 
-            const composites: sharp.OverlayOptions[] = [{ input: fgBuffer, left: 0, top: 0 }];
+            const composites: OverlayOptions[] = [{ input: fgBuffer, left: 0, top: 0 }];
 
             if (!onlyImage) {
                 const iconSize = Math.round(OG_H * 0.26);

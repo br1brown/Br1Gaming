@@ -126,6 +126,25 @@
     .navbar-collapse {
         gap: 1rem;
     }
+
+    /* Overflow "Altro" (vedi recomputeOverflow in navbar.component.ts): flex-shrink:0 così
+       .navbar-nav non viene MAI schiacciata dai fratelli (user-nav/lingua) nel calcolo automatico
+       del browser — la larghezza che il TS legge via offsetWidth deve essere quella vera, non una
+       già compressa. position:relative dà un contesto di posizionamento stabile alle voci in
+       overflow qui sotto (puramente per igiene: essendo invisibili e inert non è osservabile). */
+    .navbar-nav {
+        flex-shrink: 0;
+        position: relative;
+    }
+
+    /* Voce oltre visibleCount(): resta misurabile (offsetWidth reale, per il ricalcolo quando
+       torna spazio libero) ma esce dal flusso — non occupa spazio in riga — e da tab-order/lettori
+       di schermo (inert in HTML). È duplicata, interattiva, dentro il dropdown "Altro". */
+    .nav-item-overflow {
+        position: absolute;
+        visibility: hidden;
+        pointer-events: none;
+    }
 }
 
 @media (max-width: #{lib.$bp-md - 0.02px}) {
@@ -134,7 +153,10 @@
         border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
     }
 
-    .language-picker {
+    /* Solo l'istanza dentro il pannello collassabile prende il layout "sezione impilata":
+       quella inline nella barra (lingua unica voce da collassare, niente hamburger) resta
+       compatta come su desktop anche sotto il breakpoint md. */
+    .navbar-collapse .language-picker {
         display: grid;
         gap: 0.45rem;
         width: 100%;
@@ -142,23 +164,23 @@
         border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
     }
 
-    .language-picker-label {
+    .navbar-collapse .language-picker-label {
         display: block;
     }
 
-    .language-dropdown,
-    .language-toggle {
+    .navbar-collapse .language-dropdown,
+    .navbar-collapse .language-toggle {
         width: 100%;
     }
 
-    .language-toggle {
+    .navbar-collapse .language-toggle {
         font-size: 0.95rem;
         min-height: 2.5rem;
         padding-inline-start: 0;
         padding-inline-end: 0.25rem;
     }
 
-    .language-link {
+    .navbar-collapse .language-link {
         font-size: 0.95rem;
     }
 
@@ -174,9 +196,13 @@
         overflow-x: hidden;
     }
 
-    /* Scroll cap per tutti i mobile: il menu non sfora lo schermo e scorre internamente */
+    /* Scroll cap per tutti i mobile: il menu non sfora lo schermo e scorre internamente.
+       --nav-height (impostata sul <nav>, vedi navHeight in navbar.component.ts) è la vera
+       altezza misurata invece di un 3.5rem fisso: con brand/voci che vanno a capo o zoom del
+       testo del browser, la riga della navbar può essere più alta, e un tetto tarato sul valore
+       fisso lascerebbe il pannello sforare lo schermo invece di scorrere internamente. */
     .navbar-collapse.show {
-        max-height: calc(100dvh - 3.5rem);
+        max-height: calc(100dvh - var(--nav-height, 3.5rem));
         overflow-y: auto;
         overflow-x: hidden;
         padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);

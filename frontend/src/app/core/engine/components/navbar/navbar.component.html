@@ -1,18 +1,19 @@
-<nav class="navbar navbar-expand-md theme-bg" [class.fixed-top]="fixTop"
+<nav #navEl class="navbar navbar-expand-md theme-bg" [class.fixed-top]="fixTop"
+     [style.--nav-height.px]="navHeight()"
      [attr.data-bs-theme]="theme.themeTone()"
      [attr.aria-label]="'principaleNav' | translate">
-    <div class="container-fluid">
+    <div class="container-fluid" #containerFluidEl>
         <!-- Brand solo se c'è una home (slot homePage): senza home niente brand, non un testo morto. -->
         @if (homePath !== null) {
         @if (isRouteActive(homePath)) {
-        <span class="navbar-brand nav-current-link d-flex align-items-center gap-2" aria-current="page">
+        <span #brandEl class="navbar-brand nav-current-link d-flex align-items-center gap-2" aria-current="page">
             @if (showBrandIconInHeader) {
             <img aria-hidden="true" alt="" class="navbar-brand-icon" [appAsset]="'favIcon'" [appAssetWidth]="125" />
             }
             {{ appName }}
         </span>
         } @else {
-        <a class="navbar-brand d-flex align-items-center gap-2" [routerLink]="homePath">
+        <a #brandEl class="navbar-brand d-flex align-items-center gap-2" [routerLink]="homePath">
             @if (showBrandIconInHeader) {
             <img aria-hidden="true" alt="" class="navbar-brand-icon" [appAsset]="'favIcon'" [appAssetWidth]="125" />
             }
@@ -21,7 +22,7 @@
         }
         }
 
-        @if (menuItems.length > 0 || languages().length > 1 || hasAuthPage) {
+        @if (menuItems().length > 0 || hasAuthPage) {
         <button class="navbar-toggler" type="button"
                 (click)="toggleMenu()"
                 aria-controls="navbar-menu"
@@ -31,19 +32,40 @@
         </button>
         }
 
+        <!-- Se lingua è l'unica cosa da mostrare (niente menu, niente area auth), niente hamburger:
+             sotto md il selettore resta inline nella barra sempre visibile (senza toggler non
+             c'è modo di aprire il pannello collassabile). Da md in su questa copia sparisce
+             (d-md-none): la sorgente di verità torna quella dentro #navbar-menu, l'unica altra
+             child flex del container-fluid, così lo space-between la tiene sempre a destra
+             invece di dividersi lo spazio con questa copia extra. -->
+        @if (languages().length > 1 && menuItems().length === 0 && !hasAuthPage) {
+        <div class="ms-auto d-md-none">
+            <ng-container [ngTemplateOutlet]="languagePicker"></ng-container>
+        </div>
+        }
+
         <div id="navbar-menu" class="collapse navbar-collapse" [class.show]="menuOpen()">
-            @if (menuItems.length > 0) {
-            <ul class="navbar-nav">
-                @for (item of menuItems; track item.path; let i = $index) {
+            @if (menuItems().length > 0) {
+            <ul #navListEl class="navbar-nav">
+                @for (item of menuItems(); track item.path; let i = $index) {
+                <!-- inert + visibility:hidden (solo da md in su, vedi scss) sulle voci oltre
+                     visibleCount(): restano misurabili (offsetWidth reale) da recomputeOverflow()
+                     ma escono dal flusso e dalla tab-order — sono duplicate, interattive, dentro
+                     "Altro" qui sotto. Su mobile visibleCount() = tutte le voci, quindi non scatta
+                     mai: il pannello collassabile le mostra già tutte impilate. -->
                 @if (isGroup(item)) {
-                <li class="nav-item d-block d-md-flex align-items-md-center w-100 w-md-auto">
+                <li #navItemEl class="nav-item d-block d-md-flex align-items-md-center w-100 w-md-auto"
+                    [class.nav-item-overflow]="i >= visibleCount()"
+                    [attr.inert]="i >= visibleCount() ? '' : null">
                     <app-nav-dropdown [item]="item"
                                       [open]="isNavDropdownOpen(i)"
                                       (toggle)="onNavDropdownToggle(i)"
                                       (linkClick)="onNavigationLinkClick()" />
                 </li>
                 } @else {
-                <li class="nav-item">
+                <li #navItemEl class="nav-item"
+                    [class.nav-item-overflow]="i >= visibleCount()"
+                    [attr.inert]="i >= visibleCount() ? '' : null">
                     <app-nav-link [link]="item"
                                   cssClass="nav-link"
                                   activeCssClass="nav-current-link active"
@@ -51,10 +73,22 @@
                 </li>
                 }
                 }
+                <!-- "Altro": raccoglie le voci che non entrano in riga (vedi recomputeOverflow in
+                     navbar.component.ts), invece di lasciarle uscire dalla viewport senza modo di
+                     raggiungerle. Stesso indice riusato per tutte le larghezze: quando l'insieme
+                     delle voci in overflow cambia, resta comunque "l'ultimo dropdown della riga". -->
+                @if (overflowMenuItems().length > 0) {
+                <li #altroToggleEl class="nav-item d-block d-md-flex align-items-md-center w-100 w-md-auto">
+                    <app-nav-dropdown [item]="altroGroup()"
+                                      [open]="isNavDropdownOpen(altroDropdownIndex)"
+                                      (toggle)="onNavDropdownToggle(altroDropdownIndex)"
+                                      (linkClick)="onNavigationLinkClick()" />
+                </li>
+                }
             </ul>
             }
 
-            <div class="user-nav-wrapper ms-md-auto">
+            <div #userNavWrapperEl class="user-nav-wrapper ms-md-auto">
                 <app-user-nav ngSkipHydration (navigationClick)="onNavigationLinkClick()" />
             </div>
 
@@ -63,48 +97,60 @@
             }
 
             @if (languages().length > 1) {
-            <div class="language-picker mt-3 mt-md-0">
-                <span class="language-picker-label">{{ 'selezionaLinguaAzione' | translate }}</span>
-                <div class="dropdown language-dropdown" [class.show]="langOpen()">
-                    <button type="button"
-                            class="nav-link nav-dropdown-toggle language-toggle"
-                            [attr.aria-label]="'selezionaLinguaAzione' | translate"
-                            aria-haspopup="true"
-                            [attr.aria-expanded]="langOpen()"
-                            (click)="toggleLang()">
-                        <span class="nav-dropdown-label">
-                            <i [class]="getFlagClass(translate.currentLang())" aria-hidden="true" class="me-1"></i>
-                            {{ langName(translate.currentLang()) }}
-                        </span>
-                        <span class="nav-dropdown-caret" aria-hidden="true"></span>
-                    </button>
-                    <ul class="dropdown-menu language-dropdown-menu list-unstyled"
-                        [attr.aria-label]="'selezionaLinguaAzione' | translate"
-                        [class.show]="langOpen()">
-                        @for (lingua of languages(); track lingua) {
-                        <li>
-                            @if (lingua === translate.currentLang()) {
-                            <span class="dropdown-item language-link nav-current-link active d-flex align-items-center justify-content-between"
-                                  aria-current="true">
-                                {{ langName(lingua) }}
-                                <i class="fa-solid fa-check ms-2" aria-hidden="true"></i>
-                            </span>
-                            } @else {
-                            <button type="button"
-                                    class="dropdown-item language-link"
-                                    (click)="setLanguage(lingua)">
-                                {{ langName(lingua) }}
-                            </button>
-                            }
-                        </li>
-                        }
-                    </ul>
-                </div>
+            <div #langWrapEl class="mt-3 mt-md-0">
+                <ng-container [ngTemplateOutlet]="languagePicker"></ng-container>
             </div>
             }
         </div>
     </div>
 </nav>
 @if (fixTop) {
-<div aria-hidden="true" style="height: 3.5rem;"></div>
+<!-- Altezza misurata dal vero elemento (vedi navHeight in navbar.component.ts), non un valore
+     fisso: con tante voci di menu che vanno a capo su più righe (o nomi lingua lunghi, zoom del
+     testo del browser) l'altezza reale della navbar fixed varia, e uno spacer troppo basso
+     lascerebbe l'inizio della pagina coperto dalla navbar senza modo di recuperarlo scrollando. -->
+<div aria-hidden="true" [style.height.px]="navHeight()"></div>
 }
+
+<!-- Selettore lingua — condiviso: inline nella barra (lingua unica voce collassabile) oppure
+     dentro il pannello mobile (quando c'è anche altro da collassare). -->
+<ng-template #languagePicker>
+    <div class="language-picker">
+        <span class="language-picker-label">{{ 'selezionaLinguaAzione' | translate }}</span>
+        <div class="dropdown language-dropdown" [class.show]="langOpen()">
+            <button type="button"
+                    class="nav-link nav-dropdown-toggle language-toggle"
+                    [attr.aria-label]="'selezionaLinguaAzione' | translate"
+                    aria-haspopup="true"
+                    [attr.aria-expanded]="langOpen()"
+                    (click)="toggleLang()">
+                <span class="nav-dropdown-label">
+                    <i class="fa-solid fa-globe me-1" aria-hidden="true"></i>
+                    {{ langName(translate.currentLang()) }}
+                </span>
+                <span class="nav-dropdown-caret" aria-hidden="true"></span>
+            </button>
+            <ul class="dropdown-menu language-dropdown-menu list-unstyled"
+                [attr.aria-label]="'selezionaLinguaAzione' | translate"
+                [class.show]="langOpen()">
+                @for (lingua of languages(); track lingua) {
+                <li>
+                    @if (lingua === translate.currentLang()) {
+                    <span class="dropdown-item language-link nav-current-link active d-flex align-items-center justify-content-between"
+                          aria-current="true">
+                        {{ langName(lingua) }}
+                        <i class="fa-solid fa-check ms-2" aria-hidden="true"></i>
+                    </span>
+                    } @else {
+                    <button type="button"
+                            class="dropdown-item language-link"
+                            (click)="setLanguage(lingua)">
+                        {{ langName(lingua) }}
+                    </button>
+                    }
+                </li>
+                }
+            </ul>
+        </div>
+    </div>
+</ng-template>

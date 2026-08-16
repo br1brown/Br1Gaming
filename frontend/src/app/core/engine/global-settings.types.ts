@@ -6,7 +6,7 @@
  */
 
 /**
- * Configurazione centralizzata del progetto. Letto direttamente da deploy.sh (bash), dal backend ASP.NET Core (AddJsonFile) e dal frontend Node SSR (readFileSync). Modificare questo file e rieseguire il deploy è sufficiente per applicare la configurazione a tutti i livelli.
+ * Configurazione centralizzata del progetto. Letto direttamente da scripts/deploy.sh (bash), dal backend ASP.NET Core (AddJsonFile) e dal frontend Node SSR (readFileSync). Modificare questo file e rieseguire il deploy è sufficiente per applicare la configurazione a tutti i livelli.
  */
 export interface GlobalSettings {
   $schema?: string;
@@ -15,7 +15,7 @@ export interface GlobalSettings {
    */
   _nota?: string;
   /**
-   * Identità dell'app — fonte unica. Nome e versione vivono SOLO qui: deploy.sh li slugifica per il nome progetto Docker e li passa come build ARG; il frontend li riceve iniettati in environment.ts (navbar, titolo, manifest PWA, meta app-version, rilevamento aggiornamenti).
+   * Identità dell'app — fonte unica. Nome e versione vivono SOLO qui: scripts/deploy.sh li slugifica per il nome progetto Docker e li passa come build ARG; il frontend li riceve iniettati in environment.ts (navbar, titolo, manifest PWA, meta app-version, rilevamento aggiornamenti).
    */
   project?: {
     /**
@@ -32,7 +32,7 @@ export interface GlobalSettings {
     lastModified?: string;
   };
   /**
-   * Configurazione del container frontend (Angular SSR + Node). Letta da deploy.sh per le variabili docker-compose.
+   * Configurazione del container frontend (Angular SSR + Node). Letta da scripts/deploy.sh per le variabili docker-compose.
    */
   frontend?: {
     /**

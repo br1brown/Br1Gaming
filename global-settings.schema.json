@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "GlobalSettings",
-  "description": "Configurazione centralizzata del progetto. Letto direttamente da deploy.sh (bash), dal backend ASP.NET Core (AddJsonFile) e dal frontend Node SSR (readFileSync). Modificare questo file e rieseguire il deploy è sufficiente per applicare la configurazione a tutti i livelli.",
+  "description": "Configurazione centralizzata del progetto. Letto direttamente da scripts/deploy.sh (bash), dal backend ASP.NET Core (AddJsonFile) e dal frontend Node SSR (readFileSync). Modificare questo file e rieseguire il deploy è sufficiente per applicare la configurazione a tutti i livelli.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -14,7 +14,7 @@
     },
     "project": {
       "type": "object",
-      "description": "Identità dell'app — fonte unica. Nome e versione vivono SOLO qui: deploy.sh li slugifica per il nome progetto Docker e li passa come build ARG; il frontend li riceve iniettati in environment.ts (navbar, titolo, manifest PWA, meta app-version, rilevamento aggiornamenti).",
+      "description": "Identità dell'app — fonte unica. Nome e versione vivono SOLO qui: scripts/deploy.sh li slugifica per il nome progetto Docker e li passa come build ARG; il frontend li riceve iniettati in environment.ts (navbar, titolo, manifest PWA, meta app-version, rilevamento aggiornamenti).",
       "additionalProperties": false,
       "properties": {
         "name": {
@@ -38,7 +38,7 @@
     },
     "frontend": {
       "type": "object",
-      "description": "Configurazione del container frontend (Angular SSR + Node). Letta da deploy.sh per le variabili docker-compose.",
+      "description": "Configurazione del container frontend (Angular SSR + Node). Letta da scripts/deploy.sh per le variabili docker-compose.",
       "additionalProperties": false,
       "properties": {
         "hostname": {

@@ -4,6 +4,77 @@ Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspetta
 
 ## [Non rilasciato]
 
+### Voci di menu visibili solo da loggato (`authOnly` su `addPage`/`addLink`/`addGroup`)
+
+`requiresAuth: true` su una pagina protegge la rotta (redirect al login/401), ma non nascondeva la voce di menu corrispondente: un link verso un'area riservata restava visibile — e cliccabile — anche da sloggato, rimbalzando poi al login. Le due cose restano deliberatamente disaccoppiate (un link può restare sempre visibile pur protetto, o sparire senza che la pagina richieda login): l'una non implica l'altra.
+
+- `addPage`/`addLink`/`addGroup` accettano ora un terzo parametro opzionale `{ authOnly: true }`: la voce — o, su `addGroup`, l'intero gruppo coi suoi figli — compare in navbar e footer solo per utenti loggati, sparendo del tutto per visitatori e bot. Un gruppo rimasto senza figli visibili dopo il filtro sparisce a sua volta.
+- Nuovo `filterNavByAuth` (`siteBuilder.ts`), applicato a runtime in base allo stato di login: `TokenService.isLoggedIn()` nella navbar (Engine), `AuthService` nel footer (Dominio, stesso pattern già usato da `user-nav.component.ts`). In SSR e prima dell'idratazione l'utente risulta sempre sloggato — coerente con `requiresAuth`, che già esclude quelle pagine da sitemap/SSR.
+- Volutamente binario (loggato/sloggato), non un sistema di ruoli: la granularità per-ruolo resta complessità di Dominio, non un seam dell'Engine.
+- Demo aggiornata: `PageType.Impostazioni` (già `requiresAuth: true`) è ora anche `authOnly: true` in `site.ts`.
+
+### Navbar: le voci di primo livello in eccesso confluiscono in un dropdown "Altro"
+
+Oltre le 6 voci dirette in `headerNav` (soglia già segnalata da un warning in console) la navbar desktop non aveva overflow: `flex-wrap: nowrap` di Bootstrap le spingeva fuori dalla viewport, letteralmente irraggiungibili senza scroll orizzontale. Un tentativo CSS-only (`flex-wrap: wrap`) è stato scartato perché, per come il browser calcola la dimensione minima automatica di un flex-container che va a capo, faceva collassare a una voce per riga anche il caso comune (poche voci, spazio abbondante).
+
+- La navbar misura ora la larghezza reale disponibile (`ResizeObserver` su contenitore e lista) e sposta le voci che non entrano in un dropdown finale **"Altro"** — stesso rendering di un `addGroup` dichiarato, nessuna duplicazione di template. Attivo solo oltre la soglia raccomandata (6): sotto, nessun costo aggiuntivo.
+- Ricalcolato anche al cambio lingua (le label possono cambiare larghezza) e, insieme alla funzionalità sopra, al login/logout se il menu contiene voci `authOnly`.
+- **Fix collaterale**: `_utilities.scss` applicava `overflow-x: hidden` al `.container-fluid` anche esattamente a 768px (il resto del progetto tratta 768px come desktop), forzando `overflow-y: auto` e tagliando qualunque dropdown che dovesse sforare in verticale a quella larghezza esatta — bug preesistente, colpiva già la voce "Policy", non solo la nuova "Altro". Corretto a `max-width: #{lib.$bp-md - 0.02px}`.
+
+### Breakpoint desktop/mobile: sorgente unica condivisa fra SCSS e TS (`breakpoints.ts`)
+
+Il breakpoint `768px` era hardcoded indipendentemente in due file TS (`navbar.component.ts`, `nav-submenu.component.ts`) oltre che nello SCSS — un cambio del breakpoint richiedeva ricordarsi di tre punti, con rischio di silenziosa divergenza.
+
+- Nuovo `--bp-md` (custom property CSS, iniettata in `_base.scss` da `lib.$bp-md`) e `breakpoints.ts` → `isDesktopViewport()`, che la legge via `getComputedStyle` invece di duplicare il numero. Adottato da entrambi i punti TS che ne avevano bisogno.
+
+### Guardia contro un `environment.ts` non rigenerato (`configFingerprint`)
+
+`ng serve` lanciato direttamente (bypassando i pre-hook `predev`/`prestart`) o un `global-settings.json` modificato senza rilanciare la build lasciavano `environment.ts` disallineato dalla configurazione reale, senza alcun segnale — l'SSR partiva comunque, semplicemente con identità/tema/lingue stantii.
+
+- `generate-statics.ts` scrive ora in `environment.ts` un `configFingerprint`: hash SHA1 (12 caratteri) delle sole sezioni identity-critiche di `global-settings.json` (`project`/`Localization`/`site`, mai `.local.json`). `server.ts` lo ricalcola al boot dal config letto a runtime e confronta i due valori, stampando un warning su mismatch — un segnale di dev, non un gate bloccante.
+- **Effetto collaterale corretto**: `generate-statics.ts` ora fonde `global-settings.local.json` sopra il base nello stesso modo di `server-env.ts` (nuovo `settings-merge.ts`, `deepMergeSettings`, condiviso fra i due) — prima leggeva solo il file base in locale, creando un potenziale falso positivo del fingerprint per chi ha segreti che toccano anche `project`/`Localization`/`site` in `.local.json`. Il percorso Docker (`BR1_PROJECT_JSON`) resta volutamente solo-base, senza segreti.
+
+### Dipendenze: risolte 9 vulnerabilità (Angular, sharp, body-parser)
+
+`npm audit` segnalava CVE su 8 pacchetti `@angular/*` (bloccati su `21.2.17` nonostante versioni patchate compatibili nel range dichiarato — `npm audit fix` da solo non bastava, serviva `ng update`), su `body-parser` e sulla major `0.34` di `sharp`.
+
+- Bump a `@angular/*` `^21.2.20`/`^21.2.21` (via `ng update @angular/core@21 @angular/cli@21`), `sharp` `^0.34.5` → `^0.35.3`.
+- `sharp` 0.35 ha ristrutturato gli export dei tipi da namespace CJS a export ESM nominati: fix del breaking change in `routes/og-preview.ts` (`sharp.OverlayOptions` → `import { type OverlayOptions }`).
+- 0 vulnerabilità rimaste in `npm audit --omit=dev` (produzione). Restano note e non applicate 5 vulnerabilità *high* nella sola catena dev `pa11y → puppeteer → extract-zip`: richiederebbero un downgrade di 3 major di `pa11y`, giudicato sproporzionato per una dipendenza di solo test.
+
+### Budget del bundle di produzione: `850kB`/`1MB` → `950kB`/`1.1MB`
+
+Il bundle iniziale del template — prima ancora di una riga di contenuto del progetto figlio — pesa ~860kB raw (Bootstrap + Font Awesome + Angular core + SweetAlert2 CSS, tutti già ottimizzati/lazy dove possibile), sopra il default `850kB` generato da `ng new` per un progetto Angular vuoto. Stripping/subsetting di Bootstrap o Font Awesome è stato scartato: rischioso per un template pensato per usi molto diversi fra loro, senza sapere in anticipo cosa un figlio userà davvero.
+
+- `angular.json`: budget iniziale alzato a `950kB` (warning) / `1.1MB` (errore, l'unico che blocca `ng build`/CI). Ragionamento e scomposizione per libreria in `frontend/README.md` § Bundling.
+
+### Fix: selettore lingua non allineato a destra senza voci di menu
+
+`justify-content: space-between` nel container della navbar richiede esattamente due figli flex diretti; un terzo elemento rompeva l'allineamento quando `headerNav` non dichiarava alcuna voce — il selettore lingua smetteva di restare a destra su desktop. Corretto senza toccare il caso con voci di menu, verificato su 15 scenari reali (0 / 4-5 / molte voci di menu × 5 ampiezze di viewport).
+
+### QUICKSTART: la "nascita" (remote `template` + merge) è ora il primo passo
+
+Il flusso *nascita → aggiornamento* dell'Engine era descritto solo nel README (sezione *Template vivo*); il QUICKSTART partiva dritto da `node setup.mjs`, senza mai dire di aggiungere il remote `template`. Un progetto avviato seguendo solo il QUICKSTART nasceva quindi scollegato dal template, e il successivo `git merge template/main` non aveva con chi parlare.
+
+- Nuovo **passo 1 "Nasci dal template"** in `QUICKSTART.md`: il progetto vive in un repo proprio, il template entra come secondo remote e lo si innesta una volta sola con `git merge template/main --allow-unrelated-histories`. Gli aggiornamenti successivi sono `git fetch template && git merge template/main` (senza flag: la storia è ormai collegata), con rimando al README per le regole di conflitto. I passi successivi sono rinumerati (battesimo → 2, file → 3, up → 4).
+- **Niente `--squash`, niente clone come punto di partenza.** Lo squash reciderebbe la parentela git col template (ogni aggiornamento tornerebbe a pretendere `--allow-unrelated-histories` e una riconciliazione dell'intero albero); il `merge` normale la conserva, così `git log --first-parent` resta pulito ma gli update restano indolori.
+- **README (*Template vivo → Nascita*) e `DOCKER_README.md` allineati** allo stesso modello: la nascita non è più un clone ma un innesto via remote. Aggiunto l'avviso che il bottone GitHub **"Use this template"** non va usato per far nascere un figlio — riparte da un singolo *Initial commit* senza storia e lascia il progetto orfano del template. Solo documentazione: nessun cambiamento all'Engine o allo scaffold.
+### Pubblicazione artifact-based: release su GHCR (+ immagini allegate), niente `git pull` in produzione
+
+Finora la pubblicazione era **source-based**: sulla VPS serviva tutto il sorgente (`git pull`) e `scripts/deploy.sh` **compilava le immagini sulla macchina di produzione** a ogni deploy. Ora c'è un secondo modello, consigliato per la produzione, in cui la VPS riceve un **artefatto già costruito** invece del codice.
+
+- Nuovo workflow `.github/workflows/Release di Produzione.yml`: su tag `vX.Y.Z` builda le immagini `frontend`/`backend`, le pubblica su **GHCR** (`ghcr.io/<owner>/<repo>-frontend|-backend`) e crea una **GitHub Release** con allegati un *deploy bundle* (i soli file di orchestrazione) e i `.tar.gz` delle immagini. L'identità/SEO del frontend è congelata come in locale: `BR1_PROJECT_JSON` dal `global-settings.json` committato, `FRONTEND_BASE_URL` dalla repository variable omonima (il dominio, non un segreto).
+- Nuovo `scripts/deploy-release.sh` + override `docker-compose.release.yml`: in produzione fa lo swap **senza compilare**. Prende le immagini in **due modi** (sceglie da solo, forzabile con `--from-ghcr`/`--from-files`): **A)** `docker compose pull` da GHCR (deploy incrementali; `docker login ghcr.io` se privato); **B)** `docker load` dei `.tar.gz` scaricati/`scp` accanto allo script (nessun registry né login — comodo per repo/registry privati). Poi lo stesso preflight isolato con healthcheck + swap di `deploy.sh`.
+- Guida operativa completa in **`RELEASE.md`** (inclusi repo/registry privati, PAT, fork). `scripts/deploy.sh` (source-based) resta valido e comodo per **test e sviluppo locale**, ma è sconsigliato in produzione.
+- Nessuna azione per i figli che non pubblicano via CI: continuano con `scripts/deploy.sh`. Per attivare le release: impostare la repository variable `FRONTEND_BASE_URL` e taggare.
+
+### Script di deploy spostati in `scripts/` e `.local` creato in automatico
+
+Per **snellire la root**, `deploy.sh`, `deploy-release.sh` e `backup.sh` vivono ora sotto `scripts/` (accanto a `lib/` e `test/`). Gli script risalgono da soli alla root del progetto (cercano `docker-compose.yml`), quindi funzionano sia da `scripts/` nel repo sia dal deploy bundle dove stanno accanto al compose.
+
+- **Breaking per i figli** che invocano gli script per path: `./deploy.sh` → **`./scripts/deploy.sh`**, `./backup.sh` → **`./scripts/backup.sh`** (cron di backup compreso). La UX sulla VPS del modello release è invariata: nel bundle lo script sta alla radice, si lancia `./deploy-release.sh`.
+- **Comodità:** se manca `global-settings.local.json`, `scripts/deploy.sh` e `scripts/deploy-release.sh` lo **creano generando i segreti** (`SecretKey`/`ApiKeys`/`CryptoSecret`, come `setup.mjs`) ma con **`frontend.hostname` vuoto di proposito**: le chiavi sono boilerplate, il dominio è una scelta d'ambiente. Il deploy quindi **si ferma sul guard del dominio** finché non lo imposti — così il fail-closed sui valori vuoti (niente hostname ⇒ niente 421 al dominio reale) resta valido. Nessun valore finto dell'example (che aggirerebbe i controlli); niente sezione `Mail` (mailer spento finché non la aggiungi); porta con default `3000` (cambiala per il secondo progetto sulla stessa VPS). I **test**/CI restano invariati: senza `.local`, `scripts/lib/br1-config.sh` usa una API key effimera in memoria, senza scrivere file.
+
 ### La pagina di login è `noindex` per default (l'Engine sa qual è)
 
 La pagina puntata dallo slot `loginPage` in `site.ts` non ha motivo di finire nell'indice dei motori né nel `sitemap.xml`: su un sito a pochi account (o a singolo amministratore — il caso d'uso nativo del template) è una porta di servizio, non contenuto da promuovere. Finora però il builder la trattava come una pagina pubblica qualunque e la includeva nel sitemap: il figlio avrebbe dovuto ricordarsi di marcarla `noindex` a mano.

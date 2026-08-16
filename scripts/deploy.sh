@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # =============================================================================
-# deploy.sh - Pubblica Br1WebEngine in produzione (semplice e disaccoppiato).
+# deploy.sh - Pubblicazione SOURCE-BASED: builda le immagini QUI (sulla macchina) e fa lo swap.
+#
+# Comodo per SVILUPPO e TEST, o per una VPS che builda da sé senza una CI. In PRODUZIONE è
+# invece consigliato il modello ARTIFACT-BASED: la CI builda le immagini a ogni tag e le pubblica
+# su GHCR, la VPS le SCARICA con ./deploy-release.sh (niente sorgente, niente git pull, niente
+# build in loco). Vedi RELEASE.md. Questo script resta valido e supportato per i casi qui sopra.
 #
 # Uso:
 #   ./deploy.sh                      Pubblica frontend + backend
@@ -31,6 +36,9 @@ if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
 fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Risali fino alla root del progetto (dove sta docker-compose.yml): così lo script funziona
+# sia da scripts/ nel repo, sia accanto al compose (deploy bundle), sia da un symlink.
+while [[ "$ROOT" != "/" && ! -f "$ROOT/docker-compose.yml" ]]; do ROOT="$(dirname "$ROOT")"; done
 cd "$ROOT"
 
 # Variabili di stato
@@ -96,6 +104,17 @@ echo
 echo -e "${BOLD}Configurazione${RESET}"
 # shellcheck source=scripts/lib/br1-config.sh
 source "${ROOT}/scripts/lib/br1-config.sh"
+
+# Comodità: se non esiste global-settings.local.json lo creiamo con segreti VERI generati, ma
+# con frontend.hostname VUOTO di proposito. Le chiavi sono boilerplate; il dominio è una scelta:
+# lasciandolo vuoto il guard sotto ferma il deploy finché non lo imposti (niente 421 al dominio reale).
+if [[ ! -f global-settings.local.json ]]; then
+    if br1_ensure_local_secrets; then
+        warn "global-settings.local.json non c'era: creato con SecretKey/ApiKeys/CryptoSecret generati e frontend.hostname VUOTO. Imposta il tuo dominio (e la porta se hai altri progetti sulla stessa VPS): il deploy si ferma finché il dominio è vuoto — di proposito."
+    else
+        fail "Creazione automatica di global-settings.local.json fallita"
+    fi
+fi
 
 # Legge Security.ApiKeys[0] da un file JSON (vuoto se il file non c'è o è illeggibile).
 _read_api_key() {

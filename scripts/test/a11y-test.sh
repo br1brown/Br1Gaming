@@ -3,7 +3,7 @@
 # a11y-test.sh  —  Accessibility audit su server in esecuzione
 #
 # Esegue pa11y (WCAG 2.1 AA) sulle pagine indicate e stampa le violazioni.
-# Viene chiamato da deploy.sh nella fase isolata di Pre-flight; può anche girare
+# Viene chiamato da scripts/deploy.sh nella fase isolata di Pre-flight; può anche girare
 # in isolamento per audit rapidi in locale.
 #
 # Utilizzo:
@@ -31,7 +31,7 @@
 
 set -euo pipefail
 
-# ─── colori (stessa palette di deploy.sh) ────────────────────────────────────
+# ─── colori (stessa palette di scripts/deploy.sh) ────────────────────────────────────
 if [[ -t 1 ]]; then
     BOLD='\033[1m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; RESET='\033[0m'
 else

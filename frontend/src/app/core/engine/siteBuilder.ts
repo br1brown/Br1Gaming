@@ -496,6 +496,10 @@ export type NavLink = {
     isExternal: boolean;
     /** Eventuali link figli se l'elemento rappresenta un gruppo. */
     children?: NavLink[];
+    /** `true` se la voce (o l'intero gruppo) va mostrata solo a utente loggato — vedi
+     *  `NavItemOptions.authOnly` su `addPage`/`addLink`/`addGroup`. Filtrato a runtime da
+     *  `filterNavByAuth`, non qui: la struttura resta identica per bot e utenti sloggati. */
+    authOnly?: boolean;
 };
 
 // ======================================================
@@ -546,12 +550,39 @@ export const isInternalPage = (page: SitePage): page is InternalSitePage =>
  */
 const isRawGroup = (
     item: RawNavItem
-): item is { kind: 'group'; label: string; children: RawNavItem[] } =>
+): item is { kind: 'group'; label: string; children: RawNavItem[]; authOnly?: boolean } =>
     item.kind === 'group';
 
 /** Verifica se un `NavLink` è un gruppo (ha figli): usato da navbar, dropdown, submenu e footer per il render ricorsivo. */
 export const isNavGroup = (item: NavLink): item is NavLink & { children: NavLink[] } =>
     Array.isArray(item.children) && item.children.length > 0;
+
+/**
+ * Filtra ricorsivamente un albero `NavLink` in base allo stato di login: le voci (o interi
+ * gruppi) con `authOnly: true` spariscono se `loggedIn` è `false`. Un gruppo rimasto senza
+ * figli dopo il filtro sparisce a sua volta — stessa regola già applicata in fase di build
+ * per i gruppi vuoti (`resolveNavigation`), qui ripetuta perché il login è runtime, non build.
+ *
+ * Solo `true`/`false`: l'Engine non conosce ruoli, solo "loggato / non loggato"
+ * (`TokenService.isLoggedIn()`). Chi ha bisogno di granularità per-ruolo la gestisce nel
+ * Dominio (es. filtrando `ContestoSito.menuNav`/`linkFooter` prima di passarlo ai componenti).
+ *
+ * Usato da `navbar.component.ts` (Engine) e `footer.component.ts` (Dominio, stesso pattern
+ * di `AuthService.isLoggedIn` già usato da `user-nav.component.ts`).
+ */
+export function filterNavByAuth(items: NavLink[], loggedIn: boolean): NavLink[] {
+    return items.reduce<NavLink[]>((visible, item) => {
+        if (item.authOnly && !loggedIn) return visible;
+        if (isNavGroup(item)) {
+            const children = filterNavByAuth(item.children, loggedIn);
+            if (children.length === 0) return visible;
+            visible.push({ ...item, children });
+        } else {
+            visible.push(item);
+        }
+        return visible;
+    }, []);
+}
 
 /**
  * Verifica se l'input dichiarato rappresenta una pagina contenitore.
@@ -689,6 +720,25 @@ const collectDeclaredPageTypes = (pages: SitePageInput[], acc: Set<PageType>): S
 // ======================================================
 
 /**
+ * Opzioni comuni alle tre azioni del builder di navigazione (`addPage`/`addLink`/`addGroup`).
+ */
+export interface NavItemOptions {
+    /**
+     * Se `true`, la voce — o l'intero gruppo, se su `addGroup` — compare in navbar/footer solo
+     * per utenti loggati (`TokenService.isLoggedIn()`), sparendo del tutto per visitatori e bot:
+     * niente più link fantasma verso pagine `requiresAuth` per chi non può comunque accedervi.
+     * Il filtro è runtime (`filterNavByAuth`), non in fase di build: la struttura risolta resta
+     * identica, cambia solo cosa viene mostrato al render. Default `false` (sempre visibile).
+     *
+     * Volutamente binario — loggato/non loggato, non un sistema di ruoli: la granularità
+     * per-ruolo è complessità di dominio (un progetto che ne ha bisogno filtra a valle,
+     * `ContestoSito.menuNav`/`linkFooter`, prima di passarli ai componenti), non generica
+     * abbastanza da meritare un seam nell'Engine.
+     */
+    authOnly?: boolean;
+}
+
+/**
  * Builder usato all'interno delle sezioni di navigazione.
  *
  * Espone tre azioni:
@@ -700,22 +750,26 @@ export interface SiteNavigationSectionBuilder {
     /**
      * Aggiunge un riferimento a una pagina del sito tramite `PageType`.
      * @param pageType Tipo pagina da risolvere in fase finale.
+     * @param options Opzioni della voce (es. `authOnly`).
      */
-    addPage: (pageType: PageType) => void;
+    addPage: (pageType: PageType, options?: NavItemOptions) => void;
     /**
      * Aggiunge un link diretto alla navigazione.
      * @param labelTranslationKey Chiave di traduzione o etichetta del link.
      * @param destinationPath Path o URL di destinazione.
+     * @param options Opzioni della voce (es. `authOnly`).
      */
-    addLink: (labelTranslationKey: string, destinationPath: string) => void;
+    addLink: (labelTranslationKey: string, destinationPath: string, options?: NavItemOptions) => void;
     /**
      * Crea un gruppo annidato nella navigazione.
      * @param groupLabelTranslationKey Chiave di traduzione o etichetta del gruppo.
      * @param configureGroupItems Callback che definisce gli elementi del gruppo.
+     * @param options Opzioni del gruppo (es. `authOnly`: nasconde l'intero gruppo se sloggato).
      */
     addGroup: (
         groupLabelTranslationKey: string,
-        configureGroupItems: (groupItemsBuilder: SiteNavigationSectionBuilder) => void
+        configureGroupItems: (groupItemsBuilder: SiteNavigationSectionBuilder) => void,
+        options?: NavItemOptions
     ) => void;
 }
 
@@ -906,9 +960,9 @@ export type SitemapEntry = {
  * Solo alla fine questa struttura viene trasformata in `NavLink[]`.
  */
 type RawNavItem =
-    | { kind: 'page'; type: PageType }
-    | { kind: 'link'; label: string; path: string }
-    | { kind: 'group'; label: string; children: RawNavItem[] };
+    | { kind: 'page'; type: PageType; authOnly?: boolean }
+    | { kind: 'link'; label: string; path: string; authOnly?: boolean }
+    | { kind: 'group'; label: string; children: RawNavItem[]; authOnly?: boolean };
 
 // ======================================================
 // ENGINE PRINCIPALE
@@ -1001,12 +1055,12 @@ function resolveEngineLegalPages(legalPages: ResolvedLegalPages, declared: Reado
 /** Strumenti per popolare una sezione di navigazione (header/footer): addPage / addLink / addGroup. */
 function createNavigationSectionBuilder(target: RawNavItem[]): SiteNavigationSectionBuilder {
     return {
-        addPage: (pageType) => { target.push({ kind: 'page', type: pageType }); },
-        addLink: (label, path) => { target.push({ kind: 'link', label, path }); },
-        addGroup: (label, configure) => {
+        addPage: (pageType, options) => { target.push({ kind: 'page', type: pageType, authOnly: options?.authOnly }); },
+        addLink: (label, path, options) => { target.push({ kind: 'link', label, path, authOnly: options?.authOnly }); },
+        addGroup: (label, configure, options) => {
             const children: RawNavItem[] = [];
             configure(createNavigationSectionBuilder(children));
-            target.push({ kind: 'group', label, children });
+            target.push({ kind: 'group', label, children, authOnly: options?.authOnly });
         },
     };
 }
@@ -1172,17 +1226,17 @@ function resolveNavigation(items: RawNavItem[], pageMap: Map<PageType, PageInfo>
                 if (!entry && isDevMode()) {
                     console.warn(`[SiteBuilder] addPage("${String(item.type)}") non risolve a nessuna pagina registrata (disabilitata o mai dichiarata in pages): voce di navigazione esclusa.`);
                 }
-                return entry ? { label: entry.title, path: entry.path, isExternal: entry.isExternal } : null;
+                return entry ? { label: entry.title, path: entry.path, isExternal: entry.isExternal, authOnly: item.authOnly } : null;
             }
             if (isRawGroup(item)) {
                 const children = resolveNavigation(item.children, pageMap);
                 // '#group:...' è un sentinel: la navbar lo tratta come dropdown, non ci naviga.
                 return children.length > 0
-                    ? { label: item.label, path: `#group:${item.label}`, isExternal: false, children }
+                    ? { label: item.label, path: `#group:${item.label}`, isExternal: false, children, authOnly: item.authOnly }
                     : null;
             }
             // Link diretto; esterno se inizia con http(s) → la navbar aggiunge target/rel.
-            return { label: item.label, path: item.path, isExternal: item.path.startsWith('http://') || item.path.startsWith('https://') };
+            return { label: item.label, path: item.path, isExternal: item.path.startsWith('http://') || item.path.startsWith('https://'), authOnly: item.authOnly };
         })
         .filter((item): item is NavLink => item !== null);
 }

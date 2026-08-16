@@ -1,0 +1,212 @@
+name: Release di Produzione
+
+# =============================================================================
+# Pubblica una RELEASE artifact-based: builda le immagini Docker (frontend + backend),
+# le pubblica su GHCR taggate con la versione, e crea una GitHub Release con un piccolo
+# "deploy bundle" (i file di orchestrazione) allegato.
+#
+# In produzione NON serve più il sorgente né `git pull`: la VPS scarica il bundle una
+# volta, poi ./deploy-release.sh fa `docker compose pull` + swap delle immagini versionate.
+#
+# Trigger: push di un tag `vX.Y.Z` (es. `git tag v1.2.3 && git push origin v1.2.3`).
+# Manuale: da "Run workflow" passando il tag (deve già esistere come tag git).
+#
+# Config baked nel frontend (identica a ./scripts/deploy.sh in locale):
+#   BR1_PROJECT_JSON   -> global-settings.json committato, minificato (NIENTE segreti):
+#                         identità/versione/lingue/tema congelate nel bundle Angular.
+#   FRONTEND_BASE_URL  -> dominio pubblico, dalla repository variable omonima. Finisce nei
+#                         canonical/sitemap prerenderizzati. NON è un segreto (è il tuo URL).
+#                         DEVE combaciare con frontend.hostname nel global-settings.local.json
+#                         della VPS, altrimenti allowedHosts/baseUrl a runtime divergono dai
+#                         canonical baked.
+# =============================================================================
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag git da pubblicare (es. v1.2.3, deve già esistere)"
+        required: true
+
+# GITHUB_TOKEN: scrittura su GHCR (packages) e sulla Release (contents).
+permissions:
+  contents: write
+  packages: write
+
+# Un solo run per tag: un ri-push dello stesso tag annulla il precedente.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    name: Builda, pubblica su GHCR e crea la Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
+
+      - name: Configura Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+
+      # Ricava versione, nomi immagine (GHCR vuole tutto minuscolo) e valida il dominio.
+      # BR1_PROJECT_JSON è il global-settings.json committato minificato: stessa fonte che
+      # scripts/lib/br1-config.sh passa a ./scripts/deploy.sh, così l'immagine è identica al locale.
+      - name: Prepara variabili di build
+        run: |
+          RAW_TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${RAW_TAG#v}"                       # 1.2.3 (senza la 'v')
+          IMAGE_BASE="ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
+          echo "VERSION=${VERSION}"                       >> "$GITHUB_ENV"
+          echo "IMAGE_FRONTEND=${IMAGE_BASE}-frontend"    >> "$GITHUB_ENV"
+          echo "IMAGE_BACKEND=${IMAGE_BASE}-backend"      >> "$GITHUB_ENV"
+
+          if [ -z "${{ vars.FRONTEND_BASE_URL }}" ]; then
+            echo "::error::Repository variable FRONTEND_BASE_URL non impostata. Impostala (Settings → Secrets and variables → Actions → Variables) al dominio pubblico completo, es. https://miodominio.it — verrà congelata nei canonical/sitemap del frontend. Senza, l'immagine userebbe example.com."
+            exit 1
+          fi
+
+          # global-settings.json minificato → build ARG del frontend (nessun segreto: quelli
+          # vivono solo in global-settings.local.json, non committato).
+          {
+            echo "BR1_PROJECT_JSON<<__BR1_EOF__"
+            node --input-type=module --eval "import{readFileSync}from'fs';process.stdout.write(JSON.stringify(JSON.parse(readFileSync('global-settings.json','utf-8'))))"
+            echo ""
+            echo "__BR1_EOF__"
+          } >> "$GITHUB_ENV"
+
+      - name: Login su GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Builda e pubblica il backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ env.IMAGE_BACKEND }}:${{ env.VERSION }}
+            ${{ env.IMAGE_BACKEND }}:latest
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+
+      - name: Builda e pubblica il frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          build-args: |
+            FRONTEND_BASE_URL=${{ vars.FRONTEND_BASE_URL }}
+            BR1_PROJECT_JSON=${{ env.BR1_PROJECT_JSON }}
+          tags: |
+            ${{ env.IMAGE_FRONTEND }}:${{ env.VERSION }}
+            ${{ env.IMAGE_FRONTEND }}:latest
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
+
+      # Esporta le stesse immagini come file .tar.gz da allegare alla Release: la VPS può così
+      # caricarle con `docker load` SENZA registry né login (utile per repo/registry privati o
+      # per portarle a mano/scp). Le tiro giù da GHCR (appena pushate) e le salvo col nome
+      # identico a quello che docker-compose.release.yml si aspetta → dopo il load compose le
+      # trova in locale e non fa alcun pull.
+      - name: Esporta immagini come asset (docker save)
+        run: |
+          docker pull "${IMAGE_FRONTEND}:${VERSION}"
+          docker pull "${IMAGE_BACKEND}:${VERSION}"
+          docker save "${IMAGE_FRONTEND}:${VERSION}" | gzip > "frontend-image-${VERSION}.tar.gz"
+          docker save "${IMAGE_BACKEND}:${VERSION}"  | gzip > "backend-image-${VERSION}.tar.gz"
+          echo "IMG_FRONTEND_TAR=frontend-image-${VERSION}.tar.gz" >> "$GITHUB_ENV"
+          echo "IMG_BACKEND_TAR=backend-image-${VERSION}.tar.gz"   >> "$GITHUB_ENV"
+
+      # Deploy bundle: SOLO i file che servono in produzione per orchestrare le immagini.
+      # Niente sorgente frontend/backend. La VPS scarica questo tar dalla Release e non deve
+      # mai fare `git pull`. Il global-settings.json qui è il BASE (senza segreti): in prod ci
+      # affianchi il tuo global-settings.local.json con i segreti reali.
+      - name: Assembla il deploy bundle
+        run: |
+          BUNDLE_DIR="deploy-bundle"
+          mkdir -p "${BUNDLE_DIR}/scripts/lib"
+          cp docker-compose.yml \
+             docker-compose.release.yml \
+             docker-compose.backend-exposed.yml \
+             security-headers.json \
+             global-settings.json \
+             global-settings.local.example.json \
+             RELEASE.md \
+             "${BUNDLE_DIR}/"
+          # Lo script sta in scripts/ nel repo, ma nel bundle lo mettiamo alla radice così sulla
+          # VPS si lancia con ./deploy-release.sh (la libreria resta in scripts/lib/, come attesa).
+          cp scripts/deploy-release.sh "${BUNDLE_DIR}/"
+          cp scripts/lib/br1-config.sh "${BUNDLE_DIR}/scripts/lib/"
+          # Fissa nel bundle il tag e le immagini di QUESTA release, così sulla VPS basta
+          # lanciare ./deploy-release.sh senza dover ricordare la versione.
+          cat > "${BUNDLE_DIR}/release.env" <<EOF
+          # Generato dalla CI per la release ${VERSION}. Sorgente delle immagini per deploy-release.sh.
+          RELEASE_TAG=${VERSION}
+          RELEASE_IMAGE_FRONTEND=${IMAGE_FRONTEND}
+          RELEASE_IMAGE_BACKEND=${IMAGE_BACKEND}
+          RELEASE_REPO=${{ github.repository }}
+          EOF
+          chmod +x "${BUNDLE_DIR}/deploy-release.sh"
+          tar -C "${BUNDLE_DIR}" -czf "deploy-bundle-${VERSION}.tar.gz" .
+          echo "BUNDLE_FILE=deploy-bundle-${VERSION}.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Crea la GitHub Release con il bundle allegato
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          NOTES="$(cat <<EOF
+          Immagini pubblicate su GHCR:
+
+          - \`${IMAGE_FRONTEND}:${VERSION}\`
+          - \`${IMAGE_BACKEND}:${VERSION}\`
+
+          Allegati: \`${BUNDLE_FILE}\` (file di orchestrazione) + \`${IMG_FRONTEND_TAR}\` / \`${IMG_BACKEND_TAR}\` (immagini per \`docker load\`).
+
+          ## Pubblicazione sulla VPS (senza git pull)
+
+          Due modi, entrambi supportati da \`./deploy-release.sh\` (che sceglie da solo):
+
+          **A) Da GHCR** (default, deploy incrementali) — servono il bundle e \`docker login ghcr.io\` se il registry è privato:
+
+          \`\`\`bash
+          # pubblica (repo pubblica: curl; privata: gh release download del bundle)
+          curl -fsSL ${{ github.server_url }}/${{ github.repository }}/releases/download/${TAG}/${BUNDLE_FILE} | tar xz
+          cp global-settings.local.example.json global-settings.local.json && \$EDITOR global-settings.local.json
+          ./deploy-release.sh            # fa docker compose pull + preflight + swap
+          \`\`\`
+
+          **B) Da file** (nessun registry né login: scarichi/scp i .tar.gz delle immagini accanto allo script):
+
+          \`\`\`bash
+          # bundle + immagini nella stessa cartella; se la repo è privata usa gh/token per scaricarli
+          gh release download ${TAG} --repo ${{ github.repository }}
+          tar xzf ${BUNDLE_FILE}
+          ./deploy-release.sh            # trova i .tar.gz → docker load + preflight + swap
+          \`\`\`
+
+          Dettagli (repo privata, PAT, fork) in \`RELEASE.md\`.
+          EOF
+          )"
+          # --clobber per rendere il job ri-eseguibile sullo stesso tag.
+          ASSETS=("${BUNDLE_FILE}" "${IMG_FRONTEND_TAR}" "${IMG_BACKEND_TAR}")
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${ASSETS[@]}" --clobber
+            gh release edit  "$TAG" --notes "$NOTES"
+          else
+            gh release create "$TAG" "${ASSETS[@]}" --title "$TAG" --notes "$NOTES"
+          fi

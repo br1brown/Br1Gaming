@@ -15,6 +15,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { GlobalSettings } from '../global-settings.types';
+import { deepMergeSettings } from '../scripts/config/settings-merge';
 
 // ── Lettura global-settings.json (+ override global-settings.local.json) ──────────────
 // GLOBAL_SETTINGS_PATH (env var) → path esplicito (Docker: /app/global-settings.json,
@@ -22,23 +23,9 @@ import type { GlobalSettings } from '../global-settings.types';
 // Fallback 1: global-settings.json nella cwd (Docker dev)
 // Fallback 2: ../global-settings.json rispetto alla cwd (dev locale: cwd=frontend/)
 // In DEV locale i segreti (ApiKeys, Token) stanno in global-settings.local.json: viene
-// fuso sopra il base con lo stesso deep-merge di br1-config.sh, così l'SSR locale ha la
-// API key come backend e proxy. In Docker/prod il .local non esiste → merge no-op.
-
-function isPlainObject(v: unknown): v is Record<string, unknown> {
-    return typeof v === 'object' && v !== null && !Array.isArray(v);
-}
-
-/** Deep-merge: oggetti fusi ricorsivamente, array e scalari sostituiti (semantica di br1-config.sh). */
-function deepMerge(base: Record<string, unknown>, over: Record<string, unknown>): Record<string, unknown> {
-    const out: Record<string, unknown> = { ...base };
-    for (const k of Object.keys(over)) {
-        out[k] = isPlainObject(out[k]) && isPlainObject(over[k])
-            ? deepMerge(out[k] as Record<string, unknown>, over[k] as Record<string, unknown>)
-            : over[k];
-    }
-    return out;
-}
+// fuso sopra il base con lo stesso deep-merge di br1-config.sh (deepMergeSettings, condivisa
+// anche con generate-statics.ts — vedi ../scripts/config/settings-merge.ts), così l'SSR locale ha la API key
+// come backend e proxy. In Docker/prod il .local non esiste → merge no-op.
 
 /** Primo file esistente lungo la catena, parsato come oggetto; null se nessuno c'è/è valido. */
 function readJsonFile(candidates: (string | undefined)[]): Record<string, unknown> | null {
@@ -62,7 +49,7 @@ function loadBr1Settings(): Record<string, unknown> {
         resolve(process.cwd(), '../global-settings.local.json'),
     ]);
 
-    return local ? deepMerge(base, local) : base;
+    return local ? deepMergeSettings(base, local) : base;
 }
 
 /** Forma tipizzata di global-settings.json: il tipo `GlobalSettings` è generato dallo schema

@@ -9,7 +9,7 @@
 import { existsSync, copyFileSync, mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 
-const ROOT = join(__dirname, '../../../../../');
+const ROOT = join(__dirname, '../../../../../../');
 const ASSETS_DIR = join(ROOT, 'src', 'assets', 'files');
 const ICONS_DIR = join(ROOT, 'public', 'icons');
 const SIZES = [192, 512];
