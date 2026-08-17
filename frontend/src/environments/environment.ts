@@ -46,5 +46,5 @@ export const environment: AppEnvironment = {
                     "it": "Generatori ignoranti, avventure interattive, universo Br1."
             }
     },
-    configFingerprint: "cfd698ea0012"
+    configFingerprint: "1b0b0d4dface"
 };
