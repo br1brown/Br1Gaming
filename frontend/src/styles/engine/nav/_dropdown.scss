@@ -4,12 +4,14 @@
 
 /* Senza fixed-top/sticky-top Bootstrap non assegna z-index alla navbar, lasciando
    il dropdown vulnerabile a contenuti di pagina con z-index positivo. Questa regola
-   crea un contesto di stacking sulla navbar (z-index: 100) così il dropdown galleggia
-   sopra il contenuto qualunque z-index abbiano gli elementi dei progetti figli.
+   crea un contesto di stacking sulla navbar (--z-navbar-static, scala in _tokens.scss)
+   così il dropdown galleggia sopra il contenuto qualunque z-index abbiano gli elementi
+   dei progetti figli — un valore letterale basso (100, usato qui prima) sarebbe stato
+   battuto da qualunque z-index positivo ragionevole in un progetto figlio.
    fixed-top (z-index: 1030) e sticky-top (z-index: 1020) sono esclusi: Bootstrap li
    gestisce già con valori più alti. */
 .navbar:not(.fixed-top):not(.sticky-top) {
-    z-index: 100;
+    z-index: var(--z-navbar-static, 1020);
 }
 
 /* Il dropdown desktop usa gli stessi colori della navbar,
@@ -24,8 +26,14 @@
 }
 
 /* Colore e padding degli item: Bootstrap userebbe --bs-dropdown-link-color
-   (spesso blu); qui ereditiamo dal tema. */
-.navbar .dropdown-item {
+   (spesso blu); qui ereditiamo dal tema. .dropdown-item-text (testo statico non
+   cliccabile, es. stato vuoto "Nessuna notifica" nel notification-bell) è la
+   sorella Bootstrap di .dropdown-item con lo stesso --bs-dropdown-link-color di
+   default — va coperta allo stesso modo, altrimenti resta scura anche su
+   dropdown scuri (bug verificato: contrasto ~1.2:1 invece di ereditare il
+   bianco del tema). */
+.navbar .dropdown-item,
+.navbar .dropdown-item-text {
     position: relative;
     padding: 0.7rem 1rem;
     line-height: 1.35;
@@ -115,19 +123,25 @@
         min-height: 2.75rem;
     }
 
-    .navbar .dropdown {
+    /* Scoped a #navbar-menu: qui sotto è il pannello collassabile, dove il dropdown
+       deve espandersi in flusso come voce d'accordion. L'istanza standalone del
+       selettore lingua (fuori da #navbar-menu, quando non c'è altro da collassare —
+       vedi navbar.component.html) resta con l'overlay assoluto di default: da
+       static diventerebbe un blocco in flusso che spinge giù la pagina, "alzando"
+       la barra fissa invece di aprirsi sopra il contenuto. */
+    #navbar-menu .dropdown {
         display: block;
         width: 100%;
     }
 
-    .nav-dropdown-toggle {
+    #navbar-menu .nav-dropdown-toggle {
         width: 100%;
         padding: 0.7rem 0.25rem 0.7rem 0;
         justify-content: space-between;
     }
 
     /* Mobile: Bootstrap standard (display:none/block), stili desktop azzerati */
-    .navbar .dropdown-menu {
+    #navbar-menu .dropdown-menu {
         position: static;
         margin-top: 0;
         padding: 0 0 0 0.95rem;
@@ -138,26 +152,31 @@
         color: inherit;
     }
 
-    .navbar .dropdown-item {
+    /* Scoped a #navbar-menu come sopra: il dropdown lingua standalone resta col padding
+       normale (.navbar .dropdown-item base, riga 28) — da flusso d'accordion (qui) il
+       padding orizzontale è azzerato perché lo dà già il pannello; da overlay flottante
+       (lingua) serve invece, altrimenti il testo tocca il bordo della card. */
+    #navbar-menu .dropdown-item,
+    #navbar-menu .dropdown-item-text {
         padding: 0.5rem 0;
         font-weight: 400;
         white-space: normal;
     }
 
-    .navbar .dropdown-item.active,
-    .navbar .nav-current-link.dropdown-item {
+    #navbar-menu .dropdown-item.active,
+    #navbar-menu .nav-current-link.dropdown-item {
         background-color: transparent;
         font-weight: 700;
         padding-left: 0;
     }
 
-    .navbar .dropdown-item.active::before,
-    .navbar .nav-current-link.dropdown-item::before {
+    #navbar-menu .dropdown-item.active::before,
+    #navbar-menu .nav-current-link.dropdown-item::before {
         display: none;
     }
 
-    .navbar .dropdown-item:hover,
-    .navbar .dropdown-item:focus-visible {
+    #navbar-menu .dropdown-item:hover,
+    #navbar-menu .dropdown-item:focus-visible {
         background-color: transparent;
         text-decoration: underline;
     }

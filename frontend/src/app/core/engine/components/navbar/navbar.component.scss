@@ -1,12 +1,22 @@
 @use 'engine/base/lib' as lib;
 
-
-
 .navbar {
     color: var(--colorNavText, var(--colorTemaText));
     /* Bordo del toggler: allineato al testo navbar anziché al data-bs-theme Bootstrap */
     --bs-navbar-toggler-border-color: color-mix(in srgb, var(--colorNavText, var(--colorTemaText)) 55%, transparent);
 }
+
+/* Con .fixed-top, <nav> ha il proprio z-index (1030, Bootstrap) e quindi il proprio contesto
+   di stacking: lo z-index del pannello overlay al suo interno (.navbar-collapse.show, sotto)
+   resta "intrappolato" in quel contesto — da fuori <nav> conta solo il suo 1030, non il 1045
+   interno. Il cookie banner (1040, fuori da <nav>) lo coprirebbe comunque. Quando il menu è
+   aperto, <nav> stesso sale allo stesso livello dell'overlay: così l'intero contesto (con il
+   pannello dentro) supera davvero il banner. Innocuo se <nav> non è .fixed-top (position:static
+   ignora z-index). */
+.navbar.navbar-menu-open {
+    z-index: var(--z-mobile-nav-overlay, 1045);
+}
+
 
 /* ── Hamburger icon → X ─────────────────────────────────────────────
    Bootstrap renderizza il toggler come un singolo SVG (tre linee) scelto
@@ -60,8 +70,24 @@
     transform: translateY(-0.45em) rotate(-45deg);
 }
 
+/* Etichetta "Menu" accanto all'icona, solo da chiuso (rimossa dal DOM da aperto, vedi HTML):
+   scopribilità del toggler senza appesantire il quadratino con la sola X quando è aperto. */
+.navbar-toggler-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
 .navbar .navbar-brand,
 .navbar .navbar-brand.nav-current-link {
+    color: inherit;
+}
+
+/* Bootstrap dà a .navbar-toggler un color proprio (--bs-navbar-color, non il nostro
+   --colorNavText) — l'icona lo ignora (usa --colorNavText direttamente sui suoi ::before/::after,
+   vedi sopra), ma .navbar-toggler-label (testo vero, eredita da qui) no: senza questo override
+   viene fuori nel colore di default Bootstrap, scuro anche su sfondo navy scuro. */
+.navbar-toggler {
     color: inherit;
 }
 
@@ -85,15 +111,6 @@
     min-width: 8.5rem;
 }
 
-.language-picker-label {
-    display: none;
-    font-size: 0.78rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: color-mix(in srgb, var(--colorNavText, var(--colorTemaText)) 82%, transparent);
-}
-
 .language-dropdown {
     min-width: 5.5rem;
 }
@@ -104,10 +121,15 @@
     letter-spacing: 0.04em;
 }
 
-/* Posizionato a destra: Bootstrap non lo fa senza Popper, lo gestiamo noi */
+/* Posizionato a destra: Bootstrap non lo fa senza Popper, lo gestiamo noi.
+   z-index sopra l'overlay del pannello mobile (--z-mobile-nav-overlay): il selettore lingua
+   resta cliccabile anche con il menu aperto (vedi HTML — è un item della riga superiore, fuori
+   da #navbar-menu), quindi il suo dropdown deve poter disegnarsi sopra il pannello full-screen,
+   non sotto — lo z-index Bootstrap di default (1000, --bs-dropdown-zindex) altrimenti perde. */
 .language-dropdown-menu {
-    right: 0;
-    left: auto;
+    z-index: calc(var(--z-mobile-nav-overlay, 1045) + 1);
+    inset-inline-end: 0;
+    inset-inline-start: auto;
     min-width: 5.5rem;
 }
 
@@ -153,35 +175,18 @@
         border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
     }
 
-    /* Solo l'istanza dentro il pannello collassabile prende il layout "sezione impilata":
-       quella inline nella barra (lingua unica voce da collassare, niente hamburger) resta
-       compatta come su desktop anche sotto il breakpoint md. */
-    .navbar-collapse .language-picker {
-        display: grid;
-        gap: 0.45rem;
-        width: 100%;
-        padding-top: 0.9rem;
-        border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
-    }
-
-    .navbar-collapse .language-picker-label {
-        display: block;
-    }
-
-    .navbar-collapse .language-dropdown,
-    .navbar-collapse .language-toggle {
-        width: 100%;
-    }
-
-    .navbar-collapse .language-toggle {
-        font-size: 0.95rem;
-        min-height: 2.5rem;
-        padding-inline-start: 0;
-        padding-inline-end: 0.25rem;
-    }
-
-    .navbar-collapse .language-link {
-        font-size: 0.95rem;
+    /* Layout icona+etichetta (vedi .navbar-toggler-label sotto). SOLO qui sotto md, non fuori
+       media query: lo scoping Angular aggiunge un attributo a ogni selettore del component CSS,
+       alzando ".navbar-toggler" a specificità pari a ".navbar-expand-md .navbar-toggler" di
+       Bootstrap (quella che nasconde il toggler a desktop) — a parità di specificità vince chi è
+       dichiarato dopo nel bundle finale, e il nostro CSS viene iniettato dopo bootstrap.min.css.
+       display:inline-flex avrebbe quindi tenuto il toggler visibile anche a desktop (bug
+       verificato: "Menu" compariva nello screenshot a 1280px). Dentro questa media query invece
+       non c'è alcuna regola nostra a >=md, quindi zero competizione — Bootstrap vince senza sforzo. */
+    .navbar-toggler {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
     }
 
     .navbar .language-toggle,
@@ -190,22 +195,37 @@
         background-color: transparent;
     }
 
-    .navbar-collapse {
-        padding-top: 0.9rem;
-        gap: 1rem;
-        overflow-x: hidden;
-    }
-
-    /* Scroll cap per tutti i mobile: il menu non sfora lo schermo e scorre internamente.
-       --nav-height (impostata sul <nav>, vedi navHeight in navbar.component.ts) è la vera
-       altezza misurata invece di un 3.5rem fisso: con brand/voci che vanno a capo o zoom del
-       testo del browser, la riga della navbar può essere più alta, e un tetto tarato sul valore
-       fisso lascerebbe il pannello sforare lo schermo invece di scorrere internamente. */
+    /* Pannello mobile come overlay a schermo intero invece di un accordion che si espande
+       sotto la barra e spinge/scorre in un box con tetto calcolato — pattern più recente
+       (stile offcanvas) che elimina alla radice la classe di bug che il vecchio approccio si
+       portava dietro: #navbar-menu.show esce COMPLETAMENTE dal flusso (position:fixed), quindi
+       non fa più crescere .container-fluid, e brand/selettore lingua/toggler (tutti prima di
+       lui nel DOM, semplici item flex — vedi HTML) restano fermi senza bisogno di alcun
+       posizionamento assoluto o calcolo compensativo. */
     .navbar-collapse.show {
-        max-height: calc(100dvh - var(--nav-height, 3.5rem));
+        position: fixed;
+        /* Parte subito sotto la riga superiore (brand/lingua/toggler), che resta sempre
+           visibile e cliccabile sopra il pannello. --nav-height (navHeight in
+           navbar.component.ts) è l'altezza "a riposo" già misurata, e viene apposta congelata
+           mentre il pannello è aperto — qui sfruttiamo la stessa stabilità già usata per lo
+           spacer sotto la navbar fixed. */
+        top: var(--nav-height, 3.5rem);
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: var(--z-mobile-nav-overlay, 1045);
+        display: flex;
+        flex-direction: column;
+        /* .navbar-collapse ha align-items:center di Bootstrap (per quando è flex-row da
+           md in su) — qui è flex-column, e center centrerebbe voci/user-nav invece di
+           farle occupare tutta la larghezza. */
+        align-items: stretch;
         overflow-y: auto;
-        overflow-x: hidden;
-        padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+        background-color: var(--colorNavBg);
+        color: var(--colorNavText);
+        padding: 1.5rem max(1.25rem, env(safe-area-inset-right, 0px))
+                 calc(env(safe-area-inset-bottom, 0px) + 1.5rem)
+                 max(1.25rem, env(safe-area-inset-left, 0px));
     }
 
     .navbar-nav {

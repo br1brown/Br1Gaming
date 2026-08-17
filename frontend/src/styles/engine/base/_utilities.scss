@@ -6,12 +6,16 @@ code {
     background-color: transparent;
 }
 
-/* Schermi piccoli. -0.02px per restare strettamente sotto lib.$bp-md (768px). 
-   Impedisce a overflow-x: hidden di forzare overflow-y: auto a 768px esatti, il che 
-   taglierebbe i dropdown verticali che fuoriescono dalla navbar. */
+/* Schermi piccoli. -0.02px per restare strettamente sotto lib.$bp-md (768px).
+   overflow-x: clip (non hidden): per spec, "hidden" su un solo asse forza
+   l'altro asse (qui overflow-y) da visible ad auto, trasformando il container
+   in uno scroll-box che clippa verticalmente qualunque figlio assoluto che
+   sporga oltre la sua altezza — es. il dropdown lingua standalone della navbar
+   quando si apre. "clip" evita la promozione dell'altro asse: stesso effetto
+   anti-bleed orizzontale, senza tagliare i dropdown verticali. */
 @media only screen and (max-width: #{lib.$bp-md - 0.02px}) {
     .container-fluid {
-        overflow-x: hidden;
+        overflow-x: clip;
     }
 }
 

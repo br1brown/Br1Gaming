@@ -67,8 +67,16 @@
        offcanvas 1045 · modal-backdrop 1050 · modal 1055 · popover 1070 ·
        toast 1090): i widget persistenti (cookie banner, back-to-top) stanno
        sopra la navbar fissa ma SOTTO offcanvas e modali, che devono coprirli. */
+    /* Stesso livello di sticky-top Bootstrap (1020): dato ai dropdown della navbar quando non è
+       né .fixed-top né .sticky-top (Bootstrap in quei due casi le assegna già 1030/1020) — così
+       galleggiano comunque sopra contenuto arbitrario dei progetti figli, invece di un valore
+       basso (100) che qualunque z-index positivo del progetto figlio batterebbe senza sforzo. */
+    --z-navbar-static: 1020;
     --z-cookie-banner: 1040;
     --z-fab: 1035;
+    /* Stesso livello di offcanvas (1045): il pannello mobile della navbar (navbar.component.scss)
+       è concettualmente un offcanvas — deve poter coprire il cookie banner, come da riga sopra. */
+    --z-mobile-nav-overlay: 1045;
     --z-skip-link: 1095;
     --z-cdk-overlay: 1100;
 
