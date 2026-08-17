@@ -4,8 +4,8 @@
      [attr.aria-label]="'principaleNav' | translate">
     <div class="container-fluid" #containerFluidEl>
         <!-- Brand solo se c'è una home (slot homePage): senza home niente brand, non un testo morto. -->
-        @if (homePath !== null) {
-        @if (isRouteActive(homePath)) {
+        @if (homePath() !== null) {
+        @if (isRouteActive(homePath())) {
         <span #brandEl class="navbar-brand nav-current-link d-flex align-items-center gap-2" aria-current="page">
             @if (showBrandIconInHeader) {
             <img aria-hidden="true" alt="" class="navbar-brand-icon" [appAsset]="'favIcon'" [appAssetWidth]="125" />
@@ -13,7 +13,7 @@
             {{ appName }}
         </span>
         } @else {
-        <a #brandEl class="navbar-brand d-flex align-items-center gap-2" [routerLink]="homePath">
+        <a #brandEl class="navbar-brand d-flex align-items-center gap-2" [routerLink]="homePath()">
             @if (showBrandIconInHeader) {
             <img aria-hidden="true" alt="" class="navbar-brand-icon" [appAsset]="'favIcon'" [appAssetWidth]="125" />
             }
@@ -126,7 +126,7 @@
                     (click)="toggleLang()">
                 <span class="nav-dropdown-label">
                     <i class="fa-solid fa-globe me-1" aria-hidden="true"></i>
-                    {{ langName(translate.currentLang()) }}
+                    <span [attr.lang]="translate.currentLang()">{{ langName(translate.currentLang()) }}</span>
                 </span>
                 <span class="nav-dropdown-caret" aria-hidden="true"></span>
             </button>
@@ -138,12 +138,13 @@
                     @if (lingua === translate.currentLang()) {
                     <span class="dropdown-item language-link nav-current-link active d-flex align-items-center justify-content-between"
                           aria-current="true">
-                        {{ langName(lingua) }}
+                        <span [attr.lang]="lingua">{{ langName(lingua) }}</span>
                         <i class="fa-solid fa-check ms-2" aria-hidden="true"></i>
                     </span>
                     } @else {
                     <button type="button"
                             class="dropdown-item language-link"
+                            [attr.lang]="lingua"
                             (click)="setLanguage(lingua)">
                         {{ langName(lingua) }}
                     </button>

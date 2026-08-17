@@ -78,7 +78,7 @@ export class CookieBannerComponent {
         // La pagina Cookie Policy è quella valorizzata nello slot `legalPages.cookie`
         // (site.ts), non un PageType nominato qui: l'Engine resta agnostico ai nomi.
         const cookiePage = ContestoSito.config.legalPages.cookie;
-        const path = (cookiePage != null ? ContestoSito.getPath(cookiePage) : null) ?? '';
+        const path = (cookiePage != null ? ContestoSito.getPath(cookiePage, this.translate.currentLang()) : null) ?? '';
         const key = this.hasDetailedCategories() ? 'introBannerCookie' : 'testoBannerCookie';
         return this.translate.translate(key, path);
     });

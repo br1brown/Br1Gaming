@@ -129,11 +129,6 @@ export interface SiteEnv {
      *  Impostato da SEO_NOINDEX (1/true/yes). Default `false` (sito indicizzabile).
      *  Pensato per ambienti di staging/anteprima dietro lo stesso reverse proxy della prod. */
     readonly noindex: boolean;
-    /** True se il sito è multilingua (`Localization.SupportedLanguages` > 1). Quando true le
-     *  risposte HTML SSR portano `Vary: Accept-Language`: il contenuto varia per lingua sullo
-     *  stesso URL (negoziazione via header/cookie, nessun URL localizzato), e l'header lo segnala
-     *  a cache/CDN e abilita il crawling locale-adaptive di Google. */
-    readonly multiLang: boolean;
 }
 
 /** Header di sicurezza condivisi col backend, letti da security-headers.json (file del template). */
@@ -217,7 +212,6 @@ export const serverEnv: ServerEnv = {
             assetsDir:           process.env['ASSETS_DIR'] ?? '',
             previewCryptoSecret: process.env['PREVIEW_CRYPTO_SECRET'] ?? '',
             noindex:             parseBool(process.env['SEO_NOINDEX']),
-            multiLang:           (br1().Localization?.SupportedLanguages?.length ?? 0) > 1,
         };
     },
     get security(): SecurityEnv {

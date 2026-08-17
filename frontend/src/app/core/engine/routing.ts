@@ -3,11 +3,10 @@ import { inject, Signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs';
 import { ContestoSito } from '../../site';
-import { AuthService } from '../services/auth.service';
+import { environment } from '../../../environments/environment';
 import { contentLoaderResolver } from '../../pages/content.resolver';
 import { InternalSitePage, isInternalPage, isParentPage, ShellFlags, SHELL_DATA_KEY } from './siteBuilder';
-import { NotificationService } from './services/notification.service';
-import { TranslateService } from './services/translate.service';
+import { authGuard, langRedirectGuard } from './route-guards';
 
 /**
  * Signal che riemette `project(router)` ad ogni `NavigationEnd`, partendo da `initial`.
@@ -27,107 +26,93 @@ export function injectCurrentUrl(): Signal<string> {
     return onNavigationEnd(() => router.url, router.url);
 }
 
-/**
- * Guard di autenticazione: protegge le rotte che hanno il flag `requiresAuth`.
- */
-const authGuard: CanActivateFn = (route) => {
-    const authService = inject(AuthService);
-    const router = inject(Router);
-    const notification = inject(NotificationService);
-    const translate = inject(TranslateService);
-
-    if (authService.isLoggedIn()) {
-        return true;
-    }
-
-    // Utente non autenticato: lo mandiamo alla pagina di login passando il motivo come query
-    // param (`reason=auth`), così la pagina mostra un avviso inline invece di una modale.
-    // Conserviamo anche il pageType di partenza per tornarci automaticamente dopo il login.
-    const redirectPage = ContestoSito.config.loginPage;
-    if (redirectPage != null) {
-        const path = ContestoSito.getPath(redirectPage);
-        if (path) {
-            // Redirigiamo alla pagina di login indicata, passando il vecchio pageType
-            return router.createUrlTree([path], {
-                queryParams: { returnPageType: route.data['pageType'], reason: 'auth' }
-            });
-        }
-    }
-
-    // Se redirectPage è nullo: non abbiamo una pagina di login dove mandare l'utente,
-    // quindi restiamo sulla pagina corrente e segnaliamo l'accesso negato con una modale.
-    notification.error(
-        translate.translate('errore401Titolo'),
-        translate.translate('errore401Descrizione')
-    );
-    return false;
-};
+// authGuard/langRedirectGuard vivono in route-guards.ts (file a parte): qui restano solo la
+// costruzione dell'albero delle route e i due guard vengono solo attaccati alle route giuste.
 
 /**
- * DEFINIZIONE DELLE ROTTE ANGULAR
- * Le rotte vengono generate partendo dalla configurazione dichiarativa in site.ts.
+ * ROUTES FINALI, esportate e usate da provideRouter() in app.config.ts.
+ * Un ciclo per ogni lingua disponibile (environment.availableLanguages, generato a build-time da
+ * generate-statics.ts a partire da Localization.SupportedLanguages) — NON una lista fissa di 2:
+ * con una sola lingua, il ciclo gira una volta sola e produce esattamente le route di un sito
+ * mono-lingua, senza prefisso, come oggi in Br1Gaming e negli altri figli.
  */
 export const routes: Routes = [
-    // Contesto.pages contiene solo pagine interne; qui filtriamo quelle abilitate.
-    ...buildRoutes(ContestoSito.pages),
-    ...buildErrorRoutes()
+    ...environment.availableLanguages.flatMap((lang): Routes =>
+        lang === environment.defaultLang
+            // Lingua default: le route stanno alla RADICE, senza prefisso (es. `/pagina`).
+            ? buildRoutes(ContestoSito.pages, lang)
+            // Lingua aggiuntiva: le stesse route, ma avvolte sotto un nodo padre `{path: lang}` —
+            // è così che Angular Router prefissa un intero sottoalbero (es. `/en/pagina`). Le route
+            // di Angular sono relative al genitore, quindi "prefissare" vuol dire annidare, non
+            // concatenare stringhe (diverso da come fa `processPages` in siteBuilder.ts, che lavora
+            // su path assoluti/flat e lì la concatenazione stringhe è la scelta giusta).
+            : [{ path: lang, children: buildRoutes(ContestoSito.pages, lang) }]
+    ),
+    ...buildErrorRoutes(), // 404/401/ecc — SEMPRE alla radice, mai duplicate per lingua (vedi sotto).
 ];
 
-/**
- * Trasforma ricorsivamente l'albero di pagine interne in Routes di Angular.
- */
-function buildRoutes(pages: InternalSitePage[]): Routes {
+/** Cammina l'albero pagine di site.ts e produce le Route Angular corrispondenti, per UNA lingua. */
+function buildRoutes(pages: InternalSitePage[], lang: string): Routes {
     return pages
-        .filter(page => page.enabled)
-        .map(page => toAngularRoute(page));
+        .filter(page => page.enabled) // pagine disabilitate (enabled: false): fuori ovunque, anche dalle route.
+        .map(page => toAngularRoute(page, lang));
 }
 
-/**
- * Converte un singolo nodo della DSL (Parent o Leaf) in una Route di Angular.
- */
-function toAngularRoute(page: InternalSitePage): Route {
+/** Converte UN nodo della DSL (pagina Parent o Leaf) in UNA Route Angular, per la lingua data. */
+function toAngularRoute(page: InternalSitePage, lang: string): Route {
+    const canActivate: CanActivateFn[] = [];
+    // langRedirectGuard SOLO sulla variante non-prefissata: le route già prefissate (/en/...) sono
+    // una scelta esplicita di chi le ha raggiunte (link diretto, switch lingua) — niente da rediregere.
+    if (lang === environment.defaultLang) canActivate.push(langRedirectGuard);
+    // authGuard solo se la pagina lo richiede esplicitamente in site.ts (requiresAuth: true).
+    if (page.requiresAuth) canActivate.push(authGuard);
+
     const route: Route = {
-        path: page.path,
-        // Applica la guard solo se richiesto esplicitamente nella configurazione.
-        canActivate: page.requiresAuth ? [authGuard] : [],
+        path: page.path, // segmento dichiarato in site.ts — MAI tradotto per lingua, solo prefissato (vedi sopra).
+        canActivate,
         data: {
-            ...page.data,
-            pageType: page.pageType
+            ...page.data,       // data liberi del figlio (site.ts) — diventano @Input() via withComponentInputBinding.
+            pageType: page.pageType, // identità stabile della pagina — letto da guard/resolver/PageBaseComponent.
+            lang,                // LA riga chiave di tutta la migrazione: da qui PageBaseComponent sincronizza TranslateService.
         }
     };
 
     if (isParentPage(page)) {
-        // Se e' un Parent, non carichiamo un componente ma i suoi figli.
-        route.children = buildRoutes(page.children.filter(isInternalPage));
+        // Pagina-contenitore (menu annidato, es. /policy/*): nessun componente proprio, solo figli.
+        route.children = buildRoutes(page.children.filter(isInternalPage), lang);
     } else {
-        // Se e' una LeafPage, carichiamo il componente in modo lazy.
+        // Pagina foglia (LeafPage): carica il componente lazy dichiarato in site.ts.
         route.loadComponent = page.component;
         route.data = {
             ...route.data,
-            // Piatti → diventano input del componente via withComponentInputBinding (insieme ai
-            // `data` liberi del figlio già in ...route.data).
             pageType: page.pageType,
-            // Fade-in: subordinato al globale come showNav/footer — off globale vince, la pagina può solo spegnere.
+            lang, // ripetuto: qui route.data viene RISCRITTO per intero, non è un duplicato accidentale.
+            // pageFade: gate globale (config.pageFade) + override per-pagina (page.pageFade) — off
+            // globale vince sempre, la pagina può solo spegnere, mai riaccendere da sola.
             pageFade: ContestoSito.config.pageFade && (page.pageFade ?? true),
-            // Raggruppate → lette SOLO dalla shell (root, fuori dall'outlet) via snapshot. L'oggetto
-            // arriva già pronto da normalizeSitePage; i default (?? true/false) li applica app.component.
-            // (description/ogImage NON vanno qui: l'OG passa dal resolver via PageInfo → page-base.)
+            // SHELL_DATA_KEY: i flag di layout (showNav/showFooter/fitViewport...) letti SOLO dalla
+            // shell (app.component, fuori dal <router-outlet>) via snapshot — mai spacchettati qui.
             [SHELL_DATA_KEY]: page.shell,
         };
 
-        route.resolve = { contentByResolve: contentLoaderResolver(page.pageType) };
-
+        // lang passato ESPLICITAMENTE in chiusura, non letto da translate.currentLang(): il resolver
+        // gira PRIMA che il componente esista, quindi prima che PageBaseComponent possa aver
+        // sincronizzato la lingua — currentLang() qui risolverebbe ancora alla pagina precedente.
+        route.resolve = { contentByResolve: contentLoaderResolver(page.pageType, lang) };
     }
 
     return route;
 }
 
-/**
- * Rotte di gestione errori (404, ecc.).
- */
+/** Route di gestione errori (404/401/ecc) — uniche, non moltiplicate per lingua: vedi ErrorComponent
+ *  (deriva la lingua dal path a runtime, non da route.data) per il perché. */
 function buildErrorRoutes(): Routes {
     const routes: Routes = [];
     const authPage = ContestoSito.config.loginPage;
+    // Path del login SEMPRE in lingua default qui: è un redirect statico (route.redirectTo), calcolato
+    // una volta a module-load — non ha un `route.data.lang` da leggere, a differenza di authGuard
+    // (che invece gira a runtime e quindi PUÒ leggere la lingua della richiesta). Caso limite accettato:
+    // /error/401 raggiunto direttamente (non via authGuard) è raro e non SEO-rilevante (noindex).
     const authPath = authPage != null ? ContestoSito.getPath(authPage) : null;
 
     if (authPath) {
@@ -140,22 +125,21 @@ function buildErrorRoutes(): Routes {
 
     routes.push(
         {
-            path: 'error/:errorCode',
+            path: 'error/:errorCode', // :errorCode letto da ErrorComponent via route param → @Input().
             title: 'erroreGenerico',
             loadComponent: () => import('../../pages/error/error.component').then(m => m.ErrorComponent),
             data: { [SHELL_DATA_KEY]: { showPanel: false } satisfies ShellFlags }
         },
         {
             path: 'error',
-            redirectTo: 'error/500',
+            redirectTo: 'error/500', // /error senza codice = 500 di default.
             pathMatch: 'full'
         },
         {
-            // Qualsiasi rotta non trovata: rende DIRETTAMENTE la pagina errore (404), niente `redirectTo`.
-            // Un redirect su una rotta SSR `RenderMode.Client` viene emesso come 3xx + `Location`, ma il
-            // server riscrive lo status a 404 (SEO): il browser, vedendo un 404 e non un 3xx, ignora il
-            // `Location` → pagina bianca al full-load di un URL sconosciuto. Rendere il componente (errorCode
-            // default 404) fa servire la shell e idratare la pagina, esattamente come `error/:errorCode`.
+            // Wildcard — qualsiasi path non altrimenti matchato, incluso uno sbagliato sotto /en/.
+            // Rende DIRETTAMENTE il componente (niente redirectTo): un redirect su una rotta SSR
+            // RenderMode.Client uscirebbe come 3xx+Location, ma il server lo riscrive a 404 (SEO) —
+            // il browser vedrebbe 404 invece di 3xx e ignorerebbe il Location, pagina bianca.
             path: '**',
             title: 'erroreGenerico',
             loadComponent: () => import('../../pages/error/error.component').then(m => m.ErrorComponent),

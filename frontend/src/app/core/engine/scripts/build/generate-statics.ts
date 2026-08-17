@@ -35,7 +35,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'fs';
 import { join } from 'path';
 import { ContestoSito } from '../../../../site';
 import { ThemeService } from '../../services/theme.service';
-import { SitemapEntry } from '../../siteBuilder';
+import { SitemapEntry, resolveLangPrefix } from '../../siteBuilder';
 import { fingerprintIdentitySections } from '../config/config-fingerprint';
 import { deepMergeSettings } from '../config/settings-merge';
 import type { GlobalSettings } from '../../global-settings.types';
@@ -214,6 +214,11 @@ function escapeRegex(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/** Stessa lista di translate.service.ts (RTL_LANGUAGES) — duplicata qui perché questo è uno
+ *  script Node standalone, non un contesto Angular: importare il service trascinerebbe l'intero
+ *  DI framework per una costante statica. */
+const RTL_LANGUAGES = new Set(['ar', 'he', 'fa', 'ur', 'ps', 'sd', 'yi', 'dv', 'ckb']);
+
 function toOpenGraphLocale(lang: string): string {
     try {
         const locale = new Intl.Locale(lang).maximize();
@@ -270,6 +275,7 @@ function updateIndexHtml(): void {
     const appName = escapeHtml(APP_NAME);
     const description = escapeHtml(DESCRIPTION);
     const lang = escapeHtml(DEFAULT_LANG);
+    const dir = RTL_LANGUAGES.has(DEFAULT_LANG) ? 'rtl' : 'ltr';
     const ogLocale = escapeHtml(toOpenGraphLocale(DEFAULT_LANG));
     // 'default' è sicuro per qualsiasi tema: apple-mobile-web-app-status-bar-style
     // non supporta media queries e non può adattarsi all'OS preference a runtime.
@@ -278,7 +284,7 @@ function updateIndexHtml(): void {
     let html = readFileSync(INDEX, 'utf8');
 
     // Regex flessibile: matcha <html> con qualsiasi combinazione di attributi, riscrive solo lang.
-    html = replaceTag(html, /<html\b[^>]*>/, `<html lang="${lang}">`, '<html lang>');
+    html = replaceTag(html, /<html\b[^>]*>/, `<html lang="${lang}" dir="${dir}">`, '<html lang>');
     html = replaceTag(html, /<title>[^<]*<\/title>/, `<title>${appName}</title>`, '<title>');
 
     const defaultImageUrl = `${BASE_URL}/icons/icon-512x512.png`;
@@ -453,24 +459,65 @@ function updateManifest(): void {
 
 // ── Generazione sitemap.xml ───────────────────────────────────────────────
 
+/** Path "nudo" (senza prefisso lingua) di una entry: chiave di raggruppamento cross-lingua per
+ *  i blocchi hreflang incrociati — entry con la stessa chiave sono varianti-lingua della stessa
+ *  pagina logica. Con una sola lingua configurata `resolveLangPrefix` ritorna sempre stringa
+ *  vuota, quindi la chiave coincide col path stesso (nessun raggruppamento reale). */
+function bareSitemapPath(entry: SitemapEntry): string {
+    const prefix = resolveLangPrefix(entry.lang, DEFAULT_LANG);
+    return prefix ? (entry.path.slice(prefix.length) || '/') : entry.path;
+}
+
 function buildSitemapXml(entries: SitemapEntry[]): string {
     // Google usa <lastmod> solo se e' accurato e verificabile: usare la data
     // dell'ultimo commit e' piu' affidabile della data di build, che cambierebbe
     // anche senza modifiche reali ai contenuti.
     const lastmod = getLastModifiedDate();
+    // Con una sola lingua configurata: nessun blocco hreflang, output identico a prima
+    // dell'introduzione degli URL localizzati.
+    const multiLang = AVAILABLE_LANGS.length > 1;
+
+    const groups = new Map<string, SitemapEntry[]>();
+    if (multiLang) {
+        for (const entry of entries) {
+            const key = bareSitemapPath(entry);
+            const group = groups.get(key);
+            if (group) group.push(entry); else groups.set(key, [entry]);
+        }
+    }
+
     const urls = entries
-        .map(({ path }) => [
-            '  <url>',
-            `    <loc>${BASE_URL}${path}</loc>`,
-            `    <lastmod>${lastmod}</lastmod>`,
-            `    <changefreq>${getChangefreq(path)}</changefreq>`,
-            `    <priority>${getPriority(path)}</priority>`,
-            '  </url>',
-        ].join('\n'))
+        .map((entry) => {
+            const lines = ['  <url>', `    <loc>${BASE_URL}${entry.path}</loc>`];
+            if (multiLang) {
+                // Blocchi hreflang incrociati verso ogni variante-lingua della stessa pagina
+                // (raccomandazione Google per sitemap multilingua URL-based) + x-default.
+                const siblings = groups.get(bareSitemapPath(entry)) ?? [entry];
+                for (const sibling of siblings) {
+                    lines.push(`    <xhtml:link rel="alternate" hreflang="${sibling.lang}" href="${BASE_URL}${sibling.path}" />`);
+                }
+                const defaultSibling = siblings.find(s => s.lang === DEFAULT_LANG);
+                if (defaultSibling) {
+                    lines.push(`    <xhtml:link rel="alternate" hreflang="x-default" href="${BASE_URL}${defaultSibling.path}" />`);
+                }
+            }
+            // Profondità calcolata sul path NUDO (senza prefisso lingua): altrimenti ogni pagina
+            // non-default-lang risulterebbe artificialmente "meno importante" di un livello solo
+            // per il segmento `/en/` in più — priority/changefreq riflettono la pagina logica,
+            // non la lunghezza dell'URL.
+            const depthPath = bareSitemapPath(entry);
+            lines.push(
+                `    <lastmod>${lastmod}</lastmod>`,
+                `    <changefreq>${getChangefreq(depthPath)}</changefreq>`,
+                `    <priority>${getPriority(depthPath)}</priority>`,
+                '  </url>',
+            );
+            return lines.join('\n');
+        })
         .join('\n');
 
     return `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"${multiLang ? ' xmlns:xhtml="http://www.w3.org/1999/xhtml"' : ''}>
 ${urls}
 </urlset>
 `;

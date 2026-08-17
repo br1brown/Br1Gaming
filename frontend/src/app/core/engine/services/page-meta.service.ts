@@ -151,6 +151,8 @@ export class PageMetaService {
 
         // Aggiorna og:locale e og:locale:alternate per i18n
         this.updateLocaleMetaTags();
+        // hreflang: per le pagine con più varianti lingua (URL distinti per lingua).
+        this.updateHreflangTags(origin);
 
         // og:image: in SSR cifra il payload e scrive l'URL; nel browser salta
         // (i crawler vedono sempre l'HTML server-rendered).
@@ -319,6 +321,41 @@ export class PageMetaService {
             .forEach(lang => {
                 this.meta.addTag({ property: 'og:locale:alternate', content: localeFormat(lang) });
             });
+    }
+
+    /**
+     * Aggiorna i tag `<link rel="alternate" hreflang="...">` (+ `x-default`) di questa pagina,
+     * uno per lingua disponibile — richiede URL distinti per lingua, quindi possibile solo ora
+     * che il path li porta (prima dell'introduzione degli URL localizzati l'Engine non li emetteva
+     * affatto, vedi frontend/README.md). Con una sola lingua configurata non emette nulla (nemmeno
+     * `x-default`): con una sola versione del sito il solo canonical è corretto e sufficiente per
+     * le linee guida Google — niente DOM sporcato sui siti mono-lingua.
+     */
+    private updateHreflangTags(origin: string): void {
+        this.document
+            .querySelectorAll('link[rel="alternate"][hreflang]')
+            .forEach(tag => tag.remove());
+
+        const allLangs = this.translate.availableLangs();
+        if (allLangs.length <= 1) return;
+
+        const pageType = this.currentPageType();
+        if (pageType == null) return;
+
+        const addHreflang = (hreflang: string, path: string): void => {
+            const link = this.document.createElement('link');
+            link.rel = 'alternate';
+            link.setAttribute('hreflang', hreflang);
+            link.href = `${origin}${path}`;
+            this.document.head.appendChild(link);
+        };
+
+        for (const lang of allLangs) {
+            const path = ContestoSito.getPath(pageType, lang);
+            if (path) addHreflang(lang, path);
+        }
+        const defaultPath = ContestoSito.getPath(pageType, this.translate.defaultLang);
+        if (defaultPath) addHreflang('x-default', defaultPath);
     }
 
     /**

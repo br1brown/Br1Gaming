@@ -55,7 +55,7 @@ export class ContentResolver {
         // lo structuredData statico di site.ts (otherSEO.structuredData), o nessuno.
         // eslint-disable-next-line prefer-const -- punto d'estensione: i casi del resolver lo riassegnano
         let structuredData: StructuredDataInput | null = null;
-        const info = ContestoSito.getPageInfo(pageType);
+        const info = ContestoSito.getPageInfo(pageType, language);
 
         try {
             // Le pagine legali sono risolte in modo generico: l'Engine sa quale .md
@@ -95,6 +95,7 @@ export class ContentResolver {
     }
 }
 
-/* Factory ResolveFn per core/engine/routing.ts */
-export const contentLoaderResolver = (pageType: PageType): ResolveFn<ResolvedPage> =>
-    () => inject(ContentResolver).loadResolved(pageType);
+/* Factory ResolveFn per core/engine/routing.ts. `lang` è passato esplicitamente in chiusura
+ * (nota in routing.ts sul perché non si legge da TranslateService.currentLang() qui). */
+export const contentLoaderResolver = (pageType: PageType, lang: string): ResolveFn<ResolvedPage> =>
+    () => inject(ContentResolver).loadResolved(pageType, lang);

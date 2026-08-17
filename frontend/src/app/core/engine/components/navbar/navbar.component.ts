@@ -8,6 +8,7 @@ import { isDesktopViewport } from '../../breakpoints';
 import { ThemeService } from '../../services/theme.service';
 import { TranslateService } from '../../services/translate.service';
 import { LocalizationService } from '../../services/localization.service';
+import { PageMetaService } from '../../services/page-meta.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { NavLinkComponent } from '../nav-link/nav-link.component';
 import { NavDropdownComponent } from '../nav-dropdown/nav-dropdown.component';
@@ -50,25 +51,29 @@ export class NavbarComponent {
     readonly theme = inject(ThemeService);
     readonly translate = inject(TranslateService);
     private readonly localization = inject(LocalizationService);
+    private readonly pageMeta = inject(PageMetaService);
     private readonly router = inject(Router);
     private readonly elRef = inject(ElementRef);
     private readonly destroyRef = inject(DestroyRef);
     private readonly tokenService = inject(TokenService);
 
     readonly appName = ContestoSito.config.appName;
-    // Path della home dallo slot `homePage`; `null` se non valorizzato → il brand non è un link.
-    readonly homePath: string | null = ContestoSito.config.homePage != null
-        ? ContestoSito.getPath(ContestoSito.config.homePage)
-        : null;
-    /** Menu così come dichiarato in `site.ts`, senza filtro auth: usato solo per le decisioni
-     *  strutturali che devono restare stabili a prescindere dal login (soglia overflow "Altro",
-     *  warning di usabilità, sentinel `altroDropdownIndex`) — vedi `menuItems` per il render. */
-    private readonly rawMenuItems = ContestoSito.menuNav;
+    // Path della home dallo slot `homePage`, nella lingua corrente; `null` se non valorizzato →
+    // il brand non è un link. Reattivo: il link resta coerente con la lingua dopo uno switch.
+    readonly homePath = computed<string | null>(() => ContestoSito.config.homePage != null
+        ? ContestoSito.getPath(ContestoSito.config.homePage, this.translate.currentLang())
+        : null);
+    /** Menu così come dichiarato in `site.ts` nella lingua corrente, senza filtro auth: usato solo
+     *  per le decisioni strutturali che devono restare stabili a prescindere dal login (soglia
+     *  overflow "Altro", warning di usabilità, sentinel `altroDropdownIndex`) — vedi `menuItems`
+     *  per il render. La STRUTTURA (conteggio/profondità) è identica in ogni lingua — solo i
+     *  `path` cambiano — quindi leggerlo una volta alla costruzione per i sentinel sotto è corretto. */
+    private readonly rawMenuItems = computed(() => ContestoSito.getMenuNav(this.translate.currentLang()));
     /** Menu effettivamente reso: filtra le voci/gruppi `authOnly` in base al login corrente
      *  (`TokenService.isLoggedIn()`). In SSR e prima dell'idratazione l'utente risulta sempre
      *  sloggato (nessun token), quindi anche i bot vedono solo le voci pubbliche — coerente con
      *  `requiresAuth` che già forza quelle pagine fuori da sitemap/SSR. */
-    readonly menuItems = computed(() => filterNavByAuth(this.rawMenuItems, this.tokenService.isLoggedIn()));
+    readonly menuItems = computed(() => filterNavByAuth(this.rawMenuItems(), this.tokenService.isLoggedIn()));
     readonly fixTop = ContestoSito.config.fixedTopHeader;
     readonly showBrandIconInHeader = ContestoSito.config.showBrandIconInHeader;
     /** Mostra il campanellino delle notifiche realtime (shell.showNotifications, default false). */
@@ -128,12 +133,12 @@ export class NavbarComponent {
      *  massimo possibile, indipendente dal login) così non collide mai con un indice reale
      *  del menu filtrato (0..length-1, sempre <= rawMenuItems.length) né con -1 ("nessun
      *  dropdown aperto"). */
-    readonly altroDropdownIndex = this.rawMenuItems.length;
+    readonly altroDropdownIndex = this.rawMenuItems().length;
 
     constructor() {
-        if (isDevMode() && this.rawMenuItems.length > MAX_RECOMMENDED_TOP_LEVEL_ITEMS) {
+        if (isDevMode() && this.rawMenuItems().length > MAX_RECOMMENDED_TOP_LEVEL_ITEMS) {
             console.warn(
-                `[Navbar] ${this.rawMenuItems.length} voci di primo livello nel menu ` +
+                `[Navbar] ${this.rawMenuItems().length} voci di primo livello nel menu ` +
                 `(max consigliato: ${MAX_RECOMMENDED_TOP_LEVEL_ITEMS}). ` +
                 `Quelle che non entrano in riga finiscono nel dropdown "Altro"; su mobile restano ` +
                 `tutte nel pannello, ma richiedono scroll. Raggruppa le voci in dropdown per ridurre ` +
@@ -153,7 +158,7 @@ export class NavbarComponent {
         // Il gate usa rawMenuItems (il totale dichiarato, non il filtrato): se una parte delle
         // voci è authOnly, il numero visibile può salire dopo un login, quindi l'osservatore va
         // armato comunque ogni volta che è dichiarato abbastanza per poterlo servire.
-        if (this.rawMenuItems.length > MAX_RECOMMENDED_TOP_LEVEL_ITEMS) {
+        if (this.rawMenuItems().length > MAX_RECOMMENDED_TOP_LEVEL_ITEMS) {
             afterNextRender(() => this.setupOverflowObserver());
             // Le voci in overflow sono position:absolute (vedi scss): un loro cambio di larghezza
             // (es. etichette più lunghe/corte nella nuova lingua, o comparsa/sparizione di voci
@@ -203,7 +208,7 @@ export class NavbarComponent {
      *  Sotto md il pannello collassabile impila già tutto verticalmente: nessun overflow da gestire,
      *  si mostra sempre l'insieme completo. */
     private recomputeOverflow(): void {
-        if (this.rawMenuItems.length <= MAX_RECOMMENDED_TOP_LEVEL_ITEMS) return;
+        if (this.rawMenuItems().length <= MAX_RECOMMENDED_TOP_LEVEL_ITEMS) return;
         const currentItems = this.menuItems();
         if (!isDesktopViewport()) {
             this.visibleCount.set(currentItems.length);
@@ -295,7 +300,22 @@ export class NavbarComponent {
     }
 
     setLanguage(lang: string): void {
-        void this.translate.setLanguage(lang);
+        void this.applyLanguageSwitch(lang);
+    }
+
+    /** Cambio lingua esplicito: prima lo stato (persiste il cookie — necessario perché
+     *  `langRedirectGuard` non rediriga di nuovo l'utente sulla base di Accept-Language non
+     *  appena atterra sulla route non-prefissata, es. passando da EN a IT), poi la navigazione
+     *  al path equivalente nella nuova lingua — così URL e contenuto restano sempre allineati,
+     *  invece di lasciare l'URL fermo mentre cambia solo lo stato sotto silenzio. */
+    private async applyLanguageSwitch(lang: string): Promise<void> {
+        await this.translate.setLanguage(lang);
+        const currentType = this.pageMeta.currentPageType();
+        const homeType = ContestoSito.config.homePage;
+        const target = (currentType != null ? ContestoSito.getPath(currentType, lang) : null)
+            ?? (homeType != null ? ContestoSito.getPath(homeType, lang) : null)
+            ?? '/';
+        void this.router.navigate([target]);
         this.closeNavigation();
     }
 

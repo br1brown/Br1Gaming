@@ -18,6 +18,12 @@ export const LOCALE_CONFIG = new InjectionToken<LocaleConfig>('LOCALE_CONFIG', {
 /** Chiave TransferState per propagare la config locale server→browser. */
 export const LOCALE_STATE_KEY = makeStateKey<LocaleConfig>('br1_locale');
 
+// Lingue RTL (right-to-left) note: arabo, ebraico, persiano, urdu, pashto, sindhi, yiddish,
+// divehi, curdo sorani. Confrontata sul sottotag base già normalizzato (es. "ar", non "ar-SA").
+// Lista statica invece di `Intl.Locale.prototype.getTextInfo()`: quell'API non è ancora baseline
+// (Firefox non la supporta, verificato 2026) — girerebbe rotto proprio nel browser dove serve di più.
+const RTL_LANGUAGES = new Set(['ar', 'he', 'fa', 'ur', 'ps', 'sd', 'yi', 'dv', 'ckb']);
+
 type TranslationDictionary = Record<string, string>;
 
 /**
@@ -85,28 +91,6 @@ export class TranslateService {
 
     // ─── Pubblico ─────────────────────────────────────────────────────────
 
-    getInitialLanguage(): string {
-        if (!this.hasMultipleLanguages()) {
-            this.clearSavedLanguage();
-            return this.localeConfig.defaultLang;
-        }
-        // Cookie salvato (ora leggibile anche in SSR via REQUEST → SSR e client allineati).
-        const saved = this.consent.getSavedLanguage();
-        if (saved) return this.resolveLanguage(saved);
-        // Primo accesso, nessun cookie: ripieghiamo sulla lingua preferita del browser
-        // (Accept-Language in SSR, navigator.language nel client) invece di defaultLang.
-        return this.resolveLanguage(this.preferredLanguageFromBrowser());
-    }
-
-    /** Lingua preferita del browser: header Accept-Language in SSR, navigator.language nel client. */
-    private preferredLanguageFromBrowser(): string | null {
-        if (this.request) {
-            const header = this.request.headers.get('accept-language');
-            return header ? (header.split(',')[0]?.trim() ?? null) : null;
-        }
-        return typeof navigator !== 'undefined' ? navigator.language : null;
-    }
-
     async loadTranslations(lang: string): Promise<void> {
         const resolved = this.resolveLanguage(lang);
         const primary = await this.fetchCatalogs(resolved);
@@ -132,9 +116,15 @@ export class TranslateService {
         this.hasInitializedLanguage = true;
     }
 
-    /** Chiamato una volta al bootstrap: carica la lingua iniziale. */
+    /**
+     * Chiamato una volta al bootstrap, prima che il router attivi la prima route: garantisce che
+     * i cataloghi i18n siano già caricati quando l'app comincia a tradurre i titoli di rotta.
+     * Risolve sempre alla lingua default — l'URL (non più Accept-Language/cookie) è la fonte di
+     * verità sulla lingua reale della richiesta: la corregge subito dopo `PageBaseComponent`,
+     * leggendo `route.data.lang`, appena la prima pagina monta.
+     */
     async setInitialLanguage(): Promise<void> {
-        await this.setLanguage(this.getInitialLanguage());
+        await this.setLanguage(this.localeConfig.defaultLang);
     }
 
     /**
@@ -206,12 +196,12 @@ export class TranslateService {
         this.consent.setSavedLanguage(lang);
     }
 
-    /** Rimuove la preferenza salvata — la pulizia è sempre consentita. */
-    private clearSavedLanguage(): void {
-        this.consent.clearSavedLanguage();
-    }
-
     private updateDocumentLanguage(lang: string): void {
-        this.document.documentElement?.setAttribute('lang', lang);
+        const root = this.document.documentElement; // <html> — sia in SSR (DOM del renderer) sia nel browser.
+        if (!root) return;
+        root.setAttribute('lang', lang); // annuncio agli screen reader/motori di ricerca della lingua della pagina.
+        // dir: senza, una lingua RTL avrebbe il TESTO letto giusto ma il LAYOUT (allineamento, ordine
+        // flex/grid, scroll) ancora da sinistra a destra — pagina rotta, non solo "meno elegante".
+        root.setAttribute('dir', RTL_LANGUAGES.has(lang) ? 'rtl' : 'ltr');
     }
 }

@@ -33,6 +33,10 @@ export abstract class PageBaseComponent<T> {
     /** Tipo logico della pagina. Iniettato via route.data con withComponentInputBinding. */
     protected readonly pageType = input.required<PageType>();
 
+    /** Lingua della route corrente (es. "it", "en"). Iniettata via route.data come `pageType` —
+     *  è la fonte di verità URL→lingua: il costruttore la sincronizza su TranslateService. */
+    protected readonly lang = input.required<string>();
+
     /** Dati grezzi dal resolver al momento della navigazione (SSR + client). */
     protected readonly contentByResolve = input<ResolvedPage<T> | null>(null);
 
@@ -73,8 +77,11 @@ export abstract class PageBaseComponent<T> {
      */
     private readonly contentResource = resource<ResolvedPage<T> | null, { pageType: PageType; lang: string } | undefined>({
         params: () => isPlatformBrowser(this.platformId)
-            ? { pageType: this.pageType(), lang: this.translate.currentLang() }
-            : undefined,
+            // this.lang() (l'input di route, sincrono) e NON this.translate.currentLang(): quest'ultimo
+            // si aggiorna in modo asincrono (l'effect sotto attende setLanguage()), this.lang() è già
+            // corretto nello stesso istante — niente fetch nella lingua vecchia al mount della pagina.
+            ? { pageType: this.pageType(), lang: this.lang() }
+            : undefined, // SSR: nessuna fetch qui, il primo contenuto arriva da contentByResolve (resolver del router).
         loader: ({ params }) => this.contentResolverService.loadResolved(params.pageType, params.lang) as Promise<ResolvedPage<T>>,
         defaultValue: null,
     });
@@ -101,6 +108,19 @@ export abstract class PageBaseComponent<T> {
     }
 
     constructor() {
+        // PUNTO UNICO "URL → stato lingua app": ogni pagina, al mount, allinea TranslateService alla
+        // lingua della propria route. Gira una volta per ogni NUOVA istanza di pagina (la route reuse
+        // strategy di default ricrea sempre il componente quando il path cambia, es. /pagina → /en/pagina).
+        effect(() => {
+            const lang = this.lang(); // lingua dichiarata dalla route corrente (route.data.lang).
+            // Guardia: senza, ogni navigazione — anche fra due pagine della STESSA lingua — rifetcherebbe
+            // i cataloghi i18n inutilmente. Con una sola lingua configurata, lang === currentLang() SEMPRE
+            // dopo il bootstrap: questo effect non fa mai nulla, zero overhead per i siti mono-lingua.
+            if (lang !== this.translate.currentLang()) {
+                void this.translate.setLanguage(lang); // async: carica i cataloghi JSON della nuova lingua.
+            }
+        });
+
         effect(() => {
             const resolved = this._resolved();
             const info = resolved?.info;

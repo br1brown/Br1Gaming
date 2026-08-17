@@ -1,6 +1,7 @@
 import { computed, Directive, effect, inject, input, isDevMode } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ContestoSito, PageType } from '../../../site';
+import { TranslateService } from '../services/translate.service';
 
 /**
  * PAGE DIRECTIVE
@@ -27,11 +28,12 @@ import { ContestoSito, PageType } from '../../../site';
 })
 export class PageDirective {
     private readonly routerLink = inject(RouterLink);
+    private readonly translate = inject(TranslateService);
 
     readonly appPage = input.required<PageType>();
     protected readonly _path = computed(() => {
         const type = this.appPage();
-        const path = ContestoSito.getPath(type);
+        const path = ContestoSito.getPath(type, this.translate.currentLang());
         if (path == null && isDevMode()) {
             console.warn(`[appPage] "${String(type)}" non risolve a nessuna pagina registrata (disabilitata o mai dichiarata in pages): link puntato a "/".`);
         }

@@ -1,8 +1,11 @@
-import { Component, computed, inject, input } from '@angular/core';
+import { Component, computed, effect, inject, input } from '@angular/core';
 import { TranslateService } from '../../core/engine/services/translate.service';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { PageDirective } from '../../core/engine/directives/page.directive';
 import { ContestoSito } from '../../site';
+import { injectCurrentUrl } from '../../core/engine/routing';
+import { detectLangFromPath } from '../../core/engine/siteBuilder';
+import { environment } from '../../../environments/environment';
 
 /**
  * Pagina di errore generica per qualsiasi codice HTTP. Il codice arriva come path param
@@ -17,6 +20,24 @@ import { ContestoSito } from '../../site';
 })
 export class ErrorComponent {
     private readonly translate = inject(TranslateService);
+    private readonly url = injectCurrentUrl(); // signal reattivo, si aggiorna ad ogni navigazione (routing.ts).
+
+    // ErrorComponent NON estende PageBaseComponent (niente pageType: una pagina d'errore non è una
+    // pagina registrata) e la sua route (wildcard `**`/`error/:errorCode`) è UNICA, non una copia
+    // per lingua come le pagine vere — quindi non ha un `route.data.lang` da leggere. Unica opzione:
+    // dedurre la lingua dal PRIMO SEGMENTO dell'URL corrente (es. "/en/pagina-inesistente" → "en").
+    readonly lang = computed(() => detectLangFromPath(this.url(), environment.availableLanguages, environment.defaultLang));
+
+    constructor() {
+        // Stesso schema dell'effect in PageBaseComponent (URL → stato lingua), qui costruito a mano
+        // perché non c'è quella base comune a disposizione.
+        effect(() => {
+            const lang = this.lang();
+            if (lang && lang !== this.translate.currentLang()) { // guardia: evita fetch ripetuti se la lingua non è cambiata.
+                void this.translate.setLanguage(lang);
+            }
+        });
+    }
 
     /** Pagina home dal contesto (slot `homePage`): il pulsante "torna alla home" compare solo se valorizzata. */
     protected readonly homePage = ContestoSito.config.homePage;

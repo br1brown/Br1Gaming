@@ -33,5 +33,5 @@ export class FooterComponent {
     /** Filtra le voci/gruppi `authOnly` in base al login corrente — stesso meccanismo della
      *  navbar (`filterNavByAuth`), qui via `AuthService` (facciata di Dominio) invece del
      *  `TokenService` d'Engine, come già fa `user-nav.component.ts`. */
-    readonly footerNavLinks = computed(() => filterNavByAuth(ContestoSito.linkFooter, this.auth.isLoggedIn()));
+    readonly footerNavLinks = computed(() => filterNavByAuth(ContestoSito.getLinkFooter(this.translate.currentLang()), this.auth.isLoggedIn()));
 }
