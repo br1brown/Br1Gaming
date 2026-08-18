@@ -3,7 +3,8 @@
 app-cookie-banner .cookie-reopen-btn {
     position: fixed;
     bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
-    left: 0.75rem;
+    /* inset-inline-start, non left: resta al bordo "inizio riga" anche in RTL. */
+    inset-inline-start: 0.75rem;
     /* Scala z-index del template: vedi base.scss §variabili */
     z-index: var(--z-cookie-banner);
     border: none;

@@ -897,27 +897,30 @@ export type PageInfo = {
 export interface BuiltSite {
     /** Configurazione finale del sito, gia normalizzata. */
     config: SiteConfig;
-    /** Pagine interne esponibili ad Angular Router. */
+    /** Pagine interne esponibili ad Angular Router (albero canonico, non prefissato: la
+     *  moltiplicazione per lingua avviene in `routing.ts`, non qui). */
     pages: InternalSitePage[];
-    /** Navigazione finale dell'header. */
-    menuNav: NavLink[];
-    /** Navigazione finale del footer. */
-    linkFooter: NavLink[];
-    /** Piano di rendering server-only derivato dalle pagine foglia interne valide. */
+    /** Navigazione dell'header per lingua. `lang` omesso risolve alla lingua default. */
+    getMenuNav: (lang?: string) => NavLink[];
+    /** Navigazione del footer per lingua. `lang` omesso risolve alla lingua default. */
+    getLinkFooter: (lang?: string) => NavLink[];
+    /** Piano di rendering server-only derivato dalle pagine foglia interne valide, per ogni lingua. */
     serverRenderEntries: ServerRenderEntry[];
     /**
-     * Restituisce il path associato a un `PageType`, oppure `null` se la pagina
-     * è disabilitata o non registrata. Controlla sempre il valore prima di usarlo
-     * in un link — `null` non finisce mai silenziosamente in un href.
+     * Restituisce il path associato a un `PageType` nella lingua data (default: lingua di
+     * default del sito), oppure `null` se la pagina è disabilitata o non registrata.
+     * Controlla sempre il valore prima di usarlo in un link — `null` non finisce mai
+     * silenziosamente in un href.
      * @param type Tipo pagina da risolvere.
+     * @param lang Lingua del path desiderato. Default: lingua di default del sito.
      */
-    getPath: (type: PageType) => string | null;
+    getPath: (type: PageType, lang?: string) => string | null;
     /**
      * Restituisce i metadati completi (title, path, description, ogImage) associati
-     * a un PageType. Usato dal ContentResolver per impostare i meta tag SEO.
+     * a un PageType nella lingua data. Usato dal ContentResolver per impostare i meta tag SEO.
      * Ritorna `null` se la pagina non è registrata o è disabilitata.
      */
-    getPageInfo: (type: PageType) => PageInfo | null;
+    getPageInfo: (type: PageType, lang?: string) => PageInfo | null;
     /**
      * Se `type` è uno dei `PageType` valorizzati negli slot legali (`config.legalPages`),
      * restituisce lo slug del relativo Markdown (`assets/legal/<slug>.<lang>.md`);
@@ -925,7 +928,7 @@ export interface BuiltSite {
      * con un solo controllo generico, senza un `case` per ogni `PageType` legale.
      */
     getLegalSlug: (type: PageType) => string | null;
-    /** Restituisce le voci della sitemap (path + metadati). */
+    /** Restituisce le voci della sitemap (path + metadati + lingua), una per pagina per lingua. */
     getSitemapEntries: () => SitemapEntry[];
 }
 
@@ -942,6 +945,8 @@ export interface BuiltSite {
 export type SitemapEntry = {
     path: string;
     description?: string;
+    /** Lingua di questa variante dell'URL (es. "it", "en"). */
+    lang: string;
 };
 
 // ======================================================
@@ -979,6 +984,38 @@ type RawNavItem =
 export function pickLocaleText(map: Record<string, string> | undefined, lang: string): string {
     if (!map) return '';
     return map[lang] ?? map[environment.defaultLang] ?? Object.values(map)[0] ?? '';
+}
+
+/**
+ * Prefisso di path per una lingua — l'UNICA regola da cui derivano tutti gli URL localizzati:
+ * lingua default → stringa vuota (URL non prefissato, es. `/pagina`)
+ * lingua aggiuntiva → `/lang` (es. `/en/pagina`)
+ * Usata sia qui sotto (`processPages`, path assoluti) sia in `routing.ts` (`buildRoutes`, route
+ * annidate) — stessa regola, applicata in due modi diversi per due strutture dati diverse.
+ */
+export function resolveLangPrefix(lang: string, defaultLang: string): string {
+    return lang === defaultLang ? '' : `/${lang}`;
+}
+
+/**
+ * Inverso di `resolveLangPrefix`: da un path (es. `Router.url`) risale alla lingua. Serve SOLO
+ * dove non esiste un `route.data.lang` da leggere — oggi solo `ErrorComponent`, perché il wildcard
+ * `**`/`error/:errorCode` sono registrati una volta sola (non una copia per lingua come le pagine
+ * vere), quindi non hanno un `data.lang` proprio: la lingua va dedotta dall'URL a runtime.
+ */
+export function detectLangFromPath(path: string, availableLanguages: readonly string[], defaultLang: string): string {
+    const firstSegment = path.split('/').filter(Boolean)[0]; // es. "/en/pagina" → "en"; "/pagina" → "pagina".
+    return firstSegment && availableLanguages.includes(firstSegment) ? firstSegment : defaultLang; // segmento non è un codice lingua noto → default.
+}
+
+/**
+ * Chiave `pageMap` per la coppia (PageType, lingua). Lingua default → `PageType` nudo, ESATTAMENTE
+ * come oggi in un sito mono-lingua: qualunque lookup diretto già esistente (`validatePageRefs`,
+ * `assertSlotResolved`) continua a funzionare senza modifiche. Lingua aggiuntiva → chiave composita
+ * `"type::lang"`, per non collidere con la entry della lingua default nella stessa Map.
+ */
+function pageMapKey(type: PageType, lang: string, defaultLang: string): string {
+    return lang === defaultLang ? type : `${type}::${lang}`; // es. pageMapKey('app.home','en','it') → 'app.home::en'.
 }
 
 /** Default dell'effetto smoke, mergeati con quanto arriva da global-settings.json. */
@@ -1075,9 +1112,14 @@ function collectNavigation(definition: SiteDefinition): { rawHeader: RawNavItem[
 }
 
 /**
- * Percorre l'albero pagine e popola `pageMap` (PageType → info) e `serverRenderEntries`
+ * Percorre l'albero pagine e popola `pageMap` (PageType[+lingua] → info) e `serverRenderEntries`
  * (path → render mode); ritorna le voci sitemap. Esclude le pagine disabilitate, registra
  * le esterne solo in mappa ed esclude dalla sitemap quelle protette (`requiresAuth`).
+ *
+ * Chiamata una volta per ogni lingua disponibile (vedi `buildSite`): l'albero dichiarato è
+ * lo stesso, cambia solo `lang` e quindi il prefisso di path e la chiave `pageMap`
+ * (`pageMapKey`) — così `pageMap` accumula, alla fine di tutte le chiamate, tutte le varianti
+ * lingua di ogni pagina.
  *
  * La pagina puntata dallo slot `loginPage` è `noindex` per default (l'Engine sa che è il
  * login: non ha senso indicizzarlo su un sito a pochi account/admin, e non va pubblicizzato).
@@ -1085,44 +1127,49 @@ function collectNavigation(definition: SiteDefinition): { rawHeader: RawNavItem[
  * registrazione aperta — dichiara `otherSEO: { noindex: false }` esplicito e vince (tri-stato:
  * non dichiarato ⇒ default dell'Engine; dichiarato ⇒ comanda il figlio).
  *
- * @throws Se due pagine condividono lo stesso PageType o lo stesso path interno.
+ * @throws Se due pagine condividono lo stesso PageType (nella stessa lingua) o lo stesso path interno.
  */
 function processPages(
     pages: SitePage[],
-    pageMap: Map<PageType, PageInfo>,
+    pageMap: Map<string, PageInfo>,
     serverRenderEntries: ServerRenderEntry[],
     loginPageType: PageType | null,
+    lang: string,        // lingua di QUESTA chiamata — buildSite() chiama processPages() una volta per lingua.
+    defaultLang: string, // serve a pageMapKey()/resolveLangPrefix() per sapere quando NON prefissare/comporre.
 ): SitemapEntry[] {
-    const seenInternalPaths = new Set<string>();
+    const seenInternalPaths = new Set<string>(); // dedup path PER QUESTA chiamata: /en/pagina e /pagina sono stringhe diverse, niente da condividere fra lingue.
 
     const walk = (nodes: SitePage[], parent: string): SitemapEntry[] =>
         nodes.flatMap((page) => {
-            if (!page.enabled) return [];
+            if (!page.enabled) return []; // pagina disabilitata: fuori da pageMap/sitemap/route, in ogni lingua.
 
             if (isExternalPage(page)) {
-                if (pageMap.has(page.pageType)) {
-                    throw new Error(`[SiteBuilder] PageType duplicato rilevato: "${String(page.pageType)}". Ogni pagina deve avere un pageType unico.`);
+                const key = pageMapKey(page.pageType, lang, defaultLang); // 'app.contatti' (it) o 'app.contatti::en'.
+                if (pageMap.has(key)) {
+                    throw new Error(`[SiteBuilder] PageType duplicato rilevato: "${String(page.pageType)}" (lingua "${lang}"). Ogni pagina deve avere un pageType unico.`);
                 }
-                pageMap.set(page.pageType, { title: page.title, path: page.externalUrl, isExternal: true });
+                pageMap.set(key, { title: page.title, path: page.externalUrl, isExternal: true }); // link esterno: stesso URL in ogni lingua, solo il title cambia (chiave i18n).
                 return [];
             }
 
-            // Path completo: parent + segmento, con gli slash doppi collassati.
+            // Path completo: parent (già prefissato dalla lingua, vedi chiamata a walk() in fondo alla
+            // funzione) + segmento della pagina, con gli slash doppi collassati in uno solo.
             const fullPath = `/${[parent, page.path].filter(Boolean).join('/')}`.replace(/\/+/g, '/');
 
-            if (isParentPage(page)) return walk(page.children, fullPath);
+            if (isParentPage(page)) return walk(page.children, fullPath); // contenitore: nessuna entry propria, solo ricorsione sui figli.
 
-            // Foglia interna.
+            // Foglia interna (una pagina vera).
             if (seenInternalPaths.has(fullPath)) {
                 throw new Error(`[SiteBuilder] Path interno duplicato rilevato: "${fullPath}".`);
             }
-            if (pageMap.has(page.pageType)) {
-                throw new Error(`[SiteBuilder] PageType duplicato rilevato: "${String(page.pageType)}". Ogni pagina deve avere un pageType unico.`);
+            const key = pageMapKey(page.pageType, lang, defaultLang);
+            if (pageMap.has(key)) {
+                throw new Error(`[SiteBuilder] PageType duplicato rilevato: "${String(page.pageType)}" (lingua "${lang}"). Ogni pagina deve avere un pageType unico.`);
             }
             seenInternalPaths.add(fullPath);
-            pageMap.set(page.pageType, {
-                title: page.title,
-                path: fullPath,
+            pageMap.set(key, {
+                title: page.title,             // chiave i18n del titolo — NON tradotta qui, solo salvata.
+                path: fullPath,                 // il path GIÀ nella lingua corretta (prefisso incluso).
                 isExternal: false,
                 description: page.description,
                 ogImage: page.ogImage,
@@ -1135,13 +1182,18 @@ function processPages(
 
             // requiresAuth → 'client' (i bot non loggano, l'SSR è inutile); altrimenti renderMode esplicito o 'server'.
             // noindex NON forza il client-render: la pagina resta SSR/pubblica, solo non indicizzabile.
+            // Una entry per QUESTA variante-lingua: con N lingue, N entry per la stessa pagina logica.
             serverRenderEntries.push({ path: fullPath, renderMode: page.requiresAuth ? 'client' : (page.renderMode ?? 'server'), requiresAuth: !!page.requiresAuth, noindex });
 
             // Fuori dalla sitemap le pagine protette (crawler non accede) e quelle noindex (non indicizzabili).
-            return page.requiresAuth || noindex ? [] : [{ path: fullPath, description: page.description }];
+            // `lang` incluso nell'entry: serve a generate-statics.ts per raggruppare le varianti-lingua
+            // della stessa pagina e generare i blocchi hreflang incrociati nella sitemap.
+            return page.requiresAuth || noindex ? [] : [{ path: fullPath, description: page.description, lang }];
         });
 
-    return walk(pages, '');
+    // Punto d'ingresso del cammino: parte già dal prefisso della lingua corrente (stringa vuota per
+    // il default, "/en" per le altre) — da qui in poi fullPath eredita il prefisso a cascata.
+    return walk(pages, resolveLangPrefix(lang, defaultLang));
 }
 
 /** Lancia se uno slot valorizzato punta a un `PageType` non registrato — mai dichiarato in `pages`,
@@ -1149,7 +1201,7 @@ function processPages(
  *  policy mancante: uno slot rotto non deve degradare in silenzio (men che meno muto in produzione,
  *  dove un `console.warn` non si vedrebbe). Un `loginPage` azzerato, ad esempio, manderebbe ogni
  *  pagina `requiresAuth` a `/error/401` col login irraggiungibile — meglio fermare build/avvio. */
-function assertSlotResolved(slotName: string, type: PageType, pageMap: Map<PageType, PageInfo>): void {
+function assertSlotResolved(slotName: string, type: PageType, pageMap: Map<string, PageInfo>): void {
     if (!pageMap.has(type)) {
         throw new Error(
             `[SiteBuilder] Slot "${slotName}" punta a "${String(type)}", non registrato: ` +
@@ -1160,7 +1212,7 @@ function assertSlotResolved(slotName: string, type: PageType, pageMap: Map<PageT
 
 /** Valida gli slot di ruolo pagina (`loginPage`, `homePage`, `legalPages`): ognuno, se valorizzato,
  *  deve puntare a una pagina realmente registrata. Lancia al primo slot rotto. */
-function validatePageRefs(config: SiteConfig, pageMap: Map<PageType, PageInfo>): void {
+function validatePageRefs(config: SiteConfig, pageMap: Map<string, PageInfo>): void {
     if (config.loginPage) assertSlotResolved('loginPage', config.loginPage, pageMap);
     if (config.homePage) assertSlotResolved('homePage', config.homePage, pageMap);
     for (const slot of Object.keys(config.legalPages) as (keyof ResolvedLegalPages)[]) {
@@ -1215,21 +1267,25 @@ function validateNavDepth(items: NavLink[], section: 'header' | 'footer'): void 
 }
 
 /**
- * Risolve gli item grezzi di navigazione in `NavLink` finali: i riferimenti `PageType`
- * passano dalla `pageMap`; i gruppi vuoti e i riferimenti non risolti vengono scartati.
+ * Risolve gli item grezzi di navigazione in `NavLink` finali per una data lingua: i riferimenti
+ * `PageType` passano dalla `pageMap` (via `pageMapKey`); i gruppi vuoti e i riferimenti non
+ * risolti vengono scartati.
  */
-function resolveNavigation(items: RawNavItem[], pageMap: Map<PageType, PageInfo>): NavLink[] {
+function resolveNavigation(items: RawNavItem[], pageMap: Map<string, PageInfo>, lang: string, defaultLang: string): NavLink[] {
     return items
         .map((item): NavLink | null => {
             if (item.kind === 'page') {
-                const entry = pageMap.get(item.type);
+                // Stessa chiave usata in processPages(): per lang=default è il PageType nudo, per le
+                // altre lingue è "type::lang" — così ogni chiamata (una per lingua, vedi buildSite)
+                // pesca il path GIÀ nella lingua giusta, senza bisogno di tradurlo qui.
+                const entry = pageMap.get(pageMapKey(item.type, lang, defaultLang));
                 if (!entry && isDevMode()) {
                     console.warn(`[SiteBuilder] addPage("${String(item.type)}") non risolve a nessuna pagina registrata (disabilitata o mai dichiarata in pages): voce di navigazione esclusa.`);
                 }
                 return entry ? { label: entry.title, path: entry.path, isExternal: entry.isExternal, authOnly: item.authOnly } : null;
             }
             if (isRawGroup(item)) {
-                const children = resolveNavigation(item.children, pageMap);
+                const children = resolveNavigation(item.children, pageMap, lang, defaultLang);
                 // '#group:...' è un sentinel: la navbar lo tratta come dropdown, non ci naviga.
                 return children.length > 0
                     ? { label: item.label, path: `#group:${item.label}`, isExternal: false, children, authOnly: item.authOnly }
@@ -1269,11 +1325,27 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
 
     const { rawHeader, rawFooter } = collectNavigation(definition);
 
-    const pageMap = new Map<PageType, PageInfo>();
+    // pageMap/serverRenderEntries/sitemap accumulano le varianti di TUTTE le lingue: dichiarati UNA
+    // VOLTA fuori dal loop, cosicché ogni giro di processPages() aggiunga la propria lingua alle
+    // stesse strutture invece di sovrascriverle.
+    const pageMap = new Map<string, PageInfo>();
     const serverRenderEntries: ServerRenderEntry[] = [];
-    const sitemap = processPages(sitePages, pageMap, serverRenderEntries, finalConfig.loginPage ?? null);
+    const defaultLang = environment.defaultLang; // letto una volta, riusato in tutto il resto della funzione.
+    let sitemap: SitemapEntry[] = [];
+    // Un giro per lingua configurata (environment.availableLanguages, da global-settings.json via
+    // generate-statics.ts). Con una sola lingua: un giro solo, prefisso vuoto — comportamento
+    // identico a un sito mono-lingua "classico", zero route/entry in più.
+    for (const lang of environment.availableLanguages) {
+        sitemap = sitemap.concat(
+            // processPages POPOLA pageMap/serverRenderEntries per riferimento (side-effect) e
+            // RITORNA solo le voci sitemap di questa lingua — da qui il concat invece di un'assegnazione.
+            processPages(sitePages, pageMap, serverRenderEntries, finalConfig.loginPage ?? null, lang, defaultLang)
+        );
+    }
 
     // Slot che puntano a pagine non registrate → errore bloccante; poi la conformità cookie.
+    // Controlla la sola variante default-lang: se esiste lì, esiste per costruzione in ogni lingua
+    // (stesso identico albero attraversato a ogni iterazione del loop sopra).
     validatePageRefs(finalConfig, pageMap);
     if (cookiesEnabled && finalConfig.legalPages.cookie == null) {
         throw new Error(
@@ -1283,21 +1355,29 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
         );
     }
 
-    // Navigazione risolta + validazione profondità condivisa (header e footer).
-    const menuNav = resolveNavigation(rawHeader, pageMap);
-    const linkFooter = resolveNavigation(rawFooter, pageMap);
-    validateNavDepth(menuNav, 'header');
-    validateNavDepth(linkFooter, 'footer');
+    // Stesso schema del loop sopra, ma per i menu: una Map<lingua, NavLink[]> invece di due array
+    // fissi — la lettura per lingua specifica avviene dopo, in getMenuNav/getLinkFooter più sotto.
+    const menuNavByLang = new Map<string, NavLink[]>();
+    const linkFooterByLang = new Map<string, NavLink[]>();
+    for (const lang of environment.availableLanguages) {
+        const menuNav = resolveNavigation(rawHeader, pageMap, lang, defaultLang);
+        const linkFooter = resolveNavigation(rawFooter, pageMap, lang, defaultLang);
+        validateNavDepth(menuNav, 'header'); // stesso controllo di profondità di prima, ripetuto per lingua (l'albero è identico, ma non costa rifarlo).
+        validateNavDepth(linkFooter, 'footer');
+        menuNavByLang.set(lang, menuNav);
+        linkFooterByLang.set(lang, linkFooter);
+    }
 
     return {
         config: finalConfig,
-        pages: sitePages.filter(isInternalPage),
-        menuNav,
-        linkFooter,
-        serverRenderEntries,
-        getPath: (type: PageType) => pageMap.get(type)?.path ?? null,
-        getPageInfo: (type: PageType) => pageMap.get(type) ?? null,
+        pages: sitePages.filter(isInternalPage), // albero canonico, UNA sola volta, non prefissato: routing.ts lo moltiplica per lingua per conto suo.
+        // lang omesso → defaultLang; lingua sconosciuta → ripiega comunque su defaultLang (mai `undefined`).
+        getMenuNav: (lang = defaultLang) => menuNavByLang.get(lang) ?? menuNavByLang.get(defaultLang) ?? [],
+        getLinkFooter: (lang = defaultLang) => linkFooterByLang.get(lang) ?? linkFooterByLang.get(defaultLang) ?? [],
+        serverRenderEntries, // già con tutte le varianti-lingua dentro, grazie al loop sopra — nessun'altra moltiplicazione da fare a valle (app.config.server.ts, server.ts).
+        getPath: (type: PageType, lang = defaultLang) => pageMap.get(pageMapKey(type, lang, defaultLang))?.path ?? null,
+        getPageInfo: (type: PageType, lang = defaultLang) => pageMap.get(pageMapKey(type, lang, defaultLang)) ?? null,
         getLegalSlug: (type: PageType) => legalSlugFor(engineLegalPages, type),
-        getSitemapEntries: () => sitemap,
+        getSitemapEntries: () => sitemap, // già con lang per entry — generate-statics.ts la usa per raggruppare le varianti e generare hreflang.
     };
 }

@@ -1,4 +1,4 @@
-import { Component, inject, output } from '@angular/core';
+import { Component, computed, inject, output } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { NotificationService } from '../../../core/engine/services/notification.service';
@@ -38,13 +38,13 @@ export class UserNavComponent {
      * Rispetta `showLoginInHeader`: se il flag è `false` (login nascosto ai visitatori) resta `null`.
      * `null` anche senza `loginPage`. Il logout (stato loggato) NON dipende da questo — vedi template.
      */
-    readonly loginLink: NavLink | null = (() => {
+    readonly loginLink = computed<NavLink | null>(() => {
         if (!ContestoSito.config.showLoginInHeader) return null;
         const loginPageType = ContestoSito.config.loginPage;
         if (!loginPageType) return null;
-        const info = ContestoSito.getPageInfo(loginPageType);
+        const info = ContestoSito.getPageInfo(loginPageType, this.translate.currentLang());
         return info ? { label: info.title, path: info.path, isExternal: info.isExternal } : null;
-    })();
+    });
 
     /** Notifica il click su un elemento navigabile, così la navbar può chiudere il menu mobile. */
     readonly navigationClick = output<void>();

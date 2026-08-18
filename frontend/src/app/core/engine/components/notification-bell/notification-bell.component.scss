@@ -13,11 +13,11 @@
     font-size: 1.1rem;
 }
 
-/* Badge non lette: pallino in alto a destra sull'icona, colore brand. */
+/* Badge non lette: pallino in alto a destra sull'icona (a "fine riga" in RTL), colore brand. */
 .notification-bell-badge {
     position: absolute;
     top: -0.2rem;
-    right: -0.4rem;
+    inset-inline-end: -0.4rem;
     min-width: 1.05rem;
     height: 1.05rem;
     padding: 0 0.25rem;
@@ -32,10 +32,10 @@
     border-radius: 999px;
 }
 
-/* Allineato a destra (come il language picker): senza Popper lo posizioniamo noi. */
+/* Allineato a "fine riga" (come il language picker): senza Popper lo posizioniamo noi. */
 .notification-bell-menu {
-    right: 0;
-    left: auto;
+    inset-inline-end: 0;
+    inset-inline-start: auto;
     min-width: 16rem;
     max-width: min(22rem, 92vw);
     max-height: 60vh;
@@ -60,11 +60,11 @@
     opacity: 0.7;
 }
 
-/* Mobile: il menu è statico dentro il collapse (regola .navbar .dropdown-menu in nav.scss),
-   quindi niente ancoraggio a destra e larghezza piena. */
+/* Mobile: il menu è statico dentro il collapse (regola #navbar-menu .dropdown-menu in
+   _dropdown.scss), quindi niente ancoraggio e larghezza piena. */
 @media (max-width: #{lib.$bp-md - 0.02px}) {
     .notification-bell-menu {
-        right: auto;
+        inset-inline-end: auto;
         min-width: 0;
         max-height: none;
     }

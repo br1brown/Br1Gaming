@@ -1,11 +1,11 @@
-<nav #navEl class="navbar navbar-expand-md theme-bg" [class.fixed-top]="fixTop"
+<nav #navEl class="navbar navbar-expand-md theme-bg" [class.fixed-top]="fixTop" [class.navbar-menu-open]="menuOpen()"
      [style.--nav-height.px]="navHeight()"
      [attr.data-bs-theme]="theme.themeTone()"
      [attr.aria-label]="'principaleNav' | translate">
     <div class="container-fluid" #containerFluidEl>
         <!-- Brand solo se c'è una home (slot homePage): senza home niente brand, non un testo morto. -->
-        @if (homePath !== null) {
-        @if (isRouteActive(homePath)) {
+        @if (homePath() !== null) {
+        @if (isRouteActive(homePath())) {
         <span #brandEl class="navbar-brand nav-current-link d-flex align-items-center gap-2" aria-current="page">
             @if (showBrandIconInHeader) {
             <img aria-hidden="true" alt="" class="navbar-brand-icon" [appAsset]="'favIcon'" [appAssetWidth]="125" />
@@ -13,35 +13,13 @@
             {{ appName }}
         </span>
         } @else {
-        <a #brandEl class="navbar-brand d-flex align-items-center gap-2" [routerLink]="homePath">
+        <a #brandEl class="navbar-brand d-flex align-items-center gap-2" [routerLink]="homePath()">
             @if (showBrandIconInHeader) {
             <img aria-hidden="true" alt="" class="navbar-brand-icon" [appAsset]="'favIcon'" [appAssetWidth]="125" />
             }
             {{ appName }}
         </a>
         }
-        }
-
-        @if (menuItems().length > 0 || hasAuthPage) {
-        <button class="navbar-toggler" type="button"
-                (click)="toggleMenu()"
-                aria-controls="navbar-menu"
-                [attr.aria-expanded]="menuOpen()"
-                [attr.aria-label]="'toggleNav' | translate">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        }
-
-        <!-- Se lingua è l'unica cosa da mostrare (niente menu, niente area auth), niente hamburger:
-             sotto md il selettore resta inline nella barra sempre visibile (senza toggler non
-             c'è modo di aprire il pannello collassabile). Da md in su questa copia sparisce
-             (d-md-none): la sorgente di verità torna quella dentro #navbar-menu, l'unica altra
-             child flex del container-fluid, così lo space-between la tiene sempre a destra
-             invece di dividersi lo spazio con questa copia extra. -->
-        @if (languages().length > 1 && menuItems().length === 0 && !hasAuthPage) {
-        <div class="ms-auto d-md-none">
-            <ng-container [ngTemplateOutlet]="languagePicker"></ng-container>
-        </div>
         }
 
         <div id="navbar-menu" class="collapse navbar-collapse" [class.show]="menuOpen()">
@@ -95,13 +73,47 @@
             @if (showNotifications) {
             <app-notification-bell />
             }
-
-            @if (languages().length > 1) {
-            <div #langWrapEl class="mt-3 mt-md-0">
-                <ng-container [ngTemplateOutlet]="languagePicker"></ng-container>
-            </div>
-            }
         </div>
+
+        <!-- Selettore lingua: sempre fuori da #navbar-menu, su ogni breakpoint — cambiare lingua
+             non deve richiedere di aprire l'hamburger. Deve restare DOPO #navbar-menu nel DOM,
+             altrimenti (essendo #navbar-menu flex-grow:1 di Bootstrap) finirebbe sempre a sinistra
+             delle voci di menu invece che all'estrema destra. ms-auto lo tiene a destra anche
+             quando #navbar-menu è display:none (mobile, pannello chiuso) e quindi non spinge nulla
+             da solo. -->
+        @if (languages().length > 1) {
+        <div #langWrapEl class="ms-auto">
+            <ng-container [ngTemplateOutlet]="languagePicker"></ng-container>
+        </div>
+        }
+
+        <!-- Toggler: ultimo item della riga, subito dopo il selettore lingua — ms-auto solo se
+             il selettore non c'è (single-lingua), altrimenti eredita la spinta a destra già data
+             dal ms-auto del selettore che lo precede. Su mobile, da aperto, #navbar-menu diventa
+             un overlay a schermo intero (position:fixed, vedi scss) che parte SOTTO questa riga:
+             non è più in flusso, quindi non fa crescere .container-fluid né sposta toggler/brand/
+             selettore lingua di un pixel — tutti e tre restano semplici item flex, senza bisogno
+             di posizionamento assoluto. -->
+        @if (menuItems().length > 0 || hasAuthPage) {
+        <button class="navbar-toggler" type="button"
+                [class.ms-auto]="languages().length <= 1"
+                (click)="toggleMenu()"
+                aria-controls="navbar-menu"
+                [attr.aria-expanded]="menuOpen()"
+                [attr.aria-label]="'toggleNav' | translate">
+            <span class="navbar-toggler-icon"></span>
+            <!-- Etichetta "Menu" solo da chiuso: scopribilità del toggler senza appesantire.
+                 Da aperto sparisce del tutto (@if, non solo nascosta) — resta un quadratino
+                 con la sola X, più chiaro come intento "chiudi" di "X Chiudi" scritto assieme.
+                 Il bottone si restringe di conseguenza e la X si sposta di qualche pixel verso
+                 destra: normale (il bottone segue il proprio contenuto), non il salto strutturale
+                 già eliminato nelle sessioni precedenti (quello dipendeva da elementi ESTERNI al
+                 bottone — brand, pannello, selettore lingua — non dal suo stesso testo). -->
+            @if (!menuOpen()) {
+            <span class="navbar-toggler-label" aria-hidden="true">{{ 'menuLabelNav' | translate }}</span>
+            }
+        </button>
+        }
     </div>
 </nav>
 @if (fixTop) {
@@ -112,11 +124,9 @@
 <div aria-hidden="true" [style.height.px]="navHeight()"></div>
 }
 
-<!-- Selettore lingua — condiviso: inline nella barra (lingua unica voce collassabile) oppure
-     dentro il pannello mobile (quando c'è anche altro da collassare). -->
+<!-- Selettore lingua: markup del dropdown, sempre montato fuori da #navbar-menu (vedi sopra). -->
 <ng-template #languagePicker>
     <div class="language-picker">
-        <span class="language-picker-label">{{ 'selezionaLinguaAzione' | translate }}</span>
         <div class="dropdown language-dropdown" [class.show]="langOpen()">
             <button type="button"
                     class="nav-link nav-dropdown-toggle language-toggle"
@@ -126,7 +136,7 @@
                     (click)="toggleLang()">
                 <span class="nav-dropdown-label">
                     <i class="fa-solid fa-globe me-1" aria-hidden="true"></i>
-                    {{ langName(translate.currentLang()) }}
+                    <span [attr.lang]="translate.currentLang()">{{ langName(translate.currentLang()) }}</span>
                 </span>
                 <span class="nav-dropdown-caret" aria-hidden="true"></span>
             </button>
@@ -138,12 +148,13 @@
                     @if (lingua === translate.currentLang()) {
                     <span class="dropdown-item language-link nav-current-link active d-flex align-items-center justify-content-between"
                           aria-current="true">
-                        {{ langName(lingua) }}
+                        <span [attr.lang]="lingua">{{ langName(lingua) }}</span>
                         <i class="fa-solid fa-check ms-2" aria-hidden="true"></i>
                     </span>
                     } @else {
                     <button type="button"
                             class="dropdown-item language-link"
+                            [attr.lang]="lingua"
                             (click)="setLanguage(lingua)">
                         {{ langName(lingua) }}
                     </button>

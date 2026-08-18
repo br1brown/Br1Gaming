@@ -14,11 +14,11 @@
     </li>
 </ul>
 }
-} @else if (loginLink) {
+} @else if (loginLink(); as link) {
 <!-- Sloggato: link di login solo se showLoginInHeader (loginLink lo incapsula già). -->
 <ul class="navbar-nav ms-md-auto">
     <li class="nav-item">
-        <app-nav-link [link]="loginLink"
+        <app-nav-link [link]="link"
                       cssClass="nav-link"
                       activeCssClass="nav-current-link active"
                       (linkClick)="onNavigationClick()" />

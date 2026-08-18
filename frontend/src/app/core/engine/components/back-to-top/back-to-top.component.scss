@@ -1,7 +1,13 @@
 .back-to-top {
     position: fixed;
     bottom: 2rem;
-    right: 2rem;
+    /* inset-inline-end, non right: resta al bordo "fine riga" anche con un progetto
+       figlio in RTL. env(safe-area-inset-right) sotto resta fisico apposta — è
+       l'incavo fisico dello schermo (notch/angoli), non dipende dalla direzione del
+       testo; per un dispositivo con incavo sul lato "fisicamente sbagliato" in RTL
+       servirebbe una regola :dir(rtl) dedicata, fuori scope finché non c'è un
+       progetto figlio RTL reale su cui verificarlo. */
+    inset-inline-end: 2rem;
     /* Sopra il cookie banner e il suo pulsante di riapertura, sotto offcanvas
        e modali Bootstrap. Scala z-index del template: vedi base.scss §variabili. */
     z-index: var(--z-fab);
@@ -10,6 +16,6 @@
 @supports (bottom: env(safe-area-inset-bottom)) {
     .back-to-top {
         bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
-        right: calc(2rem + env(safe-area-inset-right, 0px));
+        inset-inline-end: calc(2rem + env(safe-area-inset-right, 0px));
     }
 }

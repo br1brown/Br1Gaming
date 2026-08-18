@@ -840,6 +840,8 @@ Un campo `null` nel DTO non appare nella risposta JSON. Se il frontend si aspett
 
 Il `RequestCultureProviders` è impostato con solo `AcceptLanguageHeaderRequestCultureProvider`. Provider da cookie e da URL non sono attivi: la lingua viene sempre ricavata dall'header `Accept-Language` della richiesta.
 
+Il frontend instrada le pagine per lingua via path (`/en/...`, vedi [frontend/README.md](../frontend/README.md) §"Lingua nell'URL") ma deduce la lingua dal path e la inoltra come header `Accept-Language` a ogni chiamata verso questo backend (`base-api.service.ts`): il backend legge solo l'header che riceve, non ha bisogno di un path da interpretare. Un provider da URL qui sarebbe ridondante, non mancante.
+
 #### Riferimento `LocalizationOptions` (`global-settings.json` → `Localization.*`)
 
 Le lingue sono **codici a due lettere** dichiarati in `global-settings.json` → `Localization` (dichiarazione semplice, letta anche dai consumatori sincroni a module-load del frontend). Il backend li **arricchisce** nelle `CultureInfo` tipizzate via `EngineCultures` (`Engine/Localization/EngineCultures.cs`), che alimenta `UseRequestLocalization`. Aggiungere una lingua = aggiungere il codice qui (più i cataloghi i18n e i file legali del frontend).

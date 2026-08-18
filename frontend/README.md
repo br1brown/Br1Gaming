@@ -151,6 +151,8 @@ Le pagine vivono nei **file di area** `pages/*.pages.ts` (uno per gruppo tematic
 
 I link interni puntano al `PageType`, mai al path: rinominare un path è una riga nella dichiarazione (menu, footer e link continuano a funzionare), rimuovere un ID fa segnalare a TypeScript ogni punto che ancora lo usa, e gli ID restano leggibili anche fuori dal codice — query string (`?returnPageType=…`), log, messaggi d'errore del builder.
 
+Con più lingue configurate, ogni pagina ottiene una variante-URL per lingua (lingua default non prefissata, le altre sì — vedi «Internazionalizzazione (i18n)» → «Lingua nell'URL»): il `path` dichiarato qui **non si traduce** per lingua, è lo stesso segmento sotto ogni prefisso.
+
 Per ogni pagina regoli login (`requiresAuth`), strategia di rendering (`renderMode`), shell e layout (`layout: { showNav, showFooter, showPanel, fitViewport }`) e SEO/social (`description`, `otherSEO`). A livello globale imposti il brand link e il redirect d'autenticazione (`homePage`/`loginPage`), i flag della `shell`, `isWebApp`/`onlyPlainImage`, gli slot `legalPages` (con override per-`PageType`) e i menu `headerNav`/`footerNav` (callback builder con `addPage`/`addLink`/`addGroup`). *Vedi «Developer Journey», «Opzioni Avanzate di site.ts», «Navigazione Multilivello», «Vista a tutto schermo», «Pagine legali».* Ricetta rapida: [AGENTS.md](../AGENTS.md#aggiungere-una-pagina).
 
 ### Dati a una pagina
@@ -448,11 +450,11 @@ Il Service Worker è registrato **solo dopo che l'utente accetta il consenso tec
 ### Persistenza Lingua e Consenso
 
 La preferenza lingua è salvata solo con consenso tecnico accettato:
-1. Utente rifiuta consenso → cambia lingua a "en" → al reload torna al default
-2. Utente accetta consenso tecnico → cambia lingua a "en" → persiste tra i reload
+1. Utente rifiuta consenso → cambia lingua a "en" (naviga a `/en/...`) → una futura visita a un URL non prefissato ripropone la decisione di `langRedirectGuard` (nessuna preferenza salvata)
+2. Utente accetta consenso tecnico → cambia lingua a "en" → la preferenza persiste: una futura visita a un URL non prefissato non viene più rediretta automaticamente
 
 La lettura della preferenza salvata non richiede consenso (operazione di sola lettura, privacy-safe).
-**Nota SSR:** In ambiente Server-Side Rendering (SSR), la lettura dei cookie avviene tramite l'header `Cookie` della richiesta HTTP in ingresso (`REQUEST` token in Angular). Questo garantisce che il server sia allineato con le preferenze del client, evitando idratazioni errate o flash di contenuto con lingua sbagliata al primo caricamento. Se il cookie non è presente, l'SSR usa l'header `Accept-Language` del client per dedurre la preferenza.
+**Nota SSR:** con più lingue, `langRedirectGuard` (che decide se rediregere un visitatore da un URL non prefissato — vedi «Lingua nell'URL») legge il cookie `lang` tramite l'header `Cookie` della richiesta HTTP in ingresso (`REQUEST` token in Angular) e, se assente, l'header `Accept-Language`. Questi due segnali servono solo a quella decisione di redirect: la lingua della pagina effettivamente renderizzata è determinata dal path richiesto (`route.data.lang`, letto da `PageBaseComponent`).
 
 ### Dichiarazione Cookie GDPR nella Cookie Policy
 
@@ -945,11 +947,28 @@ Le traduzioni vivono in `src/assets/i18n/` (la copia in `public/` è output di b
 | `addon.{lang}.json` | Stringhe del **progetto** — qui vanno le chiavi personalizzate. A parità di chiave **sovrascrive** `basic` (i cataloghi sono fusi con `addon` per ultimo): per cambiare il testo di una stringa dell'Engine si ridefinisce la chiave qui, senza mai toccare `basic.*.json` |
 
 **Aggiungere una lingua:**
-1. In `global-settings.json`: `"Localization.SupportedLanguages": ["it", "en", "fr"]` (codici a 2 lettere). Il nome nativo ("Français") lo deriva il frontend via `Intl.DisplayNames` (`LocalizationService`) — la tendina lo prende da lì, non lo scrivi tu.
+1. In `global-settings.json`: `"Localization.SupportedLanguages": ["it", "en", "fr"]` (codici a 2 lettere, **sottotag lingua base** — non varianti regionali come voci distinte, vedi limite sotto). Il nome nativo ("Français") lo deriva il frontend via `Intl.DisplayNames` (`LocalizationService`) — la tendina lo prende da lì, non lo scrivi tu.
 2. Creare `basic.fr.json` e `addon.fr.json` in `src/assets/i18n/`.
 3. `i18n-check.sh` in CI verifica che nessuna chiave sia mancante.
+4. Nessun passo di routing: rotte, `hreflang` e sitemap per la nuova lingua si generano da soli al prossimo `generate:statics` (vedi «Lingua nell'URL» sotto).
 
 **Togliere una lingua:** basta rimuoverla da `SupportedLanguages`. I file `basic.*.json`/`addon.*.json` della lingua tolta restano orfani — nessun controllo li guarda più, è un limite noto: cancellarli a mano per pulizia.
+
+### Lingua nell'URL: instradamento per-lingua
+
+Con più di una lingua configurata, ogni pagina interna ottiene un URL per lingua: la lingua di default resta **non prefissata** (`/chi-siamo`), le altre sono prefissate col codice lingua (`/en/chi-siamo`). Con una sola lingua configurata questo meccanismo è **strutturalmente assente**: zero route aggiuntive, zero costo — comportamento identico a un sito mono-lingua.
+
+- **Prima visita su un URL non prefissato** (`/`): la guard `langRedirectGuard` (`routing.ts`) legge `Accept-Language` e, se punta a una lingua supportata diversa dal default e non c'è ancora una preferenza salvata (cookie `lang`), rediregere al path prefissato equivalente. **Salta sempre i bot**, motori di ricerca inclusi: un crawler su un URL non prefissato riceve sempre e deterministicamente la lingua di default, senza redirect — è il meccanismo che rende affidabili le anteprime social (Telegram, WhatsApp, ecc.), che cachano l'anteprima per URL una volta sola.
+- **Navigazione interna** (`[appPage]`, switch da navbar): risolve sempre il path nella lingua corrente — `ContestoSito.getPath(type, lang)` e `getPageInfo(type, lang)` accettano un secondo parametro lingua opzionale (default: lingua di default del sito).
+- **Cambio pagina tra lingue diverse**: `PageBaseComponent` legge `route.data.lang` (iniettato dal router insieme a `pageType`) e allinea `TranslateService` — è il punto unico "URL → stato lingua", non va replicato altrove.
+
+**`hreflang`**: con più lingue, ogni pagina emette `<link rel="alternate" hreflang="...">` per ciascuna variante + `x-default` (verso la lingua default), e la sitemap porta gli stessi riferimenti incrociati (`<xhtml:link>`) per URL — pratica raccomandata per siti multilingua URL-based. Con una sola lingua: nessun tag emesso, il solo `canonical` basta.
+
+**RTL e accessibilità**: `TranslateService` imposta anche `<html dir="rtl|ltr">` insieme a `lang` (lista statica di codici RTL — arabo, ebraico, persiano, urdu, ecc. — non `Intl.Locale.getTextInfo()`, non ancora baseline: Firefox non lo supporta). Il language picker in navbar marca ogni voce con `[attr.lang]` sul proprio codice (WCAG 3.1.2 «Language of Parts»): uno screen reader pronuncia il nome di ogni lingua nella lingua corretta, non in quella della pagina corrente.
+
+**Limiti noti:**
+- Il `path` dichiarato in `site.ts` non si traduce per lingua — stesso segmento sotto ogni prefisso (`/en/chi-siamo`, non `/en/about-us`). Path realmente diversi per lingua richiederebbero pagine/`PageType` separati, non supportato oggi.
+- I codici in `SupportedLanguages` sono sottotag lingua base: `TranslateService.normalizeBcp47()` ricondurrebbe `en-US`/`en-GB` entrambi a `en`, quindi due varianti regionali della stessa lingua come voci **distinte** collidono. Una singola lingua con regione (es. solo `pt-BR`) funziona.
 
 **Usare le traduzioni nel codice:**
 ```typescript
@@ -1355,9 +1374,9 @@ Il canonical viene costruito in modo **stabile** per evitare contenuti duplicati
 
 Lo stesso canonical alimenta `og:url`, il tag `rel="canonical"` e gli `@id`/`url` del grafo JSON-LD, mantenendoli coerenti.
 
-`og:locale` (e gli `og:locale:alternate` per le altre lingue) usano il formato regionale OpenGraph `lingua_REGIONE` (es. `it_IT`, `en_US`), derivato via `Intl.Locale().maximize()`. Gli alternate vengono rigenerati con remove+add a ogni cambio pagina, così funzionano correttamente anche con più di due lingue (dove `Meta.updateTag` sovrascriverebbe un solo tag).
+`og:locale` (e gli `og:locale:alternate` per le altre lingue) usano il formato regionale OpenGraph `lingua_REGIONE` (es. `it_IT`, `en_US`), derivato via `Intl.Locale().maximize()`. Gli alternate vengono rigenerati con remove+add a ogni cambio pagina, così funzionano correttamente anche con più di due lingue (dove `Meta.updateTag` sovrascriverebbe un solo tag). Stesso pattern remove+add usato per i tag `hreflang` (vedi «Lingua nell'URL»).
 
-Il modello i18n è a **URL unico**: la lingua è negoziata da `Accept-Language`/cookie, non c'è prefisso di percorso (`/en/…`). Per questo l'Engine **non** emette `hreflang` (richiederebbe URL distinti per lingua) ma, sui siti multilingua, aggiunge `Vary: Accept-Language` alle risposte HTML SSR: dichiara il *locale-adaptive serving* a cache/CDN ed è il segnale che Google usa per il crawling per-lingua. Sul template mono-lingua l'header non viene emesso.
+Il modello i18n è a **URL per lingua** (vedi «Internazionalizzazione (i18n)» → «Lingua nell'URL»): la lingua di default non è prefissata, le altre lo sono (`/en/…`). Ne discendono direttamente `hreflang`/`x-default` e un canonical già self-referenziante per lingua, dato che è l'URL stesso a portarla. Nessun header `Vary: Accept-Language` in risposta: il contenuto è funzione del path, non dell'header.
 
 > **Anteprime ricche.** Il `<meta name="robots">` di base include `max-image-preview:large, max-snippet:-1, max-video-preview:-1`: autorizza Google a mostrare l'anteprima immagine grande (l'OG 1200×630 generata dall'Engine) e snippet/video senza limiti nei risultati. La description di pagina, se omessa, ricade sulla `site.description` di default (localizzata) invece di restare quella della pagina precedente.
 
@@ -2020,7 +2039,7 @@ npm run generate:statics
 | :--- | :--- |
 | `src/index.html` | `<html lang>`, `<title>`, tutti i meta OpenGraph/Twitter, favicon |
 | `public/manifest.webmanifest` | `name`, `description`, `theme_color`, `background_color`, `lang`, `version` |
-| `public/sitemap.xml` | URL di tutte le pagine indicizzabili con `priority`, `changefreq` e `lastmod` automatici |
+| `public/sitemap.xml` | URL di tutte le pagine indicizzabili con `priority`, `changefreq` e `lastmod` automatici — con più lingue, una entry per pagina per lingua con blocchi `<xhtml:link rel="alternate" hreflang="...">` incrociati (+ `x-default`) |
 | `public/robots.txt` | `Allow: /` + URL sitemap. Le pagine protette **non** sono elencate (un robots.txt è pubblico e ne rivelerebbe i path): la loro non-indicizzazione è gestita a runtime dal server SSR con `X-Robots-Tag: noindex` |
 | `public/llms.txt` | Indice del sito per i crawler AI (convenzione `llms.txt`): nome, descrizione, elenco pagine |
 | `public/security.txt` | Contatto di sicurezza RFC 9116 (`Expires` rigenerato a ogni build); servito sul percorso canonico `/.well-known/security.txt` dal Node SSR |
@@ -2064,13 +2083,15 @@ Lingua di default e lingue supportate **non** sono variabili d'ambiente: lo scri
 | 1 | `/chi-siamo` | `0.8` | `monthly` |
 | 2+ | `/blog/articolo` | `0.6` e a scendere (`1.0 − 0.2·profondità`, con minimo `0.3`) | `yearly` |
 
+Profondità calcolata sul path **senza prefisso lingua**: una pagina in `/en/blog/articolo` ha la stessa `priority`/`changefreq` della sua variante `/blog/articolo`, non un livello in meno per il segmento `/en/` in più.
+
 ### `og:updated_time` e `<lastmod>` della sitemap
 
 Entrambi sono impostati a `project.lastModified` in `global-settings.json` (formato italiano `GG/MM/AAAA`, convertito in `YYYY-MM-DD`). La si bumpa **a mano** quando i contenuti cambiano davvero: dà al `<lastmod>` un valore accurato e stabile, come richiesto da Google per considerarlo attendibile. Fallback alla data del build se il campo è assente o non valido.
 
 ### `og:locale`
 
-`og:locale` in `index.html` usa il formato regionale OpenGraph `lingua_REGIONE` (es. `it` → `it_IT`), derivato dalla `DEFAULT_LANG` via `Intl.Locale().maximize()` — coerente con il formato emesso a runtime da `PageMetaService`.
+`og:locale` in `index.html` usa il formato regionale OpenGraph `lingua_REGIONE` (es. `it` → `it_IT`), derivato dalla `DEFAULT_LANG` via `Intl.Locale().maximize()` — coerente con il formato emesso a runtime da `PageMetaService`. Lo stesso file imposta anche `<html dir="ltr|rtl">` dalla `DEFAULT_LANG` (stessa lista statica di codici RTL usata a runtime da `TranslateService`).
 
 ---
 

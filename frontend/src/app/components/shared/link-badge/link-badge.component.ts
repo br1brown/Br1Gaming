@@ -29,8 +29,8 @@ export class LinkBadgeComponent {
     /** Etichetta descrittiva per title/aria-label (es. "PEC"), distinta dal testo. */
     readonly ariaLabel = input<string>('');
     readonly fullWidth = input(false);
-    /** Disposizione di icona e testo. 'responsive' (default): colonna su mobile, riga su sm+. 'row': sempre riga. */
-    readonly layout = input<'responsive' | 'row'>('responsive');
+    /** Disposizione di icona e testo. 'row' (default): sempre riga. 'responsive': colonna su mobile, riga su sm+. */
+    readonly layout = input<'responsive' | 'row'>('row');
 
     /** Override opzionale: se presente, sostituisce la navigazione al click. */
     readonly action = input<() => void | Promise<void>>();

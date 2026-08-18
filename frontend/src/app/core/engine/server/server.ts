@@ -338,14 +338,6 @@ app.use(async (request: Request, response: Response, next) => {
             response.setHeader(key, value);
         });
 
-        // Locale-adaptive serving: con sito multilingua il contenuto varia per Accept-Language
-        // sullo stesso URL (negoziazione lingua via header/cookie, nessun URL localizzato).
-        // `Vary` lo segnala a cache/CDN ed è il segnale che Google usa per il crawling
-        // locale-adaptive. Impostato dopo l'inoltro degli header Angular per non farselo sovrascrivere.
-        if (serverEnv.site.multiLang) {
-            response.setHeader('Vary', 'Accept-Language');
-        }
-
         // CSP: in prod nonce per-request (+ hash dello script event-dispatch build-time,
         // vedi eventReplayScriptSrc), in dev 'unsafe-inline' (richiesto da HMR)
         const scriptSrc = nonce ? `'nonce-${nonce}'${eventReplayScriptSrc}` : "'unsafe-inline'";
