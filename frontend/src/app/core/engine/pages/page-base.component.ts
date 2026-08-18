@@ -1,4 +1,4 @@
-import { computed, Directive, effect, HostBinding, inject, input, PLATFORM_ID, resource } from '@angular/core';
+import { computed, Directive, effect, HostBinding, inject, input, PLATFORM_ID, resource, untracked } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { Router } from '@angular/router';
 import { ApiService } from '../../services/api.service';
@@ -116,7 +116,12 @@ export abstract class PageBaseComponent<T> {
             // Guardia: senza, ogni navigazione — anche fra due pagine della STESSA lingua — rifetcherebbe
             // i cataloghi i18n inutilmente. Con una sola lingua configurata, lang === currentLang() SEMPRE
             // dopo il bootstrap: questo effect non fa mai nulla, zero overhead per i siti mono-lingua.
-            if (lang !== this.translate.currentLang()) {
+            // `untracked`: currentLang() va letto ma NON tracciato come dipendenza, altrimenti questo
+            // effect si ririeseguirebbe ad ogni cambio lingua globale (anche innescato da un'ALTRA
+            // istanza pagina in fase di navigazione/distruzione), rimettendo `this.lang()` (vecchia
+            // route) come lingua corrente mentre il resolver della nuova pagina sta ancora fetchando —
+            // causa della race che faceva tornare i dati in italiano dopo lo switch a inglese.
+            if (lang !== untracked(() => this.translate.currentLang())) {
                 void this.translate.setLanguage(lang); // async: carica i cataloghi JSON della nuova lingua.
             }
         });
