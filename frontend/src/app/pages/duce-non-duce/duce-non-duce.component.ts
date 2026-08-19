@@ -73,7 +73,7 @@ export class DuceNonDuceComponent extends PageBaseComponent<void> implements OnD
             this.sfxCorrect.preload = 'auto';
             this.sfxWrong.preload = 'auto';
 
-            const saved = this.cookies.getCookie('duceNonDuceRecord');
+            const saved = this.cookies.get('duceNonDuceRecord');
             if (saved) {
                 try {
                     const parsed = JSON.parse(saved);
@@ -131,7 +131,7 @@ export class DuceNonDuceComponent extends PageBaseComponent<void> implements OnD
 
     resetRecord(): void {
         this.record.set(null);
-        this.cookies.removeCookie('duceNonDuceRecord');
+        this.cookies.remove('duceNonDuceRecord');
     }
 
     private nextImage(): void {
@@ -175,7 +175,7 @@ export class DuceNonDuceComponent extends PageBaseComponent<void> implements OnD
             const entry: RecordEntry = { score: newScore, time: newTime };
             this.record.set(entry);
             const maxAge = 60 * 60 * 24 * 365;
-            this.cookies.setCookie('duceNonDuceRecord', JSON.stringify(entry), maxAge);
+            this.cookies.set('duceNonDuceRecord', JSON.stringify(entry), maxAge);
         }
     }
 

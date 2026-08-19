@@ -143,15 +143,15 @@ export class BurocraziaComponent extends PageBaseComponent<void> implements OnDe
             onResult: d => this.result.set(d),
             onIntro: d => this.intro.set(d),
             onWelcome: d => this.welcome.set(d),
-            tutorialDone: () => this.cookies.getCookie('burocraziaTutorialDone') ?? false,
-            onTutorialDone: () => this.cookies.setCookie('burocraziaTutorialDone', true),
+            tutorialDone: () => this.cookies.get('burocraziaTutorialDone') ?? false,
+            onTutorialDone: () => this.cookies.set('burocraziaTutorialDone', true),
             onPause: p => { this.paused.set(p); if (p) void this.openPauseDialog(); },
-            savedZoom: () => this.cookies.getCookie('burocraziaZoom'),
+            savedZoom: () => this.cookies.get('burocraziaZoom'),
             onZoom: z => this.persistZoom(z),
             // Progresso partita ↔ cookie (categoria Technical, gating GDPR gestito dal servizio del framework).
-            savedRun: () => (this.cookies.getCookie('burocraziaRun') as SavedRun | null),
-            onRunSave: run => this.cookies.setCookie('burocraziaRun', run, SAVED_RUN_TTL),
-            onRunClear: () => this.cookies.removeCookie('burocraziaRun'),
+            savedRun: () => (this.cookies.get('burocraziaRun') as SavedRun | null),
+            onRunSave: run => this.cookies.set('burocraziaRun', run, SAVED_RUN_TTL),
+            onRunClear: () => this.cookies.remove('burocraziaRun'),
             onResumed: () => this.notify.toast(this.translate.translate('buroRunResumed'), 'info'),
             // Avviso "grafica alleggerita": toastOnce → la dedup "una volta per sessione" la fa il servizio.
             // (Il flag `lite` nel motore resta perché governa la qualità di rendering, non solo l'avviso.)
@@ -174,7 +174,7 @@ export class BurocraziaComponent extends PageBaseComponent<void> implements OnDe
     private zoomSaveTimer?: ReturnType<typeof setTimeout>;
     private persistZoom(z: number): void {
         clearTimeout(this.zoomSaveTimer);
-        this.zoomSaveTimer = setTimeout(() => this.cookies.setCookie('burocraziaZoom', Math.round(z * 100) / 100, 60 * 60 * 24 * 365), 400);
+        this.zoomSaveTimer = setTimeout(() => this.cookies.set('burocraziaZoom', Math.round(z * 100) / 100, 60 * 60 * 24 * 365), 400);
     }
 
     /** Costruisce la palette del canvas leggendo le CSS var del tema corrente. */
