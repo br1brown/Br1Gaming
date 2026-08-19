@@ -1,7 +1,7 @@
 /** Categoria di consenso (GDPR/ePrivacy) di una voce di archiviazione — vale per cookie E Web
  *  Storage. Abbina la voce al consenso dell'utente; indipendente dal mezzo (`storage`). */
 export enum ConsentCategory {
-    /** Strettamente necessari al funzionamento del sito (lingua, SW, sessione). */
+    /** Strettamente necessari al funzionamento del sito (SW, sessione). */
     Technical,
     /** Raccolta dati aggregati per misurare l'utilizzo del sito. */
     Analytics,
@@ -12,8 +12,8 @@ export enum ConsentCategory {
 export type CookieValueType = 'string' | 'number' | 'boolean' | 'json';
 
 /** Mezzo di archiviazione di una voce censita. Default `'cookie'`. `'local'`/`'session'` =
- *  Web Storage: NON passano da `setCookie`/`getCookie` (che restano cookie-only e tipizzati),
- *  ma sono comunque elencate nella policy automatica e pulite alla revoca del consenso. */
+ *  Web Storage: instradate da `set`/`get`/`remove` come i cookie, ma non passano mai da
+ *  `document.cookie` — sono comunque elencate nella policy automatica e pulite alla revoca. */
 export type StorageMedium = 'cookie' | 'local' | 'session';
 
 /** Metadati di una voce registrata in `COOKIE_MAP`/`ENGINE_COOKIE_MAP` (cookie o Web Storage, secondo `storage`). */
@@ -78,16 +78,11 @@ export const CONSENT_COOKIE_MAP = {
 } as const satisfies Readonly<Record<string, CookieConfig>>;
 
 /**
- * Voci built-in del MOTORE, su qualsiasi mezzo (`storage`): cookie (lingua, SW, memorie del
+ * Voci built-in del MOTORE, su qualsiasi mezzo (`storage`): cookie (SW, memorie del
  * consenso) e Web Storage (consent_log, bearerToken). Mappa unica → la stessa logica di policy,
  * gate e pulizia le tratta tutte; il mezzo lo decide il campo `storage` di ogni voce.
  */
 export const ENGINE_COOKIE_MAP = {
-    /** Cookie. Incluso nella lista pubblica solo se `localeConfig.availableLanguages.length > 1` */
-    lang: {
-        category: ConsentCategory.Technical,
-        descriptionKey: 'linguaDescrizioneListaCookie',
-    },
     /** Cookie. Incluso nella lista pubblica solo se `isWebApp` è `true` in site.ts */
     'ngsw-worker.js': {
         category: ConsentCategory.Technical,

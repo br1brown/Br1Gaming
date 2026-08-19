@@ -15,9 +15,9 @@
                                         <div class="d-flex align-items-center mb-3">
                                             <div class="bg-light rounded p-3 me-3 d-flex align-items-center justify-content-center">
                                                 @switch (cat.key) {
-                                                    @case (ConsentCategory.Technical) { <i class="fa-solid fa-shield-halved text-success fs-4"></i> }
-                                                    @case (ConsentCategory.Analytics) { <i class="fa-solid fa-chart-line text-info fs-4"></i> }
-                                                    @case (ConsentCategory.Profiling) { <i class="fa-solid fa-user-gear text-warning fs-4"></i> }
+                                                    @case (ConsentCategory.Technical) { <i class="fa-solid fa-shield-halved text-success fs-4" aria-hidden="true"></i> }
+                                                    @case (ConsentCategory.Analytics) { <i class="fa-solid fa-chart-line text-info fs-4" aria-hidden="true"></i> }
+                                                    @case (ConsentCategory.Profiling) { <i class="fa-solid fa-user-gear text-warning fs-4" aria-hidden="true"></i> }
                                                 }
                                             </div>
                                             <h2 class="card-title h5 mb-0 fw-bold">{{ cat.name }}</h2>
@@ -38,9 +38,9 @@
                                 <summary class="card-body d-flex align-items-center gap-3 p-4 user-select-none">
                                     <div class="bg-light rounded p-3 d-flex align-items-center justify-content-center flex-shrink-0">
                                         @switch (group.category) {
-                                            @case (ConsentCategory.Technical) { <i class="fa-solid fa-shield-halved text-success fs-5"></i> }
-                                            @case (ConsentCategory.Analytics) { <i class="fa-solid fa-chart-line text-info fs-5"></i> }
-                                            @case (ConsentCategory.Profiling) { <i class="fa-solid fa-user-gear text-warning fs-5"></i> }
+                                            @case (ConsentCategory.Technical) { <i class="fa-solid fa-shield-halved text-success fs-5" aria-hidden="true"></i> }
+                                            @case (ConsentCategory.Analytics) { <i class="fa-solid fa-chart-line text-info fs-5" aria-hidden="true"></i> }
+                                            @case (ConsentCategory.Profiling) { <i class="fa-solid fa-user-gear text-warning fs-5" aria-hidden="true"></i> }
                                         }
                                     </div>
                                     <div class="flex-grow-1 min-w-0">

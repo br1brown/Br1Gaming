@@ -1,18 +1,18 @@
 # Br1WebEngine - Frontend (Angular 21)
 
-> 📚 Parte della documentazione di Br1WebEngine — indice e tabella *"dove metto le mani"* nel [README principale](../README.md). Le sezioni **"Developer Journey"** qui sotto sono il *come* passo-passo del frontend.
+> 📚 Parte della documentazione di Br1WebEngine: indice e tabella "dove metto le mani" nel [README principale](../README.md). Le sezioni "Developer Journey" qui sotto sono il come passo-passo del frontend.
 
-Benvenuto nel frontend di Br1WebEngine. Questo non è un semplice progetto Angular, è un ecosistema dichiarativo ottimizzato per Server-Side Rendering (SSR) e Developer Experience (DX).
+Benvenuto nel frontend di Br1WebEngine: un progetto Angular con sopra un livello dichiarativo, pensato per Server-Side Rendering (SSR) e Developer Experience (DX).
 
-La complessità tipica (routing frammentato, meta tag SEO sparsi, lazy loading) è stata centralizzata in un singolo **Domain Specific Language (DSL)**.
+La complessità tipica (routing frammentato, meta tag SEO sparsi, lazy loading) è stata centralizzata in un singolo Domain Specific Language (DSL).
 
 ---
 
 ## 🚀 Funzionalità Principali dell'Engine
 
-### 1. `site.ts`: Il DSL di Configurazione
-**Perché è utile:** In Angular standard aggiungere una pagina richiede configurare il routing, aggiornare i menu e gestire manualmente la SEO.
-**Cosa fa l'Engine:** In `src/app/site.ts` dichiari un oggetto JSON. L'Engine crea a runtime le rotte, nasconde/mostra la navbar in base a `layout.showNav`, e se la pagina ha `requiresAuth: true`, l'SSR viene spento forzando il client-side rendering.
+### 1. `site.ts` + `pages/*.pages.ts`: Il DSL di Configurazione
+Perché è utile: in Angular standard aggiungere una pagina richiede configurare il routing, aggiornare i menu e gestire manualmente la SEO.
+Cosa fa l'Engine: ogni pagina si dichiara come oggetto (path, title, component, meta) in un file di area sotto `src/app/pages/*.pages.ts`, non in `site.ts`, che si limita ad assemblarle insieme a menu, slot legali, shell e tema (è comunque il primo file che apri: da lì risali a tutto il resto). Da quelle dichiarazioni l'Engine crea a runtime le rotte, nasconde/mostra la navbar in base a `layout.showNav`, e se la pagina ha `requiresAuth: true`, l'SSR viene spento forzando il client-side rendering.
 
 ### 2. Auto-SEO Dinamica
 Basta aggiungere `description` o `ogImage` nell'oggetto pagina dentro `site.ts`. Un Resolver intercetta la navigazione e inietta prima del rendering i corretti tag Head, OpenGraph e i dati strutturati.
@@ -20,22 +20,22 @@ Basta aggiungere `description` o `ogImage` nell'oggetto pagina dentro `site.ts`.
 ### 3. Signals Nativo (zoneless)
 Gestione stato locale e globale tramite l'API nativa `Signals` di Angular 21. Niente NgRx, niente boilerplate eccessivo.
 
-L'app è **zoneless**: non c'è `zone.js`, la change detection è guidata dai signal e dagli eventi gestiti da Angular (binding di template e `host`). Conseguenze pratiche:
+L'app è zoneless: non c'è `zone.js`, la change detection è guidata dai signal e dagli eventi gestiti da Angular (binding di template e `host`). Conseguenze pratiche:
 - Aggiorna lo stato con i signal (`signal()`, `computed()`, `set/update`): la UI si rinfresca da sola.
 - La change detection è guidata dai signal: `setInterval`/`requestAnimationFrame` non innescano cicli, quindi usa direttamente i timer del browser e aggiorna lo stato con i signal.
-- Se integri una callback di una libreria esterna che muta un campo **non**-signal, convertila in signal (o usa un signal di appoggio) affinché la UI reagisca.
+- Se integri una callback di una libreria esterna che muta un campo non-signal, convertila in signal (o usa un signal di appoggio) affinché la UI reagisca.
 
 ### 4. Gestione Trasparente Privacy e Accessibilità
-L'Engine si occupa di iniettare meccanismi standard di base per l'Accessibilità (WCAG) e alcuni helper della shell già pronti e auto-iniettati — un banner cookie integrato che si allinea alla navigazione e un pulsante "torna su" (back-to-top) che compare dopo lo scroll. Non vanno istanziati né configurati: ci sono e basta. Meno codice, più compliance.
+L'Engine si occupa di iniettare meccanismi standard di base per l'Accessibilità (WCAG) e alcuni helper della shell già pronti e auto-iniettati: un banner cookie integrato che si allinea alla navigazione e un pulsante "torna su" (back-to-top) che compare dopo lo scroll. Non vanno istanziati né configurati: ci sono e basta, senza codice in più da scrivere.
 
 ### 5. Policy Pages Integrate
-Le pagine legali (Privacy, Cookie, Termini, Note Legali) le costruisce l'**Engine**: in `site.ts` valorizzi gli slot `legalPages` (`privacy`/`cookie`/`tos`/`legal`) coi tuoi `PageType` e il builder inietta da solo il nodo `/policy/*`. Uno slot omesso = quella pagina non esiste (es. una vetrina con solo i cookie). Se il sito usa cookie, lo slot `cookie` è **obbligatorio**: ometterlo è un errore al build. I testi vivono in `src/assets/legal/` come Markdown localizzati (es. `privacy.it.md`, `TOS.it.md`); il `ContentResolver` li carica da filesystem in SSR e via fetch nel browser, e il `PolicyComponent` interpola i placeholder come `{{ragioneSociale}}` / `{{partitaIva}}` dall'identità del sito (`GET /identity`).
+Le pagine legali (Privacy, Cookie, Termini, Note Legali) le costruisce l'Engine: in `site.ts` valorizzi gli slot `legalPages` (`privacy`/`cookie`/`tos`/`legal`) coi tuoi `PageType` e il builder inietta da solo il nodo `/policy/*`. Uno slot omesso = quella pagina non esiste (es. una vetrina con solo i cookie). Se il sito usa cookie, lo slot `cookie` è obbligatorio: ometterlo è un errore al build. I testi vivono in `src/assets/legal/` come Markdown localizzati (es. `privacy.it.md`, `TOS.it.md`); il `ContentResolver` li carica da filesystem in SSR e via fetch nel browser, e il `PolicyComponent` interpola i placeholder come `{{ragioneSociale}}` / `{{partitaIva}}` dall'identità del sito (`GET /identity`).
 
 ---
 
 ## 🗺️ Mappa del territorio: cosa è tuo, cosa è dell'Engine
 
-Prima di scrivere una riga, tieni a mente una sola linea di confine. Tutto ciò che vive sotto **`src/app/core/engine/**`** è l'**Engine**: lo consumi, non lo tocchi (così un domani aggiorni il motore senza rimergiare a mano le tue modifiche). Tutto il resto è del **progetto figlio**: è tuo e lo plasmi. La regola si riassume in una frase — *se è sotto `core/engine/`, lo consumi; altrimenti è tuo.*
+Prima di scrivere una riga, tieni a mente una sola linea di confine. Tutto ciò che vive sotto `src/app/core/engine/**` è l'Engine: lo consumi, non lo tocchi (così un domani aggiorni il motore senza rimergiare a mano le tue modifiche). Tutto il resto è del progetto figlio: è tuo e lo plasmi. La regola si riassume in una frase: se è sotto `core/engine/`, lo consumi, altrimenti è tuo.
 
 | Area | Di chi è | Cosa ci fai |
 | :--- | :--- | :--- |
@@ -48,14 +48,14 @@ Prima di scrivere una riga, tieni a mente una sola linea di confine. Tutto ciò 
 | `pages/**` | Tuo | Le schermate, ognuna estende `PageBaseComponent` |
 | `styles/**` | Tuo (entry `styles.scss`) | Stili globali: parti da `styles.scss`, i tuoi partial in `styles/app/`. `styles/engine/` è dell'Engine e non si tocca |
 
-Il confine non è arbitrario: `app.component.ts` (che è *tuo*) importa `FooterComponent` da `./components/shared/footer/...`, legge `ContestoSito.config.smoke` e chiama `VersionCheckService` — orchestra cioè i pezzi dell'Engine montandoli nella shell, senza farne parte. La distinzione operativa è questa: gli oggetti sotto `core/engine/**` non si aprono per modificarli, si **consumano** (un `inject(...)`, una direttiva, un signal); tutto il resto è codice di progetto che adatti al tuo dominio. Quando un capitolo qui sotto dice "estendi" o "aggiungi un metodo", parla sempre di file fuori da `core/engine/**`; quando dice "consuma" o "leggi il signal", parla dell'Engine.
+Il confine non è arbitrario: `app.component.ts` (che è tuo) importa `FooterComponent` da `./components/shared/footer/...`, legge `ContestoSito.config.smoke` e chiama `VersionCheckService`, orchestrando cioè i pezzi dell'Engine montandoli nella shell, senza farne parte. La distinzione operativa è questa: gli oggetti sotto `core/engine/**` non si aprono per modificarli, si consumano (un `inject(...)`, una direttiva, un signal); tutto il resto è codice di progetto che adatti al tuo dominio. Quando un capitolo qui sotto dice "estendi" o "aggiungi un metodo", parla sempre di file fuori da `core/engine/**`; quando dice "consuma" o "leggi il signal", parla dell'Engine.
 
 ---
 
 ## 📜 Le Regole del Gioco (cosa impone l'Engine)
 
 ### 1. Stabilità dei Riferimenti: `PageType`
-Per ogni schermata aggiungi un identificatore a `PageType`, l'identità stabile della pagina, e naviga sempre tramite quell'ID (mai l'URL), così il link resta valido anche cambiando il path. `PageType` è assemblato in `site.ts` dai file di area sotto `pages/` — uno per gruppo tematico (la demo ha `app.pages.ts` e `legal.pages.ts`): ogni area resta un file breve e indipendente, da aprire e mantenere senza scorrere le altre. Ogni area segue lo stesso pattern — un oggetto `as const` di ID stringa (prefissati per area: leggibili anche fuori da TypeScript, in query string o log) più l'array delle relative dichiarazioni pagina:
+Per ogni schermata aggiungi un identificatore a `PageType`, l'identità stabile della pagina, e naviga sempre tramite quell'ID (mai l'URL), così il link resta valido anche cambiando il path. `PageType` è assemblato in `site.ts` dai file di area sotto `pages/`, uno per gruppo tematico (la demo ha `app.pages.ts` e `legal.pages.ts`): ogni area resta un file breve e indipendente, da aprire e mantenere senza scorrere le altre. Ogni area segue lo stesso pattern: un oggetto `as const` di ID stringa (prefissati per area, leggibili anche fuori da TypeScript, in query string o log) più l'array delle relative dichiarazioni pagina:
 ```typescript
 // pages/blog.pages.ts
 export const BlogPages = { List: 'blog.list', Post: 'blog.post' } as const;
@@ -80,7 +80,7 @@ Aggiungere una nuova area è un file + una riga di spread; aggiungere una pagina
 ### 3. Manipola il DOM in modo dichiarativo (compatibile con l'idratazione)
 Usa esclusivamente binding dichiarativi (`[class.hidden]="!isVisible()"`) e Template Refs: così l'accesso al DOM passa per Angular e resta valido anche in SSR.
 
-**Idratazione incrementale per le pagine lunghe.** L'Engine registra già `withIncrementalHydration()` (`app.config.ts`): nelle pagine lunghe basta avvolgere le sezioni sotto la piega in un blocco `@defer (hydrate on viewport)`:
+Idratazione incrementale per le pagine lunghe: l'Engine registra già `withIncrementalHydration()` (`app.config.ts`): nelle pagine lunghe basta avvolgere le sezioni sotto la piega in un blocco `@defer (hydrate on viewport)`:
 
 ```html
 @defer (hydrate on viewport) {
@@ -94,31 +94,31 @@ Usa esclusivamente binding dichiarativi (`[class.hidden]="!isVisible()"`) e Temp
 ```
 
 Comportamento:
-- **Primo caricamento (SSR):** la sezione è renderizzata normalmente nell'HTML — contenuto e SEO invariati — ma il browser la idrata solo quando entra nel viewport: meno JavaScript eseguito all'avvio.
+- **Primo caricamento (SSR):** la sezione è renderizzata normalmente nell'HTML (contenuto e SEO invariati), ma il browser la idrata solo quando entra nel viewport: meno JavaScript eseguito all'avvio.
 - **Navigazione client (cambio pagina nella SPA):** il blocco carica `on idle`, mostrando per un attimo il `@placeholder`.
 - I click su una sezione non ancora idratata non vanno persi: `withEventReplay()` li riconsegna a idratazione avvenuta.
 
-La home demo lo applica alle sezioni QR, Notifiche e Sistema — esempio vivo, finché un progetto figlio non la riscrive.
+La home demo lo applica alle sezioni QR, Notifiche e Sistema, esempio vivo finché un progetto figlio non la riscrive.
 
-**Transizioni di pagina.** L'Engine registra `withViewTransitions()` nel router: i cambi pagina usano la View Transitions API del browser (cross-fade) come *progressive enhancement* — i browser senza supporto navigano senza animazione, e il movimento è disattivato sotto `prefers-reduced-motion` (regola in `engine/base/_a11y.scss`). Nessuna configurazione richiesta. In più, ogni pagina che estende `PageBaseComponent` riceve un **fade-in d'ingresso** del contenuto (classe `.page-fade` applicata via host binding, attiva di default da `shell.pageFade`), che si somma alla cross-fade. È un gate come gli altri flag shell — col globale a `false` nessuna pagina può riattivarlo — e rispetta anch'esso `prefers-reduced-motion`.
+Transizioni di pagina: l'Engine registra `withViewTransitions()` nel router: i cambi pagina usano la View Transitions API del browser (cross-fade) come progressive enhancement, dove i browser senza supporto navigano senza animazione, e il movimento è disattivato sotto `prefers-reduced-motion` (regola in `engine/base/_a11y.scss`). Nessuna configurazione richiesta. In più, ogni pagina che estende `PageBaseComponent` riceve un fade-in d'ingresso del contenuto (classe `.page-fade` applicata via host binding, attiva di default da `shell.pageFade`), che si somma alla cross-fade. È un gate come gli altri flag shell (col globale a `false` nessuna pagina può riattivarlo) e rispetta anch'esso `prefers-reduced-motion`.
 
 ### 4. CSS: Bootstrap First, Custom Solo Se Necessario
-Il progetto usa **Bootstrap 5** come sistema di design principale: per layout, tipografia, form e componenti parti sempre dalle classi Bootstrap, e tieni il CSS custom per ciò che Bootstrap non copre.
+Il progetto usa Bootstrap 5 come sistema di design principale: per layout, tipografia, form e componenti parti sempre dalle classi Bootstrap, e tieni il CSS custom per ciò che Bootstrap non copre.
 
-**Cosa va nel template HTML (classi Bootstrap):**
+Cosa va nel template HTML (classi Bootstrap):
 - Layout e spacing (`d-flex`, `align-items-center`, `mb-3`, `gap-2`, `p-4`)
 - Tipografia (`fw-bold`, `text-muted`, `small`, `h4`, `lead`)
 - Form (`form-control`, `form-label`, `is-invalid`, `invalid-feedback`)
 - Componenti (`card`, `alert`, `btn`, `spinner-border`, `badge`, `list-group`)
 - Responsive (`col-md-6`, `d-none d-lg-block`)
 
-**Gli stili sono in SCSS, e hai un solo punto di partenza: `src/styles.scss`.** Le **fondamenta** dell'Engine (token del tema, ponte Bootstrap, layout, accessibilità: `styles/engine/base`) sono cablate dalla build — `angular.json → "styles"` — e caricate sempre: non le vedi e non puoi romperle per sbaglio. A te restano `src/styles.scss` (l'entry), `src/styles/app/` (i tuoi partial, importati con `@use 'app/...'`) e lo strato **opzionale** dell'Engine. (`styles/engine/` è dell'Engine e si aggiorna dal template; `font-config.ts`, i font, resta tuo come già visto.)
+Gli stili sono in SCSS, e hai un solo punto di partenza: `src/styles.scss`. Le fondamenta dell'Engine (token del tema, ponte Bootstrap, layout, accessibilità: `styles/engine/base`) sono cablate dalla build (`angular.json → "styles"`) e caricate sempre: non le vedi e non puoi romperle per sbaglio. A te restano `src/styles.scss` (l'entry), `src/styles/app/` (i tuoi partial, importati con `@use 'app/...'`) e lo strato opzionale dell'Engine. (`styles/engine/` è dell'Engine e si aggiorna dal template; `font-config.ts`, i font, resta tuo come già visto.)
 
 In `styles.scss`:
-- `@use 'engine/nav'` — **strato opzionale** dell'Engine: navbar/footer/dropdown. Vuoi una navigazione con un tuo stile grafico? **Commenta questa riga** e scrivi il tuo (es. in `styles/app/_nav.scss`): gli stili nav agiscono su classi globali (`.nav-link`, `.navbar .dropdown-menu`…) rese dal componente, quindi le ridipingi dai tuoi file. *(L'opt-out è a livello di CSS: il markup della navbar resta del componente Engine.)*
+- `@use 'engine/nav'`: strato opzionale dell'Engine per navbar/footer/dropdown. Vuoi una navigazione con un tuo stile grafico? Commenta questa riga e scrivi il tuo (es. in `styles/app/_nav.scss`): gli stili nav agiscono su classi globali (`.nav-link`, `.navbar .dropdown-menu`…) rese dal componente, quindi le ridipingi dai tuoi file. L'opt-out è a livello di CSS: il markup della navbar resta del componente Engine.
 - I tuoi stili globali, gli override di tema/Bootstrap e le utility vanno in `styles.scss` o in partial sotto `styles/app/` importati da lì.
 
-**Riusare gli strumenti SCSS dell'Engine.** Grazie ai loadPaths (`angular.json → stylePreprocessorOptions.includePaths`), da qualsiasi `.scss` — globale o di componente — importi gli helper con un path stabile, senza catene `../../../`:
+Riusare gli strumenti SCSS dell'Engine: grazie ai loadPaths (`angular.json → stylePreprocessorOptions.includePaths`), da qualsiasi `.scss` (globale o di componente) importi gli helper con un path stabile, senza catene `../../../`:
 ```scss
 @use 'engine/base/lib' as lib;
 .cta { background: lib.shade(var(--bs-primary), 12%); }      // scurisce un colore via color-mix
@@ -126,52 +126,74 @@ In `styles.scss`:
 ```
 `lib` espone solo strumenti (variabili/funzioni/mixin), nessun CSS: importarlo non duplica nulla.
 
-*Nota: `src/styles/engine/` è riservato all'Engine (tema OKLCH, ponte Bootstrap, a11y) e si aggiorna dal template — non modificarlo; i CSS di terze parti (Bootstrap, FontAwesome, SweetAlert2) stanno in `angular.json → "styles"`, non con `@import`.*
+Nota: `src/styles/engine/` è riservato all'Engine (tema OKLCH, ponte Bootstrap, a11y) e si aggiorna dal template, non modificarlo; i CSS di terze parti (Bootstrap, FontAwesome, SweetAlert2) stanno in `angular.json → "styles"`, non con `@import`.
 
-**Cosa va nel file `.scss` del componente (solo ciò che Bootstrap non può esprimere):**
+Cosa va nel file `.scss` del componente (solo ciò che Bootstrap non può esprimere):
 - Posizionamento fisso con `safe-area-inset` (cookie banner, back-to-top)
 - Animazioni CSS (`@keyframes`, transizioni custom)
 - Effetti visivi avanzati (glassmorphism con `backdrop-filter`, gradienti complessi)
 - Override di tema via `color-mix()` e custom properties (`--color*`)
 - Layout a griglia complesso (`grid-template-rows: 0fr → 1fr` per accordion)
 
-**z-index e ombre: solo variabili, mai letterali.** `base.scss` (partial `base/_tokens.scss`) definisce la scala z-index del template (`--z-cookie-banner`, `--z-fab`, `--z-skip-link`, `--z-cdk-overlay`), incastrata nei vuoti della scala Bootstrap così i widget persistenti restano **sotto** offcanvas e modali (che devono coprirli). Un nuovo elemento fisso usa una di queste variabili o ne aggiunge una alla scala, così resta coerente con l'ordine di sovrapposizione di Bootstrap. Stesso principio per le ombre di elevazione: `--shadowElevated` / `--shadowElevatedHover`.
+z-index e ombre: solo variabili, mai letterali. `base.scss` (partial `base/_tokens.scss`) definisce la scala z-index del template (`--z-cookie-banner`, `--z-fab`, `--z-skip-link`, `--z-cdk-overlay`), incastrata nei vuoti della scala Bootstrap così i widget persistenti restano sotto offcanvas e modali (che devono coprirli). Un nuovo elemento fisso usa una di queste variabili o ne aggiunge una alla scala, così resta coerente con l'ordine di sovrapposizione di Bootstrap. Stesso principio per le ombre di elevazione: `--shadowElevated` / `--shadowElevatedHover`.
 
-**Componenti senza CSS:** crea il file `.scss` di un componente solo quando ti serve qualcosa fra i casi sopra. Il footer, ad esempio, è 100% classi Bootstrap nel template e non ne ha uno.
+Componenti senza CSS: crea il file `.scss` di un componente solo quando ti serve qualcosa fra i casi sopra. Il footer, ad esempio, è 100% classi Bootstrap nel template e non ne ha uno.
 
 ---
 
 ## 🧩 Punti di personalizzazione (estendere l'Engine senza toccarlo)
 
-Tutto ciò che un progetto figlio configura per fare suo il sito **senza modificare l'Engine** (`core/engine/**` resta intatto), raggruppato per area. Ogni paragrafo dice in breve *come* si attiva un seam e rimanda (*Vedi «…»*) alla sezione di dettaglio più sotto in questa pagina.
+Tutto ciò che un progetto figlio configura per fare suo il sito senza modificare l'Engine (`core/engine/**` resta intatto), raggruppato per area. Ogni paragrafo dice in breve come si attiva un seam e rimanda (vedi «…») alla sezione di dettaglio più sotto in questa pagina.
 
-### Pagine & rotte (`site.ts`)
+### Pagine & rotte (`pages/*.pages.ts` + `site.ts`)
 
-Le pagine vivono nei **file di area** `pages/*.pages.ts` (uno per gruppo tematico, es. `app.pages.ts`): ogni area dichiara i propri ID `PageType` (stringhe prefissate, es. `app.home`) e le proprie dichiarazioni di pagina; `site.ts` li assembla con uno spread e tiene per sé gli slot globali (`homePage`, `loginPage`, `legalPages`, `shell`) e i menu. Una dichiarazione con `component` (lazy) è una pagina interna; con `children` un gruppo di menu annidato (le `/policy/*` sono l'esempio dell'Engine); con `externalUrl` un link verso un sito esterno; `enabled: false` spegne la pagina ovunque in un colpo solo (rotta, menu, sitemap, padre incluso).
+Le pagine vivono nei file di area `pages/*.pages.ts` (uno per gruppo tematico, es. `app.pages.ts`): ogni area dichiara i propri ID `PageType` (stringhe prefissate, es. `app.home`) e le proprie dichiarazioni di pagina. Tutto ciò che riguarda la singola pagina va lì, non in `site.ts`. `site.ts` si limita ad assemblare le aree con uno spread e a tenere per sé la configurazione a livello di sito. In pratica:
 
-I link interni puntano al `PageType`, mai al path: rinominare un path è una riga nella dichiarazione (menu, footer e link continuano a funzionare), rimuovere un ID fa segnalare a TypeScript ogni punto che ancora lo usa, e gli ID restano leggibili anche fuori dal codice — query string (`?returnPageType=…`), log, messaggi d'errore del builder.
+| Vive nel file di area (`pages/*.pages.ts`) — per-pagina | Vive in `site.ts` — a livello di sito |
+| :--- | :--- |
+| `path`, `pageType`, `title`, `component` (lazy) | `homePage` / `loginPage` (brand link, redirect auth) |
+| `requiresAuth` (guard + SSR off), `renderMode` | `legalPages` (slot Privacy/Cookie/TOS/Note legali) |
+| `layout` (`showNav`/`showFooter`/`showPanel`/`fitViewport`/`showSmoke`/`pageFade` per-pagina) | `shell` (default globali di navbar/footer/pannello) |
+| `description`, `otherSEO` (`ogImage`, `ogType`, `structuredData`, `noindex`) | `isWebApp`, `onlyPlainImage` |
+| `children` (gruppo di menu annidato, es. le `/policy/*` dell'Engine) o `externalUrl` (link esterno) | `headerNav` / `footerNav` (callback builder `addPage`/`addLink`/`addGroup`) |
+| `enabled: false` (spegne la pagina ovunque in un colpo solo: rotta, menu, sitemap, padre incluso) | `pages` — la sola riga che tocca le aree, ed è solo uno spread: `pages: () => [...appPagesDecl]` |
 
-Con più lingue configurate, ogni pagina ottiene una variante-URL per lingua (lingua default non prefissata, le altre sì — vedi «Internazionalizzazione (i18n)» → «Lingua nell'URL»): il `path` dichiarato qui **non si traduce** per lingua, è lo stesso segmento sotto ogni prefisso.
+`children` (rotta annidata) non è `addGroup` (voce di menu annidata): sono due nidificazioni diverse, non intercambiabili. `children` in un file di area crea una vera route Angular contenitore: il nodo padre non ha `pageType` né `component` (esiste solo per il path condiviso), e i figli sono pagine reali sotto quel prefisso, ed è così che l'Engine costruisce `/policy/privacy`, `/policy/cookie`, ecc. `addGroup` (vedi «Navigazione Multilivello» sotto) invece non tocca il routing: raggruppa voci già esistenti sotto un dropdown/accordion nel menu, le pagine restano ai loro path originali. Un esempio di `children`:
+```typescript
+// pages/blog.pages.ts — /blog è un contenitore, /blog e /blog/:slug sono pagine reali sotto di lui
+export const BlogPages = { List: 'blog.list', Post: 'blog.post' } as const;
+export const blogPagesDecl: SitePageInput[] = [
+  {
+    path: 'blog', title: 'blogNav', // nodo contenitore: niente pageType né component qui
+    children: [
+      { path: '', pageType: BlogPages.List, title: 'blogListNav', component: () => import('./blog/list.component').then(m => m.ListComponent) },
+      { path: ':slug', pageType: BlogPages.Post, title: 'blogPostNav', component: () => import('./blog/post.component').then(m => m.PostComponent) },
+    ],
+  },
+];
+```
 
-Per ogni pagina regoli login (`requiresAuth`), strategia di rendering (`renderMode`), shell e layout (`layout: { showNav, showFooter, showPanel, fitViewport }`) e SEO/social (`description`, `otherSEO`). A livello globale imposti il brand link e il redirect d'autenticazione (`homePage`/`loginPage`), i flag della `shell`, `isWebApp`/`onlyPlainImage`, gli slot `legalPages` (con override per-`PageType`) e i menu `headerNav`/`footerNav` (callback builder con `addPage`/`addLink`/`addGroup`). *Vedi «Developer Journey», «Opzioni Avanzate di site.ts», «Navigazione Multilivello», «Vista a tutto schermo», «Pagine legali».* Ricetta rapida: [AGENTS.md](../AGENTS.md#aggiungere-una-pagina).
+I link interni puntano al `PageType`, mai al path: rinominare un path è una riga nella dichiarazione (menu, footer e link continuano a funzionare), rimuovere un ID fa segnalare a TypeScript ogni punto che ancora lo usa, e gli ID restano leggibili anche fuori dal codice: query string (`?returnPageType=…`), log, messaggi d'errore del builder.
+
+Con più lingue configurate, ogni pagina ottiene una variante-URL per lingua (lingua default non prefissata, le altre sì: vedi «Internazionalizzazione (i18n)» → «Lingua nell'URL»): il `path` dichiarato nel file di area non si traduce per lingua, è lo stesso segmento sotto ogni prefisso. Vedi «Developer Journey», «Opzioni Avanzate di site.ts», «Navigazione Multilivello», «Vista a tutto schermo», «Pagine legali». Ricetta rapida: [AGENTS.md](../AGENTS.md#aggiungere-una-pagina).
 
 ### Dati a una pagina
 
-Per passare qualcosa a una pagina hai quattro canali, tutti letti come `@Input()` per nome: `data` statico, parametro di rotta `:x`, query `?x=` e il resolver. Per avere il contenuto già al primo render aggiungi un `case` in `ContentResolver.loadResolved()`. La configurazione libera di progetto si legge con `inject(APP_CUSTOM)` (la sezione `Custom`), mentre la configurazione risolta e normalizzata del sito con `inject(SITE_CONFIG)`. *Vedi «Passare Dati a una Pagina», «ContentResolver», «Configurazione di progetto (Custom)», «Token SITE_CONFIG».* Ricetta rapida (tipi generati per `global-settings.json`): [AGENTS.md](../AGENTS.md#leggere-global-settingsjson-tipizzato).
+Per passare qualcosa a una pagina hai quattro canali, tutti letti come `@Input()` per nome: `data` statico, parametro di rotta `:x`, query `?x=` e il resolver. Per avere il contenuto già al primo render aggiungi un `case` in `ContentResolver.loadResolved()`. La configurazione libera di progetto si legge con `inject(APP_CUSTOM)` (la sezione `Custom`), mentre la configurazione risolta e normalizzata del sito con `inject(SITE_CONFIG)`. Vedi «Passare Dati a una Pagina», «ContentResolver», «Configurazione di progetto (Custom)», «Token SITE_CONFIG». Ricetta rapida (tipi generati per `global-settings.json`): [AGENTS.md](../AGENTS.md#leggere-global-settingsjson-tipizzato).
 
 ### Aspetto & i18n
 
-Il colore del brand è `colorTema`, modificabile a runtime con `ThemeService.setColorTema()`; per validare un contrasto c'è `ThemeService.calcContrastRatio()` (modello WCAG 2.1). Le stringhe del progetto e le sovrascritture vanno in `addon.{lang}.json`, che ha la precedenza su `basic` (l'engine, mai toccato); la lingua si cambia a runtime con `TranslateService.setLanguage()`. *Vedi «Tema e Sistema di Colori», «Metodi Statici (SSR-Safe)», «Internazionalizzazione», «Lingua a Runtime».*
+Il colore del brand è `colorTema`, modificabile a runtime con `ThemeService.setColorTema()`; per validare un contrasto c'è `ThemeService.calcContrastRatio()` (modello WCAG 2.1). Le stringhe del progetto e le sovrascritture vanno in `addon.{lang}.json`, che ha la precedenza su `basic` (l'engine, mai toccato); la lingua si cambia a runtime con `TranslateService.setLanguage()`. Vedi «Tema e Sistema di Colori», «Metodi Statici (SSR-Safe)», «Internazionalizzazione», «Lingua a Runtime».
 
 ### Servizi & componenti
 
 Estendi il client API aggiungendo path e metodo pubblico in `api.service.ts` (con `{ silent: true }` quando vuoi gestire l'errore con una UI tua); abiliti le notifiche realtime con il campanellino via `shell: { showNotifications: true }`; registri un cookie o una voce di Web Storage aggiungendo una riga a `COOKIE_MAP`; adatti i DTO di sessione e login in `core/dto/` (`session.dto.ts` e `auth.dto.ts`, allineati ai record C#). Ricette rapide: [AGENTS.md](../AGENTS.md#aggiungere-un-endpoint-al-client) (endpoint), [AGENTS.md](../AGENTS.md#persistere-dati-lato-client-cookie-web-storage-consenso) (cookie/Web Storage).
 
-Per comporre le UI riusi le direttive dichiarative (`[appPage]` per i link interni, `[appImgRender]`/`[appQrContent]` per immagini e QR generati, `[appContextMenu]` per i menu contestuali), la pipe `markdown` (sanitizzata) e i componenti pronti (`app-link-badge` e le famiglie azione/contatto). La PWA si attiva con `isWebApp`. *Vedi «Aggiungere un Endpoint», «Errori Silenziosi per UI Custom», «NotificationStreamService», «Aggiungere un Nuovo Cookie», «DTO di Sessione e Login», «[appPage]», «Directive di Rendering Dichiarativo», «Componenti di Azione/Contatto».*
+Per comporre le UI riusi le direttive dichiarative (`[appPage]` per i link interni, `[appImgRender]`/`[appQrContent]` per immagini e QR generati, `[appContextMenu]` per i menu contestuali), la pipe `markdown` (sanitizzata) e i componenti pronti (`app-link-badge` e le famiglie azione/contatto). La PWA si attiva con `isWebApp`. Vedi «Aggiungere un Endpoint», «Errori Silenziosi per UI Custom», «NotificationStreamService», «Aggiungere un Nuovo Cookie», «DTO di Sessione e Login», «[appPage]», «Directive di Rendering Dichiarativo», «Componenti di Azione/Contatto».
 
 ### Bundling & build (`angular.json`)
 
-Il peso del bundle si regola con `budgets` (soglie warning/errore, già gate di `ng build`), la whitelist `allowedCommonJsDependencies` per librerie di terze parti senza ESM, e gli array `styles`/`scripts`/`assets` per CSS/JS/file globali. Il code-splitting per pagina è già automatico (`site.ts → component: () => import(...)`); per un SDK pesante applichi lo stesso `import()` dinamico a mano, dentro il componente che lo usa. *Vedi «Bundling frontend: budget, code-splitting e i confini del builder».*
+Il peso del bundle si regola con `budgets` (soglie warning/errore, già gate di `ng build`), la whitelist `allowedCommonJsDependencies` per librerie di terze parti senza ESM, e gli array `styles`/`scripts`/`assets` per CSS/JS/file globali. Il code-splitting per pagina è già automatico (`site.ts → component: () => import(...)`); per un SDK pesante applichi lo stesso `import()` dinamico a mano, dentro il componente che lo usa. Vedi «Bundling frontend: budget, code-splitting e i confini del builder».
 
 ---
 
@@ -179,31 +201,31 @@ Il peso del bundle si regola con `budgets` (soglie warning/errore, già gate di 
 
 Per creare una nuova schermata, segui questo workflow per mantenere integro e type-safe il routing dell'Engine:
 
-1. **Registrare l'identità:** Aggiungi un nuovo `PageType` nel file della sua area (`src/app/pages/*.pages.ts`) — una nuova area è un nuovo file dello stesso pattern, assemblato in `src/app/site.ts`.
+1. **Registrare l'identità:** Aggiungi un nuovo `PageType` nel file della sua area (`src/app/pages/*.pages.ts`); una nuova area è un nuovo file dello stesso pattern, assemblato in `src/app/site.ts`.
 2. **Dichiarare la rotta:** Aggiungi la dichiarazione della pagina nell'array del suo file di area (path, SEO ed eventuali guardie); `site.ts` resta invariato se l'area esiste già.
 3. **Creare il componente:** Crea il componente in `pages/` estendendo `PageBaseComponent` per ereditare i servizi dell'Engine (api, traduzioni, asset, notify e meta-tag automatici).
-4. **Proteggere la pagina (opzionale):** Usa `requiresAuth: true` nella dichiarazione in `site.ts` per demandare all'Engine il controllo auth e il redirect.
+4. **Proteggere la pagina (opzionale):** Usa `requiresAuth: true` nella dichiarazione della pagina (nel suo file di area, `pages/*.pages.ts`) per demandare all'Engine il controllo auth e il redirect.
 5. **Navigare in Sicurezza:** Usa la direttiva `[appPage]="PageType.MioNuovoComponente"` nell'HTML per delegare al framework il calcolo della rotta corretta.
 6. **Caricare dati prima del render (opzionale):** Se la pagina necessita di dati SEO-critici pronti al primo render, aggiungi un caso nello switch del `ContentResolver`.
 
-> *Nota: Gli snippet di codice e i pattern implementativi (le "ricette") sono consultabili nel file `AGENTS.md` alla radice, oppure basta prendere spunto dai file della demo (es. la cartella `home`).*
+> Nota: gli snippet di codice e i pattern implementativi (le "ricette") sono consultabili nel file `AGENTS.md` alla radice, oppure basta prendere spunto dai file della demo (es. la cartella `home`).
 
 #### `PageBaseComponent`: cosa eredita gratis
 
-Estendere `PageBaseComponent<T>` non dà solo l'accesso rapido ai servizi (`api`, `translate`, `asset`, `notify`): porta con sé due comportamenti **automatici** che non vanno riscritti nel componente figlio.
+Estendere `PageBaseComponent<T>` non dà solo l'accesso rapido ai servizi (`api`, `translate`, `asset`, `notify`): porta con sé due comportamenti automatici che non vanno riscritti nel componente figlio.
 
-- **SEO sempre allineata, senza chiamare `PageMetaService` a mano.** Un `effect()` interno alla base aggiorna title, description e og:image ogni volta che il contenuto risolto cambia — incluso il **cambio lingua**. Il tuo componente non tocca `PageMetaService`: dichiara i meta in `site.ts` / nel resolver e l'Engine li riapplica da solo.
-- **Ricarica reattiva alla lingua, con race-guard.** Nel browser la base ri-esegue il resolver a ogni cambio di `currentLang()`, così il contenuto si ri-fetcha nella nuova lingua. Un contatore di sequenza (`reqId`) scarta le risposte lente arrivate **dopo** una più recente, evitando che dati stantii sovrascrivano quelli nuovi a cambi lingua ravvicinati.
+- SEO sempre allineata, senza chiamare `PageMetaService` a mano: un `effect()` interno alla base aggiorna title, description e og:image ogni volta che il contenuto risolto cambia, incluso il cambio lingua. Il tuo componente non tocca `PageMetaService`: dichiara i meta in `site.ts` / nel resolver e l'Engine li riapplica da solo.
+- Ricarica reattiva alla lingua, con race-guard: nel browser la base ri-esegue il resolver a ogni cambio di `currentLang()`, così il contenuto si ri-fetcha nella nuova lingua. Un contatore di sequenza (`reqId`) scarta le risposte lente arrivate dopo una più recente, evitando che dati stantii sovrascrivano quelli nuovi a cambi lingua ravvicinati.
 
-Gli input che la base legge per te — `pageType` e `contentByResolve` — sono `protected`: li consumi dentro il componente (es. via `pageContent()`), non li ridichiari.
+Gli input che la base legge per te, `pageType` e `contentByResolve`, sono `protected`: li consumi dentro il componente (es. via `pageContent()`), non li ridichiari.
 
-Se ti serve l'URL canonico della pagina corrente (per condivisioni, link assoluti, `<link rel="canonical">` custom) chiama `this.getCurrentUrl(): string`. È un wrapper sottile che la base espone al figlio: dietro le quinte interroga `PageMetaService`, che resta `private` all'Engine — il componente ottiene "dove si è" senza dipendere dal servizio meta né poterne alterare lo stato.
+Se ti serve l'URL canonico della pagina corrente (per condivisioni, link assoluti, `<link rel="canonical">` custom) chiama `this.getCurrentUrl(): string`. È un wrapper sottile che la base espone al figlio: dietro le quinte interroga `PageMetaService`, che resta `private` all'Engine: il componente ottiene "dove si è" senza dipendere dal servizio meta né poterne alterare lo stato.
 
 ---
 
 ## 🔐 Sistema di Autenticazione (JWT)
 
-Il sistema di login è **opzionale** e si attiva configurando `Security.Token.SecretKey` (in `global-settings.local.json`). Sul frontend serve:
+Il sistema di login è opzionale e si attiva configurando `Security.Token.SecretKey` (in `global-settings.local.json`). Sul frontend serve:
 
 ```typescript
 // site.ts → tutto strutturale, sta insieme
@@ -215,7 +237,7 @@ loginPage: { page: PageType.Login, showInHeader: true },  // redirect auth + lin
 
 In `pages`, imposta `requiresAuth: true` sulla pagina da proteggere. L'Engine aggiunge automaticamente `renderMode: 'client'` (disabilita SSR per quella pagina) e attiva l'auth guard.
 
-**Cosa fa il guard quando l'utente non è loggato** (`authGuard` in `core/engine/routing.ts`): se in `site.ts` è dichiarata una `loginPage`, redirige lì con i query param `returnPageType` (la pagina di partenza, per tornarci dopo il login) e `reason=auth` (la pagina di login mostra un avviso inline invece di una modale). Senza `loginPage`, resta sulla pagina corrente e mostra la modale di errore 401.
+Cosa fa il guard quando l'utente non è loggato (`authGuard` in `core/engine/routing.ts`): se in `site.ts` è dichiarata una `loginPage`, redirige lì con i query param `returnPageType` (la pagina di partenza, per tornarci dopo il login) e `reason=auth` (la pagina di login mostra un avviso inline invece di una modale). Senza `loginPage`, resta sulla pagina corrente e mostra la modale di errore 401.
 
 ```typescript
 pages: (ctx) => [
@@ -223,12 +245,12 @@ pages: (ctx) => [
         path: 'area-riservata',
         pageType: PageType.AreaRiservata,
         requiresAuth: true,
-        component: () => import('./pages/area-riservata/area-riservata.component')
+        component: () => import('./area-riservata/area-riservata.component').then(m => m.AreaRiservataComponent)
     }
 ],
 ```
 
-> **`requiresAuth` protegge la rotta, non nasconde la voce di menu.** Sono due cose distinte: senza altro, un `addPage(PageType.AreaRiservata)` in `headerNav`/`footerNav` resta visibile anche a chi non è loggato (e verrebbe rimbalzato al login/401 al click). Per nascondere la voce stessa finché non si è loggati, usa `authOnly` sul builder di navigazione — vedi *"Navigazione Multilivello"* più sotto.
+> `requiresAuth` protegge la rotta, non nasconde la voce di menu. Sono due cose distinte: senza altro, un `addPage(PageType.AreaRiservata)` in `headerNav`/`footerNav` resta visibile anche a chi non è loggato (e verrebbe rimbalzato al login/401 al click). Per nascondere la voce stessa finché non si è loggati, usa `authOnly` sul builder di navigazione, vedi "Navigazione Multilivello" più sotto.
 
 ### Leggere la Sessione in una Pagina
 
@@ -248,7 +270,7 @@ this.auth.session()?.roles
 
 ### DTO di Sessione e Login (di proprietà del progetto)
 
-I contratti di autenticazione vivono **fuori** da `core/engine/**` (`src/app/core/dto/`), quindi sono del **progetto figlio**: li adatti al tuo dominio.
+I contratti di autenticazione vivono fuori da `core/engine/**` (`src/app/core/dto/`), quindi sono del progetto figlio: li adatti al tuo dominio.
 
 | DTO | File | Cos'è |
 | :--- | :--- | :--- |
@@ -268,6 +290,8 @@ Aggiungere un campo al profilo di sessione (es. `brandColor`) è quindi un'unica
 ### Ciclo di Vita del Token
 
 Il token è persistito in `sessionStorage` (sopravvive all'F5, si azzera alla chiusura della scheda). `TokenService` (engine, intoccabile) avvia un timer automatico che esegue il logout allo scadere dell'`exp` del JWT. Il timer gestisce il limite JavaScript di 24 giorni tramite rescheduling ricorsivo.
+
+> PWA e `sessionStorage`: logout silenzioso al rilancio. Su un sito con `isWebApp: true`, riaprire l'app installata dalla home screen può creare un nuovo contesto di navigazione a seconda di OS/browser (non è sempre la stessa "scheda" del punto di vista di `sessionStorage`), e l'utente si ritrova sloggato senza un'azione esplicita di logout. Non c'è oggi un meccanismo dell'Engine che lo previene: chi ha bisogno di una sessione che sopravviva al rilancio della PWA deve valutare un mezzo diverso (es. un refresh token in cookie persistente), fuori dallo scope attuale di `TokenService`.
 
 ### Gestione Errori di Login
 
@@ -299,7 +323,7 @@ Le rotte d'errore sono generate automaticamente (`core/engine/routing.ts`):
 | `error` | redirect a `error/500` |
 | `error/401` | redirect alla pagina di login (`loginPage`), se configurata |
 
-Il caso `401` è speciale: un utente non autenticato non finisce su una pagina d'errore cieca ma viene mandato al login. Se nessuna pagina di login è configurata, l'`authGuard` resta sulla pagina corrente e mostra una modale di accesso negato (vedi *Sistema di Autenticazione*).
+Il caso `401` è speciale: un utente non autenticato non finisce su una pagina d'errore cieca ma viene mandato al login. Se nessuna pagina di login è configurata, l'`authGuard` resta sulla pagina corrente e mostra una modale di accesso negato (vedi Sistema di Autenticazione).
 
 Per mostrare un errore programmaticamente, naviga verso la rotta:
 ```typescript
@@ -328,25 +352,25 @@ L'Engine tiene separati due tipi di errore, con messaggi diversi di proposito:
 
 Così un 404 di navigazione e un 404 di una `GET` falliscono con parole appropriate al contesto, non con lo stesso testo generico.
 
-> **Lato server:** per le rotte `error/{code}` l'SSR restituisce anche lo status HTTP reale (es. `error/404` → `404`), non un `200`. Vedi *Server SSR → Status Code SEO-Aware*.
+> Lato server: per le rotte `error/{code}` l'SSR restituisce anche lo status HTTP reale (es. `error/404` → `404`), non un `200`. Vedi Server SSR → Status Code SEO-Aware.
 
 ---
 
 ## 🔒 Consenso Cookie e Privacy (GDPR/ePrivacy)
 
-`CookieConsentService` gestisce in modo **unificato cookie e Web Storage** (localStorage/sessionStorage) con strategia "Privacy by Default": nessuna voce viene scritta finché l'utente non esprime consenso esplicito per quella categoria. Un'unica mappa, un'unica API (`set`/`get`/`remove`) che instrada sul mezzo giusto, un unico elenco in policy. Conforme al modello "cookie e altri strumenti di tracciamento" delle Linee guida del Garante (2021).
+`CookieConsentService` gestisce in modo unificato cookie e Web Storage (localStorage/sessionStorage) con strategia "Privacy by Default": nessuna voce viene scritta finché l'utente non esprime consenso esplicito per quella categoria. Un'unica mappa, un'unica API (`set`/`get`/`remove`) che instrada sul mezzo giusto, un unico elenco in policy. Conforme al modello "cookie e altri strumenti di tracciamento" delle Linee guida del Garante (2021).
 
 ### Tre Categorie di Consenso
 
 | Categoria | Cosa include |
 | :--- | :--- |
-| **Technical** | Preferenza lingua, Service Worker, cookie essenziali di funzionamento |
+| **Technical** | Service Worker, cookie essenziali di funzionamento |
 | **Analytics** | Tracciamento e analytics (Google Analytics, ecc.) |
 | **Profiling** | Pubblicità comportamentale e profilazione |
 
 ### Aggiungere un cookie o una voce di Web Storage
 
-Registra la voce nel `COOKIE_MAP` (in `src/app/core/services/cookie-registry.ts`): specifica la categoria e il banner mostra il toggle, la policy la elenca e la pulizia alla revoca la gestisce — automaticamente. **La stessa mappa descrive cookie e Web Storage**: il campo `storage` decide il mezzo (omesso = cookie; `'local'`/`'session'` = Web Storage). I tipi (`ConsentCategory`, `CookieConfig`) vivono in `src/app/core/engine/services/cookie/cookie-type.ts`:
+Registra la voce nel `COOKIE_MAP` (in `src/app/core/services/cookie-registry.ts`): specifica la categoria e il banner mostra il toggle, la policy la elenca e la pulizia alla revoca la gestisce automaticamente. La stessa mappa descrive cookie e Web Storage: il campo `storage` decide il mezzo (omesso = cookie; `'local'`/`'session'` = Web Storage). I tipi (`ConsentCategory`, `CookieConfig`) vivono in `src/app/core/engine/services/cookie/cookie-type.ts`:
 
 ```typescript
 import { ConsentCategory, type CookieConfig } from '../engine/services/cookie/cookie-type';
@@ -380,7 +404,7 @@ export const COOKIE_MAP = {
 } as const satisfies Readonly<Record<string, CookieConfig>>;
 ```
 
-`CookieConfig`: `category`, `descriptionKey?` (i18n per la Cookie Policy), `valueType?` (cast automatico), `storage?` (mezzo: cookie / local / session), `match?` (strategia di match della chiave sul Web Storage: omesso/`'exact'` = chiave singola; `'prefix'` = famiglia di chiavi — vedi sotto) e — per la **dichiarazione standard** nella policy (allineata a Cookiebot/OneTrust) — `provider?` (omesso = prima parte; valorizzato = nome del terzo), `providerUrl?` (link alla policy del terzo → il nome diventa cliccabile) e `durationKey?` (chiave i18n della durata dichiarata del cookie; default "1 anno" = Max-Age di default di `set()`; per il Web Storage la durata è derivata dal mezzo). Le stringhe localizzate (`descriptionKey`, `durationKey`) vivono negli i18n.
+`CookieConfig`: `category`, `descriptionKey?` (i18n per la Cookie Policy), `valueType?` (cast automatico), `storage?` (mezzo: cookie / local / session), `match?` (strategia di match della chiave sul Web Storage: omesso/`'exact'` = chiave singola; `'prefix'` = famiglia di chiavi, vedi sotto) e, per la dichiarazione standard nella policy (allineata a Cookiebot/OneTrust), `provider?` (omesso = prima parte; valorizzato = nome del terzo), `providerUrl?` (link alla policy del terzo → il nome diventa cliccabile) e `durationKey?` (chiave i18n della durata dichiarata del cookie; default "1 anno" = Max-Age di default di `set()`; per il Web Storage la durata è derivata dal mezzo). Le stringhe localizzate (`descriptionKey`, `durationKey`) vivono negli i18n.
 
 Nel componente:
 ```typescript
@@ -388,15 +412,15 @@ this.consent.set('mioTracker', true, 60 * 60 * 24); // 1 giorno — tipo inferit
 this.consent.set('mioSalvataggio', { livello: 3 }); // → localStorage, serializzato in JSON
 ```
 
-La voce è scritta solo se la categoria è accettata. Per i **cookie** il nome fisico è prefissato con la categoria (`{category}_{rawKey}`, es. `analytics_mioTracker`, via `buildPhysicalCookieKey()`); per il **Web Storage** la chiave è raw (`mioSalvataggio`).
+La voce è scritta solo se la categoria è accettata. Per i cookie il nome fisico è prefissato con la categoria (`{category}_{rawKey}`, es. `analytics_mioTracker`, via `buildPhysicalCookieKey()`); per il Web Storage la chiave è raw (`mioSalvataggio`).
 
-**Censire una famiglia di chiavi (`match: 'prefix'`).** Alcuni SDK di terza parte scrivono nel Web Storage **più chiavi con un suffisso dinamico** — tipicamente derivato dal token o da un identificativo di sessione (es. `sdkTerzaParte.telemetria:<hash>`, `sdkTerzaParte.telemetria.uuid:<hash>`). Non potendo censirle una a una (il suffisso non è noto a priori), una **singola** voce con `match: 'prefix'` le rappresenta tutte: la chiave della voce diventa un **prefisso**, e alla revoca del consenso vengono rimosse **tutte** le chiavi dello Storage che iniziano così. La voce compare in policy come una riga normale (nome = il prefisso). Attenzione: una voce `prefix` è **solo lettura dal lato consenso** — `set()` su di essa è un **no-op** (le chiavi reali le crea l'SDK, non tu); esiste per **elencarle in policy** e **pulirle alla revoca**. Vale solo per il Web Storage (`storage: 'local' | 'session'`). Il consenso a monte lo gestisci tu: carica l'SDK di terza parte **solo** dopo che la sua categoria è accettata (`consent.analyticsAccepted()` ecc.), così senza consenso quelle chiavi non vengono nemmeno scritte (Privacy by Default).
+Censire una famiglia di chiavi (`match: 'prefix'`): alcuni SDK di terza parte scrivono nel Web Storage più chiavi con un suffisso dinamico, tipicamente derivato dal token o da un identificativo di sessione (es. `sdkTerzaParte.telemetria:<hash>`, `sdkTerzaParte.telemetria.uuid:<hash>`). Non potendo censirle una a una (il suffisso non è noto a priori), una singola voce con `match: 'prefix'` le rappresenta tutte: la chiave della voce diventa un prefisso, e alla revoca del consenso vengono rimosse tutte le chiavi dello Storage che iniziano così. La voce compare in policy come una riga normale (nome = il prefisso). Attenzione: una voce `prefix` è solo lettura dal lato consenso, `set()` su di essa è un no-op (le chiavi reali le crea l'SDK, non tu); esiste per elencarle in policy e pulirle alla revoca. Vale solo per il Web Storage (`storage: 'local' | 'session'`). Il consenso a monte lo gestisci tu: carica l'SDK di terza parte solo dopo che la sua categoria è accettata (`consent.analyticsAccepted()` ecc.), così senza consenso quelle chiavi non vengono nemmeno scritte (Privacy by Default).
 
-> **Chiavi essenziali protette.** La pulizia per prefisso **non tocca mai** le chiavi essenziali del motore (`consent_log`, `bearerToken`): sono la prova del consenso e la sessione, il progetto non le conosce e un prefisso troppo largo (es. `consent`) le prenderebbe in pieno — l'Engine le salta sempre. **Caveat sul tuo lato:** il prefisso è "cieco", cattura *qualunque* chiave che inizi così — comprese **altre tue voci esatte** che gli finiscono sotto (es. prefisso `dati` + voce `dati.salvati`). Scegli un prefisso abbastanza specifico da non collidere con le tue altre chiavi.
+> Chiavi essenziali protette: la pulizia per prefisso non tocca mai le chiavi essenziali del motore (`consent_log`, `bearerToken`), sono la prova del consenso e la sessione, il progetto non le conosce e un prefisso troppo largo (es. `consent`) le prenderebbe in pieno: l'Engine le salta sempre. Caveat sul tuo lato: il prefisso è "cieco", cattura qualunque chiave che inizi così, comprese altre tue voci esatte che gli finiscono sotto (es. prefisso `dati` + voce `dati.salvati`). Scegli un prefisso abbastanza specifico da non collidere con le tue altre chiavi.
 
 ### Stato del Consenso e Azioni (reattivo)
 
-`CookieConsentService` (iniettabile ovunque) espone lo stato del consenso come **signal di sola lettura** e le azioni che lo modificano. Tutto è reattivo: un `computed` che legge un signal di consenso si riaggiorna da solo quando l'utente accetta o rifiuta dal banner.
+`CookieConsentService` (iniettabile ovunque) espone lo stato del consenso come signal di sola lettura e le azioni che lo modificano. Tutto è reattivo: un `computed` che legge un signal di consenso si riaggiorna da solo quando l'utente accetta o rifiuta dal banner.
 
 ```typescript
 private readonly consent = inject(CookieConsentService);
@@ -416,7 +440,7 @@ this.consent.saveSelected(technical, analytics, profiling); // selezione granula
 this.consent.reopen();                                  // riapre il banner per modificare le preferenze
 ```
 
-**Gating di una feature sul consenso.** Per attivare qualcosa solo dopo il consenso della sua categoria — il caso tipico è caricare gli analytics — fai dipendere la logica dal signal corrispondente, così reagisce sia all'accettazione immediata sia a una scelta già salvata:
+Gating di una feature sul consenso: per attivare qualcosa solo dopo il consenso della sua categoria (il caso tipico è caricare gli analytics), fai dipendere la logica dal signal corrispondente, così reagisce sia all'accettazione immediata sia a una scelta già salvata:
 
 ```typescript
 constructor() {
@@ -428,9 +452,21 @@ constructor() {
 }
 ```
 
+### Global Privacy Control (GPC)
+
+`consent.gpcSignaled` (`boolean`, non un signal: non può cambiare durante la sessione) è `true` quando il browser, o un'estensione, manda l'header/proprietà `navigator.globalPrivacyControl`, l'opt-out universale riconosciuto come Universal Opt-Out Mechanism e obbligatorio da onorare in California/Colorado/Connecticut (e altri stati USA) dal 2026.
+
+Onorato automaticamente al bootstrap del servizio, solo per Analytics/Profiling (GPC riguarda "vendita/condivisione" dei dati, mai i cookie strettamente necessari): se l'utente non ha ancora risposto esplicitamente per quella categoria, viene registrato un rifiuto, non solo applicato in-memory ai signal, altrimenti il banner riproporrebbe la stessa domanda ad ogni visita nonostante il browser stia già rispondendo "no" per conto dell'utente. Una scelta manuale successiva dal banner prevale sempre e sovrascrive quella automatica.
+
+Il banner mostra una conferma visibile (`gpcRilevatoBannerCookie` in `basic.{lang}.json`) quando il segnale è stato onorato, così com'è richiesto dalle normative che lo trattano: non basta rispettarlo, va anche mostrato che è stato rispettato.
+
+```typescript
+this.consent.gpcSignaled; // → boolean, letto una volta all'avvio del servizio
+```
+
 ### Accessori tipizzati — `set` / `get` / `remove`
 
-`set` / `get` / `remove` sono **tipizzati** sulla chiave e **instradano da soli** sul mezzo giusto (cookie o Web Storage, secondo `storage`). Il tipo del valore (`boolean` / `number` / `json` / `string`) è inferito da `valueType` tramite `InferCookieType`, quindi niente cast a mano. La scrittura resta gated dal consenso (e bloccata per chiavi non censite) ed è robusta a valori non serializzabili (li salta senza crashare); le letture no — sono privacy-safe. `setCookie`/`getCookie`/`removeCookie` restano come **alias deprecati**.
+`set` / `get` / `remove` sono tipizzati sulla chiave e instradano da soli sul mezzo giusto (cookie o Web Storage, secondo `storage`). Il tipo del valore (`boolean` / `number` / `json` / `string`) è inferito da `valueType` tramite `InferCookieType`, quindi niente cast a mano. La scrittura resta gated dal consenso (e bloccata per chiavi non censite) ed è robusta a valori non serializzabili (li salta senza crashare); le letture no, sono privacy-safe.
 
 ```typescript
 this.consent.set('mioTracker', true, 60 * 60 * 24); // boolean (da valueType); Max-Age vale solo per i cookie
@@ -438,23 +474,13 @@ const v = this.consent.get('mioTracker');            // → boolean | null, già
 this.consent.remove('mioTracker');                   // sempre permesso, anche a consenso revocato
 ```
 
-> ⚠️ **Niente storage diretto.** Una regola ESLint (`no-restricted-globals`) vieta `localStorage`/`sessionStorage` grezzi fuori da `CookieConsentService` e `TokenService` (infra auth). Così *ogni* persistenza passa dal gate del consenso ed è garantita nell'inventario della policy — privacy by default per costruzione, non per memoria. In SSR il Web Storage non è leggibile: `get` torna `null` lato server (non usarlo per contenuto renderizzato SSR — per quello servono i cookie, leggibili dall'header `Cookie`).
+> ⚠️ Niente storage diretto. Una regola ESLint (`no-restricted-globals`) vieta `localStorage`/`sessionStorage` grezzi fuori da `CookieConsentService` e `TokenService` (infra auth). Così ogni persistenza passa dal gate del consenso ed è garantita nell'inventario della policy: privacy by default per costruzione, non per memoria. In SSR il Web Storage non è leggibile: `get` torna `null` lato server (non usarlo per contenuto renderizzato SSR, per quello servono i cookie, leggibili dall'header `Cookie`).
 
 ### Service Worker e Consenso Tecnico
 
-Il Service Worker è registrato **solo dopo che l'utente accetta il consenso tecnico**. Questo include:
+Il Service Worker è registrato solo dopo che l'utente accetta il consenso tecnico. Questo include:
 - Registrazione `provideServiceWorker()` all'avvio
 - `VersionCheckService` inizia il polling degli aggiornamenti
-- La preferenza lingua viene salvata nel cookie `lang`
-
-### Persistenza Lingua e Consenso
-
-La preferenza lingua è salvata solo con consenso tecnico accettato:
-1. Utente rifiuta consenso → cambia lingua a "en" (naviga a `/en/...`) → una futura visita a un URL non prefissato ripropone la decisione di `langRedirectGuard` (nessuna preferenza salvata)
-2. Utente accetta consenso tecnico → cambia lingua a "en" → la preferenza persiste: una futura visita a un URL non prefissato non viene più rediretta automaticamente
-
-La lettura della preferenza salvata non richiede consenso (operazione di sola lettura, privacy-safe).
-**Nota SSR:** con più lingue, `langRedirectGuard` (che decide se rediregere un visitatore da un URL non prefissato — vedi «Lingua nell'URL») legge il cookie `lang` tramite l'header `Cookie` della richiesta HTTP in ingresso (`REQUEST` token in Angular) e, se assente, l'header `Accept-Language`. Questi due segnali servono solo a quella decisione di redirect: la lingua della pagina effettivamente renderizzata è determinata dal path richiesto (`route.data.lang`, letto da `PageBaseComponent`).
 
 ### Dichiarazione Cookie GDPR nella Cookie Policy
 
@@ -465,7 +491,7 @@ La pagina Cookie Policy deve elencare categorie e cookie usati dal sito (richies
 | `{{cookieList}}` | **Elenco riepilogo-first**: le voci (cookie **e** Web Storage) raggruppate per categoria in pannelli collassabili (`<details>` nativo), **chiusi di default** — così regge anche con centinaia di voci. Header del gruppo con nome, conteggio e descrizione della categoria; per ogni voce: nome fisico, mezzo, descrizione, **provider** (cliccabile se ha `providerUrl`) e **durata**. |
 | `{{cookieCategories}}` | Card delle categorie presenti (Technical / Analytics / Profiling). *Ridondante col nuovo `{{cookieList}}`, che ne fonde già le descrizioni negli header: il markdown demo non lo usa più, ma il token resta supportato per chi lo vuole.* |
 
-**Extra automatici, solo sulla Cookie Policy** (identificata per `PageType`): oltre ai placeholder, il `PolicyComponent` aggiunge da sé la riga **«Ultimo aggiornamento»** (data per pagina legale dal dizionario `legalUpdated` in `pages/legal.pages.ts`, `Date` hardcoded, resa con `<time>` semantico e formattata per lingua via `Intl`), la sezione **«Come controllare i cookie»** (guide dei browser localizzate per lingua) e un **pannello di gestione del consenso in pagina** (il cookie-banner in `panelMode`: stessi toggle/pulsanti, in-flusso, mostrato dopo che si è risposto).
+Extra automatici, solo sulla Cookie Policy (identificata per `PageType`): oltre ai placeholder, il `PolicyComponent` aggiunge da sé la riga «Ultimo aggiornamento» (data per pagina legale dal dizionario `legalUpdated` in `pages/legal.pages.ts`, `Date` hardcoded, resa con `<time>` semantico e formattata per lingua via `Intl`), la sezione «Come controllare i cookie» (guide dei browser localizzate per lingua) e un pannello di gestione del consenso in pagina (il cookie-banner in `panelMode`: stessi toggle/pulsanti, in-flusso, mostrato dopo che si è risposto).
 
 I dati provengono direttamente da `CookieConsentService`: il `PolicyComponent` legge i signal reattivi e costruisce le liste localizzate.
 
@@ -473,24 +499,24 @@ I dati provengono direttamente da `CookieConsentService`: il `PolicyComponent` l
 private readonly cookieConsent = inject(CookieConsentService);
 
 // Categorie attive — solo quelle realmente richieste dal sito
-this.cookieConsent.isTechnicalNeeded();  // include lingua (multilingua) e SW (isWebApp)
+this.cookieConsent.isTechnicalNeeded();  // include SW (isWebApp)
 this.cookieConsent.isAnalyticsNeeded();
 this.cookieConsent.isProfilingNeeded();
 
-// Voci "engine" attive (lang, ngsw-worker.js, consenso, consent_log, bearerToken) — filtrate per configurazione
+// Voci "engine" attive (ngsw-worker.js, consenso, consent_log, bearerToken) — filtrate per configurazione
 this.cookieConsent.activeEngine(); // → Record<string, CookieConfig>
 
-// Nome fisico del cookie nel browser (es. 'technical_lang')
+// Nome fisico del cookie nel browser (es. 'technical_consent_technical')
 buildPhysicalCookieKey(rawKey, config);
 ```
 
-La lista finale è l'unione di `activeEngine()` (voci built-in: lingua se multilingua, Service Worker se `isWebApp`, memorie del consenso, più `consent_log` e `bearerToken` su Web Storage) e `COOKIE_MAP` (voci del progetto). Per ogni voce il `PolicyComponent` mostra **mezzo** (Cookie / Archiviazione locale / di sessione), **provider** (con link se `providerUrl` è dichiarato; assente = «Prima parte») e **durata**. Le descrizioni usano le `descriptionKey`, le durate le `durationKey`; le etichette di categoria e mezzo le chiavi i18n in `basic.{lang}.json`.
+La lista finale è l'unione di `activeEngine()` (voci built-in: Service Worker se `isWebApp`, memorie del consenso, più `consent_log` e `bearerToken` su Web Storage) e `COOKIE_MAP` (voci del progetto). Per ogni voce il `PolicyComponent` mostra mezzo (Cookie / Archiviazione locale / di sessione), provider (con link se `providerUrl` è dichiarato; assente = «Prima parte») e durata. Le descrizioni usano le `descriptionKey`, le durate le `durationKey`; le etichette di categoria e mezzo le chiavi i18n in `basic.{lang}.json`.
 
-### Google Consent Mode v2 — ricetta pronta (non attiva di default)
+### Google Consent Mode v2 — obbligatorio se usi GA4/Google Ads, ricetta pronta (non attiva finché non serve)
 
-L'Engine resta **provider-agnostico**: `COOKIE_MAP` nasce vuoto e nessun tag Google è caricato finché non lo aggiungi tu. Ma se il progetto usa (o userà) GA4/Google Ads, dal 28 marzo 2024 Google **richiede** il Consent Mode v2 — senza, i tag degradano o smettono di funzionare in UE. Non è nell'Engine perché è specifico di un vendor terzo (romperebbe la neutralità e obbligherebbe ogni sito a portarsi dietro codice morto); è però già cablato tutto il necessario lato consenso — questa è la ricetta da applicare il giorno in cui attivi Google, quattro punti, tutti nel Dominio:
+L'Engine resta provider-agnostico: `COOKIE_MAP` nasce vuoto e nessun tag Google è caricato finché non lo aggiungi tu. Ma se il progetto usa (o userà) GA4/Google Ads, dal 28 marzo 2024 Google richiede il Consent Mode v2, senza il quale i tag degradano o smettono di funzionare in UE. Non è nell'Engine perché è specifico di un vendor terzo (romperebbe la neutralità e obbligherebbe ogni sito a portarsi dietro codice morto); è però già cablato tutto il necessario lato consenso: questa è la ricetta da applicare il giorno in cui attivi Google, quattro punti, tutti nel Dominio:
 
-**1. `src/index.html` — stub di default, PRIMA di qualsiasi script `gtag.js`/GTM.** Consenso negato finché l'utente non risponde (obbligatorio: deve caricare prima del tag stesso):
+1. `src/index.html`: stub di default, PRIMA di qualsiasi script `gtag.js`/GTM. Consenso negato finché l'utente non risponde (obbligatorio: deve caricare prima del tag stesso):
 ```html
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -511,15 +537,15 @@ L'Engine resta **provider-agnostico**: `COOKIE_MAP` nasce vuoto e nessun tag Goo
 ```
 Aggiungilo a mano solo quando attivi davvero GA/Ads: prima di allora è codice morto che non ha ragione di stare nel seed di ogni sito.
 
-**2. `security-headers.json` — whitelisting CSP.** La CSP di default è `script-src 'self'` / `connect-src 'self'`: senza estenderla, il browser blocca `gtag.js` in silenzio. Usa l'override eccezionale già documentato nella `_nota` del file:
+2. `security-headers.json`: whitelisting CSP. La CSP di default è `script-src 'self'` / `connect-src 'self'`: senza estenderla, il browser blocca `gtag.js` in silenzio. Usa l'override eccezionale già documentato nella `_nota` del file:
 ```
 script-src 'self' {SCRIPT_NONCE_PLACEHOLDER} https://www.googletagmanager.com;
 connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com
 ```
 
-**3. `cookie-registry.ts` — censisci i cookie di Google.** Stesso pattern già mostrato sopra per `_ga` (`provider: 'Google Analytics'`, `providerUrl`, `durationKey`): categoria `Analytics` per GA4, `Profiling` per Google Ads/remarketing.
+3. `cookie-registry.ts`: censisci i cookie di Google. Stesso pattern già mostrato sopra per `_ga` (`provider: 'Google Analytics'`, `providerUrl`, `durationKey`): categoria `Analytics` per GA4, `Profiling` per Google Ads/remarketing.
 
-**4. Un servizio di progetto che aggiorna il consenso reattivamente.** Stesso pattern di gating già documentato (`effect()` su un signal di `CookieConsentService`), qui rivolto a `gtag('consent', 'update', …)` invece che al caricamento di uno script:
+4. Un servizio di progetto che aggiorna il consenso reattivamente. Stesso pattern di gating già documentato (`effect()` su un signal di `CookieConsentService`), qui rivolto a `gtag('consent', 'update', …)` invece che al caricamento di uno script:
 ```typescript
 // core/services/analytics.service.ts — iniettato una volta da app.component.ts (la shell)
 declare const gtag: (...args: unknown[]) => void;
@@ -541,20 +567,20 @@ export class AnalyticsService {
     }
 }
 ```
-Mappatura sulle categorie di questo Engine: `analytics_storage` ← `analyticsAccepted()`; `ad_storage`/`ad_user_data`/`ad_personalization` (pubblicità comportamentale) ← `profilingAccepted()`, non `analyticsAccepted()` — sono due consensi giuridicamente distinti anche per Google.
+Mappatura sulle categorie di questo Engine: `analytics_storage` ← `analyticsAccepted()`; `ad_storage`/`ad_user_data`/`ad_personalization` (pubblicità comportamentale) ← `profilingAccepted()`, non `analyticsAccepted()`: sono due consensi giuridicamente distinti anche per Google.
 
 ### Altri due obblighi da tenere presenti (fuori scope Engine oggi)
 
-Nessuno dei due è una feature del template — nessun chatbot, nessuna generazione IA, nessuna newsletter integrata — ma diventano rilevanti nel momento in cui un progetto figlio li aggiunge:
+Nessuno dei due è una feature del template (nessun chatbot, nessuna generazione IA, nessuna newsletter integrata), ma diventano rilevanti nel momento in cui un progetto figlio li aggiunge:
 
-- **AI Act, trasparenza — dal 2 agosto 2026.** Se il progetto aggiunge un chatbot: avviso esplicito e immediatamente percepibile al primo messaggio ("Stai parlando con un sistema di IA"), non un testo nascosto in fondo alla pagina. Se pubblica contenuti (testo/immagini/video) generati da IA senza revisione editoriale umana: etichettatura visibile. Riguarda anche le PMI, non solo i grandi provider — l'Engine non ha nulla da gestire finché non esiste il chatbot/i contenuti, ma la scadenza è vicina: pianificalo per tempo.
-- **Newsletter/marketing — consenso separato dal consenso cookie.** Se il progetto aggiunge un form di iscrizione: l'autorizzazione a scrivere all'indirizzo email **non** è una categoria di `ConsentCategory` — quel sistema gestisce storage/tracciamento lato browser (Technical/Analytics/Profiling), non il permesso di inviare comunicazioni. Serve una checkbox dedicata, non pre-spuntata, e — se il progetto fa anche profilazione sugli iscritti — una seconda checkbox separata per quello: consensi granulari e specifici, non raggruppati in uno solo.
+- **AI Act, trasparenza (dal 2 agosto 2026).** Se il progetto aggiunge un chatbot: avviso esplicito e immediatamente percepibile al primo messaggio ("Stai parlando con un sistema di IA"), non un testo nascosto in fondo alla pagina. Se pubblica contenuti (testo/immagini/video) generati da IA senza revisione editoriale umana: etichettatura visibile. Riguarda anche le PMI, non solo i grandi provider. L'Engine non ha nulla da gestire finché non esiste il chatbot/i contenuti, ma la scadenza è vicina: pianificalo per tempo.
+- **Newsletter/marketing (consenso separato dal consenso cookie).** Se il progetto aggiunge un form di iscrizione: l'autorizzazione a scrivere all'indirizzo email non è una categoria di `ConsentCategory`: quel sistema gestisce storage/tracciamento lato browser (Technical/Analytics/Profiling), non il permesso di inviare comunicazioni. Serve una checkbox dedicata, non pre-spuntata, e (se il progetto fa anche profilazione sugli iscritti) una seconda checkbox separata per quello: consensi granulari e specifici, non raggruppati in uno solo.
 
 ---
 
 ## 🎨 Tema e Sistema di Colori (OKLCH + WCAG)
 
-Il sito ha un sistema di tema che genera 75+ variabili CSS partendo da un **solo colore brand** dichiarato in `site.ts`.
+Il sito ha un sistema di tema che genera 75+ variabili CSS partendo da un solo colore brand dichiarato in `site.ts`.
 
 ### Un Colore, Palette Completa
 
@@ -584,13 +610,13 @@ Tutti i colori di testo su sfondo sono calcolati per garantire contrasto WCAG AA
 - Funziona sia in light che dark mode per i colori brand-derived
 - I colori semantici fissi delegano a Bootstrap che li calibra per entrambi i toni
 
-**Primary: fill vs foreground.** `colorPrimary` è scurito in OKLCH (hue e chroma preservate) finché garantisce 4.5:1 sul fondo pagina chiaro reale (`baseLt`), e alimenta i **fill** (`--bs-primary`: bottoni, `.bg-primary`, badge) dove il testo sopra si contrasta su `colorPrimaryText`. Quando invece il primary è usato come **foreground** sulla pagina (`.text-primary`, `.border-primary`), un valore tarato sul chiaro risulterebbe scuro-su-scuro in dark mode: per questo esiste la gemella `colorPrimaryDk`, schiarita in OKLCH finché garantisce 4.5:1 sul fondo scuro reale (`baseDk`). Le utility risolvono alla variante giusta via `--colorPrimaryFg`, tone-adaptive come `--colorLink`. Entrambe preservano la chroma del brand: il contrasto WCAG dipende dalla luminanza, non dalla saturazione, quindi una tinta viva resta viva senza costare accessibilità.
+Primary: fill vs foreground. `colorPrimary` è scurito in OKLCH (hue e chroma preservate) finché garantisce 4.5:1 sul fondo pagina chiaro reale (`baseLt`), e alimenta i fill (`--bs-primary`: bottoni, `.bg-primary`, badge) dove il testo sopra si contrasta su `colorPrimaryText`. Quando invece il primary è usato come foreground sulla pagina (`.text-primary`, `.border-primary`), un valore tarato sul chiaro risulterebbe scuro-su-scuro in dark mode: per questo esiste la gemella `colorPrimaryDk`, schiarita in OKLCH finché garantisce 4.5:1 sul fondo scuro reale (`baseDk`). Le utility risolvono alla variante giusta via `--colorPrimaryFg`, tone-adaptive come `--colorLink`. Entrambe preservano la chroma del brand: il contrasto WCAG dipende dalla luminanza, non dalla saturazione, quindi una tinta viva resta viva senza costare accessibilità.
 
 ### Cambio Tema a Runtime
 
-`colorTema` è un `WritableSignal` — cambiarlo aggiorna immediatamente palette, CSS vars e tutti i componenti che leggono i signal del tema.
+`colorTema` è un `WritableSignal`: cambiarlo aggiorna immediatamente palette, CSS vars e tutti i componenti che leggono i signal del tema.
 
-**Pattern 1 — Colore utente al login**
+Pattern 1: colore utente al login
 
 Il caso più comune: l'utente ha un colore brand nel suo profilo. Impostarlo subito dopo l'autenticazione lo fa persistere su tutte le navigazioni successive.
 
@@ -606,7 +632,7 @@ async login(credentials: Credentials) {
 }
 ```
 
-**Pattern 2 — Colore per singola pagina**
+Pattern 2: colore per singola pagina
 
 Se una pagina ha un colore dedicato, il componente lo imposta e lo ripristina quando viene distrutto tramite `DestroyRef`.
 
@@ -624,9 +650,9 @@ export class CampagnaComponent {
 }
 ```
 
-**Precedenza e conflitti**
+Precedenza e conflitti
 
-Non esiste un meccanismo di priorità centralizzato — l'ultimo chiamante vince. La convenzione suggerita:
+Non esiste un meccanismo di priorità centralizzato, vince l'ultimo chiamante. La convenzione suggerita:
 
 - Il colore utente va impostato al login e non deve essere sovrascritto da logiche di navigazione
 - Il colore di pagina va sempre ripristinato in `onDestroy`
@@ -642,7 +668,7 @@ readonly prefersReducedMotion: Signal<boolean>; // Per animazioni accessibili
 
 ### Leggere il tema in un componente
 
-Quando un componente disegna su `<canvas>`, genera un'immagine o sceglie un colore inline, **non hardcodare i valori**: leggi i signal di `ThemeService`. Sono già WCAG-safe (calcolati per garantire 4.5:1) e reattivi — cambiano da soli al cambio di brand (`setColorTema`) o di tono OS (`prefers-color-scheme`), quindi il tuo componente resta coerente senza una riga di sincronizzazione.
+Quando un componente disegna su `<canvas>`, genera un'immagine o sceglie un colore inline, non hardcodare i valori: leggi i signal di `ThemeService`. Sono già WCAG-safe (calcolati per garantire 4.5:1) e reattivi, cambiano da soli al cambio di brand (`setColorTema`) o di tono OS (`prefers-color-scheme`), quindi il tuo componente resta coerente senza una riga di sincronizzazione.
 
 ```typescript
 private readonly theme = inject(ThemeService);
@@ -662,7 +688,7 @@ this.theme.prefersReducedMotion();  // true → disattiva animazioni/auto-play
 
 Sono signal di sola lettura usati dall'Engine stesso: `QrCodeService` e `ImgBuilderService`, ad esempio, leggono `colorPrimary()`/`colorPrimaryText()` per colorare QR e immagini in modo conforme quando non passi colori espliciti.
 
-**Pannello forzato chiaro dentro una pagina scura.** Se hai un riquadro che deve restare in tono chiaro a prescindere dal tema OS (es. un pannello di anteprima), bind `panelBootstrapTheme` all'attributo Bootstrap, così tutto il sottoalbero usa il subtema corretto:
+Pannello forzato chiaro dentro una pagina scura: se hai un riquadro che deve restare in tono chiaro a prescindere dal tema OS (es. un pannello di anteprima), bind `panelBootstrapTheme` all'attributo Bootstrap, così tutto il sottoalbero usa il subtema corretto:
 
 ```html
 <div [attr.data-bs-theme]="theme.panelBootstrapTheme">
@@ -680,18 +706,18 @@ const [L, C, H] = ThemeService.hexToOklch('#1f40ff'); // hex → OKLCH
 const hex = ThemeService.oklchToHex(L, C, H);          // OKLCH → hex
 ```
 
-Pubblico è anche il **calcolo del contrasto** (modello WCAG 2.1) — l'unico seam con cui validare un colore di progetto a 4.5:1:
+Pubblico è anche il calcolo del contrasto (modello WCAG 2.1), l'unico seam con cui validare un colore di progetto a 4.5:1:
 ```typescript
 ThemeService.calcContrastRatio(coloreA, coloreB); // → rapporto nel range [1, 21]
 ThemeService.calcLuminance('#1f40ff');             // → luminanza relativa [0, 1]
 ThemeService.hexToRgbTriplet('#1f40ff');           // → "31, 64, 255" per le rgba() di Bootstrap/CSS
 ```
 
-Distinto da questo è il *derivare* automaticamente un colore conforme (link, testo muted, ecc.): quella logica (`findCompliantColor`, che regola la luminanza finché non raggiunge 4.5:1) è **interna al servizio e non è parte dell'API pubblica**. In sintesi: la **misura** del contrasto è pubblica (`calcContrastRatio`), la **derivazione** del colore conforme è privata.
+Distinto da questo è il derivare automaticamente un colore conforme (link, testo muted, ecc.): quella logica (`findCompliantColor`, che regola la luminanza finché non raggiunge 4.5:1) è interna al servizio e non è parte dell'API pubblica. In sintesi: la misura del contrasto è pubblica (`calcContrastRatio`), la derivazione del colore conforme è privata.
 
 ### Anti-flash del tema (automatico)
 
-Il tema corretto è in pagina **prima** che Angular si avvii: nessun lampo di tema sbagliato (FOUC) al primo caricamento. Funziona su due binari, entrambi gestiti dall'Engine senza configurazione:
+Il tema corretto è in pagina prima che Angular si avvii: nessun lampo di tema sbagliato (FOUC) al primo caricamento. Funziona su due binari, entrambi gestiti dall'Engine senza configurazione:
 
 - **Asset statico `public/theme-init.js`** — uno script sincrono nel `<head>` (referenziato con path **assoluto** `/theme-init.js`, perché sta prima di `<base href>`) che legge `prefers-color-scheme` e imposta subito `data-bs-theme` / `data-theme-tone` su `<html>`. Lo emette `generate-statics.ts` al build: è gitignored, quindi va materializzato lì o mancherebbe su un checkout pulito.
 - **SSR per-richiesta** — `app.config.server.ts` inietta in ogni risposta i due `<meta name="theme-color">` (light/dark, dal `colorBase` della palette, per il chrome del browser e la PWA) e lo `<style id="theme-init">` con tutte le CSS vars del tema per entrambi i toni. Così la pagina server-rendered esce già coi colori giusti; `ThemeService` poi "conferma" la palette post-idratazione in `afterNextRender`.
@@ -700,7 +726,7 @@ Non c'è nulla da attivare: i due meccanismi sono parte della pipeline di build 
 
 ### Font
 
-I font del sito hanno un'unica fonte di verità: [`frontend/src/styles/font-config.ts`](src/styles/font-config.ts). Nessun valore di font è hardcoded altrove — `ThemeService` legge da qui e inietta `--fontFamily` / `--bs-body-font-family`, e `ImgBuilderService` / `PreviewBuilder` lo usano per Canvas e immagini OG.
+I font del sito hanno un'unica fonte di verità: [`frontend/src/styles/font-config.ts`](src/styles/font-config.ts). Nessun valore di font è hardcoded altrove: `ThemeService` legge da qui e inietta `--fontFamily` / `--bs-body-font-family`, e `ImgBuilderService` / `PreviewBuilder` lo usano per Canvas e immagini OG.
 
 Due dizionari, due contesti distinti:
 
@@ -767,7 +793,7 @@ try { ... } catch (err) {
 
 ## 📡 NotificationStreamService: Notifiche Realtime
 
-`NotificationStreamService` (`providedIn: 'root'`) **estende per composizione** il `NotificationService`: si occupa solo del **trasporto realtime** — apre un `EventSource` verso l'endpoint SSE dell'Engine (`/api/notifications/stream`) — e per *mostrare* riusa ciò che `NotificationService` già espone (`toast`), senza reimplementare la UI. È il lato browser di `INotificationStream` (vedi [backend/README.md](../backend/README.md)).
+`NotificationStreamService` (`providedIn: 'root'`) estende per composizione il `NotificationService`: si occupa solo del trasporto realtime, apre un `EventSource` verso l'endpoint SSE dell'Engine (`/api/notifications/stream`), e per mostrare riusa ciò che `NotificationService` già espone (`toast`), senza reimplementare la UI. È il lato browser di `INotificationStream` (vedi [backend/README.md](../backend/README.md)).
 
 Tre vincoli dello stack, rispettati by design:
 - **Solo browser**: in SSR non apre nulla (niente connessioni server-side). Si attiva quando viene iniettato in un contesto browser — **non** è auto-iniettato globalmente, così un sito apre lo stream solo se gli serve. In pratica lo inietta il **campanellino**: montarlo (`shell.showNotifications: true`) apre lo stream; senza campanellino nessuna SSE parte.
@@ -787,7 +813,7 @@ Tre vincoli dello stack, rispettati by design:
 | `resolveText(notification)` | metodo | Risolve il testo mostrabile di una notifica (chiave i18n tradotta → `message` letterale → `type` come fallback); riusato dal campanellino |
 | `clear()` | metodo | Svuota lo storico |
 
-**Notifiche non solo testuali.** Ogni notifica è `{ id, type, payload, timestamp }` con `payload` libero. Il `type` sceglie la reazione: senza handler registrato si ricade sul **toast di default**; con `on(type, ...)` fai *qualsiasi cosa* — un modale ricco (`notify.interact`), un'immagine, un link, o pilotare un tuo componente leggendo `notifications()`. Per il toast di default il payload usa il **contratto i18n**: `{ messageKey, messageParams?, icon }` (chiave tradotta lato client nella lingua corrente) oppure `{ message, icon }` per testo letterale. La risoluzione vive in un solo punto, `resolveText(notification)`, riusato anche dal campanellino.
+Notifiche non solo testuali: ogni notifica è `{ id, type, payload, timestamp }` con `payload` libero. Il `type` sceglie la reazione: senza handler registrato si ricade sul toast di default; con `on(type, ...)` fai qualsiasi cosa, un modale ricco (`notify.interact`), un'immagine, un link, o pilotare un tuo componente leggendo `notifications()`. Per il toast di default il payload usa il contratto i18n: `{ messageKey, messageParams?, icon }` (chiave tradotta lato client nella lingua corrente) oppure `{ message, icon }` per testo letterale. La risoluzione vive in un solo punto, `resolveText(notification)`, riusato anche dal campanellino.
 
 ```typescript
 // In un componente sempre attivo (es. AppComponent): iniettarlo attiva lo stream.
@@ -804,20 +830,20 @@ ngOnInit() {
 }
 ```
 
-**Notifica mirata a chi avvia il job — `X-Connection-Id` automatico.** Per notificare *questa scheda* a fine elaborazione il backend ha bisogno del `connectionId` della SSE. L'Engine lo allega da solo: `BaseApiService.build_api_Headers()` legge un holder inerte e condiviso (`NotificationConnection`) e, se valorizzato, aggiunge l'header `X-Connection-Id` su **ogni** chiamata `/api`. Tu fai la chiamata normale — niente header a mano:
+Notifica mirata a chi avvia il job: `X-Connection-Id` automatico. Per notificare questa scheda a fine elaborazione il backend ha bisogno del `connectionId` della SSE. L'Engine lo allega da solo: `BaseApiService.build_api_Headers()` legge un holder inerte e condiviso (`NotificationConnection`) e, se valorizzato, aggiunge l'header `X-Connection-Id` su ogni chiamata `/api`. Tu fai la chiamata normale, niente header a mano:
 
 ```typescript
 // Il connectionId viaggia da sé: l'header X-Connection-Id è già su questa POST.
 await this.api.post('/upload', body);
 ```
 
-L'holder è **inerte di proposito**: leggerlo (lato `BaseApiService`) NON inietta il `NotificationStreamService` e quindi NON apre alcuna SSE. Lo popola lo stream quando si connette e lo azzera quando cade. Finché nessuno apre lo stream (campanellino non montato) resta `null` → nessun header → il backend riceve un `connectionId` nullo e gestisce il caso (broadcast / nessun target). Lo stream resta così pigro: niente connessione SSE non richiesta, ma l'header c'è appena serve.
+L'holder è inerte di proposito: leggerlo (lato `BaseApiService`) NON inietta il `NotificationStreamService` e quindi NON apre alcuna SSE. Lo popola lo stream quando si connette e lo azzera quando cade. Finché nessuno apre lo stream (campanellino non montato) resta `null` → nessun header → il backend riceve un `connectionId` nullo e gestisce il caso (broadcast / nessun target). Lo stream resta così pigro: niente connessione SSE non richiesta, ma l'header c'è appena serve.
 
-**Le risposte sono POST, non SSE.** Il canale è unidirezionale (server → client): l'utente "risponde" con una normale chiamata API (`api.post`), come nell'esempio sopra. Il giro completo è *notifica ricca (SSE) → azione utente → POST → eventuale esito (SSE)*. Un canale bidirezionale "vero" (chat, presence) richiederebbe WebSocket/SignalR, fuori scopo qui.
+Le risposte sono POST, non SSE: il canale è unidirezionale (server → client), l'utente "risponde" con una normale chiamata API (`api.post`), come nell'esempio sopra. Il giro completo è notifica ricca (SSE) → azione utente → POST → eventuale esito (SSE). Un canale bidirezionale "vero" (chat, presence) richiederebbe WebSocket/SignalR, fuori scopo qui.
 
-**Campanellino in navbar e storico.** `shell.showNotifications` è **opt-in** (default `false`): un campanellino sempre visibile ma mai alimentato è solo rumore, quindi lo attivi (`shell: { showNotifications: true }`) solo se il sito spinge davvero notizie. Quando attivo, l'Engine mostra in navbar un **campanellino** (`NotificationBellComponent`) con badge delle non lette e pannello dello storico, alimentato dal signal `notifications()`. La sua sola presenza **attiva lo stream** (il componente inietta il servizio): di default, quindi, un sito non apre alcuna connessione SSE.
+Campanellino in navbar e storico: `shell.showNotifications` è opt-in (default `false`): un campanellino sempre visibile ma mai alimentato è solo rumore, quindi lo attivi (`shell: { showNotifications: true }`) solo se il sito spinge davvero notizie. Quando attivo, l'Engine mostra in navbar un campanellino (`NotificationBellComponent`) con badge delle non lette e pannello dello storico, alimentato dal signal `notifications()`. La sua sola presenza attiva lo stream (il componente inietta il servizio): di default, quindi, un sito non apre alcuna connessione SSE.
 
-**Robustezza e accessibilità.** La lista client è **limitata** (ultime 50) e **deduplicata per id**, così il replay SSE alla riconnessione (vedi backend) non genera doppioni e una scheda longeva non cresce all'infinito. Una notifica **senza testo** (payload di solo `type`, gestita da un handler custom) non scrive nella regione `aria-live` e non emette un toast vuoto: resta solo nello storico, senza far leggere stringhe tecniche allo screen reader. Lato a11y: il nome del pulsante include il **conteggio non lette** (`"Notifiche, 3 non lette"`), una regione **`aria-live`** annuncia gli arrivi dal vivo agli screen reader, `Esc` chiude il pannello e le voci sono una **lista semantica**. (Il pannello è una lista di sola lettura, non un menu di comandi: niente roving da tastiera in stile CDK Menu, che sarebbe la primitiva sbagliata qui.) Lo storico non è solo di sessione: a ogni (ri)apertura dello stream il servizio chiama `GET /api/notifications/history` (`loadHistory()`) e fonde i risultati per id, così il campanellino si popola anche dopo un reload, su una nuova scheda o dopo una riconnessione. Le notifiche **mirate a una connessione** restano effimere (fuori dallo storico server); broadcast e gruppo invece persistono — è la base su cui, col login lato server, poggerà lo storico **per-utente** (basta registrare un `INotificationGroupResolver`, vedi backend).
+Robustezza e accessibilità: la lista client è limitata (ultime 50) e deduplicata per id, così il replay SSE alla riconnessione (vedi backend) non genera doppioni e una scheda longeva non cresce all'infinito. Una notifica senza testo (payload di solo `type`, gestita da un handler custom) non scrive nella regione `aria-live` e non emette un toast vuoto: resta solo nello storico, senza far leggere stringhe tecniche allo screen reader. Lato a11y: il nome del pulsante include il conteggio non lette (`"Notifiche, 3 non lette"`), una regione `aria-live` annuncia gli arrivi dal vivo agli screen reader, `Esc` chiude il pannello e le voci sono una lista semantica. (Il pannello è una lista di sola lettura, non un menu di comandi: niente roving da tastiera in stile CDK Menu, che sarebbe la primitiva sbagliata qui.) Lo storico non è solo di sessione: a ogni (ri)apertura dello stream il servizio chiama `GET /api/notifications/history` (`loadHistory()`) e fonde i risultati per id, così il campanellino si popola anche dopo un reload, su una nuova scheda o dopo una riconnessione. Le notifiche mirate a una connessione restano effimere (fuori dallo storico server); broadcast e gruppo invece persistono: è la base su cui, col login lato server, poggerà lo storico per-utente (basta registrare un `INotificationGroupResolver`, vedi backend).
 
 ---
 
@@ -841,16 +867,21 @@ I Blob URL vengono revocati automaticamente a ogni cambio pagina, liberando la m
 
 ### Due pipeline immagini: `asset.getUrl(id)` vs `api.getBlobUrl(slug)`
 
-Esistono **due percorsi distinti** per ottenere l'URL di un'immagine ottimizzata. Hanno comportamento simile (entrambi ridimensionano e cachano lato server) ma sorgenti diverse: scegli in base a dove vive l'immagine (vedi tabella sotto).
+Esistono due percorsi distinti per ottenere l'URL di un'immagine ottimizzata. Hanno comportamento simile (entrambi ridimensionano e cachano lato server) ma sorgenti diverse: scegli in base a dove vive l'immagine (vedi tabella sotto).
 
 | | `asset.getUrl(id, width)` | `api.getBlobUrl(slug, webopt)` |
 | :--- | :--- | :--- |
 | Endpoint | `/cdn-cgi/asset?id=…&w=…` | `/api/blob/{slug}` |
 | Identificatore | **id** dell'asset gestito | **slug** assegnato all'upload |
-| Sorgente | Asset registrati in `mapping.json` (id → percorso fisico), generato al build | File caricati a runtime nel volume `uploads` via `uploadBlob()` |
+| Sorgente | Asset registrati in `mapping.json`, mantenuto a mano (id → nome file) | File caricati a runtime nel volume `uploads` via `uploadBlob()` |
 | Usa quando | Immagini che fanno parte del progetto: hero, loghi, illustrazioni statiche | Contenuti caricati dagli utenti / dall'app dopo il deploy |
 
-In breve: se l'immagine **esiste già nel repo/build** è un asset → `asset.getUrl('hero', 640)`. Se l'immagine **è stata caricata a runtime** ed è identificata da uno slug → `api.getBlobUrl(slug)`. Ognuno legge dalla propria sorgente: lo slug del blob dal volume `uploads`, l'id dell'asset da `mapping.json`.
+In breve: se l'immagine esiste già nel repo/build è un asset → `asset.getUrl('hero', 640)`. Se l'immagine è stata caricata a runtime ed è identificata da uno slug → `api.getBlobUrl(slug)`. Ognuno legge dalla propria sorgente: lo slug del blob dal volume `uploads`, l'id dell'asset da `mapping.json`.
+
+Registrare un nuovo asset:
+1. Copia il file immagine dentro la cartella indicata da `ASSETS_DIR` (default `src/assets/files/`, la stessa che `AssetService` serve via `/cdn-cgi/asset` — vedi `frontend/src/app/core/engine/server/asset-mapping.ts`).
+2. Aggiungi una riga a `src/assets/mapping.json`: `"hero": "hero.jpg"` (chiave = id che userai in `asset.getUrl('hero')`/`appAsset="hero"`, valore = nome del file appena copiato).
+3. Nessun comando da lanciare: il server SSR legge `mapping.json` a runtime e fa hot-reload alla prima richiesta se il file cambia dopo l'avvio (utile in dev, `ng serve` incluso — non serve riavviare).
 
 ### Ottimizzazione Immagini Server-Side
 
@@ -868,7 +899,7 @@ GET /cdn-cgi/asset?id=hero&w=640
 Larghezze supportate (whitelist `ALLOWED_WIDTHS` in `core/engine/asset-config.ts`): `125, 320, 480, 512, 640, 768, 1024, 1080, 1366, 1600, 1920`.
 La whitelist è anche il tetto anti-4k (max 1920) e il limite alla cardinalità della cache: una `w` arbitraria viene rifiutata, così non si possono generare varianti illimitate.
 
-**Negoziazione formato.** Il server sceglie il formato dall'header `Accept`: se il browser dichiara `image/avif` riceve AVIF (compressione migliore a parità di qualità), altrimenti WebP. Il formato fa parte della cache key e la risposta porta `Vary: Accept`, così cache/CDN intermedie non servono il formato sbagliato a un client diverso. Trasparente per il client: la directive `appAsset` non cambia.
+Negoziazione formato: il server sceglie il formato dall'header `Accept`: se il browser dichiara `image/avif` riceve AVIF (compressione migliore a parità di qualità), altrimenti WebP. Il formato fa parte della cache key e la risposta porta `Vary: Accept`, così cache/CDN intermedie non servono il formato sbagliato a un client diverso. Trasparente per il client: la directive `appAsset` non cambia.
 Formati non-raster (video, PDF, SVG) sono serviti senza modifica.
 
 ### Directive `appAsset` / `appAssetHref`
@@ -887,7 +918,7 @@ Invece di costruire gli URL manualmente, usa le directive dichiarative:
 
 Le directive sono type-safe: errori di applicazione su elementi sbagliati vengono rilevati a compile-time.
 
-**Immagini responsive + hint moderni (solo `<img>`).** Su ogni `<img appAsset>` la directive aggiunge in automatico `decoding="async"` e `loading="lazy"`. Per l'immagine **LCP** above-the-fold passa `[appAssetPriority]="true"` (diventa `loading="eager"` + `fetchpriority="high"`). Per servire la **misura giusta per viewport/DPR** (meno banda su mobile) valorizza `appAssetSizes`: la directive emette allora un `srcset` con tutte le larghezze whitelisted (`ALLOWED_WIDTHS`) + l'attributo `sizes`. È opt-in: senza `appAssetSizes` resta una sola sorgente; `appAssetWidth` (misura fissa) ha la precedenza e disattiva lo `srcset`.
+Immagini responsive + hint moderni (solo `<img>`): su ogni `<img appAsset>` la directive aggiunge in automatico `decoding="async"` e `loading="lazy"`. Per l'immagine LCP above-the-fold passa `[appAssetPriority]="true"` (diventa `loading="eager"` + `fetchpriority="high"`). Per servire la misura giusta per viewport/DPR (meno banda su mobile) valorizza `appAssetSizes`: la directive emette allora un `srcset` con tutte le larghezze whitelisted (`ALLOWED_WIDTHS`) + l'attributo `sizes`. È opt-in: senza `appAssetSizes` resta una sola sorgente; `appAssetWidth` (misura fissa) ha la precedenza e disattiva lo `srcset`.
 
 ```html
 <!-- Responsive: il browser sceglie la larghezza in base a layout e densità schermo -->
@@ -895,7 +926,7 @@ Le directive sono type-safe: errori di applicazione su elementi sbagliati vengon
 <img appAsset="card" appAssetSizes="(min-width: 768px) 50vw, 100vw" alt="..." class="img-fluid">
 ```
 
-**Non solo `<img>` e `<a>`.** `appAsset` accetta tutti i tag con `src` — `img`, `video`, `audio`, `source`, `iframe`, `embed` — mentre `appAssetHref` vale su `a` e `link` (utile per un `<link rel="preload">`). `appAssetWidth` ha senso solo per le immagini raster: il server lo ignora automaticamente per video / PDF / SVG (restituisce lo stream originale), quindi è sicuro lasciarlo non valorizzato su quei tag.
+Non solo `<img>` e `<a>`: `appAsset` accetta tutti i tag con `src` (`img`, `video`, `audio`, `source`, `iframe`, `embed`), mentre `appAssetHref` vale su `a` e `link` (utile per un `<link rel="preload">`). `appAssetWidth` ha senso solo per le immagini raster: il server lo ignora automaticamente per video / PDF / SVG (restituisce lo stream originale), quindi è sicuro lasciarlo non valorizzato su quei tag.
 
 ```html
 <video appAsset="intro" controls></video>
@@ -903,11 +934,11 @@ Le directive sono type-safe: errori di applicazione su elementi sbagliati vengon
 <link rel="preload" as="image" [appAssetHref]="'hero'" [appAssetWidth]="1024">
 ```
 
-> **Sorgente:** `appAsset` / `appAssetHref` lavorano con gli asset gestiti da `AssetService` (id in `mapping.json`). Per un file caricato a runtime usa il binding diretto sullo slug: `[src]="api.getBlobUrl(slug)"` / `[href]="api.getBlobUrl(slug)"`.
+> Sorgente: `appAsset` / `appAssetHref` lavorano con gli asset gestiti da `AssetService` (id in `mapping.json`). Per un file caricato a runtime usa il binding diretto sullo slug: `[src]="api.getBlobUrl(slug)"` / `[href]="api.getBlobUrl(slug)"`.
 
 ### Vista a tutto schermo: `layout.fitViewport`
 
-Per pagine/viste a tutto schermo (mappe, giochi, dashboard) dove lo scroll spezzerebbe l'esperienza. È un **flag dichiarativo per-pagina** in `site.ts` (non una direttiva sul template). Tu lo dichiari, lo gestisce l'Engine — il **builder** (`normalizeSitePage`) risolve la coerenza dei flag di layout, lo **shell** rende il `<main>` full-bleed (senza container/padding/pannello) e una regola CSS (`.fit-viewport`) fa riempire al contenuto lo spazio che resta sotto la navbar, senza scroll di pagina se il contenuto ci sta.
+Per pagine/viste a tutto schermo (mappe, giochi, dashboard) dove lo scroll spezzerebbe l'esperienza. È un flag dichiarativo per-pagina in `site.ts` (non una direttiva sul template). Tu lo dichiari, lo gestisce l'Engine: il builder (`normalizeSitePage`) risolve la coerenza dei flag di layout, lo shell rende il `<main>` full-bleed (senza container/padding/pannello) e una regola CSS (`.fit-viewport`) fa riempire al contenuto lo spazio che resta sotto la navbar, senza scroll di pagina se il contenuto ci sta.
 
 ```typescript
 // site.ts
@@ -916,24 +947,24 @@ Per pagine/viste a tutto schermo (mappe, giochi, dashboard) dove lo scroll spezz
   layout: { fitViewport: true } }
 ```
 
-**Vista immersiva, per default.** `fitViewport` concentra la pagina sul contenuto: l'Engine lascia in scena la sola **navbar** — la via d'uscita — e mette da parte pannello, smoke e footer, che in full-bleed ruberebbero spazio. Tutto resta a portata: per riavere il footer basta `layout: { fitViewport: true, showFooter: true }`. Col footer attivo il contenuto vive *fra* navbar e footer, quindi con footer alti regola lo spazio di conseguenza.
+Vista immersiva, per default: `fitViewport` concentra la pagina sul contenuto: l'Engine lascia in scena la sola navbar (la via d'uscita) e mette da parte pannello, smoke e footer, che in full-bleed ruberebbero spazio. Tutto resta a portata: per riavere il footer basta `layout: { fitViewport: true, showFooter: true }`. Col footer attivo il contenuto vive fra navbar e footer, quindi con footer alti regola lo spazio di conseguenza.
 
-**Lato pagina serve una cosa sola:** fai crescere il root del componente con `flex-grow-1` (o `h-100`) sul suo elemento radice, così riempie l'altezza. Il resto è territorio dell'Engine: dà già `display: block` all'host di ogni pagina e, in full-bleed, costruisce la catena flex fino al viewport adattandosi da sé a navbar/footer/orientamento — layout nativo del browser, anche in SSR. Tu pensi al contenuto.
+Lato pagina serve una cosa sola: fai crescere il root del componente con `flex-grow-1` (o `h-100`) sul suo elemento radice, così riempie l'altezza. Il resto è territorio dell'Engine: dà già `display: block` all'host di ogni pagina e, in full-bleed, costruisce la catena flex fino al viewport adattandosi da sé a navbar/footer/orientamento, layout nativo del browser, anche in SSR. Tu pensi al contenuto.
 
 ### Stampa/PDF
 
-Ogni pagina è **sempre stampabile, senza configurazione e senza bottone dedicato**: i browser espongono già la stampa in modo prominente (Ctrl+P, menu, condivisione) — un bottone nel template la replicherebbe soltanto, pratica ormai considerata superata. Quello che l'Engine garantisce è la **resa**: un `@media print` condiviso (`styles/engine/base/_print.scss`, globale — non per-pagina) ripulisce automaticamente **qualunque** pagina, presente e futura (anche una che il progetto figlio scrive da sé domani, es. un articolo se il figlio è una testata giornalistica):
+Ogni pagina è sempre stampabile, senza configurazione e senza bottone dedicato: i browser espongono già la stampa in modo prominente (Ctrl+P, menu, condivisione), un bottone nel template la replicherebbe soltanto, pratica ormai considerata superata. Quello che l'Engine garantisce è la resa: un `@media print` condiviso (`styles/engine/base/_print.scss`, globale, non per-pagina) ripulisce automaticamente qualunque pagina, presente e futura (anche una che il progetto figlio scrive da sé domani, es. un articolo se il figlio è una testata giornalistica):
 - **Via del tutto:** navbar, i FAB fissi (`app-back-to-top`, `app-cookie-banner` — icone/pulsanti di UI, mai contenuto), lo sfondo smoke.
 - **Forzato tema chiaro** (nero su bianco, a prescindere dal tema attivo — la stampa non è mai scura) su `html`/`body`, così vale anche fuori dal pannello contenuti.
 - **Pannello contenuti** spogliato dell'identità "da card" (sfondo/bordo/ombra/griglia): resta solo il contenuto.
 - **Footer semplificato, non nascosto:** la riga di copyright/ragione sociale è informazione legittima su un documento stampato, quindi resta — via solo l'identità estesa (indirizzo/social/orari, con l'eventuale accordion interattivo) e il menu di navigazione (link non cliccabili su carta).
 - **`<details>` chiusi si aprono da soli** (es. i gruppi cookie della Cookie Policy, o un accordion FAQ in un articolo): altrimenti stamperebbero solo l'intestazione, non il contenuto (`AppComponent`, ascolta `matchMedia('print')`).
 
-È anche il "formato alternativo" richiesto dalla Dichiarazione di Accessibilità — vedi `app-print-action` più sotto se un progetto vuole comunque un bottone di stampa **puntuale** su una pagina specifica (non è nel template di default, ma il building block c'è già).
+È anche il "formato alternativo" richiesto dalla Dichiarazione di Accessibilità: vedi `app-print-action` più sotto se un progetto vuole comunque un bottone di stampa puntuale su una pagina specifica (non è nel template di default, ma il building block c'è già).
 
 ### Navigazione SPA: focus e annuncio agli screen reader
 
-Un cambio pagina qui non ricarica il documento — è il router Angular a sostituire il contenuto sotto `<router-outlet>` — quindi il browser **non** sposta da solo il focus né annuncia nulla, come farebbe invece con un normale link multi-pagina. Senza intervento, chi naviga da tastiera o screen reader resta "fermo" sul link appena attivato, dentro un contenuto ormai sostituito. L'Engine applica l'approccio duale raccomandato (2025/2026): `AppComponent` ascolta `NavigationEnd` (saltando il primo, quello del caricamento iniziale — lì il focus del browser va lasciato dov'è) e sposta il focus su `#main-content` (`tabindex="-1"`, programmaticamente focalizzabile senza entrare nell'ordine di tabulazione), mentre una regione `role="status" aria-live="polite"` annuncia il nuovo titolo (`PageMetaService.announcedTitle`, lo stesso testo del `<title>`) — il solo focus non basta perché alcune combinazioni screen reader/browser (NVDA+Firefox, VoiceOver+Safari) non lo annunciano sempre in modo affidabile. Nessuna configurazione: vale su ogni pagina, presente e futura.
+Un cambio pagina qui non ricarica il documento, è il router Angular a sostituire il contenuto sotto `<router-outlet>`, quindi il browser non sposta da solo il focus né annuncia nulla, come farebbe invece con un normale link multi-pagina. Senza intervento, chi naviga da tastiera o screen reader resta "fermo" sul link appena attivato, dentro un contenuto ormai sostituito. L'Engine applica l'approccio duale raccomandato (2025/2026): `AppComponent` ascolta `NavigationEnd` (saltando il primo, quello del caricamento iniziale: lì il focus del browser va lasciato dov'è) e sposta il focus su `#main-content` (`tabindex="-1"`, programmaticamente focalizzabile senza entrare nell'ordine di tabulazione), mentre una regione `role="status" aria-live="polite"` annuncia il nuovo titolo (`PageMetaService.announcedTitle`, lo stesso testo del `<title>`), dato che il solo focus non basta perché alcune combinazioni screen reader/browser (NVDA+Firefox, VoiceOver+Safari) non lo annunciano sempre in modo affidabile. Nessuna configurazione: vale su ogni pagina, presente e futura.
 
 ---
 
@@ -952,21 +983,21 @@ Le traduzioni vivono in `src/assets/i18n/` (la copia in `public/` è output di b
 3. `i18n-check.sh` in CI verifica che nessuna chiave sia mancante.
 4. Nessun passo di routing: rotte, `hreflang` e sitemap per la nuova lingua si generano da soli al prossimo `generate:statics` (vedi «Lingua nell'URL» sotto).
 
-**Togliere una lingua:** basta rimuoverla da `SupportedLanguages`. I file `basic.*.json`/`addon.*.json` della lingua tolta restano orfani — nessun controllo li guarda più, è un limite noto: cancellarli a mano per pulizia.
+Togliere una lingua: basta rimuoverla da `SupportedLanguages`. I file `basic.*.json`/`addon.*.json` della lingua tolta restano orfani, nessun controllo li guarda più, è un limite noto: cancellarli a mano per pulizia.
 
 ### Lingua nell'URL: instradamento per-lingua
 
-Con più di una lingua configurata, ogni pagina interna ottiene un URL per lingua: la lingua di default resta **non prefissata** (`/chi-siamo`), le altre sono prefissate col codice lingua (`/en/chi-siamo`). Con una sola lingua configurata questo meccanismo è **strutturalmente assente**: zero route aggiuntive, zero costo — comportamento identico a un sito mono-lingua.
+Con più di una lingua configurata, ogni pagina interna ottiene un URL per lingua: la lingua di default resta non prefissata (`/chi-siamo`), le altre sono prefissate col codice lingua (`/en/chi-siamo`). Con una sola lingua configurata questo meccanismo è strutturalmente assente: zero route aggiuntive, zero costo, comportamento identico a un sito mono-lingua.
 
-- **Prima visita su un URL non prefissato** (`/`): la guard `langRedirectGuard` (`routing.ts`) legge `Accept-Language` e, se punta a una lingua supportata diversa dal default e non c'è ancora una preferenza salvata (cookie `lang`), rediregere al path prefissato equivalente. **Salta sempre i bot**, motori di ricerca inclusi: un crawler su un URL non prefissato riceve sempre e deterministicamente la lingua di default, senza redirect — è il meccanismo che rende affidabili le anteprime social (Telegram, WhatsApp, ecc.), che cachano l'anteprima per URL una volta sola.
+- **Nessun redirect automatico su Accept-Language.** Un URL non prefissato (`/`) serve sempre e deterministicamente la lingua di default — a chiunque, utente reale o bot. Scelta allineata alla raccomandazione ufficiale di Google (*Managing Multi-Regional and Multilingual Sites*): un redirect basato sulla lingua percepita rischia di impedire a Googlebot — che tipicamente non invia un `Accept-Language` significativo — di scoprire e indicizzare le varianti. È anche il meccanismo che rende affidabili le anteprime social (Telegram, WhatsApp, ecc.), che cachano l'anteprima per URL una volta sola. Il cambio lingua è sempre una scelta esplicita dell'utente, via selettore in navbar.
 - **Navigazione interna** (`[appPage]`, switch da navbar): risolve sempre il path nella lingua corrente — `ContestoSito.getPath(type, lang)` e `getPageInfo(type, lang)` accettano un secondo parametro lingua opzionale (default: lingua di default del sito).
 - **Cambio pagina tra lingue diverse**: `PageBaseComponent` legge `route.data.lang` (iniettato dal router insieme a `pageType`) e allinea `TranslateService` — è il punto unico "URL → stato lingua", non va replicato altrove.
 
-**`hreflang`**: con più lingue, ogni pagina emette `<link rel="alternate" hreflang="...">` per ciascuna variante + `x-default` (verso la lingua default), e la sitemap porta gli stessi riferimenti incrociati (`<xhtml:link>`) per URL — pratica raccomandata per siti multilingua URL-based. Con una sola lingua: nessun tag emesso, il solo `canonical` basta.
+`hreflang`: con più lingue, ogni pagina emette `<link rel="alternate" hreflang="...">` per ciascuna variante + `x-default` (verso la lingua default), e la sitemap porta gli stessi riferimenti incrociati (`<xhtml:link>`) per URL, pratica raccomandata per siti multilingua URL-based. Con una sola lingua: nessun tag emesso, il solo `canonical` basta.
 
-**RTL e accessibilità**: `TranslateService` imposta anche `<html dir="rtl|ltr">` insieme a `lang` (lista statica di codici RTL — arabo, ebraico, persiano, urdu, ecc. — non `Intl.Locale.getTextInfo()`, non ancora baseline: Firefox non lo supporta). Il language picker in navbar marca ogni voce con `[attr.lang]` sul proprio codice (WCAG 3.1.2 «Language of Parts»): uno screen reader pronuncia il nome di ogni lingua nella lingua corretta, non in quella della pagina corrente.
+RTL e accessibilità: `TranslateService` imposta anche `<html dir="rtl|ltr">` insieme a `lang` (lista statica di codici RTL: arabo, ebraico, persiano, urdu, ecc., non `Intl.Locale.getTextInfo()`, non ancora baseline: Firefox non lo supporta). Il language picker in navbar marca ogni voce con `[attr.lang]` sul proprio codice (WCAG 3.1.2 «Language of Parts»): uno screen reader pronuncia il nome di ogni lingua nella lingua corretta, non in quella della pagina corrente.
 
-**Limiti noti:**
+Limiti noti:
 - Il `path` dichiarato in `site.ts` non si traduce per lingua — stesso segmento sotto ogni prefisso (`/en/chi-siamo`, non `/en/about-us`). Path realmente diversi per lingua richiederebbero pagine/`PageType` separati, non supportato oggi.
 - I codici in `SupportedLanguages` sono sottotag lingua base: `TranslateService.normalizeBcp47()` ricondurrebbe `en-US`/`en-GB` entrambi a `en`, quindi due varianti regionali della stessa lingua come voci **distinte** collidono. Una singola lingua con regione (es. solo `pt-BR`) funziona.
 
@@ -1009,15 +1040,11 @@ this.translate.defaultLang;        // string — lingua di default (proprietà, 
 await this.translate.setLanguage('en');
 ```
 
-`setLanguage(lang)` carica i cataloghi della nuova lingua, aggiorna il signal `currentLang`, scrive `<html lang>` e — solo con consenso tecnico accettato — persiste la preferenza (vedi *Persistenza Lingua e Consenso*). Poiché aggiorna `currentLang`, ogni contenuto reattivo via `httpResource` (es. `IdentityService.identity()`) si ri-fetcha da solo con il nuovo `Accept-Language`. Il tag passato è normalizzato BCP-47 e ricondotto a una lingua supportata: un tag non riconosciuto ricade su `defaultLang`.
+`setLanguage(lang)` carica i cataloghi della nuova lingua, aggiorna il signal `currentLang` e scrive `<html lang>`. Poiché aggiorna `currentLang`, ogni contenuto reattivo via `httpResource` (es. `IdentityService.identity()`) si ri-fetcha da solo con il nuovo `Accept-Language`. Il tag passato è normalizzato BCP-47 e ricondotto a una lingua supportata: un tag non riconosciuto ricade su `defaultLang`.
 
 ```typescript
 // t() è alias di translate(): stessa firma, comodo per template densi
 this.translate.t('miaChiave');                    // = translate('miaChiave')
-
-// Validazione di un tag prima di usarlo (statico)
-TranslateService.isValidBcp47('it-IT');  // → true
-TranslateService.isValidBcp47('xyz123'); // → false
 ```
 
 ### Normalizzazione BCP-47
@@ -1049,12 +1076,12 @@ readonly trad = computed(() => this.translate.translate('chiave'));
 
 ### Pipe `markdown`
 
-Converte Markdown a HTML nel template, con sanitizzazione XSS rigorosa: l'HTML grezzo viene bloccato e gli URL non sicuri vengono neutralizzati automaticamente. Nei **link** sono ammessi solo gli schemi `http`/`https`/`mailto`/`tel` (bloccati `javascript:`, `data:`, `vbscript:` e i protocol-relative `//`); nelle **immagini** solo `http`/`https` e i data URI `data:image/` (gli altri schemi vengono scartati).
+Converte Markdown a HTML nel template, con sanitizzazione XSS rigorosa: l'HTML grezzo viene bloccato e gli URL non sicuri vengono neutralizzati automaticamente. Nei link sono ammessi solo gli schemi `http`/`https`/`mailto`/`tel` (bloccati `javascript:`, `data:`, `vbscript:` e i protocol-relative `//`); nelle immagini solo `http`/`https` e i data URI `data:image/` (gli altri schemi vengono scartati).
 ```html
 <div [innerHTML]="testo | markdown"></div>
 ```
 
-Supporta **GitHub Flavored Markdown** (tabelle, checklist, ecc.) e converte gli a-capo in `<br>`. Per convertire del Markdown **fuori da un template** (in TypeScript) c'è il metodo statico `MarkdownPipe.render(value)`, che applica le stesse regole di sanitizzazione:
+Supporta GitHub Flavored Markdown (tabelle, checklist, ecc.) e converte gli a-capo in `<br>`. Per convertire del Markdown fuori da un template (in TypeScript) c'è il metodo statico `MarkdownPipe.render(value)`, che applica le stesse regole di sanitizzazione:
 
 ```typescript
 const html = MarkdownPipe.render('**Grassetto** e [link](https://example.com)');
@@ -1076,7 +1103,7 @@ Usata internamente da `PolicyComponent` per le pagine legali. Disponibile in qua
 | `uploadBlob(file)` | `Promise<{ slug }>` | Carica un file nel volume uploads (richiede JWT) |
 | `login(username, password)` | `Promise<LoginResult>` | Autenticazione utente (solo se JWT abilitato) |
 
-> **L'identità del sito non sta in `ApiService`.** Footer, pagine legali e SEO la leggono dalla risorsa condivisa dell'Engine `IdentityService` (`identity()` signal, `GET /identity`, una sola fetch per lingua). Vedi *IdentityService*.
+> L'identità del sito non sta in `ApiService`. Footer, pagine legali e SEO la leggono dalla risorsa condivisa dell'Engine `IdentityService` (`identity()` signal, `GET /identity`, una sola fetch per lingua). Vedi IdentityService.
 
 ### File Uploads (`/api/blob`)
 
@@ -1084,14 +1111,14 @@ Usata internamente da `PolicyComponent` per le pagine legali. Disponibile in qua
 
 #### Quale metodo usare per mostrare un file
 
-Per **visualizzare o linkare un file che vive sul server** (immagine, PDF, allegato) la risposta è una sola: `getBlobUrl(slug)`. Restituisce una stringa da mettere direttamente in `<img [src]>` / `<a [href]>`, senza scaricare nulla in memoria. È il percorso da preferire: il file viaggia come una normale GET HTTP, quindi sfrutta caching del browser e range requests.
+Per visualizzare o linkare un file che vive sul server (immagine, PDF, allegato) la risposta è una sola: `getBlobUrl(slug)`. Restituisce una stringa da mettere direttamente in `<img [src]>` / `<a [href]>`, senza scaricare nulla in memoria. È il percorso da preferire: il file viaggia come una normale GET HTTP, quindi sfrutta caching del browser e range requests.
 
 ```html
 <img [src]="api.getBlobUrl(slug)" alt="...">          <!-- webopt=true di default → immagine ottimizzata -->
 <a  [href]="api.getBlobUrl(slug, false)" download>Scarica originale</a>
 ```
 
-`getBlob()` + `AssetService.getUrlFromBlob()` serve **solo se si ha già un `Blob` in memoria** e occorre un object URL temporaneo, cioè quando:
+`getBlob()` + `AssetService.getUrlFromBlob()` serve solo se si ha già un `Blob` in memoria e occorre un object URL temporaneo, cioè quando:
 - scarichi il file per elaborarlo lato client invece di limitarti a mostrarlo;
 - mostri l'anteprima locale di un file scelto dall'utente *prima* di caricarlo;
 - il `Blob` è stato generato localmente (canvas, QR, immagine da testo…).
@@ -1102,9 +1129,9 @@ const { angularUrl } = this.asset.getUrlFromBlob(blob); // SafeUrl; revocato in 
 // <img [src]="angularUrl">
 ```
 
-> **Regola pratica:** un file che sta sul server e va solo mostrato/linkato → `getBlobUrl`. Un `Blob` già disponibile in memoria → `getUrlFromBlob`.
+> Regola pratica: un file che sta sul server e va solo mostrato/linkato → `getBlobUrl`. Un `Blob` già disponibile in memoria → `getUrlFromBlob`.
 
-> **Default `webopt = true`:** è un flag generico che chiede al backend la versione **ottimizzata per il web** del file, qualunque essa sia — non è legato alle immagini per definizione. Oggi l'unica ottimizzazione implementata è quella per le immagini (lato più lungo max 1920 px, conversione in WebP), quindi i contenuti per cui non esiste ancora una pipeline (PDF, video…) vengono serviti tali e quali; ma il flag è il punto di aggancio previsto per future riduzioni lato API di altri tipi di contenuto. Per ottenere **sempre** il file originale, così com'è stato caricato — es. download a piena risoluzione — passa `getBlobUrl(slug, false)`.
+> Default `webopt = true`: è un flag generico che chiede al backend la versione ottimizzata per il web del file, qualunque essa sia, non è legato alle immagini per definizione. Oggi l'unica ottimizzazione implementata è quella per le immagini (lato più lungo max 1920 px, conversione in WebP), quindi i contenuti per cui non esiste ancora una pipeline (PDF, video…) vengono serviti tali e quali; ma il flag è il punto di aggancio previsto per future riduzioni lato API di altri tipi di contenuto. Per ottenere sempre il file originale, così com'è stato caricato (es. download a piena risoluzione), passa `getBlobUrl(slug, false)`.
 
 #### Caricare un file (`uploadBlob`)
 
@@ -1123,16 +1150,16 @@ async onFileConfirmed(file: File): Promise<void> {
 }
 ```
 
-> **Nota:** `uploadBlob` richiede JWT valido (l'utente deve essere loggato). Anche le GET (`getBlobUrl`, `getBlob`) richiedono l'API key: l'endpoint `/blob/{slug}` non è anonimo, quindi i file non sono una risorsa pubblica raggiungibile direttamente dal backend (es. da un crawler) come lo sono gli asset statici. Nel browser la chiave non va gestita: la inietta in modo trasparente il proxy SSR `/api`.
+> Nota: `uploadBlob` richiede JWT valido (l'utente deve essere loggato). Anche le GET (`getBlobUrl`, `getBlob`) richiedono l'API key: l'endpoint `/blob/{slug}` non è anonimo, quindi i file non sono una risorsa pubblica raggiungibile direttamente dal backend (es. da un crawler) come lo sono gli asset statici. Nel browser la chiave non va gestita: la inietta in modo trasparente il proxy SSR `/api`.
 
-**Pattern one-shot** (dati statici, caricati una volta):
+Pattern one-shot (dati statici, caricati una volta):
 ```typescript
 ngOnInit() {
     this.api.getSocial().then(s => this.social.set(s));
 }
 ```
 
-**Pattern reattivo** (dati che si aggiornano con la lingua o lo stato): esponi un metodo che ritorna `api_resource<T>()` (vedi *Aggiungere un Endpoint*), poi nel template `res.value()` / `res.isLoading()`. Per l'**identità del sito** non serve scriverlo: c'è già `IdentityService` (risorsa condivisa dell'Engine).
+Pattern reattivo (dati che si aggiornano con la lingua o lo stato): esponi un metodo che ritorna `api_resource<T>()` (vedi Aggiungere un Endpoint), poi nel template `res.value()` / `res.isLoading()`. Per l'identità del sito non serve scriverlo: c'è già `IdentityService` (risorsa condivisa dell'Engine).
 
 ### Errori Silenziosi per UI Custom
 
@@ -1158,7 +1185,7 @@ La convenzione vive inline in `api.service.ts`. Tre passi:
 
 Esempio (path parametrico + metodo che ne consuma il risultato): [AGENTS.md](../AGENTS.md#aggiungere-un-endpoint-al-client).
 
-> **Upload multipart/`FormData`:** per gli endpoint che ricevono file usa `this.api_post_form<T>(path, formData)` invece di `api_post` — è quello che usa già `uploadBlob`. Non impostare `Content-Type` a mano: il browser lo aggiunge con il boundary corretto; per il resto passa per le stesse `build_api_Headers` e l'`apiErrorInterceptor`.
+> Upload multipart/`FormData`: per gli endpoint che ricevono file usa `this.api_post_form<T>(path, formData)` invece di `api_post`, è quello che usa già `uploadBlob`. Non impostare `Content-Type` a mano: il browser lo aggiunge con il boundary corretto; per il resto passa per le stesse `build_api_Headers` e l'`apiErrorInterceptor`.
 
 ### `httpResource` per Componenti Sempre-On
 
@@ -1170,13 +1197,13 @@ getArticoli() { return this.api_resource<Articolo[]>(API.articoli); }
 // nel componente: readonly res = this.api.getArticoli();  → res.value() | res.isLoading()
 ```
 
-> **L'identità del sito è già un `httpResource` condiviso:** `IdentityService` (Engine) la espone come `identity()` signal, una sola fetch per lingua riusata da footer, pagine legali e SEO. Non ricrearla a mano — vedi *IdentityService*.
+> L'identità del sito è già un `httpResource` condiviso: `IdentityService` (Engine) la espone come `identity()` signal, una sola fetch per lingua riusata da footer, pagine legali e SEO. Non ricrearla a mano, vedi IdentityService.
 
 ---
 
 ## 🪪 IdentityService: l'identità del sito
 
-`IdentityService` (Engine, `providedIn: 'root'`) è la **sorgente unica** dell'identità del sito — dati legali/anagrafici, profili social del brand, natura dell'entità (`personal`). Espone un solo signal:
+`IdentityService` (Engine, `providedIn: 'root'`) è la sorgente unica dell'identità del sito: dati legali/anagrafici, profili social del brand, natura dell'entità (`personal`). Espone un solo signal:
 
 ```typescript
 private readonly identityService = inject(IdentityService);
@@ -1188,13 +1215,13 @@ this.identityService.loading();   // Signal<boolean>
 - **SSR-aware.** In SSR la risorsa è risolta prima della serializzazione, quindi i dati strutturati finiscono già nell'HTML server-rendered (la SEO non aspetta il browser).
 - **Degrada da sola.** Identità non configurata (o backend irraggiungibile) → `identity()` è `null`: footer, social e JSON-LD relativi si nascondono senza errori.
 
-I **dati** vivono nel backend (`data/identity.json`, servito dall'Engine) — il frontend li **consuma** soltanto. Per renderli usa `app-identity-render` (sotto), col flag `showSocial` per le icone dei profili brand.
+I dati vivono nel backend (`data/identity.json`, servito dall'Engine): il frontend li consuma soltanto. Per renderli usa `app-identity-render` (sotto), col flag `showSocial` per le icone dei profili brand.
 
 ---
 
 ## 📤 ShareService: Copia, Condivisione, Download
 
-`ShareService` centralizza tutte le operazioni di condivisione e download. **Responsabilità unica:** esegue l'operazione e ne restituisce l'esito — **non mostra toast**. La notifica è di chi scatena l'azione (il bottone/la pagina), così lo stesso servizio resta usabile anche in contesti silenziosi. I componenti `app-copy-action` / `app-share-action` lo fanno già per te.
+`ShareService` centralizza tutte le operazioni di condivisione e download. Responsabilità unica: esegue l'operazione e ne restituisce l'esito, non mostra toast. La notifica è di chi scatena l'azione (il bottone/la pagina), così lo stesso servizio resta usabile anche in contesti silenziosi. I componenti `app-copy-action` / `app-share-action` lo fanno già per te.
 
 ```typescript
 // Copia negli appunti → ritorna true/false, niente toast: lo mostra il chiamante
@@ -1217,9 +1244,9 @@ this.share.downloadBlob(blob, 'documento.pdf');
 const incollato = await this.share.readText();
 ```
 
-**Esito (`ShareResult`):** `shared` (foglio nativo) · `copied` (fallback appunti) · `downloaded` (fallback download) · `cancelled` (annullato) · `error`. L'helper puro `shareResultNotice(result)` decide il toast appropriato (o `null`); il componente lo mostra.
+Esito (`ShareResult`): `shared` (foglio nativo) · `copied` (fallback appunti) · `downloaded` (fallback download) · `cancelled` (annullato) · `error`. L'helper puro `shareResultNotice(result)` decide il toast appropriato (o `null`); il componente lo mostra.
 
-**Fallback chain:** Web Share API disponibile → usa native share; non disponibile / errore → fallback a download o copy.
+Fallback chain: Web Share API disponibile → usa native share; non disponibile / errore → fallback a download o copy.
 
 ---
 
@@ -1274,9 +1301,9 @@ await this.qr.create({ type: 'text', content: 'https://example.com' });
 
 Ritorna `{ success: true, blob: Blob }` oppure `{ success: false, error: QrError, message: string }`.
 
-**Caching:** LRU cache automatica (max 32 QR) — QR identici con stessi colori sono serviti dalla memoria senza ricalcolo.
+Caching: LRU cache automatica (max 32 QR), QR identici con stessi colori sono serviti dalla memoria senza ricalcolo.
 
-**Varianti utili:** `toSVG(config)` restituisce il QR come **stringa SVG** (vettoriale, scalabile) invece del Blob PNG; `createWithColors(config, fg, bg)` genera il QR con **colori espliciti** invece di leggerli dal tema (`create` è infatti uno scorciatoio che passa `colorPrimaryText` / `colorPrimary`).
+Varianti utili: `toSVG(config)` restituisce il QR come stringa SVG (vettoriale, scalabile) invece del Blob PNG; `createWithColors(config, fg, bg)` genera il QR con colori espliciti invece di leggerli dal tema (`create` è infatti uno scorciatoio che passa `colorPrimaryText` / `colorPrimary`).
 
 ---
 
@@ -1312,9 +1339,9 @@ await this.share.downloadBlob(blob, 'social.png');
 
 Se non fornisci `bgColor`/`textColor`, vengono letti dai Signal del tema corrente (colori WCAG-conformi automatici).
 
-Oltre alle opzioni di layout, puoi passare `fontFamily` (una **chiave** di `FontConfig.WEB_FONTS`, risolta nello stack CSS reale) e `lineHeight` (moltiplicatore d'interlinea, default `1.4`). Per allegare l'immagine a un `FormData`/upload c'è `buildFile(text, filename?, opts?)`, che restituisce un `File` PNG già pronto (è `buildBlob` avvolto in un `new File([...])`).
+Oltre alle opzioni di layout, puoi passare `fontFamily` (una chiave di `FontConfig.WEB_FONTS`, risolta nello stack CSS reale) e `lineHeight` (moltiplicatore d'interlinea, default `1.4`). Per allegare l'immagine a un `FormData`/upload c'è `buildFile(text, filename?, opts?)`, che restituisce un `File` PNG già pronto (è `buildBlob` avvolto in un `new File([...])`).
 
-**SSR-safe:** il metodo statico `ImgBuilderService.buildSvg()` non tocca DOM né Angular — usabile in Node.js per generare preview server-side.
+SSR-safe: il metodo statico `ImgBuilderService.buildSvg()` non tocca DOM né Angular, usabile in Node.js per generare preview server-side.
 
 ---
 
@@ -1331,24 +1358,24 @@ In SSR viene generata automaticamente un'immagine personalizzata per la condivis
 
 Non chiami `PageMetaService` a mano (è privato all'Engine): dichiari i meta in `site.ts` (`description`, `otherSEO`) o, per i dati derivati dal contenuto, nel `ContentResolver`. L'Engine li riapplica da solo a ogni cambio pagina e di lingua.
 
-**Importante:** `og:image` si aggiorna solo in SSR. I crawler non eseguono JavaScript — vedono la versione server-rendered. Le modifiche client-side all'og:image non hanno effetto sui preview di Facebook/LinkedIn/WhatsApp.
+Importante: `og:image` si aggiorna solo in SSR. I crawler non eseguono JavaScript, vedono la versione server-rendered. Le modifiche client-side all'og:image non hanno effetto sui preview di Facebook/LinkedIn/WhatsApp.
 
 ### Generazione og:image: la rotta `/cdn-cgi/preview`
 
-L'og:image **non è un file statico**: l'Engine la **genera al volo**. Il Node SSR espone `/cdn-cgi/preview` (`server/routes/og-preview.ts`), che produce un'immagine OpenGraph/Twitter Card 1200×630 in due varianti, scelte dal payload:
+L'og:image non è un file statico: l'Engine la genera al volo. Il Node SSR espone `/cdn-cgi/preview` (`server/routes/og-preview.ts`), che produce un'immagine OpenGraph/Twitter Card 1200×630 in due varianti, scelte dal payload:
 
 - **Card testuale** — quando non c'è un'immagine di sfondo: SVG con nome app, favicon, titolo e sottotitolo sul colore brand.
 - **Variante con immagine** — quando il payload porta un `id` asset: sfondo sfocato + immagine in primo piano + (salvo `onlyImage`) favicon e badge col titolo.
 
 Il risultato viene cachato su disco (WebP) come ogni thumbnail di `/cdn-cgi/asset`.
 
-Tu non costruisci l'URL a mano: lo controlli da `site.ts`. La pagina dichiara `otherSEO.ogImage` (l'**id** dell'asset di sfondo) e, a livello globale, `onlyPlainImage` decide se mostrare la sola immagine senza scritte/favicon. Per la semantica a tre stati di `ogImage` (id asset / `false` = nessuna / omesso = preview dinamica auto-generata) vedi *Opzioni Avanzate di `site.ts`*.
+Tu non costruisci l'URL a mano: lo controlli da `site.ts`. La pagina dichiara `otherSEO.ogImage` (l'id dell'asset di sfondo) e, a livello globale, `onlyPlainImage` decide se mostrare la sola immagine senza scritte/favicon. Per la semantica a tre stati di `ogImage` (id asset / `false` = nessuna / omesso = preview dinamica auto-generata) vedi Opzioni Avanzate di `site.ts`.
 
-**Il payload è cifrato e non falsificabile.** I parametri (`title`, `subtitle`, `id`, `onlyImage`) viaggiano nel query param `?p=` come blob **AES-GCM** prodotto da `PreviewCrypto` (`server/preview-crypto.server.ts`): una manomissione fa fallire la decifrazione → **403**. La chiave è derivata, in ordine di precedenza, da `PREVIEW_CRYPTO_SECRET` → la API key server-side (`Security.ApiKeys[0]`, segreta) → `appName:version`. Il fallback sull'API key rende i blob non forgiabili **anche senza configurare un secret dedicato**: senza di esso un attaccante che conosce `appName` e `version` (entrambi pubblici) potrebbe forgiare og:image arbitrarie sul dominio. L'IV è deterministico (SHA-256 del payload), quindi lo stesso payload produce sempre lo stesso URL — stabile e cacheable da browser/CDN.
+Il payload è cifrato e non falsificabile: i parametri (`title`, `subtitle`, `id`, `onlyImage`) viaggiano nel query param `?p=` come blob AES-GCM prodotto da `PreviewCrypto` (`server/preview-crypto.server.ts`): una manomissione fa fallire la decifrazione → 403. La chiave è derivata, in ordine di precedenza, da `PREVIEW_CRYPTO_SECRET` → la API key server-side (`Security.ApiKeys[0]`, segreta) → `appName:version`. Il fallback sull'API key rende i blob non forgiabili anche senza configurare un secret dedicato: senza di esso un attaccante che conosce `appName` e `version` (entrambi pubblici) potrebbe forgiare og:image arbitrarie sul dominio. L'IV è deterministico (SHA-256 del payload), quindi lo stesso payload produce sempre lo stesso URL, stabile e cacheable da browser/CDN.
 
 ### JSON-LD Strutturato (grafo Schema.org)
 
-Schema.org viene iniettato automaticamente per ogni pagina. Migliora l'apparenza in Google Search e altri motori. L'Engine emette un **grafo di entità separate**, ognuna nel proprio `<script type="application/ld+json">`: blocchi distinti rendono il grafo più leggibile ai validator e permettono di aggiornare ogni entità senza sovrascrivere le altre.
+Schema.org viene iniettato automaticamente per ogni pagina. Migliora l'apparenza in Google Search e altri motori. L'Engine emette un grafo di entità separate, ognuna nel proprio `<script type="application/ld+json">`: blocchi distinti rendono il grafo più leggibile ai validator e permettono di aggiornare ogni entità senza sovrascrivere le altre.
 
 | Entità | `@id` | Quando |
 | :--- | :--- | :--- |
@@ -1357,18 +1384,18 @@ Schema.org viene iniettato automaticamente per ogni pagina. Migliora l'apparenza
 | `WebPage` (o tipo scelto) | `{canonical}#webpage` | Sempre — la pagina corrente, con `inLanguage`, `isPartOf`, `publisher` e `dateModified` (dal valore effettivo di `og:updated_time`) |
 | `BreadcrumbList` | — | Solo quando il path non è la root (`/`) |
 
-Ogni script è marcato con l'attributo `data-br1-jsonld` (per aggiornarli/rimuoverli in blocco) e riceve il **nonce CSP** della richiesta in SSR, così rispetta la Content-Security-Policy senza `unsafe-inline`.
+Ogni script è marcato con l'attributo `data-br1-jsonld` (per aggiornarli/rimuoverli in blocco) e riceve il nonce CSP della richiesta in SSR, così rispetta la Content-Security-Policy senza `unsafe-inline`.
 
-I **dati strutturati** si dichiarano in un **solo campo**, `otherSEO.structuredData`, in tre forme (anche combinabili in una lista):
+I dati strutturati si dichiarano in un solo campo, `otherSEO.structuredData`, in tre forme (anche combinabili in una lista):
 - una **stringa** → solo il `@type` della pagina (es. `'AboutPage'`, per i tipi non coperti; default `WebPage`);
 - un **oggetto** `{ kind, … }` con campi parlanti (`article` / `faq` / `product` / `event`) → **senza conoscere schema.org**, tradotto dall'Engine in JSON-LD valido;
 - un **array** → più entità sulla stessa pagina (es. un Article + una FAQ + un `raw`).
 
-La traduzione vive in un **unico punto** (`structured-data.ts`): se domani schema.org cambia si tocca solo quello, non la config dei figli. Si impostano **statici** in `site.ts` o **dinamici** dal `ContentResolver` (derivati dal contenuto — es. autore e data di un Article — con la precedenza). Per i tipi non coperti c'è la via di fuga `kind: 'raw'` (JSON-LD grezzo). **I campi non impostati ricadono sui dati già esistenti** (titolo, og:image, ultima modifica, Organization del sito): così anche un semplice `{ kind: 'article' }` produce un'entità completa. E senza dichiarare nulla, ogni pagina ha comunque il grafo base `Organization`+`WebSite`+`WebPage`. Per gli **articoli** (`kind: 'article'`) l'Engine emette anche i meta Open Graph `article:*` (`published_time`, `modified_time`, `author`, `section`, un `tag` per voce) — gemelli dei dati JSON-LD, abbinali a `ogType: 'article'`. Esempi in [AGENTS.md](../AGENTS.md).
+La traduzione vive in un unico punto (`structured-data.ts`): se domani schema.org cambia si tocca solo quello, non la config dei figli. Si impostano statici in `site.ts` o dinamici dal `ContentResolver` (derivati dal contenuto, es. autore e data di un Article, con la precedenza). Per i tipi non coperti c'è la via di fuga `kind: 'raw'` (JSON-LD grezzo). I campi non impostati ricadono sui dati già esistenti (titolo, og:image, ultima modifica, Organization del sito): così anche un semplice `{ kind: 'article' }` produce un'entità completa. E senza dichiarare nulla, ogni pagina ha comunque il grafo base `Organization`+`WebSite`+`WebPage`. Per gli articoli (`kind: 'article'`) l'Engine emette anche i meta Open Graph `article:*` (`published_time`, `modified_time`, `author`, `section`, un `tag` per voce), gemelli dei dati JSON-LD, abbinali a `ogType: 'article'`. Esempi in [AGENTS.md](../AGENTS.md).
 
 ### URL Canonico e `og:locale`
 
-Il canonical viene costruito in modo **stabile** per evitare contenuti duplicati e canonical divergenti tra HTML iniziale e idratazione:
+Il canonical viene costruito in modo stabile per evitare contenuti duplicati e canonical divergenti tra HTML iniziale e idratazione:
 - query string e hash vengono rimossi;
 - in SSR l'origin è forzato a `FRONTEND_BASE_URL`, indipendentemente dagli header del reverse proxy.
 
@@ -1376,9 +1403,9 @@ Lo stesso canonical alimenta `og:url`, il tag `rel="canonical"` e gli `@id`/`url
 
 `og:locale` (e gli `og:locale:alternate` per le altre lingue) usano il formato regionale OpenGraph `lingua_REGIONE` (es. `it_IT`, `en_US`), derivato via `Intl.Locale().maximize()`. Gli alternate vengono rigenerati con remove+add a ogni cambio pagina, così funzionano correttamente anche con più di due lingue (dove `Meta.updateTag` sovrascriverebbe un solo tag). Stesso pattern remove+add usato per i tag `hreflang` (vedi «Lingua nell'URL»).
 
-Il modello i18n è a **URL per lingua** (vedi «Internazionalizzazione (i18n)» → «Lingua nell'URL»): la lingua di default non è prefissata, le altre lo sono (`/en/…`). Ne discendono direttamente `hreflang`/`x-default` e un canonical già self-referenziante per lingua, dato che è l'URL stesso a portarla. Nessun header `Vary: Accept-Language` in risposta: il contenuto è funzione del path, non dell'header.
+Il modello i18n è a URL per lingua (vedi «Internazionalizzazione (i18n)» → «Lingua nell'URL»): la lingua di default non è prefissata, le altre lo sono (`/en/…`). Ne discendono direttamente `hreflang`/`x-default` e un canonical già self-referenziante per lingua, dato che è l'URL stesso a portarla. Nessun header `Vary: Accept-Language` in risposta: il contenuto è funzione del path, non dell'header.
 
-> **Anteprime ricche.** Il `<meta name="robots">` di base include `max-image-preview:large, max-snippet:-1, max-video-preview:-1`: autorizza Google a mostrare l'anteprima immagine grande (l'OG 1200×630 generata dall'Engine) e snippet/video senza limiti nei risultati. La description di pagina, se omessa, ricade sulla `site.description` di default (localizzata) invece di restare quella della pagina precedente.
+> Anteprime ricche: il `<meta name="robots">` di base include `max-image-preview:large, max-snippet:-1, max-video-preview:-1`, autorizza Google a mostrare l'anteprima immagine grande (l'OG 1200×630 generata dall'Engine) e snippet/video senza limiti nei risultati. La description di pagina, se omessa, ricade sulla `site.description` di default (localizzata) invece di restare quella della pagina precedente.
 
 ---
 
@@ -1396,11 +1423,11 @@ La versione è dichiarata in `global-settings.json` (`project.version`) e distri
 
 ### Meccanica
 
-**Tab senza Service Worker** (sempre con `isWebApp:false`)**:** polling ogni 10 minuti che scarica `/index.html` e confronta il meta `app-version` → se cambia → dialog "Nuova versione disponibile" → hard reload attiva la nuova versione.
+Tab senza Service Worker (sempre con `isWebApp:false`): polling ogni 10 minuti che scarica `/index.html` e confronta il meta `app-version` → se cambia → dialog "Nuova versione disponibile" → hard reload attiva la nuova versione.
 
-**PWA / tab con SW attivo:** il SW serve `index.html` dalla cache (versione stabile per il polling) e a decidere è SwUpdate, che emette `VERSION_READY` quando la nuova versione è scaricata → l'utente conferma → `activateUpdate()` + reload.
+PWA / tab con SW attivo: il SW serve `index.html` dalla cache (versione stabile per il polling) e a decidere è SwUpdate, che emette `VERSION_READY` quando la nuova versione è scaricata → l'utente conferma → `activateUpdate()` + reload.
 
-**Prerequisito (consenso tecnico):** se sul sito un consenso tecnico **serve** (multilingua, PWA, o cookie tecnici di progetto) il controllo versione è disabilitato finché l'utente non l'accetta; si attiva al reload successivo. Se invece il consenso tecnico **non serve affatto** (sito mono-lingua, non-PWA, senza cookie tecnici) non c'è nulla da accettare e il polling parte comunque: legge solo il meta `app-version` via `fetch`, non scrive cookie. Senza questa distinzione un sito così — tipicamente con `isWebApp:false` — resterebbe senza controllo versione per sempre.
+Prerequisito (consenso tecnico): se sul sito un consenso tecnico serve (PWA, o cookie tecnici di progetto) il controllo versione è disabilitato finché l'utente non l'accetta; si attiva al reload successivo. Se invece il consenso tecnico non serve affatto (non-PWA, senza cookie tecnici) non c'è nulla da accettare e il polling parte comunque: legge solo il meta `app-version` via `fetch`, non scrive cookie. Senza questa distinzione un sito così, tipicamente con `isWebApp:false`, resterebbe senza controllo versione per sempre.
 
 ---
 
@@ -1457,11 +1484,11 @@ legalPages: { /* … */ },           // pagine legali → vedi sotto
 
 > `description` (mappa per-lingua `{ it, en, … }`), `colorTema` e l'effetto `smoke` non stanno qui: sono estetica e vivono in `global-settings.json → site`.
 
-I **profili social** del brand e la **natura dell'entità** sono dati d'**identità**: vivono in `backend/data/identity.json` (campi `social` e `personal`), serviti dall'Engine su `GET /identity` e letti dalla risorsa condivisa `IdentityService`. `social` è una **lista di URL**: l'Engine li emette come `sameAs` dell'entità brand nel JSON-LD — il segnale che Google usa per il **Knowledge Panel** — e l'icona nel footer è dedotta dall'URL (quindi più profili dello stesso social convivono). Lista vuota o identità assente → nessun `sameAs`. Se tra i profili c'è un URL Twitter/X, l'handle alimenta anche il meta `twitter:site`. (Esempio in [AGENTS.md](../AGENTS.md).)
+I profili social del brand e la natura dell'entità sono dati d'identità: vivono in `backend/data/identity.json` (campi `social` e `personal`), serviti dall'Engine su `GET /identity` e letti dalla risorsa condivisa `IdentityService`. `social` è una lista di URL: l'Engine li emette come `sameAs` dell'entità brand nel JSON-LD, il segnale che Google usa per il Knowledge Panel, e l'icona nel footer è dedotta dall'URL (quindi più profili dello stesso social convivono). Lista vuota o identità assente → nessun `sameAs`. Se tra i profili c'è un URL Twitter/X, l'handle alimenta anche il meta `twitter:site`. (Esempio in [AGENTS.md](../AGENTS.md).)
 
-Per un sito **personale/portfolio** imposta `personal: true` in `identity.json`: l'entità brand diventa `Person` invece di `Organization` (default). Cambia solo il `@type` e l'icona passa da `logo` a `image`; il nome dell'entità è la `ragioneSociale` (fallback al nome del sito). Il default è `Organization` perché è il meno penalizzante per Google: dichiarare `Person` quando si è un'azienda è peggio del contrario. Identità assente → esce comunque un grafo valido (Organization, senza sameAs).
+Per un sito personale/portfolio imposta `personal: true` in `identity.json`: l'entità brand diventa `Person` invece di `Organization` (default). Cambia solo il `@type` e l'icona passa da `logo` a `image`; il nome dell'entità è la `ragioneSociale` (fallback al nome del sito). Il default è `Organization` perché è il meno penalizzante per Google: dichiarare `Person` quando si è un'azienda è peggio del contrario. Identità assente → esce comunque un grafo valido (Organization, senza sameAs).
 
-> **`isWebApp: false` rende il sito non installabile.** Oltre a non registrare il Service Worker (e a de-registrarlo a runtime, vedi *Service Worker e Consenso Tecnico*), `generate-statics.ts` non genera il `manifest.webmanifest` e rimuove da `index.html` i trigger di installabilità (`<link rel="manifest">`, `mobile-web-app-capable`, i meta `apple-mobile-web-app-*`); il server SSR risponde `404` al manifest. Così non compare il prompt "Aggiungi a schermata Home" (su Chrome Android il Service Worker non è più requisito di installabilità dal 2021). Con `isWebApp: true` la PWA è completa.
+> `isWebApp: false` rende il sito non installabile: oltre a non registrare il Service Worker (e a de-registrarlo a runtime, vedi "Service Worker e Consenso Tecnico"), `generate-statics.ts` non genera il `manifest.webmanifest` e rimuove da `index.html` i trigger di installabilità (`<link rel="manifest">`, `mobile-web-app-capable`, i meta `apple-mobile-web-app-*`); il server SSR risponde `404` al manifest. Così non compare il prompt "Aggiungi a schermata Home" (su Chrome Android il Service Worker non è più requisito di installabilità dal 2021). Con `isWebApp: true` la PWA è completa.
 
 ### Effetto smoke: il contratto `SmokeSettings`
 
@@ -1488,7 +1515,7 @@ Lo **smoke** è l'animazione di particelle di sfondo del pannello contenuti. Viv
 }
 ```
 
-**Spento da solo quando darebbe fastidio.** Anche con `enable: true`, lo shell (`app.component.ts`) calcola `showSmoke` e tiene l'effetto **off** automaticamente quando non avrebbe senso: in `fitViewport` (vista immersiva), quando il pannello contenuti non c'è (`showPanel: false`), e quando l'utente ha richiesto `prefers-reduced-motion`. Così lo smoke compare solo dove c'è un pannello che lo ospita e l'utente non ha chiesto meno animazioni — un default rispettoso dell'accessibilità, senza configurazione.
+Spento da solo quando darebbe fastidio: anche con `enable: true`, lo shell (`app.component.ts`) calcola `showSmoke` e tiene l'effetto off automaticamente quando non avrebbe senso, in `fitViewport` (vista immersiva), quando il pannello contenuti non c'è (`showPanel: false`), e quando l'utente ha richiesto `prefers-reduced-motion`. Così lo smoke compare solo dove c'è un pannello che lo ospita e l'utente non ha chiesto meno animazioni, un default rispettoso dell'accessibilità, senza configurazione.
 
 ### Pagina esterna (`externalUrl`) e on/off (`enabled`)
 
@@ -1506,13 +1533,13 @@ pages: (ctx) => [
 
     // Pagina interna temporaneamente spenta: niente rotta, niente menu, niente sitemap
     { path: 'promo', pageType: PageType.Promo, title: 'Promo', enabled: false,
-      component: () => import('./pages/promo/promo.component') },
+      component: () => import('./promo/promo.component').then(m => m.PromoComponent) },
 ],
 ```
 
 ### Navigazione Multilivello (Navbar e Footer)
 
-I menu in `site.ts` (`headerNav` e `footerNav`) sono **callback** che ricevono un builder, non array. Il builder espone tre azioni — `addPage(PageType)` (voce singola), `addLink('chiaveLabel', '/path')` (link diretto, anche URL esterno), `addGroup('chiaveLabel', b => …)` (gruppo/dropdown) — e i gruppi sono **annidabili** (dentro un `addGroup` ne richiami un altro):
+I menu in `site.ts` (`headerNav` e `footerNav`) sono **callback** che ricevono un builder, non array. Il builder espone tre azioni: `addPage(PageType)` (voce singola), `addLink('chiaveLabel', '/path')` (link diretto, anche URL esterno), `addGroup('chiaveLabel', b => …)` (gruppo/dropdown), e i gruppi sono annidabili (dentro un `addGroup` ne richiami un altro):
 
 ```typescript
 headerNav: (nav) => {
@@ -1532,11 +1559,11 @@ L'Engine elabora i gruppi in modo automatico:
 - **Navbar (Mobile)**: converte i gruppi in **accordion indentati** che si espandono al click.
 - **Footer**: genera colonne annidate visivamente strutturate per livelli di indentazione.
 
-**Limiti di Profondità**: Se superi i 3 livelli di profondità, in fase di sviluppo riceverai un avviso di usabilità in console (`NAV_DEPTH_WARN`), e un errore bloccante se si superano i 5 livelli (`NAV_DEPTH_MAX`).
+Limiti di profondità: se superi i 3 livelli di profondità, in fase di sviluppo riceverai un avviso di usabilità in console (`NAV_DEPTH_WARN`), e un errore bloccante se si superano i 5 livelli (`NAV_DEPTH_MAX`).
 
-**Limite di voci di primo livello (Navbar Desktop)**: superate le 6 voci dirette in `headerNav` (stessa soglia dell'avviso in console per l'usabilità), la Navbar desktop raccoglie automaticamente le voci in eccesso in un dropdown finale **"Altro"** — nessuna configurazione richiesta, l'Engine misura lo spazio disponibile a runtime (`ResizeObserver`) e sposta lì solo ciò che davvero non entra nella riga. Sotto la soglia, o su mobile (dove il menu è comunque impilato verticalmente), il comportamento non cambia.
+Limite di voci di primo livello (Navbar Desktop): superate le 6 voci dirette in `headerNav` (stessa soglia dell'avviso in console per l'usabilità), la Navbar desktop raccoglie automaticamente le voci in eccesso in un dropdown finale "Altro", nessuna configurazione richiesta, l'Engine misura lo spazio disponibile a runtime (`ResizeObserver`) e sposta lì solo ciò che davvero non entra nella riga. Sotto la soglia, o su mobile (dove il menu è comunque impilato verticalmente), il comportamento non cambia.
 
-**Voci visibili solo da loggato (`authOnly`)**: `addPage`/`addLink`/`addGroup` accettano un terzo parametro opzionale `{ authOnly: true }` — la voce (o, su `addGroup`, l'intero gruppo coi suoi figli) compare in navbar e footer solo per utenti loggati, sparendo del tutto per visitatori e bot (nessun link verso una pagina a cui comunque non potrebbero accedere). È il complemento lato-menu di `requiresAuth` sulla pagina (vedi *"Proteggere una Pagina"*): quello protegge la rotta, questo nasconde la voce.
+Voci visibili solo da loggato (`authOnly`): `addPage`/`addLink`/`addGroup` accettano un terzo parametro opzionale `{ authOnly: true }`, la voce (o, su `addGroup`, l'intero gruppo coi suoi figli) compare in navbar e footer solo per utenti loggati, sparendo del tutto per visitatori e bot (nessun link verso una pagina a cui comunque non potrebbero accedere). È il complemento lato-menu di `requiresAuth` sulla pagina (vedi "Proteggere una Pagina"): quello protegge la rotta, questo nasconde la voce.
 
 ```typescript
 headerNav: (h) => {
@@ -1563,29 +1590,29 @@ legalPages: {
 },
 ```
 - **Slot omesso** → quella pagina non viene creata (es. una vetrina con i soli cookie).
-- **Cookie obbligatoria**: se il sito usa cookie (multilingua, PWA o cookie di progetto) lo slot `cookie` dev'essere valorizzato, altrimenti il build si ferma con un errore esplicito.
+- **Cookie obbligatoria**: se il sito usa cookie (PWA o cookie di progetto) lo slot `cookie` dev'essere valorizzato, altrimenti il build si ferma con un errore esplicito.
 - **Contenuto**: Markdown localizzati in `src/assets/legal/` (slug `privacy`, `cookie`, `TOS`, `legal`, `accessibility` → `<slug>.<lang>.md`); il `PolicyComponent` interpola i placeholder dell'identità del sito (`{{ragioneSociale}}`, `{{partitaIva}}`, …) e `{{companyProfile}}` (blocco identità completo, come in `legal.<lang>.md`).
-- **Dichiarazione di Accessibilità**: slot facoltativo come gli altri tre (non `cookie`) — nessun errore di build se lo ometti. Rilevante dal 28 giugno 2025 per i siti nello scope dell'European Accessibility Act (e-commerce, o fatturato >2M€/≥10 dipendenti, microimprese escluse). **Attenzione:** il regime esatto dipende da chi eroga il sito — Pubblica Amministrazione (Legge 4/2004, dichiarazione + obiettivi annuali via piattaforma AGID) e soggetti privati (D.Lgs. 82/2022, "informazioni sull'accessibilità" ex Allegato IV, senza obiettivi annuali) **non sono lo stesso adempimento**: il Markdown demo è un template generico di trasparenza (stato di conformità, limiti noti, canale di segnalazione), non un modulo ufficiale né un testo legale pronto all'uso — verifica con un consulente legale quale regime si applica al progetto.
+- **Dichiarazione di Accessibilità**: slot facoltativo come gli altri tre (non `cookie`), nessun errore di build se lo ometti. Rilevante dal 28 giugno 2025 per i siti nello scope dell'European Accessibility Act (e-commerce, o fatturato >2M€/≥10 dipendenti, microimprese escluse). Attenzione: il regime esatto dipende da chi eroga il sito, Pubblica Amministrazione (Legge 4/2004, dichiarazione + obiettivi annuali via piattaforma AGID) e soggetti privati (D.Lgs. 82/2022, "informazioni sull'accessibilità" ex Allegato IV, senza obiettivi annuali) non sono lo stesso adempimento: il Markdown demo è un template generico di trasparenza (stato di conformità, limiti noti, canale di segnalazione), non un modulo ufficiale né un testo legale pronto all'uso, verifica con un consulente legale quale regime si applica al progetto.
 
-**Override per-pagina.** Per gestire una policy a modo tuo (rotta dedicata, contenuto da API invece che da Markdown) dichiari tu stesso la pagina in `pages` con lo stesso `PageType`: la tua vince, l'Engine non la crea e non ne carica il `.md`. Le altre policy restano automatiche.
+Override per-pagina: per gestire una policy a modo tuo (rotta dedicata, contenuto da API invece che da Markdown) dichiari tu stesso la pagina in `pages` con lo stesso `PageType`: la tua vince, l'Engine non la crea e non ne carica il `.md`. Le altre policy restano automatiche.
 
 ### Passare Dati a una Pagina: Component Input Binding
 
-Il router è configurato con `withComponentInputBinding()` (`app.config.ts`): **tutto ciò che finisce nella rotta diventa un `@Input()` della pagina, abbinato per nome** — senza iniettare `ActivatedRoute`. Vuoi passare qualcosa a una pagina? Lo metti nel canale giusto e la pagina lo legge con un signal-input dello stesso nome. I canali sono quattro, da scegliere in base a *dove nasce il dato*:
+Il router è configurato con `withComponentInputBinding()` (`app.config.ts`): tutto ciò che finisce nella rotta diventa un `@Input()` della pagina, abbinato per nome, senza iniettare `ActivatedRoute`. Vuoi passare qualcosa a una pagina? Lo metti nel canale giusto e la pagina lo legge con un signal-input dello stesso nome. I canali sono quattro, da scegliere in base a dove nasce il dato:
 
 | Canale | Da dove arriva | Quando usarlo |
 | :--- | :--- | :--- |
-| **`data: { … }`** (statico) | dichiarato sulla pagina in `site.ts` | configurazione/variante **fissa** di quella rotta (es. la stessa pagina riusata con un flag diverso) |
+| **`data: { … }`** (statico) | dichiarato sulla pagina, nel suo file di area (`pages/*.pages.ts`) | configurazione/variante **fissa** di quella rotta (es. la stessa pagina riusata con un flag diverso) |
 | **Parametro di rotta `:x`** | segmento dinamico del `path` | id/slug che vivono nell'URL |
 | **Query string `?x=`** | querystring | filtri o stato condivisibile via URL |
 | **Resolver (`contentByResolve`)** | risolto **prima** che la pagina si attivi | contenuto async che l'Engine carica per la pagina |
 
-**1–3. `data` statico, parametro di rotta, query.** Li dichiari (o li porta l'URL) e li leggi come `input()` omonimo:
+1-3. `data` statico, parametro di rotta, query: li dichiari (o li porta l'URL) e li leggi come `input()` omonimo:
 
 ```typescript
-// site.ts — `data` statico (canale 1) + parametro nel path (canale 2)
+// pages/listino.pages.ts — `data` statico (canale 1) + parametro nel path (canale 2)
 { path: 'listino/:fascia', pageType: PageType.Listino,
-  component: () => import('./pages/listino/listino.component'),
+  component: () => import('./listino/listino.component').then(m => m.ListinoComponent),
   data: { variante: 'premium' } }
 ```
 ```typescript
@@ -1597,9 +1624,9 @@ readonly q        = input<string>();         // dalla query `?q=...`
 
 > È lo stesso meccanismo della rotta d'errore dell'Engine: `error/:errorCode` → `ErrorComponent` legge `readonly errorCode = input(404, …)`.
 
-**4. Il resolver è già cablato.** Ogni pagina foglia ha `route.resolve = { contentByResolve: … }`: l'Engine risolve il contenuto della pagina (vedi `ContentResolver`) e lo consegna nell'input `contentByResolve`, che **`PageBaseComponent` legge già per te** (`input<ResolvedPage<T> | null>()`). Estendendo la base hai il contenuto risolto senza scrivere nulla; aggiungi tuoi `input()` solo per i canali 1–3.
+4. Il resolver è già cablato: ogni pagina foglia ha `route.resolve = { contentByResolve: … }`, l'Engine risolve il contenuto della pagina (vedi `ContentResolver`) e lo consegna nell'input `contentByResolve`, che `PageBaseComponent` legge già per te (`input<ResolvedPage<T> | null>()`). Estendendo la base hai il contenuto risolto senza scrivere nulla; aggiungi tuoi `input()` solo per i canali 1-3.
 
-> **Chiavi riservate in `route.data`.** Il builder fonde il tuo `data` con chiavi che gestisce l'Engine — `pageType`, `showPanel`, `showNav`, `showFooter`, `fitViewport`, `pageDescription`, `ogImage` (più `contentByResolve` dal resolver) — e **le sue vincono** sulle omonime nel tuo `data`. Non riusare quei nomi. `pageType` è sempre disponibile come `input.required<PageType>()` (lo legge `PageBaseComponent`). Tra i canali usa **nomi distinti**: a parità di nome la pagina riceve un solo valore.
+> Chiavi riservate in `route.data`: il builder fonde il tuo `data` con chiavi che gestisce l'Engine (`pageType`, `showPanel`, `showNav`, `showFooter`, `fitViewport`, `pageDescription`, `ogImage`, più `contentByResolve` dal resolver), e le sue vincono sulle omonime nel tuo `data`. Non riusare quei nomi. `pageType` è sempre disponibile come `input.required<PageType>()` (lo legge `PageBaseComponent`). Tra i canali usa nomi distinti: a parità di nome la pagina riceve un solo valore.
 
 `withInMemoryScrolling()` gestisce la posizione di scroll: il ritorno alla pagina precedente ripristina la posizione; i link con `#section` scrollano all'ancora.
 
@@ -1611,7 +1638,7 @@ readonly q        = input<string>();         // dalla query `?q=...`
 
 - **Backend (ASP.NET Core):** `IConfiguration["Custom:TuaChiave"]`
 - **Node SSR:** `getBr1Settings().Custom`
-- **Browser Angular:** `inject(APP_CUSTOM)` in qualsiasi componente o servizio — l'SSR serializza `Custom` in `TransferState` e il client la rilegge in idratazione (fallback `{}` senza SSR).
+- **Browser Angular:** `inject(APP_CUSTOM)` in qualsiasi componente o servizio, l'SSR serializza `Custom` in `TransferState` e il client la rilegge in idratazione (fallback `{}` senza SSR).
 
 ```typescript
 import { APP_CUSTOM } from './core/engine/app-custom';
@@ -1622,11 +1649,11 @@ const trackingId = custom['Analytics']?.['TrackingId'] as string | undefined;
 
 > `Custom` è committabile ed esposto al client: usalo per valori pubblici (feature flag, limiti, ID analytics); i segreti vivono in `global-settings.local.json`.
 
-> ⚠️ **`Custom` lato browser richiede SSR sulla rotta.** `inject(APP_CUSTOM)` si popola dal `TransferState`, che esiste solo se la pagina è renderizzata dal server. Su una rotta `renderMode: 'client'` (incluse le pagine `requiresAuth`, vedi sopra) il `TransferState` non viene emesso → al **caricamento diretto/refresh** di quella rotta `APP_CUSTOM` è `{}`. Se una pagina deve leggere `Custom` lato client (es. un token mappa), tienila `renderMode: 'server'`: l'SSR rende solo la shell e popola il `TransferState`, mentre la logica browser resta in `afterNextRender`. Se il valore deve restare fuori dal repo, mettilo in `Custom` di `global-settings.local.json` (gitignored): il merge in dev e il file effettivo in prod lo fanno comunque arrivare.
+> ⚠️ `Custom` lato browser richiede SSR sulla rotta: `inject(APP_CUSTOM)` si popola dal `TransferState`, che esiste solo se la pagina è renderizzata dal server. Su una rotta `renderMode: 'client'` (incluse le pagine `requiresAuth`, vedi sopra) il `TransferState` non viene emesso → al caricamento diretto/refresh di quella rotta `APP_CUSTOM` è `{}`. Se una pagina deve leggere `Custom` lato client (es. un token mappa), tienila `renderMode: 'server'`: l'SSR rende solo la shell e popola il `TransferState`, mentre la logica browser resta in `afterNextRender`. Se il valore deve restare fuori dal repo, mettilo in `Custom` di `global-settings.local.json` (gitignored): il merge in dev e il file effettivo in prod lo fanno comunque arrivare.
 
 ### Token `SITE_CONFIG`: la Config Risolta del Sito
 
-Mentre `Custom` è uno spazio libero per il progetto, `SITE_CONFIG` è il token DI che espone la `SiteConfig` finale **normalizzata** dall'Engine (provider in `app.config.ts`, valore `ContestoSito.config`). `inject(SITE_CONFIG)` restituisce la configurazione già risolta — default applicati, slot legali completi, riferimenti sanitizzati — senza ri-derivarla:
+Mentre `Custom` è uno spazio libero per il progetto, `SITE_CONFIG` è il token DI che espone la `SiteConfig` finale normalizzata dall'Engine (provider in `app.config.ts`, valore `ContestoSito.config`). `inject(SITE_CONFIG)` restituisce la configurazione già risolta (default applicati, slot legali completi, riferimenti sanitizzati) senza ri-derivarla:
 
 ```typescript
 import { SITE_CONFIG } from './core/engine/siteBuilder';
@@ -1651,7 +1678,7 @@ site.showNav;     // es. lettura di un singolo flag
 
 ### `FRONTEND_BASE_URL` per og:image
 
-L'URL canonico del sito è dichiarato in `FRONTEND_BASE_URL` (env var: in locale la passa `scripts/deploy.sh` da `frontend.hostname`; nelle release la passa la CI dalla repository variable omonima — vedi [RELEASE.md](../RELEASE.md)). Viene usato per costruire URL assoluti di `og:image` in SSR — indipendentemente dagli header del reverse proxy (Nginx, Cloudflare):
+L'URL canonico del sito è dichiarato in `FRONTEND_BASE_URL` (env var: in locale la passa `scripts/deploy.sh` da `frontend.hostname`; nelle release la passa la CI dalla repository variable omonima, vedi [RELEASE.md](../RELEASE.md)). Viene usato per costruire URL assoluti di `og:image` in SSR, indipendentemente dagli header del reverse proxy (Nginx, Cloudflare):
 
 ```bash
 FRONTEND_BASE_URL=https://tuodominio.it
@@ -1679,7 +1706,7 @@ La directive `PageDirective` traduce un `PageType` nel path corrispondente e lo 
 | `href` | Bindato esplicitamente: RouterLink come `hostDirective` non aggiorna il proprio `@HostBinding` via effect → senza questo binding, l'elemento avrebbe `href=null` e cursore testo invece di cursore link |
 | Tipo | `input.required<PageType>()` — errore TypeScript a compile-time se mancante |
 
-**Regola pratica:** usa `[appPage]` per tutti i link interni. Per navigazione programmatica dopo operazioni asincrone (es. redirect post-login, post-form) inietta `Router` e chiama `router.navigate([ContestoSito.getPath(PageType.X) ?? '/'])`.
+Regola pratica: usa `[appPage]` per tutti i link interni. Per navigazione programmatica dopo operazioni asincrone (es. redirect post-login, post-form) inietta `Router` e chiama `router.navigate([ContestoSito.getPath(PageType.X) ?? '/'])`.
 
 ---
 
@@ -1687,7 +1714,7 @@ La directive `PageDirective` traduce un `PageType` nel path corrispondente e lo 
 
 ### `img[appImgRender]`: Rendering Immagine Generata
 
-Applica `ImgBuilderService` direttamente su un `<img>`. Il `src` viene aggiornato automaticamente con il data URL PNG ogni volta che la config cambia. Niente wrapper, niente classi proprie — l'elemento accetta tutti gli attributi `<img>` standard.
+Applica `ImgBuilderService` direttamente su un `<img>`. Il `src` viene aggiornato automaticamente con il data URL PNG ogni volta che la config cambia. Niente wrapper, niente classi proprie: l'elemento accetta tutti gli attributi `<img>` standard.
 
 ```html
 <img [appImgRender]="imgConfig"
@@ -1754,7 +1781,7 @@ downloadQr() {
 
 ## 🖱️ `[appContextMenu]`: Menu Contestuale
 
-La directive `ContextMenuDirective` aggiunge un menu contestuale a qualsiasi elemento. Su desktop apre un **popover** sotto il cursore; su mobile/touch apre un **bottom sheet** a tutta larghezza.
+La directive `ContextMenuDirective` aggiunge un menu contestuale a qualsiasi elemento. Su desktop apre un popover sotto il cursore; su mobile/touch apre un bottom sheet a tutta larghezza.
 
 ```html
 <div [appContextMenu]="menuOptions" class="item-card p-3">
@@ -1827,16 +1854,16 @@ Visualizza un oggetto `Identity` con tutti i campi legali italiani. I campi `nul
 | `inColonna` | `boolean` (default `false`) | Impila le sezioni in colonna invece che affiancate |
 
 Rende:
-- **Contatti**: telefono, PEC, email, sede, rappresentante legale e **orari di contatto** (resi localizzati dagli orari strutturati: "lun–ven 09:00–17:00")
+- **Contatti**: telefono, PEC, email, sede, rappresentante legale e orari di contatto (resi localizzati dagli orari strutturati: "lun–ven 09:00–17:00")
 - **Dati societari**: P.IVA, Codice Fiscale, sede legale, registro imprese, REA, capitale sociale, versamento integrale, socio unico, stato di liquidazione, codice SDI
-- **Social** *(solo con `showSocial`)*: icone dei profili brand (dedotte dall'URL), col nome accanto — dall'`name` della voce social se presente, altrimenti dedotto dall'URL
+- **Social** (solo con `showSocial`): icone dei profili brand (dedotte dall'URL), col nome accanto, dall'`name` della voce social se presente, altrimenti dedotto dall'URL
 
 Formattazione automatica:
 - **Importi**: `Intl.NumberFormat` con locale mapping (`it` → `it-IT`, `en` → `en-GB`)
 - **Booleani**: tradotti tramite chiavi i18n (`siAzione` / `noAzione`)
 - **Indirizzo**: assembla `via civico` + `CAP città (provincia)` + `nazione`
 
-Le etichette usano le chiavi `*Azienda` in `addon.{lang}.json` — tutte personalizzabili.
+Le etichette usano le chiavi `*Azienda` in `addon.{lang}.json`, tutte personalizzabili.
 
 ### `app-icon`: Badge Icona FontAwesome
 
@@ -1859,7 +1886,7 @@ Glifo FontAwesome in pastiglia con forma e animazione hover configurabili. Valor
 
 ### `app-social-link`: Pulsante Social con Branding
 
-Pulsante social con icona e colore brand corretti. **Deduce il network dall'URL** (regex sui social noti): basta passare il `value`, niente `type`. Per gli sconosciuti usa `fa-solid fa-link` (etichetta = hostname). Il `type` esplicito resta come override (utile alla galleria demo, dove l'URL è generico).
+Pulsante social con icona e colore brand corretti. Deduce il network dall'URL (regex sui social noti): basta passare il `value`, niente `type`. Per gli sconosciuti usa `fa-solid fa-link` (etichetta = hostname). Il `type` esplicito resta come override (utile alla galleria demo, dove l'URL è generico).
 
 ```html
 <!-- Solo URL: icona dedotta (linkedin) — così una lista può avere più profili dello stesso social -->
@@ -1879,7 +1906,7 @@ Network con branding integrato (30+): `facebook`, `instagram`, `twitter`, `linke
 
 ### `app-link-badge`: Link a Badge con Icona
 
-Componente presentazionale di basso livello: un `<a>` (apre in nuova scheda) con icona-pastiglia (`app-icon`) e testo opzionale. È il template unico su cui poggiano le famiglie *Contatto* e *social* (`app-social-link`), che gli passano solo i dati senza logica propria. Usalo direttamente quando ti serve un link "a badge" generico fuori da quelle famiglie.
+Componente presentazionale di basso livello: un `<a>` (apre in nuova scheda) con icona-pastiglia (`app-icon`) e testo opzionale. È il template unico su cui poggiano le famiglie "Contatto" e "social" (`app-social-link`), che gli passano solo i dati senza logica propria. Usalo direttamente quando ti serve un link "a badge" generico fuori da quelle famiglie.
 
 ```html
 <app-link-badge [href]="'https://example.com'" glyph="fa-solid fa-link" [text]="'Sito'" [showText]="true" />
@@ -1906,7 +1933,7 @@ Famiglia di bottoni icon-first per operazioni asincrone su contenuto (testo, Blo
 - `showLabel` — `false` per sola icona (default), `true` per icona + testo
 - `fullWidth` — `false` (default): l'host resta inline-block; `true`: l'host diventa `display: block` a tutta larghezza, così il bottone interno (`w-100`) riempie davvero il contenitore senza che il padre debba aggiungere CSS
 
-La maggior parte richiede anche `action` (required) — funzione sincrona o asincrona che produce il contenuto; fanno eccezione `app-pdf-action` (usa `config`) e `app-print-action` (nessun input di contenuto: stampa la pagina corrente).
+La maggior parte richiede anche `action` (required), funzione sincrona o asincrona che produce il contenuto; fanno eccezione `app-pdf-action` (usa `config`) e `app-print-action` (nessun input di contenuto: stampa la pagina corrente).
 
 ```html
 <!-- Solo icona (default) -->
@@ -1955,7 +1982,7 @@ Apre o scarica un PDF. Usa `config` al posto di `action`: lavora direttamente su
 | `config` | `PdfActionConfig` (required) | `{ url: string; openInTab: boolean }` — URL del PDF e modalità di apertura |
 
 #### `app-print-action`
-Apre la finestra di stampa nativa del browser tramite `window.print()`. Non richiede `action`. Non è montato da nessuna parte nel template di default (niente bottone di stampa globale — vedi «Stampa/PDF» più sopra, che copre la resa senza bisogno di un bottone): usalo se un progetto vuole comunque un'affordance di stampa puntuale su una pagina specifica (es. una fattura, un articolo). Si auto-esclude sempre dalla propria stampa (`d-print-none` intrinseco): un bottone "stampa" non ha senso nel risultato stampato di se stesso.
+Apre la finestra di stampa nativa del browser tramite `window.print()`. Non richiede `action`. Non è montato da nessuna parte nel template di default (niente bottone di stampa globale, vedi «Stampa/PDF» più sopra, che copre la resa senza bisogno di un bottone): usalo se un progetto vuole comunque un'affordance di stampa puntuale su una pagina specifica (es. una fattura, un articolo). Si auto-esclude sempre dalla propria stampa (`d-print-none` intrinseco): un bottone "stampa" non ha senso nel risultato stampato di se stesso.
 
 #### `app-like-action`
 Registra un apprezzamento tramite `action` (nessun contenuto prodotto o trasformato: segnala solo un evento). Bottone a stato piatto: una volta `liked`, il click è no-op (niente "togli mi piace") e il bottone resta attivo (`.active`, `aria-pressed="true"`).
@@ -1992,11 +2019,11 @@ Genera un link `t.me` per avviare una chat Telegram.
 
 ### Aggiungere un componente d'azione (o di contatto)
 
-Le due famiglie sopra poggiano su una base comune, `BaseActionComponent` (`components/shared/base/base-action.component.ts`), che incarna il principio dei **componenti autonomi**: chi usa il bottone non inietta mai un servizio, passa al massimo una funzione che produce il dato. La base centralizza la parte "sporca" una volta sola:
+Le due famiglie sopra poggiano su una base comune, `BaseActionComponent` (`components/shared/base/base-action.component.ts`), che incarna il principio dei componenti autonomi: chi usa il bottone non inietta mai un servizio, passa al massimo una funzione che produce il dato. La base centralizza la parte "sporca" una volta sola:
 
 - gli input `label` / `showLabel` / `fullWidth` (con l'host che diventa `display: block` quando `fullWidth`);
 - la traduzione della label (`displayLabel`), che ricade su `defaultLabelKey` se non passi una `label`;
-- il metodo protetto `run(work)`, che gestisce il flag `loading()`, **previene la doppia esecuzione** (se è già in corso fa no-op), esegue il lavoro asincrono e, in caso di errore, mostra un toast `erroreImprevisto`.
+- il metodo protetto `run(work)`, che gestisce il flag `loading()`, previene la doppia esecuzione (se è già in corso fa no-op), esegue il lavoro asincrono e, in caso di errore, mostra un toast `erroreImprevisto`.
 
 Per aggiungere un tuo bottone d'azione (in `components/shared/**`, territorio del figlio) dichiari solo due cose: la chiave i18n di default e la logica dentro `run()`. Tutto il resto lo eredita.
 
@@ -2021,13 +2048,13 @@ export class ArchiveActionComponent extends BaseActionComponent {
 }
 ```
 
-Nel template chiami `onClick()` sul bottone, leggi `displayLabel()` per il testo e `loading()` per lo spinner — esattamente come fanno `app-copy-action` o `app-pdf-action` (quest'ultimo è un buon esempio: estende la base e sovrascrive `displayLabel` per cambiare etichetta fra "apri" e "scarica"). I componenti di contatto seguono lo stesso principio ma su una base diversa, `BaseContactComponent` (`components/shared/contact/base-contact.component.ts`): essendo link e non azioni, specializza `BaseLinkComponent` invece di gestire `run()`, e ogni canale concreto dichiara `defaultLabelKey`, `glyph`, `color` e l'`href` derivato dalla `config`.
+Nel template chiami `onClick()` sul bottone, leggi `displayLabel()` per il testo e `loading()` per lo spinner, esattamente come fanno `app-copy-action` o `app-pdf-action` (quest'ultimo è un buon esempio: estende la base e sovrascrive `displayLabel` per cambiare etichetta fra "apri" e "scarica"). I componenti di contatto seguono lo stesso principio ma su una base diversa, `BaseContactComponent` (`components/shared/contact/base-contact.component.ts`): essendo link e non azioni, specializza `BaseLinkComponent` invece di gestire `run()`, e ogni canale concreto dichiara `defaultLabelKey`, `glyph`, `color` e l'`href` derivato dalla `config`.
 
 ---
 
 ## 🏗️ Script di Build: `generate-statics.ts`
 
-Lo script sincronizza i file statici e **inietta nel frontend** (via `src/environments/environment.ts`) identità ed estetica del progetto: `project.name`/`project.version`, i codici lingua (`Localization`) e la sezione `site` (descrizione, tema, smoke) da `global-settings.json`. I codici lingua qui sono il seed di build (shell, fallback `pickLocaleText`, pagina cookie); la cultura runtime (nomi nativi, giorni, formattazione) la deriva il frontend via `Intl`. La **struttura e il comportamento** (pagine, menu, `shell`, `isWebApp`, `loginPage`, `legalPages`) restano in `site.ts`. **Va eseguito ogni volta che si modifica `global-settings.json` o `site.ts`** (è già nei passi `prebuild`/`prestart`; in Docker la config arriva via l'ARG `BR1_PROJECT_JSON`).
+Lo script sincronizza i file statici e inietta nel frontend (via `src/environments/environment.ts`) identità ed estetica del progetto: `project.name`/`project.version`, i codici lingua (`Localization`) e la sezione `site` (descrizione, tema, smoke) da `global-settings.json`. I codici lingua qui sono il seed di build (shell, fallback `pickLocaleText`, routing per-lingua); la cultura runtime (nomi nativi, giorni, formattazione) la deriva il frontend via `Intl`. La struttura e il comportamento (pagine, menu, `shell`, `isWebApp`, `loginPage`, `legalPages`) restano in `site.ts`. Va eseguito ogni volta che si modifica `global-settings.json` o `site.ts` (è già nei passi `prebuild`/`prestart`; in Docker la config arriva via l'ARG `BR1_PROJECT_JSON`).
 
 ```bash
 npm run generate:statics
@@ -2046,15 +2073,15 @@ npm run generate:statics
 | `public/theme-init.js` | Script anti-flash del tema (vedi *Tema → Anti-flash*): sincrono nel `<head>`, imposta `data-bs-theme` da `prefers-color-scheme` prima che Bootstrap carichi gli stili |
 | `src/environments/environment.ts` | `defaultLang`, `availableLanguages`, `configFingerprint` — **file generato automaticamente, non modificare manualmente** |
 
-> **`configFingerprint`: guardia contro un `environment.ts` non rigenerato.** Uno hash (12 caratteri) delle sole sezioni identity-critiche di `global-settings.json` (`project`/`Localization`/`site`). Il Node SSR lo ricalcola al boot dal config letto a runtime e lo confronta con quello scritto nel bundle: se non coincidono stampa un warning in log — capita tipicamente lanciando `ng serve` senza passare dai pre-hook (`predev`/`prestart`), o modificando `global-settings.json` senza rilanciare `npm run generate:statics`. Non blocca l'avvio: è un segnale di dev, non un gate.
+> `configFingerprint`: guardia contro un `environment.ts` non rigenerato. Uno hash (12 caratteri) delle sole sezioni identity-critiche di `global-settings.json` (`project`/`Localization`/`site`). Il Node SSR lo ricalcola al boot dal config letto a runtime e lo confronta con quello scritto nel bundle: se non coincidono stampa un warning in log, capita tipicamente lanciando `ng serve` senza passare dai pre-hook (`predev`/`prestart`), o modificando `global-settings.json` senza rilanciare `npm run generate:statics`. Non blocca l'avvio: è un segnale di dev, non un gate.
 
-> **Versionati vs solo-build.** Solo due output generati sono **versionati** come seed — `src/index.html` e `src/environments/environment.ts` — perché servono al type-check e alla build prima della prima rigenerazione (`index.html` è il documento di build, `environment.ts` è importato dal TS): lo script li tiene aggiornati e la diff si committa insieme a `global-settings.json`. Tutto ciò che finisce in `public/` (`manifest.webmanifest`, `robots.txt`, `sitemap.xml`, `llms.txt`, `security.txt`, `theme-init.js`, `icons/`) è **solo output di build**, gitignored (`public/` è ignorata per intero): viene rigenerato dal pre-hook `prebuild` e non va mai committato.
+> Versionati vs solo-build: solo due output generati sono versionati come seed, `src/index.html` e `src/environments/environment.ts`, perché servono al type-check e alla build prima della prima rigenerazione (`index.html` è il documento di build, `environment.ts` è importato dal TS): lo script li tiene aggiornati e la diff si committa insieme a `global-settings.json`. Tutto ciò che finisce in `public/` (`manifest.webmanifest`, `robots.txt`, `sitemap.xml`, `llms.txt`, `security.txt`, `theme-init.js`, `icons/`) è solo output di build, gitignored (`public/` è ignorata per intero): viene rigenerato dal pre-hook `prebuild` e non va mai committato.
 
 ### Icone PWA automatiche (`generate-icons.ts`)
 
-Un secondo script, `generate-icons.ts`, deriva le icone PWA `public/icons/icon-192x192.png` e `icon-512x512.png` dall'asset **`favIcon`** dichiarato in `mapping.json` (ridimensiona con `sharp`, con fallback a copia se `sharp` manca). Gira in automatico negli stessi pre-hook di `generate-statics` (`prestart` / `predev` / `prebuild`), quindi non va lanciato a mano.
+Un secondo script, `generate-icons.ts`, deriva le icone PWA `public/icons/icon-192x192.png` e `icon-512x512.png` dall'asset `favIcon` dichiarato in `mapping.json` (ridimensiona con `sharp`, con fallback a copia se `sharp` manca). Gira in automatico negli stessi pre-hook di `generate-statics` (`prestart` / `predev` / `prebuild`), quindi non va lanciato a mano.
 
-Il punto pratico: **un solo asset, `favIcon`, alimenta tutto** — favicon del sito (in `index.html`), icone dell'app installabile (PWA) e il badge sulle anteprime social generate da `/cdn-cgi/preview`. Cambi quel singolo file in `mapping.json` e si aggiornano tutti e tre.
+Il punto pratico: un solo asset, `favIcon`, alimenta tutto, favicon del sito (in `index.html`), icone dell'app installabile (PWA) e il badge sulle anteprime social generate da `/cdn-cgi/preview`. Cambi quel singolo file in `mapping.json` e si aggiornano tutti e tre.
 
 ### Variabili d'Ambiente
 
@@ -2062,7 +2089,7 @@ Il punto pratico: **un solo asset, `favIcon`, alimenta tutto** — favicon del s
 | :--- | :--- | :--- |
 | `FRONTEND_BASE_URL` | URL canonico del sito (es. `https://tuodominio.it`), per gli URL assoluti `og:image` | `https://example.com` con warning |
 
-Lingua di default e lingue supportate **non** sono variabili d'ambiente: lo script le ricava dalla sezione `Localization` del progetto (codici a 2 lettere). Su host/CI legge direttamente `global-settings.json`; nelle immagini Docker (dove il file non è nel build context) legge gli stessi dati da `BR1_PROJECT_JSON`, il JSON di progetto che `scripts/deploy.sh` (build locale) o la CI di release passa come build-arg. È il seed di build; i nomi nativi e i primitivi di cultura li deriva il frontend via `Intl` (`LocalizationService`).
+Lingua di default e lingue supportate non sono variabili d'ambiente: lo script le ricava dalla sezione `Localization` del progetto (codici a 2 lettere). Su host/CI legge direttamente `global-settings.json`; nelle immagini Docker (dove il file non è nel build context) legge gli stessi dati da `BR1_PROJECT_JSON`, il JSON di progetto che `scripts/deploy.sh` (build locale) o la CI di release passa come build-arg. È il seed di build; i nomi nativi e i primitivi di cultura li deriva il frontend via `Intl` (`LocalizationService`).
 
 ### Esclusioni Automatiche da Sitemap e Indicizzazione
 
@@ -2073,7 +2100,7 @@ Lingua di default e lingue supportate **non** sono variabili d'ambiente: lo scri
 | `requiresAuth: true` | Esclusa dalla sitemap **e** marcata `noindex` dal server SSR (`X-Robots-Tag: noindex, nofollow`), senza comparire in robots.txt. Forza anche il client-render |
 | `otherSEO: { noindex: true }` | Esclusa dalla sitemap **e** marcata `noindex` dal server SSR (`X-Robots-Tag: noindex, nofollow`). A differenza di `requiresAuth` la pagina resta **pubblica e SSR**: solo non indicizzabile (es. landing duplicate, thank-you) |
 
-> **Deploy non indicizzabile (staging).** Per un'anteprima/staging dietro lo stesso reverse proxy della produzione, imposta l'env var `SEO_NOINDEX=true` sul container Node SSR: il server emette `X-Robots-Tag: noindex, nofollow` su ogni risposta e serve un `robots.txt` dinamico `Disallow: /`. Default off → in produzione il sito resta indicizzabile. Vedi [DOCKER_README.md](../DOCKER_README.md).
+> Deploy non indicizzabile (staging): per un'anteprima/staging dietro lo stesso reverse proxy della produzione, imposta l'env var `SEO_NOINDEX=true` sul container Node SSR: il server emette `X-Robots-Tag: noindex, nofollow` su ogni risposta e serve un `robots.txt` dinamico `Disallow: /`. Default off → in produzione il sito resta indicizzabile. Vedi [DOCKER_README.md](../DOCKER_README.md).
 
 ### Priority e Changefreq Automatici
 
@@ -2083,21 +2110,21 @@ Lingua di default e lingue supportate **non** sono variabili d'ambiente: lo scri
 | 1 | `/chi-siamo` | `0.8` | `monthly` |
 | 2+ | `/blog/articolo` | `0.6` e a scendere (`1.0 − 0.2·profondità`, con minimo `0.3`) | `yearly` |
 
-Profondità calcolata sul path **senza prefisso lingua**: una pagina in `/en/blog/articolo` ha la stessa `priority`/`changefreq` della sua variante `/blog/articolo`, non un livello in meno per il segmento `/en/` in più.
+Profondità calcolata sul path senza prefisso lingua: una pagina in `/en/blog/articolo` ha la stessa `priority`/`changefreq` della sua variante `/blog/articolo`, non un livello in meno per il segmento `/en/` in più.
 
 ### `og:updated_time` e `<lastmod>` della sitemap
 
-Entrambi sono impostati a `project.lastModified` in `global-settings.json` (formato italiano `GG/MM/AAAA`, convertito in `YYYY-MM-DD`). La si bumpa **a mano** quando i contenuti cambiano davvero: dà al `<lastmod>` un valore accurato e stabile, come richiesto da Google per considerarlo attendibile. Fallback alla data del build se il campo è assente o non valido.
+Entrambi sono impostati a `project.lastModified` in `global-settings.json` (formato italiano `GG/MM/AAAA`, convertito in `YYYY-MM-DD`). La si bumpa a mano quando i contenuti cambiano davvero: dà al `<lastmod>` un valore accurato e stabile, come richiesto da Google per considerarlo attendibile. Fallback alla data del build se il campo è assente o non valido.
 
 ### `og:locale`
 
-`og:locale` in `index.html` usa il formato regionale OpenGraph `lingua_REGIONE` (es. `it` → `it_IT`), derivato dalla `DEFAULT_LANG` via `Intl.Locale().maximize()` — coerente con il formato emesso a runtime da `PageMetaService`. Lo stesso file imposta anche `<html dir="ltr|rtl">` dalla `DEFAULT_LANG` (stessa lista statica di codici RTL usata a runtime da `TranslateService`).
+`og:locale` in `index.html` usa il formato regionale OpenGraph `lingua_REGIONE` (es. `it` → `it_IT`), derivato dalla `DEFAULT_LANG` via `Intl.Locale().maximize()`, coerente con il formato emesso a runtime da `PageMetaService`. Lo stesso file imposta anche `<html dir="ltr|rtl">` dalla `DEFAULT_LANG` (stessa lista statica di codici RTL usata a runtime da `TranslateService`).
 
 ---
 
 ## 📦 Bundling frontend: budget, code-splitting e i confini del builder
 
-Il builder è `@angular/build:application` (`angular.json → architect.build.builder`): impacchetta con **esbuild**, ma dietro un'interfaccia dichiarativa — non c'è un `esbuild.config.*`/`webpack.config.*` da aprire ed estendere. È un confine di design, non una lacuna: le leve su cui un progetto figlio interviene stanno tutte in `angular.json`, negli stessi punti di contatto elencati nella tabella «Condivisi con punti di contatto» del [README radice](../README.md).
+Il builder è `@angular/build:application` (`angular.json → architect.build.builder`): impacchetta con esbuild, ma dietro un'interfaccia dichiarativa, non c'è un `esbuild.config.*`/`webpack.config.*` da aprire ed estendere. È un confine di design, non una lacuna: le leve su cui un progetto figlio interviene stanno tutte in `angular.json`, negli stessi punti di contatto elencati nella tabella «Condivisi con punti di contatto» del [README radice](../README.md).
 
 | Leva | Dove | Effetto |
 | :--- | :--- | :--- |
@@ -2106,7 +2133,7 @@ Il builder è `@angular/build:application` (`angular.json → architect.build.bu
 | `styles` / `scripts` | `angular.json` | CSS/JS globali da `node_modules` caricati prima del bundle applicativo (Bootstrap, FontAwesome, SweetAlert2 sono già qui) |
 | `assets` | `angular.json` | Glob di file copiati così come sono, fuori dal bundle JS |
 
-**Budget iniziale (`950kB`).** Il bundle iniziale del template (senza ancora una riga di contenuto del progetto figlio) pesa ~860kB raw / ~190kB trasferiti (gzip) — la cifra che conta davvero per chi visita il sito è quella trasferita, il budget di Angular CLI invece misura il peso raw. La scomposizione, dal più pesante:
+Budget iniziale (`950kB`): il bundle iniziale del template (senza ancora una riga di contenuto del progetto figlio) pesa ~860kB raw / ~190kB trasferiti (gzip), la cifra che conta davvero per chi visita il sito è quella trasferita, il budget di Angular CLI invece misura il peso raw. La scomposizione, dal più pesante:
 
 | Voce | Peso raw sorgente | Nota |
 | :--- | ---: | :--- |
@@ -2116,11 +2143,11 @@ Il builder è `@angular/build:application` (`angular.json → architect.build.bu
 | SweetAlert2 (solo tema CSS) | ~5kB | Il JS della libreria è già dietro `import()` dinamico (`notification.service.ts`) → in un chunk lazy, non qui |
 | Stili propri dell'Engine + CDK overlay | ~5kB | Trascurabile |
 
-Non è un limite che cresce con le pagine del progetto figlio: quelle sono già lazy-loaded una per una (`component: () => import(...)`, vedi sotto) e non contano nel bundle iniziale — l'ho verificato costruendo sia un progetto "vuoto" sia questo template con qualche pagina in più: il numero cambia di pochi kB, non a cascata. È invece il costo fisso di includere Bootstrap e Font Awesome **per intero** anziché un subset: la scelta deliberata del template è di non tagliare componenti Bootstrap o icone che un progetto figlio potrebbe usare senza che l'Engine lo sappia (un sito che non usa mai `.carousel` oggi potrebbe iniziare a usarlo domani). Il budget alzato è la conseguenza onesta di quella scelta, non una toppa: se un progetto figlio arriva a `950kB` aggiungendo **il proprio** codice (non solo caricando il template), è il segnale reale — a quel punto ha senso alzarlo ulteriormente lì, oppure spostare quel contenuto dietro un `import()` dinamico (vedi sotto). Se invece un `ng build` pulito del template appena clonato è già vicino alla soglia, il problema è a monte, qui, non nel figlio.
+Non è un limite che cresce con le pagine del progetto figlio: quelle sono già lazy-loaded una per una (`component: () => import(...)`, vedi sotto) e non contano nel bundle iniziale, l'ho verificato costruendo sia un progetto "vuoto" sia questo template con qualche pagina in più: il numero cambia di pochi kB, non a cascata. È invece il costo fisso di includere Bootstrap e Font Awesome per intero anziché un subset: la scelta deliberata del template è di non tagliare componenti Bootstrap o icone che un progetto figlio potrebbe usare senza che l'Engine lo sappia (un sito che non usa mai `.carousel` oggi potrebbe iniziare a usarlo domani). Il budget alzato è la conseguenza onesta di quella scelta, non una toppa: se un progetto figlio arriva a `950kB` aggiungendo il proprio codice (non solo caricando il template), è il segnale reale, a quel punto ha senso alzarlo ulteriormente lì, oppure spostare quel contenuto dietro un `import()` dinamico (vedi sotto). Se invece un `ng build` pulito del template appena clonato è già vicino alla soglia, il problema è a monte, qui, non nel figlio.
 
-**Code-splitting: già automatico, segui il pattern esistente.** Ogni pagina in `site.ts` si dichiara con `component: () => import('./pages/.../x.component')`: il router genera un chunk lazy per pagina senza altra configurazione. Per un SDK di terze parti pesante (mappe, player video, chat) applica lo stesso principio a mano — `import()` dinamico dentro il componente/servizio che lo usa, non un import statico in cima al file — così il codice entra nel bundle iniziale solo se e quando serve (e, se l'SDK scrive cookie/Web Storage, dietro il gate del consenso: vedi «Aggiungere un cookie o una voce di Web Storage», [AGENTS.md](../AGENTS.md#persistere-dati-lato-client-cookie-web-storage-consenso)).
+Code-splitting: già automatico, segui il pattern esistente. Ogni pagina, nel suo file di area, si dichiara con `component: () => import('./.../x.component').then(m => m.XComponent)`: il router genera un chunk lazy per pagina senza altra configurazione. Per un SDK di terze parti pesante (mappe, player video, chat) applica lo stesso principio a mano, `import()` dinamico dentro il componente/servizio che lo usa, non un import statico in cima al file, così il codice entra nel bundle iniziale solo se e quando serve (e, se l'SDK scrive cookie/Web Storage, dietro il gate del consenso: vedi «Aggiungere un cookie o una voce di Web Storage», [AGENTS.md](../AGENTS.md#persistere-dati-lato-client-cookie-web-storage-consenso)).
 
-**Cosa resta fuori per scelta.** Chunking manuale, plugin esbuild custom o un builder alternativo (webpack, Vite) non sono seam supportati: richiederebbero sostituire `architect.build.builder`, che è scaffold del template (vince il template al merge). Se un progetto arriva davvero a un limite che budget/code-splitting/CommonJS-allowlist non risolvono, è un segnale da portare a monte (Engine), non da aggirare nel figlio.
+Cosa resta fuori per scelta: chunking manuale, plugin esbuild custom o un builder alternativo (webpack, Vite) non sono seam supportati, richiederebbero sostituire `architect.build.builder`, che è scaffold del template (vince il template al merge). Se un progetto arriva davvero a un limite che budget/code-splitting/CommonJS-allowlist non risolvono, è un segnale da portare a monte (Engine), non da aggirare nel figlio.
 
 ---
 
@@ -2134,11 +2161,11 @@ L'endpoint `/health` restituisce JSON strutturato (non una stringa generica):
 { "status": "ok", "mode": "ssr", "a11yPaths": ["/home", "/chi-siamo", "..."] }
 ```
 
-`a11yPaths` è la lista di tutte le pagine indicizzabili — usato da sistemi di monitoraggio per verificare la salute dell'SSR e pilotare test automatici di accessibilità (Lighthouse, axe-core) su tutte le pagine del sito.
+`a11yPaths` è la lista di tutte le pagine indicizzabili, usato da sistemi di monitoraggio per verificare la salute dell'SSR e pilotare test automatici di accessibilità (Lighthouse, axe-core) su tutte le pagine del sito.
 
 ### Status Code SEO-Aware
 
-Il server imposta lo status code HTTP reale in base al path richiesto, confrontandolo con le pagine note di `site.ts`. Senza questo controllo Angular SSR risponderebbe `200` anche per le rotte che renderizzano la pagina 404 del sito (un **soft 404**: i crawler vedono una pagina di errore servita con esito positivo e continuano a indicizzarla).
+Il server imposta lo status code HTTP reale in base al path richiesto, confrontandolo con le pagine note di `site.ts`. Senza questo controllo Angular SSR risponderebbe `200` anche per le rotte che renderizzano la pagina 404 del sito (un soft 404: i crawler vedono una pagina di errore servita con esito positivo e continuano a indicizzarla).
 
 | Path richiesto | Status HTTP restituito |
 | :--- | :--- |
@@ -2157,9 +2184,9 @@ Le richieste da host non autorizzati vengono rifiutate con `HTTP 421 Misdirected
 NG_ALLOWED_HOSTS=tuodominio.it,www.tuodominio.it
 ```
 
-**Default (nessuna variabile impostata):** `localhost`, `127.0.0.1`, `[::1]` — permette lo sviluppo locale senza configurazione aggiuntiva.
+Default (nessuna variabile impostata): `localhost`, `127.0.0.1`, `[::1]`, permette lo sviluppo locale senza configurazione aggiuntiva.
 
-> **Nota:** `@angular/ssr` non riconosce `*` come wildcard globale (lo tratterebbe come match letterale, causando `400 Bad Request` per qualsiasi host reale). Per accettare host multipli, elencali esplicitamente separati da virgola in `NG_ALLOWED_HOSTS` (env var che ha precedenza), oppure valorizza `frontend.hostname` in `global-settings.local.json`.
+> Nota: `@angular/ssr` non riconosce `*` come wildcard globale (lo tratterebbe come match letterale, causando `400 Bad Request` per qualsiasi host reale). Per accettare host multipli, elencali esplicitamente separati da virgola in `NG_ALLOWED_HOSTS` (env var che ha precedenza), oppure valorizza `frontend.hostname` in `global-settings.local.json`.
 
 ### CSP Nonce Per-Request (Solo Produzione)
 
@@ -2170,9 +2197,9 @@ In produzione (`node server.mjs`), ogni risposta SSR ottiene un nonce casuale a 
 
 ### Estendere la CSP (domini esterni: mappe, analytics, CDN)
 
-La Content-Security-Policy non è hardcoded nel server: vive in [`security-headers.json`](../security-headers.json) alla radice — **unica sorgente condivisa** letta sia dal backend .NET sia dal Node SSR (il layer che la invia al browser, `security-headers.ts`). La default è restrittiva: `default-src 'self'`, nessun dominio esterno.
+La Content-Security-Policy non è hardcoded nel server: vive in [`security-headers.json`](../security-headers.json) alla radice, unica sorgente condivisa letta sia dal backend .NET sia dal Node SSR (il layer che la invia al browser, `security-headers.ts`). La default è restrittiva: `default-src 'self'`, nessun dominio esterno.
 
-Quando integri un servizio di terze parti (tile di una mappa, analytics, font da CDN) il browser blocca le richieste finché non autorizzi il dominio nella direttiva giusta. Si modifica **direttamente `security-headers.json`** — è l'override eccezionale previsto dalla sua `_nota`:
+Quando integri un servizio di terze parti (tile di una mappa, analytics, font da CDN) il browser blocca le richieste finché non autorizzi il dominio nella direttiva giusta. Si modifica direttamente `security-headers.json`: è l'override eccezionale previsto dalla sua `_nota`:
 
 | Cosa integri | Direttiva da estendere |
 | :--- | :--- |
@@ -2181,13 +2208,13 @@ Quando integri un servizio di terze parti (tile di una mappa, analytics, font da
 | Immagini da host esterni | `img-src` |
 | Font da CDN (es. Google Fonts) | `font-src` (+ `style-src` per il CSS del font) |
 
-Esempio — abilitare Mapbox:
+Esempio: abilitare Mapbox:
 ```json
 "connect-src 'self' https://api.mapbox.com https://events.mapbox.com",
 "script-src 'self' {SCRIPT_NONCE_PLACEHOLDER} https://api.mapbox.com"
 ```
 
-Due avvertenze: **non rimuovere `{SCRIPT_NONCE_PLACEHOLDER}`** da `script-src` (è ciò che l'SSR sostituisce col nonce per-request), e `security-headers.json` è un file del **template** — di norma si aggiorna col merge dall'upstream, e l'estensione della CSP è l'unica modifica di progetto attesa al suo interno.
+Due avvertenze: non rimuovere `{SCRIPT_NONCE_PLACEHOLDER}` da `script-src` (è ciò che l'SSR sostituisce col nonce per-request), e `security-headers.json` è un file del template, di norma si aggiorna col merge dall'upstream, e l'estensione della CSP è l'unica modifica di progetto attesa al suo interno.
 
 ### Server Fingerprinting Nascosto
 
@@ -2195,7 +2222,7 @@ Due avvertenze: **non rimuovere `{SCRIPT_NONCE_PLACEHOLDER}`** da `script-src` (
 
 ### Trusted Proxy Headers
 
-Il server dichiara una lista esplicita di header proxy fidati, incluso `x-forwarded-scheme` (non-standard, inviato da Nginx Proxy Manager). Senza questa configurazione, Angular SSR — ricevendo qualsiasi `X-Forwarded-*` non dichiarato — degrada silenziosamente a CSR (`index.csr.html`) invece di eseguire il rendering server-side.
+Il server dichiara una lista esplicita di header proxy fidati, incluso `x-forwarded-scheme` (non-standard, inviato da Nginx Proxy Manager). Senza questa configurazione, Angular SSR, ricevendo qualsiasi `X-Forwarded-*` non dichiarato, degrada silenziosamente a CSR (`index.csr.html`) invece di eseguire il rendering server-side.
 
 ### Cache Strategy per Tipo di File Statico
 
@@ -2216,7 +2243,7 @@ GET /assets/legal/../../etc/passwd → 403
 GET /assets/legal/%2e%2e/secret   → 403  (anche URL-encoded)
 GET /assets/legal/....//secret    → 403  (anche sequenze miste)
 ```
-Usa `path.resolve()` + prefix check con separatore di directory (`path.sep`) — più robusto di un semplice replace di `../`.
+Usa `path.resolve()` + prefix check con separatore di directory (`path.sep`), più robusto di un semplice replace di `../`.
 
 ### `/assets/files` — Accesso Diretto Bloccato
 
@@ -2235,28 +2262,28 @@ Il browser inizia a ricevere e parsare l'HTML prima che Angular abbia completato
 
 ### Graceful Shutdown
 
-Su `SIGTERM` / `SIGINT` (docker stop, redeploy, rollout k8s) il server smette di accettare nuove connessioni e lascia terminare quelle in volo prima di uscire (`server.close()`), con un timeout di sicurezza a 10s — nessuna richiesta troncata a metà durante un redeploy.
+Su `SIGTERM` / `SIGINT` (docker stop, redeploy, rollout k8s) il server smette di accettare nuove connessioni e lascia terminare quelle in volo prima di uscire (`server.close()`), con un timeout di sicurezza a 10s, nessuna richiesta troncata a metà durante un redeploy.
 
 ### Compressione gzip con eccezione SSE
 
-Il middleware `compression` comprime di default tutte le risposte testuali (HTML SSR, JS, CSS, JSON, SVG); le immagini già compresse vengono saltate per Content-Type. La compressione vive a livello applicativo — non solo nel reverse proxy — così è garantita anche se il proxy davanti non ricomprime l'upstream.
+Il middleware `compression` comprime di default tutte le risposte testuali (HTML SSR, JS, CSS, JSON, SVG); le immagini già compresse vengono saltate per Content-Type. La compressione vive a livello applicativo, non solo nel reverse proxy, così è garantita anche se il proxy davanti non ricomprime l'upstream.
 
-C'è un'eccezione che il `filter` di `compression` gestisce esplicitamente: gli stream **`text/event-stream`** (il proxy verso `/api/notifications/stream` del campanellino) **non vanno compressi**. gzip bufferizza per accumulare dati prima di emettere, quindi i piccoli frame SSE non arriverebbero mai al browser in tempo reale — e il client manda comunque `Accept-Encoding: gzip`, quindi senza questa esclusione il campanellino resterebbe muto. Il filtro lascia non compresso solo l'`event-stream`; il resto usa il filtro di default. A complemento, il backend marca lo stream con `Cache-Control: no-transform` per impedire ricompressioni intermedie.
+C'è un'eccezione che il `filter` di `compression` gestisce esplicitamente: gli stream `text/event-stream` (il proxy verso `/api/notifications/stream` del campanellino) non vanno compressi. gzip bufferizza per accumulare dati prima di emettere, quindi i piccoli frame SSE non arriverebbero mai al browser in tempo reale, e il client manda comunque `Accept-Encoding: gzip`, quindi senza questa esclusione il campanellino resterebbe muto. Il filtro lascia non compresso solo l'`event-stream`; il resto usa il filtro di default. A complemento, il backend marca lo stream con `Cache-Control: no-transform` per impedire ricompressioni intermedie.
 
-> **Testare l'SSE.** Va verificato in un **browser vero** o con `curl --compressed` (che dichiara `Accept-Encoding: gzip` come il browser). Un `curl` liscio non chiede gzip e quindi non riprodurrebbe il bug della bufferizzazione — passerebbe anche con la compressione attiva, dando un falso "funziona".
+> Testare l'SSE: va verificato in un browser vero o con `curl --compressed` (che dichiara `Accept-Encoding: gzip` come il browser). Un `curl` liscio non chiede gzip e quindi non riprodurrebbe il bug della bufferizzazione, passerebbe anche con la compressione attiva, dando un falso "funziona".
 
 ### Cache Immagini su Disco (`IMAGE_CACHE_DIR`, `IMAGE_CACHE_MAX_MB`)
 
-I thumbnail generati da `/cdn-cgi/asset` e `/cdn-cgi/preview` vengono scritti su disco per evitare di ricalcolarli a ogni richiesta. Sono dato derivato ed effimero: serviti **solo** dagli handler Node (l'accesso diretto a `/assets/files` è 404), mai come file statico, quindi non vivono sotto `src/assets` né nel build output.
+I thumbnail generati da `/cdn-cgi/asset` e `/cdn-cgi/preview` vengono scritti su disco per evitare di ricalcolarli a ogni richiesta. Sono dato derivato ed effimero: serviti solo dagli handler Node (l'accesso diretto a `/assets/files` è 404), mai come file statico, quindi non vivono sotto `src/assets` né nel build output.
 
 ```bash
 IMAGE_CACHE_DIR=/var/cache/app-images   # default: <temp di sistema>/br1-image-cache-<hash>
 IMAGE_CACHE_MAX_MB=500                   # default: 500 MB — oltre questa soglia elimina i file meno usati
 ```
 
-**Posizione (`IMAGE_CACHE_DIR`).** Senza override la cache vive in una cartella dedicata nella temp di sistema, isolata per progetto tramite un hash del percorso asset (così più siti — questo template e i suoi figli — sullo stesso host non si mischiano le immagini). Tenerla fuori da `src/assets` è ciò che evita che `ng serve` ricarichi la pagina a ogni miniatura generata in sviluppo, e che thumbnail effimeri finiscano copiati in `dist` al build. In produzione la temp è scrivibile anche col container non-root, ma è effimera: dopo un riavvio la cache parte fredda e si rigenera on-demand. **Per una cache calda tra i deploy**, monta un volume persistente e punta `IMAGE_CACHE_DIR` lì.
+Posizione (`IMAGE_CACHE_DIR`): senza override la cache vive in una cartella dedicata nella temp di sistema, isolata per progetto tramite un hash del percorso asset (così più siti, questo template e i suoi figli, sullo stesso host non si mischiano le immagini). Tenerla fuori da `src/assets` è ciò che evita che `ng serve` ricarichi la pagina a ogni miniatura generata in sviluppo, e che thumbnail effimeri finiscano copiati in `dist` al build. In produzione la temp è scrivibile anche col container non-root, ma è effimera: dopo un riavvio la cache parte fredda e si rigenera on-demand. Per una cache calda tra i deploy, monta un volume persistente e punta `IMAGE_CACHE_DIR` lì.
 
-**Sweep (`IMAGE_CACHE_MAX_MB`).** Lo sweep LRU avviene ogni 6 ore e porta la cache al 90% del cap (non al 100%) per evitare di ri-sweepare a ogni singolo thumbnail aggiunto. L'`mtime` di ogni file viene aggiornato a ogni hit, così i thumbnail realmente richiesti sopravvivono e vengono scartati solo quelli inutilizzati.
+Sweep (`IMAGE_CACHE_MAX_MB`): lo sweep LRU avviene ogni 6 ore e porta la cache al 90% del cap (non al 100%) per evitare di ri-sweepare a ogni singolo thumbnail aggiunto. L'`mtime` di ogni file viene aggiornato a ogni hit, così i thumbnail realmente richiesti sopravvivono e vengono scartati solo quelli inutilizzati.
 
 ---
 

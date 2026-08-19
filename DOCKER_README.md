@@ -4,11 +4,11 @@ Guida operativa per eseguire Br1WebEngine con Docker. Per architettura completa,
 
 ## Modello di utilizzo
 
-Il template Docker e' progettato per essere **riusabile su piu' progetti sulla stessa VPS**. Ogni progetto derivato dal template viene eseguito in una propria cartella con un proprio `global-settings.json` e una propria porta.
+Il template Docker e' progettato per essere riusabile su piu' progetti sulla stessa VPS. Ogni progetto derivato dal template viene eseguito in una propria cartella con un proprio `global-settings.json` e una propria porta.
 
 ### Inizializzazione (una sola volta, alla nascita del progetto)
 
-La configurazione è divisa in tre file per **proprietario** (tutti validati da `global-settings.schema.json` per l'autocomplete):
+La configurazione è divisa in tre file per proprietario (tutti validati da `global-settings.schema.json` per l'autocomplete):
 
 - **`global-settings.json`** — del **progetto**, committabile: identità e aspetto (`project`, `Localization`, `site`, `Custom`).
 - **`global-settings.local.json`** — **gitignored**: pubblicazione e segreti del singolo ambiente (`frontend`, `backend`, `Security`, `Mail`).
@@ -18,9 +18,9 @@ La configurazione è divisa in tre file per **proprietario** (tutti validati da 
 
 ### Avvio di un progetto derivato
 
-Per il percorso guidato passo-passo vedi **[QUICKSTART.md](QUICKSTART.md)**. Il meccanismo sotto: `./scripts/deploy.sh` legge `global-settings.json`, verifica la configurazione e avvia i container. Il file viene montato in entrambi i container in sola lettura (`/app/global-settings.json:ro`): cambiare il file e rieseguire il deploy è sufficiente per applicare la configurazione a tutti i livelli.
+Per il percorso guidato passo-passo vedi [QUICKSTART.md](QUICKSTART.md). Il meccanismo sotto: `./scripts/deploy.sh` legge `global-settings.json`, verifica la configurazione e avvia i container. Il file viene montato in entrambi i container in sola lettura (`/app/global-settings.json:ro`): cambiare il file e rieseguire il deploy è sufficiente per applicare la configurazione a tutti i livelli.
 
-> **Produzione vs test.** `./scripts/deploy.sh` **builda le immagini sulla macchina** dove lo lanci: comodo per lo sviluppo locale e i test, ma **sconsigliato in produzione**. Per la produzione il modello consigliato è *artifact-based*: la CI builda le immagini a ogni tag e le pubblica su GHCR, la VPS le **scarica** con `./scripts/deploy-release.sh` — niente sorgente, niente `git pull`, niente build in loco. Guida completa in **[RELEASE.md](RELEASE.md)**.
+> Produzione vs test: `./scripts/deploy.sh` builda le immagini sulla macchina dove lo lanci, comodo per lo sviluppo locale e i test, ma sconsigliato in produzione. Per la produzione il modello consigliato è artifact-based: la CI builda le immagini a ogni tag e le pubblica su GHCR, la VPS le scarica con `./scripts/deploy-release.sh`. Niente sorgente, niente `git pull`, niente build in loco. Guida completa in [RELEASE.md](RELEASE.md).
 
 ### Esposizione dei servizi
 
@@ -61,22 +61,22 @@ sono documentati in `global-settings.schema.json`, quindi l'editor offre autocom
 > A mano: `cp global-settings.local.example.json global-settings.local.json` poi
 > `openssl rand -base64 48` (SecretKey) e `openssl rand -base64 32` (ApiKey).
 
-Al deploy, `scripts/deploy.sh` **fonde** `global-settings.local.json` sopra `global-settings.json` (merge
+Al deploy, `scripts/deploy.sh` fonde `global-settings.local.json` sopra `global-settings.json` (merge
 profondo; gli array come `ApiKeys`/`SupportedLanguages` vengono sostituiti), genera
-`.br1-settings.effective.json` (gitignorato) e monta **quello** nei container. L'intero
+`.br1-settings.effective.json` (gitignorato) e monta quello nei container. L'intero
 `global-settings.json` del progetto (`project`/`Localization`/`site`/`Custom`, senza segreti) viene
 inoltre passato al build del frontend come ARG `BR1_PROJECT_JSON` e iniettato in `environment.ts`.
 Da questo stesso JSON il generatore di file statici (`generate-statics.ts`) ricava lingua di default e
 lingue supportate (sezione `Localization`) per SEO e `environment.ts`: non servono build-arg dedicati.
 
-> **Manca `global-settings.local.json`?** Gli script di pubblicazione (`scripts/deploy.sh`,
-> `scripts/deploy-release.sh`) lo **creano da soli generando i segreti** (`SecretKey`/`ApiKeys`/`CryptoSecret`)
-> ma lasciando **`frontend.hostname` vuoto di proposito**: le chiavi sono boilerplate, il **dominio è una
-> tua scelta consapevole**. Il deploy quindi **si ferma** finché non imposti il dominio (fail-closed:
-> niente dominio ⇒ niente 421 al dominio reale) — e la **porta** se hai altri progetti sulla stessa VPS.
+> Manca `global-settings.local.json`? Gli script di pubblicazione (`scripts/deploy.sh`,
+> `scripts/deploy-release.sh`) lo creano da soli generando i segreti (`SecretKey`/`ApiKeys`/`CryptoSecret`)
+> ma lasciando `frontend.hostname` vuoto di proposito: le chiavi sono boilerplate, il dominio è una
+> tua scelta consapevole. Il deploy quindi si ferma finché non imposti il dominio (fail-closed:
+> niente dominio ⇒ niente 421 al dominio reale), e la porta se hai altri progetti sulla stessa VPS.
 > Il mailer resta spento finché non aggiungi una sezione `Mail`. Niente valori finti che aggirerebbero i
-> controlli. (Nei **test**/CI invece si resta senza `.local`: `scripts/lib/br1-config.sh` usa una API key
-> **effimera** in memoria, senza scrivere file.)
+> controlli. (Nei test/CI invece si resta senza `.local`: `scripts/lib/br1-config.sh` usa una API key
+> effimera in memoria, senza scrivere file.)
 
 ### `global-settings.json` — progetto (committabile)
 
@@ -92,7 +92,7 @@ lingue supportate (sezione `Localization`) per SEO e `environment.ts`: non servo
 | `site.smoke` | — | Effetto particellare di sfondo (ometti/`enable:false` per disattivarlo). Sottocampi: `enable`, `color`, `opacity`, `maximumVelocity`, `particleRadius`, `density` |
 | `Custom` | `{}` | Valori liberi leggibili da backend (`IConfiguration["Custom:..."]`) e Node SSR (`getBr1Settings().Custom`) |
 
-> I flag di **comportamento** (`showNav`, `showFooter`, `fixedTopHeader`, `showBrandIconInHeader`, `showNotifications`, `forcedLightPanel`, `isWebApp`, `onlyPlainImage`, il `showInHeader` di `loginPage`) sono struttura e vivono in `frontend/src/app/site.ts` (`shell` / `isWebApp` / `onlyPlainImage` / `loginPage`).
+> I flag di comportamento (`showNav`, `showFooter`, `fixedTopHeader`, `showBrandIconInHeader`, `showNotifications`, `forcedLightPanel`, `isWebApp`, `onlyPlainImage`, il `showInHeader` di `loginPage`) sono struttura e vivono in `frontend/src/app/site.ts` (`shell` / `isWebApp` / `onlyPlainImage` / `loginPage`).
 
 ### `global-settings.local.json` — pubblicazione + segreti (gitignored)
 
@@ -109,12 +109,12 @@ lingue supportate (sezione `Localization`) per SEO e `environment.ts`: non servo
 | `Security.Token.ExpirationSeconds` | `3000` | Durata dei JWT emessi (minimo 60) |
 | `Mail.*` | — | Config SMTP del mailer (`Host`, `Port`, `Security`, `FromAddress`, `FromName`, `Username`, `Password`, più i tuning `TimeoutSeconds`/`MaxAttachmentBytes`/`VerifyRecipientDomain`): contiene segreti, vive qui. Si attiva come il login: con `Host` **e** `FromAddress` presenti il mailer è acceso, altrimenti resta spento e ogni invio risponde `503`. L'esempio (`global-settings.local.example.json`) include già un blocco SMTP attivo: se non usi la posta, svuotalo. Dettaglio dei campi in [backend/README.md](backend/README.md) (sezione Mailer) |
 
-> **Header di sicurezza in `security-headers.json`.** Gli header fissi rivolti al browser
+> Header di sicurezza in `security-headers.json`. Gli header fissi rivolti al browser
 > (X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS, Permissions-Policy, CSP) sono
 > uguali per ogni progetto: vivono in `security-headers.json` (file del template, montato in
-> entrambi i container e letto da backend e Node SSR). **Appartiene al template, non al progetto figlio**: lo riceve e lo aggiorna col merge dal template — l'unica
+> entrambi i container e letto da backend e Node SSR). Appartiene al template, non al progetto figlio: lo riceve e lo aggiorna col merge dal template, l'unica
 > eccezione è l'override documentato nella `_nota` del file (vedi il README principale). In
-> `global-settings` resta solo la sicurezza *del progetto*: `ApiKeys`, `CorsOrigins`, `BehindProxy`, `Token`.
+> `global-settings` resta solo la sicurezza del progetto: `ApiKeys`, `CorsOrigins`, `BehindProxy`, `Token`.
 
 `BACKEND_ORIGIN` (`http://backend:8080`) resta una variabile d'ambiente del compose: è l'indirizzo Docker-interno del backend, non una scelta di configurazione utente.
 
@@ -148,7 +148,7 @@ Il frontend si connette al backend tramite proxy. Docker resta per la pubblicazi
 
 ## Pubblicazione (`scripts/deploy.sh`)
 
-> **In produzione** il modello consigliato è *artifact-based* (`scripts/deploy-release.sh`: la CI builda le immagini, la VPS le scarica — vedi **[RELEASE.md](RELEASE.md)**). `scripts/deploy.sh` qui sotto è *source-based* (builda sulla macchina): ottimo per **test e sviluppo locale**. I due condividono preflight, guard e swap; cambia solo *chi* costruisce le immagini.
+> In produzione il modello consigliato è artifact-based (`scripts/deploy-release.sh`: la CI builda le immagini, la VPS le scarica; vedi [RELEASE.md](RELEASE.md)). `scripts/deploy.sh` qui sotto è source-based (builda sulla macchina): ottimo per test e sviluppo locale. I due condividono preflight, guard e swap; cambia solo chi costruisce le immagini.
 
 ```bash
 # Configurare global-settings.local.json con i valori del progetto, poi:
@@ -164,15 +164,15 @@ In produzione:
 - **Frontend** su `http://localhost:FRONTEND_PORT`
 - **Backend** privato per default (per esporlo: `backend.public: true` in `global-settings.local.json`)
 
-Frontend e backend sono **disaccoppiati**: puoi pubblicarli insieme o uno alla volta (anche su VPS diverse). Il backend è privato o pubblico secondo `backend.public`.
+Frontend e backend sono disaccoppiati: puoi pubblicarli insieme o uno alla volta (anche su VPS diverse). Il backend è privato o pubblico secondo `backend.public`.
 
-> **Guard segreti (automatico):** al deploy `scripts/deploy.sh` verifica che non siano rimasti i segreti segnaposto/deboli di default. Se `Security.Token.SecretKey` è ancora la chiave di sviluppo o è < 32 caratteri, o se `Security.ApiKeys` contiene `frontend` / chiavi < 32 caratteri, il deploy si ferma con un messaggio esplicito (e il comando `openssl` per generarne uno sicuro). I segreti si generano con `openssl rand -base64 48` (JWT) e `openssl rand -base64 32` (API key).
+> Guard segreti (automatico): al deploy `scripts/deploy.sh` verifica che non siano rimasti i segreti segnaposto/deboli di default. Se `Security.Token.SecretKey` è ancora la chiave di sviluppo o è < 32 caratteri, o se `Security.ApiKeys` contiene `frontend` / chiavi < 32 caratteri, il deploy si ferma con un messaggio esplicito (e il comando `openssl` per generarne uno sicuro). I segreti si generano con `openssl rand -base64 48` (JWT) e `openssl rand -base64 32` (API key).
 
-> **Guard pubblicazione (automatico):** due errori silenziosi tipici dietro reverse proxy, intercettati prima della build:
-> - **`frontend.hostname` mancante** → il deploy si **ferma**. Senza hostname l'SSR è fail-closed e risponderebbe **421** al dominio reale (e sitemap/canonical/og userebbero `example.com`); insidioso perché l'healthcheck del preflight gira su `localhost` e *passerebbe* — il deploy sembrerebbe riuscito mentre il sito è irraggiungibile dal dominio vero.
-> - **`Security.BehindProxy` non `true`** → **avviso** (non bloccante): dietro nginx il rate limiter conterebbe tutti gli utenti come un solo IP (l'IP del proxy), condividendo lo stesso budget di 100 req/min. Impostalo a `true` se usi un proxy; ignora l'avviso se esponi il sito senza proxy.
+> Guard pubblicazione (automatico): due errori silenziosi tipici dietro reverse proxy, intercettati prima della build:
+> - **`frontend.hostname` mancante** → il deploy si ferma. Senza hostname l'SSR è fail-closed e risponderebbe 421 al dominio reale (e sitemap/canonical/og userebbero `example.com`); insidioso perché l'healthcheck del preflight gira su `localhost` e passerebbe: il deploy sembrerebbe riuscito mentre il sito è irraggiungibile dal dominio vero.
+> - **`Security.BehindProxy` non `true`** → avviso non bloccante: dietro nginx il rate limiter conterebbe tutti gli utenti come un solo IP (l'IP del proxy), condividendo lo stesso budget di 100 req/min. Impostalo a `true` se usi un proxy; ignora l'avviso se esponi il sito senza proxy.
 
-> **Password SMTP fuori dal disco:** `docker-compose.yml` dichiara un passthrough `Mail__Password` (convenzione .NET: `Mail:Password`). Esportandola nell'ambiente prima del deploy — `export Mail__Password='...'; ./scripts/deploy.sh` — il backend la legge con **precedenza sul JSON montato** e la password non finisce mai nel file su disco. Se la variabile non è impostata vale il valore (eventuale) di `Mail.Password` nel `.local`.
+> Password SMTP fuori dal disco: `docker-compose.yml` dichiara un passthrough `Mail__Password` (convenzione .NET: `Mail:Password`). Esportandola nell'ambiente prima del deploy (`export Mail__Password='...'; ./scripts/deploy.sh`), il backend la legge con precedenza sul JSON montato e la password non finisce mai nel file su disco. Se la variabile non è impostata vale il valore (eventuale) di `Mail.Password` nel `.local`.
 
 Il frontend gira su Node SSR: serve l'app Angular e proxya `/api/*` al backend sulla rete Docker interna, iniettando l'API key lato server.
 
@@ -181,7 +181,7 @@ Come funziona `scripts/deploy.sh`, in breve:
 2. **Swap**: solo se il preflight è verde, `docker compose up -d --wait` sostituisce i container di produzione (immagini riusate dalla cache, ricontrollo salute sulle porte reali). È un blue/green leggero: zero-downtime se la nuova build parte male.
 3. **Porte**: se una porta è occupata da un altro progetto, `scripts/deploy.sh` lo **segnala** soltanto e prosegue (è Docker a riportare l'eventuale errore di bind). Nessun container viene fermato automaticamente.
 
-La suite di qualità (lint, i18n, type checking, dipendenze circolari, accessibilità WCAG, Lighthouse) **non** è rieseguita da `scripts/deploy.sh`: gira in CI a ogni push/PR. In locale, on-demand: `./scripts/test/run-all.sh`.
+La suite di qualità (lint, i18n, type checking, dipendenze circolari, accessibilità WCAG, Lighthouse) non è rieseguita da `scripts/deploy.sh`: gira in CI a ogni push/PR. In locale, on-demand: `./scripts/test/run-all.sh`.
 
 ## Test pubblico dietro reverse proxy
 
@@ -259,6 +259,8 @@ Con `--no-cache` forza la ricostruzione delle immagini partendo da zero.
 
 I dati che sopravvivono ai deploy vivono in due volumi Docker: `<progetto>_uploads-data` (file caricati) e `<progetto>_db-data`. Lo script `scripts/backup.sh` ne crea archivi `.tar.gz` datati con retention automatica.
 
+> Consistenza: un `tar` a caldo del volume, non un dump. Lo script monta il volume in sola lettura e lo comprime mentre i container restano in esecuzione, senza stop, senza flush. Per `uploads-data` va bene così: gli slug sono immutabili, un file caricato non viene mai riscritto (vedi backend/README.md § BlobStore). Per `db-data` oggi non c'è nulla da rendere inconsistente (`FileContentStore`, il default del template, non ci scrive: è un mount point riservato a un DB futuro). Se il progetto migra a un database reale che scrive su quel volume, un `tar` a caldo non garantisce più una copia transazionalmente coerente: servirebbe lo strumento di backup nativo del DB (es. `pg_dump`) al posto del `tar` grezzo su quel volume specifico.
+
 ```bash
 ./scripts/backup.sh                  # backup in ./backups, tiene i 14 archivi più recenti (per volume)
 RETENTION=30 ./scripts/backup.sh     # cambia quanti archivi tenere (è un conteggio, non giorni)
@@ -271,7 +273,7 @@ Pianificalo via cron (la cartella `backups/` è gitignorata):
 0 3 * * * cd /percorso/progetto && ./scripts/backup.sh >> backups/backup.log 2>&1
 ```
 
-Ripristino di un volume da un archivio (**sovrascrive i dati**):
+Ripristino di un volume da un archivio (sovrascrive i dati):
 
 ```bash
 docker run --rm -v <progetto>_uploads-data:/data -v "$PWD/backups":/b alpine \

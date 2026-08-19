@@ -41,7 +41,7 @@ export class IconComponent {
         transform: (v) => coerce(ICON_SHAPES, DEFAULT_SHAPE, v)
     });
 
-    /** Effetto hover. Stringa validata contro IconAnimation (default: lift). */
+    /** Effetto hover. Stringa validata contro IconAnimation (default: none). */
     readonly animation = input<IconAnimation, string>(DEFAULT_ANIMATION, {
         transform: (v) => coerce(ICON_ANIMATIONS, DEFAULT_ANIMATION, v)
     });

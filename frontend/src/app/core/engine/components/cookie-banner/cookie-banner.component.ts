@@ -4,9 +4,7 @@ import { CookieConsentService } from '../../services/cookie-consent.service';
 import { ThemeService } from '../../services/theme.service';
 import { TranslateService } from '../../services/translate.service';
 import { PageMetaService } from '../../services/page-meta.service';
-import { onNavigationEnd } from '../../routing';
 import { ContestoSito } from '../../../../site';
-import { Router } from '@angular/router';
 import { MarkdownPipe } from '../../pipes/markdown.pipe';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 

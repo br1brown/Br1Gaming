@@ -32,6 +32,15 @@ fi
 ok()   { echo -e "  ${GREEN}OK${RESET} $*"; }
 warn() { echo -e "  ${YELLOW}WARN${RESET} $*"; }
 
+# Minimo 1: con RETENTION=0 `tail -n +1` includerebbe anche l'archivio appena creato in questo stesso
+# run fra i "vecchi da eliminare" — lo script cancellerebbe il backup che ha appena fatto, stampando
+# comunque "Backup completato" (nessun archivio resterebbe sul disco). Non esiste un modo sensato per
+# "nessuna retention" che non sia "nessun backup", quindi il minimo utile è 1.
+if (( RETENTION < 1 )); then
+    warn "RETENTION=${RETENTION} non valido (cancellerebbe anche il backup appena creato) — forzato a 1."
+    RETENTION=1
+fi
+
 command -v docker >/dev/null 2>&1 || { echo -e "  ${RED}ERR${RESET} Docker non trovato" >&2; exit 1; }
 command -v node   >/dev/null 2>&1 || { echo -e "  ${RED}ERR${RESET} Node.js non trovato (serve per leggere il nome progetto)" >&2; exit 1; }
 [[ -f global-settings.json ]] || { echo -e "  ${RED}ERR${RESET} global-settings.json non trovato (esegui dalla root del progetto)" >&2; exit 1; }

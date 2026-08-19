@@ -27,9 +27,9 @@
 
 <br/>
 
-Br1WebEngine si prende in carico la parte noiosa di ogni progetto web — routing, SEO, SSR, CORS, rate limiting, JWT, gestione degli errori — così tu parti dalla logica che ti interessa e non dall'ennesimo file di configurazione da riempire a mano.
+Br1WebEngine si prende in carico la parte noiosa di ogni progetto web (routing, SEO, SSR, CORS, rate limiting, JWT, gestione degli errori), così parti dalla logica che ti interessa e non dall'ennesimo file di configurazione da riempire a mano.
 
-**Stack:** Angular 21 (standalone, **zoneless**) · ASP.NET Core (.NET 9) · Node 24 SSR · Docker. Il tutto guidato da un singolo file di configurazione; il resto è dettaglio.
+Stack: Angular 21 (standalone, zoneless), ASP.NET Core (.NET 9), Node 24 SSR, Docker. Il tutto è guidato da un singolo file di configurazione; il resto è dettaglio.
 
 ---
 
@@ -53,7 +53,7 @@ Un file, un mestiere. Così sai dove guardare prima di mettere mano al codice.
 
 ## 🗺️ Mappa delle aree tecniche
 
-La tabella sopra dice *in che file* cercare; questa dice *per argomento* — utile a chi arriva senza conoscere il progetto e vuole sapere subito cosa il template gli mette a disposizione, area per area.
+La tabella sopra dice in che file cercare; questa dice per argomento, utile a chi arriva senza conoscere il progetto e vuole sapere subito cosa il template gli mette a disposizione, area per area.
 
 | Area | Nel template | Approfondisci |
 | :--- | :--- | :--- |
@@ -74,11 +74,11 @@ La tabella sopra dice *in che file* cercare; questa dice *per argomento* — uti
 
 ## 🧭 Approccio e Architettura
 
-Filosofia in una riga: nascondere la complessità senza portarti via il controllo. La base è strutturata ma resta leggera — niente cattedrale di astrazioni da reggere a ogni avvio.
+Filosofia in una riga: nascondere la complessità senza portarti via il controllo. La base è strutturata ma resta leggera, niente cattedrale di astrazioni da reggere a ogni avvio.
 
 | Il grattacapo | Come lo chiude Br1WebEngine |
 | :--- | :--- |
-| Configurare N file per il routing e la SEO | Un singolo file DSL (`site.ts`) gestisce rotte, menu e meta-tag. |
+| Configurare N file per il routing e la SEO | Un DSL dichiarativo (`site.ts` + `pages/*.pages.ts`) gestisce rotte, menu e meta-tag. |
 | Dimenticare la sicurezza sugli endpoint | Tutti gli endpoint ereditano Rate Limiter e CORS in automatico. |
 | Configurare DB relazionali per testare | `FileContentStore` usa JSON in RAM con localizzazione integrata. |
 | Leak di stack trace in produzione | Middleware globale per errori `RFC 9457` Problem Details. |
@@ -88,7 +88,7 @@ Filosofia in una riga: nascondere la complessità senza portarti via il controll
 
 ## 🏗️ Architettura del Sistema
 
-Frontend e backend vivono separati, ciascuno a casa propria, ma condividono un'unica filosofia: **la noia sta chiusa nell'Engine, in vetrina ci va il Dominio**.
+Frontend e backend vivono separati, ciascuno a casa propria, ma condividono la stessa filosofia: la parte noiosa (sicurezza, routing, errori, SSR) resta chiusa nell'Engine, mentre quello che il progetto figlio scrive e mostra, il Dominio, è quello che finisce in vetrina.
 
 ```text
 ┌──────────────────────────────────────────────────────┐
@@ -129,39 +129,22 @@ backend/                Web API ASP.NET Core (.NET 9)
 
 frontend/src/app/       Angular 21 (standalone, zoneless)
 ├── core/engine/        ⚙️  Engine: DSL, SSR, servizi infrastrutturali — INTOCCABILE
-├── site.ts             il DSL strutturale: pagine, rotte, menu, SEO per-pagina
-├── pages/              schermate intere (estendono PageBaseComponent)
+├── site.ts             assembla le pagine dichiarate in pages/*.pages.ts: menu, slot legali, tema
+├── pages/              schermate (estendono PageBaseComponent) + dichiarazioni di rotta (*.pages.ts)
 └── components/         UI riusabile ("stupida": riceve input(), emette output())
 ```
 
-**Le due regole d'oro.** Nel backend erediti sempre dalle basi `Engine*`, mai da `ControllerBase` di ASP.NET: ti regalano API key, rate limiter, CORS e `ProblemDetails` senza che tu scriva una riga. Nel frontend lavori con binding dichiarativi e signal, e l'idratazione SSR resta intatta. Ciò che porta il bollo **INTOCCABILE** è l'Engine: nei figli si aggiorna da sé col merge dal template (vedi sotto).
+Le due regole d'oro: nel backend erediti sempre dalle basi `Engine*`, mai da `ControllerBase` di ASP.NET, che ti regalano API key, rate limiter, CORS e `ProblemDetails` senza che tu scriva una riga; nel frontend lavori con binding dichiarativi e signal, e l'idratazione SSR resta intatta. Ciò che porta il bollo INTOCCABILE è l'Engine: nei figli si aggiorna da sé col merge dal template (vedi sotto).
 
 ### 🔄 Template vivo: nascita e aggiornamento dei progetti figli
 
-Il confine **Engine (intoccabile) / Dominio (del progetto)** non è una questione di estetica: è il meccanismo che lascia ai
-progetti derivati di **ricevere gli aggiornamenti dell'infrastruttura via git**, mettendo le mani sul
-proprio dominio e nient'altro. Regola pratica: l'Engine non si tocca; i comportamenti si cambiano per
-**configurazione** (`global-settings.local.json`, `site.ts`, sezione `Custom`) o per **estensione**
-(sottoclassi dei controller `Engine*`, nuovi servizi).
+Il confine tra Engine (intoccabile) e Dominio (del progetto) non è una questione di estetica: è il meccanismo che lascia ai progetti derivati ricevere gli aggiornamenti dell'infrastruttura via git, mettendo le mani sul proprio dominio e nient'altro. Regola pratica: l'Engine non si tocca; i comportamenti si cambiano per configurazione (`global-settings.local.json`, `site.ts`, sezione `Custom`) o per estensione (sottoclassi dei controller `Engine*`, nuovi servizi).
 
-**Nascita.** Un figlio è un **discendente git** del template, ma non nasce da un clone: vive nel
-**proprio** repo, col template aggiunto come secondo remote e innestato una volta sola. Da dentro il
-repo del progetto (anche appena inizializzato): `git remote add template <url-del-template>`,
-`git fetch template`, poi `git merge template/main --allow-unrelated-histories` — il flag serve
-**solo** a questo primo innesto, da lì la storia è collegata e non torna più. Quindi
-`node setup.mjs "Nome Progetto"` battezza il progetto. Quella parentela git è il cordone ombelicale
-tra figlio e template — è ciò che gli porta gli aggiornamenti: da preservare, **mai reciderla** con uno
-`--squash` né rigenerarla dal bottone **"Use this template"** di GitHub (che riparte da un singolo
-*Initial commit* senza storia, lasciando il figlio orfano: ogni futuro merge tornerebbe a pretendere
-`--allow-unrelated-histories` e a rifondere l'intero albero). Il repo può restare marcato come *template*
-per la vetrina, ma la nascita è questo innesto, non quel bottone.
+Nascita: un figlio è un discendente git del template, ma non nasce da un clone. Vive nel proprio repo, con il template aggiunto come secondo remote e innestato una volta sola. Da dentro il repo del progetto, anche appena inizializzato: `git remote add template <url-del-template>`, `git fetch template`, poi `git merge template/main --allow-unrelated-histories` (il flag serve solo a questo primo innesto, da lì la storia è collegata e non torna più). Quindi `node setup.mjs "Nome Progetto"` battezza il progetto. Quella parentela git è il cordone ombelicale tra figlio e template, è ciò che gli porta gli aggiornamenti: va preservata, non va mai recisa con uno `--squash` né rigenerata dal bottone "Use this template" di GitHub, che riparte da un singolo Initial commit senza storia e lascia il figlio orfano (ogni futuro merge tornerebbe a pretendere `--allow-unrelated-histories` e a rifondere l'intero albero). Il repo può restare marcato come template per la vetrina, ma la nascita è questo innesto, non quel bottone.
 
-**Aggiornamento.** Non è il `git pull` del figlio (quello parla con `origin`): è un merge dal
-template — `git fetch template && git merge template/main`. Regola d'oro sui conflitti: sui path
-dell'**Engine e dello scaffold vince sempre il template** (`git checkout template/main -- <path>`),
-sul **dominio vince il figlio**. Sui path engine prendi la versione del template anche quando la tua compilerebbe lo stesso: è l'unico modo perché git registri l'aggiornamento come assorbito per intero e i merge successivi continuino a portarti le novità.
+Aggiornamento: non è il `git pull` del figlio, che parla con `origin`, ma un merge dal template, `git fetch template && git merge template/main`. Regola d'oro sui conflitti: sui path dell'Engine e dello scaffold vince sempre il template (`git checkout template/main -- <path>`), sul dominio vince il figlio. Sui path engine conviene prendere la versione del template anche quando la tua compilerebbe lo stesso, perché è l'unico modo perché git registri l'aggiornamento come assorbito per intero e i merge successivi continuino a portare le novità.
 
-**Il confine in pratica — chi possiede cosa.** "Engine e scaffold" nei conflitti significa:
+Il confine in pratica, ovvero chi possiede cosa: ecco cosa significano "Engine e scaffold" nei conflitti.
 
 | Proprietà | Path | Al merge |
 | :--- | :--- | :--- |
@@ -172,38 +155,34 @@ sul **dominio vince il figlio**. Sui path engine prendi la versione del template
 
 \* `security-headers.json`: unica eccezione, l'override documentato nella `_nota` (vedi sopra).
 
-> **Dominio a contratto fisso.** Alcuni file di Dominio sono **importati dall'Engine per path e nome**: il figlio ne cambia liberamente il **corpo**, ma deve preservarne **path, nome dell'export e forma** — altrimenti l'Engine non compila. Non sono "campo libero", sono punti di contatto a contratto fisso:
+> Dominio a contratto fisso: alcuni file di Dominio sono importati dall'Engine per path e nome. Il figlio ne cambia liberamente il corpo, ma deve preservarne path, nome dell'export e forma, altrimenti l'Engine non compila. Non sono "campo libero", sono punti di contatto a contratto fisso:
 > - `site.ts` → `ContestoSito` (da `buildSite`), `PageType` (un oggetto `as const`, tipicamente assemblato da file di area sotto `pages/*.pages.ts`, ma l'Engine pretende solo che `site.ts` lo esporti con questo nome — la forma interna è libera), tipi `SmokeSettings`/`SitePageInput`. È il DSL: l'Engine lo legge ovunque (routing, builder, meta, tema…).
 > - `pages/content.resolver.ts` → `ContentResolver` (con `loadResolved`), `ResolvedPage`, `contentLoaderResolver` — usati da `routing.ts` e `PageBaseComponent`. Aggiungi `case` allo switch, non rinominare gli export.
 > - `core/services/api.service.ts` → la classe `ApiService` iniettabile (`PageBaseComponent` espone `this.api`). La estendi con metodi, non la elimini.
 > - `components/shared/user-nav/` → `UserNavComponent` / selettore `app-user-nav`, montato dalla navbar dell'Engine. Personalizzi l'interno, non il selettore/export.
 
-**Documenti.** Nel figlio sparisce un file e uno soltanto: **questo README** (è la vetrina del template, non del
-prodotto). Tutto il resto della documentazione **resta e si aggiorna dal template** — al merge vince il
-template, esattamente come per l'Engine: il `CHANGELOG.md` racconta al figlio cosa è cambiato nel template tra una
-versione e l'altra; `backend/README.md`, `frontend/README.md` e `DOCKER_README.md` sono le
-direttive di sviluppo — dicono cosa si modifica e con quali strumenti; `AGENTS.md` e `ENGINE.md`
-sono rispettivamente le ricette pratiche e la mappa dell'implementazione interna dell'Engine. Non si
-adattano nel figlio: la documentazione del prodotto, se serve, vive in un file a parte.
+> Compatibilità: niente semver, un contratto esplicito invece. Il template non pubblica versioni numerate né segue semver, si distribuisce per `git merge`, non come pacchetto. La garanzia reale è duplice. La prima è l'elenco "Dominio a contratto fisso" qui sopra, cioè ciò che l'Engine promette di non rompere silenziosamente: un cambio lì, come rinominare un export o cambiare una firma, è per definizione una modifica che rompe i figli, e va sempre in `CHANGELOG.md`. La seconda è che `CHANGELOG.md` è la superficie da leggere prima di un merge grosso, non dopo un conflitto: registra ogni cambiamento con la sua motivazione, incluse le voci marcate "breaking" con l'azione richiesta al figlio. Se un merge va in conflitto fuori dai path Engine/Scaffold della tabella sopra, è quasi sempre perché il figlio ha toccato un file a contratto fisso: la soluzione è lì, non nella cronologia dei tag.
+
+Documenti: nel figlio sparisce un file e uno soltanto, questo README, perché è la vetrina del template, non del prodotto. Tutto il resto della documentazione resta e si aggiorna dal template: al merge vince il template, esattamente come per l'Engine. Il `CHANGELOG.md` racconta al figlio cosa è cambiato nel template tra una versione e l'altra; `backend/README.md`, `frontend/README.md` e `DOCKER_README.md` sono le direttive di sviluppo e dicono cosa si modifica e con quali strumenti; `AGENTS.md` e `ENGINE.md` sono rispettivamente le ricette pratiche e la mappa dell'implementazione interna dell'Engine. Non si adattano nel figlio: la documentazione del prodotto, se serve, vive in un file a parte.
 
 ### 🧭 Dove mettere le mani
 
-Regola generale: il **Dominio** si tocca; l'**Engine** (`backend/Engine/`, `frontend/src/app/core/engine/`) resta com'è e si aggiorna da sé col merge dal template (vedi *Template vivo*). Mettere mano al Dominio vuol dire riusarne i file demo: li svuoti e li riempi col tuo contenuto, lasciando nomi e posizioni dove sono.
+Regola generale: il Dominio si tocca; l'Engine (`backend/Engine/`, `frontend/src/app/core/engine/`) resta com'è e si aggiorna da sé col merge dal template (vedi Template vivo). Mettere mano al Dominio vuol dire riusarne i file demo: li svuoti e li riempi col tuo contenuto, lasciando nomi e posizioni dove sono.
 
-**Pagine, rotte e navigazione.** Il frontend nasce da un file unico, `frontend/src/app/site.ts`: lì dichiari le pagine e l'Engine si genera da sé rotte, voci di menu, sitemap e meta-tag SEO. Nello stesso posto imposti anche la pagina di login, le pagine legali (privacy, cookie, termini) e l'aspetto della shell (navbar, footer). L'identità e l'estetica del sito (nome, versione, lingue, descrizione, **colore del tema**, effetto smoke) non abitano qui: stanno in `global-settings.json` e vengono iniettate al build. Il componente di una pagina sta in `frontend/src/app/pages/<nome>/` (estende `PageBaseComponent`); i pezzi di UI riusabili in `frontend/src/app/components/`. Ogni opzione, voce per voce, è in [frontend/README.md](frontend/README.md).
+Le pagine, le rotte e la navigazione si dichiarano nei file di area `frontend/src/app/pages/*.pages.ts` (uno per gruppo tematico); `site.ts` li assembla e tiene per sé menu, slot globali (login, pagine legali) e l'aspetto della shell (navbar, footer). Da quelle dichiarazioni l'Engine genera da sé rotte, voci di menu, sitemap e meta-tag SEO. L'identità e l'estetica del sito, cioè nome, versione, lingue, descrizione, colore del tema ed effetto smoke, non abitano qui: stanno in `global-settings.json` e vengono iniettate al build. Il componente di una pagina sta in `frontend/src/app/pages/<nome>/` (estende `PageBaseComponent`); i pezzi di UI riusabili stanno in `frontend/src/app/components/`. Ogni opzione, voce per voce, è in [frontend/README.md](frontend/README.md).
 
-**Contenuti e testi.** I testi legali (privacy, cookie, termini) sono Markdown in `frontend/src/assets/legal/`; le traduzioni del progetto in `frontend/src/assets/i18n/addon.*.json`; l'identità del sito (dati legali, social del brand, tipo entità) in `backend/data/identity.json` (servita dall'Engine su `GET /identity`).
+I contenuti e i testi legali (privacy, cookie, termini) sono Markdown in `frontend/src/assets/legal/`; le traduzioni del progetto stanno in `frontend/src/assets/i18n/addon.*.json`; l'identità del sito, cioè dati legali, social del brand e tipo entità, sta in `backend/data/identity.json` (servita dall'Engine su `GET /identity`).
 
-**Backend: API e logica.** Un nuovo endpoint è un controller in `backend/Controllers/` che eredita `EngineApiController` (pubblico) o `EngineProtectedController` (chiede il login); la logica di business va nei `backend/Services/`. Per un nuovo tipo di errore: una sottoclasse di `ApiException` più la chiave nei `Resources/*.resx`. Per cambiare lo storage: una nuova implementazione di `IContentStore`.
+Sul backend, un nuovo endpoint è un controller in `backend/Controllers/` che eredita `EngineApiController` (pubblico) o `EngineProtectedController` (chiede il login); la logica di business va nei `backend/Services/`. Per un nuovo tipo di errore serve una sottoclasse di `ApiException` più la chiave nei `Resources/*.resx`. Per cambiare lo storage serve una nuova implementazione di `IContentStore`.
 
-**Configurazione e segreti — tre file, per proprietario.**
+Configurazione e segreti: tre file, uno per proprietario.
 - `global-settings.json` (**committabile, del progetto**): identità ed estetica del sito — nome e versione, lingue, descrizione, colore del tema, effetto smoke. Include la sezione `Custom` per valori liberi di progetto (feature flag, ID analytics…), leggibili da backend, SSR e frontend.
 - `global-settings.local.json` (**gitignored**): pubblicazione e segreti del singolo ambiente — hostname e porte, chiavi API, origini CORS, chiave di firma JWT.
 - `security-headers.json` (**del template, non toccare**): header di sicurezza fissi. "Non toccare" vale per il concetto, non in assoluto: se il progetto pretende un'estensione (es. domini extra in CSP per un servizio di mappe), l'override eccezionale si fa modificando il file e annotandolo nella `_nota` interna — e a ogni aggiornamento dal template l'override va rifatto a mano.
 
-**Login e sessione.** La forma del payload di sessione si cambia in due posti speculari: `backend/Models/SessionInfo.cs` e `frontend/src/app/core/dto/session.dto.ts`. I cookie e le voci di Web Storage si registrano — stessa API gated dal consenso — in `frontend/src/app/core/services/cookie-registry.ts`.
+Per il login e la sessione, la forma del payload si cambia in due posti speculari: `backend/Models/SessionInfo.cs` e `frontend/src/app/core/dto/session.dto.ts`. I cookie e le voci di Web Storage si registrano, con la stessa API gated dal consenso, in `frontend/src/app/core/services/cookie-registry.ts`.
 
-> Questa è la mappa del *dove*, niente di più. Il **come** passo-passo vive nelle sezioni **"Developer Journey"** di [frontend/README.md](frontend/README.md) e [backend/README.md](backend/README.md): front-end e back-end sono disaccoppiati, ciascuno si racconta per conto suo.
+> Questa è la mappa del dove, niente di più. Il come passo-passo vive nelle sezioni "Developer Journey" di [frontend/README.md](frontend/README.md) e [backend/README.md](backend/README.md): front-end e back-end sono disaccoppiati, ciascuno si racconta per conto suo.
 
 ### Route SSR speciali del Frontend
 
@@ -219,7 +198,7 @@ Il Node SSR del frontend gestisce, oltre alle pagine Angular, anche alcune route
 | `/assets/files/*` | **Bloccata** (404): i file sorgente degli asset si servono soltanto via `/cdn-cgi/asset` |
 | `/.well-known/security.txt` | Contatto di sicurezza RFC 9116 (generato al build da `generate-statics.ts`) |
 
-> Il Node SSR applica anche, in automatico, **compressione gzip** sulle risposte testuali — **escluso lo stream di notifiche SSE**, che resta non compresso così gli eventi arrivano subito al browser invece di restare nel buffer — e un **graceful shutdown** su SIGTERM/SIGINT (drena le connessioni prima di uscire). I file statici SEO (`sitemap.xml`, `robots.txt`, `llms.txt`, `security.txt`) sono generati al build.
+> Il Node SSR applica anche, in automatico, la compressione gzip sulle risposte testuali (escluso lo stream di notifiche SSE, che resta non compresso così gli eventi arrivano subito al browser invece di restare nel buffer) e un graceful shutdown su SIGTERM/SIGINT che drena le connessioni prima di uscire. I file statici SEO (`sitemap.xml`, `robots.txt`, `llms.txt`, `security.txt`) sono generati al build.
 
 ---
 
@@ -240,13 +219,13 @@ Senza scrivere una riga di codice infrastrutturale, dalla scatola esce già tutt
 
 ## 🎬 La demo del template (la vetrina)
 
-Tutto ciò che il template mostra "di fabbrica" è **demo**: esiste per far vedere il giro completo (UI → servizi → API → store), e il progetto figlio la **riusa, non la rottama** — tiene la struttura (file, servizi, endpoint) e ne cambia il contenuto. La chiave di lettura è semplice: ciò che non si modifica sta nell'Engine; tutto il resto sta nel template apposta perché il figlio lo faccia suo. Il catalogo degli esempi abita qui, non nei README di progetto: quelli sono direttive di implementazione e raccontano ciò che i figli ereditano e usano, niente di più.
+Tutto ciò che il template mostra "di fabbrica" è demo: esiste per far vedere il giro completo (UI, servizi, API, store), e il progetto figlio la riusa invece di rottamarla, tenendo la struttura (file, servizi, endpoint) e cambiandone il contenuto. La chiave di lettura è semplice: ciò che non si modifica sta nell'Engine, tutto il resto sta nel template apposta perché il figlio lo faccia suo. Il catalogo degli esempi abita qui, non nei README di progetto, che sono direttive di implementazione e raccontano ciò che i figli ereditano e usano, niente di più.
 
-> **Riusare o partire puliti — lo decidi al `setup`.** La cerimonia di init (`node setup.mjs "Nome"`) chiede `[s/N]`:
+> Riusare o partire puliti: lo decidi al `setup`. La cerimonia di init (`node setup.mjs "Nome"`) chiede `[s/N]`:
 > - **`N` → riusi la demo** (la via descritta qui sopra): tieni struttura, file, servizi ed endpoint e ne cambi il contenuto. La demo resta un esempio vivo finché vuoi.
-> - **`s` → parti pulito** (*eject*): il setup rimuove la demo (galleria Social + store/SiteService, home svuotata, `addon` azzerati, `BaseController` ridotto a vuoto, `identity.json` azzerato a scheletro), elimina **questa vetrina** e fa un commit `init <Nome>`. Resta lo scheletro Home + pagine legali, l'identità servita dall'Engine, login spento, pronto a crescere.
+> - **`s` → parti pulito** (eject): il setup rimuove la demo (galleria Social + store/SiteService, home svuotata, `addon` azzerati, `BaseController` ridotto a vuoto, `identity.json` azzerato a scheletro), elimina questa vetrina e fa un commit `init <Nome>`. Resta lo scheletro Home + pagine legali, l'identità servita dall'Engine, login spento, pronto a crescere.
 >
-> In entrambi i casi l'**Engine resta intatto**: cambia soltanto *da dove* parte il tuo dominio — demo riusabile o foglio bianco. La demo non è un peso da subire: è il banco di prova del template (esercita ogni feature) e, finché la tieni, il tuo esempio di riferimento.
+> In entrambi i casi l'Engine resta intatto: cambia soltanto da dove parte il tuo dominio, demo riusabile o foglio bianco. Se la tieni, la demo continua a servire: è il banco di prova del template, perché esercita ogni feature, e resta il tuo esempio di riferimento finché ti serve.
 
 ### La home (`frontend/src/app/pages/home/`)
 
@@ -262,7 +241,7 @@ Una pagina-vetrina che esercita i componenti e i servizi dell'Engine, sezione pe
 
 Due dettagli da non perdere:
 - **La demo si auto-documenta:** entrando col login demo (`admin` / `Password1!`) ogni sezione mostra accanto lo snippet di codice che la implementa.
-- **Idratazione incrementale dal vivo:** le sezioni sotto la piega (QR, Notifiche, Sistema) sono blocchi `@defer (hydrate on viewport)` — il pattern documentato in [frontend/README.md](frontend/README.md), qui in funzione.
+- **Idratazione incrementale dal vivo:** le sezioni sotto la piega (QR, Notifiche, Sistema) sono blocchi `@defer (hydrate on viewport)`, il pattern documentato in [frontend/README.md](frontend/README.md), qui in funzione.
 
 ### I controller demo (`backend/Controllers/`)
 
@@ -274,7 +253,7 @@ Due dettagli da non perdere:
 | `ProtectedController` | `GET /ping` | Endpoint riservato: API key + JWT obbligatori |
 | `BlobController` | `GET /blob/{slug}`, `POST /blob/up` | Upload/download di file sul volume persistente (è anche uno strumento di fabbrica: il contratto sta in [backend/README.md](backend/README.md)) |
 
-Sono segnaposto i **dati demo** (`backend/data/social.json`, galleria social), i testi legali di esempio (`frontend/src/assets/legal/`) e le credenziali del login: i file restano dove sono e con lo stesso nome, il figlio ci scrive dentro i **propri** dati. L'**identità** del sito (`backend/data/identity.json`) è invece la parte non-demo: legale + social del brand + tipo entità in un solo file, servito dall'Engine su `GET /identity`. I pezzi facoltativi si lasciano **non valorizzati** e l'Engine fa il resto — senza social il footer nasconde da sé la sezione, senza identità (`identity.json` assente → `null`) footer e blocco legale spariscono del tutto. Il blocco identità del footer è la **parte legale** del sito: nei figli si adatta l'estetica e si tolgono i pezzi facoltativi (i social), non le informazioni legali.
+Sono segnaposto i dati demo (`backend/data/social.json`, galleria social), i testi legali di esempio (`frontend/src/assets/legal/`) e le credenziali del login: i file restano dove sono e con lo stesso nome, il figlio ci scrive dentro i propri dati. L'identità del sito (`backend/data/identity.json`) è invece la parte non-demo: legale, social del brand e tipo entità in un solo file, servito dall'Engine su `GET /identity`. I pezzi facoltativi si lasciano non valorizzati e l'Engine fa il resto: senza social il footer nasconde da sé la sezione, senza identità (`identity.json` assente → `null`) footer e blocco legale spariscono del tutto. Il blocco identità del footer è la parte legale del sito: nei figli si adatta l'estetica e si tolgono i pezzi facoltativi, cioè i social, non le informazioni legali.
 
 ---
 
@@ -291,13 +270,15 @@ Sei controlli di qualità, zero da ricordare a mano: la CI (GitHub Actions) li e
 | `a11y-test.sh` | Conformità WCAG (accessibilità) |
 | `lighthouse-test.sh` | Performance budget (Core Web Vitals) |
 
-> Sono i controlli di **norma e qualità** che un progetto figlio deve rispettare (accessibilità, performance, traduzioni complete, niente dipendenze circolari, tipi corretti). I test unitari restano un'attività privata di ogni progetto: il template eredita ai figli questi controlli di norma e qualità, niente altro.
+> Sono i controlli di norma e qualità che un progetto figlio deve rispettare (accessibilità, performance, traduzioni complete, niente dipendenze circolari, tipi corretti). I test unitari restano un'attività privata di ogni progetto: il template eredita ai figli questi controlli di norma e qualità, niente altro.
+
+> C'è un'asimmetria frontend/backend, dichiarata esplicitamente qui: tutti e sei i controlli sopra sono frontend. Il backend .NET ha, in CI, solo la scansione vulnerabilità NuGet (§ Supply chain sotto), nessun gate di build, lint (`dotnet format`/analyzer) o test automatico. Non c'è nemmeno un progetto di test (`*.Tests.csproj`) nella solution oggi: se il progetto figlio ne aggiunge uno, il gate CI backend va costruito da zero, perché non esiste un binario da attivare.
 
 Dove e come girano:
 - **In CI:** in automatico a ogni push e pull request (`.github/workflows/`). È il gate ufficiale.
 - **On-demand, in locale:** `./scripts/test/run-all.sh` dalla root del progetto (i test live a11y/Lighthouse girano soltanto se è attivo un server da testare).
 
-> **Nota sul deploy:** due modelli di pubblicazione convivono. In **produzione** usa il modello *artifact-based* — la CI builda le immagini a ogni tag e le pubblica su GHCR, la VPS le scarica e basta (niente `git pull`, niente build in loco): vedi **[RELEASE.md](RELEASE.md)**. Il modello *source-based* `scripts/deploy.sh` (build sulla macchina + swap solo se i container diventano sani via HEALTHCHECK) resta comodo per **test e sviluppo locale**, ma è sconsigliato in produzione. La suite di test completa resta demandata alla CI. Vedi [DOCKER_README.md](DOCKER_README.md).
+> Nota sul deploy: due modelli di pubblicazione convivono. In produzione si usa il modello artifact-based: la CI builda le immagini a ogni tag e le pubblica su GHCR, la VPS le scarica e basta (niente `git pull`, niente build in loco). Vedi [RELEASE.md](RELEASE.md). Il modello source-based `scripts/deploy.sh` (build sulla macchina più swap solo se i container diventano sani via HEALTHCHECK) resta comodo per test e sviluppo locale, ma è sconsigliato in produzione. La suite di test completa resta demandata alla CI. Vedi [DOCKER_README.md](DOCKER_README.md).
 
 ### Supply chain
 
@@ -309,7 +290,7 @@ Oltre alla qualità del codice, la CI tiene d'occhio anche:
 
 ## 🚀 Quick Start
 
-Per il primo setup passo-passo (`setup.mjs` + Docker) vedi **[QUICKSTART.md](QUICKSTART.md)**. Qui sotto l'alternativa per chi sviluppa in locale senza Docker; per i riferimenti completi vai alla **Mappa della documentazione** in cima a questo file.
+Per il primo setup passo-passo (`setup.mjs` + Docker) vedi [QUICKSTART.md](QUICKSTART.md). Qui sotto l'alternativa per chi sviluppa in locale senza Docker; per i riferimenti completi vai alla Mappa della documentazione in cima a questo file.
 
 ### Avvio Veloce in Locale
 
@@ -320,7 +301,7 @@ La versione Node di riferimento è dichiarata in `.nvmrc` (Node 24 LTS): con nvm
 cd backend
 dotnet run
 ```
-*Espone di default `/health`.*
+Espone di default `/health`.
 
 **Avvio Frontend (Angular 21):**
 ```bash
@@ -328,4 +309,4 @@ cd frontend
 npm install
 npm run start
 ```
-*Si connette in automatico al backend sulla porta di default tramite proxy. In alternativa `./start-frontend-dev.sh` dalla root fa `npm install` + avvio in un colpo unico (con `BACKEND_ORIGIN` già impostato per l'SSR locale).*
+Si connette in automatico al backend sulla porta di default tramite proxy. In alternativa `./start-frontend-dev.sh` dalla root fa `npm install` più avvio in un colpo unico (con `BACKEND_ORIGIN` già impostato per l'SSR locale).

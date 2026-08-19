@@ -973,7 +973,10 @@ export class ThemeService {
         );
     }
 
-    // ── Backward-compat static methods ────────────────────────────────────
+    // ── Metodi statici (SSR-safe) ───────────────────────────────────────────
+    // API pubblica di calcolo colore, usata sia internamente (computePalette e la generazione
+    // SSR dei tag <head>) sia direttamente dai consumer (vedi frontend/README.md "Metodi Statici
+    // (SSR-Safe)"): pure, senza stato, chiamabili sia lato server che client.
 
     /**
      * Variante del brand con contrasto WCAG 4.5:1 (AA, testo normale) sullo sfondo pagina chiaro
