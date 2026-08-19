@@ -44,7 +44,7 @@ export class UploadFormComponent {
 
     protected onFileSelected(event: Event): void {
         const file = (event.target as HTMLInputElement).files?.[0] ?? null;
-        this.setFile(file);
+        this.setFileIfAllowed(file);
     }
 
     protected onDragOver(event: DragEvent): void {
@@ -67,13 +67,17 @@ export class UploadFormComponent {
         if (this.isLoading()) return;
 
         const file = event.dataTransfer?.files[0] ?? null;
-        
+        this.setFileIfAllowed(file);
+    }
+
+    /** Applica il filtro `accept` (identico a click e drag-and-drop: l'attributo nativo `accept` è solo
+     *  un suggerimento per il selettore OS, non un vincolo — "Tutti i file" lo bypassa facilmente). */
+    private setFileIfAllowed(file: File | null): void {
         if (file && !this.isExtensionAllowed(file)) {
             this.errorMessage.set(this.translate.translate('uploadFileNonAmmesso'));
             this.setFile(null);
             return;
         }
-
         this.setFile(file);
     }
 

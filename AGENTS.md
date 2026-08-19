@@ -1,13 +1,14 @@
 # AGENTS.md
 
-Le **regole trasversali** e le **ricette pratiche** del progetto, per chi ci sviluppa — umano o assistente di coding. Gli esempi di codice qui sotto servono soprattutto a un **agente** — gli evitano di scandire mezzo repo per ricavare un pattern; a un umano bastano i puntatori, il codice lo legge direttamente. Il *cosa offre / dove vive* per-feature sta nei README ([frontend](frontend/README.md), [backend](backend/README.md)); l'implementazione interna dell'Engine non citata per nome in quei README sta in [ENGINE.md](ENGINE.md).
+Le regole trasversali e le ricette pratiche del progetto, per chi ci sviluppa, umano o assistente di coding. Gli esempi di codice qui sotto servono soprattutto a un agente, per evitargli di scandire mezzo repo per ricavare un pattern; a un umano bastano i puntatori, il codice lo legge direttamente. Il cosa offre e dove vive per-feature sta nei README ([frontend](frontend/README.md), [backend](backend/README.md)); l'implementazione interna dell'Engine non citata per nome in quei README sta in [ENGINE.md](ENGINE.md).
 
-> **Perché si chiama proprio `AGENTS.md` — non rinominarlo.** Non è una scelta di stile: è un **nome-convenzione cross-tool**, non legato a Br1WebEngine né a un singolo strumento. Diversi coding agent (Claude Code, Codex CLI, Cursor e altri) cercano in automatico, alla radice di un repo, un file con **esattamente questo nome** per caricare contesto di progetto — nessuna configurazione da parte tua. Un umano lo trova comunque se linkato (come nella mappa di [README.md](README.md)); un agente lo trova **da sé** solo finché resta `AGENTS.md`. Rinominarlo (es. `DEVGUIDE.md`, `RECIPES.md`) non romperebbe nulla per un lettore umano, ma toglierebbe l'auto-discovery agli agenti — la proprietà per cui questo file è fatto così.
+> Il file si chiama proprio `AGENTS.md` e non va rinominato. Non è una scelta di stile: è un nome-convenzione cross-tool, non legato a Br1WebEngine né a un singolo strumento. Diversi coding agent (Claude Code, Codex CLI, Cursor e altri) cercano in automatico, alla radice di un repo, un file con esattamente questo nome per caricare contesto di progetto, nessuna configurazione da parte tua. Un umano lo trova comunque se linkato (come nella mappa di [README.md](README.md)); un agente lo trova da sé solo finché resta `AGENTS.md`. Rinominarlo (es. `DEVGUIDE.md`, `RECIPES.md`) non romperebbe nulla per un lettore umano, ma toglierebbe l'auto-discovery agli agenti, la proprietà per cui questo file è fatto così.
 
 ## La regola d'oro: Engine vs Dominio
 
 - **Engine = INTOCCABILE**, si aggiorna dal template via merge: `backend/Engine/`, `frontend/src/app/core/engine/`, `frontend/src/styles/engine/`, `frontend/src/assets/i18n/basic.*.json`. Lo **consumi** (token, signal, direttive, classi base), non lo modifichi mai.
 - **Dominio = tuo**: tutto il resto. Cambi i comportamenti per **configurazione** (`global-settings(.local).json`, `site.ts`, sezione `Custom`) o per **estensione** (sottoclassi `Engine*`, nuovi servizi), mai editando l'Engine — o il prossimo merge dal template va in conflitto.
+- **Risolvere un conflitto di `git merge template/main`:** sui path Engine e Scaffold vince **sempre** il template (`git checkout template/main -- <path>`); sul Dominio vince **sempre** il tuo progetto. Alcuni file di Dominio sono però **a contratto fisso** con l'Engine (path/nome export/forma non negoziabili, es. `site.ts`, `content.resolver.ts`) — l'elenco completo e il comando esatto sono in [README.md](README.md#-template-vivo-nascita-e-aggiornamento-dei-progetti-figli) § *"Dominio a contratto fisso"*: leggilo prima di risolvere un conflitto su uno di quei file, non a intuito.
 
 ## Build, run, test
 
@@ -22,14 +23,14 @@ Commit narrativi a tema, stile branch + squash: una questione chiusa per commit,
 ## Ricette — frontend
 
 #### Aggiungere una pagina
-`PageType` è assemblato in `site.ts` da file di area sotto `pages/*.pages.ts` (uno per gruppo tematico, es. `app.pages.ts`) — a un'area esistente basta un nuovo ID + una nuova dichiarazione nello stesso file:
+`PageType` è assemblato in `site.ts` da file di area sotto `pages/*.pages.ts` (uno per gruppo tematico, es. `app.pages.ts`). A un'area esistente basta un nuovo ID più una nuova dichiarazione nello stesso file:
 ```typescript
 // pages/app.pages.ts (o il file dell'area giusta)
 export const AppPages = { Home: 'app.home', NuovaPagina: 'app.nuovaPagina' /* … */ } as const;
 export const appPagesDecl: SitePageInput[] = [
   { path: 'nuova', pageType: AppPages.NuovaPagina, title: 'Nuova',
     requiresAuth: false,                       // true → protetta (guard + redirect), SSR off
-    component: () => import('./nuova/nuova.component') },
+    component: () => import('./nuova/nuova.component').then(m => m.NuovaComponent) },
 ];
 ```
 ```typescript
@@ -40,7 +41,9 @@ pages: (ctx) => [...appPagesDecl],
 ```
 ```typescript
 // pages/nuova/nuova.component.ts — estende la base: this.api / translate / asset / notify già pronti
-export default class NuovaComponent extends PageBaseComponent { }
+// <T> è SEMPRE richiesto (nessun default): <void> se la pagina non ha contenuto risolto dal
+// resolver, altrimenti il tipo di quel contenuto (es. <string> per una pagina .md, vedi PolicyComponent).
+export class NuovaComponent extends PageBaseComponent<void> { }
 ```
 ```html
 <a [appPage]="PageType.NuovaPagina">Vai</a>   <!-- mai URL grezzi -->
@@ -55,17 +58,17 @@ getArticolo(id: string): Promise<Articolo> {
 ```
 
 #### Persistere dati lato client (cookie, Web Storage, consenso)
-UN registro (`COOKIE_MAP` in `core/services/cookie-registry.ts`), UN'API, gated dal consenso — registrare una voce basta per: toggle nel banner, riga in policy (mezzo/provider/durata), pulizia alla revoca. Ricetta completa (shape della voce, campi opzionali, la variante `match: 'prefix'` per famiglie di chiavi di SDK di terza parte) in [frontend/README.md](frontend/README.md#aggiungere-un-cookie-o-una-voce-di-web-storage). Qui solo la forma di chiamata, che è quella che serve scrivendo codice:
+Un registro (`COOKIE_MAP` in `core/services/cookie-registry.ts`), un'API, gated dal consenso: registrare una voce basta per toggle nel banner, riga in policy (mezzo/provider/durata) e pulizia alla revoca. Ricetta completa (shape della voce, campi opzionali, la variante `match: 'prefix'` per famiglie di chiavi di SDK di terza parte) in [frontend/README.md](frontend/README.md#aggiungere-un-cookie-o-una-voce-di-web-storage). Qui solo la forma di chiamata, che è quella che serve scrivendo codice:
 ```typescript
 // nel componente/service — instrada sul mezzo (cookie o Web Storage) in base a come la voce è
 // registrata, tipizzato su valueType
 this.consent.set('mioSalvataggio', { x: 1 });   // gated dal consenso; in SSR è no-op (Web Storage browser-only)
 const v = this.consent.get('mioSalvataggio');    // → tipo da valueType | null
 ```
-**MAI `localStorage`/`sessionStorage` diretti** (lo vieta una regola ESLint, eccetto `CookieConsentService`/`TokenService`): tutto passa dal gate, l'inventario in policy resta completo. `setCookie/getCookie/removeCookie` sono alias deprecati di `set/get/remove`. Su una voce `match: 'prefix'` (famiglia di chiavi di un SDK terzo) il gating sta a te: carica l'SDK solo dopo il consenso della sua categoria, altrimenti scrive le sue chiavi prima che tu possa pulirle.
+Mai `localStorage`/`sessionStorage` diretti (lo vieta una regola ESLint, eccetto `CookieConsentService`/`TokenService`): tutto passa dal gate, l'inventario in policy resta completo. Su una voce `match: 'prefix'` (famiglia di chiavi di un SDK terzo) il gating sta a te: carica l'SDK solo dopo il consenso della sua categoria, altrimenti scrive le sue chiavi prima che tu possa pulirle.
 
-#### Google Consent Mode v2 (predisposizione, non attiva di default)
-Ricetta completa (snippet interi) in [frontend/README.md](frontend/README.md) §"Google Consent Mode v2". Qui solo la mappa di proprietà, perché è quella che conta per non romperla al prossimo merge:
+#### Google Consent Mode v2 (obbligatorio se usi GA4/Google Ads su utenti UE/UK — non un extra opzionale)
+Dal 2024 è requisito Google, pieno enforcement nel 2026: senza, un account perde remarketing/conversion modeling per il traffico UE/UK. Ricetta completa (snippet interi) in [frontend/README.md](frontend/README.md) §"Google Consent Mode v2". Qui solo la mappa di proprietà, perché è quella che conta per non romperla al prossimo merge:
 
 1. `src/index.html` (**Dominio**) — stub `gtag('consent','default',{...:'denied'})` PRIMA di qualunque `gtag.js`/GTM.
 2. `security-headers.json` (**Scaffold, con eccezione dichiarata** nella `_nota` del file) — whitelist CSP per i domini Google (`script-src`/`connect-src`). **Attenzione:** è Scaffold, quindi un `git merge template/main` lo sovrascrive con la versione del template a ogni merge — l'override CSP **non sopravvive da solo**, va riapplicato a mano dopo ogni merge dal template.
@@ -78,7 +81,7 @@ Nessuno dei due esiste nel template oggi (niente chatbot, niente generazione IA,
 - **Newsletter/marketing**: l'iscrizione NON passa da `ConsentCategory`/`CookieConsentService` (quello gestisce storage/tracciamento lato browser) — serve una checkbox propria, non pre-spuntata, separata da un eventuale consenso alla profilazione degli iscritti.
 
 #### Leggere `global-settings.json` tipizzato
-Il tipo `GlobalSettings` è **generato dallo schema** (sorgente unica), non scritto a mano. Dopo aver toccato `global-settings.schema.json`, rigeneralo; un typo di chiave diventa errore a `tsc`.
+Il tipo `GlobalSettings` è generato dallo schema (sorgente unica), non scritto a mano. Dopo aver toccato `global-settings.schema.json`, rigeneralo; un typo di chiave diventa errore a `tsc`.
 ```bash
 npm run generate:types   # → src/app/core/engine/global-settings.types.ts (committato, DO NOT MODIFY)
 ```
@@ -90,15 +93,15 @@ s.Localization?.SupportedLanguages   // tipizzato; `s.Localizaton` non compila
 
 #### SEO: escludere una pagina dall'indice
 ```typescript
-// site.ts — pagina pubblica e SSR ma fuori da sitemap e indice (X-Robots-Tag: noindex).
+// pages/*.pages.ts — pagina pubblica e SSR ma fuori da sitemap e indice (X-Robots-Tag: noindex).
 // A differenza di requiresAuth NON forza il client-render. Default: noindex false.
 { path: 'grazie', pageType: PageType.Grazie,
-  component: () => import('./pages/grazie/grazie.component'),
+  component: () => import('./grazie/grazie.component').then(m => m.GrazieComponent),
   otherSEO: { noindex: true } }
 ```
 
 #### Comporre l'identità da una fonte diversa dal file
-Il caso base si riempie in `data/identity.json` (campi nello schema engine `Engine/Models/Identity/identity.schema.json`). Per prendere un pezzo da un DB/API si fa l'override del solo metodo dedicato: stesso tipo in ingresso e in uscita, arricchisci e ritorna. **Dichiari col framework** (`DayOfWeek`, `TimeOnly`, codici ISO), non stringhe magiche né nozioni di schema.org: l'Engine deriva resa e JSON-LD.
+Il caso base si riempie in `data/identity.json` (campi nello schema engine `Engine/Models/Identity/identity.schema.json`). Per prendere un pezzo da un DB/API si fa l'override del solo metodo dedicato: stesso tipo in ingresso e in uscita, arricchisci e ritorna. Dichiari col framework (`DayOfWeek`, `TimeOnly`, codici ISO), non stringhe magiche né nozioni di schema.org: l'Engine deriva resa e JSON-LD.
 ```csharp
 // backend/Store/AppIdentityStore.cs (di proprietà del progetto)
 protected override async Task<SiteIdentity?> ComposeIdentityAsync(
@@ -114,10 +117,10 @@ protected override async Task<SiteIdentity?> ComposeIdentityAsync(
     return identity;                                     // stesso oggetto, arricchito
 }
 ```
-Stessa filosofia per gli altri "codici": `Currency` ISO 4217, `SedeLegale.Nazione` ISO 3166, lingue in `Localization` — dichiari il codice, il framework (`CultureInfo`/`Intl`) dà nome e formato. Per una proprietà schema.org che il modello non tipizza, valorizza `identity.Extra`: fuso **per ultimo** nel nodo entità brand, sovrascrive i default (anche il `@type`, es. → `LocalBusiness` con `geo`/`openingHoursSpecification`); l'Engine si tiene solo `@context` e `@id`.
+Stessa filosofia per gli altri "codici": `Currency` ISO 4217, `SedeLegale.Nazione` ISO 3166, lingue in `Localization`. Dichiari il codice, il framework (`CultureInfo`/`Intl`) dà nome e formato. Per una proprietà schema.org che il modello non tipizza, valorizza `identity.Extra`: fuso per ultimo nel nodo entità brand, sovrascrive i default (anche il `@type`, es. → `LocalBusiness` con `geo`/`openingHoursSpecification`); l'Engine si tiene solo `@context` e `@id`.
 
 #### Sito di un'attività fisica (LocalBusiness)
-Dichiara `businessType` (sottotipo schema.org) in `data/identity.json`: l'entità brand diventa quel `@type` con indirizzo e `openingHoursSpecification` portati **sul nodo**. Gli `openingHours` (già tipizzati) non cambiano; l'indirizzo è la `sedeOperativa` (fallback `sedeLegale`); la geo (opzionale per Google, basta l'indirizzo) va in `extra`. `businessType` è una **stringa libera** (qualsiasi sottotipo `LocalBusiness` valido), non un enum: la metti diretta — non serve `extra`, che resta solo per le proprietà *in più* (geo, priceRange…). Non è un enum perché i sottotipi sono 150+ ed evolvono, e tanto `extra` può comunque cambiare `@type`: validità schema.org a carico tuo.
+Dichiara `businessType` (sottotipo schema.org) in `data/identity.json`: l'entità brand diventa quel `@type` con indirizzo e `openingHoursSpecification` portati sul nodo. Gli `openingHours` (già tipizzati) non cambiano; l'indirizzo è la `sedeOperativa` (fallback `sedeLegale`); la geo (opzionale per Google, basta l'indirizzo) va in `extra`. `businessType` è una stringa libera (qualsiasi sottotipo `LocalBusiness` valido), non un enum: la metti diretta, non serve `extra`, che resta solo per le proprietà in più (geo, priceRange…). Non è un enum perché i sottotipi sono 150+ ed evolvono, e tanto `extra` può comunque cambiare `@type`: validità schema.org a carico tuo.
 ```json
 {
   "businessType": "Restaurant",
@@ -134,13 +137,17 @@ Dichiari `kind` + campi, l'Engine traduce in schema.org (`structured-data.ts`). 
 otherSEO: { structuredData: { kind: 'faq', questions: [{ question: 'Come?', answer: 'Così.' }] } }
 ```
 ```typescript
-// content.resolver.ts — DINAMICI dal contenuto (hanno la precedenza sullo statico)
-case PageType.Articolo: {
-  const art = await this.apiService.getArticolo(id); content = art;
-  structuredData = art && { kind: 'article', headline: art.titolo, author: art.autore, publishedOn: art.data };
-  break;
+// content.resolver.ts — DINAMICI dal contenuto (hanno la precedenza sullo statico). Il case va
+// nello switch(pageType) dentro loadResolved() (vedi il metodo completo in ContentResolver,
+// frontend/src/app/pages/content.resolver.ts) — qui solo il case, non l'intero metodo:
+switch (pageType) {
+  case PageType.Articolo: {
+    const art = await this.apiService.getArticolo(id); content = art;
+    structuredData = art && { kind: 'article', headline: art.titolo, author: art.autore, publishedOn: art.data };
+    break;
+  }
+  // casi non coperti: { kind: 'raw', jsonLd: { '@type': 'Recipe', name: '…' } }
 }
-// casi non coperti: { kind: 'raw', jsonLd: { '@type': 'Recipe', name: '…' } }
 ```
 
 ## Ricette — backend
@@ -178,10 +185,10 @@ public class PaymentRequiredException : ApiException {
 var session = CurrentSession<SessionInfo>();   // null se token assente/malformato (in un controller EngineProtectedController)
 if (session is null) throw new UnauthorizedException();
 ```
-Fuori da un controller (es. un servizio) resta `user.GetSession<SessionInfo>()` sul `ClaimsPrincipal` ricevuto — `CurrentSession<T>()` è solo lo zucchero sintattico di chi eredita già la base.
+Fuori da un controller (es. un servizio) resta `user.GetSession<SessionInfo>()` sul `ClaimsPrincipal` ricevuto: `CurrentSession<T>()` è solo lo zucchero sintattico di chi eredita già la base.
 
 #### Ruoli di dominio e `[Authorize]`
-`AuthController.Login` emette già un `ClaimTypes.Role` per ogni voce di `session.Roles`, quindi `[Authorize(Roles = "admin")]` **funziona nativamente** — i ruoli li governi da `SessionInfo.Roles` (in `AccountService`), non toccando il controller. `session.Roles` resta anche leggibile via `User.GetSession<SessionInfo>()` per un enforce puntuale (`session.Roles.Contains("admin")` → `ForbiddenException`). Le due nozioni di "ruolo": [backend/README.md](backend/README.md) §"Sistema di Login e Sessioni JWT".
+`AuthController.Login` emette già un `ClaimTypes.Role` per ogni voce di `session.Roles`, quindi `[Authorize(Roles = "admin")]` funziona nativamente: i ruoli li governi da `SessionInfo.Roles` (in `AccountService`), non toccando il controller. `session.Roles` resta anche leggibile via `User.GetSession<SessionInfo>()` per un enforce puntuale (`session.Roles.Contains("admin")` → `ForbiddenException`). Le due nozioni di "ruolo" sono spiegate in [backend/README.md](backend/README.md) §"Sistema di Login e Sessioni JWT".
 
 #### Pubblicare una notifica realtime
 Proprietà ambient, niente inject:
@@ -211,7 +218,7 @@ builder.Services.AddSingleton<IIdentityStore, DbIdentityStore>();
 ```
 
 #### Esportare e cancellare i dati personali
-`GET`/`DELETE /me/data` esistono già (protetti da login, cifrati in export) e il punto da riempire pure: `Store/AppPersonalDataStore.cs`, l'**unica** `IPersonalDataStore` del sito (già registrata in `Program.cs`, non un export per controller di dominio). Aggreghi lì i tuoi store:
+`GET`/`DELETE /me/data` esistono già (protetti da login, cifrati in export) e il punto da riempire pure: `Store/AppPersonalDataStore.cs`, l'unica `IPersonalDataStore` del sito (già registrata in `Program.cs`, non un export per controller di dominio). Aggreghi lì i tuoi store:
 ```csharp
 // Store/AppPersonalDataStore.cs — aggiungi i tuoi store di dominio ai due metodi
 public async Task<object?> ExportAsync(ClaimsPrincipal user, CancellationToken ct)
@@ -221,7 +228,7 @@ public async Task<object?> ExportAsync(ClaimsPrincipal user, CancellationToken c
     return new { profilo = await _profili.GetAsync(session.UserId, ct) /* , acquisti = ... */ };
 }
 ```
-`EraseAsync` è il diritto all'oblio completo: cancella **anche l'account** (credenziali e identificativi sono dati personali), salvo i dati con obbligo legale di conservazione, da anonimizzare. La parte account è già delegata a `Services/AccountService.cs` — l'unico posto che conosce gli account, lo stesso che verifica le credenziali per `AuthController`: con account reali riempi `DeleteAccountAsync` lì. Dopo la `DELETE` il JWT resta valido fino a scadenza → il frontend fa logout locale e gli store tollerano un `UserId` orfano come "nessun dato". Dettagli (semantica, token, cifratura della risposta, `Security.CryptoSecret`) in [backend/README.md](backend/README.md) §9.
+`EraseAsync` è il diritto all'oblio completo: cancella anche l'account (credenziali e identificativi sono dati personali), salvo i dati con obbligo legale di conservazione, da anonimizzare. La parte account è già delegata a `Services/AccountService.cs`, l'unico posto che conosce gli account, lo stesso che verifica le credenziali per `AuthController`: con account reali riempi `DeleteAccountAsync` lì. Dopo la `DELETE` il JWT resta valido fino a scadenza: il frontend fa logout locale e gli store tollerano un `UserId` orfano come "nessun dato". Dettagli (semantica, token, cifratura della risposta, `Security.CryptoSecret`) in [backend/README.md](backend/README.md) §9.
 
 #### Chiamare un'API esterna
 Outbound: URL/chiave in config, client tipizzato, errori verso l'upstream:
@@ -250,6 +257,28 @@ public async Task<IActionResult> Receive(CancellationToken ct) {
 ```
 Dettagli in [backend/README.md](backend/README.md) §8.
 
+#### Mandare un'email
+Diretta (blocca finché non è spedita) o accodata (torna subito, retry in background):
+```csharp
+// diretta — IEngineMailer iniettato nel costruttore (es. _mailer)
+await _mailer.SendAsync(to: new[] { "destinatario@dominio.it" }, subject: "Oggetto",
+    body: "Corpo del messaggio", isHtml: false, from: null, cc: null, bcc: null,
+    attachments: null, replyTo: null);
+```
+```csharp
+// accodata — IEmailQueue iniettato nel costruttore, non blocca la richiesta HTTP
+_emailQueue.TryEnqueue(new EmailMessage(to: [...], subject: "...", body: "...", isHtml: false));
+```
+Senza una sezione `Mail` valida in config (`Host` + `FromAddress`) `IsEnabled` è `false` e l'invio diretto lancia `MailNotConfiguredException` (503): gate prima con `_mailer.IsEnabled`. Dettagli (SMTP, anti-spam, allegati) in [backend/README.md](backend/README.md) §5.
+
+#### Caricare/servire un file
+`BlobController` (Dominio, `Controllers/BlobController.cs`) è già pronto: `POST /blob/up` (richiede login) restituisce uno slug, `GET /blob/{slug}` lo riserve (con resize on-demand per immagini via `?webopt=true`). Per cambiare solo il limite di dimensione (default 10 MB), tocca l'attributo sulla stessa azione:
+```csharp
+// Controllers/BlobController.cs — invariato tutto il resto del metodo Upload
+[RequestSizeLimit(50 * 1024 * 1024)] // 50 MB
+```
+Dal codice (non da un endpoint HTTP) usa direttamente `BlobStore.SaveAsync(IFormFile, CancellationToken)`. Dettagli (cache/ETag, difesa XSS sui content-type) in [backend/README.md](backend/README.md) §"BlobController".
+
 ## Documentazione
 
-Documenta **cosa garantisce e perché**, non il *come* riga-per-riga — il come vive nei commenti del codice, l'unica fonte che non mente ai refactor. Le ricette qui sopra sono **pattern d'uso** (cosa fare), non spiegazioni del motore.
+Documenta cosa garantisce e perché, non il come riga-per-riga: il come vive nei commenti del codice, l'unica fonte che non mente ai refactor. Le ricette qui sopra sono pattern d'uso (cosa fare), non spiegazioni del motore.

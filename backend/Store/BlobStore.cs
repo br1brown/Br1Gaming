@@ -77,7 +77,14 @@ public class BlobStore
         // dato slug identifica per sempre lo stesso contenuto -> cache HTTP a lunga scadenza sicura.
         var dot = extension.StartsWith('.') ? string.Empty : ".";
         var slug = $"{Guid.NewGuid():N}{dot}{extension}";
-        var filePath = Path.Combine(_uploadsPath, slug);
+
+        // Stessa guardia anti path-traversal di TryResolve: il prefisso GUID rende slug univoco, ma
+        // un'estensione con segmenti "../" (chiamando questo overload direttamente con un'estensione
+        // non derivata da Path.GetExtension, es. presa da un futuro input esterno) farebbe comunque
+        // risolvere filePath fuori da _uploadsPath prima ancora di toccare il filesystem.
+        var filePath = Path.GetFullPath(Path.Combine(_uploadsPath, slug));
+        if (!filePath.StartsWith(_uploadsPath, StringComparison.Ordinal))
+            throw new InvalidParametersException();
 
         await using var destination = File.Create(filePath);
         await content.CopyToAsync(destination, ct);

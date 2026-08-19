@@ -202,7 +202,8 @@ export interface SiteConfig {
 // ======================================================
 
 /**
- * Proprietà comuni a tutte le tipologie di pagina dichiarabili in `site.ts`.
+ * Proprietà comuni a tutte le tipologie di pagina — dichiarate nel file di area
+ * (`pages/*.pages.ts`), non in `site.ts`, che le assembla soltanto.
  *
  * Nota:
  * `path` esiste nel modello base perché serve sia alle pagine padre
@@ -235,7 +236,7 @@ export type SitePageKind = 'parent' | 'leaf' | 'external';
 export type SiteRenderMode = 'client' | 'server';
 
 /**
- * Pagina contenitore dichiarabile in `site.ts`.
+ * Pagina contenitore — dichiarata nel file di area (`pages/*.pages.ts`).
  *
  * Non rappresenta una route finale renderizzabile, ma un nodo
  * dell'albero che serve a raggruppare altre pagine.
@@ -248,7 +249,7 @@ export type SiteRenderMode = 'client' | 'server';
  */
 export type ParentPageInput = BasePageInput & {
     /**
-     * Discriminante opzionale: in `site.ts` puo' essere omesso perche'
+     * Discriminante opzionale: puo' essere omesso perche'
      * il builder deduce il tipo dalla presenza di `children`.
      */
     kind?: 'parent';
@@ -267,7 +268,7 @@ export type ParentPageInput = BasePageInput & {
 };
 
 /**
- * Pagina interna reale dichiarabile in `site.ts`.
+ * Pagina interna reale — dichiarata nel file di area (`pages/*.pages.ts`).
  *
  * Questa è una route Angular vera e propria:
  * - ha un `pageType`
@@ -391,7 +392,7 @@ export type LeafPageInput = BasePageInput & {
 };
 
 /**
- * Pagina esterna dichiarabile in `site.ts`.
+ * Pagina esterna — dichiarata nel file di area (`pages/*.pages.ts`).
  *
  * Serve quando vuoi mappare un `PageType` su un URL esterno
  * invece che su una route Angular interna.
@@ -407,7 +408,7 @@ export type LeafPageInput = BasePageInput & {
  */
 export type ExternalPageInput = Omit<BasePageInput, 'path'> & {
     /**
-     * Discriminante opzionale: in `site.ts` puo' essere omesso perche'
+     * Discriminante opzionale: puo' essere omesso perche'
      * il builder deduce il tipo dalla presenza di `externalUrl`.
      */
     kind?: 'external';
@@ -428,7 +429,9 @@ export type ExternalPageInput = Omit<BasePageInput, 'path'> & {
 };
 
 /**
- * Un elemento dell'albero pagine dichiarato in `site.ts`.
+ * Un elemento dell'albero pagine — dichiarato nel file di area (`pages/*.pages.ts`),
+ * non in `site.ts`: `site.ts` assembla gli array di più aree con uno spread
+ * (`pages: () => [...appPagesDecl, ...]`), non dichiara pagine direttamente.
  *
  * L'utente non è obbligato a esplicitare `kind`: il builder lo ricava
  * automaticamente dalla forma dell'oggetto.
@@ -1349,7 +1352,7 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
     validatePageRefs(finalConfig, pageMap);
     if (cookiesEnabled && finalConfig.legalPages.cookie == null) {
         throw new Error(
-            '[SiteBuilder] Il sito usa cookie (multilingua, PWA o cookie di progetto) ma ' +
+            '[SiteBuilder] Il sito usa cookie (PWA o cookie di progetto) ma ' +
             '`legalPages.cookie` non è valorizzato in site.ts. La pagina Cookie Policy è ' +
             'obbligatoria: mappa lo slot `cookie` a un PageType.'
         );

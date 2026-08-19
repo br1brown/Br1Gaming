@@ -1,14 +1,13 @@
 import { isPlatformBrowser } from '@angular/common';
 import { Injectable, computed, inject, isDevMode, PLATFORM_ID, REQUEST, signal, DOCUMENT } from '@angular/core';
 import { COOKIE_MAP, type CookieKey } from '../../services/cookie-registry';
-import { LOCALE_CONFIG } from '../services/translate.service';
 import { SITE_CONFIG } from '../siteBuilder';
 import { ConsentCategory, CookieConfig, CookieValueType, ENGINE_COOKIE_MAP, EngineCookieKey, ESSENTIAL_ENGINE_STORAGE_KEYS, CONSENT_COOKIE_MAP, CONSENT_KEYS, StorageMedium } from './cookie/cookie-type';
 
 export type { CookieKey } from '../../services/cookie-registry';
 
 /**
- * Utility type per inferire il tipo di ritorno di getCookie/setCookie in base alla configurazione.
+ * Utility type per inferire il tipo di ritorno di get/set in base alla configurazione.
  * Legge la proprietà 'valueType' da COOKIE_MAP o ENGINE_COOKIE_MAP. Se non specificata, ricade su 'string'.
  */
 export type InferCookieType<K extends CookieKey | EngineCookieKey> =
@@ -82,7 +81,7 @@ export function buildPhysicalCookieKey(rawKey: CookieKey | EngineCookieKey, conf
  * isXxxNeeded è auto-calcolata dalla propria fetta di COOKIE_MAP.
  * Aggiungere un cookie a COOKIE_MAP fa comparire automaticamente la sezione nel banner.
  *
- * Le funzionalità built-in (lingua e service worker) sono gestite tramite
+ * Le funzionalità built-in (service worker) sono gestite tramite
  * ENGINE_COOKIE_MAP per mantenere la COOKIE_MAP pulita per lo sviluppatore.
  */
 @Injectable({ providedIn: 'root' })
@@ -98,23 +97,26 @@ export class CookieConsentService {
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
     /** Richiesta SSR: serve a leggere i cookie lato server (document.cookie è vuoto in SSR). */
     private readonly request = inject(REQUEST, { optional: true });
-    private readonly localeConfig = inject(LOCALE_CONFIG);
     private readonly siteConfig = inject(SITE_CONFIG);
+
+    /**
+     * True se il browser (o un'estensione) manda il segnale Global Privacy Control — opt-out
+     * universale da "vendita/condivisione" dei dati, riconosciuto come Universal Opt-Out Mechanism
+     * e obbligatorio da onorare in California/Colorado/Connecticut (e altri stati USA) dal 2026.
+     * `navigator.globalPrivacyControl` non è ancora in TypeScript lib.dom: accesso tipizzato a mano.
+     * Sempre `false` in SSR — stesso motivo di `isNeeded`: lo stato di consenso è browser-only,
+     * mai assunto lato server.
+     */
+    readonly gpcSignaled: boolean = this.isBrowser
+        && (navigator as Navigator & { globalPrivacyControl?: boolean }).globalPrivacyControl === true;
 
     // ─── CATEGORIE: isNeeded ────────────────────────────────────────────
     //
     // Ogni computed guarda esclusivamente la propria fetta di COOKIE_MAP.
-    // isTechnicalNeeded include anche lingua built-in (multilingua) e SW (isWebApp).
-    //
-    // Usa localeConfig.availableLanguages (lista raw da global-settings.json) — non la lista
-    // post-probeLanguages di TranslateService, che può essere ridotta se un file JSON
-    // manca. La decisione sul cookie deve riflettere la configurazione dichiarata,
-    // non l'esito dei file probe: altrimenti un file mancante fa sparire silenziosamente
-    // il banner e blocca il salvataggio del consenso in un loop.
+    // isTechnicalNeeded include anche SW (isWebApp).
 
     readonly isTechnicalNeeded = computed(() =>
-        this.localeConfig.availableLanguages.length > 1
-        || this.siteConfig.isWebApp
+        this.siteConfig.isWebApp
         || (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === ConsentCategory.Technical)
     );
 
@@ -158,11 +160,6 @@ export class CookieConsentService {
         // Mappa unica: cookie (lingua, SW, memorie del consenso) + Web Storage (consent_log, bearerToken).
         const engine: Record<string, CookieConfig> = {};
 
-        // Se ci sono più lingue, il cookie della lingua diventa tecnicamente necessario
-        if (this.localeConfig.availableLanguages.length > 1) {
-            engine['lang'] = ENGINE_COOKIE_MAP['lang'];
-        }
-
         // Se è una PWA, il cookie del service worker diventa necessario
         if (this.siteConfig.isWebApp) {
             engine[CookieConsentService.NGSW_WORKER] = ENGINE_COOKIE_MAP['ngsw-worker.js'];
@@ -173,8 +170,7 @@ export class CookieConsentService {
         // se altri signal di cui dipendono non si sono stabilizzati.
         // Per questo motivo, qui ricalcoliamo la stessa logica "a mano" in modo sincrono usando i dati grezzi.
         const isTechnicalNeededNow =
-            this.localeConfig.availableLanguages.length > 1
-            || this.siteConfig.isWebApp
+            this.siteConfig.isWebApp
             || (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === ConsentCategory.Technical);
 
         const isAnalyticsNeededNow = (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === ConsentCategory.Analytics);
@@ -199,9 +195,19 @@ export class CookieConsentService {
 
         if (this.isBrowser) {
             try {
-                const technicalStored = this.getCookie(CONSENT_KEYS.technical);
-                const analyticsStored = this.getCookie(CONSENT_KEYS.analytics);
-                const profilingStored = this.getCookie(CONSENT_KEYS.profiling);
+                const technicalStored = this.get(CONSENT_KEYS.technical);
+                let analyticsStored = this.get(CONSENT_KEYS.analytics);
+                let profilingStored = this.get(CONSENT_KEYS.profiling);
+
+                // Global Privacy Control: onora il segnale come opt-out per Analytics/Profiling —
+                // MAI per Technical (GPC riguarda "vendita/condivisione" dei dati, non i cookie
+                // strettamente necessari). Solo se l'utente non ha ancora risposto esplicitamente per
+                // quella categoria: una scelta manuale successiva (dal banner) prevale sempre e la
+                // sovrascrive. Va REGISTRATO subito (non solo applicato in-memory ai signal), altrimenti
+                // il banner riproporrebbe la stessa domanda ad ogni visita nonostante il browser stia
+                // già rispondendo "no" per conto dell'utente.
+                analyticsStored = this.applyGpcOptOut(CONSENT_KEYS.analytics, isAnalyticsNeededNow, analyticsStored);
+                profilingStored = this.applyGpcOptOut(CONSENT_KEYS.profiling, isProfilingNeededNow, profilingStored);
 
                 if (technicalStored !== null) this._technicalAccepted.set(technicalStored);
                 if (analyticsStored !== null) this._analyticsAccepted.set(analyticsStored);
@@ -229,6 +235,19 @@ export class CookieConsentService {
         }
     }
 
+    /** Applica l'opt-out da Global Privacy Control a una categoria (Analytics o Profiling): se il
+     *  segnale è attivo, la categoria serve, e l'utente non ha ancora risposto, registra un rifiuto
+     *  e ritorna `false`; altrimenti ritorna `stored` invariato. Fattorizza la stessa logica per le
+     *  due categorie a cui GPC si applica (mai Technical). */
+    private applyGpcOptOut(
+        key: typeof CONSENT_KEYS.analytics | typeof CONSENT_KEYS.profiling,
+        needed: boolean,
+        stored: boolean | null,
+    ): boolean | null {
+        if (!this.gpcSignaled || !needed || stored !== null) return stored;
+        this.set(key, false, CookieConsentService.CONSENT_MAX_AGE_SECONDS);
+        return false;
+    }
 
 
     // ─── GESTIONE CONSENSO ──────────────────────────────────────────────
@@ -273,19 +292,19 @@ export class CookieConsentService {
         if (!this.isBrowser) return;
         try {
             if (this.isTechnicalNeeded())
-                this.setCookie(CONSENT_KEYS.technical, this._technicalAccepted(), CookieConsentService.CONSENT_MAX_AGE_SECONDS);
+                this.set(CONSENT_KEYS.technical, this._technicalAccepted(), CookieConsentService.CONSENT_MAX_AGE_SECONDS);
             else
-                this.removeCookie(CONSENT_KEYS.technical);
+                this.remove(CONSENT_KEYS.technical);
 
             if (this.isAnalyticsNeeded())
-                this.setCookie(CONSENT_KEYS.analytics, this._analyticsAccepted(), CookieConsentService.CONSENT_MAX_AGE_SECONDS);
+                this.set(CONSENT_KEYS.analytics, this._analyticsAccepted(), CookieConsentService.CONSENT_MAX_AGE_SECONDS);
             else
-                this.removeCookie(CONSENT_KEYS.analytics);
+                this.remove(CONSENT_KEYS.analytics);
 
             if (this.isProfilingNeeded())
-                this.setCookie(CONSENT_KEYS.profiling, this._profilingAccepted(), CookieConsentService.CONSENT_MAX_AGE_SECONDS);
+                this.set(CONSENT_KEYS.profiling, this._profilingAccepted(), CookieConsentService.CONSENT_MAX_AGE_SECONDS);
             else
-                this.removeCookie(CONSENT_KEYS.profiling);
+                this.remove(CONSENT_KEYS.profiling);
 
             const logValue = JSON.stringify({
                 categories: {
@@ -423,10 +442,10 @@ export class CookieConsentService {
 
     /**
      * Valore grezzo di un cookie: da `document.cookie` nel browser, dall'header `cookie`
-     * della REQUEST in SSR. Senza la lettura SSR, getCookie tornerebbe null lato server
-     * (document.cookie è vuoto): la lingua salvata verrebbe ignorata e l'HTML SSR uscirebbe
-     * in defaultLang → hydration mismatch col primo render client. Le letture non richiedono
-     * consenso (il gate GDPR è solo sulla scrittura).
+     * della REQUEST in SSR. Senza la lettura SSR, `get` tornerebbe sempre `null` lato server
+     * (`document.cookie` è vuoto): un cookie di progetto letto per personalizzare il render SSR
+     * (es. una preferenza salvata) uscirebbe con l'HTML sbagliato, corretto solo dopo l'idratazione
+     * — un mismatch visibile. Le letture non richiedono consenso (il gate GDPR è solo sulla scrittura).
      */
     private readRawCookie(fullKey: string): string | null {
         const header = this.isBrowser
@@ -461,23 +480,6 @@ export class CookieConsentService {
         }
     }
 
-    // ─── ALIAS DI COMPATIBILITÀ (deprecati) ─────────────────────────────
-    // L'API era storicamente cookie-only. Ora set/get/remove instradano anche sul Web Storage in
-    // base a `config.storage`; questi alias restano per non rompere i call-site esistenti.
-
-    /** @deprecated Usa `set` (instrada anche su Web Storage). */
-    setCookie<K extends CookieKey | EngineCookieKey>(key: K, value: InferCookieType<K>, maxAgeSeconds?: number): void {
-        this.set(key, value, maxAgeSeconds);
-    }
-    /** @deprecated Usa `get`. */
-    getCookie<K extends CookieKey | EngineCookieKey>(key: K): InferCookieType<K> | null {
-        return this.get(key);
-    }
-    /** @deprecated Usa `remove`. */
-    removeCookie(key: CookieKey | EngineCookieKey): void {
-        this.remove(key);
-    }
-
     /** Scrive nel Web Storage (browser-only, best-effort). Chiave raw, non prefissata come i cookie. */
     private writeWebStorage(rawKey: string, value: string, medium: StorageMedium): void {
         if (!this.isBrowser) return;
@@ -488,23 +490,6 @@ export class CookieConsentService {
     private readWebStorage(rawKey: string, medium: StorageMedium): string | null {
         if (!this.isBrowser) return null;
         try { return (medium === 'session' ? sessionStorage : localStorage).getItem(rawKey); } catch { return null; }
-    }
-
-    // ─── PREFERENZA LINGUA (built-in) ───────────────────────────────────
-    //
-    // Metodi cappello per esporre un'API pulita, appoggiati sui primitivi standard
-    // e sull'ENGINE_COOKIE_MAP.
-
-    getSavedLanguage(): string | null {
-        return this.getCookie('lang');
-    }
-
-    setSavedLanguage(language: string): void {
-        this.setCookie('lang', language);
-    }
-
-    clearSavedLanguage(): void {
-        this.removeCookie('lang');
     }
 
     // ─── HELPER INTERNI ───────────────────────────────────────────────

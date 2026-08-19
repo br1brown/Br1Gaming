@@ -6,7 +6,7 @@ import { ContestoSito } from '../../site';
 import { environment } from '../../../environments/environment';
 import { contentLoaderResolver } from '../../pages/content.resolver';
 import { InternalSitePage, isInternalPage, isParentPage, ShellFlags, SHELL_DATA_KEY } from './siteBuilder';
-import { authGuard, langRedirectGuard } from './route-guards';
+import { authGuard } from './route-guards';
 
 /**
  * Signal che riemette `project(router)` ad ogni `NavigationEnd`, partendo da `initial`.
@@ -26,8 +26,8 @@ export function injectCurrentUrl(): Signal<string> {
     return onNavigationEnd(() => router.url, router.url);
 }
 
-// authGuard/langRedirectGuard vivono in route-guards.ts (file a parte): qui restano solo la
-// costruzione dell'albero delle route e i due guard vengono solo attaccati alle route giuste.
+// authGuard vive in route-guards.ts (file a parte): qui restano solo la
+// costruzione dell'albero delle route e il guard viene solo attaccato alle route giuste.
 
 /**
  * ROUTES FINALI, esportate e usate da provideRouter() in app.config.ts.
@@ -61,9 +61,6 @@ function buildRoutes(pages: InternalSitePage[], lang: string): Routes {
 /** Converte UN nodo della DSL (pagina Parent o Leaf) in UNA Route Angular, per la lingua data. */
 function toAngularRoute(page: InternalSitePage, lang: string): Route {
     const canActivate: CanActivateFn[] = [];
-    // langRedirectGuard SOLO sulla variante non-prefissata: le route già prefissate (/en/...) sono
-    // una scelta esplicita di chi le ha raggiunte (link diretto, switch lingua) — niente da rediregere.
-    if (lang === environment.defaultLang) canActivate.push(langRedirectGuard);
     // authGuard solo se la pagina lo richiede esplicitamente in site.ts (requiresAuth: true).
     if (page.requiresAuth) canActivate.push(authGuard);
 

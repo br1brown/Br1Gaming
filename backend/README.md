@@ -1,45 +1,45 @@
 # Br1WebEngine - Backend (.NET 9)
 
-> 📚 Parte della documentazione di Br1WebEngine — indice e tabella *"dove metto le mani"* nel [README principale](../README.md). La sezione **"Developer Journey"** qui sotto è il *come* passo-passo del backend.
+> 📚 Parte della documentazione di Br1WebEngine: indice e tabella "dove metto le mani" nel [README principale](../README.md). La sezione "Developer Journey" qui sotto è il come passo-passo del backend.
 
-Questo è il backend del template Br1WebEngine, una Web API .NET 9 progettata per essere leggera, sicura di default e "production-ready".
+Questo è il backend del template Br1WebEngine, una Web API .NET 9 leggera e sicura di default, pronta per andare in produzione così com'è.
 
 L'architettura è divisa in due strati principali:
-1. **L'Engine (`Engine/`, incluso `Engine/Security/`)**: Il motore infrastrutturale. Contiene le classi base e i middleware di sicurezza. **Non si tocca** durante lo sviluppo quotidiano delle feature.
+1. **L'Engine (`Engine/`, incluso `Engine/Security/`)**: Il motore infrastrutturale. Contiene le classi base e i middleware di sicurezza. Non si tocca durante lo sviluppo quotidiano delle feature.
 2. **Il Dominio (`Controllers/`, `Services/`, `Models/`, `Store/`, `Validation/`)**: dove vive il codice applicativo del progetto. Le cartelle sono il punto di partenza, non il perimetro: si parte basici e il dominio si estende con le cartelle che servono (es. un catalogo di contenuti propri).
 
-L'obiettivo di questa separazione è **levarti dai piedi i problemi noiosi** per farti concentrare solo sulla logica.
+L'obiettivo di questa separazione è levarti dai piedi i problemi noiosi per farti concentrare solo sulla logica.
 
 ---
 
 ## 🧩 Punti di personalizzazione (estendere l'Engine senza toccarlo)
 
-L'Engine si estende **dall'esterno**: si eredita da una classe base, si registra un servizio in DI, si aggiunge un validator o una sottoclasse — mai modificando `Engine/`. Qui sotto la mappa dei punti di aggancio raggruppata per area; ogni paragrafo rimanda (*Vedi «…»*) alla sezione col dettaglio più avanti in questa pagina.
+L'Engine si estende dall'esterno: si eredita da una classe base, si registra un servizio in DI, si aggiunge un validator o una sottoclasse, mai modificando `Engine/`. Qui sotto la mappa dei punti di aggancio raggruppata per area; ogni paragrafo rimanda (Vedi «…») alla sezione col dettaglio più avanti in questa pagina.
 
-**Aggiungere endpoint.** Erediti una classe base e scrivi solo i tuoi metodi: `EngineApiController` (pubblico, solo API key), `EngineProtectedController` (richiede login JWT), `EngineAuthController` (login ed emissione del token), `EngineBlobController` (file binari: upload, PDF, export). La base ti consegna già pronta l'infrastruttura *ambient* — notifiche, coda di task, delivery, cifratura (`Crypto`), `connectionId`, cultura corrente — come proprietà, senza iniettare nulla. *Vedi «Eredita sempre dalle classi base dell'Engine», «Il contesto "ambient" del controller base», «Sistema di Login e Sessioni JWT», «BlobController».* Ricetta rapida: [AGENTS.md](../AGENTS.md#aggiungere-un-endpoint).
+Aggiungere endpoint: erediti una classe base e scrivi solo i tuoi metodi: `EngineApiController` (pubblico, solo API key), `EngineProtectedController` (richiede login JWT), `EngineAuthController` (login ed emissione del token), `EngineBlobController` (file binari: upload, PDF, export). La base ti consegna già pronta l'infrastruttura ambient, cioè notifiche, coda di task, delivery, cifratura (`Crypto`), `connectionId` e cultura corrente, come proprietà, senza iniettare nulla. Vedi «Eredita sempre dalle classi base dell'Engine», «Il contesto "ambient" del controller base», «Sistema di Login e Sessioni JWT», «BlobController». Ricetta rapida: [AGENTS.md](../AGENTS.md#aggiungere-un-endpoint).
 
-**Sostituire un servizio dell'Engine.** Lo storage dati (`IContentStore`, es. per passare a un database), il mailer (`IEngineMailer`), lo stream delle notifiche (`INotificationStream`, es. un backplane Redis), la policy di consegna (`IDeliveryService`), il targeting per utente/tenant (`INotificationGroupResolver`) e la sorgente dei dati personali (`IPersonalDataStore`, *vedi sotto*) si rimpiazzano registrando la propria implementazione in DI nel blocco `── SERVIZI APPLICATIVI ──`: vince l'ultima registrazione, quindi la tua. *Vedi «Sostituire un servizio dell'Engine (override via DI)».* (Lo storage dei file caricati è invece la classe concreta `BlobStore` in `Store/`, che apri e modifichi direttamente — vedi «BlobController».) Ricetta rapida: [AGENTS.md](../AGENTS.md#sostituire-un-servizio-dellengine).
+Sostituire un servizio dell'Engine: lo storage dati (`IContentStore`, es. per passare a un database), il mailer (`IEngineMailer`), lo stream delle notifiche (`INotificationStream`, es. un backplane Redis), la policy di consegna (`IDeliveryService`), il targeting per utente/tenant (`INotificationGroupResolver`) e la sorgente dei dati personali (`IPersonalDataStore`, vedi sotto) si rimpiazzano registrando la propria implementazione in DI nel blocco `── SERVIZI APPLICATIVI ──`: vince l'ultima registrazione, quindi la tua. Vedi «Sostituire un servizio dell'Engine (override via DI)». Lo storage dei file caricati è invece la classe concreta `BlobStore` in `Store/`, che apri e modifichi direttamente (vedi «BlobController»). Ricetta rapida: [AGENTS.md](../AGENTS.md#sostituire-un-servizio-dellengine).
 
-**Validazione, errori e sessione.** La validazione degli input è un `AbstractValidator<T>` (auto-registrato); un nuovo tipo d'errore è una sottoclasse di `ApiException` con la sua chiave nei `.resx`; la forma del payload di sessione è il record `SessionInfo` incapsulato nel claim del JWT, rileggibile nei controller protetti con `CurrentSession<T>()`. *Vedi «Usa FluentValidation per gli Input», «Lancia Eccezioni per gli Errori», «Sistema di Login e Sessioni JWT».* Ricette rapide: [AGENTS.md](../AGENTS.md#errori) (errori), [AGENTS.md](../AGENTS.md#leggere-la-sessione) (sessione).
+Validazione, errori e sessione: la validazione degli input è un `AbstractValidator<T>` (auto-registrato); un nuovo tipo d'errore è una sottoclasse di `ApiException` con la sua chiave nei `.resx`; la forma del payload di sessione è il record `SessionInfo` incapsulato nel claim del JWT, rileggibile nei controller protetti con `CurrentSession<T>()`. Vedi «Usa FluentValidation per gli Input», «Lancia Eccezioni per gli Errori», «Sistema di Login e Sessioni JWT». Ricette rapide: [AGENTS.md](../AGENTS.md#errori) (errori), [AGENTS.md](../AGENTS.md#leggere-la-sessione) (sessione).
 
-**Dati personali (export e diritto all'oblio).** `GET`/`DELETE /me/data` sono già pronti e protetti da login: implementi `IPersonalDataStore` (due metodi, export e cancellazione) e l'Engine si occupa di autenticazione, cifratura della risposta e di escludere l'endpoint quando il login è spento — un solo punto per tutto il sito, non un endpoint per ogni controller di dominio. *Vedi «9. Dati Personali (Export & Diritto all'Oblio)».* Ricetta rapida: [AGENTS.md](../AGENTS.md#esportare-e-cancellare-i-dati-personali).
+Dati personali, export e diritto all'oblio: `GET`/`DELETE /me/data` sono già pronti e protetti da login. Implementi `IPersonalDataStore` (due metodi, export e cancellazione) e l'Engine si occupa di autenticazione, cifratura della risposta e di escludere l'endpoint quando il login è spento: un solo punto per tutto il sito, non un endpoint per ogni controller di dominio. Vedi «9. Dati Personali (Export & Diritto all'Oblio)». Ricetta rapida: [AGENTS.md](../AGENTS.md#esportare-e-cancellare-i-dati-personali).
 
-**Configurazione.** Sicurezza, mailer e lingue si regolano dalle sezioni `Security.*` / `Mail.*` / `Localization.*` (le lingue sono codici a 2 lettere, che il backend arricchisce nelle culture .NET); per i valori liberi di progetto c'è `Custom:`, letta da `IConfiguration`. Gli header di sicurezza del browser vivono in `security-headers.json` (override eccezionale solo dove annotato nella sua `_nota`). *Vedi i riferimenti «SecurityOptions», «MailOptions», «LocalizationOptions», «Sezione Custom» e il [README root](../README.md) per la policy di override.*
+Configurazione: sicurezza, mailer e lingue si regolano dalle sezioni `Security.*` / `Mail.*` / `Localization.*` (le lingue sono codici a 2 lettere, che il backend arricchisce nelle culture .NET); per i valori liberi di progetto c'è `Custom:`, letta da `IConfiguration`. Gli header di sicurezza del browser vivono in `security-headers.json` (override eccezionale solo dove annotato nella sua `_nota`). Vedi i riferimenti «SecurityOptions», «MailOptions», «LocalizationOptions», «Sezione Custom» e il [README root](../README.md) per la policy di override.
 
-**Parlare con un servizio esterno.** Chiamare un'API di terze parti è un `HttpClient` tipizzato (`AddHttpClient<T>`) registrato nel blocco `── SERVIZI APPLICATIVI ──`, con URL/chiavi in configurazione (mai hardcoded); ricevere un webhook è un endpoint su `EngineApiController` con `[AllowAnonymous]` e verifica della firma sul body grezzo. *Vedi «Integrazioni con servizi esterni».* Ricette rapide: [AGENTS.md](../AGENTS.md#chiamare-unapi-esterna) (outbound), [AGENTS.md](../AGENTS.md#ricevere-un-webhook) (inbound).
+Parlare con un servizio esterno: chiamare un'API di terze parti è un `HttpClient` tipizzato (`AddHttpClient<T>`) registrato nel blocco `── SERVIZI APPLICATIVI ──`, con URL/chiavi in configurazione (mai hardcoded); ricevere un webhook è un endpoint su `EngineApiController` con `[AllowAnonymous]` e verifica della firma sul body grezzo. Vedi «Integrazioni con servizi esterni». Ricette rapide: [AGENTS.md](../AGENTS.md#chiamare-unapi-esterna) (outbound), [AGENTS.md](../AGENTS.md#ricevere-un-webhook) (inbound).
 
 ---
 
 ## 🚀 Funzionalità Principali dell'Engine
 
 ### 1. Sicurezza e Protezione Preconfigurate
-**Perché è utile:** Configurare rate limiter e validazioni CORS manualmente su ogni progetto espone al rischio di omissioni.
-**Cosa fa l'Engine:** Ogni endpoint che eredita dai controller di base esige l'header `X-Api-Key`. Il framework blocca automaticamente gli IP che superano le 100 req/min (5 req/min per i login) e applica CORS a livello di middleware. Gli header di sicurezza rivolti al browser sono definiti una sola volta in `security-headers.json` (file del template, uguale per ogni progetto) e condivisi col Node SSR del frontend: nel default il backend è interno alla rete Docker e serve solo JSON, ma se lo esponi (`backend.public`) applica gli stessi header (saltando la CSP, irrilevante su risposte JSON).
+Perché è utile: configurare rate limiter e validazioni CORS manualmente su ogni progetto espone al rischio di omissioni.
+Cosa fa l'Engine: ogni endpoint che eredita dai controller di base esige l'header `X-Api-Key`. Il framework blocca automaticamente gli IP che superano le 100 req/min (5 req/min per i login) e applica CORS a livello di middleware. Gli header di sicurezza rivolti al browser sono definiti una sola volta in `security-headers.json` (file del template, uguale per ogni progetto) e condivisi col Node SSR del frontend: nel default il backend è interno alla rete Docker e serve solo JSON, ma se lo esponi (`backend.public`) applica gli stessi header (saltando la CSP, irrilevante su risposte JSON).
 
 Tre dettagli architetturali che incidono sul comportamento osservabile:
 - **CORS + `Retry-After`**: la configurazione CORS include `WithExposedHeaders("Retry-After")`. Senza questa riga il server imposta correttamente l'header, ma il browser lo filtra per policy CORS e JavaScript non può leggerlo.
-- **Rate limiter strutturato**: il callback `OnRejected` del rate limiter produce un `ProblemDetails` JSON (RFC 9457) con status 429 e `Retry-After` calcolato dal tempo residuo della finestra — stesso formato di `ApiExceptionHandler`, nessun 429 con body vuoto.
-- **Ordine middleware**: `UseExceptionHandler` è registrato **prima** di `UseRateLimiter`. I 429 da `OnRejected` non sono eccezioni, quindi l'ordine non cambia il flusso normale; garantisce però che eventuali eccezioni interne al rate limiter vengano catturate dall'handler globale invece di produrre risposte non strutturate.
+- **Rate limiter strutturato**: il callback `OnRejected` del rate limiter produce un `ProblemDetails` JSON (RFC 9457) con status 429 e `Retry-After` calcolato dal tempo residuo della finestra, stesso formato di `ApiExceptionHandler`, nessun 429 con body vuoto.
+- **Ordine middleware**: `UseExceptionHandler` è registrato prima di `UseRateLimiter`. I 429 da `OnRejected` non sono eccezioni, quindi l'ordine non cambia il flusso normale; garantisce però che eventuali eccezioni interne al rate limiter vengano catturate dall'handler globale invece di produrre risposte non strutturate.
 
 #### Schema di Autenticazione API Key
 
@@ -47,12 +47,12 @@ La API key è il "biglietto d'ingresso": identifica il client applicativo (es. i
 
 Come funziona (`Security/ApiKeyAuthentication.cs`):
 - Il client invia l'header `X-Api-Key: <chiave>` su ogni richiesta.
-- L'handler confronta la chiave presentata con l'array `Security.ApiKeys` (configurato in `global-settings.local.json`, il file dei segreti fuori da git). Il confronto è **ordinale e case-sensitive** (una API key è un segreto; ignorare il case ne dimezzerebbe l'entropia effettiva).
+- L'handler confronta la chiave presentata con l'array `Security.ApiKeys` (configurato in `global-settings.local.json`, il file dei segreti fuori da git). Il confronto è ordinale e case-sensitive (una API key è un segreto; ignorare il case ne dimezzerebbe l'entropia effettiva).
 - Il confronto avviene con `CryptographicOperations.FixedTimeEquals` in un loop non-short-circuit su tutte le chiavi: nessun timing side-channel permette di dedurre la chiave un carattere alla volta.
-- Le richieste `OPTIONS` (preflight CORS del browser) bypassano il controllo — `AuthenticateResult.NoResult()` — perché il browser le invia prima della richiesta vera senza poter allegare header custom.
+- Le richieste `OPTIONS` (preflight CORS del browser) bypassano il controllo (`AuthenticateResult.NoResult()`) perché il browser le invia prima della richiesta vera senza poter allegare header custom.
 - Se la chiave manca o è errata, la risposta è un `ProblemDetails` JSON 401, non un redirect né un body vuoto.
 
-**Aggiungere o ruotare una chiave:**
+Aggiungere o ruotare una chiave:
 ```json
 // global-settings.json
 "Security": {
@@ -71,21 +71,25 @@ Più chiavi coesistono; elimina quella vecchia quando tutti i client hanno aggio
 | `Headers` | `Dictionary<string,string>` | vedi `security-headers.json` | Header di sicurezza browser (dal file del template `security-headers.json`, non da `global-settings.json`). Applicati dal backend solo se esposto pubblicamente (`backend.public`). `Content-Security-Policy` è ignorata (irrilevante su JSON) e `Strict-Transport-Security` è esclusa dal loop perché già emessa da `UseHsts()`. |
 | `BehindProxy` | `bool` | `false` | Se `true`, abilita `ForwardedHeaders` che legge l'IP reale da `X-Forwarded-For`. **Impostare `true` in produzione se c'è un reverse proxy** — altrimenti il rate limiter vede l'IP del proxy, non del client, e il limite per-IP diventa inutile. Trusted solo per reti RFC 1918 (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16). |
 | `Token.SecretKey` | `string` | `""` | Chiave di firma JWT. **Vuota = login disabilitato** (controller rimossi, JWT non registrato). Minimo 32 byte (UTF-8): sotto questa soglia il boot va in crash con `InvalidOperationException`. |
-| `Token.ExpirationSeconds` | `int` | `3000` (50 min) | Durata del token JWT. `ClockSkew = TimeSpan.Zero`: scaduto = subito rifiutato, senza margine di grazia. |
+| `Token.ExpirationSeconds` | `int` | `3000` (50 min) | Durata del token JWT. `ClockSkew = TimeSpan.Zero`: scaduto = subito rifiutato, senza margine di grazia. **Non esiste un refresh token**: alla scadenza serve un nuovo login, non un rinnovo silenzioso (frontend: *vedi «Ciclo di Vita del Token»*). |
 
-> **Crash al boot:** se `SecretKey` è valorizzata ma troppo corta (< 32 byte), `TokenOptions.GetSigningKey()` lancia `InvalidOperationException` con messaggio esplicito. Non è un errore a runtime — si vede al primo avvio.
+> Crash al boot: se `SecretKey` è valorizzata ma troppo corta (< 32 byte), `TokenOptions.GetSigningKey()` lancia `InvalidOperationException` con messaggio esplicito. Non è un errore a runtime, si vede al primo avvio.
+
+> Ruotare `Token.SecretKey` invalida istantaneamente tutti i token già emessi (la firma non corrisponde più): ogni utente loggato viene sloggato al prossimo giro, senza preavviso lato client oltre il normale 401. Ruotala solo quando serve davvero (sospetto di compromissione), non come pratica di igiene periodica senza motivo: non c'è un periodo di grazia con doppia chiave valida.
+
+> Limiti del rate limiter: non configurabili, non condivisi tra istanze. Le soglie (100 req/min globali, 5 req/min sul login) sono costanti hardcoded in `Engine/Security/SecurityExtensions.cs`, non esposte via `SecurityOptions`/`global-settings.json`: per cambiarle si modifica quel file. Sono anche in-memory per-istanza (`RateLimitPartition.GetFixedWindowLimiter`, stato nel processo): con più repliche del backend dietro un bilanciatore, ogni istanza conta le richieste per conto proprio, quindi il limite effettivo per IP si moltiplica per il numero di repliche. Stesso limite già segnalato per `IContentStore` (§ cache) e `INotificationStream`: qui non c'è ancora un backplane condiviso pronto, è responsabilità del progetto se serve scalare orizzontalmente.
 
 ### 2. Errori Standardizzati (RFC 9457)
-**Perché è così?** I client frontend spesso impazziscono a parsare errori strutturati in 10 modi diversi.
-**Cosa fa l'Engine:** Non scrivi mai `return BadRequest(...)`. Lanci un'eccezione (`throw new NotFoundException("utente")`) e un Exception Handler globale la formatta in un JSON `ProblemDetails` standardizzato. Questo garantisce uniformità assoluta senza leakare stack trace.
+Perché è così: i client frontend spesso impazziscono a parsare errori strutturati in 10 modi diversi.
+Cosa fa l'Engine: non scrivi mai `return BadRequest(...)`. Lanci un'eccezione (`throw new NotFoundException("utente")`) e un Exception Handler globale la formatta in un JSON `ProblemDetails` standardizzato: stesso formato per ogni errore, senza leakare stack trace.
 
 ### 3. Routing Adattivo (JWT Opzionale)
-**Perché è così?** Non tutti i progetti hanno utenti e login. Avere codice di auth "dormiente" ma esposto è un rischio di sicurezza e inquina Swagger.
-**Cosa fa l'Engine:** Il login si attiva automaticamente solo quando valorizzi `Security.Token.SecretKey` in `global-settings.local.json` (≥32 caratteri); se la lasci vuota il `TemplateControllerFeatureProvider` interviene durante il boot di ASP.NET e **sradica fisicamente** i controller di autenticazione dalla memoria. Non esistono rotte spurie.
+Perché è così: non tutti i progetti hanno utenti e login. Avere codice di auth "dormiente" ma esposto è un rischio di sicurezza e inquina Swagger.
+Cosa fa l'Engine: il login si attiva automaticamente solo quando valorizzi `Security.Token.SecretKey` in `global-settings.local.json` (≥32 caratteri); se la lasci vuota il `TemplateControllerFeatureProvider` interviene durante il boot di ASP.NET e sradica fisicamente i controller di autenticazione dalla memoria. Non esistono rotte spurie.
 
 #### Come funziona "sradica fisicamente" — `TemplateControllerFeatureProvider`
 
-`TemplateControllerFeatureProvider` (`Security/TemplateControllerFeatureProvider.cs`) implementa `IApplicationFeatureProvider<ControllerFeature>`, un hook ASP.NET eseguito al boot **prima** che venga costruita la tabella degli endpoint. Quando `Security.Token.SecretKey` è vuota (`LoginEnabled = false`), il provider rimuove dalla lista di discovery tutti i controller che ereditano da `EngineAuthController` o da `EngineProtectedController`:
+`TemplateControllerFeatureProvider` (`Security/TemplateControllerFeatureProvider.cs`) implementa `IApplicationFeatureProvider<ControllerFeature>`, un hook ASP.NET eseguito al boot prima che venga costruita la tabella degli endpoint. Quando `Security.Token.SecretKey` è vuota (`LoginEnabled = false`), il provider rimuove dalla lista di discovery tutti i controller che ereditano da `EngineAuthController` o da `EngineProtectedController`:
 
 ```csharp
 typeof(EngineAuthController).IsAssignableFrom(controller.AsType())
@@ -93,26 +97,25 @@ typeof(EngineAuthController).IsAssignableFrom(controller.AsType())
 
 Il metodo `IsAssignableFrom` cattura sia le classi concrete del template (`AuthController`, `ProtectedController`) sia qualsiasi futura sottoclasse del progetto. La lista viene materializzata con `.ToArray()` prima della rimozione per evitare "collection modified during iteration".
 
-Dopo la rimozione, ASP.NET non genera rotte, non espone nulla in Swagger e nessuna richiesta HTTP può raggiungere quei controller — come se non esistessero nel codice.
+Dopo la rimozione, ASP.NET non genera rotte, non espone nulla in Swagger e nessuna richiesta HTTP può raggiungere quei controller, come se non esistessero nel codice.
 
-**Conseguenza pratica:** se si aggiunge un controller che eredita da `EngineAuthController` (es. `PasswordResetController`) e `SecretKey` è vuota, anche quel controller viene soppresso automaticamente. Non occorre alcuna logica aggiuntiva.
+Conseguenza pratica: se si aggiunge un controller che eredita da `EngineAuthController` (es. `PasswordResetController`) e `SecretKey` è vuota, anche quel controller viene soppresso automaticamente. Non occorre alcuna logica aggiuntiva.
 
 ### 4. Lo Store Basato su File (`FileContentStore`)
-**Perché è utile:** Evita di dover installare e gestire un database SQL nelle prime fasi del progetto, utile quando servono solo configurazioni o testi legali.
-**Cosa fa l'Engine:** Il `FileContentStore` carica file JSON da `/data/`, li cacha in `IMemoryCache` (con TTL di 1 ora e rispetto della memory pressure del runtime) e, risolvendo la lingua dall'header HTTP `Accept-Language`, restituisce l'oggetto localizzato. Usa `try/catch` su `ReadAllTextAsync` per evitare race condition TOCTOU e tradurre l'assenza del file in una `NotFoundException`.
+Perché è utile: evita di dover installare e gestire un database SQL nelle prime fasi del progetto, utile quando servono solo configurazioni o testi legali.
+Cosa fa l'Engine: il `FileContentStore` carica file JSON da `/data/`, li cacha in `IMemoryCache` (con TTL di 1 ora e rispetto della memory pressure del runtime) e, risolvendo la lingua dall'header HTTP `Accept-Language`, restituisce l'oggetto localizzato. Usa `try/catch` su `ReadAllTextAsync` per evitare race condition TOCTOU e tradurre l'assenza del file in una `NotFoundException`.
 
-I contenuti di `data/` sono **parte del codice**: in produzione non cambiano mai da soli (vivono nell'immagine, più la cache in RAM) — per modificarli si committa e si rifà il deploy. Ciò che invece deve cambiare a runtime vive nei volumi, ognuno col suo ruolo: `db/` per i dati del DB futuro, `uploads/` per i file caricati.
+I contenuti di `data/` sono parte del codice: in produzione non cambiano mai da soli (vivono nell'immagine, più la cache in RAM), per modificarli si committa e si rifà il deploy. Ciò che invece deve cambiare a runtime vive nei volumi, ognuno col suo ruolo: `db/` per i dati del DB futuro, `uploads/` per i file caricati.
 
-> **Git e dati di runtime.** Le cartelle `db/` e `uploads/` sono tracciate nel repo (la struttura serve ai mount point), ma il loro **contenuto** no: ognuna ha un `.gitignore` che ignora tutto tranne se stesso (`*` + `!.gitignore`). È il pattern "keep-the-folder, ignore-the-data" — sostituisce il vecchio `.gitkeep`, facendo committare la cartella e scartare i dati runtime in un colpo solo. Lo stesso vale per il build context Docker, dove `.dockerignore` esclude `db/*` e `uploads/*`.
+> Git e dati di runtime: le cartelle `db/` e `uploads/` sono tracciate nel repo (la struttura serve ai mount point), ma il loro contenuto no: ognuna ha un `.gitignore` che ignora tutto tranne se stesso (`*` + `!.gitignore`). È il pattern "keep-the-folder, ignore-the-data": sostituisce il vecchio `.gitkeep`, facendo committare la cartella e scartare i dati runtime in un colpo solo. Lo stesso vale per il build context Docker, dove `.dockerignore` esclude `db/*` e `uploads/*`.
 
-Il percorso di crescita è già predisposto: la cartella `backend/db/` è il mount point del volume Docker `<progetto>_db-data` (vedi `docker-compose.yml` e `scripts/backup.sh`). Quando il progetto migra da `FileContentStore` a un database reale — cioè una nuova implementazione di `IContentStore` — i file del DB vivono lì e sopravvivono ai deploy.
+Il percorso di crescita è già predisposto: la cartella `backend/db/` è il mount point del volume Docker `<progetto>_db-data` (vedi `docker-compose.yml` e `scripts/backup.sh`). Quando il progetto migra da `FileContentStore` a un database reale, cioè una nuova implementazione di `IContentStore`, i file del DB vivono lì e sopravvivono ai deploy.
 
 #### `LocalizedJsonDeserializer` — regole dettagliate della risoluzione i18n
 
 Il deserializzatore interno di `FileContentStore` risolve ricorsivamente i campi localizzati dei file JSON. Le sue regole esatte:
 
-**Quando un oggetto è "localizzato":**
-Un oggetto è considerato un blocco i18n *solo se tutte le sue chiavi sono codici lingua riconosciuti da `CultureInfo` E presenti in `SupportedLanguages`*. Se anche una sola chiave non è un tag lingua (es. `"name"`, `"url"`), l'oggetto è trattato come un oggetto di dominio normale e tutte le sue chiavi vengono processate ricorsivamente.
+Quando un oggetto è "localizzato": un oggetto è considerato un blocco i18n solo se tutte le sue chiavi sono codici lingua riconosciuti da `CultureInfo` e presenti in `SupportedLanguages`. Se anche una sola chiave non è un tag lingua (es. `"name"`, `"url"`), l'oggetto è trattato come un oggetto di dominio normale e tutte le sue chiavi vengono processate ricorsivamente.
 
 ```json
 // Trattato come blocco i18n (tutte le chiavi sono lingue supportate):
@@ -122,20 +125,20 @@ Un oggetto è considerato un blocco i18n *solo se tutte le sue chiavi sono codic
 { "via": { "it": "Via Roma 1", "en": "1 Rome Street" }, "cap": "20100" }
 ```
 
-**Priorità nella selezione della lingua:**
+Priorità nella selezione della lingua:
 1. Lingua richiesta (ricavata dall'header `Accept-Language`)
 2. `Localization.DefaultLanguage` (es. `"it"`)
 3. Primo valore non vuoto trovato nell'oggetto
 
-**Normalizzazione:** `Accept-Language: it-IT,it;q=0.9` → prima preferenza `"it-IT"` → `CultureInfo.TwoLetterISOLanguageName` → `"it"`. Tag non riconosciuti da `CultureInfo` (es. `"xyz"`) ricadono sulla lingua di default.
+Normalizzazione: `Accept-Language: it-IT,it;q=0.9` → prima preferenza `"it-IT"` → `CultureInfo.TwoLetterISOLanguageName` → `"it"`. Tag non riconosciuti da `CultureInfo` (es. `"xyz"`) ricadono sulla lingua di default.
 
-**Pruning dei valori vuoti:** dopo la risoluzione, i campi il cui valore diventa stringa vuota, array vuoto o oggetto vuoto vengono **rimossi** dall'output. Il campo corrispondente nel modello risultante sarà `null`, non una stringa vuota.
+Pruning dei valori vuoti: dopo la risoluzione, i campi il cui valore diventa stringa vuota, array vuoto o oggetto vuoto vengono rimossi dall'output. Il campo corrispondente nel modello risultante sarà `null`, non una stringa vuota.
 
-> **Prima di aggiungere una lingua a `SupportedLanguages`:** verifica che nessun campo dati in `identity.json` usi quel codice come chiave, così l'oggetto continua a essere interpretato come dato di dominio e non come blocco i18n.
+> Prima di aggiungere una lingua a `SupportedLanguages`, verifica che nessun campo dati in `identity.json` usi quel codice come chiave, così l'oggetto continua a essere interpretato come dato di dominio e non come blocco i18n.
 
 #### Invalidare la cache dei contenuti
 
-La cache è in `IMemoryCache` con TTL di 1 ora: una modifica a un file `data/*.json` a runtime **non si vede finché la voce non scade** (o non si riavvia il processo). C'è però un seam per forzare il refresh subito. La firma completa del lettore è:
+La cache è in `IMemoryCache` con TTL di 1 ora: una modifica a un file `data/*.json` a runtime non si vede finché la voce non scade (o non si riavvia il processo). C'è però un seam per forzare il refresh subito. La firma completa del lettore è:
 
 ```csharp
 // Engine/FileUtils.cs
@@ -144,16 +147,16 @@ Task<string> ReadStaticFileAsync(string name, string dataPath, IMemoryCache cach
 ```
 
 - **Chiave di cache = nome file senza estensione** (`"irl"`, `"social"`): è il parametro `name`, non il path. Stesso `name` letto da due punti = una sola entry condivisa.
-- **`forceReload: true`** fa `cache.Remove(name)` prima di rileggere: la prossima `GetOrCreateAsync` ricarica dal disco. È il gancio per un endpoint admin tipo "ricarica contenuti" — gli passi `forceReload: true` e il file viene riletto senza riavviare.
+- **`forceReload: true`** fa `cache.Remove(name)` prima di rileggere: la prossima `GetOrCreateAsync` ricarica dal disco. È il gancio per un endpoint admin tipo "ricarica contenuti": gli passi `forceReload: true` e il file viene riletto senza riavviare.
 - **`cacheDuration`** sovrascrive il TTL di default (1 ora) per quella entry.
 
-> La cache è **per-istanza** (RAM del singolo processo): un `forceReload` su un'istanza non tocca le altre dietro un bilanciatore. Con più istanze, l'invalidazione coordinata è uno dei motivi per cui si passerebbe a un `IContentStore` su DB/cache distribuita — lo stesso seam (`IContentStore`) resta il punto di sostituzione, vedi *Sostituire un servizio dell'Engine*.
+> La cache è per-istanza (RAM del singolo processo): un `forceReload` su un'istanza non tocca le altre dietro un bilanciatore. Con più istanze, l'invalidazione coordinata è uno dei motivi per cui si passerebbe a un `IContentStore` su DB/cache distribuita: lo stesso seam (`IContentStore`) resta il punto di sostituzione, vedi Sostituire un servizio dell'Engine.
 
 ### 5. Mailer (`IEngineMailer`)
 
-Unico punto d'invio email del template, dentro l'Engine e condiviso da ogni progetto. È un **singleton in DI** (`IEngineMailer`, registrato in `Program.cs` accanto a `IContentStore`/`AuthService`): un consumer lo inietta e basta. Superficie minima — `IsEnabled`, `IsValidAddress(...)` e `SendAsync(...)` — tutta la meccanica SMTP (connessione, TLS, autenticazione, costruzione MIME) è privata e basata su **MailKit/MimeKit ≥ 4.17.0** (versione che chiude CVE-2026-30227 e CVE-2026-41319).
+Unico punto d'invio email del template, dentro l'Engine e condiviso da ogni progetto. È un singleton in DI (`IEngineMailer`, registrato in `Program.cs` accanto a `IContentStore`/`AuthService`): un consumer lo inietta e basta. Superficie minima, `IsEnabled`, `IsValidAddress(...)` e `SendAsync(...)`, tutta la meccanica SMTP (connessione, TLS, autenticazione, costruzione MIME) è privata e basata su MailKit/MimeKit ≥ 4.17.0 (versione che chiude CVE-2026-30227 e CVE-2026-41319).
 
-**Si attiva da configurazione, come il login.** Senza una sezione `Mail` valida (`Host` + `FromAddress`) `IsEnabled` è `false` e ogni invio lancia `MailNotConfiguredException` (503). Essendo SMTP uno standard, lo stesso codice spedisce con OVH, Brevo, Mailgun, Amazon SES, Gmail o un relay locale: si cambia solo il JSON, mai il codice.
+Si attiva da configurazione, come il login: senza una sezione `Mail` valida (`Host` + `FromAddress`) `IsEnabled` è `false` e ogni invio lancia `MailNotConfiguredException` (503). Essendo SMTP uno standard, lo stesso codice spedisce con OVH, Brevo, Mailgun, Amazon SES, Gmail o un relay locale: si cambia solo il JSON, mai il codice.
 
 ```csharp
 // IEngineMailer iniettato nel costruttore (es. _mailer)
@@ -171,23 +174,23 @@ await _mailer.SendAsync(
 
 Esiste anche l'overload `SendAsync(EmailMessage, CancellationToken)`. `MailAttachment(string FileName, byte[] Content, string? ContentType = null)`.
 
-**Gate prima di inviare.** I due predicati `IsEnabled`/`IsValidAddress` servono a decidere *fuori* dall'invio: salta del tutto la feature se il mailer è spento, e fallisci subito su un indirizzo malformato invece di lasciare che il worker in background lo scarti in silenzio.
+Gate prima di inviare: i due predicati `IsEnabled`/`IsValidAddress` servono a decidere fuori dall'invio, salta del tutto la feature se il mailer è spento, e fallisci subito su un indirizzo malformato invece di lasciare che il worker in background lo scarti in silenzio.
 
 ```csharp
 if (!_mailer.IsEnabled) return;                                   // mailer non configurato: niente da fare
 if (!_mailer.IsValidAddress(addr)) throw new MailInvalidAddressException(); // 400 sincrono, non drop silenzioso a valle
 ```
 
-**Hardening di sicurezza (best practice 2026):**
+Hardening di sicurezza (best practice 2026):
 - **TLS sempre obbligatorio**: `Auto` sceglie in sicurezza dalla porta (465 → `SslOnConnect`, altre → `StartTls`); non usa mai la variante opportunistica di MailKit che potrebbe ricadere in chiaro.
 - **Indirizzi via `MailboxAddress.TryParse` + dominio obbligatorio** → `MailInvalidAddressException` (400) su input malformato o senza dominio, non un 500.
 - **Subject sanitizzato dai CR/LF** (difesa in profondità contro l'header injection).
 - **Allegati limitati** da `Mail.MaxAttachmentBytes` (default 10 MB) → `MailAttachmentTooLargeException` (413).
-- Validazione del certificato server **mai disabilitata**.
+- Validazione del certificato server mai disabilitata.
 
-**Invio in background.** Per non bloccare la richiesta HTTP, l'uso consigliato è accodare con **`IEmailQueue.TryEnqueue(EmailMessage)`** (singleton anch'esso): ritorna subito (`false` se la coda — bounded a **1000** messaggi — è satura), e `EmailSenderHostedService` consegna in background con retry + backoff (3 tentativi, 2s/4s; gli errori non recuperabili — mailer spento, indirizzo non valido, allegati oltre il limite, messaggio senza destinatari (`ArgumentException`) — vengono scartati con log, senza retry). `IEngineMailer.SendAsync` resta disponibile per l'invio sincrono diretto. In alternativa, per consegnare l'esito di un'operazione, `IDeliveryService` col canale `Email` accoda per te (vedi §7). Errori SMTP a monte → `MailSendException` (502), col dettaglio tecnico solo nei log.
+Invio in background: per non bloccare la richiesta HTTP, l'uso consigliato è accodare con `IEmailQueue.TryEnqueue(EmailMessage)` (singleton anch'esso). Ritorna subito (`false` se la coda, bounded a 1000 messaggi, è satura), e `EmailSenderHostedService` consegna in background con retry più backoff (3 tentativi, 2s/4s; gli errori non recuperabili, cioè mailer spento, indirizzo non valido, allegati oltre il limite, messaggio senza destinatari (`ArgumentException`), vengono scartati con log, senza retry). `IEngineMailer.SendAsync` resta disponibile per l'invio sincrono diretto. In alternativa, per consegnare l'esito di un'operazione, `IDeliveryService` col canale `Email` accoda per te (vedi §7). Errori SMTP a monte → `MailSendException` (502), col dettaglio tecnico solo nei log.
 
-> **Un file per sottosistema.** Il messaggio, la coda (`IEmailQueue`) e il worker (`EmailSenderHostedService`) vivono in `Engine/Mail/Mail.cs`; la meccanica SMTP corposa resta in `Engine/Mail/EngineMailer.cs`. Stesso schema per gli altri sottosistemi: `Engine/Delivery/Delivery.cs`, `Engine/Notifications/Notifications.cs`, `Engine/Tasks/BackgroundTasks.cs` — ciascuno un unico file, codice Engine raramente toccato.
+> Un file per sottosistema: il messaggio, la coda (`IEmailQueue`) e il worker (`EmailSenderHostedService`) vivono in `Engine/Mail/Mail.cs`; la meccanica SMTP corposa resta in `Engine/Mail/EngineMailer.cs`. Stesso schema per gli altri sottosistemi: `Engine/Delivery/Delivery.cs`, `Engine/Notifications/Notifications.cs`, `Engine/Tasks/BackgroundTasks.cs`, ciascuno un unico file, codice Engine raramente toccato.
 
 #### Riferimento `MailOptions` (`global-settings.local.json` → `Mail.*`)
 
@@ -204,17 +207,17 @@ if (!_mailer.IsValidAddress(addr)) throw new MailInvalidAddressException(); // 4
 | `MaxAttachmentBytes` | long | Dimensione massima totale allegati. Default 10 MB. 0 = nessun limite. |
 | `VerifyRecipientDomain` | bool | Se `true`, check MX via DNS sul dominio dei destinatari prima di inviare: typo/domini inesistenti → 400 (`MailInvalidAddressException`) senza aprire l'SMTP. Default `false`. |
 
-La sezione vive in `global-settings.local.json` perché contiene segreti (gitignored). In produzione è preferibile iniettare `Mail:Password` come **variabile d'ambiente** anziché lasciarla nel file deployato (le variabili `Mail__Password` sovrascrivono il JSON). **Anti-spam:** il mittente deve essere sul tuo dominio e vanno configurati i record DNS SPF, DKIM e DMARC presso il provider. L'invio è una capability **interna alle API**: non c'è un endpoint pubblico dedicato — un servizio o controller dell'applicazione inietta `IEngineMailer` (invio diretto) o accoda via `IEmailQueue` (background con retry). Se mandi un messaggio a partire da input non fidato, validalo prima e usa il `Reply-To` per l'indirizzo del mittente esterno, mantenendo il `From` sul tuo dominio.
+La sezione vive in `global-settings.local.json` perché contiene segreti (gitignored). In produzione è preferibile iniettare `Mail:Password` come variabile d'ambiente anziché lasciarla nel file deployato (le variabili `Mail__Password` sovrascrivono il JSON). Anti-spam: il mittente deve essere sul tuo dominio e vanno configurati i record DNS SPF, DKIM e DMARC presso il provider. L'invio è una capability interna alle API: non c'è un endpoint pubblico dedicato, un servizio o controller dell'applicazione inietta `IEngineMailer` (invio diretto) o accoda via `IEmailQueue` (background con retry). Se mandi un messaggio a partire da input non fidato, validalo prima e usa il `Reply-To` per l'indirizzo del mittente esterno, mantenendo il `From` sul tuo dominio.
 
-**Verifica del destinatario.** `Mail.VerifyRecipientDomain` (default `false`) accende un check DNS sul *dominio* dei destinatari (MX, con fallback A/AAAA per l'MX implicito di RFC 5321): becca i typo (`gmail.con`) e i domini inesistenti prima di aprire l'SMTP, ed è *fail-open* (se il DNS è inconcludente non blocca, l'errore vero emerge come bounce). **Non** verifica l'esistenza della *casella*: quella si sa solo col bounce dopo l'invio o con un doppio opt-in — un probe SMTP `RCPT TO` è inaffidabile (catch-all, greylisting) e dannoso per la reputazione del mittente, quindi non è previsto.
+Verifica del destinatario: `Mail.VerifyRecipientDomain` (default `false`) accende un check DNS sul dominio dei destinatari (MX, con fallback A/AAAA per l'MX implicito di RFC 5321), becca i typo (`gmail.con`) e i domini inesistenti prima di aprire l'SMTP, ed è fail-open (se il DNS è inconcludente non blocca, l'errore vero emerge come bounce). Non verifica l'esistenza della casella: quella si sa solo col bounce dopo l'invio o con un doppio opt-in, un probe SMTP `RCPT TO` è inaffidabile (catch-all, greylisting) e dannoso per la reputazione del mittente, quindi non è previsto.
 
 ### 6. Notifiche Realtime (`INotificationStream`)
 
-Canale **server → client** per spingere notifiche ai browser connessi senza che debbano fare polling. È un **singleton in DI** (`INotificationStream`, registrato da `AddTemplateNotifications()` in `Program.cs` accanto a `IContentStore`/`IEngineMailer`): un servizio o controller lo inietta e pubblica. Il trasporto sono i **Server-Sent Events** (SSE) — HTTP puro, unidirezionale, che viaggia sul reverse proxy `/api` esistente: nessuna porta nuova, nessun WebSocket, il backend resta interno.
+Canale server → client per spingere notifiche ai browser connessi senza che debbano fare polling. È un singleton in DI (`INotificationStream`, registrato da `AddTemplateNotifications()` in `Program.cs` accanto a `IContentStore`/`IEngineMailer`): un servizio o controller lo inietta e pubblica. Il trasporto sono i Server-Sent Events (SSE), HTTP puro, unidirezionale, che viaggia sul reverse proxy `/api` esistente: nessuna porta nuova, nessun WebSocket, il backend resta interno.
 
-**Funziona senza login.** L'endpoint SSE (`GET /notifications/stream`) eredita da `EngineApiController`: richiede la sola API key (sempre iniettata dal proxy), non il JWT. Un client anonimo può ricevere notifiche; l'identità utente è opzionale (vedi il resolver di gruppo più sotto).
+Funziona senza login: l'endpoint SSE (`GET /notifications/stream`) eredita da `EngineApiController`, richiede la sola API key (sempre iniettata dal proxy), non il JWT. Un client anonimo può ricevere notifiche; l'identità utente è opzionale (vedi il resolver di gruppo più sotto).
 
-**Targeting programmatico.** Il codice di dominio sceglie i destinatari a ogni `Publish`:
+Targeting programmatico: il codice di dominio sceglie i destinatari a ogni `Publish`:
 
 | Target | Raggiunge | Uso tipico |
 |---|---|---|
@@ -238,33 +241,29 @@ Notifications.Publish(
 ```
 Ricetta rapida: [AGENTS.md](../AGENTS.md#pubblicare-una-notifica-realtime).
 
-> **Contratto i18n.** Per il toast il payload porta preferibilmente una **chiave** di traduzione
-> (`messageKey` + eventuali `messageParams` per l'interpolazione `{0}`), non una stringa già fatta:
-> SSE è push e il server non conosce la lingua *corrente* del client, quindi la traduzione avviene
-> lato browser. `message` (letterale) resta per contenuto dinamico senza chiave.
+> Contratto i18n: per il toast il payload porta preferibilmente una chiave di traduzione (`messageKey` + eventuali `messageParams` per l'interpolazione `{0}`), non una stringa già fatta. SSE è push e il server non conosce la lingua corrente del client, quindi la traduzione avviene lato browser. `message` (letterale) resta per contenuto dinamico senza chiave.
 
-> **`message` vs `messageKey` — chi emette cosa (cross-ref §7).** Le due strade per pubblicare un toast
-> non hanno lo stesso default, ed è una scelta consapevole:
+> `message` vs `messageKey`, chi emette cosa (cross-ref §7): le due strade per pubblicare un toast non hanno lo stesso default, ed è una scelta consapevole:
 > - **`Notifications.Publish(...)` a mano** (es. `PingNotification` in `BaseController`): tu componi il
->   `Payload`, quindi **preferisci `messageKey`** (chiave i18n + eventuali `messageParams`) — il server
+>   `Payload`, quindi preferisci `messageKey` (chiave i18n + eventuali `messageParams`): il server
 >   non conosce la lingua del client, il browser traduce. Usa `message` (letterale) solo per testo già
 >   localizzato o contenuto dinamico senza chiave (è esattamente ciò che fa `PingNotification` quando
 >   passi `?message=`).
 > - **`IDeliveryService.DeliverAsync(...)`** (§7): il dispatcher serializza il `Body` del
->   `DeliveryMessage` come `message` **letterale** (`PublishRealtime` emette `{ message = Body, icon }`).
->   È la forma giusta quando il testo è **già composto** lato server. Se invece l'esito di una delivery
+>   `DeliveryMessage` come `message` letterale (`PublishRealtime` emette `{ message = Body, icon }`).
+>   È la forma giusta quando il testo è già composto lato server. Se invece l'esito di una delivery
 >   deve essere i18n, hai due opzioni: localizzare il `Body` prima di passarlo (il server conosce la
 >   cultura della richiesta via `CurrentCulture`), oppure bypassare la delivery e pubblicare a mano con
 >   `Notifications.Publish` + `messageKey`. La delivery è ottimizzata per "esito già pronto da consegnare",
 >   non per il deferimento della traduzione al client.
 
-**Handshake e notifica mirata.** All'apertura dello stream il server genera un `connectionId` e lo invia come **primo frame** SSE. Il frontend, finché lo stream è attivo, lo allega **automaticamente** a ogni richiesta come header `X-Connection-Id`: non è più un parametro di rotta. Lato backend lo si legge dalla proprietà ambient `ConnectionId` (`null` se assente) e si pubblica con `NotificationTarget.Connection(ConnectionId)`, così la notifica di fine elaborazione arriva **solo a chi l'ha chiesta** — anche se anonimo. La connessione è tenuta viva da un **commento di keep-alive** ogni 25 s (attraversa proxy e idle-timeout), e ogni client ha un buffer bounded (**100 messaggi**, `DropOldest`) che, se il browser è lento, **scarta i messaggi più vecchi** invece di accumulare memoria: una notifica persa è preferibile a un leak.
+Handshake e notifica mirata: all'apertura dello stream il server genera un `connectionId` e lo invia come primo frame SSE. Il frontend, finché lo stream è attivo, lo allega automaticamente a ogni richiesta come header `X-Connection-Id`: non è più un parametro di rotta. Lato backend lo si legge dalla proprietà ambient `ConnectionId` (`null` se assente) e si pubblica con `NotificationTarget.Connection(ConnectionId)`, così la notifica di fine elaborazione arriva solo a chi l'ha chiesta, anche se anonimo. La connessione è tenuta viva da un commento di keep-alive ogni 25 s (attraversa proxy e idle-timeout), e ogni client ha un buffer bounded (100 messaggi, `DropOldest`) che, se il browser è lento, scarta i messaggi più vecchi invece di accumulare memoria: una notifica persa è preferibile a un leak.
 
-> Il connectionId serve per il targeting di **una singola scheda**. Per il targeting **per-utente** non occorre il connectionId: si usa `NotificationTarget.Group(key)` con la chiave fornita da `INotificationGroupResolver` (vedi sotto).
+> Il connectionId serve per il targeting di una singola scheda. Per il targeting per-utente non occorre il connectionId: si usa `NotificationTarget.Group(key)` con la chiave fornita da `INotificationGroupResolver` (vedi sotto).
 
-**Recupero dei messaggi persi (SSE standard).** Ogni frame di notifica porta un campo `id:`; il browser lo memorizza e, alla riconnessione automatica, rimanda l'ultimo id visto nell'header `Last-Event-ID`. Il server allora **replaya** i broadcast/gruppo successivi a quell'id (dallo storico), così un blip di rete non fa perdere notifiche. Il client deduplica per id, quindi replay e storico non generano doppioni. Il server suggerisce anche il delay di riconnessione col campo `retry:`. (Il *primo* collegamento di una scheda non ha `Last-Event-ID`: lì il campanellino si popola con `GET /notifications/history`.)
+Recupero dei messaggi persi (SSE standard): ogni frame di notifica porta un campo `id:`; il browser lo memorizza e, alla riconnessione automatica, rimanda l'ultimo id visto nell'header `Last-Event-ID`. Il server allora replaya i broadcast/gruppo successivi a quell'id (dallo storico), così un blip di rete non fa perdere notifiche. Il client deduplica per id, quindi replay e storico non generano doppioni. Il server suggerisce anche il delay di riconnessione col campo `retry:`. (Il primo collegamento di una scheda non ha `Last-Event-ID`: lì il campanellino si popola con `GET /notifications/history`.)
 
-**Forma concreta dei frame (per client SSE non-Angular).** Lo stream è SSE standard, quindi un qualsiasi `EventSource` (o `curl --compressed`) lo consuma direttamente. La sequenza sul canale:
+Forma concreta dei frame (per client SSE non-Angular): lo stream è SSE standard, quindi un qualsiasi `EventSource` (o `curl --compressed`) lo consuma direttamente. La sequenza sul canale:
 
 ```
 retry: 5000
@@ -285,18 +284,18 @@ data: {"type":"toast","payload":{...},"id":"9f8e...","timestamp":"..."}
 
 Solo i frame `notification` portano `id:` (replay via `Last-Event-ID`); il frame `connection` no. Le righe che iniziano con `:` sono commenti SSE (keep-alive), da ignorare lato client.
 
-**Targeting per utente: il seam `INotificationGroupResolver`.** L'Engine non conosce la forma della tua sessione, quindi non sa cosa sia "l'utente X". Fornisce un'interfaccia — `string? Resolve(HttpContext)` — che assegna a ogni connessione una *chiave di gruppo*. Il default (`NullNotificationGroupResolver`) ritorna `null`: nessun raggruppamento, comportamento anonimo-safe. Un progetto figlio registra il proprio resolver per abilitare il targeting per utente/tenant, leggendo il claim di sessione del JWT:
+Targeting per utente, il seam `INotificationGroupResolver`: l'Engine non conosce la forma della tua sessione, quindi non sa cosa sia "l'utente X". Fornisce un'interfaccia, `string? Resolve(HttpContext)`, che assegna a ogni connessione una chiave di gruppo. Il default (`NullNotificationGroupResolver`) ritorna `null`: nessun raggruppamento, comportamento anonimo-safe. Un progetto figlio registra il proprio resolver per abilitare il targeting per utente/tenant, leggendo il claim di sessione del JWT:
 
 ```csharp
 // Nel progetto figlio (blocco SERVIZI APPLICATIVI di Program.cs):
 builder.Services.AddSingleton<INotificationGroupResolver, UserGroupResolver>();
 // dove Resolve(ctx) ritorna ctx.User.GetSession<SessionInfo>()?.UserId, oppure null se anonimo.
 ```
-> `EventSource` non può inviare l'header `Authorization`. Per il targeting per-utente il pattern è il token in **query string** validato sull'endpoint stream e mappato in `INotificationGroupResolver`: è la parte d'auth che, da design, **resta al figlio**.
+> `EventSource` non può inviare l'header `Authorization`. Per il targeting per-utente il pattern è il token in query string validato sull'endpoint stream e mappato in `INotificationGroupResolver`: è la parte d'auth che, da design, resta al figlio.
 
-**Le risposte non tornano via SSE.** L'SSE è a senso unico. Se una notifica è interattiva (l'utente "risponde"), la risposta è una **normale POST** all'API esistente — non serve un canale bidirezionale, e l'esito può poi essere ri-notificato via SSE. Per un dialogo realtime continuo (chat, presence) si salirebbe a WebSocket/SignalR, fuori scopo qui.
+Le risposte non tornano via SSE: l'SSE è a senso unico. Se una notifica è interattiva (l'utente "risponde"), la risposta è una normale POST all'API esistente, non serve un canale bidirezionale, e l'esito può poi essere ri-notificato via SSE. Per un dialogo realtime continuo (chat, presence) si salirebbe a WebSocket/SignalR, fuori scopo qui.
 
-**Scala.** Il registro delle connessioni è **in memoria**: corretto per una singola istanza di backend (il default del template). Con più istanze dietro un bilanciatore serve un **backplane** (es. Redis) per instradare un push all'istanza che possiede la connessione: è il punto in cui `NotificationStream` verrebbe sostituito, senza toccare né i publisher né l'endpoint.
+Scala: il registro delle connessioni è in memoria, corretto per una singola istanza di backend (il default del template). Con più istanze dietro un bilanciatore serve un backplane (es. Redis) per instradare un push all'istanza che possiede la connessione: è il punto in cui `NotificationStream` verrebbe sostituito, senza toccare né i publisher né l'endpoint.
 
 Per chi inietta `INotificationStream` o ne riscrive l'implementazione (backplane Redis), la superficie pubblica del contratto è:
 
@@ -308,32 +307,32 @@ Per chi inietta `INotificationStream` o ne riscrive l'implementazione (backplane
 | `GetHistory` | `IReadOnlyList<NotificationMessage> GetHistory(string? groupKey, string? afterId = null)` | Storico recuperabile (broadcast + eventuale gruppo). Con `afterId` restituisce solo i messaggi successivi (replay da `Last-Event-ID`). |
 | `Subscribe` / `Unsubscribe` | `NotificationSubscriber Subscribe(string? groupKey)` / `void Unsubscribe(string connectionId)` | Ciclo di vita di una connessione: li usa solo l'endpoint SSE dell'Engine, non il codice di dominio. |
 
-> **Contratto per chi reimplementa `INotificationStream`** (es. backplane Redis). La firma è facile da
-> rispettare, ma due **invarianti** sono load-bearing — il resto del template ci conta:
+> Contratto per chi reimplementa `INotificationStream` (es. backplane Redis): la firma è facile da
+> rispettare, ma due invarianti sono load-bearing, il resto del template ci conta:
 > 1. **`Publish` ritorna `true` SOLO se una connessione viva ha davvero ricevuto il messaggio**, non se
 >    "in teoria avrebbe potuto". Nell'implementazione in memoria `delivered` diventa `true` solo quando
 >    `Channel.Writer.TryWrite` riesce (fallisce se il canale è in chiusura). Il fallback `Auto` della
->    delivery si fida di questo valore di ritorno **invece** di chiamare `IsReachable` prima: è ciò che
+>    delivery si fida di questo valore di ritorno invece di chiamare `IsReachable` prima: è ciò che
 >    elimina la finestra TOCTOU (la connessione potrebbe morire tra il check e il push). Se la tua
 >    versione ritornasse `true` "ottimisticamente", `Auto` non ripiegherebbe mai su email e un esito
 >    andrebbe perso in silenzio. `IsReachable` resta per query informative, non come gate di `Publish`.
 > 2. **`GetHistory` espone solo broadcast + gruppo, mai i messaggi per-connessione.** Nell'implementazione
 >    di riferimento `Publish` salta del tutto lo storico quando `target.Kind == Connection`: le notifiche a
 >    una singola scheda sono effimere (legate a una connessione viva, non recuperabili dopo un reload).
->    Mantieni questa regola — replicare in storico i messaggi mirati a una connessione li farebbe ricomparire
+>    Mantieni questa regola: replicare in storico i messaggi mirati a una connessione li farebbe ricomparire
 >    al chiamante sbagliato dopo una riconnessione.
 
-**Storico recuperabile.** `GET /notifications/history` restituisce le notifiche recenti rilevanti per il chiamante (broadcast + suo eventuale gruppo) — il campanellino frontend (opt-in via `shell.showNotifications`) lo usa per popolarsi al primo caricamento o su una nuova scheda. Lo storico è **bounded e in memoria**, e contiene solo broadcast e gruppo: le notifiche mirate a una connessione sono effimere e non incluse. È il punto in cui, col login, lo storico **per-utente persistente** sostituirebbe questa struttura con uno store (DB) interrogato per id utente — il resto (resolver di gruppo, endpoint) resta invariato.
+Storico recuperabile: `GET /notifications/history` restituisce le notifiche recenti rilevanti per il chiamante (broadcast + suo eventuale gruppo), il campanellino frontend (opt-in via `shell.showNotifications`) lo usa per popolarsi al primo caricamento o su una nuova scheda. Lo storico è bounded e in memoria, e contiene solo broadcast e gruppo: le notifiche mirate a una connessione sono effimere e non incluse. È il punto in cui, col login, lo storico per-utente persistente sostituirebbe questa struttura con uno store (DB) interrogato per id utente: il resto (resolver di gruppo, endpoint) resta invariato.
 
-**Demo.** `POST /notifications/demo/ping[?message=...]` (in `BaseController`) pubblica una notifica di prova: se la richiesta porta l'header `X-Connection-Id` (aggiunto dal frontend quando lo stream è attivo) la manda solo a quel client, altrimenti fa broadcast. Senza `?message=` invia una **chiave** i18n (`notificaDemoPing`), col parametro un testo letterale. Il lato browser è il `NotificationStreamService` — vedi [frontend/README.md](../frontend/README.md).
+Demo: `POST /notifications/demo/ping[?message=...]` (in `BaseController`) pubblica una notifica di prova. Se la richiesta porta l'header `X-Connection-Id` (aggiunto dal frontend quando lo stream è attivo) la manda solo a quel client, altrimenti fa broadcast. Senza `?message=` invia una chiave i18n (`notificaDemoPing`), col parametro un testo letterale. Il lato browser è il `NotificationStreamService`, vedi [frontend/README.md](../frontend/README.md).
 
 ### 7. Task in Background e Delivery (notifica/email)
 
-Per il pattern "un POST avvia un lavoro lungo (es. import di 12.000 record), **risponde subito**, e a fine elaborazione notifica l'esito" l'Engine combina due pezzi.
+Per il pattern "un POST avvia un lavoro lungo (es. import di 12.000 record), risponde subito, e a fine elaborazione notifica l'esito" l'Engine combina due pezzi.
 
-**Coda di task generica.** `IBackgroundTaskQueue` (singleton) + `BackgroundTaskHostedService` — stesso stampo dell'invio email, ma generico. Nel controller si accoda dalla proprietà ambient `BackgroundQueue` (niente iniezione nel costruttore) e si risponde **`202 Accepted`**; il worker esegue il lavoro **fuori dalla richiesta HTTP**, ciascun task nel **proprio scope DI** (i servizi scoped come lo store sono validi e rilasciati a fine task; i singleton restano ok), rispettando lo shutdown. Sono le garanzie — scope DI dedicato, shutdown pulito, propagazione delle eccezioni — che un `Task.Run` lanciato dal controller non darebbe. `TryEnqueue` ritorna `false` se la coda — bounded a **1000** task — è satura (backpressure): il controller lo traduce in `503`.
+Coda di task generica: `IBackgroundTaskQueue` (singleton) più `BackgroundTaskHostedService`, stesso stampo dell'invio email, ma generico. Nel controller si accoda dalla proprietà ambient `BackgroundQueue` (niente iniezione nel costruttore) e si risponde `202 Accepted`; il worker esegue il lavoro fuori dalla richiesta HTTP, ciascun task nel proprio scope DI (i servizi scoped come lo store sono validi e rilasciati a fine task; i singleton restano ok), rispettando lo shutdown. Sono le garanzie (scope DI dedicato, shutdown pulito, propagazione delle eccezioni) che un `Task.Run` lanciato dal controller non darebbe. `TryEnqueue` ritorna `false` se la coda, bounded a 1000 task, è satura (backpressure): il controller lo traduce in `503`.
 
-> ⚠️ La coda è **in-memory**: adatta a lavoro leggero *best-effort*, ma un task accodato o in corso si **perde a un riavvio** del processo. Per un job che davvero non può andare perso servirebbe una coda **persistente** (DB/Redis) e uno **stato interrogabile** (`GET /tasks/{id}`): la notifica è il *nudge*, la garanzia è lo stato. Qui forniamo il *nudge* e la consegna, non la persistenza.
+> ⚠️ La coda è in-memory: adatta a lavoro leggero best-effort, ma un task accodato o in corso si perde a un riavvio del processo. Per un job che davvero non può andare perso servirebbe una coda persistente (DB/Redis) e uno stato interrogabile (`GET /tasks/{id}`): la notifica è il nudge, la garanzia è lo stato. Qui forniamo il nudge e la consegna, non la persistenza.
 
 ```csharp
 // `BackgroundQueue` è la proprietà ambient del controller base; il task riceve un IServiceProvider
@@ -351,7 +350,7 @@ return enqueued ? Accepted() : StatusCode(StatusCodes.Status503ServiceUnavailabl
 ```
 Ricetta rapida: [AGENTS.md](../AGENTS.md#task-lungo-con-notifica-a-fine-lavoro-email-o-realtime).
 
-**Delivery con switch notifica/email.** `IDeliveryService` consegna l'esito sul canale scelto. Il **default è `Realtime`**: pubblica il toast SSE ai client connessi e si ferma lì — nessuna email a sorpresa se l'utente è offline. Con **`Auto`** prova il realtime e, se *nessuna connessione viva* l'ha ricevuto (lo riporta `Publish` col proprio valore di ritorno, senza finestra TOCTOU tra "verifica" e "pubblica"), ripiega su **email** durevole (così un esito non si perde se la scheda è chiusa). Con **`Email`** forza la coda email. Lo switch è controllabile da fuori su due livelli: **per-chiamata** (il `channel` passato a `DeliverAsync`) e **per-policy** (il servizio è registrato con `TryAddSingleton` in `AddTemplateDelivery`, un figlio lo sostituisce via DI). Internamente è uno `switch` per canale: un canale nuovo = un nuovo `case`.
+Delivery con switch notifica/email: `IDeliveryService` consegna l'esito sul canale scelto. Il default è `Realtime`: pubblica il toast SSE ai client connessi e si ferma lì, nessuna email a sorpresa se l'utente è offline. Con `Auto` prova il realtime e, se nessuna connessione viva l'ha ricevuto (lo riporta `Publish` col proprio valore di ritorno, senza finestra TOCTOU tra "verifica" e "pubblica"), ripiega su email durevole (così un esito non si perde se la scheda è chiusa). Con `Email` forza la coda email. Lo switch è controllabile da fuori su due livelli: per-chiamata (il `channel` passato a `DeliverAsync`) e per-policy (il servizio è registrato con `TryAddSingleton` in `AddTemplateDelivery`, un figlio lo sostituisce via DI). Internamente è uno `switch` per canale: un canale nuovo = un nuovo `case`.
 
 ```csharp
 // Nel progetto figlio (blocco SERVIZI APPLICATIVI di Program.cs): la propria policy di consegna
@@ -369,17 +368,17 @@ La firma è `DeliverAsync(DeliveryMessage message, DeliveryChannel channel = Del
 | `Body` | `string` | Corpo dell'email e testo del toast realtime. |
 | `Icon` | `string` | Icona del toast (`success` \| `error` \| `info` \| `warning`, default `info`). |
 
-**Demo.** `POST /tasks/demo/import[?email=...]` accoda un import simulato (3 s), risponde `202` (`503` se la coda è satura), e a fine task consegna l'esito scegliendo **esplicitamente `Auto`** (per mostrare il fallback email): toast realtime se la scheda che ha avviato il job è ancora connessa (header `X-Connection-Id`), altrimenti email a `?email=...`. Il `GET /social[?nomi=...]` invece, se il chiamante ha lo stream aperto (header `X-Connection-Id`), consegna col **default `Realtime`**: notifica solo quel client, senza email. Il connectionId in entrambi arriva dall'header `X-Connection-Id`, non più da un parametro `?connectionId=...`.
+Demo: `POST /tasks/demo/import[?email=...]` accoda un import simulato (3 s), risponde `202` (`503` se la coda è satura), e a fine task consegna l'esito scegliendo esplicitamente `Auto` (per mostrare il fallback email): toast realtime se la scheda che ha avviato il job è ancora connessa (header `X-Connection-Id`), altrimenti email a `?email=...`. Il `GET /social[?nomi=...]` invece, se il chiamante ha lo stream aperto (header `X-Connection-Id`), consegna col default `Realtime`: notifica solo quel client, senza email. Il connectionId in entrambi arriva dall'header `X-Connection-Id`, non più da un parametro `?connectionId=...`.
 
 ### 8. Integrazioni con servizi esterni
 
-**Perché è utile:** prima o poi ogni progetto parla con un servizio terzo — un provider di pagamenti, una mappa, un CRM — sia **chiamandolo** (outbound) sia **ricevendone eventi** (webhook, inbound). L'Engine non fornisce un client pronto (non può conoscere l'API di terzi), ma fissa *dove* vivono URL/chiavi e *come* si registra il client, così ogni integrazione segue lo stesso schema invece di reinventarlo endpoint per endpoint.
+Perché è utile: prima o poi ogni progetto parla con un servizio terzo, un provider di pagamenti, una mappa, un CRM, sia chiamandolo (outbound) sia ricevendone eventi (webhook, inbound). L'Engine non fornisce un client pronto (non può conoscere l'API di terzi), ma fissa dove vivono URL/chiavi e come si registra il client, così ogni integrazione segue lo stesso schema invece di reinventarlo endpoint per endpoint.
 
 #### Chiamare un'API esterna (outbound)
 
 Tre passi, stesso schema già visto per `Mail`/`Security`:
 
-1. **Configurazione** — l'URL (se non è un segreto) in `global-settings.json`; la chiave/API secret in `global-settings.local.json` (gitignored) o, in produzione, come **variabile d'ambiente** (`NomeSezione__ApiKey` sovrascrive il JSON, stessa convenzione di `Mail__Password`):
+1. **Configurazione** — l'URL (se non è un segreto) in `global-settings.json`; la chiave/API secret in `global-settings.local.json` (gitignored) o, in produzione, come variabile d'ambiente (`NomeSezione__ApiKey` sovrascrive il JSON, stessa convenzione di `Mail__Password`):
    ```json
    // global-settings.json (committabile)
    "PaymentProvider": { "BaseUrl": "https://api.provider.com/v1" }
@@ -418,13 +417,13 @@ Tre passi, stesso schema già visto per `Mail`/`Security`:
    }
    ```
 
-**Errori verso l'upstream, non verso il client.** Un servizio esterno irraggiungibile o lento non è un `500` generico: è `ServiceUnavailableException()` (503, il servizio non risponde) o `GatewayTimeoutException()` (504, risponde ma troppo tardi) o `BadGatewayException()` (502, risponde ma con un payload/status inatteso) — le stesse eccezioni già mappate in tabella (*vedi «Lancia Eccezioni per gli Errori»*), così il client riceve lo stesso `ProblemDetails` uniforme che riceverebbe per un errore interno.
+Errori verso l'upstream, non verso il client: un servizio esterno irraggiungibile o lento non è un `500` generico, è `ServiceUnavailableException()` (503, il servizio non risponde) o `GatewayTimeoutException()` (504, risponde ma troppo tardi) o `BadGatewayException()` (502, risponde ma con un payload/status inatteso), le stesse eccezioni già mappate in tabella (vedi «Lancia Eccezioni per gli Errori»), così il client riceve lo stesso `ProblemDetails` uniforme che riceverebbe per un errore interno.
 
-**Timeout ed enable-gate.** Segui il pattern già usato dal mailer: un timeout esplicito su `HttpClient` (`.AddHttpClient<T>().SetHandlerLifetime(...)` o `Timeout` sul client) e un predicato `IsEnabled` quando la sezione di configurazione è vuota, per fallire subito e in modo esplicito invece di lasciare che la richiesta esterna vada in timeout ad ogni chiamata.
+Timeout ed enable-gate: segui il pattern già usato dal mailer, un timeout esplicito su `HttpClient` (`.AddHttpClient<T>().SetHandlerLifetime(...)` o `Timeout` sul client) e un predicato `IsEnabled` quando la sezione di configurazione è vuota, per fallire subito e in modo esplicito invece di lasciare che la richiesta esterna vada in timeout ad ogni chiamata.
 
 #### Ricevere un webhook (inbound)
 
-Un webhook è un endpoint **pubblico per forza** (il servizio terzo non conosce la tua `X-Api-Key`), quindi la difesa si sposta dalla API key alla **verifica della firma**:
+Un webhook è un endpoint pubblico per forza (il servizio terzo non conosce la tua `X-Api-Key`), quindi la difesa si sposta dalla API key alla verifica della firma:
 
 ```csharp
 [Route("api/v1/webhooks/payment-provider")]
@@ -455,17 +454,17 @@ public class PaymentWebhookController : EngineApiController
 ```
 
 Tre regole non negoziabili:
-- **Verifica sempre la firma sul body grezzo**, prima di qualunque deserializzazione o validazione — un JSON malformato non deve mai raggiungere la logica di dominio senza essere prima autenticato come proveniente dal servizio terzo.
+- **Verifica sempre la firma sul body grezzo**, prima di qualunque deserializzazione o validazione: un JSON malformato non deve mai raggiungere la logica di dominio senza essere prima autenticato come proveniente dal servizio terzo.
 - **`[AllowAnonymous]` solo sull'azione webhook**, non sull'intero controller: se nello stesso controller servono altre rotte, quelle restano protette dalla API key ereditata da `EngineApiController`.
-- **Rispondi in fretta, elabora in coda.** I provider (Stripe, GitHub…) ritentano l'invio se non ricevono un `2xx` entro pochi secondi: valida la firma, accoda con `BackgroundQueue` (*vedi §7*) ed elabora fuori dalla richiesta HTTP, così un handler lento non genera consegne duplicate.
+- **Rispondi in fretta, elabora in coda.** I provider (Stripe, GitHub…) ritentano l'invio se non ricevono un `2xx` entro pochi secondi: valida la firma, accoda con `BackgroundQueue` (vedi §7) ed elabora fuori dalla richiesta HTTP, così un handler lento non genera consegne duplicate.
 
 ---
 
 ### 9. Dati Personali (Export & Diritto all'Oblio)
 
-**Perché è utile:** l'export e la cancellazione dei dati personali (GDPR artt. 15/17) non sono una feature di dominio come le altre — sono un obbligo che vale per **qualunque** progetto figlio raccolga dati personali, a prescindere da cosa fa il sito. Per questo l'Engine non li lascia interamente al figlio come farebbe con un catalogo o un carrello: prepara l'endpoint, l'autenticazione e la cifratura, e lascia al figlio un solo punto da riempire.
+Perché è utile: l'export e la cancellazione dei dati personali (GDPR artt. 15/17) non sono una feature di dominio come le altre, sono un obbligo che vale per qualunque progetto figlio raccolga dati personali, a prescindere da cosa fa il sito. Per questo l'Engine non li lascia interamente al figlio come farebbe con un catalogo o un carrello: prepara l'endpoint, l'autenticazione e la cifratura, e lascia al figlio un solo punto da riempire.
 
-**Un solo endpoint per l'intero sito.** `EngineDataPrivacyController` (`Engine/Controllers/`) espone `GET`/`DELETE /me/data`, protetto da login (eredita `EngineProtectedController`, quindi viene escluso dalla discovery quando il login è spento, come `AuthController`/`ProtectedController` — *vedi «Routing Adattivo (JWT Opzionale)»*). Non è un pattern da ripetere: un progetto con un controller `Profilo` e uno `Acquisti` non scrive un export per ciascuno, ne implementa uno solo che aggrega da entrambi.
+Un solo endpoint per l'intero sito: `EngineDataPrivacyController` (`Engine/Controllers/`) espone `GET`/`DELETE /me/data`, protetto da login (eredita `EngineProtectedController`, quindi viene escluso dalla discovery quando il login è spento, come `AuthController`/`ProtectedController`, vedi «Routing Adattivo (JWT Opzionale)»). Non è un pattern da ripetere: un progetto con un controller `Profilo` e uno `Acquisti` non scrive un export per ciascuno, ne implementa uno solo che aggrega da entrambi.
 
 ```csharp
 public interface IPersonalDataStore
@@ -475,24 +474,26 @@ public interface IPersonalDataStore
 }
 ```
 
-Riceve il `ClaimsPrincipal` della richiesta, non un id già estratto: l'Engine non conosce (e non deve conoscere) la forma di `SessionInfo`, che è Dominio — la tua implementazione la rilegge con `user.GetSession<SessionInfo>()` e da lì aggrega quanto le serve dai propri store.
+Riceve il `ClaimsPrincipal` della richiesta, non un id già estratto: l'Engine non conosce (e non deve conoscere) la forma di `SessionInfo`, che è Dominio: la tua implementazione la rilegge con `user.GetSession<SessionInfo>()` e da lì aggrega quanto le serve dai propri store.
 
-Il default dell'Engine (`NullPersonalDataStore`) non esporta né cancella nulla — l'endpoint resta attivo ma inerte. Il template però registra già la propria sorgente di Dominio, **`Store/AppPersonalDataStore.cs`** (col login acceso; vince sul default con lo stesso meccanismo di `AppIdentityStore` — *vedi §4/Identità*): oggi non ha dati propri da esportare, ma il cablaggio è quello giusto — è il file che apri per aggregare i tuoi store di dominio quando ci saranno.
+Il default dell'Engine (`NullPersonalDataStore`) non esporta né cancella nulla: l'endpoint resta attivo ma inerte. Il template però registra già la propria sorgente di Dominio, `Store/AppPersonalDataStore.cs` (col login acceso; vince sul default con lo stesso meccanismo di `AppIdentityStore`, vedi §4/Identità): oggi non ha dati propri da esportare, ma il cablaggio è quello giusto, è il file che apri per aggregare i tuoi store di dominio quando ci saranno.
 
 ```csharp
 // Program.cs, blocco "── SERVIZI APPLICATIVI ──" (già presente nel template)
 builder.Services.AddSingleton<IPersonalDataStore, AppPersonalDataStore>();
 ```
 
-**`EraseAsync` è il diritto all'oblio, account compreso.** Credenziali e identificativi dell'account (email, username) sono a loro volta dati personali: cancellare "tutto" lasciando in piedi l'account non esercita l'art. 17, perché resta un record che identifica la persona. La tua implementazione rimuove quindi anche l'account — con l'eccezione dei dati soggetti a obbligo di conservazione (es. documenti fiscali), che si scollegano o anonimizzano invece di cancellarli. Il bottone «cancella il mio account» di una pagina profilo è *questo* endpoint, non un secondo endpoint da scrivere; una cancellazione parziale («svuota la mia cronologia») è invece una feature di dominio, fuori da questo seam. Con un IdP esterno (es. login Google) "cancellare l'account" significa cancellare la propria copia dei dati e il collegamento: l'account presso l'IdP non è tuo da cancellare. Come per l'export, *cosa* significhi concretamente cancellare lo sa solo il figlio — l'Engine non conosce la forma degli account (il login demo è pensato per essere sostituito), quindi non c'è un `IAccountService` dell'Engine da implementare: l'aggregazione sta tutta nella tua `IPersonalDataStore`, e la parte account il template la delega già a `Services/AccountService.cs`, l'unico posto di Dominio che conosce gli account (*vedi «Sistema di Login e Sessioni JWT»*).
+`EraseAsync` è il diritto all'oblio, account compreso: credenziali e identificativi dell'account (email, username) sono a loro volta dati personali, e cancellare "tutto" lasciando in piedi l'account non esercita l'art. 17, perché resta un record che identifica la persona. La tua implementazione rimuove quindi anche l'account, con l'eccezione dei dati soggetti a obbligo di conservazione (es. documenti fiscali), che si scollegano o anonimizzano invece di cancellarli. Il bottone «cancella il mio account» di una pagina profilo è questo endpoint, non un secondo endpoint da scrivere; una cancellazione parziale («svuota la mia cronologia») è invece una feature di dominio, fuori da questo seam. Con un IdP esterno (es. login Google) "cancellare l'account" significa cancellare la propria copia dei dati e il collegamento: l'account presso l'IdP non è tuo da cancellare. Come per l'export, cosa significhi concretamente cancellare lo sa solo il figlio: l'Engine non conosce la forma degli account (il login demo è pensato per essere sostituito), quindi non c'è un `IAccountService` dell'Engine da implementare. L'aggregazione sta tutta nella tua `IPersonalDataStore`, e la parte account il template la delega già a `Services/AccountService.cs`, l'unico posto di Dominio che conosce gli account (vedi «Sistema di Login e Sessioni JWT»).
 
-**Dopo la cancellazione il JWT resta valido fino a scadenza.** Il token è stateless: il `DELETE` risponde `204` ma non revoca nulla, quindi il chiamante ha ancora in mano una sessione formalmente valida che punta a dati che non esistono più. Due conseguenze pratiche per il figlio: il frontend deve scartare il token subito dopo la chiamata (logout locale), e gli store devono tollerare un `UserId` orfano senza errori (trattarlo come "nessun dato", non come 500). Una revoca server-side (denylist dei token) oggi non c'è: se un progetto ne ha bisogno, è un seam da aprire nell'Engine — che il JWT lo possiede — non da improvvisare nel figlio.
+Dopo la cancellazione il JWT resta valido fino a scadenza: il token è stateless, il `DELETE` risponde `204` ma non revoca nulla, quindi il chiamante ha ancora in mano una sessione formalmente valida che punta a dati che non esistono più. Due conseguenze pratiche per il figlio: il frontend deve scartare il token subito dopo la chiamata (logout locale), e gli store devono tollerare un `UserId` orfano senza errori (trattarlo come "nessun dato", non come 500). Una revoca server-side (denylist dei token) oggi non c'è: se un progetto ne ha bisogno, è un seam da aprire nell'Engine, che il JWT lo possiede, non da improvvisare nel figlio.
 
-**La risposta dell'export è cifrata — ma solo quando c'è davvero qualcosa da proteggere.** Se `ExportAsync` ritorna `null` (lo store di default, o un tuo store senza dati per quella sessione), l'endpoint risponde subito con `data` a `null` — che le opzioni JSON globali omettono dal payload, quindi al client arriva `{}` — senza toccare la cifratura. Solo quando c'è un payload reale lo serializza e lo cifra con `Crypto` (AES-256-GCM, nonce casuale a ogni chiamata), rispondendo `{ "data": "<base64>" }`. `Crypto` è una property ambient di `EngineApiController` (stesso pattern di `Notifications`/`BackgroundQueue`/`Delivery`: risolta on-demand da DI, non iniettata nel costruttore) che espone `IEngineCrypto` — un servizio "cappello" generico dell'Engine (`Engine/Security/EngineCrypto.cs`), non specifico dell'export: qualunque controller del progetto che debba cifrare un payload legge `Crypto.Encrypt(...)`/`Crypto.Decrypt(...)`.
+La risposta dell'export è cifrata, ma solo quando c'è davvero qualcosa da proteggere: se `ExportAsync` ritorna `null` (lo store di default, o un tuo store senza dati per quella sessione), l'endpoint risponde subito con `data` a `null` (che le opzioni JSON globali omettono dal payload, quindi al client arriva `{}`), senza toccare la cifratura. Solo quando c'è un payload reale lo serializza e lo cifra con `Crypto` (AES-256-GCM, nonce casuale a ogni chiamata), rispondendo `{ "data": "<base64>" }`. `Crypto` è una property ambient di `EngineApiController` (stesso pattern di `Notifications`/`BackgroundQueue`/`Delivery`: risolta on-demand da DI, non iniettata nel costruttore) che espone `IEngineCrypto`, un servizio "cappello" generico dell'Engine (`Engine/Security/EngineCrypto.cs`), non specifico dell'export: qualunque controller del progetto che debba cifrare un payload legge `Crypto.Encrypt(...)`/`Crypto.Decrypt(...)`.
 
-Il motivo per cui non è iniettato nel costruttore: `EngineCrypto` lancia se `Security.CryptoSecret` è vuota, e se lo iniettassi nel costruttore lo costruiresti (quindi falliresti) a **ogni** richiesta al controller, anche quando l'azione non ha nulla da cifrare — esattamente il caso dello store di default. Risolvendolo solo nel ramo che ne ha davvero bisogno, un progetto con login già attivo che riceve questo aggiornamento non vede l'endpoint rompersi per una chiave che, finché non implementa l'export, non gli serve.
+Il motivo per cui non è iniettato nel costruttore: `EngineCrypto` lancia se `Security.CryptoSecret` è vuota, e se lo iniettassi nel costruttore lo costruiresti (quindi falliresti) a ogni richiesta al controller, anche quando l'azione non ha nulla da cifrare, esattamente il caso dello store di default. Risolvendolo solo nel ramo che ne ha davvero bisogno, un progetto con login già attivo che riceve questo aggiornamento non vede l'endpoint rompersi per una chiave che, finché non implementa l'export, non gli serve.
 
-La chiave viene da `Security.CryptoSecret`, **separata** da `Security.Token.SecretKey`: riusare la stessa chiave per firmare JWT e per cifrare dati sarebbe riuso di materiale crittografico su due scopi diversi. `setup.mjs` la genera già alla nascita del progetto (come `Security.ApiKeys`), indipendentemente dal login — non serve attivarla a mano. `scripts/deploy.sh` la controlla come le altre chiavi prima di pubblicare (segnaposto o troppo corta ⇒ blocca il deploy).
+La chiave viene da `Security.CryptoSecret`, separata da `Security.Token.SecretKey`: riusare la stessa chiave per firmare JWT e per cifrare dati sarebbe riuso di materiale crittografico su due scopi diversi. `setup.mjs` la genera già alla nascita del progetto (come `Security.ApiKeys`), indipendentemente dal login: non serve attivarla a mano. `scripts/deploy.sh` la controlla come le altre chiavi prima di pubblicare (segnaposto o troppo corta ⇒ blocca il deploy).
+
+> Ruotare `CryptoSecret` rende indecifrabile qualunque payload cifrato con la chiave precedente (non c'è versionamento della chiave né retro-compatibilità): un export dati personali già prodotto ma non ancora consegnato, ad esempio, andrebbe rigenerato. A differenza di `Token.SecretKey` non forza un logout (`CryptoSecret` non tocca l'autenticazione), ma va ruotata con la stessa cautela: solo su sospetto di compromissione, sapendo cosa smette di essere leggibile.
 
 ---
 
@@ -501,7 +502,7 @@ La chiave viene da `Security.CryptoSecret`, **separata** da `Security.Token.Secr
 Perché l'Engine possa proteggere il progetto, vanno rispettate queste convenzioni architetturali ferree:
 
 ### 1. Eredita sempre dalle classi base dell'Engine
-Eredita **sempre** da una delle classi base dell'Engine: così rate limiting, logging e controllo API Key arrivano automaticamente.
+Eredita sempre da una delle classi base dell'Engine: così rate limiting, logging e controllo API Key arrivano automaticamente.
 
 L'Engine offre tre classi base a seconda del livello di protezione richiesto:
 - `EngineApiController`: Endpoint pubblici (richiede solo API Key).
@@ -510,7 +511,7 @@ L'Engine offre tre classi base a seconda del livello di protezione richiesto:
 
 #### Il contesto "ambient" del controller base
 
-Ereditando da queste classi ogni controller riceve, **senza nulla nel costruttore**, una serie di proprietà `protected` già pronte. Sono l'infrastruttura trasversale: il controller di dominio inietta **solo le sue dipendenze** e attinge al resto dal contesto.
+Ereditando da queste classi ogni controller riceve, senza nulla nel costruttore, una serie di proprietà `protected` già pronte. Sono l'infrastruttura trasversale: il controller di dominio inietta solo le sue dipendenze e attinge al resto dal contesto.
 
 | Proprietà | Tipo | Cosa offre |
 | :--- | :--- | :--- |
@@ -524,21 +525,19 @@ Ereditando da queste classi ogni controller riceve, **senza nulla nel costruttor
 | `CurrentLanguage` | `string` | Codice lingua a due lettere (es. `"it"`). |
 | `User` | `ClaimsPrincipal` | I claim della sessione. |
 
-I servizi sopra (`Notifications`, `BackgroundQueue`, `Delivery`, `Crypto`) sono **singleton risolti pigramente** da `HttpContext.RequestServices`: il getter scatta solo quando lo invochi dentro un'azione. Non vanno iniettati nel costruttore — per `Crypto` in particolare, farlo costruirebbe (e quindi fallirebbe, se `Security.CryptoSecret` è vuota) `EngineCrypto` a ogni richiesta, anche in un'azione che non cifra nulla.
+I servizi sopra (`Notifications`, `BackgroundQueue`, `Delivery`, `Crypto`) sono singleton risolti pigramente da `HttpContext.RequestServices`: il getter scatta solo quando lo invochi dentro un'azione. Non vanno iniettati nel costruttore, per `Crypto` in particolare, farlo costruirebbe (e quindi fallirebbe, se `Security.CryptoSecret` è vuota) `EngineCrypto` a ogni richiesta, anche in un'azione che non cifra nulla.
 
-`EngineProtectedController` aggiunge inoltre `CurrentSession<T>()`: rilegge il payload di sessione tipizzato (`User.GetSession<T>()`) senza dover importare l'extension method — *vedi «Sistema di Login e Sessioni JWT»*.
+`EngineProtectedController` aggiunge inoltre `CurrentSession<T>()`: rilegge il payload di sessione tipizzato (`User.GetSession<T>()`) senza dover importare l'extension method, vedi «Sistema di Login e Sessioni JWT».
 
-> *Nota: Gli snippet pratici (le "ricette") su come scrivere un controller o usare la sessione sono riassunti in `AGENTS.md`.*
+> Nota: gli snippet pratici (le "ricette") su come scrivere un controller o usare la sessione sono riassunti in `AGENTS.md`.
 
-> Il `CancellationToken` resta un **parametro esplicito dell'azione** (idioma ASP.NET): dichiararlo nella firma fa sì che ASP.NET lo leghi a `HttpContext.RequestAborted`. Solo il connectionId è migrato dalla firma all'header — il `CancellationToken` no.
+> Il `CancellationToken` resta un parametro esplicito dell'azione (idioma ASP.NET): dichiararlo nella firma fa sì che ASP.NET lo leghi a `HttpContext.RequestAborted`. Solo il connectionId è migrato dalla firma all'header, il `CancellationToken` no.
+
+> Observability, cosa c'è e cosa manca: `Logger` è un `ILogger` ASP.NET Core standard (provider Console di default: testo in dev, JSON strutturato con `docker compose logs` in produzione se configurato), niente di custom, nessun sink dell'Engine. Oltre a `/health` (per l'healthcheck Docker, vedi DOCKER_README.md) non c'è un endpoint di metriche né tracing distribuito cablato nel template: sono estensioni di Dominio, tipicamente `OpenTelemetry.Extensions.Hosting` più un exporter (Prometheus, un APM). Se il progetto ne ha bisogno, si aggiunge in `Program.cs`: l'Engine non lo impone né lo ostacola, semplicemente non lo fornisce oggi.
 
 ##### Un endpoint *davvero* pubblico: `[AllowAnonymous]` sull'azione
 
-Attenzione a "pubblico": `EngineApiController` ha **`[Authorize]` a livello di classe**, quindi ogni
-endpoint che ne deriva richiede comunque l'**API key** (è l'auth dello schema API key, non il JWT).
-"Pubblico" nel template significa "senza login utente", non "senza credenziali". Per un endpoint
-**totalmente aperto** — raggiungibile senza alcun header, come fa `/health` — serve marcare la singola
-azione con **`[AllowAnonymous]`**, che sovrascrive l'`[Authorize]` ereditato:
+Attenzione a "pubblico": `EngineApiController` ha `[Authorize]` a livello di classe, quindi ogni endpoint che ne deriva richiede comunque l'API key (è l'auth dello schema API key, non il JWT). "Pubblico" nel template significa "senza login utente", non "senza credenziali". Per un endpoint totalmente aperto, raggiungibile senza alcun header come fa `/health`, serve marcare la singola azione con `[AllowAnonymous]`, che sovrascrive l'`[Authorize]` ereditato:
 
 ```csharp
 [HttpGet("status")]
@@ -546,26 +545,17 @@ azione con **`[AllowAnonymous]`**, che sovrascrive l'`[Authorize]` ereditato:
 public IActionResult Status() => Ok(new { up = true });
 ```
 
-Senza `[AllowAnonymous]`, anche un endpoint "informativo" su un `EngineApiController` resta dietro la
-API key — di solito è ciò che vuoi, ma sappi qual è l'interruttore quando *non* lo è.
+Senza `[AllowAnonymous]`, anche un endpoint "informativo" su un `EngineApiController` resta dietro la API key: di solito è ciò che vuoi, ma sappi qual è l'interruttore quando non lo è.
 
 ##### `CurrentCulture` è ambient (async-local), non l'header — niente cultura nei task in background
 
-`CurrentCulture`/`CurrentLanguage` del controller base leggono `CultureInfo.CurrentCulture`, **non**
-parsano `Accept-Language` a mano: è `UseRequestLocalization` (early nella pipeline) a impostare la
-cultura sul contesto async-local della richiesta, e queste proprietà la rileggono. Stessa fonte usata da
-`FileIdentityStore` (`GET /identity`) e da `FileContentStore`. Comodo, ma con un limite:
+`CurrentCulture`/`CurrentLanguage` del controller base leggono `CultureInfo.CurrentCulture`, non parsano `Accept-Language` a mano: è `UseRequestLocalization` (early nella pipeline) a impostare la cultura sul contesto async-local della richiesta, e queste proprietà la rileggono. Stessa fonte usata da `FileIdentityStore` (`GET /identity`) e da `FileContentStore`. Comodo, ma con un limite:
 
-**In un task in background non c'è una richiesta, quindi non c'è cultura di richiesta.** Il lavoro
-accodato con `BackgroundQueue.TryEnqueue(...)` gira **fuori dal contesto HTTP** (scope DI proprio,
-nessun `Accept-Language`): lì `CultureInfo.CurrentCulture` è quella di default del processo, non quella
-del client che ha avviato il job. Se il task deve produrre contenuto localizzato (un'email, un testo
-nello store), **cattura la lingua nel controller** (`var lang = CurrentLanguage;`) e passala
-esplicitamente nella closure, invece di affidarti a `CurrentCulture` dentro il task.
+In un task in background non c'è una richiesta, quindi non c'è cultura di richiesta: il lavoro accodato con `BackgroundQueue.TryEnqueue(...)` gira fuori dal contesto HTTP (scope DI proprio, nessun `Accept-Language`), lì `CultureInfo.CurrentCulture` è quella di default del processo, non quella del client che ha avviato il job. Se il task deve produrre contenuto localizzato (un'email, un testo nello store), cattura la lingua nel controller (`var lang = CurrentLanguage;`) e passala esplicitamente nella closure, invece di affidarti a `CurrentCulture` dentro il task.
 
 ### 2. Lancia Eccezioni per gli Errori
 
-Per segnalare un errore, lancia l'eccezione appropriata — `ApiExceptionHandler` la intercetta, localizza il messaggio tramite `.resx` e scrive una risposta `ProblemDetails` (RFC 9457) con `status` + `detail`. È il modo unico e uniforme di restituire errori dai controller.
+Per segnalare un errore, lancia l'eccezione appropriata: `ApiExceptionHandler` la intercetta, localizza il messaggio tramite `.resx` e scrive una risposta `ProblemDetails` (RFC 9457) con `status` + `detail`. È il modo unico e uniforme di restituire errori dai controller.
 
 **Mappatura completa delle eccezioni:**
 
@@ -605,7 +595,7 @@ Per segnalare un errore, lancia l'eccezione appropriata — `ApiExceptionHandler
 >
 > **503 vs 502**: `ServiceUnavailableException` (503) = servizio non raggiungibile. `BadGatewayException` (502) = servizio raggiungibile ma ha restituito una risposta non valida.
 >
-> **429 applicativo vs rate limiter infrastrutturale**: il middleware blocca già 100 req/min globali e 5/min sul login — quando scatta, produce anch'esso un `ProblemDetails` JSON con `Retry-After` (via callback `OnRejected`), quindi il formato è coerente con `ApiExceptionHandler`. `TooManyRequestsException` serve per limiti di dominio più granulari (es. max 3 tentativi OTP per sessione); usa `TooManyRequestsException(60)` per includere i secondi di attesa nel messaggio e nell'header.
+> **429 applicativo vs rate limiter infrastrutturale**: il middleware blocca già 100 req/min globali e 5/min sul login. Quando scatta, produce anch'esso un `ProblemDetails` JSON con `Retry-After` (via callback `OnRejected`), quindi il formato è coerente con `ApiExceptionHandler`. `TooManyRequestsException` serve per limiti di dominio più granulari (es. max 3 tentativi OTP per sessione); usa `TooManyRequestsException(60)` per includere i secondi di attesa nel messaggio e nell'header.
 
 **Formato della risposta al client:**
 ```json
@@ -636,7 +626,7 @@ public async Task SendOtp(string userId)
 }
 ```
 
-**Aggiungere un tipo di errore custom:**
+Aggiungere un tipo di errore custom:
 1. Crea una sottoclasse di `ApiException` con la chiave `.resx` e il codice HTTP
 2. Aggiungi la chiave in `Resources/SharedResource.resx` (default) e `Resources/SharedResource.it.resx` (italiano)
 
@@ -657,7 +647,7 @@ public class PaymentRequiredException : ApiException
 
 Se hai bisogno del pattern `_named` (nome risorsa variabile) o `_timed` (secondi variabili), guarda come è implementato `NotFoundException` o `TooManyRequestsException` in `ApiException.cs`: il costruttore riceve il parametro nullable e sceglie la chiave resx in base alla sua presenza.
 
-**Le eccezioni non-`ApiException`** (es. `NullReferenceException`, errori di database) vengono ignorate dall'handler: ASP.NET restituisce un 500 generico senza esporre stack trace né dettagli interni.
+Le eccezioni non-`ApiException` (es. `NullReferenceException`, errori di database) vengono ignorate dall'handler: ASP.NET restituisce un 500 generico senza esporre stack trace né dettagli interni.
 
 #### `SharedResource` e la localizzazione dei messaggi
 
@@ -670,12 +660,12 @@ Resources/SharedResource.it.resx    ← italiano
 
 L'attributo `[assembly: RootNamespace("Backend")]` in quel file è critico: il nome dell'assembly è `"backend"` (minuscolo, dal `.csproj`), ma il namespace è `"Backend"`. Senza questo attributo `IStringLocalizer` cercherebbe `backend.Resources.SharedResource.resx` (inesistente) e tutti i messaggi mostrerebbero la chiave grezza invece del testo localizzato.
 
-**Sintomo di un problema di namespace:** se in risposta agli errori il frontend riceve `"detail": "error_not_found"` invece del messaggio, il localizzatore non trova il file resx — controlla che il `RootNamespace` nel `.csproj` e in `SharedResource.cs` siano allineati.
+Sintomo di un problema di namespace: se in risposta agli errori il frontend riceve `"detail": "error_not_found"` invece del messaggio, il localizzatore non trova il file resx, controlla che il `RootNamespace` nel `.csproj` e in `SharedResource.cs` siano allineati.
 
 Inietta `IStringLocalizer<SharedResource>` ovunque servano messaggi localizzati (validatori, service, controller): `SharedResource` è l'unico tipo-ancora, riusalo sempre.
 
 ### 3. Usa FluentValidation per gli Input
-Metti tutte le validazioni d'input in un validatore dedicato, ereditando da `AbstractValidator<T>`: i controller restano puliti, senza `if` di controllo sparsi. L'Engine **auto-registra in DI** ogni `AbstractValidator<T>` dell'assembly (`AddValidatorsFromAssemblyContaining<Program>` in `Program.cs`): tu nel controller inietti `IValidator<T>`, chiami `ValidateAsync` e — se l'input non è valido — restituisci `ValidationProblem()`. Grazie a `[ApiController]` la risposta è un `ProblemDetails` 400 con la lista degli errori. La validazione è quindi **esplicita** (la decidi tu nell'azione), non un filtro automatico pre-controller: così controlli quando eseguirla e come reagire.
+Metti tutte le validazioni d'input in un validatore dedicato, ereditando da `AbstractValidator<T>`: i controller restano puliti, senza `if` di controllo sparsi. L'Engine auto-registra in DI ogni `AbstractValidator<T>` dell'assembly (`AddValidatorsFromAssemblyContaining<Program>` in `Program.cs`): tu nel controller inietti `IValidator<T>`, chiami `ValidateAsync` e, se l'input non è valido, restituisci `ValidationProblem()`. Grazie a `[ApiController]` la risposta è un `ProblemDetails` 400 con la lista degli errori. La validazione è quindi esplicita (la decidi tu nell'azione), non un filtro automatico pre-controller: così controlli quando eseguirla e come reagire.
 
 ```csharp
 // Services/LoginRequest.cs (i DTO stanno vicino a chi li espone; le cartelle sono una convenzione, non un vincolo)
@@ -741,12 +731,12 @@ public class LoginRequestValidator : AbstractValidator<LoginRequest>
 }
 ```
 
-**Localizzazione nei validator:** usa sempre la forma lambda `_ => localizer["key"].Value`, non la forma diretta `localizer["key"].Value`. Il validator è un singleton: la forma diretta risolverebbe la stringa al boot con la cultura del processo, ignorando la lingua della richiesta HTTP.
+Localizzazione nei validator: usa sempre la forma lambda `_ => localizer["key"].Value`, non la forma diretta `localizer["key"].Value`. Il validator è un singleton: la forma diretta risolverebbe la stringa al boot con la cultura del processo, ignorando la lingua della richiesta HTTP.
 
-> **I validator sono Singleton — due conseguenze.** L'auto-registrazione è
+> I validator sono Singleton: due conseguenze. L'auto-registrazione è
 > `AddValidatorsFromAssemblyContaining<Program>(ServiceLifetime.Singleton)` (`Program.cs:122`): ogni
-> `AbstractValidator<T>` vive **una sola istanza** per tutto il processo.
-> 1. **Localizzazione:** è il motivo della forma lambda qui sopra — la stringa va risolta a ogni
+> `AbstractValidator<T>` vive una sola istanza per tutto il processo.
+> 1. **Localizzazione:** è il motivo della forma lambda qui sopra: la stringa va risolta a ogni
 >    validazione (lingua della richiesta), non una volta al boot.
 > 2. **Niente dipendenze scoped nel costruttore.** Un singleton che inietta un servizio scoped (es. un
 >    `DbContext`, o `IContentStore` se in futuro lo registri scoped) crea una **captive dependency**: lo
@@ -754,7 +744,7 @@ public class LoginRequestValidator : AbstractValidator<LoginRequest>
 >    iniettare altri singleton (`IStringLocalizer<SharedResource>` lo è). Se ti serve un dato per-richiesta
 >    dentro una regola, passalo via `ValidationContext` (es. `RuleFor(...).Must((dto, val, ctx) => …)`)
 >    invece di iniettarlo; se proprio ti serve un servizio scoped, cambia il lifetime di
->    registrazione del validator — ma è raro che serva davvero.
+>    registrazione del validator, anche se è raro che serva davvero.
 
 ### 4. L'Engine è intoccabile
 Aggiungi in `Engine/` solo logiche universali e infrastrutturali astratte. Il codice per un cliente specifico o una feature verticale va nelle cartelle di dominio, fuori dall'Engine.
@@ -765,7 +755,7 @@ Aggiungi in `Engine/` solo logiche universali e infrastrutturali astratte. Il co
 
 ### Sorgenti di Configurazione
 
-L'unica sorgente di configurazione è `global-settings.json`. Al boot, tutte le sorgenti `appsettings*.json` vengono **rimosse attivamente** dalla pipeline di configurazione ASP.NET:
+L'unica sorgente di configurazione è `global-settings.json`. Al boot, tutte le sorgenti `appsettings*.json` vengono rimosse attivamente dalla pipeline di configurazione ASP.NET:
 
 ```csharp
 // Program.cs — rimozione esplicita
@@ -777,32 +767,32 @@ foreach (var source in defaultJsonSources)
     builder.Configuration.Sources.Remove(source);
 ```
 
-**Conseguenza pratica:** `appsettings.Development.json` non viene letto. L'identità/config di progetto vive in `global-settings.json`; i **segreti** e la pubblicazione (ApiKeys, SecretKey, porte) in `global-settings.local.json`.
+Conseguenza pratica: `appsettings.Development.json` non viene letto. L'identità/config di progetto vive in `global-settings.json`; i segreti e la pubblicazione (ApiKeys, SecretKey, porte) in `global-settings.local.json`.
 
-I file vengono cercati e **fusi** in quest'ordine (gli ultimi vincono — lo stesso deep-merge che `scripts/lib/br1-config.sh` fa in prod producendo il file effettivo):
+I file vengono cercati e fusi in quest'ordine (gli ultimi vincono, lo stesso deep-merge che `scripts/lib/br1-config.sh` fa in prod producendo il file effettivo):
 1. `../global-settings.json` poi `global-settings.json` — base committata (dev `cwd=backend/` → `../`; Docker `cwd=/app`)
 2. `../global-settings.local.json` poi `global-settings.local.json` — override coi segreti (gitignored)
 3. `../security-headers.json` poi `security-headers.json` — header del template (sezione `Security.Headers`)
 
-Tutte `optional: true` (se un file manca si usano i default dei modelli `*Options`). In **dev locale** è il punto 2 che fa arrivare `Security.ApiKeys` (da `global-settings.local.json`) al backend **senza env var né deploy**: prima del template 2.0.1 il backend leggeva solo `global-settings.json` (privo di `Security`) → `ApiKeys` vuoto → **401 su ogni richiesta**. In Docker/prod il `.local` non esiste (i segreti sono già fusi nel file effettivo montato) → no-op.
+Tutte `optional: true` (se un file manca si usano i default dei modelli `*Options`). In dev locale è il punto 2 che fa arrivare `Security.ApiKeys` (da `global-settings.local.json`) al backend senza env var né deploy: prima del template 2.0.1 il backend leggeva solo `global-settings.json` (privo di `Security`) → `ApiKeys` vuoto → 401 su ogni richiesta. In Docker/prod il `.local` non esiste (i segreti sono già fusi nel file effettivo montato) → no-op.
 
 #### Lo schema (`global-settings.schema.json`) e chi legge cosa
 
 `global-settings.json` dichiara in testa `"$schema": "./global-settings.schema.json"`. Lo schema
-(JSON Schema draft-07) dà all'editor **autocomplete e validazione live** sulle chiavi: è la rete di
-sicurezza più importante qui, perché **una chiave digitata male non dà errore a runtime** — il binding
+(JSON Schema draft-07) dà all'editor autocomplete e validazione live sulle chiavi: è la rete di
+sicurezza più importante qui, perché una chiave digitata male non dà errore a runtime, il binding
 .NET semplicemente non la trova e usa il default del modello `*Options`, in silenzio. L'autocomplete
-dello schema è ciò che fa emergere il typo *mentre scrivi*, invece di lasciarti debuggare un valore "che
+dello schema è ciò che fa emergere il typo mentre scrivi, invece di lasciarti debuggare un valore "che
 non viene applicato".
 
-Cosa è importante capire: **non tutte le sezioni del file finiscono nel backend.** Il file è condiviso
+Non tutte le sezioni del file finiscono nel backend: il file è condiviso
 da tre consumer (backend ASP.NET, frontend Node SSR, `scripts/deploy.sh`), e ognuno legge la sua fetta.
-Lato **backend**, `Program.cs` lega come `IOptions<T>` **solo** `Security`, `Localization` e `Mail`
+Lato backend, `Program.cs` lega come `IOptions<T>` solo `Security`, `Localization` e `Mail`
 (`builder.Services.Configure<…>`), e legge `Custom` ad-hoc via `IConfiguration` (non un `*Options`
-tipizzato). I codici di `Localization` vengono poi arricchiti nelle culture .NET da `EngineCultures`. Le sezioni `project` e `site` (più `frontend`/`backend` di deploy) **non sono lette dal
-backend**: sono **frontend-owned** / di deploy. Quindi mettere una chiave applicativa dentro `site`
-aspettandosi che il backend la veda non funziona — i valori liberi che il backend deve leggere vanno in
-**`Custom`** (vedi *Sezione `Custom`*).
+tipizzato). I codici di `Localization` vengono poi arricchiti nelle culture .NET da `EngineCultures`. Le sezioni `project` e `site` (più `frontend`/`backend` di deploy) non sono lette dal
+backend: sono frontend-owned o di deploy. Quindi mettere una chiave applicativa dentro `site`
+aspettandosi che il backend la veda non funziona, i valori liberi che il backend deve leggere vanno in
+`Custom` (vedi Sezione `Custom`).
 
 ### Ordine della pipeline HTTP
 
@@ -830,7 +820,7 @@ Tutti i controller usano queste opzioni globali, applicate automaticamente a tut
 
 Un campo `null` nel DTO non appare nella risposta JSON. Se il frontend si aspetta un campo assente come `null` funziona; se si aspetta un campo assente come un valore di default va gestito lato client.
 
-> Queste sono le opzioni delle **risposte API** (registrate in `AddJsonOptions`, `Program.cs`). Per i **file di contenuto** (`data/*.json`) lo store usa invece l'istanza condivisa `EngineJson.Web` (`Engine/EngineJson.cs`): convenzioni web + enum come stringhe, un'unica istanza così la cache dei metadata di System.Text.Json viene riusata da tutti i consumatori.
+> Queste sono le opzioni delle risposte API (registrate in `AddJsonOptions`, `Program.cs`). Per i file di contenuto (`data/*.json`) lo store usa invece l'istanza condivisa `EngineJson.Web` (`Engine/EngineJson.cs`): convenzioni web + enum come stringhe, un'unica istanza così la cache dei metadata di System.Text.Json viene riusata da tutti i consumatori.
 
 ### `Content-Language` nelle Risposte
 
@@ -844,18 +834,18 @@ Il frontend instrada le pagine per lingua via path (`/en/...`, vedi [frontend/RE
 
 #### Riferimento `LocalizationOptions` (`global-settings.json` → `Localization.*`)
 
-Le lingue sono **codici a due lettere** dichiarati in `global-settings.json` → `Localization` (dichiarazione semplice, letta anche dai consumatori sincroni a module-load del frontend). Il backend li **arricchisce** nelle `CultureInfo` tipizzate via `EngineCultures` (`Engine/Localization/EngineCultures.cs`), che alimenta `UseRequestLocalization`. Aggiungere una lingua = aggiungere il codice qui (più i cataloghi i18n e i file legali del frontend).
+Le lingue sono codici a due lettere dichiarati in `global-settings.json` → `Localization` (dichiarazione semplice, letta anche dai consumatori sincroni a module-load del frontend). Il backend li arricchisce nelle `CultureInfo` tipizzate via `EngineCultures` (`Engine/Localization/EngineCultures.cs`), che alimenta `UseRequestLocalization`. Aggiungere una lingua = aggiungere il codice qui (più i cataloghi i18n e i file legali del frontend).
 
 | Chiave | Tipo | Default | Comportamento |
 | :--- | :--- | :--- | :--- |
 | `DefaultLanguage` | `string` | `"it"` | Lingua di fallback (codice ISO 639-1): usata quando `Accept-Language` non corrisponde, e seconda priorità nella risoluzione i18n dei file `data/*.json`. |
 | `SupportedLanguages` | `string[]` | `["it","en"]` | Lingue riconosciute: un oggetto JSON è trattato come blocco i18n solo se *tutte* le sue chiavi sono fra queste (vedi `LocalizedJsonDeserializer`). |
 
-> `LocalizationOptions.SupportedLanguages` ha default **vuoto** di proposito: il binder di config .NET *appende* l'array bound al default della proprietà, quindi un default non vuoto si sommerebbe ai codici di `global-settings.json` (`["it","en"]` default + `["it","en"]` config ⇒ 4 voci duplicate). Con default vuoto il config sostituisce pulito.
+> `LocalizationOptions.SupportedLanguages` ha default vuoto di proposito: il binder di config .NET appende l'array bound al default della proprietà, quindi un default non vuoto si sommerebbe ai codici di `global-settings.json` (`["it","en"]` default + `["it","en"]` config ⇒ 4 voci duplicate). Con default vuoto il config sostituisce pulito.
 
 #### Backend e frontend: stessa fonte, culture indipendenti
 
-Le lingue sono dichiarate **una volta** in `Localization.SupportedLanguages`; backend e frontend ne derivano la cultura **in modo indipendente**, senza un endpoint condiviso a fare da ponte:
+Le lingue sono dichiarate una volta in `Localization.SupportedLanguages`; backend e frontend ne derivano la cultura in modo indipendente, senza un endpoint condiviso a fare da ponte:
 
 - **Backend** — dai codici, via `EngineCultures`/`CultureInfo`, per i propri usi: `UseRequestLocalization` (la cultura della richiesta da `Accept-Language`) e i **messaggi d'errore/validazione localizzati** (`.resx`).
 - **Frontend** — deriva tutto da `Intl` (ECMA-402/CLDR): locale, formattazione (date/valuta/numeri), nomi giorno e nomi nativi delle lingue. Autonomo (nessuna chiamata al backend, corretto anche offline) e disaccoppiato da come il backend gestisce la propria cultura.
@@ -872,33 +862,33 @@ Le lingue sono dichiarate **una volta** in `Localization.SupportedLanguages`; ba
 }
 ```
 
-**Backend:** leggibile via `IConfiguration`:
+Backend: leggibile via `IConfiguration`:
 ```csharp
 var maxUpload = builder.Configuration.GetValue<int>("Custom:MaxUploadMb");
 var nuovaFunzione = builder.Configuration.GetValue<bool>("Custom:FeatureFlags:NuovaFunzione");
 ```
 
-**Frontend Node SSR:** `getBr1Settings().Custom` (disponibile in `server-env.ts`).
+Frontend Node SSR: `getBr1Settings().Custom` (disponibile in `server-env.ts`).
 
-**Browser Angular:** disponibile tramite `inject(APP_CUSTOM)` — l'SSR serializza `Custom` in `TransferState` e il browser la rilegge in idratazione (fallback `{}` senza SSR). Usa questo meccanismo per feature flag, limiti applicativi, ID di analytics: è l'escape hatch ufficiale per configurazione progetto-specifica senza aggiungere nuovi `*Options` a livello di schema. ⚠️ `Custom` è committabile e visibile al client: usalo per valori pubblici (feature flag, limiti, ID analytics). I segreti vanno in `global-settings.local.json`.
+Browser Angular: disponibile tramite `inject(APP_CUSTOM)`, l'SSR serializza `Custom` in `TransferState` e il browser la rilegge in idratazione (fallback `{}` senza SSR). Usa questo meccanismo per feature flag, limiti applicativi, ID di analytics: è l'escape hatch ufficiale per configurazione progetto-specifica senza aggiungere nuovi `*Options` a livello di schema. ⚠️ `Custom` è committabile e visibile al client: usalo per valori pubblici (feature flag, limiti, ID analytics). I segreti vanno in `global-settings.local.json`.
 
-I valori **per-ambiente** (chiavi di servizi esterni, ID diversi tra dev e prod) vanno nella stessa sezione `Custom` di `global-settings.local.json`: è un uso previsto, il deep-merge li fonde sopra quelli committati. Restano comunque visibili al client — il `.local` li tiene fuori da git, non fuori dal browser.
+I valori per-ambiente (chiavi di servizi esterni, ID diversi tra dev e prod) vanno nella stessa sezione `Custom` di `global-settings.local.json`: è un uso previsto, il deep-merge li fonde sopra quelli committati. Restano comunque visibili al client, il `.local` li tiene fuori da git, non fuori dal browser.
 
 ### Sostituire un servizio dell'Engine (override via DI)
 
-Le registrazioni vivono in `Program.cs`; il blocco **`── SERVIZI APPLICATIVI ──`** (`Program.cs:87`) è la regione del progetto: qui aggiungi i tuoi servizi, leggi `Custom:` per il wiring condizionale e **sovrascrivi un servizio dell'Engine** registrando la tua implementazione. Per un singolo `GetService<T>` vince l'**ultima** registrazione: un `AddSingleton<IInterface, TuaImpl>()` in fondo al blocco rimpiazza il default senza cancellare la riga dell'Engine.
+Le registrazioni vivono in `Program.cs`; il blocco `── SERVIZI APPLICATIVI ──` (`Program.cs:87`) è la regione del progetto: qui aggiungi i tuoi servizi, leggi `Custom:` per il wiring condizionale e sovrascrivi un servizio dell'Engine registrando la tua implementazione. Per un singolo `GetService<T>` vince l'ultima registrazione: un `AddSingleton<IInterface, TuaImpl>()` in fondo al blocco rimpiazza il default senza cancellare la riga dell'Engine.
 
 Concretamente, servizio per servizio:
 
 - **`IContentStore`** — default `FileContentStore`. Registri `AddSingleton<IContentStore, EfContentStore>()` per migrare a un database senza toccare controller né `SiteService`.
 - **`IIdentityStore`** — il template registra già **`Store/AppIdentityStore.cs`** (di **proprietà del progetto**, estende il default engine `FileIdentityStore` che legge `data/identity.json`). Due livelli di estensione: **(a) comporre da più fonti** — nel tuo `AppIdentityStore` fai l'override di `ComposeIdentityAsync(identity, language, ct)` (oggi passthrough) per fondere nel modello pezzi presi altrove (es. orari o capitale da un DB/API) senza riscrivere la lettura del file; gira anche con `identity == null` (caso "tutto da un'API"). **(b) sorgente completamente diversa** — registri una tua `IIdentityStore` da zero. Il default engine (`FileIdentityStore` via `AddTemplateIdentity`, `TryAdd`) resta come rete di sicurezza.
 
-> Nota: lo **storage dei file caricati** non è un'interfaccia ma la classe concreta **`BlobStore`** (`Store/BlobStore.cs`): file di progetto che modifichi direttamente o estendi via `override`. È deliberatamente tenuto separato da `IContentStore` (binari in volume runtime vs contenuti localizzati read-only). Diventerebbe un'interfaccia solo il giorno in cui servisse davvero lo swap a runtime (es. S3) — estrarla è un attimo.
+> Nota: lo storage dei file caricati non è un'interfaccia ma la classe concreta `BlobStore` (`Store/BlobStore.cs`): file di progetto che modifichi direttamente o estendi via `override`. È deliberatamente tenuto separato da `IContentStore` (binari in volume runtime vs contenuti localizzati read-only). Diventerebbe un'interfaccia solo il giorno in cui servisse davvero lo swap a runtime (es. S3): estrarla è un attimo.
 - **`IEngineMailer`** — default `EngineMailer` (SMTP). Lo sostituisci con una tua implementazione di `IsEnabled`/`IsValidAddress`/`SendAsync` (es. l'API HTTP di un provider); coda e worker restano invariati.
 - **`INotificationStream`** — default in-memory. Una tua implementazione (es. un backplane Redis) lo fa scalare oltre il singolo processo.
 - **`IDeliveryService`** e **`INotificationGroupResolver`** — registrati con `TryAddSingleton`: basta registrare la tua versione (`AddSingleton<IDeliveryService, MiaPolicy>()` per una policy di consegna propria, `AddSingleton<…, UserGroupResolver>()` per il targeting per utente/tenant).
 
-I primi tre usano `AddSingleton`, gli ultimi due `TryAddSingleton`: in entrambi i casi la tua registrazione nel blocco vince. Gli snippet d'override di `IDeliveryService` e `INotificationGroupResolver` sono mostrati in contesto nelle sezioni *Task in Background e Delivery* e *Notifiche Realtime*; questo elenco è il riferimento consolidato.
+I primi tre usano `AddSingleton`, gli ultimi due `TryAddSingleton`: in entrambi i casi la tua registrazione nel blocco vince. Gli snippet d'override di `IDeliveryService` e `INotificationGroupResolver` sono mostrati in contesto nelle sezioni Task in Background e Delivery e Notifiche Realtime; questo elenco è il riferimento consolidato.
 
 ---
 
@@ -923,13 +913,13 @@ Task<Dictionary<string, string>> GetSocialAsync(CancellationToken cancellationTo
 
 Il `CancellationToken` arriva dal controller (basta dichiararlo come parametro dell'action: ASP.NET lo lega a `HttpContext.RequestAborted`) e viene propagato fino alla lettura del file: se il client abbandona la richiesta, l'I/O si interrompe. Mantenerlo nelle nuove firme: per lo store su DB diventa la cancellazione delle query.
 
-> **L'identità del sito è un sottosistema a parte dell'Engine, non passa da `IContentStore`.** Vedi *L'Identità del Sito* qui sotto.
+> L'identità del sito è un sottosistema a parte dell'Engine, non passa da `IContentStore`. Vedi L'Identità del Sito qui sotto.
 
 #### `social.json` → `Dictionary<string,string>` (mappa piatta, demo)
 
-`social.json` è una **mappa piatta** `nomeLogico → url` (es. `"facebook": "https://…"`) deserializzata direttamente con `EngineJson.Web`, **senza passaggio i18n** (gli URL non hanno lingua). È la galleria di icone esercitata dalla pagina demo Social via `GET /social` (filtro per nome, `case-insensitive`, in `SiteService.GetSocialAsync`). È **demo**: il `setup.mjs` la brucia (pagina + endpoint + `social.json` + store/SiteService) inizializzando un progetto figlio. Da non confondere con i social del **brand**, che stanno nell'identità (sotto).
+`social.json` è una mappa piatta `nomeLogico → url` (es. `"facebook": "https://…"`) deserializzata direttamente con `EngineJson.Web`, senza passaggio i18n (gli URL non hanno lingua). È la galleria di icone esercitata dalla pagina demo Social via `GET /social` (filtro per nome, `case-insensitive`, in `SiteService.GetSocialAsync`). È demo: il `setup.mjs` la brucia (pagina + endpoint + `social.json` + store/SiteService) inizializzando un progetto figlio. Da non confondere con i social del brand, che stanno nell'identità (sotto).
 
-**Aggiungere un nuovo file di dati**:
+Aggiungere un nuovo file di dati:
 1. Crea il JSON in `data/` (es. `data/products.json`)
 2. Aggiungi il metodo a `IContentStore` e implementalo in `FileContentStore`
 3. Inietta `IContentStore` nel `Service` e delegagli la lettura
@@ -941,9 +931,9 @@ Task<UserResponseDto> GetUserAsync(string id);
 
 #### L'Identità del Sito (`IIdentityStore`, `GET /identity`, `data/identity.json`)
 
-L'**identità** (dati legali/anagrafici, profili social del brand, natura dell'entità) è un sottosistema dell'Engine, **offerto ai figli**: un progetto non scrive controller né service per servirla — l'Engine espone `GET /identity` e il figlio riempie soltanto `data/identity.json` (validato e auto-completato dallo schema dell'Engine `Engine/Models/Identity/identity.schema.json`, referenziato via `$schema`). La sorgente è il seam `IIdentityStore` (default file-based `FileIdentityStore`), sostituibile via DI per leggere da DB/API esterna (`AddTemplateIdentity` in `Program.cs`; vedi *Sostituire un servizio dell'Engine*). È la sorgente **unica** di footer, pagine legali e dati strutturati SEO (JSON-LD: `sameAs` dai social, `@type` da `personal`).
+L'identità (dati legali/anagrafici, profili social del brand, natura dell'entità) è un sottosistema dell'Engine, offerto ai figli: un progetto non scrive controller né service per servirla, l'Engine espone `GET /identity` e il figlio riempie soltanto `data/identity.json` (validato e auto-completato dallo schema dell'Engine `Engine/Models/Identity/identity.schema.json`, referenziato via `$schema`). La sorgente è il seam `IIdentityStore` (default file-based `FileIdentityStore`), sostituibile via DI per leggere da DB/API esterna (`AddTemplateIdentity` in `Program.cs`; vedi Sostituire un servizio dell'Engine). È la sorgente unica di footer, pagine legali e dati strutturati SEO (JSON-LD: `sameAs` dai social, `@type` da `personal`).
 
-**File assente o non valorizzato ⇒ `GET /identity` risponde `null`** (non un errore): footer, social e JSON-LD relativi si nascondono da soli lato frontend. Schema di `SiteIdentity` (tutti i campi opzionali; i campi testuali accettano stringa o blocco localizzato `{ "it": …, "en": … }`, risolto da `LocalizedJsonDeserializer`):
+File assente o non valorizzato: `GET /identity` risponde `null` (non un errore), footer, social e JSON-LD relativi si nascondono da soli lato frontend. Schema di `SiteIdentity` (tutti i campi opzionali; i campi testuali accettano stringa o blocco localizzato `{ "it": …, "en": … }`, risolto da `LocalizedJsonDeserializer`):
 
 ```csharp
 SiteIdentity {
@@ -1014,11 +1004,11 @@ Esempio `data/identity.json`:
 }
 ```
 
-> **Cosa diventa SEO (JSON-LD).** L'Engine costruisce l'entità brand (`Organization`/`Person`) con `sameAs` (dai social), `address` (`PostalAddress` dalla sede), `contactPoint` (`ContactPoint` con telefono/email, `hoursAvailable` dagli orari e `availableLanguage` dalle lingue del sito) e — solo per `Organization` — `legalName`/`vatID`/`taxID` da ragione sociale/P.IVA/CF. Gli orari sono una **lista di intervalli tipizzati** (`DayOfWeek` + `TimeOnly`): chi sviluppa dichiara `DayOfWeek.Tuesday`/`TimeOnly`, non stringhe né nozioni di schema.org; il frontend ne deriva sia la resa leggibile (fondendo i giorni con orari identici, es. "Lun–Ven") sia le `OpeningHoursSpecification` (dove `DayOfWeek` è già il nome `schema.org/Tuesday`). I social sono una **lista di URL** (stringa nuda, o `{ url, name }` con un'etichetta resa **solo nel footer**): l'icona e il `sameAs` usano l'URL, quindi più profili dello stesso social convivono. La **valuta** dei valori monetari è un fatto dichiarato (`currency`), non dedotto dal locale del visitatore: il frontend formatta gli importi con quella valuta nella lingua corrente. Per **qualsiasi proprietà schema.org non tipizzata** (es. `geo`, `foundingDate`, campi di `LocalBusiness`) c'è la via di fuga `extra`: viene fusa così com'è nel nodo entità brand, **senza toccare modello né adapter** — l'Engine non diventa mai un collo di bottiglia. Le proprietà strutturali dell'Engine vincono sulle collisioni; la **validità schema.org** di `extra` è a carico del progetto, ma la **sicurezza no**: l'Engine escapa l'output JSON-LD (`<`/`>`/`&` → `\uXXXX`), quindi anche un valore ostile in `extra` (o da un CMS/DB) non può rompere il `<script>` e iniettare markup.
+> Cosa diventa SEO (JSON-LD): l'Engine costruisce l'entità brand (`Organization`/`Person`) con `sameAs` (dai social), `address` (`PostalAddress` dalla sede), `contactPoint` (`ContactPoint` con telefono/email, `hoursAvailable` dagli orari e `availableLanguage` dalle lingue del sito) e, solo per `Organization`, `legalName`/`vatID`/`taxID` da ragione sociale/P.IVA/CF. Gli orari sono una lista di intervalli tipizzati (`DayOfWeek` + `TimeOnly`): chi sviluppa dichiara `DayOfWeek.Tuesday`/`TimeOnly`, non stringhe né nozioni di schema.org; il frontend ne deriva sia la resa leggibile (fondendo i giorni con orari identici, es. "Lun–Ven") sia le `OpeningHoursSpecification` (dove `DayOfWeek` è già il nome `schema.org/Tuesday`). I social sono una lista di URL (stringa nuda, o `{ url, name }` con un'etichetta resa solo nel footer): l'icona e il `sameAs` usano l'URL, quindi più profili dello stesso social convivono. La valuta dei valori monetari è un fatto dichiarato (`currency`), non dedotto dal locale del visitatore: il frontend formatta gli importi con quella valuta nella lingua corrente. Per qualsiasi proprietà schema.org non tipizzata (es. `geo`, `foundingDate`, campi di `LocalBusiness`) c'è la via di fuga `extra`: viene fusa così com'è nel nodo entità brand, senza toccare modello né adapter, l'Engine non diventa mai un collo di bottiglia. Le proprietà strutturali dell'Engine vincono sulle collisioni; la validità schema.org di `extra` è a carico del progetto, ma la sicurezza no: l'Engine escapa l'output JSON-LD (`<`/`>`/`&` → `\uXXXX`), quindi anche un valore ostile in `extra` (o da un CMS/DB) non può rompere il `<script>` e iniettare markup.
 
 > `MetadatiAggiuntivi` è `Dictionary<string, string>`: i valori sono stringhe semplici dopo la risoluzione della localizzazione. Non annidare oggetti complessi qui; usa `DatiSocietari` per dati strutturati.
 
-**Aggiungere un nuovo file di dati**:
+Aggiungere un nuovo file di dati:
 1. Crea il JSON in `data/` (es. `data/products.json`)
 2. Aggiungi il metodo a `IContentStore` e implementalo in `FileContentStore`
 3. Inietta `IContentStore` nel `Service` e delegagli la lettura
@@ -1028,22 +1018,22 @@ Esempio `data/identity.json`:
 Task<UserResponseDto> GetUserAsync(string id);
 ```
 
-> **`data/` è codice, e viene copiato in build automaticamente.** Il `backend.csproj` contiene
-> `<Content Update="data\**\*" CopyToOutputDirectory="PreserveNewest" />`: ogni file dentro `data/`
+> `data/` è codice, e viene copiato in build automaticamente: il `backend.csproj` contiene
+> `<Content Update="data\**\*" CopyToOutputDirectory="PreserveNewest" />`, ogni file dentro `data/`
 > (a qualunque profondità, `**`) viene copiato accanto alla DLL a ogni build e finisce nell'immagine
-> Docker. Un JSON nuovo in `data/` quindi **funziona subito** — `dotnet run`, `publish` e Docker —
-> **senza toccare il `.csproj`**. Al contrario, un file di dati piazzato *fuori* da `data/` (es. accanto
+> Docker. Un JSON nuovo in `data/` quindi funziona subito, con `dotnet run`, `publish` e Docker,
+> senza toccare il `.csproj`. Al contrario, un file di dati piazzato fuori da `data/` (es. accanto
 > al `.cs` che lo legge) "funziona con `dotnet run` ma sparisce dopo `publish`/Docker": non viene copiato
 > nell'output, e a runtime `FileContentStore` non lo trova → `NotFoundException` (404). Regola pratica:
-> **i contenuti stanno in `data/`, sempre.**
+> i contenuti stanno in `data/`, sempre.
 >
-> Specularmente, `uploads/` è **escluso dalla compilazione**: il `.csproj` rimuove `uploads\**\*` da
+> Specularmente, `uploads/` è escluso dalla compilazione: il `.csproj` rimuove `uploads\**\*` da
 > `Compile`, `Content` e `None`. È una cartella di dati runtime (file caricati dagli utenti, vedi
-> `BlobController`), non sorgente: un `.cs` finito lì per errore (o caricato da un utente) **non viene
-> mai compilato** nell'assembly. `data/` (asset di build, parte del codice) e `uploads/` (volume runtime,
+> `BlobController`), non sorgente: un `.cs` finito lì per errore (o caricato da un utente) non viene
+> mai compilato nell'assembly. `data/` (asset di build, parte del codice) e `uploads/` (volume runtime,
 > dati dell'utente) hanno ruoli opposti e il `.csproj` li tratta in modo opposto.
 
-> **Nota sulla lingua:** `FileIdentityStore` (e `SiteService`) ricavano la lingua da `CultureInfo.CurrentCulture`, impostato da `UseRequestLocalization` all'inizio della pipeline. Se leggi fuori da un contesto HTTP (es. job in background), la cultura usata è quella di default del processo.
+> Nota sulla lingua: `FileIdentityStore` (e `SiteService`) ricavano la lingua da `CultureInfo.CurrentCulture`, impostato da `UseRequestLocalization` all'inizio della pipeline. Se leggi fuori da un contesto HTTP (es. job in background), la cultura usata è quella di default del processo.
 
 ### Passo 3: La Business Logic (Services)
 Tutta la logica va qui. Inietta lo store, manipola i dati, lancia eccezioni personalizzate se necessario.
@@ -1087,9 +1077,9 @@ public class UsersController : EngineProtectedController
 
 ## 🔐 Sistema di Login e Sessioni JWT
 
-Il login è **opzionale**: si attiva valorizzando `Security.Token.SecretKey` (≥32 char) in `global-settings.local.json`. Se la chiave è vuota, i controller di autenticazione vengono rimossi fisicamente dalla memoria al boot.
+Il login è opzionale: si attiva valorizzando `Security.Token.SecretKey` (≥32 char) in `global-settings.local.json`. Se la chiave è vuota, i controller di autenticazione vengono rimossi fisicamente dalla memoria al boot.
 
-> `setup.mjs` lascia la `SecretKey` **vuota**: un figlio nasce col login spento. Attivarlo è una scelta esplicita — chiave ≥32 char nel `.local.json` e verifica propria al posto della demo (`admin`/`Password1!`) in `Services/AccountService.cs`.
+> `setup.mjs` lascia la `SecretKey` vuota: un figlio nasce col login spento. Attivarlo è una scelta esplicita: chiave ≥32 char nel `.local.json` e verifica propria al posto della demo (`admin`/`Password1!`) in `Services/AccountService.cs`.
 
 ### Architettura del Payload di Sessione
 
@@ -1125,13 +1115,15 @@ export interface SessionInfo {
 
 > Il JWT è leggibile dal client (Base64, non cifrato). Non mettere dati sensibili nel payload.
 
+> Se i due file divergono, il sintomo è silenzioso, non un errore: `User.GetSession<T>()` deserializza case-insensitive e non lancia se un campo manca, un campo aggiunto solo lato backend arriva `undefined` in TypeScript senza che nulla si accorga a compile-time né a runtime (il tipo `SessionInfo` lato frontend mente su cosa c'è davvero nel token). Non c'è un check automatico che li tenga allineati: se sospetti un disallineamento, decodifica il JWT (es. su jwt.io, o `atob()` sul payload) e confrontalo a mano con `session.dto.ts`.
+
 #### `SessionPayload` — Dettagli Implementativi
 
 `SessionPayload` (`Engine/Security/SessionPayload.cs`) è la colla tra il JWT e il payload tipizzato del progetto.
 
-**`SessionPayload.Claim<T>(T value)`** serializza il payload in JSON con `JsonSerializerDefaults.Web` (camelCase, invariant culture) e restituisce un `Claim` di tipo `"session"`. Il camelCase è load-bearing: è quello che il frontend TypeScript riceve.
+`SessionPayload.Claim<T>(T value)` serializza il payload in JSON con `JsonSerializerDefaults.Web` (camelCase, invariant culture) e restituisce un `Claim` di tipo `"session"`. Il camelCase è load-bearing: è quello che il frontend TypeScript riceve.
 
-**`User.GetSession<T>()`** è un extension method su `ClaimsPrincipal`. Trova il claim `"session"`, lo deserializza in `T` con le stesse opzioni Web (case-insensitive in lettura). **Restituisce `null` senza lanciare eccezioni se il claim manca o il JSON è malformato.** Controlla sempre il risultato:
+`User.GetSession<T>()` è un extension method su `ClaimsPrincipal`. Trova il claim `"session"`, lo deserializza in `T` con le stesse opzioni Web (case-insensitive in lettura). Restituisce `null` senza lanciare eccezioni se il claim manca o il JSON è malformato. Controlla sempre il risultato:
 
 ```csharp
 var session = User.GetSession<SessionInfo>();
@@ -1155,11 +1147,26 @@ var session = new SessionInfo
 return Ok(new LoginResult(true, Token: Auth.GenerateToken(new[] { SessionPayload.Claim(session) })));
 ```
 
-La verifica delle credenziali è logica di dominio del progetto e vive in **`Services/AccountService.cs`** — l'unico posto del progetto che conosce gli account degli utenti: `AuthController` le delega la verifica (e resta il punto HTTP: input, esito, emissione del token), `AppPersonalDataStore` le delega la cancellazione dell'account per il diritto all'oblio (*vedi §9*). Quando la sorgente cambia (Identity Provider, DB, file utenti) si riscrive l'interno di questa classe e nient'altro. Nella demo le credenziali (`admin`/`Password1!`) vivono hardcoded lì e il confronto è in tempo costante, come per le API key, con fail-closed in Production finché non vengono sostituite. È una classe concreta senza contratto engine-side, di proposito: le sue firme parlano `SessionInfo`, che l'Engine non conosce — i confini contrattuali restano `EngineAuthController` e `IPersonalDataStore`. (Da non confondere con l'*identità del sito*, `IIdentityStore`: quella sono i dati legali del brand, non gli utenti.) Il meccanismo di emissione del token (`Auth.GenerateToken`, `SessionPayload.Claim`) è invece fornito dall'Engine.
+La verifica delle credenziali è logica di dominio del progetto e vive in `Services/AccountService.cs`, l'unico posto del progetto che conosce gli account degli utenti: `AuthController` le delega la verifica (e resta il punto HTTP: input, esito, emissione del token), `AppPersonalDataStore` le delega la cancellazione dell'account per il diritto all'oblio (vedi §9). Quando la sorgente cambia (Identity Provider, DB, file utenti) si riscrive l'interno di questa classe e nient'altro. Nella demo le credenziali (`admin`/`Password1!`) vivono hardcoded lì e il confronto è in tempo costante, come per le API key, con fail-closed in Production finché non vengono sostituite. È una classe concreta senza contratto engine-side, di proposito: le sue firme parlano `SessionInfo`, che l'Engine non conosce, i confini contrattuali restano `EngineAuthController` e `IPersonalDataStore`. (Da non confondere con l'identità del sito, `IIdentityStore`: quella sono i dati legali del brand, non gli utenti.) Il meccanismo di emissione del token (`Auth.GenerateToken`, `SessionPayload.Claim`) è invece fornito dall'Engine.
+
+Le due firme da rispettare (le stesse della demo, solo il corpo cambia):
+```csharp
+// Services/AccountService.cs — sostituisci solo l'interno, firme e nome classe invariati
+public Task<SessionInfo?> ValidateCredentialsAsync(string? username, string? pwd, CancellationToken ct = default)
+{
+    // null se le credenziali non corrispondono; altrimenti il payload di sessione da firmare nel JWT.
+    // Es.: query al tuo DB/IdP, poi new SessionInfo { UserId = utente.Id, Roles = utente.Ruoli, ... }.
+}
+
+public Task DeleteAccountAsync(SessionInfo session, CancellationToken ct = default)
+{
+    // Diritto all'oblio: rimuovi/anonimizza l'account identificato da session.UserId.
+}
+```
 
 #### `AuthService` — Claim Impliciti in Ogni Token
 
-`AuthService.GenerateToken` include automaticamente due claim in **ogni** token emesso, indipendentemente da quelli passati dal controller:
+`AuthService.GenerateToken` include automaticamente due claim in ogni token emesso, indipendentemente da quelli passati dal controller:
 
 | Claim | Valore | Perché |
 | :--- | :--- | :--- |
@@ -1168,13 +1175,13 @@ La verifica delle credenziali è logica di dominio del progetto e vive in **`Ser
 
 Il token è firmato con HMAC-SHA256. La scadenza assoluta è `Security.Token.ExpirationSeconds`. Il middleware JWT Bearer ha `ClockSkew = TimeSpan.Zero`: un token scaduto è immediatamente rifiutato, senza margine di grazia.
 
-`AuthService` è registrato come **singleton** (DI); viene registrato solo se `LoginEnabled` è `true`.
+`AuthService` è registrato come singleton (DI); viene registrato solo se `LoginEnabled` è `true`.
 
-> **In test di integrazione:** per raggiungere un endpoint `EngineProtectedController`, il token fake deve includere il ruolo `"Authenticated"` oltre alla firma corretta. Senza quel ruolo la risposta sarà 403, non 401.
+> In test di integrazione: per raggiungere un endpoint `EngineProtectedController`, il token fake deve includere il ruolo `"Authenticated"` oltre alla firma corretta. Senza quel ruolo la risposta sarà 403, non 401.
 
 #### Ruoli: payload di sessione e `ClaimTypes.Role`
 
-Nel token convivono **due nozioni di "ruolo"**, ed è utile tenerle distinte:
+Nel token convivono due nozioni di "ruolo", ed è utile tenerle distinte:
 
 - **`SessionInfo.Roles`** (es. `["admin"]`) vive nel blob JSON del claim `"session"`: sono i ruoli **di
   dominio**, che rileggi con `User.GetSession<SessionInfo>()`. Da soli sarebbero invisibili al motore di
@@ -1183,9 +1190,9 @@ Nel token convivono **due nozioni di "ruolo"**, ed è utile tenerle distinte:
   `AuthService.GenerateToken` emette sempre `"Authenticated"` (l'interruttore loggato/non-loggato della
   policy `RequireLogin` che protegge `EngineProtectedController`).
 
-Il template **collega le due cose**: `AuthController.Login` emette un `ClaimTypes.Role` per ogni voce di
-`session.Roles` accanto al payload. Quindi nel progetto **`[Authorize(Roles = "admin")]` funziona
-nativamente** — la demo logga `admin` come ruolo reale, non solo come dato di sessione.
+Il template collega le due cose: `AuthController.Login` emette un `ClaimTypes.Role` per ogni voce di
+`session.Roles` accanto al payload. Quindi nel progetto `[Authorize(Roles = "admin")]` funziona
+nativamente: la demo logga `admin` come ruolo reale, non solo come dato di sessione.
 
 ```csharp
 // AuthController.Login — i ruoli di dominio diventano claim che le policy native riconoscono
@@ -1211,24 +1218,24 @@ Ricetta rapida: [AGENTS.md](../AGENTS.md#leggere-la-sessione).
 
 ### Logout
 
-Il JWT è stateless: il logout sul client (rimozione del token) non invalida il token sul backend, che resta tecnicamente valido fino alla scadenza (`exp`). Vale anche per la cancellazione dell'account (*§9*): un token già emesso sopravvive alla `DELETE` fino a `exp`. La finestra di esposizione è al massimo `Security.Token.ExpirationSeconds` — abbassarlo è la prima mitigazione. Se il progetto richiede la revoca immediata, il seam c'è già senza infrastruttura esterna: ogni token porta il claim `loginTime`, basta salvare accanto all'account un "nessun token emesso prima di X" e confrontarlo a richiesta. Una denylist server-side (cache condivisa dei token revocati) è l'alternativa classica, sproporzionata per un processo singolo.
+Il JWT è stateless: il logout sul client (rimozione del token) non invalida il token sul backend, che resta tecnicamente valido fino alla scadenza (`exp`). Vale anche per la cancellazione dell'account (§9): un token già emesso sopravvive alla `DELETE` fino a `exp`. La finestra di esposizione è al massimo `Security.Token.ExpirationSeconds`, abbassarlo è la prima mitigazione. Se il progetto richiede la revoca immediata, il seam c'è già senza infrastruttura esterna: ogni token porta il claim `loginTime`, basta salvare accanto all'account un "nessun token emesso prima di X" e confrontarlo a richiesta. Una denylist server-side (cache condivisa dei token revocati) è l'alternativa classica, sproporzionata per un processo singolo.
 
 ---
 
 ## 📦 Strumenti HTTP di Fabbrica
 
-> I **controller dimostrativi** del template (galleria social, login demo, ping protetto) non sono
-> documentati qui: il catalogo vive nella **vetrina della demo** del [README root](../README.md).
-> Sono segnaposto: al `setup` scegli tra **riusarli** (rispondi `N`) — li tieni e ne cambi il
+> I controller dimostrativi del template (galleria social, login demo, ping protetto) non sono
+> documentati qui: il catalogo vive nella vetrina della demo del [README root](../README.md).
+> Sono segnaposto: al `setup` scegli tra riusarli (rispondi `N`), li tieni e ne cambi il
 > contenuto (i dati in `data/*.json`, la verifica delle credenziali, i filtri di dominio) o ne lasci
-> non valorizzate le parti che non esponi — o l'**eject** (rispondi `s`), che li rimuove lasciando un
-> `BaseController` vuoto. L'**identità** (`GET /identity`) non è demo: è dell'Engine e sopravvive
-> sempre — il figlio riempie solo `data/identity.json`. In entrambi i casi aggiungi accanto i
+> non valorizzate le parti che non esponi, oppure l'eject (rispondi `s`), che li rimuove lasciando un
+> `BaseController` vuoto. L'identità (`GET /identity`) non è demo: è dell'Engine e sopravvive
+> sempre, il figlio riempie solo `data/identity.json`. In entrambi i casi aggiungi accanto i
 > controller del tuo dominio. Qui sotto restano gli strumenti che il template fornisce di default.
 
 #### `BlobStore` — lo storage dei file caricati
 
-`BlobStore` (`Store/BlobStore.cs`, accanto a `FileContentStore`) è un `File`/`Directory` **in stile nostro sistema**: una utility concreta che possiede la cartella `uploads/` e centralizza in un punto solo **tutte** le casistiche del ciclo di vita di un file caricato, con le policy già cablate dentro (slug immutabile, guardia path-traversal, deduzione del content-type). Il codice di dominio che riceve file in altri form la usa direttamente — `_blobs.SaveAsync(...)` — invece di reimplementare slug e sicurezza.
+`BlobStore` (`Store/BlobStore.cs`, accanto a `FileContentStore`) è un `File`/`Directory` in stile nostro sistema: una utility concreta che possiede la cartella `uploads/` e centralizza in un punto solo tutte le casistiche del ciclo di vita di un file caricato, con le policy già cablate dentro (slug immutabile, guardia path-traversal, deduzione del content-type). Il codice di dominio che riceve file in altri form la usa direttamente, `_blobs.SaveAsync(...)`, invece di reimplementare slug e sicurezza.
 
 | Metodo | Analogo `System.IO` | Cosa fa in più |
 |---|---|---|
@@ -1238,41 +1245,46 @@ Il JWT è stateless: il logout sul client (rimozione del token) non invalida il 
 | `Exists(slug)` / `Delete(slug)` | `File.Exists` / `File.Delete` | passano sempre dalla guardia path-traversal |
 | `TryResolve(slug, out path)` | `Path.GetFullPath` | rifiuta gli slug che escono da `uploads/` |
 
-**È un file di progetto che possiedi.** Come `AuthController`/`BlobController`, lo apri e lo modifichi: per aggiungere validazioni MIME, quote o antivirus tocchi `SaveAsync`, oppure — se preferisci non editare il default — ne ridefinisci un metodo `virtual` in una sottoclasse e registri quella. Non ci sono "implementazioni" separate da piazzare: ce n'è **una**, ed è tua. È registrato come singleton in DI solo per ricevere la content root (`AddSingleton<BlobStore>()`).
+È un file di progetto che possiedi: come `AuthController`/`BlobController`, lo apri e lo modifichi. Per aggiungere validazioni MIME, quote o antivirus tocchi `SaveAsync`, oppure, se preferisci non editare il default, ne ridefinisci un metodo `virtual` in una sottoclasse e registri quella. Non ci sono "implementazioni" separate da piazzare: ce n'è una, ed è tua. È registrato come singleton in DI solo per ricevere la content root (`AddSingleton<BlobStore>()`).
 
-> **Perché una classe concreta e non un'interfaccia.** A differenza di `IContentStore` (che ha una traiettoria reale verso il DB e una forma specifica del progetto), lo storage dei file è I/O generico con un'unica implementazione plausibile: per un'app su filesystem l'interfaccia sarebbe cerimonia (YAGNI). I metodi sono `virtual` e la classe non è `sealed`, quindi override per i test e per i comportamenti custom restano possibili — il vantaggio *esclusivo* di un'interfaccia (iniettare un backend completamente diverso, es. S3) si recupera con un *extract interface* di due minuti il giorno in cui servirà davvero.
+> Perché una classe concreta e non un'interfaccia: a differenza di `IContentStore` (che ha una traiettoria reale verso il DB e una forma specifica del progetto), lo storage dei file è I/O generico con un'unica implementazione plausibile, per un'app su filesystem l'interfaccia sarebbe cerimonia (YAGNI). I metodi sono `virtual` e la classe non è `sealed`, quindi override per i test e per i comportamenti custom restano possibili: il vantaggio esclusivo di un'interfaccia (iniettare un backend completamente diverso, es. S3) si recupera con un extract interface di due minuti il giorno in cui servirà davvero.
 
-> **Perché separato da `IContentStore` e non fuso dentro.** Sono responsabilità diverse (ISP): i contenuti sono read-only, localizzati, in cache, parte del codice e deployati con l'immagine — con traiettoria di swap verso un **DB**; i blob sono binari mutevoli in un **volume runtime** (`uploads/`), con traiettoria verso un **object storage** (S3). Fonderli costringerebbe chi migra i contenuti su DB a reimplementare anche lo storage dei file nella stessa classe. Stessa cartella (`Store/`) e stesso stile per coerenza, contratti separati per coesione.
+> Perché separato da `IContentStore` e non fuso dentro: sono responsabilità diverse (ISP). I contenuti sono read-only, localizzati, in cache, parte del codice e deployati con l'immagine, con traiettoria di swap verso un DB; i blob sono binari mutevoli in un volume runtime (`uploads/`), con traiettoria verso un object storage (S3). Fonderli costringerebbe chi migra i contenuti su DB a reimplementare anche lo storage dei file nella stessa classe. Stessa cartella (`Store/`) e stesso stile per coerenza, contratti separati per coesione.
 
 #### `BlobController` — Upload e Download File
 
-Espone download e upload dei file gestiti da `BlobStore` (vedi sopra). È un **thin controller**: tutto lo storage vive nello store; qui resta solo il wiring HTTP (resize on-demand, difesa XSS, cache). Eredita da `EngineBlobController` per il solo helper di resize immagini.
+Espone download e upload dei file gestiti da `BlobStore` (vedi sopra). È un thin controller: tutto lo storage vive nello store; qui resta solo il wiring HTTP (resize on-demand, difesa XSS, cache). Eredita da `EngineBlobController` per il solo helper di resize immagini.
 
-> **`EngineBlobController` come base riusabile.** Un controller figlio che serve altri binari (PDF firmati, export) eredita da `EngineBlobController` per riusarne l'helper `protected static ResizeImageForWeb` senza riscrivere il resize. La generazione slug e il riconoscimento immagine non sono più qui: sono responsabilità di `BlobStore`.
+> `EngineBlobController` come base riusabile: un controller figlio che serve altri binari (PDF firmati, export) eredita da `EngineBlobController` per riusarne l'helper `protected static ResizeImageForWeb` senza riscrivere il resize. La generazione slug e il riconoscimento immagine non sono più qui: sono responsabilità di `BlobStore`.
 
-**`GET /blob/{slug}[?webopt=true]`** — richiede API key, nessuna autenticazione utente. `webopt=true` richiede la versione ottimizzata per il web del file: oggi l'ottimizzazione implementata è il resize delle immagini (lato più lungo max 1920 px → WebP), mentre i tipi non ancora gestiti vengono restituiti invariati. È il punto di aggancio per estendere l'ottimizzazione lato API ad altri tipi di contenuto in futuro.
+`GET /blob/{slug}[?webopt=true]` richiede API key, nessuna autenticazione utente. `webopt=true` richiede la versione ottimizzata per il web del file: oggi l'ottimizzazione implementata è il resize delle immagini (lato più lungo max 1920 px → WebP), mentre i tipi non ancora gestiti vengono restituiti invariati. È il punto di aggancio per estendere l'ottimizzazione lato API ad altri tipi di contenuto in futuro.
 
-**Cache HTTP:** lo slug è **immutabile** (ogni upload conia un nuovo GUID, mai sovrascritto), quindi la risposta è cacheabile a lungo: `Cache-Control: public, max-age=31536000, immutable`. In più viene emesso un **ETag** (da `mtime`+`size`+variante `r`/`w`, dove `w` è l'originale ottimizzato): se il client rimanda `If-None-Match` la GET risponde **304** *senza riaprire né ridecodificare nulla*, evitando il resize SkiaSharp sui re-hit. L'ETag è anche la cintura di sicurezza per cache condivise e per eventuali evoluzioni — se un domani si introducesse l'overwrite dello *stesso* slug, andrebbe rimosso `immutable` (il browser non rivalida durante `max-age`).
+Cache HTTP: lo slug è immutabile (ogni upload conia un nuovo GUID, mai sovrascritto), quindi la risposta è cacheabile a lungo: `Cache-Control: public, max-age=31536000, immutable`. In più viene emesso un ETag (da `mtime`+`size`+variante `r`/`w`, dove `w` è l'originale ottimizzato): se il client rimanda `If-None-Match` la GET risponde 304 senza riaprire né ridecodificare nulla, evitando il resize SkiaSharp sui re-hit. L'ETag è anche la cintura di sicurezza per cache condivise e per eventuali evoluzioni: se un domani si introducesse l'overwrite dello stesso slug, andrebbe rimosso `immutable` (il browser non rivalida durante `max-age`).
 
-**Difesa XSS (Stored):** il controller serve inline solo le immagini raster note (`BlobStore` le marca via `BlobInfo.IsImage`). Tutti gli altri formati — inclusi file HTML, SVG o XML caricati dagli utenti — sono forzati al download (`Content-Disposition: attachment`) con Content-Type `application/octet-stream`. Questo previene l'esecuzione di script malevoli sull'origin dell'API; `nosniff` resta attivo dagli header di sicurezza. Per recuperarli lato client, usare TypeScript/`fetch` per leggere i dati grezzi.
+Difesa XSS (Stored): il controller serve inline solo le immagini raster note (`BlobStore` le marca via `BlobInfo.IsImage`). Tutti gli altri formati, inclusi file HTML, SVG o XML caricati dagli utenti, sono forzati al download (`Content-Disposition: attachment`) con Content-Type `application/octet-stream`. Questo previene l'esecuzione di script malevoli sull'origin dell'API; `nosniff` resta attivo dagli header di sicurezza. Per recuperarli lato client, usare TypeScript/`fetch` per leggere i dati grezzi.
 
-**`POST /blob/up`** — richiede API key **e** token JWT valido (`[Authorize(Policy = RequireLogin)]`). Riceve un `IFormFile`, delega a `BlobStore.SaveAsync` e restituisce lo slug univoco: `{ "slug": "abc123.jpg" }`. Limite di dimensione `10 MB` (`[RequestSizeLimit]`, sovrascrivibile nel controller figlio).
+`POST /blob/up` richiede API key e token JWT valido (`[Authorize(Policy = RequireLogin)]`). Riceve un `IFormFile`, delega a `BlobStore.SaveAsync` e restituisce lo slug univoco: `{ "slug": "abc123.jpg" }`. Limite di dimensione `10 MB` (`[RequestSizeLimit]`): l'azione `Upload` vive per intero in `Controllers/BlobController.cs` (Dominio, non nell'Engine), quindi "sovrascrivere il limite" non è un'ereditarietà da comporre, è cambiare il numero nell'attributo, direttamente lì:
+```csharp
+// Controllers/BlobController.cs
+[RequestSizeLimit(50 * 1024 * 1024)] // 50 MB, invece dei 10 MB di default
+public async Task<IActionResult> Upload(IFormFile file, CancellationToken ct) { /* invariato */ }
+```
 
-**Slug:** identificativo univoco del file **inclusa l'estensione** (es. `abc123.jpg`), assegnato dallo store al momento dell'upload (`{GUID}.{ext}`). L'estensione è necessaria alla GET per determinare il content-type; il GUID rende lo slug immutabile (→ la cache di cui sopra).
+Slug: identificativo univoco del file inclusa l'estensione (es. `abc123.jpg`), assegnato dallo store al momento dell'upload (`{GUID}.{ext}`). L'estensione è necessaria alla GET per determinare il content-type; il GUID rende lo slug immutabile (→ la cache di cui sopra).
 
-**Percorso fisico:** `{ContentRootPath}/uploads/{slug}`. In Docker (`cwd=/app`) diventa `/app/uploads`. In dev locale è `backend/uploads/`. La directory viene **creata automaticamente** al primo `SaveAsync` (`Directory.CreateDirectory`), quindi non serve predisporla a mano.
+Percorso fisico: `{ContentRootPath}/uploads/{slug}`. In Docker (`cwd=/app`) diventa `/app/uploads`. In dev locale è `backend/uploads/`. La directory viene creata automaticamente al primo `SaveAsync` (`Directory.CreateDirectory`), quindi non serve predisporla a mano.
 
-**Protezione path traversal:** è dentro `BlobStore.TryResolve` — risolve il percorso assoluto con `Path.GetFullPath` e verifica che resti sotto la cartella upload (con trailing separator). Uno slug tipo `../../etc/passwd` non risolve: `GetInfo` torna `null` → 404, senza esporre il filesystem.
+Protezione path traversal: è dentro `BlobStore.TryResolve`, risolve il percorso assoluto con `Path.GetFullPath` e verifica che resti sotto la cartella upload (con trailing separator). Uno slug tipo `../../etc/passwd` non risolve: `GetInfo` torna `null` → 404, senza esporre il filesystem.
 
-**Range requests:** il file è servito con `enableRangeProcessing: true` — supporta l'header HTTP `Range` per lo streaming di video/audio e i download riprendibili.
+Range requests: il file è servito con `enableRangeProcessing: true`, supporta l'header HTTP `Range` per lo streaming di video/audio e i download riprendibili.
 
-**Content-Type:** dedotto dallo store dall'estensione del file (`FileExtensionContentTypeProvider`). Se l'estensione non è riconosciuta, viene usato `application/octet-stream`.
+Content-Type: dedotto dallo store dall'estensione del file (`FileExtensionContentTypeProvider`). Se l'estensione non è riconosciuta, viene usato `application/octet-stream`.
 
-> **Nota:** l'upload (`POST /blob/up`) richiede un token JWT valido (utente autenticato). Per validazioni di dominio (tipi MIME consentiti, antivirus, quote) estendi il controller nel progetto figlio o avvolgi `BlobStore.SaveAsync`. In un progetto **senza login** (`SecretKey` vuota) l'upload è impossibile per design: il blob store resta in sola lettura e la `GET` serve i file già presenti nel volume.
+> Nota: l'upload (`POST /blob/up`) richiede un token JWT valido (utente autenticato). Per validazioni di dominio (tipi MIME consentiti, antivirus, quote) estendi il controller nel progetto figlio o avvolgi `BlobStore.SaveAsync`. In un progetto senza login (`SecretKey` vuota) l'upload è impossibile per design: il blob store resta in sola lettura e la `GET` serve i file già presenti nel volume.
 
 #### Health Check (`GET /health`)
 
-L'endpoint `/health` è registrato con `.AllowAnonymous()`: bypassa sia la verifica API key che il JWT. È pensato per Docker health checks e probe dei load balancer — nessun client esterno deve poter raggiungere il backend direttamente nella configurazione standard.
+L'endpoint `/health` è registrato con `.AllowAnonymous()`: bypassa sia la verifica API key che il JWT. È pensato per Docker health checks e probe dei load balancer: nessun client esterno deve poter raggiungere il backend direttamente nella configurazione standard.
 
 **Risposta di default** (nessun check custom configurato):
 ```
@@ -1293,7 +1305,7 @@ builder.Services.AddHealthChecks()
 HEALTHCHECK --interval=30s --timeout=5s CMD curl -f http://localhost:80/health || exit 1
 ```
 
-> **`UseStatusCodePages`:** registrato dopo `UseExceptionHandler`. Intercetta risposte 4xx/5xx senza body e aggiunge un testo minimo. In pratica quasi mai visibile perché `AddProblemDetails` popola già il body — ma ricordati di lanciare eccezioni (`throw new NotFoundException()`) invece di `return StatusCode(404)` per garantire il formato ProblemDetails anche negli edge case.
+> `UseStatusCodePages` è registrato dopo `UseExceptionHandler`. Intercetta risposte 4xx/5xx senza body e aggiunge un testo minimo. In pratica quasi mai visibile perché `AddProblemDetails` popola già il body, ma ricordati di lanciare eccezioni (`throw new NotFoundException()`) invece di `return StatusCode(404)` per garantire il formato ProblemDetails anche negli edge case.
 
 ---
 
@@ -1307,21 +1319,21 @@ L'applicazione esporrà di default un health-check su `/health` (anonimo, rispon
 
 `dotnet run` parte dalla cartella `backend/`. Tre cose da sapere alla prima esecuzione:
 
-- **Porta.** Il profilo dev (`Properties/launchSettings.json`) serve su **`http://localhost:5000`**. È
+- **Porta.** Il profilo dev (`Properties/launchSettings.json`) serve su `http://localhost:5000`. È
   HTTP, interno: il TLS lo termina il reverse proxy in produzione, in locale non serve.
 - **La trappola del 401 senza `.local`.** Ogni controller esige `X-Api-Key`, e le chiavi arrivano da
-  `global-settings.local.json` (i segreti, fuori da git). Se quel file **manca o non ha
-  `Security.ApiKeys`**, l'array è vuoto e **ogni richiesta torna 401** — il backend è partito
+  `global-settings.local.json` (i segreti, fuori da git). Se quel file manca o non ha
+  `Security.ApiKeys`, l'array è vuoto e ogni richiesta torna 401: il backend è partito
   correttamente, ma rifiuta tutto. Verifica il `/health` (anonimo, bypassa la API key) per confermare
   che il processo è su, poi copia `global-settings.local.example.json` in `global-settings.local.json`
   e valorizza `Security.ApiKeys` prima di chiamare gli altri endpoint. (Dettaglio del layering in
-  *Sorgenti di Configurazione*.)
+  Sorgenti di Configurazione.)
 - **Resize immagini in Docker Linux.** Il `backend.csproj` referenzia
   `SkiaSharp.NativeAssets.Linux.NoDependencies`: è il binario nativo che permette a `EngineBlobController`
   di ridimensionare le immagini (`GET /blob/{slug}?webopt=true`) sotto Linux. In locale su
-  Windows/macOS non incide; **rimuoverlo rompe `?webopt=true` solo in produzione** (il container Linux),
+  Windows/macOS non incide; rimuoverlo rompe `?webopt=true` solo in produzione (il container Linux),
   in modo silenzioso fino alla prima richiesta di immagine ottimizzata. Lascialo nel `.csproj`.
 
-> In più: se valorizzi `Security.Token.SecretKey` per attivare il login, dev'essere **≥ 32 byte** o il
+> In più: se valorizzi `Security.Token.SecretKey` per attivare il login, dev'essere ≥ 32 byte o il
 > boot va in crash con `InvalidOperationException` (vedi `SecurityOptions`). Lasciata vuota, il login
 > resta spento e i controller di auth non vengono nemmeno mappati.

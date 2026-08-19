@@ -130,17 +130,23 @@ const _normLang = (tag: unknown): string | null => {
 };
 
 // Lingue di build dai codici dichiarati in global-settings.json (Localization): le leggono i
-// consumatori sincroni a module-load (pagina cookie multilingua, fallback di pickLocaleText, shell
+// consumatori sincroni a module-load (routing per-lingua, fallback di pickLocaleText, shell
 // statica). Gli stessi codici alimentano la cultura runtime derivata via Intl (LocalizationService);
 // l'SSR riscrive comunque lang/meta per richiesta.
 const _defaultRaw   = _fileLoc.DefaultLanguage;
 const _supportedRaw = _fileLoc.SupportedLanguages;
 
-const DEFAULT_LANG    = _normLang(_defaultRaw) ?? 'it';
-const AVAILABLE_LANGS = (_supportedRaw ?? [DEFAULT_LANG])
+const DEFAULT_LANG = _normLang(_defaultRaw) ?? 'it';
+// `?? [DEFAULT_LANG]` da solo copre solo null/undefined: uno `SupportedLanguages: []` esplicito (mai
+// validato a runtime, lo schema JSON lo vieta solo sulla carta) lo attraverserebbe intatto, producendo
+// AVAILABLE_LANGS=[] → routing.ts/siteBuilder.ts costruiscono zero rotte/sitemap dal build in poi,
+// senza errore. Stesso guard di scripts/test/i18n-check.sh: fallback su array vuoto O dopo la
+// normalizzazione (tag tutti malformati filtrati via) se il risultato resta vuoto.
+const _normalizedSupported = (_supportedRaw && _supportedRaw.length > 0 ? _supportedRaw : [DEFAULT_LANG])
     .map(_normLang)
     .filter((l): l is string => l !== null)
     .filter((v, i, a) => a.indexOf(v) === i); // deduplication
+const AVAILABLE_LANGS = _normalizedSupported.length > 0 ? _normalizedSupported : [DEFAULT_LANG];
 
 // description: mappa per-lingua { it, en, ... } (accetta anche una stringa singola,
 // normalizzata sulla lingua default). environment.ts riceve la mappa; i file statici

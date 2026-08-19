@@ -4,7 +4,7 @@ Zero teoria: i comandi per avere un progetto in piedi. Per il *perché* delle co
 
 ## 1. Nasci dal template
 
-Il tuo progetto vive in un **repo tuo**: il template entra come secondo remote e resta la sorgente da cui, con un `merge`, tirerai gli aggiornamenti dell'Engine. Non cloni il template come punto di partenza — lo *innesti* nel tuo repo, una volta sola.
+Il tuo progetto vive in un repo tuo: il template entra come secondo remote e resta la sorgente da cui, con un `merge`, tirerai gli aggiornamenti dell'Engine. Non cloni il template come punto di partenza, lo innesti nel tuo repo, una volta sola.
 
 ```bash
 # dentro il tuo repo (anche appena inizializzato)
@@ -13,14 +13,14 @@ git fetch template
 git merge template/main --allow-unrelated-histories   # solo alla nascita
 ```
 
-Aggiornare l'Engine in futuro — niente `--allow-unrelated-histories`, ormai la storia è collegata:
+Per aggiornare l'Engine in futuro, niente `--allow-unrelated-histories`: ormai la storia è collegata.
 
 ```bash
 git fetch template
 git merge template/main
 ```
 
-Regole d'oro sui conflitti (dettaglio in [README.md](README.md#-template-vivo-nascita-e-aggiornamento-dei-progetti-figli)): sui path **Engine e scaffold** vince il template, sul **dominio** vince il tuo progetto.
+Regole d'oro sui conflitti (dettaglio in [README.md](README.md#-template-vivo-nascita-e-aggiornamento-dei-progetti-figli)): sui path Engine e scaffold vince il template, sul dominio vince il tuo progetto.
 
 ## 2. Battezza il progetto
 
@@ -28,7 +28,7 @@ Regole d'oro sui conflitti (dettaglio in [README.md](README.md#-template-vivo-na
 node setup.mjs "Nome Progetto"
 ```
 
-Risponde `[s/N]`: `N` tiene la demo (comoda per esplorare), `s` parte puliti (*eject*). Se non sai cosa scegliere, `N`.
+Risponde `[s/N]`: `N` tiene la demo (comoda per esplorare), `s` parte puliti (eject). Se non sai cosa scegliere, `N`.
 
 ## 3. Modifica questi 4 file
 
@@ -36,7 +36,7 @@ Risponde `[s/N]`: `N` tiene la demo (comoda per esplorare), `s` parte puliti (*e
 | :--- | :--- |
 | `global-settings.json` | Nome, lingue, colore tema |
 | `global-settings.local.json` | Porte e segreti (già generato da `setup.mjs`); valorizza `Security.Token.SecretKey` (≥32 char) solo se vuoi accendere il login |
-| `frontend/src/app/site.ts` | Le tue pagine, il menu, le rotte |
+| `frontend/src/app/pages/*.pages.ts` + `site.ts` | Le tue pagine (path, titolo, componente) nei file di area; menu e slot globali in `site.ts` |
 | `backend/data/identity.json` | Dati legali e social del sito (servito su `GET /identity`) |
 
 ## 4. Su
@@ -45,9 +45,9 @@ Risponde `[s/N]`: `N` tiene la demo (comoda per esplorare), `s` parte puliti (*e
 ./scripts/deploy.sh
 ```
 
-*(valida la configurazione e fa lui `docker compose up` con gli health check — se preferisci farlo a mano, `docker compose up --build -d` funziona uguale una volta che `global-settings.local.json` esiste.)*
+Valida la configurazione e fa lui `docker compose up` con gli health check. Se preferisci farlo a mano, `docker compose up --build -d` funziona uguale una volta che `global-settings.local.json` esiste.
 
-> **In produzione**, invece di buildare sulla VPS, il modello consigliato è la release artifact-based: la CI builda le immagini e la VPS le scarica. Vedi **[RELEASE.md](RELEASE.md)**. `./scripts/deploy.sh` qui sopra resta perfetto per provare in locale.
+> In produzione, invece di buildare sulla VPS, il modello consigliato è la release artifact-based: la CI builda le immagini e la VPS le scarica. Vedi [RELEASE.md](RELEASE.md). `./scripts/deploy.sh` qui sopra resta perfetto per provare in locale.
 
 ## Fatto
 

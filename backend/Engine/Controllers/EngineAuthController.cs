@@ -14,7 +14,7 @@ namespace Backend.Controllers;
 /// </remarks>
 public abstract class EngineAuthController : EngineApiController
 {
-    /// <summary>Servizio JWT dell'engine per generazione e validazione token.</summary>
+    /// <summary>Servizio JWT dell'engine per la generazione del token; la validazione è delegata al middleware JWT Bearer.</summary>
     protected readonly AuthService Auth;
 
     /// <inheritdoc cref="EngineAuthController"/>

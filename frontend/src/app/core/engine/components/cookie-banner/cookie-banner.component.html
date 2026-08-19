@@ -44,13 +44,22 @@
     <button class="cookie-reopen-btn surface-elevated fab rounded-circle d-flex align-items-center justify-content-center fs-5" type="button"
             (click)="reopen()"
             [attr.aria-label]="'impostazioniCookie' | translate">
-        <i class="fa-solid fa-cookie-bite"></i>
+        <i class="fa-solid fa-cookie-bite" aria-hidden="true"></i>
     </button>
 }
 }
 
 <!-- Toggle per categoria — condivisi da banner e pannello. -->
 <ng-template #categoryToggles>
+    <!-- Conferma visibile del Global Privacy Control onorato — richiesta dalle normative USA
+         (CA/CO/CT) che lo riconoscono come Universal Opt-Out Mechanism: non basta rispettarlo,
+         va anche mostrato che è stato rispettato. Solo se c'è almeno una categoria non tecnica
+         su cui il segnale può aver inciso. -->
+    @if (cookieConsent.gpcSignaled && hasDetailedCategories()) {
+        <p class="small text-success mb-0" role="status">
+            <i class="fa-solid fa-shield-halved me-1" aria-hidden="true"></i>{{ 'gpcRilevatoBannerCookie' | translate }}
+        </p>
+    }
     @if (cookieConsent.isTechnicalNeeded()) {
         <hr class="mt-0 mb-0">
         <div class="d-flex align-items-center gap-3">
@@ -117,7 +126,7 @@
 </ng-template>
 
 <!-- Azioni — condivise da banner e pannello, sempre tutte e tre: qui il consenso copre anche i
-     tecnici (rifiutarli spegne SW e cookie lingua), quindi Rifiuta/Accetta restano anche quando
+     tecnici (rifiutarli spegne il SW), quindi Rifiuta/Accetta restano anche quando
      la tecnica è l'unica categoria — con una sola categoria l'etichetta perde il "tutto".
      Rifiuta e Accetta condividono LO STESSO stile (outline-secondary): pari peso visivo richiesto
      da EDPB/Garante — un "Accetta" pieno/verde contro un "Rifiuta" in outline nudgerebbe l'utente

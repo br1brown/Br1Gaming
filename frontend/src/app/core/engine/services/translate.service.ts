@@ -1,8 +1,7 @@
 
-import { inject, Injectable, isDevMode, REQUEST, signal, effect, DOCUMENT } from '@angular/core';
+import { inject, Injectable, isDevMode, REQUEST, signal, DOCUMENT } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { CookieConsentService } from './cookie-consent.service';
 import { InjectionToken, makeStateKey } from '@angular/core';
 
 export interface LocaleConfig {
@@ -30,7 +29,7 @@ type TranslationDictionary = Record<string, string>;
  * TRANSLATE SERVICE
  *
  * Gestisce lingue, caricamento JSON e formattazione stringhe.
- * È anche il punto canonico per le utility BCP-47 (normalizeBcp47, isValidBcp47).
+ * È anche il punto canonico per le utility BCP-47 (normalizeBcp47).
  *
  * Per aggiungere una lingua:
  *   1. Aggiungere il codice a Localization.SupportedLanguages in global-settings.json
@@ -44,29 +43,24 @@ type TranslationDictionary = Record<string, string>;
 export class TranslateService {
     private readonly localeConfig = inject(LOCALE_CONFIG);
     private readonly document = inject(DOCUMENT);
-    private readonly consent = inject(CookieConsentService);
     private readonly http = inject(HttpClient);
     private readonly request = inject(REQUEST, { optional: true });
 
-    private hasInitializedLanguage = false;
-
     readonly currentLang = signal<string>(this.localeConfig.defaultLang);
     private translations = signal<TranslationDictionary>({});
+
+    // Token di sequenza per setLanguage(): senza, due chiamate concorrenti (es. click veloce su due
+    // lingue diverse, o guard + effect che scattano nello stesso istante) potrebbero risolversi fuori
+    // ordine — l'ultima a partire non è detto sia l'ultima ad arrivare — lasciando currentLang/<html
+    // lang> allineati a una lingua diversa da quella dell'URL corrente finché una nuova navigazione
+    // non li corregge per caso. Stesso pattern di `renderToken` in img-render.directive.ts.
+    private setLanguageToken = 0;
 
     /** Lingua predefinita, come dichiarata in global-settings.json via LOCALE_CONFIG. */
     readonly defaultLang = this.localeConfig.defaultLang;
 
     /** Lingue disponibili, come dichiarate in global-settings.json via LOCALE_CONFIG. */
     readonly availableLangs = signal<readonly string[]>(this.localeConfig.availableLanguages);
-
-    constructor() {
-        effect(() => {
-            // Se l'utente accetta i cookie tecnici in un secondo momento, salviamo la lingua corrente
-            if (this.consent.technicalAccepted() && this.hasInitializedLanguage && this.hasMultipleLanguages()) {
-                this.persistLanguage(this.currentLang());
-            }
-        });
-    }
 
     // ─── BCP-47 ───────────────────────────────────────────────────────────
 
@@ -84,15 +78,27 @@ export class TranslateService {
         }
     }
 
-    /** True se il tag è un BCP-47 well-formed. */
-    static isValidBcp47(tag: string | null | undefined): boolean {
-        return TranslateService.normalizeBcp47(tag) !== null;
-    }
-
     // ─── Pubblico ─────────────────────────────────────────────────────────
 
     async loadTranslations(lang: string): Promise<void> {
         const resolved = this.resolveLanguage(lang);
+        this.translations.set(await this.fetchAndMergeCatalogs(resolved));
+    }
+
+    async setLanguage(lang: string): Promise<void> {
+        const resolved = this.resolveLanguage(lang);
+        const token = ++this.setLanguageToken;
+        const merged = await this.fetchAndMergeCatalogs(resolved);
+        // Una setLanguage() più recente è partita (ed è magari già arrivata) nel frattempo: questa
+        // risposta è obsoleta, non deve sovrascrivere uno stato lingua già più aggiornato del suo.
+        if (token !== this.setLanguageToken) return;
+        this.translations.set(merged);
+        this.currentLang.set(resolved);
+        this.updateDocumentLanguage(resolved);
+    }
+
+    /** Cataloghi basic+addon di `resolved`, con fallback al defaultLang se mancanti, uniti in un unico dizionario. */
+    private async fetchAndMergeCatalogs(resolved: string): Promise<TranslationDictionary> {
         const primary = await this.fetchCatalogs(resolved);
         // Fallback al defaultLang solo se diverso da resolved — evita di scaricare
         // gli stessi file due volte quando resolved è già la lingua di default.
@@ -101,27 +107,15 @@ export class TranslateService {
                 ? await this.fetchCatalogs(this.localeConfig.defaultLang)
                 : undefined)
             ?? [];
-        this.translations.set(Object.assign({}, ...catalogs));
-    }
-
-    async setLanguage(lang: string): Promise<void> {
-        const resolved = this.resolveLanguage(lang);
-        await this.loadTranslations(resolved);
-        this.currentLang.set(resolved);
-        this.updateDocumentLanguage(resolved);
-
-        if (this.hasMultipleLanguages() && this.hasInitializedLanguage) {
-            this.persistLanguage(resolved);
-        }
-        this.hasInitializedLanguage = true;
+        return Object.assign({}, ...catalogs);
     }
 
     /**
      * Chiamato una volta al bootstrap, prima che il router attivi la prima route: garantisce che
      * i cataloghi i18n siano già caricati quando l'app comincia a tradurre i titoli di rotta.
-     * Risolve sempre alla lingua default — l'URL (non più Accept-Language/cookie) è la fonte di
-     * verità sulla lingua reale della richiesta: la corregge subito dopo `PageBaseComponent`,
-     * leggendo `route.data.lang`, appena la prima pagina monta.
+     * Risolve sempre alla lingua default — l'URL è l'unica fonte di verità sulla lingua reale
+     * della richiesta: la corregge subito dopo `PageBaseComponent`, leggendo `route.data.lang`,
+     * appena la prima pagina monta.
      */
     async setInitialLanguage(): Promise<void> {
         await this.setLanguage(this.localeConfig.defaultLang);
@@ -185,15 +179,6 @@ export class TranslateService {
         return normalized && this.isSupportedLanguage(normalized)
             ? normalized
             : this.localeConfig.defaultLang;
-    }
-
-    private hasMultipleLanguages(): boolean {
-        return this.availableLangs().length > 1;
-    }
-
-    /** Scrive la preferenza lingua — il CookieConsentService blocca se non c'è consenso. */
-    private persistLanguage(lang: string): void {
-        this.consent.setSavedLanguage(lang);
     }
 
     private updateDocumentLanguage(lang: string): void {

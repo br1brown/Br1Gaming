@@ -1,12 +1,10 @@
 # Contribuire a Br1WebEngine
 
-Grazie per il tuo interesse nel contribuire a Br1WebEngine! Questo progetto è progettato per essere un motore pragmatico e ad alte prestazioni per la costruzione rapida di applicazioni web senza il peso del boilerplate.
-
-Per garantire che i tuoi contributi siano in linea con la visione del progetto, ti preghiamo di rivedere le seguenti linee guida.
+Grazie per l'interesse. Prima di scrivere codice, due cose da sapere: dove stanno i confini del progetto (sotto) e come è organizzata la documentazione — la mappa è nel [README](../README.md).
 
 ## Filosofia
-**Pragmatismo sulla Pura Astrazione.**
-Br1WebEngine preferisce codice che sia facile da leggere, facile da eliminare e veloce da eseguire. Non imponiamo una rigida "Clean Architecture" o astrazioni massive (come CQRS o Redux) a meno che non siano strettamente necessarie.
+
+Codice facile da leggere, facile da buttare via, veloce da eseguire — sopra un'architettura pulita ma non imposta per principio. Niente CQRS o Redux "perché si fa così": solo se la complessità del progetto lo giustifica davvero.
 
 ## Linee Guida per lo Sviluppo
 

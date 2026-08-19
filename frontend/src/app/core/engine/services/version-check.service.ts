@@ -59,14 +59,14 @@ export class VersionCheckService implements OnDestroy {
 
         /**
          * GATE SUL CONSENSO TECNICO:
-         * Quando un consenso tecnico SERVE (sito multilingua, PWA, o con cookie tecnici di
+         * Quando un consenso tecnico SERVE (PWA, o con cookie tecnici di
          * progetto) il polling parte solo dopo che l'utente lo accetta: senza consenso il
          * Service Worker non è registrato (vedi provideServiceWorker in app.config.ts) e un
          * fetch ricorrente ogni 10 minuti sarebbe spreco di risorse senza un meccanismo di
          * aggiornamento attivo. All'accettazione, al reload successivo, SwUpdate si integra e
          * il controllo versione riparte.
          *
-         * MA se il consenso tecnico NON serve affatto (sito mono-lingua, non-PWA, senza cookie
+         * MA se il consenso tecnico NON serve affatto (non-PWA, senza cookie
          * tecnici) non c'è alcun banner da accettare: in quel caso il polling è l'UNICO
          * meccanismo di aggiornamento e va attivato comunque. Legge solo il meta `app-version`
          * da index.html via fetch e non scrive cookie, quindi non richiede consenso. Senza

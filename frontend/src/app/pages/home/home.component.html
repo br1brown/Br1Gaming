@@ -323,12 +323,12 @@
                             }
 
                             <button class="btn btn-primary btn-sm" (click)="generateQr()">
-                                <i class="fa-solid fa-qrcode me-1"></i>{{ 'qrGenerate' | translate }}
+                                <i class="fa-solid fa-qrcode me-1" aria-hidden="true"></i>{{ 'qrGenerate' | translate }}
                             </button>
 
                             @if (qrError(); as err) {
                                 <div class="alert alert-warning mt-3 mb-0 py-2 small">
-                                    <i class="fa-solid fa-triangle-exclamation me-1"></i>{{ err }}
+                                    <i class="fa-solid fa-triangle-exclamation me-1" aria-hidden="true"></i>{{ err }}
                                 </div>
                             }
                         </div>
@@ -395,25 +395,25 @@
 
                     <div class="d-flex flex-wrap gap-2 mb-3">
                         <button class="btn btn-outline-primary" (click)="showAlert()">
-                            <i class="fa-solid fa-bell me-1"></i>{{ 'modalAlertBtn' | translate }}
+                            <i class="fa-solid fa-bell me-1" aria-hidden="true"></i>{{ 'modalAlertBtn' | translate }}
                         </button>
                         <button class="btn btn-outline-warning" (click)="showConfirm()">
-                            <i class="fa-solid fa-question me-1"></i>{{ 'modalConfirmBtn' | translate }}
+                            <i class="fa-solid fa-question me-1" aria-hidden="true"></i>{{ 'modalConfirmBtn' | translate }}
                         </button>
                         <button class="btn btn-outline-danger" (click)="showChoose()">
-                            <i class="fa-solid fa-code-branch me-1"></i>{{ 'modalChooseBtn' | translate }}
+                            <i class="fa-solid fa-code-branch me-1" aria-hidden="true"></i>{{ 'modalChooseBtn' | translate }}
                         </button>
                         <button class="btn btn-outline-info" (click)="showFormModal()">
-                            <i class="fa-solid fa-pen-to-square me-1"></i>{{ 'modalFormBtn' | translate }}
+                            <i class="fa-solid fa-pen-to-square me-1" aria-hidden="true"></i>{{ 'modalFormBtn' | translate }}
                         </button>
                         <button class="btn btn-outline-secondary" (click)="showPromiseToast()">
-                            <i class="fa-solid fa-hourglass-half me-1"></i>{{ 'modalPromiseBtn' | translate }}
+                            <i class="fa-solid fa-hourglass-half me-1" aria-hidden="true"></i>{{ 'modalPromiseBtn' | translate }}
                         </button>
                     </div>
 
                     @if (modalResult()) {
                         <div class="alert border mb-0 bg-body-tertiary">
-                            <i class="fa-solid fa-circle-check text-success me-1"></i>
+                            <i class="fa-solid fa-circle-check text-success me-1" aria-hidden="true"></i>
                             {{ modalResult() }}
                         </div>
                     }

@@ -1,6 +1,6 @@
 # ENGINE.md
 
-Compagno di [AGENTS.md](AGENTS.md): quello sono le ricette, questo è la **mappa dell'implementazione interna dell'Engine** che i README non citano per nome. `backend/README.md` e `frontend/README.md` documentano la **superficie consumabile** (cosa inietti, estendi, configuri); qui invece stanno i file che quella superficie la implementano — attrezzeria interna, mai un seam. Lo scopo non è invitarti a modificarli (**l'Engine resta INTOCCABILE**, la regola d'oro non cambia): è farti trovare "dov'è" e "perché è fatto così" senza dover leggere il codice a freddo. Come il resto della documentazione dell'Engine, questo file **si aggiorna dal template** al merge — non è tuo, non lo adatti al progetto.
+Compagno di [AGENTS.md](AGENTS.md): quello sono le ricette, questo è la mappa dell'implementazione interna dell'Engine che i README non citano per nome. `backend/README.md` e `frontend/README.md` documentano la superficie consumabile, cioè cosa inietti, estendi, configuri; qui invece stanno i file che quella superficie la implementano, attrezzeria interna, mai un seam. Lo scopo non è invitarti a modificarli (l'Engine resta INTOCCABILE, la regola d'oro non cambia), ma farti trovare "dov'è" e "perché è fatto così" senza dover leggere il codice a freddo. Come il resto della documentazione dell'Engine, questo file si aggiorna dal template al merge: non è tuo, non lo adatti al progetto.
 
 Se un file non compare qui né nei due README, è quasi sempre perché è a scopo singolo e il nome + il commento in testa al file bastano (es. `formatter.ts`, `validation.ts`): non serve una voce dedicata per capirlo.
 
@@ -8,7 +8,7 @@ Se un file non compare qui né nei due README, è quasi sempre perché è a scop
 
 ## Backend — `backend/Engine/`
 
-Qui la copertura di `backend/README.md` è già quasi totale per sottosistema (Sicurezza, Mailer, Notifiche, Delivery, Task, Store). Due file non compaiono per **nome classe**, ma il concetto che implementano sì:
+Qui la copertura di `backend/README.md` è già quasi totale per sottosistema (Sicurezza, Mailer, Notifiche, Delivery, Task, Store). Due file non compaiono per nome classe, ma il concetto che implementano sì:
 
 | File | Cosa fa | Dove il concetto è già spiegato |
 | :--- | :--- | :--- |
@@ -35,17 +35,17 @@ Il Node SSR (`server.ts`) è composto da moduli a scopo singolo, ciascuno testab
 | `server-font-metrics.ts` + `preview-builder.ts` | Deriva le metriche dei font **realmente installati** nel container (via `fc-match` + parser TTF minimale) per costruire l'SVG dell'og:image dinamica | Le tabelle di metriche baked-in andrebbero disallineate a ogni cambio di pacchetto font nel Dockerfile; leggerle dai font reali le tiene sempre corrette |
 | `routes/api-proxy.ts`, `routes/cdn-asset.ts`, `routes/og-preview.ts` | Handler Express concreti dietro `/api`, `/cdn-cgi/asset`, `/cdn-cgi/preview` | Le tre route sono già descritte a alto livello nel [README root](README.md) («Route SSR speciali»); qui c'è il "come" per chi deve toccarne il comportamento |
 
-**Guardia di deriva configurazione (`scripts/config/config-fingerprint.ts`, `scripts/config/settings-merge.ts`).** `config-fingerprint.ts` calcola un hash SHA1 (12 caratteri) delle sole sezioni identity-critiche di `global-settings.json` (`project`, `Localization`, `site` — mai `.local.json`, che tocca solo segreti). `generate-statics.ts` lo scrive in `environment.ts` come `configFingerprint` a ogni build; `server.ts` lo ricalcola a runtime dal config letto da `getBr1Settings()` e confronta i due valori al boot, stampando un warning su mismatch — così il server si accorge da solo di essere partito con un `environment.ts` non rigenerato (tipico: `ng serve` lanciato bypassando `predev`/`prestart`, o `global-settings.json` modificato senza rilanciare la build). `settings-merge.ts` (`deepMergeSettings`) è il merge profondo di `global-settings.local.json` sopra il base — stessa semantica di `scripts/lib/br1-config.sh` — condiviso fra `server-env.ts` (lettura runtime) e `generate-statics.ts` (lettura al build, solo nel percorso file-based; l'ARG Docker `BR1_PROJECT_JSON` resta volutamente il solo file base, senza segreti): un'unica implementazione, così le due letture non possono divergere nella semantica di fusione.
+La guardia di deriva configurazione (`scripts/config/config-fingerprint.ts`, `scripts/config/settings-merge.ts`) funziona così: `config-fingerprint.ts` calcola un hash SHA1 (12 caratteri) delle sole sezioni identity-critiche di `global-settings.json` (`project`, `Localization`, `site`, mai `.local.json`, che tocca solo segreti). `generate-statics.ts` lo scrive in `environment.ts` come `configFingerprint` a ogni build; `server.ts` lo ricalcola a runtime dal config letto da `getBr1Settings()` e confronta i due valori al boot, stampando un warning su mismatch, così il server si accorge da solo di essere partito con un `environment.ts` non rigenerato (tipico: `ng serve` lanciato bypassando `predev`/`prestart`, o `global-settings.json` modificato senza rilanciare la build). `settings-merge.ts` (`deepMergeSettings`) è il merge profondo di `global-settings.local.json` sopra il base, con la stessa semantica di `scripts/lib/br1-config.sh`, condiviso fra `server-env.ts` (lettura runtime) e `generate-statics.ts` (lettura al build, solo nel percorso file-based; l'ARG Docker `BR1_PROJECT_JSON` resta volutamente il solo file base, senza segreti). È un'unica implementazione, così le due letture non possono divergere nella semantica di fusione.
 
 ### Navigazione multilivello (`components/navbar`, `footer-nav*`, `nav-*`)
 
 `navbar.component.ts`, `footer-nav.component.ts` + `footer-nav-group.component.ts` (footer, ricorsivo), `nav-dropdown.component.ts` + `nav-submenu.component.ts` (flyout desktop / accordion mobile della navbar) e l'atomo `nav-link.component.ts` sono la resa concreta della feature "Menu Multilivello" (già descritta a livello di configurazione in `site.ts`/root README): la scomposizione in più componenti serve a gestire la ricorsione dei gruppi annidati senza duplicare la logica di stato attivo/hover tra footer e navbar. `back-to-top.component.ts` è indipendente: appare dopo 300px di scroll, nessun legame col menu.
 
-`breakpoints.ts` espone `isDesktopViewport()`, letto da `navbar.component.ts` e `nav-submenu.component.ts`: legge la custom property CSS `--bp-md` (iniettata in `_base.scss` da `lib.$bp-md`) invece di duplicare `768px` hardcoded in TS — sorgente unica del breakpoint desktop/mobile condivisa fra SCSS e TS. Sempre in `navbar.component.ts`, oltre al limite di **annidamento** (`NAV_DEPTH_WARN`/`NAV_DEPTH_MAX`, già in `frontend/README.md`), c'è un limite indipendente sul **numero di voci di primo livello**: oltre `MAX_RECOMMENDED_TOP_LEVEL_ITEMS` (6) le voci in eccesso confluiscono in un dropdown finale "Altro" — sintetico, non dichiarato in `site.ts`, stesso rendering di un `addGroup` — la cui soglia di attivazione è deliberatamente la stessa del warning in console, così chi corregge l'avviso in dev fa sparire anche l'overflow. Misurato via `ResizeObserver` sulla larghezza reale disponibile, solo su desktop (su mobile lo stack verticale non ha bisogno di overflow).
+`breakpoints.ts` espone `isDesktopViewport()`, letto da `navbar.component.ts` e `nav-submenu.component.ts`: legge la custom property CSS `--bp-md` (iniettata in `_base.scss` da `lib.$bp-md`) invece di duplicare `768px` hardcoded in TS, come sorgente unica del breakpoint desktop/mobile condivisa fra SCSS e TS. Sempre in `navbar.component.ts`, oltre al limite di annidamento (`NAV_DEPTH_WARN`/`NAV_DEPTH_MAX`, già in `frontend/README.md`), c'è un limite indipendente sul numero di voci di primo livello: oltre `MAX_RECOMMENDED_TOP_LEVEL_ITEMS` (6) le voci in eccesso confluiscono in un dropdown finale "Altro", sintetico, non dichiarato in `site.ts`, con lo stesso rendering di un `addGroup`. La soglia di attivazione è deliberatamente la stessa del warning in console, così chi corregge l'avviso in dev fa sparire anche l'overflow. Misurato via `ResizeObserver` sulla larghezza reale disponibile, solo su desktop (su mobile lo stack verticale non ha bisogno di overflow).
 
 ### Effetto smoke (`components/smoke-effect/smoke-effect.component.ts`)
 
-Il componente che renderizza l'animazione di particelle. Il *contratto* (`SmokeSettings`, i default, quando si autodisattiva) è già interamente documentato in `frontend/README.md` («Effetto smoke: il contratto `SmokeSettings`») — questa riga esiste solo perché quella sezione non nomina la classe: se cerchi "chi disegna lo smoke" è questo componente, montato da `app.component.ts` (la shell, tua) che gli passa `showSmoke` già calcolato.
+Il componente che renderizza l'animazione di particelle. Il contratto (`SmokeSettings`, i default, quando si autodisattiva) è già interamente documentato in `frontend/README.md` («Effetto smoke: il contratto `SmokeSettings`»). Questa riga esiste solo perché quella sezione non nomina la classe: se cerchi "chi disegna lo smoke" è questo componente, montato da `app.component.ts` (la shell, tua) che gli passa `showSmoke` già calcolato.
 
 ### Overlay del menu contestuale (`components/context-menu/`)
 
@@ -57,15 +57,15 @@ Il componente che renderizza l'animazione di particelle. Il *contratto* (`SmokeS
 
 ### Interceptor errori API (`interceptors/api-error.interceptor.ts`)
 
-Implementa il toast automatico sugli errori HTTP per le richieste **non** marcate `{ silent: true }` (pattern già documentato). È un interceptor Angular a sé — non più logica dentro `BaseApiService` — per tenere il client API puro (idioma Angular per i concern trasversali).
+Implementa il toast automatico sugli errori HTTP per le richieste non marcate `{ silent: true }` (pattern già documentato). È un interceptor Angular a sé, non più logica dentro `BaseApiService`, per tenere il client API puro (idioma Angular per i concern trasversali).
 
 ### Cookie interni (`services/cookie/`)
 
-`cookie-type.ts` definisce `ConsentCategory` (Technical/Analytics/Profiling), la tassonomia dietro le voci di `COOKIE_MAP` (vedi ricetta in `AGENTS.md`). `cookie-utils.ts` è un check statico usato **in fase di build** da `siteBuilder.ts` per decidere se includere lo slot `legalPages.cookie` — non è runtime, è un dettaglio di composizione del sito.
+`cookie-type.ts` definisce `ConsentCategory` (Technical/Analytics/Profiling), la tassonomia dietro le voci di `COOKIE_MAP` (vedi ricetta in `AGENTS.md`). `cookie-utils.ts` è un check statico usato in fase di build da `siteBuilder.ts` per decidere se includere lo slot `legalPages.cookie`: non è runtime, è un dettaglio di composizione del sito.
 
 ### Connessione realtime, dettaglio interno (`services/notification-connection.ts`)
 
-Tiene il `connectionId` corrente in un signal separato da `NotificationStreamService`: permette a `BaseApiService` di leggerlo (per l'header `X-Connection-Id`) **senza iniettare — e quindi attivare — lo stream**. Finché nessuno apre lo stream resta `null`.
+Tiene il `connectionId` corrente in un signal separato da `NotificationStreamService`: permette a `BaseApiService` di leggerlo (per l'header `X-Connection-Id`) senza iniettare, e quindi senza attivare, lo stream. Finché nessuno apre lo stream resta `null`.
 
 ### Pagine legali (`legal/legal-pages.ts`)
 

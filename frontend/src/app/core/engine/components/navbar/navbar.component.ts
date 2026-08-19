@@ -303,11 +303,9 @@ export class NavbarComponent {
         void this.applyLanguageSwitch(lang);
     }
 
-    /** Cambio lingua esplicito: prima lo stato (persiste il cookie — necessario perché
-     *  `langRedirectGuard` non rediriga di nuovo l'utente sulla base di Accept-Language non
-     *  appena atterra sulla route non-prefissata, es. passando da EN a IT), poi la navigazione
-     *  al path equivalente nella nuova lingua — così URL e contenuto restano sempre allineati,
-     *  invece di lasciare l'URL fermo mentre cambia solo lo stato sotto silenzio. */
+    /** Cambio lingua esplicito: prima lo stato (attende il caricamento dei cataloghi della nuova
+     *  lingua), poi la navigazione al path equivalente — così URL e contenuto restano sempre
+     *  allineati, invece di lasciare l'URL fermo mentre cambia solo lo stato sotto silenzio. */
     private async applyLanguageSwitch(lang: string): Promise<void> {
         await this.translate.setLanguage(lang);
         const currentType = this.pageMeta.currentPageType();

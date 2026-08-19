@@ -60,8 +60,15 @@ jobs:
       # BR1_PROJECT_JSON è il global-settings.json committato minificato: stessa fonte che
       # scripts/lib/br1-config.sh passa a ./scripts/deploy.sh, così l'immagine è identica al locale.
       - name: Prepara variabili di build
+        env:
+          # Passato come variabile d'ambiente invece di interpolato direttamente nello script:
+          # un'espressione ${{ }} finisce nel testo dello script PRIMA che bash lo esegua, quindi un
+          # input contenente metacaratteri shell (es. "; comando #") eseguirebbe codice arbitrario.
+          # Qui il rischio pratico è nullo (workflow_dispatch richiede già accesso in scrittura al
+          # repo), ma è lo stesso hardening già applicato altrove — costa niente farlo bene qui.
+          RAW_TAG_INPUT: ${{ github.event.inputs.tag || github.ref_name }}
         run: |
-          RAW_TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          RAW_TAG="$RAW_TAG_INPUT"
           VERSION="${RAW_TAG#v}"                       # 1.2.3 (senza la 'v')
           IMAGE_BASE="ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
           echo "VERSION=${VERSION}"                       >> "$GITHUB_ENV"
