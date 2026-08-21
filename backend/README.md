@@ -968,6 +968,16 @@ SiteIdentity {
                                   // stesso giorno = più fasce; il frontend deriva resa e OpeningHoursSpecification
     string?  Currency             // ISO 4217 (es. EUR) per i valori monetari (capitale); omessa → EUR
     string?  RappresentanteLegale // Dato noto e tipizzato (anche localizzato), reso dal footer/pagine legali
+    LegalRole? TitolareDelTrattamento     { Nome, Email }  // GDPR art. 4.7, SOLO se diverso da
+                                  // RagioneSociale/RappresentanteLegale (nelle realtà con più persone può
+                                  // essere un altro soggetto). NESSUN fallback: nella maggior parte dei siti
+                                  // (una sola persona) il titolare coincide con l'azienda, già esposta da
+                                  // RagioneSociale/Contatti.Email — ripeterlo sarebbe rumore, non un dato in
+                                  // più. Assente → resta null, il frontend mostra solo l'identità generale
+    LegalRole? ResponsabileProtezioneDati { Nome, Email }  // DPO (GDPR art. 37), solo se designato.
+                                  // Nessun fallback: la designazione non è obbligatoria per ogni realtà, un
+                                  // DPO presunto inventerebbe una carica inesistente. Assente → resta null,
+                                  // il frontend nasconde la riga
     Dictionary<string,string>? MetadatiAggiuntivi  // Valori flat: string, non object. NON reso dall'identità
                                   // (solo dati noti); contenitore generico per il progetto
     Dictionary<string,object>? Extra              // via di fuga: proprietà schema.org arbitrarie, fuse
@@ -1000,9 +1010,12 @@ Esempio `data/identity.json`:
         { "day": "Friday", "opens": "09:00", "closes": "17:00" }
     ],
     "currency": "EUR",
+    "responsabileProtezioneDati": { "nome": "Dott.ssa Rossi", "email": "dpo@acme.it" },
     "extra": { "foundingDate": "2010-05-01", "slogan": "Il claim del brand" }
 }
 ```
+
+> `titolareDelTrattamento` qui è omesso di proposito: come `responsabileProtezioneDati`, nessun fallback automatico. Nella maggior parte dei siti (Acme è un'unica persona) il titolare coincide con l'azienda stessa, già esposta da `ragioneSociale`/`contatti.email` — dichiararlo di nuovo qui sarebbe rumore. Valorizzalo solo quando il titolare va effettivamente distinto (es. `{ "titolareDelTrattamento": { "nome": "Socio B", "email": "privacy@acme.it" } }` in una realtà con più soci, dove il titolare non è l'amministratore che compare in `rappresentanteLegale`).
 
 > Cosa diventa SEO (JSON-LD): l'Engine costruisce l'entità brand (`Organization`/`Person`) con `sameAs` (dai social), `address` (`PostalAddress` dalla sede), `contactPoint` (`ContactPoint` con telefono/email, `hoursAvailable` dagli orari e `availableLanguage` dalle lingue del sito) e, solo per `Organization`, `legalName`/`vatID`/`taxID` da ragione sociale/P.IVA/CF. Gli orari sono una lista di intervalli tipizzati (`DayOfWeek` + `TimeOnly`): chi sviluppa dichiara `DayOfWeek.Tuesday`/`TimeOnly`, non stringhe né nozioni di schema.org; il frontend ne deriva sia la resa leggibile (fondendo i giorni con orari identici, es. "Lun–Ven") sia le `OpeningHoursSpecification` (dove `DayOfWeek` è già il nome `schema.org/Tuesday`). I social sono una lista di URL (stringa nuda, o `{ url, name }` con un'etichetta resa solo nel footer): l'icona e il `sameAs` usano l'URL, quindi più profili dello stesso social convivono. La valuta dei valori monetari è un fatto dichiarato (`currency`), non dedotto dal locale del visitatore: il frontend formatta gli importi con quella valuta nella lingua corrente. Per qualsiasi proprietà schema.org non tipizzata (es. `geo`, `foundingDate`, campi di `LocalBusiness`) c'è la via di fuga `extra`: viene fusa così com'è nel nodo entità brand, senza toccare modello né adapter, l'Engine non diventa mai un collo di bottiglia. Le proprietà strutturali dell'Engine vincono sulle collisioni; la validità schema.org di `extra` è a carico del progetto, ma la sicurezza no: l'Engine escapa l'output JSON-LD (`<`/`>`/`&` → `\uXXXX`), quindi anche un valore ostile in `extra` (o da un CMS/DB) non può rompere il `<script>` e iniettare markup.
 

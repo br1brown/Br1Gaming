@@ -181,16 +181,9 @@ export const ContestoSito = buildSite({
         });
     },
 
+    // Le pagine legali non si dichiarano qui: il footer le rende da solo in una fascia dedicata
+    // ("small prints"), derivata da legalPages sopra. footerNav resta per la navigazione libera.
     footerNav: (f) => {
-        f.addGroup('menuPolicy', g => {
-            g.addPage(PageType.PrivacyPolicy);
-            g.addPage(PageType.CookiePolicy);
-            g.addPage(PageType.AccessibilityStatement);
-            g.addGroup('menuLegale', sg => {
-                sg.addPage(PageType.TermsOfService);
-                sg.addPage(PageType.LegalNotice);
-            });
-        });
     },
 });
 `;

@@ -32,7 +32,7 @@
             </div>
         }
 
-        @if (hasContacts()) {
+        @if (hasContactInfo()) {
             <div class="col-12 mb-3" [class.col-md]="!inColonna()">
                 <div class="fw-bold mb-2">{{ 'contattiAzienda' | translate }}</div>
 
@@ -45,12 +45,6 @@
                             </li>
                         }
                     </ul>
-                }
-
-                @if (showOpeningHours()) {
-                    <div class="my-1 mb-2">
-                        <app-opening-hours [hours]="identity()?.openingHours" [label]="'orariContattoAzienda' | translate" [accordion]="hoursAccordion()" />
-                    </div>
                 }
 
                 @if (contacts().length > 0) {
@@ -70,6 +64,15 @@
                         }
                     </div>
                 }
+            </div>
+        }
+
+        @if (showOpeningHours()) {
+            <!-- Colonna a sé (non annidata in Contatti): l'orario esploso su 7 righe, sommato alle email/badge
+                 dei contatti nella stessa colonna, allungava il footer molto più delle colonne societari/legali
+                 accanto — separarli riequilibria l'altezza fra le colonne. -->
+            <div class="col-12 mb-3" [class.col-md]="!inColonna()">
+                <app-opening-hours [hours]="identity()?.openingHours" [label]="'orariContattoAzienda' | translate" [accordion]="hoursAccordion()" />
             </div>
         }
 

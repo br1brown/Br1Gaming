@@ -14,6 +14,12 @@ export interface ContactInfo {
     pec?: string;
 }
 
+/** Una carica/ruolo legale con nome e contatto email dedicati (es. titolare del trattamento, DPO). */
+export interface LegalRole {
+    nome?: string;
+    email?: string;
+}
+
 export interface CompanyDetails {
     registroImprese?: string;
     numeroRea?: string;
@@ -80,6 +86,14 @@ export interface Identity {
     currency?: string;
     /** Rappresentante legale (campo noto e tipizzato, reso dal footer/pagine legali). */
     rappresentanteLegale?: string;
+    /** Titolare del trattamento ai fini privacy (GDPR art. 4.7), solo quando diverso da
+     *  `ragioneSociale`/`rappresentanteLegale`. Nessun fallback: nella maggior parte dei siti (un'unica
+     *  persona) il titolare coincide con l'azienda, già esposta da quei campi — `undefined` = nessuna
+     *  riga dedicata, si mostra solo l'identità generale. */
+    titolareDelTrattamento?: LegalRole;
+    /** Responsabile della Protezione dei Dati / DPO (GDPR art. 37), solo se designato: nessun
+     *  fallback automatico (stesso comportamento di `titolareDelTrattamento`), `undefined` = nessun DPO. */
+    responsabileProtezioneDati?: LegalRole;
     /** Metadati custom generici: NON resi dall'identità (solo dati noti); contenitore per il progetto. */
     metadatiAggiuntivi?: Record<string, string>;
     /** Proprietà schema.org extra fuse PER ULTIME nel nodo entità brand → sovrascrivono i default (anche

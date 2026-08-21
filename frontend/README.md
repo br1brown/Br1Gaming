@@ -360,17 +360,20 @@ Così un 404 di navigazione e un 404 di una `GET` falliscono con parole appropri
 
 `CookieConsentService` gestisce in modo unificato cookie e Web Storage (localStorage/sessionStorage) con strategia "Privacy by Default": nessuna voce viene scritta finché l'utente non esprime consenso esplicito per quella categoria. Un'unica mappa, un'unica API (`set`/`get`/`remove`) che instrada sul mezzo giusto, un unico elenco in policy. Conforme al modello "cookie e altri strumenti di tracciamento" delle Linee guida del Garante (2021).
 
-### Tre Categorie di Consenso
+### Quattro Categorie di Consenso
 
-| Categoria | Cosa include |
-| :--- | :--- |
-| **Technical** | Service Worker, cookie essenziali di funzionamento |
-| **Analytics** | Tracciamento e analytics (Google Analytics, ecc.) |
-| **Profiling** | Pubblicità comportamentale e profilazione |
+| Categoria | Cosa include | Consenso |
+| :--- | :--- | :--- |
+| **Technical** | Cookie strettamente necessari (sessione, memorie del consenso, eventuali voci di progetto in `COOKIE_MAP`) | Esente per legge — mai un vero switch |
+| **TechnicalOptional** | Tecnici ma NON strettamente necessari — Service Worker/PWA built-in, eventuali voci di progetto | Esplicito, come le due sotto |
+| **Analytics** | Tracciamento e analytics (Google Analytics, ecc.) | Esplicito |
+| **Profiling** | Pubblicità comportamentale e profilazione | Esplicito |
+
+**Technical è l'unico caso speciale**: i suoi cookie sono strettamente necessari a erogare il servizio richiesto (art. 122 Codice Privacy / art. 5.3 direttiva ePrivacy) e quindi **esenti da consenso per legge** — `isCategoryAccepted` li considera sempre accettati, non vengono mai bloccati né ripuliti alla revoca, e nel banner compaiono come riga informativa con badge "Necessari", senza switch. Le altre tre categorie — **TechnicalOptional** compresa — sono trattate in modo perfettamente simmetrico: ciascuna ha il proprio switch nel banner, il proprio signal di consenso (`_technicalOptionalAccepted`/`_analyticsAccepted`/`_profilingAccepted`), un consenso per l'intera categoria. Il **Service Worker/PWA** built-in (`isWebApp:true`) è l'unico membro di TechnicalOptional che l'Engine registra da solo — perché non è strettamente necessario (va oltre il minimo: offline/installabilità) — ma un cookie di progetto nella stessa categoria condivide lo stesso switch/bucket. `isTechnicalOptionalNeeded()` riflette solo questa categoria; `hasTechnicalCategory()` è vero anche per i cookie Technical essenziali di progetto, per `bearerToken` (registrato appena `loginPage` è configurato, indipendentemente da qualunque categoria di consenso) e per le memorie del consenso (sempre Technical) — usalo per sapere se la categoria Technical va *dichiarata* in banner/policy, a prescindere dal bisogno di un consenso vero.
 
 ### Aggiungere un cookie o una voce di Web Storage
 
-Registra la voce nel `COOKIE_MAP` (in `src/app/core/services/cookie-registry.ts`): specifica la categoria e il banner mostra il toggle, la policy la elenca e la pulizia alla revoca la gestisce automaticamente. La stessa mappa descrive cookie e Web Storage: il campo `storage` decide il mezzo (omesso = cookie; `'local'`/`'session'` = Web Storage). I tipi (`ConsentCategory`, `CookieConfig`) vivono in `src/app/core/engine/services/cookie/cookie-type.ts`:
+Registra la voce nel `COOKIE_MAP` (in `src/app/core/services/cookie-registry.ts`): scegli la categoria giusta e la policy la elenca, il banner mostra il relativo switch (tranne per Technical) e la pulizia alla revoca la gestisce automaticamente. Un cookie strettamente necessario va in `ConsentCategory.Technical`: mai uno switch, mai bloccato o ripulito (badge "Necessari" nel banner). Un cookie tecnico ma NON strettamente necessario va invece in `ConsentCategory.TechnicalOptional`: switch vero nel banner (condiviso con l'eventuale PWA — vedi «Quattro Categorie di Consenso» sopra), bloccabile/ripulibile come Analytics/Profiling. La stessa mappa descrive cookie e Web Storage: il campo `storage` decide il mezzo (omesso = cookie; `'local'`/`'session'` = Web Storage). I tipi (`ConsentCategory`, `CookieConfig`) vivono in `src/app/core/engine/services/cookie/cookie-type.ts`:
 
 ```typescript
 import { ConsentCategory, type CookieConfig } from '../engine/services/cookie/cookie-type';
@@ -388,10 +391,14 @@ export const COOKIE_MAP = {
         durationKey: 'gaDurataListaCookie',         // chiave i18n della durata (default: "1 anno")
     },
     'mioSalvataggio': {
-        category: ConsentCategory.Technical,
+        category: ConsentCategory.Technical,        // strettamente necessario → esente, niente switch, badge "Necessari"
         storage: 'local',                           // → localStorage (omesso = cookie; 'session' = sessionStorage)
         valueType: 'json',
         descriptionKey: 'mioSalvataggioDescrizioneListaCookie',
+    },
+    'widgetChatOpzionale': {
+        category: ConsentCategory.TechnicalOptional, // tecnico ma NON strettamente necessario → switch vero nel banner
+        descriptionKey: 'widgetChatDescrizioneListaCookie',
     },
     'sdkTerzaParte.telemetria': {                   // FAMIGLIA di chiavi Web Storage con suffisso dinamico
         category: ConsentCategory.Analytics,        //   (tipico di SDK di terza parte: es. `…:<hash-del-token>`)
@@ -404,7 +411,7 @@ export const COOKIE_MAP = {
 } as const satisfies Readonly<Record<string, CookieConfig>>;
 ```
 
-`CookieConfig`: `category`, `descriptionKey?` (i18n per la Cookie Policy), `valueType?` (cast automatico), `storage?` (mezzo: cookie / local / session), `match?` (strategia di match della chiave sul Web Storage: omesso/`'exact'` = chiave singola; `'prefix'` = famiglia di chiavi, vedi sotto) e, per la dichiarazione standard nella policy (allineata a Cookiebot/OneTrust), `provider?` (omesso = prima parte; valorizzato = nome del terzo), `providerUrl?` (link alla policy del terzo → il nome diventa cliccabile) e `durationKey?` (chiave i18n della durata dichiarata del cookie; default "1 anno" = Max-Age di default di `set()`; per il Web Storage la durata è derivata dal mezzo). Le stringhe localizzate (`descriptionKey`, `durationKey`) vivono negli i18n.
+`CookieConfig`: `category` (Technical / TechnicalOptional / Analytics / Profiling — vedi «Quattro Categorie di Consenso» sopra), `descriptionKey?` (i18n per la Cookie Policy), `valueType?` (cast automatico), `storage?` (mezzo: cookie / local / session), `match?` (strategia di match della chiave sul Web Storage: omesso/`'exact'` = chiave singola; `'prefix'` = famiglia di chiavi, vedi sotto) e, per la dichiarazione standard nella policy (allineata a Cookiebot/OneTrust), `provider?` (omesso = prima parte; valorizzato = nome del terzo), `providerUrl?` (link alla policy del terzo → il nome diventa cliccabile) e `durationKey?` (chiave i18n della durata dichiarata del cookie; default "1 anno" = Max-Age di default di `set()`; per il Web Storage la durata è derivata dal mezzo). Le stringhe localizzate (`descriptionKey`, `durationKey`) vivono negli i18n.
 
 Nel componente:
 ```typescript
@@ -426,7 +433,7 @@ Censire una famiglia di chiavi (`match: 'prefix'`): alcuni SDK di terza parte sc
 private readonly consent = inject(CookieConsentService);
 
 // Stato per categoria (Signal<boolean>)
-this.consent.technicalAccepted();
+this.consent.technicalOptionalAccepted();
 this.consent.analyticsAccepted();
 this.consent.profilingAccepted();
 
@@ -436,7 +443,7 @@ this.consent.isNeeded();    // Signal<boolean> — true se almeno una categoria 
 // Azioni — modificano lo stato e persistono la scelta
 this.consent.accept();                                  // accetta tutte le categorie attive
 this.consent.reject();                                  // rifiuta tutto
-this.consent.saveSelected(technical, analytics, profiling); // selezione granulare dai toggle
+this.consent.saveSelected(technicalOptional, analytics, profiling); // selezione granulare dai toggle
 this.consent.reopen();                                  // riapre il banner per modificare le preferenze
 ```
 
@@ -476,9 +483,9 @@ this.consent.remove('mioTracker');                   // sempre permesso, anche a
 
 > ⚠️ Niente storage diretto. Una regola ESLint (`no-restricted-globals`) vieta `localStorage`/`sessionStorage` grezzi fuori da `CookieConsentService` e `TokenService` (infra auth). Così ogni persistenza passa dal gate del consenso ed è garantita nell'inventario della policy: privacy by default per costruzione, non per memoria. In SSR il Web Storage non è leggibile: `get` torna `null` lato server (non usarlo per contenuto renderizzato SSR, per quello servono i cookie, leggibili dall'header `Cookie`).
 
-### Service Worker e Consenso Tecnico
+### Service Worker e Consenso TechnicalOptional
 
-Il Service Worker è registrato solo dopo che l'utente accetta il consenso tecnico. Questo include:
+Il Service Worker è registrato solo dopo che l'utente accetta il consenso TechnicalOptional. Questo include:
 - Registrazione `provideServiceWorker()` all'avvio
 - `VersionCheckService` inizia il polling degli aggiornamenti
 
@@ -489,7 +496,7 @@ La pagina Cookie Policy deve elencare categorie e cookie usati dal sito (richies
 | Placeholder | Cosa rende |
 | :--- | :--- |
 | `{{cookieList}}` | **Elenco riepilogo-first**: le voci (cookie **e** Web Storage) raggruppate per categoria in pannelli collassabili (`<details>` nativo), **chiusi di default** — così regge anche con centinaia di voci. Header del gruppo con nome, conteggio e descrizione della categoria; per ogni voce: nome fisico, mezzo, descrizione, **provider** (cliccabile se ha `providerUrl`) e **durata**. |
-| `{{cookieCategories}}` | Card delle categorie presenti (Technical / Analytics / Profiling). *Ridondante col nuovo `{{cookieList}}`, che ne fonde già le descrizioni negli header: il markdown demo non lo usa più, ma il token resta supportato per chi lo vuole.* |
+| `{{cookieCategories}}` | Card delle categorie presenti (Technical / TechnicalOptional / Analytics / Profiling). *Ridondante col nuovo `{{cookieList}}`, che ne fonde già le descrizioni negli header: il markdown demo non lo usa più, ma il token resta supportato per chi lo vuole.* |
 
 Extra automatici, solo sulla Cookie Policy (identificata per `PageType`): oltre ai placeholder, il `PolicyComponent` aggiunge da sé la riga «Ultimo aggiornamento» (data per pagina legale dal dizionario `legalUpdated` in `pages/legal.pages.ts`, `Date` hardcoded, resa con `<time>` semantico e formattata per lingua via `Intl`), la sezione «Come controllare i cookie» (guide dei browser localizzate per lingua) e un pannello di gestione del consenso in pagina (il cookie-banner in `panelMode`: stessi toggle/pulsanti, in-flusso, mostrato dopo che si è risposto).
 
@@ -499,14 +506,15 @@ I dati provengono direttamente da `CookieConsentService`: il `PolicyComponent` l
 private readonly cookieConsent = inject(CookieConsentService);
 
 // Categorie attive — solo quelle realmente richieste dal sito
-this.cookieConsent.isTechnicalNeeded();  // include SW (isWebApp)
+this.cookieConsent.isTechnicalOptionalNeeded();  // include SW (isWebApp)
 this.cookieConsent.isAnalyticsNeeded();
 this.cookieConsent.isProfilingNeeded();
+this.cookieConsent.hasTechnicalCategory();       // Technical (esente) va dichiarata a prescindere dal consenso
 
 // Voci "engine" attive (ngsw-worker.js, consenso, consent_log, bearerToken) — filtrate per configurazione
 this.cookieConsent.activeEngine(); // → Record<string, CookieConfig>
 
-// Nome fisico del cookie nel browser (es. 'technical_consent_technical')
+// Nome fisico del cookie nel browser (es. 'technicaloptional_consent_technical_optional')
 buildPhysicalCookieKey(rawKey, config);
 ```
 
@@ -1427,7 +1435,7 @@ Tab senza Service Worker (sempre con `isWebApp:false`): polling ogni 10 minuti c
 
 PWA / tab con SW attivo: il SW serve `index.html` dalla cache (versione stabile per il polling) e a decidere è SwUpdate, che emette `VERSION_READY` quando la nuova versione è scaricata → l'utente conferma → `activateUpdate()` + reload.
 
-Prerequisito (consenso tecnico): se sul sito un consenso tecnico serve (PWA, o cookie tecnici di progetto) il controllo versione è disabilitato finché l'utente non l'accetta; si attiva al reload successivo. Se invece il consenso tecnico non serve affatto (non-PWA, senza cookie tecnici) non c'è nulla da accettare e il polling parte comunque: legge solo il meta `app-version` via `fetch`, non scrive cookie. Senza questa distinzione un sito così, tipicamente con `isWebApp:false`, resterebbe senza controllo versione per sempre.
+Prerequisito (consenso TechnicalOptional): se sul sito serve un consenso TechnicalOptional (di norma solo il caso PWA — i cookie Technical "veri" sono esenti per legge, mai a consenso) il controllo versione è disabilitato finché l'utente non lo accetta; si attiva al reload successivo. Se invece non serve alcun consenso TechnicalOptional (non-PWA) non c'è nulla da accettare e il polling parte comunque: legge solo il meta `app-version` via `fetch`, non scrive cookie. Senza questa distinzione un sito così, tipicamente con `isWebApp:false`, resterebbe senza controllo versione per sempre.
 
 ---
 
@@ -1595,6 +1603,8 @@ legalPages: {
 - **Dichiarazione di Accessibilità**: slot facoltativo come gli altri tre (non `cookie`), nessun errore di build se lo ometti. Rilevante dal 28 giugno 2025 per i siti nello scope dell'European Accessibility Act (e-commerce, o fatturato >2M€/≥10 dipendenti, microimprese escluse). Attenzione: il regime esatto dipende da chi eroga il sito, Pubblica Amministrazione (Legge 4/2004, dichiarazione + obiettivi annuali via piattaforma AGID) e soggetti privati (D.Lgs. 82/2022, "informazioni sull'accessibilità" ex Allegato IV, senza obiettivi annuali) non sono lo stesso adempimento: il Markdown demo è un template generico di trasparenza (stato di conformità, limiti noti, canale di segnalazione), non un modulo ufficiale né un testo legale pronto all'uso, verifica con un consulente legale quale regime si applica al progetto.
 
 Override per-pagina: per gestire una policy a modo tuo (rotta dedicata, contenuto da API invece che da Markdown) dichiari tu stesso la pagina in `pages` con lo stesso `PageType`: la tua vince, l'Engine non la crea e non ne carica il `.md`. Le altre policy restano automatiche.
+
+**Nel footer, non serve aggiungerle a mano.** Il footer le rende da solo in una fascia dedicata a chiusura pagina ("small prints", stesso pattern dei footer PA/Designers Italia: link istituzionali separati dalla navigazione vera, riga compatta invece di un'altra colonna), derivata direttamente da `legalPages` — nessuna voce da aggiungere in `footerNav`. È dinamica: uno slot omesso (o una pagina rimossa da `pages`) sparisce da solo dalla fascia, senza toccare `site.ts`. `footerNav`/`headerNav` restano per la navigazione libera del progetto — mettere di nuovo le stesse pagine lì le duplicherebbe.
 
 ### Passare Dati a una Pagina: Component Input Binding
 

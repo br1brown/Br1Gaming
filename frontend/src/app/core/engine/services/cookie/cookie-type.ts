@@ -1,12 +1,25 @@
 /** Categoria di consenso (GDPR/ePrivacy) di una voce di archiviazione — vale per cookie E Web
- *  Storage. Abbina la voce al consenso dell'utente; indipendente dal mezzo (`storage`). */
+ *  Storage. Abbina la voce al consenso dell'utente; indipendente dal mezzo (`storage`). Quattro
+ *  categorie SIMMETRICHE nel trattamento (stesso gate, stesso pattern "un consenso per l'intera
+ *  categoria"): l'unica eccezione è Technical, sempre esente per legge — mai un vero consenso da
+ *  chiedere. Aggiunta una voce qui = aggiornare anche `isCategoryAccepted` in
+ *  `CookieConsentService` (uno switch/case coperto a compile-time da `default`, non da tutti i
+ *  case: TypeScript non segnala un case mancante). */
 export enum ConsentCategory {
-    /** Strettamente necessari al funzionamento del sito (SW, sessione). */
+    /** Strettamente necessari a erogare il servizio esplicitamente richiesto (sessione, memorie
+     *  del consenso). Esenti da consenso per legge (art. 122 Codice Privacy / art. 5.3 ePrivacy):
+     *  si dichiarano, non si chiedono — mai bloccati, mai ripuliti alla revoca, nel banner solo un
+     *  badge "Necessari", mai uno switch. */
     Technical,
     /** Raccolta dati aggregati per misurare l'utilizzo del sito. */
     Analytics,
     /** Pubblicità comportamentale e profilazione utente. */
     Profiling,
+    /** Tecnici ma NON strettamente necessari: vanno oltre il minimo per erogare il servizio
+     *  richiesto (es. il Service Worker/PWA built-in, che abilita installabilità/uso offline —
+     *  comodità, non requisito). A differenza di Technical restano a consenso esplicito, con lo
+     *  stesso trattamento di Analytics/Profiling. */
+    TechnicalOptional,
 }
 
 export type CookieValueType = 'string' | 'number' | 'boolean' | 'json';
@@ -46,18 +59,20 @@ export interface CookieConfig {
 }
 
 export const CONSENT_KEYS = {
-    technical: 'consent_technical',
+    technicalOptional: 'consent_technical_optional',
     analytics: 'consent_analytics',
     profiling: 'consent_profiling'
 } as const;
 
 export const CONSENT_COOKIE_MAP = {
-    /** Memorizza le preferenze dell'utente sui cookie tecnici. Max-Age 180 giorni (vedi
-     *  CookieConsentService.CONSENT_MAX_AGE_SECONDS): durationKey esplicito per non farlo
-     *  ricadere sul default "1 anno" della Cookie Policy. */
-    [CONSENT_KEYS.technical]: {
+    /** Memorizza le preferenze dell'utente sui cookie tecnici NON obbligatori (TechnicalOptional).
+     *  Max-Age 180 giorni (vedi CookieConsentService.CONSENT_MAX_AGE_SECONDS): durationKey
+     *  esplicito per non farlo ricadere sul default "1 anno" della Cookie Policy. Categoria
+     *  Technical (non TechnicalOptional): memorizzare LA SCELTA è di per sé un'operazione esente,
+     *  come tutto ciò che è strettamente necessario. */
+    [CONSENT_KEYS.technicalOptional]: {
         category: ConsentCategory.Technical,
-        descriptionKey: 'consentTechnicalDescrizioneListaCookie',
+        descriptionKey: 'consentTechnicalOptionalDescrizioneListaCookie',
         durationKey: 'durataSeiMesiListaCookie',
         valueType: 'boolean'
     },
@@ -83,9 +98,11 @@ export const CONSENT_COOKIE_MAP = {
  * gate e pulizia le tratta tutte; il mezzo lo decide il campo `storage` di ogni voce.
  */
 export const ENGINE_COOKIE_MAP = {
-    /** Cookie. Incluso nella lista pubblica solo se `isWebApp` è `true` in site.ts */
+    /** Cookie. Incluso nella lista pubblica solo se `isWebApp` è `true` in site.ts. TechnicalOptional
+     *  (non Technical): va oltre il minimo per erogare il servizio richiesto (offline/installabilità),
+     *  quindi resta a consenso esplicito invece di essere esente. */
     'ngsw-worker.js': {
-        category: ConsentCategory.Technical,
+        category: ConsentCategory.TechnicalOptional,
         descriptionKey: 'swDescrizioneListaCookie',
     },
     /** localStorage. Log della scelta di consenso (accountability GDPR). Scritto da CookieConsentService.

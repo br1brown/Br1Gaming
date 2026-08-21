@@ -6,6 +6,15 @@
 
         <app-footer-nav [links]="footerNavLinks()" />
 
+        @if (legalFooterLinks().length > 0) {
+            <div class="row pb-3">
+                <div class="col">
+                    <app-footer-link-row [links]="legalFooterLinks()" />
+                </div>
+            </div>
+            <hr />
+        }
+
         <div class="row pt-3">
             <div class="col text-center">
                 <p class="small mb-1">

@@ -17,18 +17,19 @@ export type InferCookieType<K extends CookieKey | EngineCookieKey> =
     string;
 
 /**
- * Controlla se il consenso tecnico è stato già salvato nei cookie fisici del browser.
+ * Controlla se il consenso ai cookie tecnici NON obbligatori (TechnicalOptional — PWA/SW built-in
+ * o cookie di progetto nella stessa categoria) è già stato salvato nei cookie fisici del browser.
  * Fonte unica della chiave — usata anche da app.config.ts per decidere
  * se abilitare il Service Worker all'avvio dell'app prima del bootstrap di Angular.
  *
- * @returns {boolean} True se il cookie di consenso tecnico è presente e vale '1'.
+ * @returns {boolean} True se il cookie di consenso è presente e vale '1'.
  */
-export function isTechnicalConsentGiven(): boolean {
+export function isTechnicalOptionalConsentGiven(): boolean {
     try {
         if (typeof document === 'undefined') return false;
 
         // Per recuperare la chiave usiamo direttamente il builder bypassando la DI
-        const fullKey = buildPhysicalCookieKey(CONSENT_KEYS.technical);
+        const fullKey = buildPhysicalCookieKey(CONSENT_KEYS.technicalOptional);
         if (!fullKey) return false;
 
         const cookies = document.cookie.split(';');
@@ -75,11 +76,18 @@ export function buildPhysicalCookieKey(rawKey: CookieKey | EngineCookieKey, conf
  * COOKIE CONSENT SERVICE
  * Gestione centralizzata del consenso cookie — Conformità EU (ePrivacy + GDPR).
  *
- * Il principio cardine è il "Privacy by Default": le scritture sono bloccate
- * finché l'utente non esprime un consenso esplicito per la categoria relativa.
+ * Il principio cardine è il "Privacy by Default": le scritture sono bloccate finché l'utente non
+ * esprime un consenso esplicito per la categoria relativa — ECCETTO Technical, sempre esente per
+ * legge (strettamente necessaria a erogare il servizio richiesto, art. 122 Codice Privacy / art.
+ * 5.3 ePrivacy): si dichiara, non si chiede (vedi isCategoryAccepted). Le altre tre categorie —
+ * Analytics, Profiling, TechnicalOptional (tecnica ma NON strettamente necessaria, es. il Service
+ * Worker/PWA built-in) — sono trattate in modo simmetrico: ciascuna ha il proprio switch nel
+ * banner, il proprio signal di consenso, un consenso per l'intera categoria.
  *
- * isXxxNeeded è auto-calcolata dalla propria fetta di COOKIE_MAP.
- * Aggiungere un cookie a COOKIE_MAP fa comparire automaticamente la sezione nel banner.
+ * isXxxNeeded è auto-calcolata dalla propria fetta di COOKIE_MAP. Aggiungere un cookie ad
+ * Analytics/Profiling/TechnicalOptional fa comparire automaticamente il relativo switch nel
+ * banner; un cookie Technical compare invece come riga informativa col badge "Necessari"
+ * (hasTechnicalCategory), mai come switch.
  *
  * Le funzionalità built-in (service worker) sono gestite tramite
  * ENGINE_COOKIE_MAP per mantenere la COOKIE_MAP pulita per lo sviluppatore.
@@ -113,11 +121,16 @@ export class CookieConsentService {
     // ─── CATEGORIE: isNeeded ────────────────────────────────────────────
     //
     // Ogni computed guarda esclusivamente la propria fetta di COOKIE_MAP.
-    // isTechnicalNeeded include anche SW (isWebApp).
 
-    readonly isTechnicalNeeded = computed(() =>
+    /** True se c'è almeno una voce TechnicalOptional che richiede una VERA scelta dell'utente: il
+     *  Service Worker/PWA built-in, o un cookie di progetto in COOKIE_MAP con quella categoria
+     *  (tecnico ma non strettamente necessario, come un'estensione facoltativa). Tutte le voci
+     *  TechnicalOptional condividono lo stesso switch/bucket — stesso pattern di Analytics/Profiling.
+     *  Le voci Technical (categoria diversa) sono esenti per legge e non passano da qui: si
+     *  dichiarano, non si chiedono — vedi `hasTechnicalCategory` più sotto, e `isCategoryAccepted`. */
+    readonly isTechnicalOptionalNeeded = computed(() =>
         this.siteConfig.isWebApp
-        || (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === ConsentCategory.Technical)
+        || (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === ConsentCategory.TechnicalOptional)
     );
 
     readonly isAnalyticsNeeded = computed(() =>
@@ -128,19 +141,40 @@ export class CookieConsentService {
         (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === ConsentCategory.Profiling)
     );
 
-    /** True se almeno una categoria richiede il consenso.
+    /** True se esiste almeno una voce Technical da DICHIARARE (banner/policy), a prescindere dal
+     *  bisogno di un vero consenso: include gli eventuali cookie tecnici essenziali di progetto in
+     *  COOKIE_MAP, `bearerToken` quando è configurato un login (indipendente da qualunque categoria
+     *  di consenso) e, quando è attiva un'altra categoria (TechnicalOptional/Analytics/Profiling), le
+     *  memorie del consenso stesso — sempre Technical — perché finché il sito registra un consenso
+     *  qualsiasi deve poterlo scrivere da qualche parte. Guida il badge "Necessari" nel banner e il
+     *  riepilogo categorie in policy. A differenza di `isCategoryAccepted` (sempre vera per Technical,
+     *  senza condizioni: è un'esenzione di legge, non uno stato derivato) QUESTO computed elenca
+     *  deliberatamente le fonti note — è una domanda diversa ("c'è qualcosa da dichiarare adesso?"),
+     *  non "la scrittura è permessa?". Una nuova voce Technical built-in con una condizione di
+     *  attivazione tutta sua va aggiunta anche qui. */
+    readonly hasTechnicalCategory = computed(() =>
+        (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === ConsentCategory.Technical)
+        || this.siteConfig.loginPage != null
+        || this.isTechnicalOptionalNeeded()
+        || this.isAnalyticsNeeded()
+        || this.isProfilingNeeded()
+    );
+
+    /** True se almeno una categoria richiede una scelta dell'utente (quindi il banner deve
+     *  comparire). I cookie strettamente necessari NON bastano da soli a farlo comparire: non c'è
+     *  nulla su cui l'utente possa scegliere, solo l'obbligo di dichiararli nella Cookie Policy.
      *  Falso lato server: il banner non va nell'HTML SSR, compare solo dopo l'idratazione. */
     readonly isNeeded = computed(() =>
-        this.isBrowser && (this.isTechnicalNeeded() || this.isAnalyticsNeeded() || this.isProfilingNeeded())
+        this.isBrowser && (this.isTechnicalOptionalNeeded() || this.isAnalyticsNeeded() || this.isProfilingNeeded())
     );
 
     // ─── CONSENSO PER CATEGORIA ─────────────────────────────────────────
 
-    private readonly _technicalAccepted = signal(false);
+    private readonly _technicalOptionalAccepted = signal(false);
     private readonly _analyticsAccepted = signal(false);
     private readonly _profilingAccepted = signal(false);
 
-    readonly technicalAccepted = this._technicalAccepted.asReadonly();
+    readonly technicalOptionalAccepted = this._technicalOptionalAccepted.asReadonly();
     readonly analyticsAccepted = this._analyticsAccepted.asReadonly();
     readonly profilingAccepted = this._profilingAccepted.asReadonly();
 
@@ -169,21 +203,21 @@ export class CookieConsentService {
         // Durante la fase di costruttore (o init), chiamarle potrebbe restituire dati falsati o dare errore
         // se altri signal di cui dipendono non si sono stabilizzati.
         // Per questo motivo, qui ricalcoliamo la stessa logica "a mano" in modo sincrono usando i dati grezzi.
-        const isTechnicalNeededNow =
+        const isTechnicalOptionalNeededNow =
             this.siteConfig.isWebApp
-            || (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === ConsentCategory.Technical);
+            || (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === ConsentCategory.TechnicalOptional);
 
         const isAnalyticsNeededNow = (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === ConsentCategory.Analytics);
         const isProfilingNeededNow = (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === ConsentCategory.Profiling);
 
         // Se una categoria richiede consenso, registriamo i cookie built-in che memorizzano quel consenso
-        if (isTechnicalNeededNow) engine[CONSENT_KEYS.technical] = CONSENT_COOKIE_MAP[CONSENT_KEYS.technical];
+        if (isTechnicalOptionalNeededNow) engine[CONSENT_KEYS.technicalOptional] = CONSENT_COOKIE_MAP[CONSENT_KEYS.technicalOptional];
         if (isAnalyticsNeededNow) engine[CONSENT_KEYS.analytics] = CONSENT_COOKIE_MAP[CONSENT_KEYS.analytics];
         if (isProfilingNeededNow) engine[CONSENT_KEYS.profiling] = CONSENT_COOKIE_MAP[CONSENT_KEYS.profiling];
 
         // Web Storage del motore: consent_log quando il banner è attivo, bearerToken solo se è
         // configurato un login. Essenziali → elencati in policy ma esclusi dalla pulizia alla revoca.
-        if (isTechnicalNeededNow || isAnalyticsNeededNow || isProfilingNeededNow) {
+        if (isTechnicalOptionalNeededNow || isAnalyticsNeededNow || isProfilingNeededNow) {
             engine['consent_log'] = ENGINE_COOKIE_MAP['consent_log'];
         }
         if (this.siteConfig.loginPage != null) {
@@ -195,13 +229,13 @@ export class CookieConsentService {
 
         if (this.isBrowser) {
             try {
-                const technicalStored = this.get(CONSENT_KEYS.technical);
+                const technicalOptionalStored = this.get(CONSENT_KEYS.technicalOptional);
                 let analyticsStored = this.get(CONSENT_KEYS.analytics);
                 let profilingStored = this.get(CONSENT_KEYS.profiling);
 
                 // Global Privacy Control: onora il segnale come opt-out per Analytics/Profiling —
-                // MAI per Technical (GPC riguarda "vendita/condivisione" dei dati, non i cookie
-                // strettamente necessari). Solo se l'utente non ha ancora risposto esplicitamente per
+                // MAI per Technical/TechnicalOptional (GPC riguarda "vendita/condivisione" dei dati,
+                // non i cookie tecnici). Solo se l'utente non ha ancora risposto esplicitamente per
                 // quella categoria: una scelta manuale successiva (dal banner) prevale sempre e la
                 // sovrascrive. Va REGISTRATO subito (non solo applicato in-memory ai signal), altrimenti
                 // il banner riproporrebbe la stessa domanda ad ogni visita nonostante il browser stia
@@ -209,13 +243,13 @@ export class CookieConsentService {
                 analyticsStored = this.applyGpcOptOut(CONSENT_KEYS.analytics, isAnalyticsNeededNow, analyticsStored);
                 profilingStored = this.applyGpcOptOut(CONSENT_KEYS.profiling, isProfilingNeededNow, profilingStored);
 
-                if (technicalStored !== null) this._technicalAccepted.set(technicalStored);
+                if (technicalOptionalStored !== null) this._technicalOptionalAccepted.set(technicalOptionalStored);
                 if (analyticsStored !== null) this._analyticsAccepted.set(analyticsStored);
                 if (profilingStored !== null) this._profilingAccepted.set(profilingStored);
 
-                const anyStored = technicalStored !== null || analyticsStored !== null || profilingStored !== null;
+                const anyStored = technicalOptionalStored !== null || analyticsStored !== null || profilingStored !== null;
                 const allAnswered =
-                    (!isTechnicalNeededNow || technicalStored !== null) &&
+                    (!isTechnicalOptionalNeededNow || technicalOptionalStored !== null) &&
                     (!isAnalyticsNeededNow || analyticsStored !== null) &&
                     (!isProfilingNeededNow || profilingStored !== null);
                 if (anyStored && allAnswered) this._responded.set(true);
@@ -224,11 +258,11 @@ export class CookieConsentService {
                 this.clearRevokedCookies();
 
                 // ─── PULIZIA SW ALL'AVVIO ───
-                // Se la PWA non deve essere attiva (isWebApp:false o consenso tecnico negato) ma un
+                // Se la PWA non deve essere attiva (isWebApp:false o consenso negato) ma un
                 // SW è rimasto da una sessione/configurazione precedente, de-registralo subito: gli
                 // utenti di ritorno già "risposti" non rivedono il banner e non ripassano da
                 // persistConsent, quindi senza questo il SW resterebbe vivo a servire una cache obsoleta.
-                if (!isDevMode() && (!this.siteConfig.isWebApp || !this._technicalAccepted())) {
+                if (!isDevMode() && (!this.siteConfig.isWebApp || !this._technicalOptionalAccepted())) {
                     this.unregisterServiceWorker();
                 }
             } catch { }
@@ -238,7 +272,7 @@ export class CookieConsentService {
     /** Applica l'opt-out da Global Privacy Control a una categoria (Analytics o Profiling): se il
      *  segnale è attivo, la categoria serve, e l'utente non ha ancora risposto, registra un rifiuto
      *  e ritorna `false`; altrimenti ritorna `stored` invariato. Fattorizza la stessa logica per le
-     *  due categorie a cui GPC si applica (mai Technical). */
+     *  due categorie a cui GPC si applica (mai Technical/TechnicalOptional). */
     private applyGpcOptOut(
         key: typeof CONSENT_KEYS.analytics | typeof CONSENT_KEYS.profiling,
         needed: boolean,
@@ -254,7 +288,7 @@ export class CookieConsentService {
 
     /** Accetta tutte le categorie attualmente attive. */
     accept(): void {
-        if (this.isTechnicalNeeded()) this._technicalAccepted.set(true);
+        if (this.isTechnicalOptionalNeeded()) this._technicalOptionalAccepted.set(true);
         if (this.isAnalyticsNeeded()) this._analyticsAccepted.set(true);
         if (this.isProfilingNeeded()) this._profilingAccepted.set(true);
         this._responded.set(true);
@@ -263,7 +297,7 @@ export class CookieConsentService {
 
     /** Rifiuta tutte le categorie. */
     reject(): void {
-        this._technicalAccepted.set(false);
+        this._technicalOptionalAccepted.set(false);
         this._analyticsAccepted.set(false);
         this._profilingAccepted.set(false);
         this._responded.set(true);
@@ -276,8 +310,8 @@ export class CookieConsentService {
     }
 
     /** Salva la selezione granulare fatta dall'utente tramite i toggle del banner. */
-    saveSelected(technical: boolean, analytics: boolean, profiling: boolean): void {
-        if (this.isTechnicalNeeded()) this._technicalAccepted.set(technical);
+    saveSelected(technicalOptional: boolean, analytics: boolean, profiling: boolean): void {
+        if (this.isTechnicalOptionalNeeded()) this._technicalOptionalAccepted.set(technicalOptional);
         if (this.isAnalyticsNeeded()) this._analyticsAccepted.set(analytics);
         if (this.isProfilingNeeded()) this._profilingAccepted.set(profiling);
         this._responded.set(true);
@@ -291,10 +325,10 @@ export class CookieConsentService {
     private persistConsent(): void {
         if (!this.isBrowser) return;
         try {
-            if (this.isTechnicalNeeded())
-                this.set(CONSENT_KEYS.technical, this._technicalAccepted(), CookieConsentService.CONSENT_MAX_AGE_SECONDS);
+            if (this.isTechnicalOptionalNeeded())
+                this.set(CONSENT_KEYS.technicalOptional, this._technicalOptionalAccepted(), CookieConsentService.CONSENT_MAX_AGE_SECONDS);
             else
-                this.remove(CONSENT_KEYS.technical);
+                this.remove(CONSENT_KEYS.technicalOptional);
 
             if (this.isAnalyticsNeeded())
                 this.set(CONSENT_KEYS.analytics, this._analyticsAccepted(), CookieConsentService.CONSENT_MAX_AGE_SECONDS);
@@ -308,7 +342,7 @@ export class CookieConsentService {
 
             const logValue = JSON.stringify({
                 categories: {
-                    technical: this._technicalAccepted(),
+                    technicalOptional: this._technicalOptionalAccepted(),
                     analytics: this._analyticsAccepted(),
                     profiling: this._profilingAccepted(),
                 },
@@ -321,9 +355,9 @@ export class CookieConsentService {
         try {
             // ─── SIDE EFFECT DEL CONSENSO ───────────────────────────────────────
 
-            // 1. Service Worker: allinea lo stato del SW al flag isWebApp e al consenso tecnico.
+            // 1. Service Worker: allinea lo stato del SW al flag isWebApp e al consenso TechnicalOptional.
             if (!isDevMode() && 'serviceWorker' in navigator) {
-                if (this.siteConfig.isWebApp && this._technicalAccepted()) {
+                if (this.siteConfig.isWebApp && this._technicalOptionalAccepted()) {
                     // PWA attiva e consenso dato: registra nella sessione corrente (se non già presente).
                     navigator.serviceWorker.getRegistration().then(existing => {
                         if (!existing) {
@@ -494,9 +528,23 @@ export class CookieConsentService {
 
     // ─── HELPER INTERNI ───────────────────────────────────────────────
 
+    /** Technical è esente per legge (art. 122 Codice Privacy / art. 5.3 ePrivacy): SEMPRE
+     *  accettata, senza condizioni — non lega la risposta a `hasTechnicalCategory()` (l'avevamo
+     *  fatto, e si è rivelato un bug: quel computed guarda solo COOKIE_MAP/TechnicalOptional/
+     *  Analytics/Profiling, ma un cookie Technical built-in può entrare in `_cm` anche per una via
+     *  che `hasTechnicalCategory` non vede — es. `bearerToken`, registrato appena `loginPage` è
+     *  configurato, indipendentemente da qualunque categoria di consenso. Con la versione
+     *  "esplicita" un sito solo-login (nessuna PWA, nessun cookie di progetto) si sarebbe visto
+     *  bloccare in silenzio la scrittura del token — oggi non successo solo perché
+     *  `TokenService`/`ESSENTIAL_ENGINE_STORAGE_KEYS` bypassano comunque questo gate, un incrocio di
+     *  tre garanzie sparse che nessuno garantisce resti vero per il prossimo cookie built-in
+     *  aggiunto. Il `true` fisso non ha invarianti da mantenere: Technical è esente per
+     *  definizione, punto — non "esente quando succede che lo sia". Le altre tre categorie sono
+     *  simmetriche: un signal di consenso ciascuna. */
     private isCategoryAccepted(category: ConsentCategory): boolean {
         switch (category) {
-            case ConsentCategory.Technical: return this._technicalAccepted();
+            case ConsentCategory.Technical: return true;
+            case ConsentCategory.TechnicalOptional: return this._technicalOptionalAccepted();
             case ConsentCategory.Analytics: return this._analyticsAccepted();
             case ConsentCategory.Profiling: return this._profilingAccepted();
             default: return false;
@@ -506,7 +554,7 @@ export class CookieConsentService {
     /**
      * De-registra ogni Service Worker residuo e svuota le sue cache. Idempotente e browser-only:
      * se non c'è nulla da rimuovere è un no-op. Usato quando la PWA non deve essere attiva
-     * (`isWebApp:false` o consenso tecnico negato), sia all'avvio sia al cambio di consenso, così
+     * (`isWebApp:false` o consenso TechnicalOptional negato), sia all'avvio sia al cambio di consenso, così
      * un SW registrato in passato non continua a servire una copia in cache obsoleta.
      */
     private unregisterServiceWorker(): void {

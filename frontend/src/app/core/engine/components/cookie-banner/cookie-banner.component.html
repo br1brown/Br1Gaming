@@ -60,7 +60,13 @@
             <i class="fa-solid fa-shield-halved me-1" aria-hidden="true"></i>{{ 'gpcRilevatoBannerCookie' | translate }}
         </p>
     }
-    @if (cookieConsent.isTechnicalNeeded()) {
+    <!-- Categoria Technical (sessione, memorie del consenso, eventuali voci di progetto in
+         COOKIE_MAP con questa categoria): esente da consenso per legge (art. 122 Codice Privacy /
+         art. 5.3 ePrivacy), quindi solo dichiarata — badge fisso, nessuno switch. Uno switch che
+         finge di poterli rifiutare sarebbe o bugiardo (non si spegne nulla) o, se onorato,
+         romperebbe il sito: entrambi peggio del non mostrarli affatto. Un cookie tecnico ma
+         facoltativo va in TechnicalOptional (riga sotto), non qui. -->
+    @if (cookieConsent.hasTechnicalCategory()) {
         <hr class="mt-0 mb-0">
         <div class="d-flex align-items-center gap-3">
             @if (panelMode()) {
@@ -71,12 +77,30 @@
                     <p class="small opacity-75 mb-0 mt-1">{{ 'tecniciDescrizioneCategoriaCookie' | translate }}</p>
                 </details>
             }
+            <span class="badge px-3 py-1 rounded-pill text-uppercase bg-secondary-subtle text-secondary-emphasis flex-shrink-0" style="letter-spacing: 0.5px; font-size: 0.75rem;">{{ 'obbligatorioBannerCookie' | translate }}</span>
+        </div>
+    }
+    <!-- Categoria TechnicalOptional: il Service Worker/PWA built-in, più gli eventuali cookie
+         tecnici di progetto in COOKIE_MAP con questa categoria — tutti condividono questo unico
+         switch/bucket, esattamente come Analytics/Profiling. Non strettamente necessaria a
+         erogare il servizio richiesto (diversamente da Technical sopra), resta a consenso esplicito. -->
+    @if (cookieConsent.isTechnicalOptionalNeeded()) {
+        <hr class="mt-0 mb-0">
+        <div class="d-flex align-items-center gap-3">
+            @if (panelMode()) {
+                <span class="fw-semibold flex-grow-1">{{ 'tecniciNonObbligatoriCategoriaCookie' | translate }}</span>
+            } @else {
+                <details class="cookie-category flex-grow-1">
+                    <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">{{ 'tecniciNonObbligatoriCategoriaCookie' | translate }}</summary>
+                    <p class="small opacity-75 mb-0 mt-1">{{ 'tecniciNonObbligatoriDescrizioneCategoriaCookie' | translate }}</p>
+                </details>
+            }
             <div class="form-check form-switch mb-0 flex-shrink-0">
-                <label class="cookie-switch-hit" for="cookieSwitchTechnical">
-                    <input id="cookieSwitchTechnical" class="form-check-input" type="checkbox" role="switch"
-                           [attr.aria-label]="'tecniciCategoriaCookie' | translate"
-                           [checked]="pendingTechnical()"
-                           (change)="setPending('technical', $any($event.target).checked)">
+                <label class="cookie-switch-hit" for="cookieSwitchTechnicalOptional">
+                    <input id="cookieSwitchTechnicalOptional" class="form-check-input" type="checkbox" role="switch"
+                           [attr.aria-label]="'tecniciNonObbligatoriCategoriaCookie' | translate"
+                           [checked]="pendingTechnicalOptional()"
+                           (change)="setPending('technicalOptional', $any($event.target).checked)">
                 </label>
             </div>
         </div>
@@ -125,9 +149,11 @@
     }
 </ng-template>
 
-<!-- Azioni — condivise da banner e pannello, sempre tutte e tre: qui il consenso copre anche i
-     tecnici (rifiutarli spegne il SW), quindi Rifiuta/Accetta restano anche quando
-     la tecnica è l'unica categoria — con una sola categoria l'etichetta perde il "tutto".
+<!-- Azioni — condivise da banner e pannello, sempre tutte e tre: qui il consenso copre
+     TechnicalOptional (Service Worker/PWA built-in + eventuali cookie di progetto nella stessa
+     categoria) insieme ad Analytics/Profiling — Technical (badge fisso, esente per legge) non è
+     mai in gioco. Rifiuta/Accetta restano anche quando TechnicalOptional è l'unica categoria
+     attiva — con una sola categoria l'etichetta perde il "tutto".
      Rifiuta e Accetta condividono LO STESSO stile (outline-secondary): pari peso visivo richiesto
      da EDPB/Garante — un "Accetta" pieno/verde contro un "Rifiuta" in outline nudgerebbe l'utente
      verso il consenso (dark pattern). Solo "Salva scelte" resta evidenziato: non è un'alternativa

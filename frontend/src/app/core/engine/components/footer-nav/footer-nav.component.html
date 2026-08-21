@@ -1,20 +1,19 @@
 @if (links().length > 0) {
     <nav [attr.aria-label]="'footerNav' | translate">
-    <div class="row mb-3">
-        <div class="col-12">
-            <div class="row justify-content-center">
-                @for (item of links(); track item.path) {
-                    <div class="col-12 col-sm-6 col-md-3 col-lg-2 mb-3 text-start">
-                        @if (isGroup(item)) {
-                            <app-footer-nav-group [group]="item" [level]="0" />
-                        } @else {
-                            <app-nav-link [link]="item" cssClass="d-block small py-2" />
-                        }
-                    </div>
-                }
+    @if (groups().length > 0) {
+        <div class="footer-nav-groups mb-3">
+            @for (group of groups(); track group.path) {
+                <app-footer-nav-group [group]="group" [level]="0" />
+            }
+        </div>
+    }
+    @if (standaloneLinks().length > 0) {
+        <div class="row mb-3">
+            <div class="col-12">
+                <app-footer-link-row [links]="standaloneLinks()" />
             </div>
         </div>
-    </div>
+    }
     <hr />
     </nav>
 }

@@ -72,8 +72,8 @@ export class IdentityRenderComponent {
         ]);
     });
 
-    /** Voci testuali della sezione Contatti (nome, sede, rappresentante). Gli orari sono resi a parte
-     *  da `app-opening-hours` (componente autonomo), non più una riga di testo qui. */
+    /** Voci testuali della sezione Contatti (nome, sede, rappresentante, cariche legali). Gli orari
+     *  sono resi a parte da `app-opening-hours` (componente autonomo), non più una riga di testo qui. */
     readonly contactItems = computed<IdentityItem[]>(() => {
         const identity = this.identity();
         if (!identity) return [];
@@ -81,15 +81,19 @@ export class IdentityRenderComponent {
             this.createTextItem(identity.ragioneSociale, this.label('ragioneSocialeAzienda')),
             this.createTextItem(this.formatAddress(identity), this.label('sedeLegaleAzienda')),
             this.createTextItem(identity.rappresentanteLegale, this.label('rappresentanteLegaleAzienda')),
+            this.createTextItem(identity.titolareDelTrattamento?.nome, this.label('titolareDelTrattamentoAzienda')),
+            this.createTextItem(identity.responsabileProtezioneDati?.nome, this.label('responsabileProtezioneDatiAzienda')),
         ]);
     });
 
     /** Gli orari (delegati a `app-opening-hours`) hanno almeno una fascia valida da mostrare. */
     readonly showOpeningHours = computed<boolean>(() => hasOpeningHours(this.identity()?.openingHours));
 
-    /** Indica se la colonna Contatti ha qualcosa da mostrare (testo, orari o badge). */
-    readonly hasContacts = computed<boolean>(() =>
-        this.contactItems().length > 0 || this.showOpeningHours() || this.contacts().length > 0);
+    /** Indica se la colonna Contatti (testo + badge, SENZA orari — colonna a sé) ha qualcosa da mostrare. */
+    readonly hasContactInfo = computed<boolean>(() => this.contactItems().length > 0 || this.contacts().length > 0);
+
+    /** Indica se c'è qualcosa da mostrare fra contatti e orari, sommati (usato per il gate dell'intera riga). */
+    readonly hasContacts = computed<boolean>(() => this.hasContactInfo() || this.showOpeningHours());
 
     /** Profili social del brand, solo quando `showSocial` è attivo (dato d'identità). L'icona la
      *  deduce `app-social-link` dall'URL; `name` (se c'è) è l'etichetta resa accanto nel footer. */
@@ -130,18 +134,29 @@ export class IdentityRenderComponent {
      * translate → "key not found").
      */
     readonly contacts = computed<ContactChannel[]>(() => {
-        const c = this.identity()?.contatti;
-        if (!c) return [];
+        const identity = this.identity();
+        if (!identity) return [];
 
         const list: ContactChannel[] = [];
-        if (this.hasText(c.telefono)) {
-            list.push({ kind: 'phone', key: 'telefono', label: 'telefonoAzienda', number: c.telefono.trim() });
+        const c = identity.contatti;
+        if (c) {
+            if (this.hasText(c.telefono)) {
+                list.push({ kind: 'phone', key: 'telefono', label: 'telefonoAzienda', number: c.telefono.trim() });
+            }
+            if (this.hasText(c.email)) {
+                list.push({ kind: 'mail', key: 'email', label: 'emailAzienda', config: { to: c.email.trim() } });
+            }
+            if (this.hasText(c.pec)) {
+                list.push({ kind: 'pec', key: 'pec', label: 'pecAzienda', config: { to: c.pec.trim() } });
+            }
         }
-        if (this.hasText(c.email)) {
-            list.push({ kind: 'mail', key: 'email', label: 'emailAzienda', config: { to: c.email.trim() } });
+        const titolareEmail = identity.titolareDelTrattamento?.email;
+        if (this.hasText(titolareEmail)) {
+            list.push({ kind: 'mail', key: 'titolareDelTrattamento', label: 'titolareDelTrattamentoAzienda', config: { to: titolareEmail.trim() } });
         }
-        if (this.hasText(c.pec)) {
-            list.push({ kind: 'pec', key: 'pec', label: 'pecAzienda', config: { to: c.pec.trim() } });
+        const dpoEmail = identity.responsabileProtezioneDati?.email;
+        if (this.hasText(dpoEmail)) {
+            list.push({ kind: 'mail', key: 'responsabileProtezioneDati', label: 'responsabileProtezioneDatiAzienda', config: { to: dpoEmail.trim() } });
         }
         return list;
     });
@@ -252,4 +267,46 @@ export class IdentityRenderComponent {
     private isNonEmptyString(value: unknown): value is string {
         return typeof value === 'string' && value.trim().length > 0;
     }
+}
+
+/**
+ * True se `identity` ha almeno un campo che `app-identity-render` renderizzerebbe (identificativi,
+ * dati legali, contatti testuali/canali, orari o — se richiesto — social): stesso pattern di
+ * `hasOpeningHours`, permette a un consumer (es. `{{companyProfile}}` nelle pagine legali) di non
+ * riservare spazio per un blocco che, identità non `null` ma con ogni campo vuoto, risulterebbe
+ * comunque invisibile. `includeSocial` è `false` di default perché i consumer che non passano
+ * `[showSocial]="true"` (tutte le pagine legali) non renderizzano comunque i social.
+ */
+export function hasIdentityContent(identity: Identity | null | undefined, includeSocial = false): boolean {
+    if (!identity) return false;
+    const hasText = (value: string | null | undefined): value is string =>
+        typeof value === 'string' && value.trim().length > 0;
+
+    const ds = identity.datiSocietari;
+    const hasIdentifiers = hasText(identity.partitaIva) || hasText(identity.codiceFiscale)
+        || hasText(ds?.registroImprese) || hasText(ds?.numeroRea) || hasText(ds?.codiceSdi);
+
+    const hasLegal = ds != null && (
+        (typeof ds.capitaleSociale === 'number' && Number.isFinite(ds.capitaleSociale))
+        || typeof ds.capitaleInteramenteVersato === 'boolean'
+        || typeof ds.isSocioUnico === 'boolean'
+        || typeof ds.inLiquidazione === 'boolean'
+    );
+
+    const address = identity.sedeLegale;
+    const hasAddress = address != null
+        && [address.via, address.civico, address.cap, address.citta, address.provincia, address.nazione].some(hasText);
+    const hasLegalRoleName = hasText(identity.titolareDelTrattamento?.nome) || hasText(identity.responsabileProtezioneDati?.nome);
+    const hasContactBlock = hasText(identity.ragioneSociale) || hasAddress || hasText(identity.rappresentanteLegale) || hasLegalRoleName;
+
+    const c = identity.contatti;
+    const hasContactChannels = (c != null && (hasText(c.telefono) || hasText(c.email) || hasText(c.pec)))
+        || hasText(identity.titolareDelTrattamento?.email) || hasText(identity.responsabileProtezioneDati?.email);
+
+    const hasHours = hasOpeningHours(identity.openingHours);
+
+    const hasSocial = includeSocial && Array.isArray(identity.social)
+        && identity.social.some(s => !!s && hasText(s.url));
+
+    return hasIdentifiers || hasLegal || hasContactBlock || hasContactChannels || hasHours || hasSocial;
 }

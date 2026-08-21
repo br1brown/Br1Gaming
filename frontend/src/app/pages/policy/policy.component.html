@@ -16,6 +16,7 @@
                                             <div class="bg-light rounded p-3 me-3 d-flex align-items-center justify-content-center">
                                                 @switch (cat.key) {
                                                     @case (ConsentCategory.Technical) { <i class="fa-solid fa-shield-halved text-success fs-4" aria-hidden="true"></i> }
+                                                    @case (ConsentCategory.TechnicalOptional) { <i class="fa-solid fa-puzzle-piece text-secondary fs-4" aria-hidden="true"></i> }
                                                     @case (ConsentCategory.Analytics) { <i class="fa-solid fa-chart-line text-info fs-4" aria-hidden="true"></i> }
                                                     @case (ConsentCategory.Profiling) { <i class="fa-solid fa-user-gear text-warning fs-4" aria-hidden="true"></i> }
                                                 }
@@ -39,6 +40,7 @@
                                     <div class="bg-light rounded p-3 d-flex align-items-center justify-content-center flex-shrink-0">
                                         @switch (group.category) {
                                             @case (ConsentCategory.Technical) { <i class="fa-solid fa-shield-halved text-success fs-5" aria-hidden="true"></i> }
+                                            @case (ConsentCategory.TechnicalOptional) { <i class="fa-solid fa-puzzle-piece text-secondary fs-5" aria-hidden="true"></i> }
                                             @case (ConsentCategory.Analytics) { <i class="fa-solid fa-chart-line text-info fs-5" aria-hidden="true"></i> }
                                             @case (ConsentCategory.Profiling) { <i class="fa-solid fa-user-gear text-warning fs-5" aria-hidden="true"></i> }
                                         }
@@ -89,7 +91,7 @@
                         }
                     </div>
                 } @else if (seg.type === 'profile') {
-                    @if (identity()) {
+                    @if (hasCompanyProfile()) {
                         <div class="my-4">
                             <app-identity-render inColonna [identity]="identity()"></app-identity-render>
                         </div>
