@@ -31,6 +31,10 @@ L'Engine si occupa di iniettare meccanismi standard di base per l'Accessibilità
 ### 5. Policy Pages Integrate
 Le pagine legali (Privacy, Cookie, Termini, Note Legali) le costruisce l'Engine: in `site.ts` valorizzi gli slot `legalPages` (`privacy`/`cookie`/`tos`/`legal`) coi tuoi `PageType` e il builder inietta da solo il nodo `/policy/*`. Uno slot omesso = quella pagina non esiste (es. una vetrina con solo i cookie). Se il sito usa cookie, lo slot `cookie` è obbligatorio: ometterlo è un errore al build. I testi vivono in `src/assets/legal/` come Markdown localizzati (es. `privacy.it.md`, `TOS.it.md`); il `ContentResolver` li carica da filesystem in SSR e via fetch nel browser, e il `PolicyComponent` interpola i placeholder come `{{ragioneSociale}}` / `{{partitaIva}}` dall'identità del sito (`GET /identity`).
 
+### 6. Catalogo Design System (sempre in home)
+Perché è utile: chi valuta l'aspetto di un sito — un designer, un Art Director — di norma dovrebbe leggere il codice o loggarsi con le credenziali demo per capire che faccia ha il sistema: un ostacolo inutile per chi non scrive codice.
+Cosa fa l'Engine: `app-design-system-gallery` (`core/engine/components/design-system-gallery/`) è un catalogo visivo dei componenti di base (colori, tipografia, bottoni, badge, alert, form) montato di serie nella home — sempre visibile, senza login. Vive nell'Engine e non in `components/shared/**` (che è Dominio, vedi «Mappa del territorio» sotto) apposta: sopravvive anche a un `setup.mjs` → "parti pulito" (eject), quando il resto della demo viene rimosso, ed è l'unica sezione della home pensata per un pubblico non-dev. Per lo stesso motivo le sue stringhe vivono in `basic.{lang}.json` (Engine, mai azzerato) invece che in `addon.{lang}.json` (Dominio, azzerato dall'eject).
+
 ---
 
 ## 🗺️ Mappa del territorio: cosa è tuo, cosa è dell'Engine

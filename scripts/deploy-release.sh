@@ -238,6 +238,14 @@ if (( ERRORS > 0 )); then
     exit 1
 fi
 
+# ── CONTENUTI ANCORA SEGNAPOSTO (informativo, non bloccante) ─────────────────
+# Come deploy.sh, ma solo project.name: qui non c'è sorgente (niente backend/data/identity.json
+# sulla VPS, modello artifact-based). Logica condivisa in scripts/lib/br1-config.sh.
+_content_warns="$(br1_content_placeholder_warnings 0)"
+if [[ -n "$_content_warns" ]]; then
+    while IFS= read -r _w; do [[ -n "$_w" ]] && warn "$_w"; done <<< "$_content_warns"
+fi
+
 # ── ACQUISIZIONE IMMAGINI (da GHCR o da file .tar.gz) ────────────────────────
 # Due modi, stessa destinazione: le immagini finiscono nel docker locale col nome che
 # docker-compose.release.yml si aspetta, così preflight e swap non fanno alcun pull.

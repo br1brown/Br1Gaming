@@ -5,6 +5,7 @@ using FluentValidation;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.Options;
 using Backend.Delivery;
+using Backend.Diagnostics;
 using Backend.Engine.Localization;
 using Backend.Identity;
 using Backend.Mail;
@@ -83,6 +84,8 @@ builder.Services.Configure<LocalizationOptions>(
     builder.Configuration.GetSection("Localization"));
 builder.Services.Configure<MailOptions>(
     builder.Configuration.GetSection("Mail"));
+builder.Services.Configure<ErrorReportingOptions>(
+    builder.Configuration.GetSection("ErrorReporting"));
 
 var security = builder.Configuration
     .GetSection("Security")
@@ -121,6 +124,15 @@ builder.Services.AddSingleton<IEngineMailer, EngineMailer>();
 builder.Services.AddSingleton<ChannelEmailQueue>();
 builder.Services.AddSingleton<IEmailQueue>(sp => sp.GetRequiredService<ChannelEmailQueue>());
 builder.Services.AddHostedService<EmailSenderHostedService>();
+
+// Error reporting: un POST JSON verso un webhook esterno per ogni eccezione non applicativa o
+// applicativa con status ≥500 (vedi ApiExceptionHandler.ShouldReport). Spento di default
+// (ErrorReporting.WebhookUrl vuoto): nessuna chiamata HTTP uscente finché non lo configuri.
+// Nessun pacchetto NuGet aggiuntivo: solo HttpClient tipizzato via IHttpClientFactory.
+builder.Services.AddHttpClient<IErrorReportingService, EngineErrorReporting>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
 
 if (security.LoginEnabled)
 {
@@ -216,6 +228,10 @@ var app = builder.Build();
 // traccia solo lo stato all'avvio (nessun segreto nei log).
 app.Logger.LogInformation("Mailer {State}.",
     app.Services.GetRequiredService<IEngineMailer>().IsEnabled ? $"attivo (SMTP {mail.Host}:{mail.Port})" : "non configurato");
+
+// ── ERROR REPORTING ─────────────────────────────────────────────────
+app.Logger.LogInformation("Error reporting {State}.",
+    app.Services.GetRequiredService<IErrorReportingService>().IsEnabled ? "attivo" : "non configurato");
 
 // ── PIPELINE HTTP ───────────────────────────────────────────────────
 // L'ordine è critico. Vedi README.md → "Ordine della pipeline HTTP".

@@ -4,6 +4,33 @@ Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspetta
 
 ## [Non rilasciato]
 
+### Catalogo Design System in home, spostato nell'Engine (sopravvive all'eject)
+
+La home demo esercita ogni funzionalità dell'Engine, ma resta pensata per chi legge codice: niente di consultabile da chi valuta l'aspetto di un sito (designer, Art Director) senza login né lettura del sorgente — e comunque, essendo demo Dominio, sarebbe sparito del tutto con `setup.mjs` → eject, insieme al resto.
+
+- Nuovo `app-design-system-gallery` (`core/engine/components/design-system-gallery/`): catalogo visivo sempre presente di colori, tipografia, bottoni, badge, alert e form — nessun gate di login, a differenza delle altre sezioni della home demo.
+- Vive nell'Engine e non in `components/shared/**` (che è Dominio) apposta: sopravvive all'eject, `setup.mjs` monta il componente anche nella home minimale del progetto "pulito".
+- Le sue stringhe i18n vivono in `basic.{lang}.json` (Engine, mai azzerato) invece che in `addon.{lang}.json` (Dominio, azzerato dall'eject), per lo stesso motivo.
+- Verificato: build di produzione frontend (type-check incluso), lint, i18n-check e circular-deps-check puliti.
+
+### Error reporting via webhook (`IErrorReportingService`)
+
+Un bug in produzione, di norma, lo scopri solo leggendo i log a mano. Serviva un modo per farsi avvisare senza dover installare l'SDK di un vendor specifico (Sentry e simili) solo per quello.
+
+- Nuovo `IErrorReportingService` (`Engine/ErrorReporting/`): un `POST` JSON verso un webhook a scelta (`ErrorReporting.WebhookUrl` in `global-settings.local.json`, vuoto = spento) per ogni eccezione non applicativa (un bug vero) o applicativa con status ≥500 — mai un 4xx, traffico normale. Nessun pacchetto NuGet in più: solo `HttpClient` via `IHttpClientFactory`, stesso schema del mailer.
+- Chiamato già da `ApiExceptionHandler`, non a mano: accodato su `IBackgroundTaskQueue` con uno snapshot immutabile (`ErrorReport`) costruito sincronamente — mai la `HttpContext` live dentro un task in background, che Kestrel ricicla subito dopo la risposta.
+- Il payload porta `project` (da `project.name`): pensato per più progetti sulla stessa VPS che condividono un solo webhook/relay, restando comunque distinguibili.
+- Deliberatamente un webhook generico, non un client nativo per un vendor specifico: a differenza di SMTP, il formato di ingestione di un APM (Sentry incluso) non è uno standard — legarlo dentro l'Engine vorrebbe dire far ereditare a ogni figlio il rischio che quel vendor cambi la sua API privata. Chi vuole un vendor specifico scrive un piccolo relay di traduzione fuori dal template, riusabile su tutti i propri progetti.
+- Verificato: `dotnet build` (0 warning, 0 errori).
+
+### Checklist di pre-lancio incorporata negli script di deploy
+
+Un documento "cosa non dimenticare prima di andare live" è utile solo se qualcuno lo riapre il giorno del deploy vero — di norma non succede. Il promemoria vive quindi dentro lo script che lancia davvero la pubblicazione, accanto ai guard sui segreti già esistenti.
+
+- Nuova `br1_content_placeholder_warnings` (`scripts/lib/br1-config.sh`), condivisa da `deploy.sh` e `deploy-release.sh`: avvisa, senza bloccare, se `project.name` è ancora il default `"App"` o se `backend/data/identity.json` è ancora lo scheletro vuoto lasciato dall'eject. `deploy-release.sh` verifica solo `project.name`: modello artifact-based, niente sorgente sulla VPS, `identity.json` non c'è da controllare.
+- Non bloccante di proposito: sono stati finali legittimi in alcuni casi (`identity.json` vuoto nasconde da solo footer e blocco legale, vedi `README.md`).
+- Verificato a mano contro dati segnaposto e dati reali del repo (nessun falso positivo/negativo).
+
 ### Cookie tecnici: separati in `Technical` (sempre esenti) e `TechnicalOptional` (PWA/SW, consenso vero)
 
 La categoria `Technical` copriva due cose diverse sotto lo stesso nome: i cookie strettamente necessari (sessione, memoria del consenso), esenti da consenso per legge (art. 122 Codice Privacy / art. 5.3 ePrivacy), **e** il Service Worker/PWA built-in, che invece va oltre il minimo necessario (installabilità/offline) ed è tecnico ma non indispensabile. Il banner mostrava comunque uno switch su "Technical" per il caso PWA: uno switch su qualcosa di dichiarato esente per legge è un'incoerenza legale, non solo terminologica.

@@ -41,9 +41,11 @@ La tabella sopra dice in che file cercare; questa dice per argomento, utile a ch
 | **Cache e scalabilità multi-istanza** | `IMemoryCache` per-istanza; il seam verso un backplane distribuito (es. Redis) per notifiche/store multi-istanza è già segnalato per chi estende oltre la singola istanza | [backend/README.md](backend/README.md) §4, §6 |
 | **Sicurezza** | JWT opzionale, ruoli via claim di sessione, rate limiting, CORS, header di sicurezza, XSS-hardening, segreti fuori da git | [backend/README.md](backend/README.md) §1 e «Sistema di Login e Sessioni JWT» |
 | **Dati personali (GDPR)** | Export e diritto all'oblio (`GET`/`DELETE /me/data`) già cablati dietro login, con cifratura della risposta (`IEngineCrypto`, chiave dedicata `Security.CryptoSecret`); il figlio implementa una sola `IPersonalDataStore` | [backend/README.md](backend/README.md) §9 |
+| **Consenso cookie e GDPR** | Consenso a 4 categorie (Technical/TechnicalOptional/Analytics/Profiling), Global Privacy Control onorato in automatico, ricetta pronta per Google Consent Mode v2 (obbligatorio su GA4/Ads in UE/UK) — nessun tag caricato finché non lo attivi tu | [frontend/README.md](frontend/README.md) §"Google Consent Mode v2" |
 | **Asset e risorse** | Immagini (resize/formati server-side) e font centralizzati; CDN abilitata via whitelisting del dominio in CSP | [frontend/README.md](frontend/README.md) — sezioni AssetService, Font |
 | **Bundling frontend** | Budget di produzione (`angular.json`, già gate CI in `ng build`), whitelist CommonJS, code-splitting per pagina/SDK via `import()` dinamico | [frontend/README.md](frontend/README.md) — sezione Bundling |
 | **Configurazione applicativa** | Routing via DSL `site.ts`, i18n su entrambi i lati, errori uniformi (`ProblemDetails`), logging via property ambient `Logger` | [backend/README.md](backend/README.md) §2, «Dove mettere le mani» qui sopra |
+| **Error reporting** | `IErrorReportingService`: un POST JSON verso un webhook a tua scelta per ogni bug vero o errore ≥500, spento di default, zero pacchetti NuGet in più | [backend/README.md](backend/README.md) §10 |
 | **DevOps e deploy** | Docker Compose, pipeline CI (lint, i18n, tsc, cicli, a11y, Lighthouse, audit, gitleaks), health check | [DOCKER_README.md](DOCKER_README.md) |
 | **Testing e qualità** | Gate automatici (lint/i18n/tsc/cicli/a11y/Lighthouse) in CI; unit/integration/E2E restano di ogni progetto figlio, per scelta di isolamento | «🧪 Test Suite Automatica» qui sotto |
 | **Frontend specifico** | State via Signals nativi (no NgRx), Bootstrap 5 + libreria di componenti propria, SEO/JSON-LD automatico | [frontend/README.md](frontend/README.md) |
@@ -193,6 +195,7 @@ Senza scrivere una riga di codice infrastrutturale, dalla scatola esce già tutt
 - **Notifiche realtime**: canale server→client via SSE (`INotificationStream` / `NotificationStreamService`) per spingere notifiche ai client connessi — targeting per broadcast/connessione/gruppo, indipendente dal login, payload che non si ferma al testo. Dettagli in [backend](backend/README.md) e [frontend](frontend/README.md).
 - **Task in background e delivery**: coda generica in-memory (`IBackgroundTaskQueue` + hosted service, scope DI per task) per il pattern "POST risponde subito `202` → lavoro lungo → notifica a fine task", con un `IDeliveryService` che di **default consegna in realtime e stop** (niente email a sorpresa se l'utente è offline) e, su richiesta con `Auto`, aggiunge il **fallback email** quando il destinatario non è connesso.
 - **Integrazioni con servizi esterni**: schema pronto sia per chiamare API di terze parti (client HTTP tipizzato, URL/chiavi in configurazione, mai hardcoded) sia per ricevere webhook in ingresso (endpoint pubblico con verifica della firma sul body grezzo, elaborazione in background). Dettagli in [backend/README.md](backend/README.md).
+- **Consenso cookie**: se il progetto usa GA4/Google Ads lato browser, la ricetta pronta per **Google Consent Mode v2** (obbligatorio in UE/UK) collega i quattro consensi già gestiti dal banner cookie senza codice morto finché non la attivi. Dettagli in [frontend/README.md](frontend/README.md) §"Google Consent Mode v2".
 
 ---
 
@@ -212,6 +215,7 @@ Una pagina-vetrina che esercita i componenti e i servizi dell'Engine, sezione pe
 
 | Sezione | Cosa fa vedere |
 | :--- | :--- |
+| **Design System** | Catalogo visivo sempre presente (colori, tipografia, bottoni, badge, alert, form): a differenza delle sezioni sotto, **non è demo Dominio ma un componente Engine** (`app-design-system-gallery`), pensato per chi valuta l'aspetto del sito (designer, Art Director) senza login né lettura di codice. Sopravvive anche a un `setup.mjs` "parti pulito" (eject) |
 | **Azioni** | Componenti autonomi di azione (copia, condivisione, sintesi vocale, download, stampa, PDF) e di contatto (mail, telefono, WhatsApp, Telegram, social) |
 | **Generatori** | Anteprima Markdown live (pipe `markdown`) e generazione immagini da testo (`[appImgRender]`) con menu contestuale custom (`[appContextMenu]`) |
 | **QR Code** | QR multi-formato: testo, WhatsApp, email, Wi-Fi, bonifico SEPA (`[appQrContent]`) |

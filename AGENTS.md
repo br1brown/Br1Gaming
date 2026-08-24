@@ -91,6 +91,25 @@ const s = JSON.parse(raw) as GlobalSettings;
 s.Localization?.SupportedLanguages   // tipizzato; `s.Localizaton` non compila
 ```
 
+#### Feature flag / varianti di progetto via `Custom`
+La sezione `Custom` di `global-settings.json` (committabile, `additionalProperties: true`, nessuno schema fisso: ci metti quello che vuoi) è il punto giusto per un flag o una variante letta da entrambi i lati senza inventare un meccanismo nuovo — utile per accendere/spegnere una sezione, testare due varianti (CRO/A-B) o passare un ID (analytics, SDK esterno). **Non è remote-config**: cambiare un valore è una modifica al file + un nuovo deploy, non un toggle a runtime.
+```json
+// global-settings.json — committabile, niente segreti (finisce nel bundle client)
+"Custom": { "heroVariant": "B", "showPromoBanner": true, "Analytics": { "TrackingId": "G-XXXXXXX" } }
+```
+```typescript
+// Frontend — inject(APP_CUSTOM) (root README «Configurazione e segreti», frontend/README.md)
+readonly custom = inject(APP_CUSTOM);
+readonly heroVariant = this.custom['heroVariant'] ?? 'A';
+```
+> ⚠️ `APP_CUSTOM` si popola solo su una rotta renderizzata dal server (TransferState dall'SSR): su `renderMode: 'client'` (incluse le pagine `requiresAuth`) torna `{}` al caricamento diretto/refresh. Se la pagina che legge il flag deve restare client-side, passa il valore da un endpoint invece che da `APP_CUSTOM` (vedi sotto).
+```csharp
+// Backend — IConfiguration iniettata nel costruttore (controller/service), mai nell'Engine
+public MioService(IConfiguration config) => _config = config;
+if (_config.GetValue<bool>("Custom:showPromoBanner")) { /* ... */ }
+```
+Per un flag/variante che un CRO/SEM specialist deve poter cambiare senza toccare codice TypeScript/C#, il file è comunque lo stesso `global-settings.json`: la ricetta rimane "modifica il JSON, fai il deploy", nessuna dashboard — coerente con l'assenza di un sistema di A/B testing nel template (vedi root README, ruoli CRO/SEM).
+
 #### SEO: escludere una pagina dall'indice
 ```typescript
 // pages/*.pages.ts — pagina pubblica e SSR ma fuori da sitemap e indice (X-Robots-Tag: noindex).
@@ -270,6 +289,14 @@ await _mailer.SendAsync(to: new[] { "destinatario@dominio.it" }, subject: "Ogget
 _emailQueue.TryEnqueue(new EmailMessage(to: [...], subject: "...", body: "...", isHtml: false));
 ```
 Senza una sezione `Mail` valida in config (`Host` + `FromAddress`) `IsEnabled` è `false` e l'invio diretto lancia `MailNotConfiguredException` (503): gate prima con `_mailer.IsEnabled`. Dettagli (SMTP, anti-spam, allegati) in [backend/README.md](backend/README.md) §5.
+
+#### Farsi avvisare quando qualcosa si rompe
+`ErrorReporting.WebhookUrl` in `global-settings.local.json` (vuoto = spento): valorizzalo e basta, `ApiExceptionHandler` manda già da solo un POST JSON al webhook per ogni bug vero o errore ≥500 — nessuna chiamata da scrivere, nessun pacchetto NuGet. Niente SDK di vendor: se ti serve un vero APM (Sentry e simili, con source map/release tracking), installi il loro SDK nel tuo progetto, questo resta il minimo "avvisami e basta".
+```json
+// global-settings.local.json
+"ErrorReporting": { "WebhookUrl": "https://tuoendpoint.tld/webhook/errori" }
+```
+Il payload porta anche `project` (da `project.name`): più progetti sulla stessa VPS possono puntare allo **stesso** webhook restando distinguibili. Dettagli (payload completo, perché resta un webhook generico e non un client Sentry nativo) in [backend/README.md](backend/README.md) §10.
 
 #### Caricare/servire un file
 `BlobController` (Dominio, `Controllers/BlobController.cs`) è già pronto: `POST /blob/up` (richiede login) restituisce uno slug, `GET /blob/{slug}` lo riserve (con resize on-demand per immagini via `?webopt=true`). Per cambiare solo il limite di dimensione (default 10 MB), tocca l'attributo sulla stessa azione:

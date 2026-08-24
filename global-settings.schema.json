@@ -200,6 +200,18 @@
         }
       }
     },
+    "ErrorReporting": {
+      "type": "object",
+      "description": "Segnalazione errori dell'engine (IErrorReportingService): un POST JSON verso un webhook esterno per ogni eccezione non applicativa o applicativa con status >=500. Non contiene segreti in senso stretto ma vive comunque in global-settings.local.json perché è pubblicazione/ambiente, non identità del progetto. Volutamente senza SDK di terze parti: un webhook HTTP generico, non l'endpoint proprietario di un vendor. Spento di default (WebhookUrl vuoto).",
+      "additionalProperties": false,
+      "properties": {
+        "WebhookUrl": {
+          "type": "string",
+          "description": "URL del webhook a cui inviare la segnalazione (POST JSON: message, exceptionType, statusCode, path, method, stackTrace troncato, timestamp). Vuoto = spento, nessuna chiamata uscente.",
+          "examples": ["", "https://esempio.tld/webhook/errori"]
+        }
+      }
+    },
     "site": {
       "type": "object",
       "description": "Identità ed estetica del sito (committabile, del progetto). Iniettata nel frontend al build via environment.ts. NB: i flag di COMPORTAMENTO (showNav, showFooter, fixedTopHeader, showBrandIconInHeader, showLoginInHeader, showNotifications, forcedLightPanel, isWebApp, onlyPlainImage) NON stanno qui: sono struttura e vivono in site.ts (`shell` / `isWebApp` / `onlyPlainImage`), insieme a pagine, menu e loginPage.",

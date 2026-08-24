@@ -19,6 +19,7 @@ import { QrRenderDirective } from '../../core/engine/directives/qr-render.direct
 import { ImgRenderDirective, ImgRenderConfig } from '../../core/engine/directives/img-render.directive';
 import { AssetDirective } from '../../core/engine/directives/asset.directive';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
+import { DesignSystemGalleryComponent } from '../../core/engine/components/design-system-gallery/design-system-gallery.component';
 import { ContestoSito } from '../../site';
 import { ALLOWED_WIDTHS, type AssetWidth } from '../../core/engine/asset-config';
 import { CopyActionComponent } from '../../components/shared/action/copy-action/copy-action.component';
@@ -38,6 +39,7 @@ import { SocialLinkComponent } from '../../components/shared/navigation/social-l
     imports: [
         TranslatePipe,
         FormsModule,
+        DesignSystemGalleryComponent,
         ContextMenuDirective,
         QrRenderDirective,
         ImgRenderDirective,
