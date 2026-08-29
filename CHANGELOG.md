@@ -13,6 +13,21 @@ La home demo esercita ogni funzionalità dell'Engine, ma resta pensata per chi l
 - Le sue stringhe i18n vivono in `basic.{lang}.json` (Engine, mai azzerato) invece che in `addon.{lang}.json` (Dominio, azzerato dall'eject), per lo stesso motivo.
 - Verificato: build di produzione frontend (type-check incluso), lint, i18n-check e circular-deps-check puliti.
 
+### Titolo del browser non tradotto sulle pagine d'errore
+
+Le rotte `error/:errorCode` e `**` (routing.ts) impostavano una `title` nativa di Angular (`'erroreGenerico'`), mai passata dal servizio di traduzione: il tab del browser mostrava la chiave i18n grezza invece del testo ("erroreGenerico" anziché "Pagina non trovata | AppName"), a differenza di ogni altra pagina del sito.
+
+- Rimossa la `title` statica dalle due rotte. `ErrorComponent` ora imposta `document.title` da sé (tradotto, stesso formato `"{titolo} | {appName}"` delle altre pagine), riusando il `Title` di `@angular/platform-browser` invece della `PageMetaService` completa (le pagine d'errore sono `noindex`, non serve canonical/OG/structured data).
+- Verificato: build di produzione frontend, `/error/404` (wildcard) ed `/error/500` mostrano il titolo tradotto sia in italiano che in inglese.
+
+### Falsi positivi intermittenti nel test di accessibilità (color-contrast in concorrenza)
+
+`a11y-test.sh` con `A11Y_CONCURRENCY` di default (3) segnalava a intermittenza un contrasto ~1.09:1 su elementi di testo della navbar (dropdown di sezione, selettore lingua) — sempre lo stesso rapporto, su una pagina diversa a ogni run, anche in configurazioni dove il colore è verificabilmente corretto.
+
+- Non è un bug dei colori: verificato leggendo `getComputedStyle` dal vivo sugli stessi elementi, in tema chiaro e scuro, senza mai riprodurre il problema. Riproducibile solo dentro pa11y, e solo con 3+ pagine auditate in parallelo nello stesso browser Puppeteer condiviso — con concorrenza 2 il problema non si è più presentato su multiple run ripetute.
+- `A11Y_CONCURRENCY` di default abbassato da 3 a 2 in `a11y-test.sh`. Aggiunto anche un piccolo `wait` (400ms) in `pa11y.json` come margine extra dopo il caricamento, indipendente dalla causa reale ma innocuo.
+- Verificato: `a11y-test.sh` su 3 progetti (template + 2 figli), più run ripetuti a concorrenza 2, sempre stabile.
+
 ### Error reporting via webhook (`IErrorReportingService`)
 
 Un bug in produzione, di norma, lo scopri solo leggendo i log a mano. Serviva un modo per farsi avvisare senza dover installare l'SDK di un vendor specifico (Sentry e simili) solo per quello.

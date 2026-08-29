@@ -1,4 +1,5 @@
 import { Component, computed, effect, inject, input } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { TranslateService } from '../../core/engine/services/translate.service';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { PageDirective } from '../../core/engine/directives/page.directive';
@@ -20,6 +21,7 @@ import { environment } from '../../../environments/environment';
 })
 export class ErrorComponent {
     private readonly translate = inject(TranslateService);
+    private readonly titleService = inject(Title);
     private readonly url = injectCurrentUrl(); // signal reattivo, si aggiorna ad ogni navigazione (routing.ts).
 
     // ErrorComponent NON estende PageBaseComponent (niente pageType: una pagina d'errore non è una
@@ -36,6 +38,13 @@ export class ErrorComponent {
             if (lang && lang !== this.translate.currentLang()) { // guardia: evita fetch ripetuti se la lingua non è cambiata.
                 void this.translate.setLanguage(lang);
             }
+        });
+
+        // document.title tradotto: stesso schema di PageMetaService.setPageMeta (usato da
+        // PageBaseComponent per ogni altra pagina), ridotto al solo titolo — una pagina d'errore è
+        // sempre noindex, niente canonical/OG/structured data da aggiornare qui.
+        effect(() => {
+            this.titleService.setTitle(`${this.errorInfo()} | ${ContestoSito.config.appName}`);
         });
     }
 
