@@ -226,5 +226,19 @@
   "uploadFileTroppoGrande": "The file exceeds the maximum allowed size.",
   "uploadFileNonAmmesso": "The selected file type is not allowed.",
   "speechPlay": "Listen",
-  "speechStop": "Stop"
+  "speechStop": "Stop",
+  "sectionDesignSystem": "Design System",
+  "designSystemIntro": "Visual catalog of the base UI components: colors, typography, buttons, badges, alerts and forms.",
+  "designSystemColorsTitle": "Colors",
+  "designSystemColorsDesc": "The project's theme variables, plus Bootstrap's semantic colors.",
+  "designSystemTypographyTitle": "Typography",
+  "designSystemSampleText": "Sample text",
+  "designSystemButtonsTitle": "Buttons",
+  "designSystemBadgesTitle": "Badges",
+  "designSystemAlertsTitle": "Alerts",
+  "designSystemAlertText": "This is an alert message.",
+  "designSystemFormsTitle": "Forms",
+  "designSystemFormLabel": "Field label",
+  "designSystemFormValidFeedback": "Looks good.",
+  "designSystemFormInvalidFeedback": "Please provide a valid value."
 }

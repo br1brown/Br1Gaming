@@ -226,5 +226,19 @@
   "uploadFileTroppoGrande": "Il file supera la dimensione massima consentita.",
   "uploadFileNonAmmesso": "Il tipo di file selezionato non è consentito.",
   "speechPlay": "Ascolta",
-  "speechStop": "Interrompi"
+  "speechStop": "Interrompi",
+  "sectionDesignSystem": "Design System",
+  "designSystemIntro": "Catalogo visivo dei componenti UI di base: colori, tipografia, bottoni, badge, alert e form.",
+  "designSystemColorsTitle": "Colori",
+  "designSystemColorsDesc": "Le variabili di tema del progetto, più i colori semantici di Bootstrap.",
+  "designSystemTypographyTitle": "Tipografia",
+  "designSystemSampleText": "Testo di esempio",
+  "designSystemButtonsTitle": "Bottoni",
+  "designSystemBadgesTitle": "Badge",
+  "designSystemAlertsTitle": "Alert",
+  "designSystemAlertText": "Questo è un messaggio di alert.",
+  "designSystemFormsTitle": "Form",
+  "designSystemFormLabel": "Etichetta campo",
+  "designSystemFormValidFeedback": "Campo valido.",
+  "designSystemFormInvalidFeedback": "Campo non valido."
 }
