@@ -4,6 +4,13 @@ Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspetta
 
 ## [Non rilasciato]
 
+### `.text-bg-primary`/`.text-bg-secondary`: testo bianco fisso invece del brand
+
+Bootstrap compila `.text-bg-primary`/`.text-bg-secondary` con `color: #fff !important` fisso (contrastato contro il SUO grigio di default a build-time), ignorando `--colorPrimaryText`/`--colorSecondaryText` che ThemeService calcola apposta per lo sfondo brand runtime — un commento in `_bootstrap-theme.scss` assumeva (erroneamente) che le due cose coincidessero già. Su un brand con secondary chiaro/medio il bianco fisso scende sotto AA (verificato: 2.85:1 nel catalogo Design System di un figlio).
+
+- `.text-bg-primary`/`.text-bg-secondary` ora usano `var(--colorPrimaryText)`/`var(--colorSecondaryText)` invece del bianco fisso di Bootstrap.
+- Verificato: build di produzione frontend pulita.
+
 ### Catalogo Design System in home, spostato nell'Engine (sopravvive all'eject)
 
 La home demo esercita ogni funzionalità dell'Engine, ma resta pensata per chi legge codice: niente di consultabile da chi valuta l'aspetto di un sito (designer, Art Director) senza login né lettura del sorgente — e comunque, essendo demo Dominio, sarebbe sparito del tutto con `setup.mjs` → eject, insieme al resto.
