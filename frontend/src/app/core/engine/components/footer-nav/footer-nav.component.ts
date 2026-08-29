@@ -10,9 +10,9 @@ import { NavLink, isNavGroup } from '../../siteBuilder';
  * Render della griglia di link cablati da ContestoSito.linkFooter, con DUE resa diverse per lo
  * stesso identico input (`addPage`/`addLink`/`addGroup`, la stessa sintassi della navbar):
  *   - un `addGroup` (categoria reale di navigazione) → colonna a sé, header + lista, come sempre.
- *   - un `addPage`/`addLink` sciolto in cima (fuori da un gruppo) → NON più una colonna a testa
- *     (sprecava lo spazio di un'intera colonna per un solo link, e nel conteggio dei "chunk" di
- *     primo livello pesava come un gruppo intero pur non essendolo). Raccolti invece in un'unica
+ *   - un `addPage`/`addLink` sciolto in cima (fuori da un gruppo) → niente colonna a sé (sprecherebbe
+ *     lo spazio di un'intera colonna per un solo link, e nel conteggio dei "chunk" di primo livello
+ *     peserebbe come un gruppo intero pur non essendolo). Raccolti invece in un'unica
  *     riga compatta (`app-footer-link-row`, stesso componente della fascia legale, riga separata:
  *     sono insiemi concettualmente diversi).
  *

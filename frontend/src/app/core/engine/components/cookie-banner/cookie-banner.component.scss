@@ -69,7 +69,7 @@ app-cookie-banner .cookie-banner-modern {
 }
 
 /* Barra fissa full-width in fondo alla pagina (pattern standard "cookie bar",
-   non più una card fluttuante centrata): nessun margine laterale, niente raggio. */
+   non una card fluttuante centrata): nessun margine laterale, niente raggio. */
 /* bg/color/box-shadow vengono dalla utility .surface-elevated nell'HTML */
 app-cookie-banner .cookie-banner-modern .cookie-banner__shell {
     pointer-events: auto;

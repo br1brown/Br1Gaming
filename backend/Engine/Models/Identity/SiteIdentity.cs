@@ -109,7 +109,7 @@ public class SiteIdentity
     /// del visitatore: il frontend formatta gli importi con questa valuta nella lingua corrente.
     /// Validata dallo store con <see cref="System.Globalization.RegionInfo"/> (ISO 4217, gemello della
     /// <c>nazione</c>): assente ⇒ il frontend usa <c>EUR</c> (default dichiarato); presente ma non un
-    /// codice valido ⇒ **errore** (niente più degrado silenzioso a EUR di un <c>"Euro"</c>/<c>"XYZ"</c>).
+    /// codice valido ⇒ **errore** (un valore tipo <c>"Euro"</c>/<c>"XYZ"</c> non degrada silenziosamente a EUR).
     /// </summary>
     public string? Currency { get; set; }
 

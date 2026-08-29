@@ -224,8 +224,8 @@ export class IdentityRenderComponent {
         if (typeof value !== 'number' || !Number.isFinite(value)) return null;
         // Valuta = fatto dichiarato dall'identità; il locale (lingua corrente) decide solo il formato.
         // Il codice è già validato ISO 4217 dal backend (presente-ma-invalido → 500 al read), quindi qui
-        // si formatta fidandosi; assente → EUR (default dichiarato). Il catch resta solo come difesa
-        // (come regionName), non più per assorbire un codice sbagliato in silenzio.
+        // si formatta fidandosi; assente → EUR (default dichiarato). Il catch è solo difensivo (come
+        // per regionName): la validazione a monte esclude già un codice sbagliato silenzioso.
         const code = (currency ?? '').trim().toUpperCase() || 'EUR';
         try {
             return this.localization.formatter.currency(value, code);
