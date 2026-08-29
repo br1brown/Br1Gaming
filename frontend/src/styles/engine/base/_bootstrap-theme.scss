@@ -83,9 +83,11 @@
    tarato per 4.5:1 sul fondo CHIARO (baseLt): su pagina scura sarebbe scuro-su-scuro, sotto soglia.
    Qui le ridirigiamo a --colorPrimaryFg (= colorPrimaryFgLt in light, colorPrimaryDk in dark, token
    foreground DISACCOPPIATI dal fill e tarati 4.8:1 sulla superficie estrema), così il primary-come-testo
-   resta sopra-AA su ogni superficie in entrambi i toni. I FILL (.btn-primary, .bg-primary, .text-bg-primary)
-   restano su --bs-primary = colorPrimary: lì il testo si contrasta su --colorPrimaryText, non sulla pagina.
-   Stesso ragionamento già applicato a link e bottoni outline via --bs-link-color. */
+   resta sopra-AA su ogni superficie in entrambi i toni. I FILL (.btn-primary, .bg-primary)
+   restano su --bs-primary = colorPrimary: lì il testo si contrasta su --colorPrimaryText, non sulla
+   pagina (.text-bg-primary/.text-bg-secondary hanno una regola dedicata più sotto: Bootstrap le
+   tratta diversamente dai bottoni). Stesso ragionamento già applicato a link e bottoni outline via
+   --bs-link-color. */
 .text-primary {
     color: rgba(var(--colorPrimaryFgRgb), var(--bs-text-opacity, 1)) !important;
 }
@@ -93,13 +95,11 @@
     border-color: rgba(var(--colorPrimaryFgRgb), var(--bs-border-opacity, 1)) !important;
 }
 
-/* .text-bg-primary / .text-bg-secondary (badge, alert, ecc.): il commento sopra assumeva che il
-   loro testo si contrastasse già su --colorPrimaryText/--colorSecondaryText, ma Bootstrap le
-   compila con `color: #fff !important` FISSO (contro il grigio di default di Bootstrap, non
-   contro il brand runtime) — bug verificato: su un brand con secondary chiaro/medio (es. un
-   tono acqua/petrolio), bianco fisso scende fino a ~2.85:1, sotto AA (4.5:1). colorPrimaryText/
-   colorSecondaryText sono già calcolati da ThemeService come il MIGLIORE fra nero e bianco per
-   lo sfondo effettivo: qui li usiamo per davvero, `!important` per vincere quello di Bootstrap. */
+/* .text-bg-primary / .text-bg-secondary (badge, alert): Bootstrap le compila con `color: #fff`
+   fisso, contrastato a build-time contro il SUO grigio di default — non contro il brand runtime.
+   Su un brand con secondary chiaro/medio il bianco fisso scende sotto AA. colorPrimaryText/
+   colorSecondaryText sono già il migliore fra nero e bianco per lo sfondo effettivo (ThemeService);
+   `!important` per vincere quello di Bootstrap. */
 .text-bg-primary {
     color: var(--colorPrimaryText, #fff) !important;
 }

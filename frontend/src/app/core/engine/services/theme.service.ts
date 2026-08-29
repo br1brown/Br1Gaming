@@ -803,10 +803,10 @@ export class ThemeService {
             colorSurfaceTextLt: ThemeService.oklchToHex(0.200, Math.min(C_t * 0.20, 0.030), H_t),
 
             // Dark surfaces — low L, moderate chroma, brand hue.
-            // Border L=0.600 (era 0.490): a 0.490 il contrasto cadeva sotto 3:1 su tutte le
-            // superfici tranne base (es. bordo input disabilitato su secondary-bg L=0.295 → 2.18:1).
-            // A L=0.600 il caso peggiore vs la superficie più CHIARA (secondary-bg) è ≈ 3.47:1 —
-            // margine sopra il minimo WCAG 1.4.11 (3:1); a fortiori su base/surface/hover/tertiary.
+            // Border L=0.600: un valore più basso (es. ~0.490) fa cadere il contrasto sotto 3:1 su
+            // tutte le superfici tranne base (es. bordo input disabilitato su secondary-bg L=0.295
+            // → 2.18:1). A L=0.600 il caso peggiore vs la superficie più CHIARA (secondary-bg) è
+            // ≈ 3.47:1 — margine sopra il minimo WCAG 1.4.11 (3:1); a fortiori su base/surface/hover/tertiary.
             colorBaseDk: baseDkHex,
             colorSurfaceDk: colorSurfaceDkHex,
             colorSurfaceHoverDk: ThemeService.oklchToHex(0.220, Math.min(C_t * 0.10, 0.012), H_t),
