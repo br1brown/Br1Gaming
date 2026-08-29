@@ -100,7 +100,7 @@ public record RequiredInjectData
 }
 
 /// <summary>
-/// Contratto di un generatore di testo. Ogni generatore è un'istanza di classe (non più un file JSON):
+/// Contratto di un generatore di testo. Ogni generatore è un'istanza di classe, non un file JSON:
 /// espone identità, regole di composizione e i propri contenuti (frasi del core e dizionari di parole).
 /// </summary>
 /// <remarks>

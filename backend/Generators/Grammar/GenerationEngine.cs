@@ -15,7 +15,7 @@ namespace Backend.Generators.Grammar;
 //   • fail-fast — una lista assente dalla catena fusa o un ciclo fanno fallire
 //     la COSTRUZIONE (boot), non scivolano silenziosamente nell'output;
 //   • i vincoli inter-frase (gruppi esclusivi, label uniche) sono metadata
-//     calcolata alla compilazione, letta come set — non più scan di sottostringa.
+//     calcolata alla compilazione, letta come set — nessuno scan di sottostringa a runtime.
 // ════════════════════════════════════════════════════════════════════════════
 
 /// <summary>Eccezione di configurazione: un generatore non compila (tag ignoto, ciclo). Tirata al boot.</summary>
@@ -88,7 +88,7 @@ public sealed record Runtime(
     IReadOnlyList<string> Separators,
     Phrase? Apertura, Phrase? Chiusura,
     // Etichette uniche (vedi IGenerator.UniqueLabels): controllate a valle, sul testo FINALE generato
-    // (Composer.Generate le usa per scartare/rigenerare un candidato che ne ripete una), non più solo
+    // (Composer.Generate le usa per scartare/rigenerare un candidato che ne ripete una), non solo
     // sul template della singola frase — così un'etichetta pescata da dentro un Tag annidato conta.
     IReadOnlyList<string> UniqueLabels,
     // Catene di Markov per flatlist eleggibile (conio di varianti) e relativa probabilità.

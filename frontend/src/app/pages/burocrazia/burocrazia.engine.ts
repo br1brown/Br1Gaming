@@ -1100,7 +1100,7 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
         }
         const cur = queue[0];
         if (cur != null) { const o = targetGeom(cur); const inR = Math.hypot(player.x - o.dx, player.y - o.dy) < 46 || Math.hypot(player.x - gx(o.ix), player.y - gy(o.iy)) < 40; if (inR && !atCounter && tut >= 4) { atCounter = true; if (isHome(cur)) serveHome(); else serve(cur); } if (!inR) atCounter = false; }
-        // BFS verso l'obiettivo (ufficio o casa): ricalcola SOLO quando cambia (prima era ogni frame → grosso spreco)
+        // BFS verso l'obiettivo (ufficio o casa): ricalcola solo quando l'obiettivo cambia, non ogni frame.
         if (cur != null && tut >= 4) { if (cur !== distGoalKey) { const g = targetGeom(cur); distGoal = bfsField({ ix: g.ix, iy: g.iy }); distGoalKey = cur; } }
         else if (distGoalKey !== -1) { distGoal = new Map(); distGoalKey = -1; }
         recalc -= dt;

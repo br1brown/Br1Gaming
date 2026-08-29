@@ -285,7 +285,7 @@ public sealed class OroscopoGenerator : GeneratorBase
 
     /// <inheritdoc />
     // 3-5 previsioni cucite in un unico paragrafo con ". " / "; " (come gli altri due generatori
-    // "grandi": niente più una-frase-per-riga). La punteggiatura tra le frasi la mette il motore, per
+    // "grandi", non una frase per riga). La punteggiatura tra le frasi la mette il motore, per
     // questo le frasi NON portano il punto finale e hanno l'iniziale minuscola (tranne i nomi propri):
     // l'armonizzatore rimette la maiuscola dopo ". " e a inizio testo, ma NON dopo "; ".
     // MinScore = pavimento di rarità: se una composizione pesa meno, il motore la ri-rolla (tenendo

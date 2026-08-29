@@ -13,7 +13,7 @@ namespace Backend.Services;
 /// iniettate dal container DI. Al boot ognuno viene <b>compilato</b> in un <see cref="Runtime"/>
 /// (<see cref="RuntimeBuilder"/>): le frasi-template diventano un AST tipato e i riferimenti tra liste
 /// sono validati come grafo aciclico — quindi un tag sconosciuto o un ciclo fanno fallire l'avvio,
-/// non l'output. La generazione (<see cref="Composer"/>) valuta l'AST: niente più regex a runtime.
+/// non l'output. La generazione (<see cref="Composer"/>) valuta l'AST tipato, senza regex a runtime.
 /// Le composizioni (es. l'Incel che estende il Maschio Basico) sono dato esplicito via
 /// <see cref="IGenerator.ComposeWith"/>. La superficie pubblica resta indicizzata per slug
 /// (<see cref="Get"/>, <see cref="Generate(string, IReadOnlyDictionary{string, string})"/>) e l'armonizzazione del testo resta qui.
