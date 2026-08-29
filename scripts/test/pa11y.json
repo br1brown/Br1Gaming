@@ -2,6 +2,7 @@
   "standard": "WCAG2AA",
   "level": "error",
   "hideElements": ".swal2-container",
+  "wait": 400,
   "chromeLaunchConfig": {
     "args": [
       "--no-sandbox",

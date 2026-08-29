@@ -125,8 +125,10 @@ function buildErrorRoutes(): Routes {
 
     routes.push(
         {
-            path: 'error/:errorCode', // :errorCode letto da ErrorComponent via route param → @Input().
-            title: 'erroreGenerico',
+            // :errorCode letto da ErrorComponent via route param → @Input(). Niente `title` nativa
+            // qui: come ogni altra pagina del sito, ErrorComponent imposta document.title da sé
+            // (tradotto) — una `title` statica finirebbe su schermo verbatim, mai tradotta.
+            path: 'error/:errorCode',
             loadComponent: () => import('../../pages/error/error.component').then(m => m.ErrorComponent),
             data: { [SHELL_DATA_KEY]: { showPanel: false } satisfies ShellFlags }
         },
@@ -141,7 +143,6 @@ function buildErrorRoutes(): Routes {
             // RenderMode.Client uscirebbe come 3xx+Location, ma il server lo riscrive a 404 (SEO) —
             // il browser vedrebbe 404 invece di 3xx e ignorerebbe il Location, pagina bianca.
             path: '**',
-            title: 'erroreGenerico',
             loadComponent: () => import('../../pages/error/error.component').then(m => m.ErrorComponent),
             data: { [SHELL_DATA_KEY]: { showPanel: false } satisfies ShellFlags }
         }
