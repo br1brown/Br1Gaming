@@ -93,6 +93,20 @@
     border-color: rgba(var(--colorPrimaryFgRgb), var(--bs-border-opacity, 1)) !important;
 }
 
+/* .text-bg-primary / .text-bg-secondary (badge, alert, ecc.): il commento sopra assumeva che il
+   loro testo si contrastasse già su --colorPrimaryText/--colorSecondaryText, ma Bootstrap le
+   compila con `color: #fff !important` FISSO (contro il grigio di default di Bootstrap, non
+   contro il brand runtime) — bug verificato: su un brand con secondary chiaro/medio (es. un
+   tono acqua/petrolio), bianco fisso scende fino a ~2.85:1, sotto AA (4.5:1). colorPrimaryText/
+   colorSecondaryText sono già calcolati da ThemeService come il MIGLIORE fra nero e bianco per
+   lo sfondo effettivo: qui li usiamo per davvero, `!important` per vincere quello di Bootstrap. */
+.text-bg-primary {
+    color: var(--colorPrimaryText, #fff) !important;
+}
+.text-bg-secondary {
+    color: var(--colorSecondaryText, #fff) !important;
+}
+
 /* ── Token colori semantici ──────────────────────────────────────────────────
    --colorSecondary è calcolato da ThemeService.computePalette() in OKLCH
    (derivato dal brand, WCAG 4.5:1 garantito) e iniettato via inline style;
