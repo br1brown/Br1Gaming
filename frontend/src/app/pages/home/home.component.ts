@@ -6,11 +6,10 @@ import { GamesSectionComponent } from '../../components/shared/games-section/gam
 import { UtilitySectionComponent } from '../../components/shared/utility-section/utility-section.component';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { SITE_CONFIG } from '../../core/engine/siteBuilder';
-import { DesignSystemGalleryComponent } from '../../core/engine/components/design-system-gallery/design-system-gallery.component';
 
 @Component({
     selector: 'app-home',
-    imports: [TranslatePipe, GeneratorsSectionComponent, StoriesSectionComponent, GamesSectionComponent, UtilitySectionComponent, DesignSystemGalleryComponent],
+    imports: [TranslatePipe, GeneratorsSectionComponent, StoriesSectionComponent, GamesSectionComponent, UtilitySectionComponent],
     templateUrl: './home.component.html',
 })
 export class HomeComponent extends PageBaseComponent<unknown> {
