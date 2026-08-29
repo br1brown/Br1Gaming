@@ -28,7 +28,7 @@ export const legalSlots: LegalPagesConfig = {
  */
 export const legalUpdated: Partial<Record<LegalPageId, Date>> = {
     [LegalPages.PrivacyPolicy]: new Date('2026-07-03'),
-    [LegalPages.CookiePolicy]: new Date('2026-08-18'),
+    [LegalPages.CookiePolicy]: new Date('2026-08-20'),
     [LegalPages.TermsOfService]: new Date('2026-07-03'),
     [LegalPages.LegalNotice]: new Date('2026-07-03'),
 };

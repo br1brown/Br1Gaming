@@ -61,7 +61,7 @@ Implementa il toast automatico sugli errori HTTP per le richieste non marcate `{
 
 ### Cookie interni (`services/cookie/`)
 
-`cookie-type.ts` definisce `ConsentCategory` (Technical/Analytics/Profiling), la tassonomia dietro le voci di `COOKIE_MAP` (vedi ricetta in `AGENTS.md`). `cookie-utils.ts` è un check statico usato in fase di build da `siteBuilder.ts` per decidere se includere lo slot `legalPages.cookie`: non è runtime, è un dettaglio di composizione del sito.
+`cookie-type.ts` definisce `ConsentCategory` (Technical/Analytics/Profiling/TechnicalOptional), la tassonomia dietro le voci di `COOKIE_MAP` (vedi ricetta in `AGENTS.md`). Technical è l'unica esente da consenso per legge (strettamente necessaria, mai uno switch nel banner); TechnicalOptional è il suo contrario — tecnica ma non indispensabile (es. il Service Worker/PWA built-in) — trattata come Analytics/Profiling: proprio switch, proprio consenso. `cookie-utils.ts` è un check statico usato in fase di build da `siteBuilder.ts` per decidere se includere lo slot `legalPages.cookie`: non è runtime, è un dettaglio di composizione del sito.
 
 ### Connessione realtime, dettaglio interno (`services/notification-connection.ts`)
 

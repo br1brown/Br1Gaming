@@ -121,6 +121,32 @@ public class SiteIdentity
     public string? RappresentanteLegale { get; set; }
 
     /// <summary>
+    /// Titolare del trattamento ai fini privacy (GDPR art. 4.7): chi determina finalità e mezzi del
+    /// trattamento dei dati, quando **diverso** dal <see cref="RappresentanteLegale"/> — nelle realtà con
+    /// più persone può essere un soggetto diverso (es. un socio diverso dall'amministratore).
+    /// </summary>
+    /// <remarks>
+    /// **Nessun fallback**: nella maggior parte dei siti (P.IVA/ditta individuale, un'unica persona) il
+    /// titolare coincide con l'azienda stessa — dato già esposto da <see cref="RagioneSociale"/> e
+    /// <c>Contatti.Email</c> — quindi ripetere le stesse informazioni in una riga "Titolare del
+    /// trattamento" separata sarebbe rumore, non un dato in più. Valorizzalo solo quando il titolare va
+    /// effettivamente distinto dall'identità generale dell'azienda; assente ⇒ resta <c>null</c>, il
+    /// frontend nasconde la riga da sé (stesso comportamento di <see cref="ResponsabileProtezioneDati"/>).
+    /// </remarks>
+    public LegalRole? TitolareDelTrattamento { get; set; }
+
+    /// <summary>
+    /// Responsabile della Protezione dei Dati / DPO (GDPR art. 37), quando designato.
+    /// </summary>
+    /// <remarks>
+    /// Nessun fallback: la designazione di un DPO è obbligatoria solo per specifiche categorie di
+    /// titolari (PA, monitoraggio sistematico su larga scala, trattamento su larga scala di categorie
+    /// particolari di dati) — mostrare un DPO "presunto" per chi non ne ha uno inventerebbe una carica
+    /// che non esiste davvero. Assente ⇒ resta <c>null</c>, il frontend nasconde la riga da sé.
+    /// </remarks>
+    public LegalRole? ResponsabileProtezioneDati { get; set; }
+
+    /// <summary>
     /// Collezione opzionale di metadati custom aggiuntivi. **Non vengono resi** dall'identità (che
     /// mostra solo dati noti/tipizzati): sono un contenitore per consumatori del progetto. Per i dati
     /// noti usa i campi dedicati; per proprietà schema.org del JSON-LD usa <see cref="Extra"/>.
@@ -209,6 +235,25 @@ public class ContactInfo
     /// Indirizzo PEC. Validato come <see cref="Email"/>.
     /// </summary>
     public string? Pec { get; set; }
+}
+
+/// <summary>
+/// Una carica/ruolo legale con nome e contatto email dedicati (es. titolare del trattamento, DPO).
+/// </summary>
+public class LegalRole
+{
+    /// <summary>
+    /// Nome della persona (o denominazione dell'ente) che ricopre la carica. Localizzabile in
+    /// <c>identity.json</c> come <see cref="SiteIdentity.RappresentanteLegale"/> — utile se il campo
+    /// porta anche la descrizione del ruolo (es. "Titolare del trattamento: Mario Rossi").
+    /// </summary>
+    public string? Nome { get; set; }
+
+    /// <summary>
+    /// Email di contatto dedicata alla carica, distinta dai <see cref="ContactInfo"/> generali.
+    /// Validata come <see cref="ContactInfo.Email"/>.
+    /// </summary>
+    public string? Email { get; set; }
 }
 
 /// <summary>

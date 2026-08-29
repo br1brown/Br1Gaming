@@ -4,6 +4,7 @@ import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
 import { LoadingComponent } from '../loading/loading.component';
 import { IdentityRenderComponent } from '../identity-render/identity-render.component';
 import { FooterNavComponent } from '../../../core/engine/components/footer-nav/footer-nav.component';
+import { FooterLinkRowComponent } from '../../../core/engine/components/footer-link-row/footer-link-row.component';
 import { ContestoSito } from '../../../site';
 import { filterNavByAuth, pickLocaleText } from '../../../core/engine/siteBuilder';
 import { TranslateService } from '../../../core/engine/services/translate.service';
@@ -11,7 +12,7 @@ import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
     selector: 'app-footer',
-    imports: [TranslatePipe, LoadingComponent, IdentityRenderComponent, FooterNavComponent],
+    imports: [TranslatePipe, LoadingComponent, IdentityRenderComponent, FooterNavComponent, FooterLinkRowComponent],
     templateUrl: './footer.component.html',
     host: { class: 'd-block mt-auto' }
 })
@@ -34,4 +35,7 @@ export class FooterComponent {
      *  navbar (`filterNavByAuth`), qui via `AuthService` (facciata di Dominio) invece del
      *  `TokenService` d'Engine, come già fa `user-nav.component.ts`. */
     readonly footerNavLinks = computed(() => filterNavByAuth(ContestoSito.getLinkFooter(this.translate.currentLang()), this.auth.isLoggedIn()));
+    /** Pagine legali (Privacy/Cookie/TOS/Note Legali/Accessibilità) auto-derivate da `config.legalPages`:
+     *  vedi `FooterLinkRowComponent` per il perché di una fascia a sé invece di un'altra colonna. */
+    readonly legalFooterLinks = computed(() => ContestoSito.getLegalFooterLinks(this.translate.currentLang()));
 }

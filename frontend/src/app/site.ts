@@ -57,6 +57,9 @@ export const ContestoSito = buildSite({
         });
     },
 
+    // Le pagine legali NON si dichiarano qui: `footer.component` le rende da sole, in una fascia
+    // dedicata ("small prints") derivata da `legalPages` sopra — vedi `FooterLinkRowComponent`.
+    // `footerNav` resta per la navigazione libera del progetto.
     footerNav: (f) => {
         f.addLink("githubDesc", 'https://github.com/br1brown/Br1Gaming');
         f.addPage(PageType.CookiePolicy);

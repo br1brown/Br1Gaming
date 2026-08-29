@@ -6,7 +6,7 @@ import { ContestoSito } from '../../site';
 import { environment } from '../../../environments/environment';
 import { contentLoaderResolver } from '../../pages/content.resolver';
 import { InternalSitePage, isInternalPage, isParentPage, ShellFlags, SHELL_DATA_KEY } from './siteBuilder';
-import { authGuard } from './route-guards';
+import { authGuard, languageSyncGuard } from './route-guards';
 
 /**
  * Signal che riemette `project(router)` ad ogni `NavigationEnd`, partendo da `initial`.
@@ -26,8 +26,8 @@ export function injectCurrentUrl(): Signal<string> {
     return onNavigationEnd(() => router.url, router.url);
 }
 
-// authGuard vive in route-guards.ts (file a parte): qui restano solo la
-// costruzione dell'albero delle route e il guard viene solo attaccato alle route giuste.
+// authGuard e languageSyncGuard vivono in route-guards.ts (file a parte): qui restano solo la
+// costruzione dell'albero delle route e i guard vengono solo attaccati alle route giuste.
 
 /**
  * ROUTES FINALI, esportate e usate da provideRouter() in app.config.ts.
@@ -60,7 +60,10 @@ function buildRoutes(pages: InternalSitePage[], lang: string): Routes {
 
 /** Converte UN nodo della DSL (pagina Parent o Leaf) in UNA Route Angular, per la lingua data. */
 function toAngularRoute(page: InternalSitePage, lang: string): Route {
-    const canActivate: CanActivateFn[] = [];
+    // languageSyncGuard SEMPRE, su ogni route: allinea TranslateService alla lingua della route
+    // prima che guard/resolver a valle (authGuard, i resolver di dominio) leggano currentLang().
+    // Vedi il commento su languageSyncGuard in route-guards.ts per il perché.
+    const canActivate: CanActivateFn[] = [languageSyncGuard];
     // authGuard solo se la pagina lo richiede esplicitamente in site.ts (requiresAuth: true).
     if (page.requiresAuth) canActivate.push(authGuard);
 

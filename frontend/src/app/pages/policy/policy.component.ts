@@ -5,7 +5,7 @@ import { CookieConsentService, buildPhysicalCookieKey } from '../../core/engine/
 import { ConsentCategory, CookieConfig, EngineCookieKey, StorageMedium } from '../../core/engine/services/cookie/cookie-type';
 import { COOKIE_MAP, type CookieKey } from '../../core/services/cookie-registry';
 import { legalUpdated } from './legal.pages';
-import { IdentityRenderComponent } from '../../components/shared/identity-render/identity-render.component';
+import { hasIdentityContent, IdentityRenderComponent } from '../../components/shared/identity-render/identity-render.component';
 import { IdentityService } from '../../core/engine/services/identity.service';
 import type { Identity } from '../../core/engine/dto/identity.dto';
 import { SITE_CONFIG } from '../../core/engine/siteBuilder';
@@ -76,13 +76,25 @@ export class PolicyComponent extends PageBaseComponent<string> {
     /** Identità per l'IdentityRenderComponent (dalla risorsa condivisa dell'engine). */
     readonly identity = signal<Identity | null>(null);
 
+    /** True solo se l'identità ha almeno un campo valorizzato: `{{companyProfile}}` non deve
+     *  riservare spazio (né montare `app-identity-render`) quando risulterebbe comunque vuoto —
+     *  sia perché l'identità non è configurata (`null`), sia perché è presente ma senza dati. */
+    readonly hasCompanyProfile = computed(() => hasIdentityContent(this.identity()));
+
     readonly cookieCategories = computed(() => {
         const categories: { key: ConsentCategory; name: string; description: string }[] = [];
-        if (this.cookieConsent.isTechnicalNeeded()) {
+        if (this.cookieConsent.hasTechnicalCategory()) {
             categories.push({
                 key: ConsentCategory.Technical,
                 name: this.translate.translate('tecniciCategoriaCookie'),
                 description: this.translate.translate('tecniciDescrizioneCategoriaCookie')
+            });
+        }
+        if (this.cookieConsent.isTechnicalOptionalNeeded()) {
+            categories.push({
+                key: ConsentCategory.TechnicalOptional,
+                name: this.translate.translate('tecniciNonObbligatoriCategoriaCookie'),
+                description: this.translate.translate('tecniciNonObbligatoriDescrizioneCategoriaCookie')
             });
         }
         if (this.cookieConsent.isAnalyticsNeeded()) {
@@ -108,6 +120,7 @@ export class PolicyComponent extends PageBaseComponent<string> {
             case ConsentCategory.Analytics: return this.translate.translate('analyticsCategoriaCookie');
             case ConsentCategory.Profiling: return this.translate.translate('profilazioneCategoriaCookie');
             case ConsentCategory.Technical: return this.translate.translate('tecniciCategoriaCookie');
+            case ConsentCategory.TechnicalOptional: return this.translate.translate('tecniciNonObbligatoriCategoriaCookie');
             default: return '';
         }
     }
@@ -118,6 +131,7 @@ export class PolicyComponent extends PageBaseComponent<string> {
             case ConsentCategory.Analytics: return this.translate.translate('analyticsDescrizioneCategoriaCookie');
             case ConsentCategory.Profiling: return this.translate.translate('profilazioneDescrizioneCategoriaCookie');
             case ConsentCategory.Technical: return this.translate.translate('tecniciDescrizioneCategoriaCookie');
+            case ConsentCategory.TechnicalOptional: return this.translate.translate('tecniciNonObbligatoriDescrizioneCategoriaCookie');
             default: return '';
         }
     }
@@ -179,9 +193,10 @@ export class PolicyComponent extends PageBaseComponent<string> {
     readonly durationFieldLabel = computed(() => this.translate.translate('durataListaCookie'));
 
     /** Voci raggruppate per categoria (riepilogo-first): un pannello collassabile per
-     *  categoria presente, con conteggio. L'ordine segue l'enum ConsentCategory. */
+     *  categoria presente, con conteggio. Ordine esplicito (non quello — irrilevante — di
+     *  dichiarazione dell'enum): Technical subito seguita da TechnicalOptional, poi Analytics/Profiling. */
     readonly cookieGroups = computed(() => {
-        const order = [ConsentCategory.Technical, ConsentCategory.Analytics, ConsentCategory.Profiling];
+        const order = [ConsentCategory.Technical, ConsentCategory.TechnicalOptional, ConsentCategory.Analytics, ConsentCategory.Profiling];
         const list = this.cookieList();
         return order
             .map(category => {

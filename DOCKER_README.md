@@ -108,6 +108,7 @@ lingue supportate (sezione `Localization`) per SEO e `environment.ts`: non servo
 | `Security.Token.SecretKey` | `""` | Segreto JWT (≥32 char): se valorizzato attiva il login. Vuoto = login disabilitato |
 | `Security.Token.ExpirationSeconds` | `3000` | Durata dei JWT emessi (minimo 60) |
 | `Mail.*` | — | Config SMTP del mailer (`Host`, `Port`, `Security`, `FromAddress`, `FromName`, `Username`, `Password`, più i tuning `TimeoutSeconds`/`MaxAttachmentBytes`/`VerifyRecipientDomain`): contiene segreti, vive qui. Si attiva come il login: con `Host` **e** `FromAddress` presenti il mailer è acceso, altrimenti resta spento e ogni invio risponde `503`. L'esempio (`global-settings.local.example.json`) include già un blocco SMTP attivo: se non usi la posta, svuotalo. Dettaglio dei campi in [backend/README.md](backend/README.md) (sezione Mailer) |
+| `ErrorReporting.WebhookUrl` | `""` | URL di un webhook generico (POST JSON) a cui l'Engine segnala ogni bug vero o errore ≥500. Vuoto = spento, nessuna chiamata uscente. Nessun SDK di vendor: se punti più progetti sulla stessa VPS allo stesso webhook, il payload porta `project` per distinguerli. Dettaglio in [backend/README.md](backend/README.md) (sezione Error Reporting) |
 
 > Header di sicurezza in `security-headers.json`. Gli header fissi rivolti al browser
 > (X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS, Permissions-Policy, CSP) sono
@@ -171,6 +172,8 @@ Frontend e backend sono disaccoppiati: puoi pubblicarli insieme o uno alla volta
 > Guard pubblicazione (automatico): due errori silenziosi tipici dietro reverse proxy, intercettati prima della build:
 > - **`frontend.hostname` mancante** → il deploy si ferma. Senza hostname l'SSR è fail-closed e risponderebbe 421 al dominio reale (e sitemap/canonical/og userebbero `example.com`); insidioso perché l'healthcheck del preflight gira su `localhost` e passerebbe: il deploy sembrerebbe riuscito mentre il sito è irraggiungibile dal dominio vero.
 > - **`Security.BehindProxy` non `true`** → avviso non bloccante: dietro nginx il rate limiter conterebbe tutti gli utenti come un solo IP (l'IP del proxy), condividendo lo stesso budget di 100 req/min. Impostalo a `true` se usi un proxy; ignora l'avviso se esponi il sito senza proxy.
+
+> Checklist di pre-lancio (automatico, non bloccante): promemoria incorporati nello script invece che in un documento a parte — un file che nessuno riapre non serve a niente il giorno del deploy vero. Avvisa (senza fermarsi) se `project.name` è ancora il default `"App"`, e se `backend/data/identity.json` è ancora lo scheletro vuoto lasciato da `setup.mjs` → eject (footer, pagine legali e JSON-LD restano vuoti finché non lo compili — o è una scelta consapevole, in tal caso ignoralo). `deploy-release.sh` verifica solo `project.name`: nel modello artifact-based non c'è sorgente sulla VPS, `identity.json` non è lì da controllare.
 
 > Password SMTP fuori dal disco: `docker-compose.yml` dichiara un passthrough `Mail__Password` (convenzione .NET: `Mail:Password`). Esportandola nell'ambiente prima del deploy (`export Mail__Password='...'; ./scripts/deploy.sh`), il backend la legge con precedenza sul JSON montato e la password non finisce mai nel file su disco. Se la variabile non è impostata vale il valore (eventuale) di `Mail.Password` nel `.local`.
 

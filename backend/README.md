@@ -28,6 +28,8 @@ Configurazione: sicurezza, mailer e lingue si regolano dalle sezioni `Security.*
 
 Parlare con un servizio esterno: chiamare un'API di terze parti è un `HttpClient` tipizzato (`AddHttpClient<T>`) registrato nel blocco `── SERVIZI APPLICATIVI ──`, con URL/chiavi in configurazione (mai hardcoded); ricevere un webhook è un endpoint su `EngineApiController` con `[AllowAnonymous]` e verifica della firma sul body grezzo. Vedi «Integrazioni con servizi esterni». Ricette rapide: [AGENTS.md](../AGENTS.md#chiamare-unapi-esterna) (outbound), [AGENTS.md](../AGENTS.md#ricevere-un-webhook) (inbound).
 
+Farsi avvisare quando qualcosa si rompe: `ErrorReporting.WebhookUrl` in `global-settings.local.json` (vuoto = spento) basta perché `ApiExceptionHandler` mandi un POST JSON a un webhook a tua scelta per ogni bug vero o errore ≥500 — zero configurazione nel codice del Dominio. Vedi «10. Error Reporting (webhook)». Ricetta rapida: [AGENTS.md](../AGENTS.md#farsi-avvisare-quando-qualcosa-si-rompe).
+
 ---
 
 ## 🚀 Funzionalità Principali dell'Engine
@@ -494,6 +496,34 @@ Il motivo per cui non è iniettato nel costruttore: `EngineCrypto` lancia se `Se
 La chiave viene da `Security.CryptoSecret`, separata da `Security.Token.SecretKey`: riusare la stessa chiave per firmare JWT e per cifrare dati sarebbe riuso di materiale crittografico su due scopi diversi. `setup.mjs` la genera già alla nascita del progetto (come `Security.ApiKeys`), indipendentemente dal login: non serve attivarla a mano. `scripts/deploy.sh` la controlla come le altre chiavi prima di pubblicare (segnaposto o troppo corta ⇒ blocca il deploy).
 
 > Ruotare `CryptoSecret` rende indecifrabile qualunque payload cifrato con la chiave precedente (non c'è versionamento della chiave né retro-compatibilità): un export dati personali già prodotto ma non ancora consegnato, ad esempio, andrebbe rigenerato. A differenza di `Token.SecretKey` non forza un logout (`CryptoSecret` non tocca l'autenticazione), ma va ruotata con la stessa cautela: solo su sospetto di compromissione, sapendo cosa smette di essere leggibile.
+
+---
+
+### 10. Error Reporting (webhook)
+
+Perché è utile: se un bug esplode in produzione, di norma lo scopri solo se vai a leggere i log a mano. `IErrorReportingService` manda un `POST` JSON a un webhook a tua scelta per ogni eccezione non applicativa (un bug vero) o applicativa con status ≥500 (upstream giù, non un 4xx normale): niente SDK di terze parti, niente pacchetto NuGet in più, solo `HttpClient` — punti il webhook dove preferisci (un endpoint personale, un bot Slack/Discord dietro un piccolo proxy di formattazione, un servizio di logging).
+
+Si attiva da configurazione, come il mailer: `ErrorReporting.WebhookUrl` in `global-settings.local.json` (default vuoto = spento, nessuna chiamata uscente). La segnalazione è accodata su `IBackgroundTaskQueue`, mai attesa nella risposta al client: un webhook lento o giù non deve mai rallentare l'errore che stai già restituendo.
+
+```csharp
+// Payload inviato al webhook (POST JSON)
+{
+  "project": "Nome Progetto",   // da project.name — vedi sotto
+  "message": "...", "exceptionType": "System.NullReferenceException",
+  "statusCode": 500, "path": "/api/v1/orders", "method": "POST",
+  "stackTrace": "...", "timestamp": "2026-08-24T10:00:00Z"
+}
+```
+
+Il campo `project` (da `project.name` in `global-settings.json`) è apposta per il caso di più progetti sulla stessa VPS: puntando tutti allo **stesso** webhook (uno solo Sentry/relay condiviso, non uno per progetto) resta comunque chiaro quale sito si è rotto. È anche il motivo per cui questo resta un webhook generico e non un client nativo per un vendor specifico: un client nativo legherebbe l'Engine al formato proprietario di quel vendor, che a differenza di SMTP non è uno standard — ogni provider (Sentry incluso) ha il proprio schema d'ingestione, soggetto a cambiare quando vuole lui, non tu. Un JSON generico invece lo instradi dove vuoi, anche verso un vendor specifico, con un piccolo relay di traduzione scritto una volta sola fuori dal template — non dentro l'Engine di ogni figlio.
+
+Non serve chiamarlo a mano: `ApiExceptionHandler` lo fa già per ogni eccezione che raggiunge la pipeline. Il solo punto da tenere a mente se il messaggio d'eccezione può contenere input dell'utente (es. un valore non valido interpolato nel testo dell'errore): lo stack trace e il messaggio finiscono per intero nel payload, quindi il webhook va trattato come un canale semi-fidato — non puntarlo a un endpoint pubblico non tuo.
+
+#### Riferimento `ErrorReportingOptions` (`global-settings.local.json` → `ErrorReporting.*`)
+
+| Chiave | Tipo | Note |
+|---|---|---|
+| `WebhookUrl` | string | URL del webhook (POST JSON). Vuoto = spento (default): nessuna chiamata uscente. |
 
 ---
 
@@ -968,6 +998,16 @@ SiteIdentity {
                                   // stesso giorno = più fasce; il frontend deriva resa e OpeningHoursSpecification
     string?  Currency             // ISO 4217 (es. EUR) per i valori monetari (capitale); omessa → EUR
     string?  RappresentanteLegale // Dato noto e tipizzato (anche localizzato), reso dal footer/pagine legali
+    LegalRole? TitolareDelTrattamento     { Nome, Email }  // GDPR art. 4.7, SOLO se diverso da
+                                  // RagioneSociale/RappresentanteLegale (nelle realtà con più persone può
+                                  // essere un altro soggetto). NESSUN fallback: nella maggior parte dei siti
+                                  // (una sola persona) il titolare coincide con l'azienda, già esposta da
+                                  // RagioneSociale/Contatti.Email — ripeterlo sarebbe rumore, non un dato in
+                                  // più. Assente → resta null, il frontend mostra solo l'identità generale
+    LegalRole? ResponsabileProtezioneDati { Nome, Email }  // DPO (GDPR art. 37), solo se designato.
+                                  // Nessun fallback: la designazione non è obbligatoria per ogni realtà, un
+                                  // DPO presunto inventerebbe una carica inesistente. Assente → resta null,
+                                  // il frontend nasconde la riga
     Dictionary<string,string>? MetadatiAggiuntivi  // Valori flat: string, non object. NON reso dall'identità
                                   // (solo dati noti); contenitore generico per il progetto
     Dictionary<string,object>? Extra              // via di fuga: proprietà schema.org arbitrarie, fuse
@@ -1000,9 +1040,12 @@ Esempio `data/identity.json`:
         { "day": "Friday", "opens": "09:00", "closes": "17:00" }
     ],
     "currency": "EUR",
+    "responsabileProtezioneDati": { "nome": "Dott.ssa Rossi", "email": "dpo@acme.it" },
     "extra": { "foundingDate": "2010-05-01", "slogan": "Il claim del brand" }
 }
 ```
+
+> `titolareDelTrattamento` qui è omesso di proposito: come `responsabileProtezioneDati`, nessun fallback automatico. Nella maggior parte dei siti (Acme è un'unica persona) il titolare coincide con l'azienda stessa, già esposta da `ragioneSociale`/`contatti.email` — dichiararlo di nuovo qui sarebbe rumore. Valorizzalo solo quando il titolare va effettivamente distinto (es. `{ "titolareDelTrattamento": { "nome": "Socio B", "email": "privacy@acme.it" } }` in una realtà con più soci, dove il titolare non è l'amministratore che compare in `rappresentanteLegale`).
 
 > Cosa diventa SEO (JSON-LD): l'Engine costruisce l'entità brand (`Organization`/`Person`) con `sameAs` (dai social), `address` (`PostalAddress` dalla sede), `contactPoint` (`ContactPoint` con telefono/email, `hoursAvailable` dagli orari e `availableLanguage` dalle lingue del sito) e, solo per `Organization`, `legalName`/`vatID`/`taxID` da ragione sociale/P.IVA/CF. Gli orari sono una lista di intervalli tipizzati (`DayOfWeek` + `TimeOnly`): chi sviluppa dichiara `DayOfWeek.Tuesday`/`TimeOnly`, non stringhe né nozioni di schema.org; il frontend ne deriva sia la resa leggibile (fondendo i giorni con orari identici, es. "Lun–Ven") sia le `OpeningHoursSpecification` (dove `DayOfWeek` è già il nome `schema.org/Tuesday`). I social sono una lista di URL (stringa nuda, o `{ url, name }` con un'etichetta resa solo nel footer): l'icona e il `sameAs` usano l'URL, quindi più profili dello stesso social convivono. La valuta dei valori monetari è un fatto dichiarato (`currency`), non dedotto dal locale del visitatore: il frontend formatta gli importi con quella valuta nella lingua corrente. Per qualsiasi proprietà schema.org non tipizzata (es. `geo`, `foundingDate`, campi di `LocalBusiness`) c'è la via di fuga `extra`: viene fusa così com'è nel nodo entità brand, senza toccare modello né adapter, l'Engine non diventa mai un collo di bottiglia. Le proprietà strutturali dell'Engine vincono sulle collisioni; la validità schema.org di `extra` è a carico del progetto, ma la sicurezza no: l'Engine escapa l'output JSON-LD (`<`/`>`/`&` → `\uXXXX`), quindi anche un valore ostile in `extra` (o da un CMS/DB) non può rompere il `<script>` e iniettare markup.
 

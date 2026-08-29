@@ -2,9 +2,12 @@ using System.Globalization;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
 using Backend;
+using Backend.Diagnostics;
 using Backend.Models;
+using Backend.Tasks;
 
 namespace Backend.Security;
 
@@ -53,20 +56,40 @@ public class ApiExceptionHandler : IExceptionHandler
     private readonly IProblemDetailsService _problemDetails;
     private readonly IStringLocalizer<SharedResource> _localizer;
     private readonly ILogger<ApiExceptionHandler> _logger;
+    private readonly IErrorReportingService _errorReporting;
+    private readonly IBackgroundTaskQueue _backgroundQueue;
 
     /// <summary>
     /// Inizializza l'handler con il servizio ASP.NET che serializza i Problem Details,
-    /// il localizzatore dei messaggi d'errore e il logger.
+    /// il localizzatore dei messaggi d'errore, il logger e la segnalazione errori.
     /// </summary>
     /// <param name="problemDetails">Servizio usato per scrivere la risposta di errore.</param>
     /// <param name="localizer">Risolve la chiave dell'eccezione nella lingua della richiesta.</param>
     /// <param name="logger">Logger per segnalare chiavi resx mancanti.</param>
-    public ApiExceptionHandler(IProblemDetailsService problemDetails, IStringLocalizer<SharedResource> localizer, ILogger<ApiExceptionHandler> logger)
+    /// <param name="errorReporting">Segnala l'errore a un webhook esterno, se configurato (§ ErrorReporting).</param>
+    /// <param name="backgroundQueue">Accoda la segnalazione fuori dalla richiesta HTTP corrente.</param>
+    public ApiExceptionHandler(
+        IProblemDetailsService problemDetails,
+        IStringLocalizer<SharedResource> localizer,
+        ILogger<ApiExceptionHandler> logger,
+        IErrorReportingService errorReporting,
+        IBackgroundTaskQueue backgroundQueue)
     {
         _problemDetails = problemDetails;
         _localizer = localizer;
         _logger = logger;
+        _errorReporting = errorReporting;
+        _backgroundQueue = backgroundQueue;
     }
+
+    /// <summary>
+    /// <see langword="true"/> se l'eccezione merita una segnalazione al webhook di error reporting:
+    /// qualunque eccezione non applicativa (un bug vero, sempre un 500 di fatto) o un'<see cref="ApiException"/>
+    /// con status ≥500 (upstream/infrastruttura). Un 4xx applicativo (401/404/422...) è traffico
+    /// normale, non un errore da segnalare — altrimenti ogni 404 di un bot ti manderebbe un alert.
+    /// </summary>
+    private static bool ShouldReport(Exception exception) =>
+        exception is not ApiException apiEx || apiEx.StatusCode >= 500;
 
     /// <summary>
     /// Gestisce l'eccezione corrente solo se appartiene alla gerarchia <see cref="ApiException"/>.
@@ -85,6 +108,25 @@ public class ApiExceptionHandler : IExceptionHandler
         CancellationToken cancellationToken)
     {
         var _ = cancellationToken;
+
+        // Error reporting: PRIMA del filtro "solo ApiException" sotto, perché deve vedere anche i
+        // bug veri (NullReference, errori DB...) che quel filtro lascia passare ad ASP.NET. Lo
+        // snapshot (ErrorReport) si costruisce QUI, sincrono: la HttpContext live non è sicura da
+        // leggere da un task in background (Kestrel la ricicla dopo la risposta).
+        if (_errorReporting.IsEnabled && ShouldReport(exception))
+        {
+            var report = new ErrorReport
+            {
+                Message = exception.Message,
+                ExceptionType = exception.GetType().FullName ?? exception.GetType().Name,
+                StatusCode = exception is ApiException reportedEx ? reportedEx.StatusCode : 500,
+                Path = httpContext.Request.Path.Value,
+                Method = httpContext.Request.Method,
+                StackTrace = exception.StackTrace,
+            };
+            _backgroundQueue.TryEnqueue((services, ct) =>
+                services.GetRequiredService<IErrorReportingService>().ReportAsync(report, ct));
+        }
 
         // Solo le nostre eccezioni applicative vengono gestite.
         // Tutto il resto (NullReference, errori DB, etc.) viene lasciato

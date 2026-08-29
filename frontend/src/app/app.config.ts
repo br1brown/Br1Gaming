@@ -14,7 +14,7 @@ import { ThemeService } from './core/engine/services/theme.service';
 import { TranslateService } from './core/engine/services/translate.service';
 import { SSR_API_PREFIX } from './core/engine/services/base-api.service';
 import { apiErrorInterceptor } from './core/engine/interceptors/api-error.interceptor';
-import { isTechnicalConsentGiven } from './core/engine/services/cookie-consent.service';
+import { isTechnicalOptionalConsentGiven } from './core/engine/services/cookie-consent.service';
 import { ContestoSito } from './site';
 import { SITE_CONFIG } from './core/engine/siteBuilder';
 import { LOCALE_CONFIG, LOCALE_STATE_KEY, type LocaleConfig } from './core/engine/services/translate.service';
@@ -74,7 +74,7 @@ export const appConfig: ApplicationConfig = {
          *  Al primo accesso è disabilitato; CookieConsentService.applyConsent() lo registra
          *  nella stessa sessione dopo l'accettazione, e da qui in poi parte integrato. */
         provideServiceWorker('ngsw-worker.js', {
-            enabled: !isDevMode() && ContestoSito.config.isWebApp && isTechnicalConsentGiven(),
+            enabled: !isDevMode() && ContestoSito.config.isWebApp && isTechnicalOptionalConsentGiven(),
             registrationStrategy: 'registerWhenStable:30000'
         }),
         {

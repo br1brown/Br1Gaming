@@ -129,3 +129,45 @@ import { readFileSync } from 'fs';
 process.stdout.write(JSON.stringify(JSON.parse(readFileSync('global-settings.json', 'utf-8'))));
 ")"
 }
+
+# br1_content_placeholder_warnings — promemoria di pre-lancio (una riga per warning, su stdout):
+# project.name ancora il default "App", e (solo se check_identity=1) backend/data/identity.json
+# ancora lo scheletro vuoto post-eject. Condivisa fra deploy.sh e deploy-release.sh così il
+# controllo vive in un solo posto invece di essere duplicato come il guard sui segreti.
+#
+# Non bloccante di proposito: sono stati finali legittimi in alcuni casi (es. identity.json vuoto
+# fa sparire footer/legal da solo, vedi README) — il chiamante decide come mostrarli (qui niente
+# colori/UI, solo testo grezzo) e non li tratta mai come errori.
+#
+# check_identity=0 in deploy-release.sh: modello artifact-based, niente sorgente sulla VPS,
+# backend/data/identity.json non esiste localmente e non è verificabile.
+#
+# Uso: br1_content_placeholder_warnings [check_identity=1|0]
+br1_content_placeholder_warnings() {
+    local check_identity="${1:-1}"
+    CHECK_IDENTITY="$check_identity" node --input-type=module --eval "
+import { readFileSync, existsSync } from 'fs';
+const warns = [];
+const settings = JSON.parse(readFileSync('global-settings.json', 'utf-8'));
+if (String(settings.project?.name || '').trim() === 'App') {
+  warns.push('project.name e ancora il default \"App\": personalizzalo in global-settings.json.');
+}
+if (process.env.CHECK_IDENTITY === '1') {
+  const identityPath = 'backend/data/identity.json';
+  if (existsSync(identityPath)) {
+    try {
+      const id = JSON.parse(readFileSync(identityPath, 'utf-8'));
+      const empty = !id.personal
+        && !String(id.ragioneSociale || '').trim()
+        && !String(id.partitaIva || '').trim()
+        && !String(id.contatti?.email || '').trim()
+        && (!Array.isArray(id.social) || id.social.length === 0);
+      if (empty) {
+        warns.push('backend/data/identity.json e ancora lo scheletro vuoto (post-eject): footer, pagine legali e JSON-LD restano vuoti finche non lo compili — se e una scelta consapevole, ignora.');
+      }
+    } catch {}
+  }
+}
+process.stdout.write(warns.join('\n'));
+"
+}

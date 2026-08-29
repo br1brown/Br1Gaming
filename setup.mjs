@@ -181,32 +181,32 @@ export const ContestoSito = buildSite({
         });
     },
 
+    // Le pagine legali non si dichiarano qui: il footer le rende da solo in una fascia dedicata
+    // ("small prints"), derivata da legalPages sopra. footerNav resta per la navigazione libera.
     footerNav: (f) => {
-        f.addGroup('menuPolicy', g => {
-            g.addPage(PageType.PrivacyPolicy);
-            g.addPage(PageType.CookiePolicy);
-            g.addPage(PageType.AccessibilityStatement);
-            g.addGroup('menuLegale', sg => {
-                sg.addPage(PageType.TermsOfService);
-                sg.addPage(PageType.LegalNotice);
-            });
-        });
     },
 });
 `;
 
 const MINIMAL_HOME_TS = `import { Component } from '@angular/core';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
+import { DesignSystemGalleryComponent } from '../../core/engine/components/design-system-gallery/design-system-gallery.component';
 
 /** Home del progetto — punto di partenza vuoto. Riempila col tuo contenuto. */
 @Component({
     selector: 'app-home',
+    imports: [DesignSystemGalleryComponent],
     templateUrl: './home.component.html',
 })
 export class HomeComponent extends PageBaseComponent<void> {}
 `;
 
 const MINIMAL_HOME_HTML = `<!-- La home del tuo progetto: parti da qui. -->
+
+<!-- Catalogo visivo dei componenti UI di base (colori, tipografia, bottoni, badge, alert, form):
+     componente dell'Engine, non demo — resta qui apposta, anche dopo l'eject. Rimuovilo se non ti
+     serve, si aggiorna comunque dal template finché non lo tocchi. -->
+<app-design-system-gallery />
 `;
 
 const MINIMAL_BASECONTROLLER_CS = `using Microsoft.AspNetCore.Mvc;

@@ -4,7 +4,7 @@ import { SwUpdate } from '@angular/service-worker';
 import { Subscription, filter } from 'rxjs';
 import { NotificationService } from './notification.service';
 import { TranslateService } from './translate.service';
-import { CookieConsentService, isTechnicalConsentGiven } from './cookie-consent.service';
+import { CookieConsentService, isTechnicalOptionalConsentGiven } from './cookie-consent.service';
 
 /** Intervallo di controllo: 10 minuti. */
 const CHECK_INTERVAL_MS = 10 * 60 * 1000;
@@ -58,22 +58,21 @@ export class VersionCheckService implements OnDestroy {
         if (!this.isBrowser) return;
 
         /**
-         * GATE SUL CONSENSO TECNICO:
-         * Quando un consenso tecnico SERVE (PWA, o con cookie tecnici di
-         * progetto) il polling parte solo dopo che l'utente lo accetta: senza consenso il
-         * Service Worker non è registrato (vedi provideServiceWorker in app.config.ts) e un
-         * fetch ricorrente ogni 10 minuti sarebbe spreco di risorse senza un meccanismo di
-         * aggiornamento attivo. All'accettazione, al reload successivo, SwUpdate si integra e
-         * il controllo versione riparte.
+         * GATE SUL CONSENSO TechnicalOptional:
+         * Quando serve un consenso TechnicalOptional (di norma solo il caso PWA — i cookie
+         * Technical "veri" sono esenti per legge e mai a consenso) il polling parte solo dopo che
+         * l'utente accetta: senza consenso il Service Worker non è registrato (vedi
+         * provideServiceWorker in app.config.ts) e un fetch ricorrente ogni 10 minuti sarebbe spreco
+         * di risorse senza un meccanismo di aggiornamento attivo. All'accettazione, al reload
+         * successivo, SwUpdate si integra e il controllo versione riparte.
          *
-         * MA se il consenso tecnico NON serve affatto (non-PWA, senza cookie
-         * tecnici) non c'è alcun banner da accettare: in quel caso il polling è l'UNICO
-         * meccanismo di aggiornamento e va attivato comunque. Legge solo il meta `app-version`
-         * da index.html via fetch e non scrive cookie, quindi non richiede consenso. Senza
-         * questo ramo, su un sito così il controllo versione resterebbe spento per sempre —
-         * proprio lo scenario che emerge con `isWebApp:false`.
+         * MA se non serve alcun consenso TechnicalOptional (non-PWA) non c'è alcun banner da
+         * accettare per questo: in quel caso il polling è l'UNICO meccanismo di aggiornamento e va
+         * attivato comunque. Legge solo il meta `app-version` da index.html via fetch e non scrive
+         * cookie, quindi non richiede consenso. Senza questo ramo, su un sito così il controllo
+         * versione resterebbe spento per sempre — proprio lo scenario che emerge con `isWebApp:false`.
          */
-        if (this.consent.isTechnicalNeeded() && !isTechnicalConsentGiven()) return;
+        if (this.consent.isTechnicalOptionalNeeded() && !isTechnicalOptionalConsentGiven()) return;
 
         // Recupera la versione attuale iniettata nel meta tag dell'index.html
         this.currentVersion = this.document

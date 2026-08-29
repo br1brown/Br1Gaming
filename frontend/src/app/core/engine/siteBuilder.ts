@@ -907,6 +907,14 @@ export interface BuiltSite {
     getMenuNav: (lang?: string) => NavLink[];
     /** Navigazione del footer per lingua. `lang` omesso risolve alla lingua default. */
     getLinkFooter: (lang?: string) => NavLink[];
+    /**
+     * Link alle pagine legali configurate (`config.legalPages`), per lingua, in ordine fisso
+     * (privacy, cookie, tos, legal, accessibility) — pensati per la fascia "small prints" a
+     * chiusura del footer (pattern PA/Designers Italia), non per `footerNav`. Auto-derivati dagli
+     * slot: nessuna dichiarazione manuale nel figlio, e uno slot rimosso (pagina cancellata da
+     * `pages`) sparisce da qui da solo, senza bisogno di toccare `site.ts`.
+     */
+    getLegalFooterLinks: (lang?: string) => NavLink[];
     /** Piano di rendering server-only derivato dalle pagine foglia interne valide, per ogni lingua. */
     serverRenderEntries: ServerRenderEntry[];
     /**
@@ -1300,6 +1308,27 @@ function resolveNavigation(items: RawNavItem[], pageMap: Map<string, PageInfo>, 
         .filter((item): item is NavLink => item !== null);
 }
 
+/** Ordine di visualizzazione fisso delle pagine legali nella fascia "small prints" del footer:
+ *  stesso ordine di dichiarazione di `LegalPages`/`legalSlots` (pages/policy/legal.pages.ts). */
+const LEGAL_FOOTER_SLOT_ORDER: readonly (keyof ResolvedLegalPages)[] = ['privacy', 'cookie', 'tos', 'legal', 'accessibility'];
+
+/**
+ * Risolve gli slot di `config.legalPages` effettivamente valorizzati in `NavLink[]` per la fascia
+ * "small prints" del footer, nell'ordine fisso di `LEGAL_FOOTER_SLOT_ORDER`. Uno slot `null`
+ * (mai configurato, o rimosso insieme alla pagina che referenziava) è semplicemente assente dal
+ * risultato — stessa logica "silente" di `resolveNavigation` per un `addPage` non risolto.
+ */
+function resolveLegalFooterLinks(legalPages: ResolvedLegalPages, pageMap: Map<string, PageInfo>, lang: string, defaultLang: string): NavLink[] {
+    return LEGAL_FOOTER_SLOT_ORDER
+        .map((slot): NavLink | null => {
+            const type = legalPages[slot];
+            if (type == null) return null;
+            const entry = pageMap.get(pageMapKey(type, lang, defaultLang));
+            return entry ? { label: entry.title, path: entry.path, isExternal: entry.isExternal } : null;
+        })
+        .filter((item): item is NavLink => item !== null);
+}
+
 /**
  * Orchestratore: assembla il `ContestoSito` dalla definizione in `site.ts`.
  * Config finale → pagine (con override legale + sezione policy iniettata) → mappa
@@ -1362,6 +1391,7 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
     // fissi — la lettura per lingua specifica avviene dopo, in getMenuNav/getLinkFooter più sotto.
     const menuNavByLang = new Map<string, NavLink[]>();
     const linkFooterByLang = new Map<string, NavLink[]>();
+    const legalFooterLinksByLang = new Map<string, NavLink[]>();
     for (const lang of environment.availableLanguages) {
         const menuNav = resolveNavigation(rawHeader, pageMap, lang, defaultLang);
         const linkFooter = resolveNavigation(rawFooter, pageMap, lang, defaultLang);
@@ -1369,6 +1399,7 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
         validateNavDepth(linkFooter, 'footer');
         menuNavByLang.set(lang, menuNav);
         linkFooterByLang.set(lang, linkFooter);
+        legalFooterLinksByLang.set(lang, resolveLegalFooterLinks(finalConfig.legalPages, pageMap, lang, defaultLang));
     }
 
     return {
@@ -1377,6 +1408,7 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
         // lang omesso → defaultLang; lingua sconosciuta → ripiega comunque su defaultLang (mai `undefined`).
         getMenuNav: (lang = defaultLang) => menuNavByLang.get(lang) ?? menuNavByLang.get(defaultLang) ?? [],
         getLinkFooter: (lang = defaultLang) => linkFooterByLang.get(lang) ?? linkFooterByLang.get(defaultLang) ?? [],
+        getLegalFooterLinks: (lang = defaultLang) => legalFooterLinksByLang.get(lang) ?? legalFooterLinksByLang.get(defaultLang) ?? [],
         serverRenderEntries, // già con tutte le varianti-lingua dentro, grazie al loop sopra — nessun'altra moltiplicazione da fare a valle (app.config.server.ts, server.ts).
         getPath: (type: PageType, lang = defaultLang) => pageMap.get(pageMapKey(type, lang, defaultLang))?.path ?? null,
         getPageInfo: (type: PageType, lang = defaultLang) => pageMap.get(pageMapKey(type, lang, defaultLang)) ?? null,

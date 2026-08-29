@@ -13,6 +13,14 @@
         { "type": "object", "additionalProperties": { "type": "string" }, "minProperties": 1 }
       ]
     },
+    "legalRole": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "nome": { "$ref": "#/definitions/localizedString" },
+        "email": { "type": "string" }
+      }
+    },
     "address": {
       "type": "object",
       "additionalProperties": false,
@@ -113,6 +121,14 @@
     "rappresentanteLegale": {
       "$ref": "#/definitions/localizedString",
       "description": "Rappresentante legale dell'entità (campo noto e tipizzato, reso dal footer/pagine legali)."
+    },
+    "titolareDelTrattamento": {
+      "$ref": "#/definitions/legalRole",
+      "description": "Titolare del trattamento ai fini privacy (GDPR art. 4.7), solo quando DIVERSO da ragioneSociale/rappresentanteLegale. Nessun fallback: nella maggior parte dei siti (un'unica persona) il titolare coincide con l'azienda, già esposta da ragioneSociale/contatti.email — ripeterla qui sarebbe rumore. Omesso → nessuna riga dedicata, il frontend mostra solo l'identità generale."
+    },
+    "responsabileProtezioneDati": {
+      "$ref": "#/definitions/legalRole",
+      "description": "Responsabile della Protezione dei Dati / DPO (GDPR art. 37), quando designato. Nessun fallback automatico (a differenza di 'titolareDelTrattamento'): la designazione non è obbligatoria per tutte le realtà, un DPO presunto inventerebbe una carica inesistente. Omesso → nessun DPO, il frontend nasconde la riga."
     },
     "metadatiAggiuntivi": {
       "type": "object",

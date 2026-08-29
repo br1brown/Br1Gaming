@@ -4,6 +4,71 @@ Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspetta
 
 ## [Non rilasciato]
 
+### Catalogo Design System in home, spostato nell'Engine (sopravvive all'eject)
+
+La home demo esercita ogni funzionalità dell'Engine, ma resta pensata per chi legge codice: niente di consultabile da chi valuta l'aspetto di un sito (designer, Art Director) senza login né lettura del sorgente — e comunque, essendo demo Dominio, sarebbe sparito del tutto con `setup.mjs` → eject, insieme al resto.
+
+- Nuovo `app-design-system-gallery` (`core/engine/components/design-system-gallery/`): catalogo visivo sempre presente di colori, tipografia, bottoni, badge, alert e form — nessun gate di login, a differenza delle altre sezioni della home demo.
+- Vive nell'Engine e non in `components/shared/**` (che è Dominio) apposta: sopravvive all'eject, `setup.mjs` monta il componente anche nella home minimale del progetto "pulito".
+- Le sue stringhe i18n vivono in `basic.{lang}.json` (Engine, mai azzerato) invece che in `addon.{lang}.json` (Dominio, azzerato dall'eject), per lo stesso motivo.
+- Verificato: build di produzione frontend (type-check incluso), lint, i18n-check e circular-deps-check puliti.
+
+### Error reporting via webhook (`IErrorReportingService`)
+
+Un bug in produzione, di norma, lo scopri solo leggendo i log a mano. Serviva un modo per farsi avvisare senza dover installare l'SDK di un vendor specifico (Sentry e simili) solo per quello.
+
+- Nuovo `IErrorReportingService` (`Engine/ErrorReporting/`): un `POST` JSON verso un webhook a scelta (`ErrorReporting.WebhookUrl` in `global-settings.local.json`, vuoto = spento) per ogni eccezione non applicativa (un bug vero) o applicativa con status ≥500 — mai un 4xx, traffico normale. Nessun pacchetto NuGet in più: solo `HttpClient` via `IHttpClientFactory`, stesso schema del mailer.
+- Chiamato già da `ApiExceptionHandler`, non a mano: accodato su `IBackgroundTaskQueue` con uno snapshot immutabile (`ErrorReport`) costruito sincronamente — mai la `HttpContext` live dentro un task in background, che Kestrel ricicla subito dopo la risposta.
+- Il payload porta `project` (da `project.name`): pensato per più progetti sulla stessa VPS che condividono un solo webhook/relay, restando comunque distinguibili.
+- Deliberatamente un webhook generico, non un client nativo per un vendor specifico: a differenza di SMTP, il formato di ingestione di un APM (Sentry incluso) non è uno standard — legarlo dentro l'Engine vorrebbe dire far ereditare a ogni figlio il rischio che quel vendor cambi la sua API privata. Chi vuole un vendor specifico scrive un piccolo relay di traduzione fuori dal template, riusabile su tutti i propri progetti.
+- Verificato: `dotnet build` (0 warning, 0 errori).
+
+### Checklist di pre-lancio incorporata negli script di deploy
+
+Un documento "cosa non dimenticare prima di andare live" è utile solo se qualcuno lo riapre il giorno del deploy vero — di norma non succede. Il promemoria vive quindi dentro lo script che lancia davvero la pubblicazione, accanto ai guard sui segreti già esistenti.
+
+- Nuova `br1_content_placeholder_warnings` (`scripts/lib/br1-config.sh`), condivisa da `deploy.sh` e `deploy-release.sh`: avvisa, senza bloccare, se `project.name` è ancora il default `"App"` o se `backend/data/identity.json` è ancora lo scheletro vuoto lasciato dall'eject. `deploy-release.sh` verifica solo `project.name`: modello artifact-based, niente sorgente sulla VPS, `identity.json` non c'è da controllare.
+- Non bloccante di proposito: sono stati finali legittimi in alcuni casi (`identity.json` vuoto nasconde da solo footer e blocco legale, vedi `README.md`).
+- Verificato a mano contro dati segnaposto e dati reali del repo (nessun falso positivo/negativo).
+
+### Cookie tecnici: separati in `Technical` (sempre esenti) e `TechnicalOptional` (PWA/SW, consenso vero)
+
+La categoria `Technical` copriva due cose diverse sotto lo stesso nome: i cookie strettamente necessari (sessione, memoria del consenso), esenti da consenso per legge (art. 122 Codice Privacy / art. 5.3 ePrivacy), **e** il Service Worker/PWA built-in, che invece va oltre il minimo necessario (installabilità/offline) ed è tecnico ma non indispensabile. Il banner mostrava comunque uno switch su "Technical" per il caso PWA: uno switch su qualcosa di dichiarato esente per legge è un'incoerenza legale, non solo terminologica.
+
+- Nuovo valore enum `ConsentCategory.TechnicalOptional`: il Service Worker (`ngsw-worker.js` in `ENGINE_COOKIE_MAP`) e gli eventuali cookie tecnici-ma-non-indispensabili di progetto ora vivono qui, con switch esplicito nel banner — stesso trattamento di Analytics/Profiling (proprio signal, propria voce `CONSENT_KEYS`/`CONSENT_COOKIE_MAP`, propria pulizia alla revoca).
+- `Technical` resta solo per ciò che è davvero strettamente necessario: mai uno switch, solo un badge informativo ("Necessari" — prima "Obbligatorio"/"Required", cambiato per riflettere che l'utente non ha scelta, non che sia un obbligo generico). `isCategoryAccepted(Technical)` ora ritorna sempre `true`, senza condizioni: prima era legato a un signal che, per come `hasTechnicalCategory` è composto (bearerToken/cookie di progetto entrano in `_cm` per vie che quel computed non copre tutte), poteva in teoria bloccare in silenzio la scrittura di un cookie Technical built-in futuro — oggi non successo solo per l'incrocio di più guardie indipendenti (`TokenService`/`ESSENTIAL_ENGINE_STORAGE_KEYS`), non per garanzia esplicita.
+- Nuovo `hasTechnicalCategory()` (banner/policy: "c'è qualcosa da dichiarare in Technical?") separato da `isTechnicalOptionalNeeded()` (banner: "serve un vero consenso in TechnicalOptional?") — prima un unico `isTechnicalNeeded()` confondeva le due domande.
+- **Breaking per i figli con `COOKIE_MAP` proprio:** una voce che oggi usa `ConsentCategory.Technical` ma NON è strettamente necessaria (va oltre il minimo per erogare il servizio) va spostata a `ConsentCategory.TechnicalOptional` — altrimenti finisce dichiarata come esente per legge quando non lo è. Rinominata anche la chiave i18n `consentTechnicalDescrizioneListaCookie` → `consentTechnicalOptionalDescrizioneListaCookie`.
+- Verificato: `dotnet build` non tocca quest'area (frontend-only); build di produzione frontend (type-check incluso) pulita.
+
+### Identità: `titolareDelTrattamento` (GDPR art. 4.7) e `responsabileProtezioneDati`/DPO (GDPR art. 37)
+
+Due nuovi campi opzionali di `SiteIdentity`, entrambi `LegalRole { Nome, Email }`, resi nel footer/pagine legali dallo stesso `IdentityRenderComponent` che già rende ragione sociale/sede/rappresentante legale. Nessun fallback automatico su nessuno dei due: nella maggior parte dei siti (P.IVA singola) il titolare coincide con l'azienda stessa, già esposta da `ragioneSociale`/`contatti.email` — ripeterlo sarebbe rumore; un DPO "presunto" per chi non ne ha uno inventerebbe una carica che non esiste (la designazione è obbligatoria solo per PA/monitoraggio sistematico/dati particolari su larga scala). Assenti ⇒ nessuna riga, come già per gli altri campi opzionali dell'identità.
+
+- Email di entrambi i ruoli validata con lo stesso `ValidEmail` (`MailAddress`) già usato per `contatti.email`/`pec` — fail-fast su un valore presente ma malformato, coerente col resto del modello identità.
+- `PolicyComponent`: la Cookie Policy interpola `{{companyProfile}}` con l'identità completa (nuova sezione "Titolare del trattamento"/"Data controller" in `cookie.it.md`/`cookie.en.md`).
+- Nuovo `hasIdentityContent()` (esportato da `identity-render.component.ts`): l'identità può esistere (non `null`) ma avere ogni campo vuoto — la Cookie Policy ora monta `app-identity-render` solo se c'è davvero qualcosa da mostrare, invece di riservare uno spazio vuoto.
+- **Fix collaterale**: nella colonna Contatti del footer, gli orari (fino a 7 righe) sommati a email/badge allungavano quella colonna molto più delle colonne societarie/legali accanto. Spostati in una colonna a sé.
+- Verificato: `dotnet build` (0 warning, 0 errori); build di produzione frontend pulita.
+
+### Footer: pagine legali auto-derivate in una fascia "small prints", non più una voce di `footerNav`
+
+Le pagine legali (Privacy/Cookie/TOS/Note Legali/Accessibilità) erano dichiarate a mano in `site.ts` come un `addGroup` annidato dentro `footerNav` — una colonna della griglia di navigazione, alla pari di categorie di prodotto o sezioni del sito, quando concettualmente sono un'altra cosa (small prints istituzionali, pattern già usato da footer PA/Designers Italia).
+
+- Nuovo `BuiltSite.getLegalFooterLinks(lang)` (`siteBuilder.ts`): risolve `config.legalPages` (privacy/cookie/tos/legal/accessibility, in quest'ordine fisso) direttamente in `NavLink[]`, senza bisogno di dichiararle in `footerNav`. Uno slot omesso o una pagina rimossa da `pages` sparisce da solo dalla fascia.
+- Nuovo `app-footer-link-row` (`components/footer-link-row/`): riga orizzontale compatta senza titolo, condivisa da due consumer — la nuova fascia legale in `footer.component` e i link/pagine sciolti in cima a `footerNav` (fuori da un `addGroup`), che prima occupavano una colonna intera per un solo link. `FooterNavComponent` ora separa `groups()` (colonna a sé) da `standaloneLinks()` (riga compatta).
+- Nuovo `.footer-nav-groups` (`_footer.scss`): griglia fluida `auto-fit`/`minmax(160px, 240px)` al posto delle colonne Bootstrap fisse (`col-lg-2`), centrata anche con un solo gruppo — la larghezza piena lasciava un gruppo singolo sbilanciato a sinistra.
+- `site.ts`/`setup.mjs` (demo + eject): rimosso il gruppo `menuPolicy` da `footerNav`, `footerNav` ora contiene solo il link libero di progetto (GitHub).
+- **Breaking per i figli che personalizzano `footerNav` in `site.ts`** (file di Dominio, non toccato dal merge): chi aveva copiato lo stesso pattern (`addGroup` con le pagine legali) può rimuoverlo — le pagine legali compaiono ora comunque, nella fascia dedicata. Non è un errore lasciarlo: risulterebbe solo duplicato (una volta nella fascia automatica, una volta nella colonna di `footerNav`).
+- Verificato: build di produzione frontend (type-check incluso) pulita.
+
+### Fix: guard/resolver potevano leggere la lingua sbagliata durante la navigazione
+
+`PageBaseComponent` allinea `TranslateService.currentLang()` alla lingua della route solo al montaggio del componente — che avviene **dopo** la fase Guard e la fase Resolve di Angular Router. Un resolver che legge `currentLang()` come fallback (`content.resolver.ts`) o un guard che ne dipende poteva quindi trovare ancora la lingua precedente durante la navigazione, non quella della route appena richiesta. `authGuard` se n'era già accorto e leggeva `route.data['lang']` invece di `currentLang()`, ma solo per sé stesso — ogni nuovo guard/resolver avrebbe dovuto reimplementare lo stesso accorgimento a mano.
+
+- Nuovo `languageSyncGuard` (`route-guards.ts`), applicato a **ogni** route in `routing.ts` (non solo quelle protette): allinea `currentLang()` alla lingua della route (`await translate.setLanguage(lang)`) prima che qualunque guard/resolver a valle giri. Angular Router completa l'intera fase Guard prima di iniziare Resolve, quindi basta un guard qualsiasi nell'array a garantire l'ordine.
+- Verificato: build di produzione frontend (type-check incluso) pulita.
+
 ### Revisione di correttezza esaustiva, per aree, su tutto il repository
 
 Cinque revisori paralleli, ciascuno su una fetta del repo (frontend Engine, frontend Dominio/Demo, backend Engine, backend Dominio/Demo, scripts/build/config/CI), con l'istruzione di trovare solo bug reali e concreti, non di stile, e di verificare ogni doc comment sospetto con `git log -p` prima di segnalarlo. Ogni finding riportato è stato riverificato a mano contro il sorgente reale prima di applicare un fix (il pattern che aveva già smascherato la regressione di `AccountService` sopra). Sei bug reali trovati e corretti:

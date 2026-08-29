@@ -27,5 +27,8 @@
     "Password": "INCOLLA-QUI-LA-PASSWORD-DELLA-CASELLA",
     "FromAddress": "noreply@miodominio.it",
     "FromName": "Sito MioDominio"
+  },
+  "ErrorReporting": {
+    "WebhookUrl": ""
   }
 }

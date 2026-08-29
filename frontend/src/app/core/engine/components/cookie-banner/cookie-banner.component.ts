@@ -32,8 +32,10 @@ export class CookieBannerComponent {
      */
     readonly panelMode = input<boolean>(false);
 
-    /** Stato locale dei pending — inizializzati dal consenso già salvato, o attivi di default alla prima apertura per i tecnici. */
-    readonly pendingTechnical = signal(this.cookieConsent.responded() ? this.cookieConsent.technicalAccepted() : true);
+    /** Stato locale dei pending — inizializzati dal consenso già salvato, o attivi di default alla prima
+     *  apertura per TechnicalOptional (`pendingTechnicalOptional`: PWA built-in + eventuali cookie
+     *  di progetto nella stessa categoria, vedi CookieConsentService.isTechnicalOptionalNeeded). */
+    readonly pendingTechnicalOptional = signal(this.cookieConsent.responded() ? this.cookieConsent.technicalOptionalAccepted() : true);
     readonly pendingAnalytics = signal(this.cookieConsent.analyticsAccepted());
     readonly pendingProfiling = signal(this.cookieConsent.profilingAccepted());
 
@@ -47,7 +49,7 @@ export class CookieBannerComponent {
         // interferire con le modifiche in corso: `accepted*` cambia solo al salvataggio, non ai toggle.
         effect(() => {
             if (!this.panelMode() || !this.cookieConsent.responded()) return;
-            this.pendingTechnical.set(this.cookieConsent.technicalAccepted());
+            this.pendingTechnicalOptional.set(this.cookieConsent.technicalOptionalAccepted());
             this.pendingAnalytics.set(this.cookieConsent.analyticsAccepted());
             this.pendingProfiling.set(this.cookieConsent.profilingAccepted());
         });
@@ -62,7 +64,7 @@ export class CookieBannerComponent {
     /** Numero di categorie attive: con una sola, Rifiuta/Accetta perdono il "tutto"
      *  (non c'è nessun insieme su cui agire in blocco). */
     private readonly activeCategoryCount = computed(() =>
-        [this.cookieConsent.isTechnicalNeeded(), this.cookieConsent.isAnalyticsNeeded(), this.cookieConsent.isProfilingNeeded()]
+        [this.cookieConsent.isTechnicalOptionalNeeded(), this.cookieConsent.isAnalyticsNeeded(), this.cookieConsent.isProfilingNeeded()]
             .filter(Boolean).length
     );
     readonly rejectLabel = computed(() =>
@@ -82,21 +84,21 @@ export class CookieBannerComponent {
     });
 
     reopen(): void {
-        this.pendingTechnical.set(this.cookieConsent.technicalAccepted());
+        this.pendingTechnicalOptional.set(this.cookieConsent.technicalOptionalAccepted());
         this.pendingAnalytics.set(this.cookieConsent.analyticsAccepted());
         this.pendingProfiling.set(this.cookieConsent.profilingAccepted());
         this.cookieConsent.reopen();
     }
 
     accept(): void {
-        if (this.cookieConsent.isTechnicalNeeded()) this.pendingTechnical.set(true);
+        if (this.cookieConsent.isTechnicalOptionalNeeded()) this.pendingTechnicalOptional.set(true);
         if (this.cookieConsent.isAnalyticsNeeded()) this.pendingAnalytics.set(true);
         if (this.cookieConsent.isProfilingNeeded()) this.pendingProfiling.set(true);
         this.saveSelected();
     }
 
     reject(): void {
-        if (this.cookieConsent.isTechnicalNeeded()) this.pendingTechnical.set(false);
+        if (this.cookieConsent.isTechnicalOptionalNeeded()) this.pendingTechnicalOptional.set(false);
         if (this.cookieConsent.isAnalyticsNeeded()) this.pendingAnalytics.set(false);
         if (this.cookieConsent.isProfilingNeeded()) this.pendingProfiling.set(false);
         this.saveSelected();
@@ -104,7 +106,7 @@ export class CookieBannerComponent {
 
     saveSelected(): void {
         this.cookieConsent.saveSelected(
-            this.pendingTechnical(),
+            this.pendingTechnicalOptional(),
             this.pendingAnalytics(),
             this.pendingProfiling(),
         );
@@ -112,8 +114,8 @@ export class CookieBannerComponent {
     }
 
     /** Aggiorna un pending e azzera il feedback di salvataggio (l'utente sta di nuovo modificando). */
-    setPending(category: 'technical' | 'analytics' | 'profiling', value: boolean): void {
-        if (category === 'technical') this.pendingTechnical.set(value);
+    setPending(category: 'technicalOptional' | 'analytics' | 'profiling', value: boolean): void {
+        if (category === 'technicalOptional') this.pendingTechnicalOptional.set(value);
         else if (category === 'analytics') this.pendingAnalytics.set(value);
         else this.pendingProfiling.set(value);
         this.justSaved.set(false);

@@ -88,6 +88,10 @@ public class FileIdentityStore : IIdentityStore
                 sedeOperativa.Nazione = ValidCountry(sedeOperativa.Nazione);
             if (identity is not null)
                 identity.Currency = ValidCurrency(identity.Currency);
+            if (identity?.TitolareDelTrattamento is { } titolare)
+                titolare.Email = ValidEmail(titolare.Email);
+            if (identity?.ResponsabileProtezioneDati is { } dpo)
+                dpo.Email = ValidEmail(dpo.Email);
 
             // Giorno degli orari fuori range. Il JsonStringEnumConverter accetta le stringhe numeriche
             // ("8") mappandole all'intero sottostante senza validare il range: un giorno impossibile

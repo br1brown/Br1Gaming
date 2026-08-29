@@ -251,6 +251,20 @@ else
     info "Mailer non configurato (sezione Mail assente o incompleta): invio email disattivato"
 fi
 
+# ── CONTENUTI ANCORA SEGNAPOSTO (informativo, non bloccante) ─────────────────
+# Checklist di pre-lancio incorporata qui invece che in un documento a parte: un promemoria letto
+# solo quando pubblichi davvero è più utile di uno che nessuno riapre. Non blocca perché non sono
+# errori: identity.json vuoto è uno stato finale legittimo (footer/legal si nascondono da soli).
+# Logica condivisa con deploy-release.sh in scripts/lib/br1-config.sh.
+echo
+echo -e "${BOLD}Contenuti${RESET}"
+_content_warns="$(br1_content_placeholder_warnings 1)"
+if [[ -n "$_content_warns" ]]; then
+    while IFS= read -r _w; do [[ -n "$_w" ]] && warn "$_w"; done <<< "$_content_warns"
+else
+    ok "Identità di progetto personalizzata (project.name, identity.json)"
+fi
+
 # ── CONTROLLO PORTE (solo avviso, nessuna chiusura automatica) ───────────────
 echo
 echo -e "${BOLD}Controllo porte${RESET}"
