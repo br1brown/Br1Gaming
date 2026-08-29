@@ -17,17 +17,13 @@
 #   PUPPETEER_EXECUTABLE_PATH   Override Chrome/Chromium (auto-rilevato se assente)
 #   A11Y_TIMEOUT                Timeout per pagina in ms (default: 30000)
 #   A11Y_CONCURRENCY            Pagine auditate in parallelo (default: 2). pa11y misura
-#                                struttura/DOM, non tempi, quindi la contesa di risorse fra
-#                                pagine concorrenti in generale rallenta ma non falsa il
-#                                risultato (a differenza di Lighthouse, seriale apposta) — CON
-#                                UN'ECCEZIONE VERIFICATA: la regola color-contrast di axe-core,
-#                                misurata su più tab dello stesso browser condiviso, produce
-#                                falsi positivi intermittenti (contrasto ~1:1 su testo in realtà
-#                                leggibile) quando 3+ pagine girano insieme — verificato via
-#                                getComputedStyle dal vivo (colori sempre corretti) e ripetendo
-#                                l'audit più volte a parità di concorrenza: con 3 fallisce a
-#                                intermittenza, con 2 sempre stabile. Alza questo valore solo se
-#                                hai già verificato che il tuo set di pagine non ne risente.
+#                                struttura/DOM, non tempi, quindi la contesa di risorse fra pagine
+#                                concorrenti in genere rallenta ma non falsa il risultato (a
+#                                differenza di Lighthouse, seriale apposta) — eccezione: la regola
+#                                color-contrast di axe-core, su più tab dello stesso browser
+#                                condiviso, dà falsi positivi intermittenti con 3+ pagine insieme.
+#                                Alza questo valore solo se hai già verificato che il tuo set di
+#                                pagine non ne risente.
 #
 # Exit code:
 #   0  Nessuna violazione trovata
