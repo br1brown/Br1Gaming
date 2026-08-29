@@ -16,12 +16,18 @@
 # Variabili d'ambiente:
 #   PUPPETEER_EXECUTABLE_PATH   Override Chrome/Chromium (auto-rilevato se assente)
 #   A11Y_TIMEOUT                Timeout per pagina in ms (default: 30000)
-#   A11Y_CONCURRENCY            Pagine auditate in parallelo (default: 3) — pa11y misura
+#   A11Y_CONCURRENCY            Pagine auditate in parallelo (default: 2). pa11y misura
 #                                struttura/DOM, non tempi, quindi la contesa di risorse fra
-#                                pagine concorrenti rallenta ma non falsa il risultato (a
-#                                differenza di Lighthouse, che invece resta seriale apposta).
-#                                Limitato per non esaurire la memoria del runner con troppe
-#                                tab Puppeteer aperte insieme.
+#                                pagine concorrenti in generale rallenta ma non falsa il
+#                                risultato (a differenza di Lighthouse, seriale apposta) — CON
+#                                UN'ECCEZIONE VERIFICATA: la regola color-contrast di axe-core,
+#                                misurata su più tab dello stesso browser condiviso, produce
+#                                falsi positivi intermittenti (contrasto ~1:1 su testo in realtà
+#                                leggibile) quando 3+ pagine girano insieme — verificato via
+#                                getComputedStyle dal vivo (colori sempre corretti) e ripetendo
+#                                l'audit più volte a parità di concorrenza: con 3 fallisce a
+#                                intermittenza, con 2 sempre stabile. Alza questo valore solo se
+#                                hai già verificato che il tuo set di pagine non ne risente.
 #
 # Exit code:
 #   0  Nessuna violazione trovata
@@ -89,7 +95,7 @@ mod.get('${BASE_URL}/health', res => {
 fi
 
 TIMEOUT="${A11Y_TIMEOUT:-30000}"
-CONCURRENCY="${A11Y_CONCURRENCY:-3}"
+CONCURRENCY="${A11Y_CONCURRENCY:-2}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FRONTEND_DIR="${SCRIPT_DIR}/../../frontend"
 PA11Y_CONFIG="${SCRIPT_DIR}/pa11y.json"
