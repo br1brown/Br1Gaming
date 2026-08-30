@@ -38,10 +38,10 @@ export class PolicyComponent extends PageBaseComponent<string> {
 
     readonly ConsentCategory = ConsentCategory;
 
-    /** True solo sulla pagina Cookie Policy (slot legale 'cookie'): abilita la sezione
+    /** True solo sulla pagina Cookie Policy (`siteConfig.cookiePolicy`): abilita la sezione
      *  "come controllare i cookie", che su privacy / termini / note legali non ha senso. */
     readonly isCookiePolicy = computed(() =>
-        this.siteConfig.legalPages.cookie != null && this.pageType() === this.siteConfig.legalPages.cookie
+        this.siteConfig.cookiePolicy != null && this.pageType() === this.siteConfig.cookiePolicy
     );
 
     /** True quando l'utente ha già risposto al consenso: solo allora mostriamo il pannello di

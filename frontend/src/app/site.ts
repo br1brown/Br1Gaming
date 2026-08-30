@@ -1,6 +1,6 @@
 import { buildSite } from './core/engine/siteBuilder';
 import { AppPages, appPagesDecl } from './pages/app.pages';
-import { LegalPages, legalSlots } from './pages/policy/legal.pages';
+import { LegalPages, legalPagesDecl } from './pages/policy/legal.pages';
 
 export type {
     SiteConfig,
@@ -29,9 +29,10 @@ export const ContestoSito = buildSite({
     // Pagina del brand/logo nel navbar.
     homePage: PageType.Home,
 
-    // Slot legali dell'Engine → PageType del progetto (rotte /policy/* auto-generate).
-    // ID e date di aggiornamento vivono in pages/policy/legal.pages.ts.
-    legalPages: legalSlots,
+    // Pagine legali del progetto (rotte /policy/* auto-generate). ID, voci e date di
+    // aggiornamento vivono in pages/policy/legal.pages.ts.
+    legalPages: legalPagesDecl,
+    cookiePolicy: PageType.CookiePolicy,
 
     // Comportamento di navbar/footer/header/pannello (default applicati per ogni flag omesso).
     shell: {

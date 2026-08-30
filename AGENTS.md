@@ -49,6 +49,22 @@ export class NuovaComponent extends PageBaseComponent<void> { }
 <a [appPage]="PageType.NuovaPagina">Vai</a>   <!-- mai URL grezzi -->
 ```
 
+#### Aggiungere una policy legale extra (oltre ai 5 slot fissi)
+`legalPages` (`site.ts`) è un array: ogni voce ha lo stesso trattamento (rotta `/policy/*`, `PolicyComponent`, riga nel footer), che sia una delle 5 standard o una policy di progetto (es. diritto di recesso per un e-commerce) — nessuna distinzione, non serve toccare `siteBuilder.ts`/`legal-pages.ts`. Per le 5 standard, `STANDARD_LEGAL_PAGES` (da `siteBuilder.ts`) dà `path`/`titolo`/`descrizione`/`nome file` pronti da spreadare; una voce in più li scrive per esteso. Ricetta completa in [frontend/README.md](frontend/README.md#pagine-legali-legalpages). Voce assente → nessun errore, nessuna pagina in più (stesso pattern silenzioso degli altri campi opzionali).
+```typescript
+// pages/policy/legal.pages.ts — nuovo PageType (diventa parte di PageType tramite lo spread in site.ts)
+export const LegalPages = { /* ... */, WithdrawalPolicy: 'legal.recesso' } as const;
+```
+```typescript
+// site.ts — una voce in più nell'array legalPages, accanto alle 5 standard
+legalPages: [
+  /* ...le 5 standard via STANDARD_LEGAL_PAGES... */
+  { pageType: PageType.WithdrawalPolicy, path: 'recesso', titleKey: 'recessoPolicyMenu',
+    descriptionKey: 'recessoPolicyDescrizione', markdownSlug: 'recesso' },
+],
+```
+Poi: chiavi i18n in `addon.<lang>.json` (mai `basic.<lang>.json`, quello è Engine) e `src/assets/legal/recesso.<lang>.md` per ogni lingua configurata.
+
 #### Aggiungere un endpoint al client
 ```typescript
 // core/services/api.service.ts

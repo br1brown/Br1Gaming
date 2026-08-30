@@ -61,7 +61,7 @@ Implementa il toast automatico sugli errori HTTP per le richieste non marcate `{
 
 ### Cookie interni (`services/cookie/`)
 
-`cookie-type.ts` definisce `ConsentCategory` (Technical/Analytics/Profiling/TechnicalOptional), la tassonomia dietro le voci di `COOKIE_MAP` (vedi ricetta in `AGENTS.md`). Technical è l'unica esente da consenso per legge (strettamente necessaria, mai uno switch nel banner); TechnicalOptional è il suo contrario — tecnica ma non indispensabile (es. il Service Worker/PWA built-in) — trattata come Analytics/Profiling: proprio switch, proprio consenso. `cookie-utils.ts` è un check statico usato in fase di build da `siteBuilder.ts` per decidere se includere lo slot `legalPages.cookie`: non è runtime, è un dettaglio di composizione del sito.
+`cookie-type.ts` definisce `ConsentCategory` (Technical/Analytics/Profiling/TechnicalOptional), la tassonomia dietro le voci di `COOKIE_MAP` (vedi ricetta in `AGENTS.md`). Technical è l'unica esente da consenso per legge (strettamente necessaria, mai uno switch nel banner); TechnicalOptional è il suo contrario — tecnica ma non indispensabile (es. il Service Worker/PWA built-in) — trattata come Analytics/Profiling: proprio switch, proprio consenso. `cookie-utils.ts` è un check statico usato in fase di build da `siteBuilder.ts` per decidere se il sito richieda una Cookie Policy (`cookiePolicy` in `legalPages`): non è runtime, è un dettaglio di composizione del sito.
 
 ### Connessione realtime, dettaglio interno (`services/notification-connection.ts`)
 
@@ -69,4 +69,8 @@ Tiene il `connectionId` corrente in un signal separato da `NotificationStreamSer
 
 ### Pagine legali (`legal/legal-pages.ts`)
 
-Definisce la forma fissa di ogni pagina legale (slot, path sotto `/policy/`, componente, `PageType`) consumata da `siteBuilder.ts` per auto-cablare le pagine dichiarate in `legalPages`. Il progetto figlio non tocca questo file: agisce sugli slot in `site.ts` (nella demo, valorizzati in `pages/legal.pages.ts` e assemblati lì).
+`legalPages` (`site.ts`) è un array (`LegalPageSpec[]`, definito in `siteBuilder.ts`): un elemento per pagina, tutti con lo stesso trattamento — nessuna distinzione, né nel tipo né nel codice, fra pagine "di sistema" e pagine di progetto. `legal-pages.ts` non ha più uno slot per nome da valorizzare: `filterManagedLegalPages` (override), `buildPolicySection` (rotta `/policy/*` + `PolicyComponent`) e `legalSlugFor` (markdown) camminano tutti sulla stessa lista con un solo ciclo ciascuno.
+
+Per le 5 pagine standard, `STANDARD_LEGAL_PAGES` (dati, in `legal-pages.ts`, riesportati da `siteBuilder.ts`) fornisce `path`/`titleKey`/`descriptionKey`/`markdownSlug` pronti: il figlio li abbina al proprio `PageType` con lo spread (`pages/policy/legal.pages.ts` nella demo). Una policy in più (es. diritto di recesso) è una voce scritta per esteso nello stesso array, senza `STANDARD_LEGAL_PAGES` a fare da scorciatoia — non c'è altro da toccare in questo file per il progetto figlio.
+
+L'unica voce con un ruolo a runtime resta la Cookie Policy (link dal banner, obbligatoria se il sito usa cookie): non si riconosce guardando `legalPages` — è il campo separato `cookiePolicy: PageType | null` (`SiteConfig`) a dirlo. È l'unico caso speciale rimasto nel modello: ogni altra voce di `legalPages` è testo generico.

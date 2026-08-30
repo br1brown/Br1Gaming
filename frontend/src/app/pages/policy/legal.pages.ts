@@ -1,8 +1,8 @@
-import type { LegalPagesConfig } from '../../core/engine/siteBuilder';
+import { STANDARD_LEGAL_PAGES, type LegalPageSpec } from '../../core/engine/siteBuilder';
 
-// Area "legal": ID, slot attivi e date delle pagine legali (non in site.ts).
-// Slot valorizzato = pagina creata, omesso = assente; con cookie di progetto o PWA
-// lo slot `cookie` è obbligatorio (errore al build se manca).
+// Area "legal": ID, pagine attive e date delle pagine legali (non in site.ts).
+// Voce presente in `legalPagesDecl` = pagina creata, assente = pagina non creata; con cookie di
+// progetto o PWA una voce deve essere abbinata a `cookiePolicy` in site.ts (errore al build se manca).
 // Dettagli: frontend/README.md §"Pagine legali".
 export const LegalPages = {
     PrivacyPolicy: 'legal.privacy',
@@ -14,14 +14,17 @@ export const LegalPages = {
 
 type LegalPageId = (typeof LegalPages)[keyof typeof LegalPages];
 
-/** Slot dell'Engine → PageType del figlio. Assemblato in site.ts → legalPages. */
-export const legalSlots: LegalPagesConfig = {
-    privacy: LegalPages.PrivacyPolicy,
-    cookie: LegalPages.CookiePolicy,
-    tos: LegalPages.TermsOfService,
-    legal: LegalPages.LegalNotice,
-    accessibility: LegalPages.AccessibilityStatement,
-};
+/** Le 5 pagine legali standard: PageType di progetto + default dell'Engine
+ *  (`STANDARD_LEGAL_PAGES`) via spread. Nessuna scorciatoia nascosta: sono voci come le altre di
+ *  `legalPages` in site.ts, che le tratta tutte allo stesso modo (compresa un'eventuale sesta
+ *  policy di progetto, es. diritto di recesso — vedi AGENTS.md §"Aggiungere una policy legale"). */
+export const legalPagesDecl: LegalPageSpec[] = [
+    { pageType: LegalPages.PrivacyPolicy, ...STANDARD_LEGAL_PAGES.privacy },
+    { pageType: LegalPages.CookiePolicy, ...STANDARD_LEGAL_PAGES.cookie },
+    { pageType: LegalPages.TermsOfService, ...STANDARD_LEGAL_PAGES.tos },
+    { pageType: LegalPages.LegalNotice, ...STANDARD_LEGAL_PAGES.legal },
+    { pageType: LegalPages.AccessibilityStatement, ...STANDARD_LEGAL_PAGES.accessibility },
+];
 
 /**
  * Data di "ultimo aggiornamento" per pagina legale, consumata da `PolicyComponent`. Dichiarata a

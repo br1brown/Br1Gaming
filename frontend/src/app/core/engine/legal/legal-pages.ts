@@ -1,54 +1,61 @@
 import type { Type } from '@angular/core';
 import type { PageBaseComponent } from '../pages/page-base.component';
 import type { PageType } from '../../../site';
-import type { LegalPagesConfig, ParentPageInput, ResolvedLegalPages, SitePageInput } from '../siteBuilder';
+import type { LegalPageSpec, ParentPageInput, SitePageInput } from '../siteBuilder';
 
-/** Forma fissa di una pagina legale: tutto tranne l'identità (il PageType, dato dallo slot del figlio). */
-interface LegalPageSpec {
-    slot: keyof LegalPagesConfig;
-    /** Segmento sotto `policy/` (es. 'privacy' → /policy/privacy). */
-    path: string;
-    titleKey: string;
-    descriptionKey: string;
-    /** Basename del Markdown in assets/legal (`<slug>.<lang>.md`). */
-    markdownSlug: string;
-}
-
-/** Registry delle pagine legali di sistema. L'ordine determina l'ordine delle rotte. */
-const LEGAL_PAGES: readonly LegalPageSpec[] = [
-    { slot: 'privacy',       path: 'privacy',       titleKey: 'privacyPolicyMenu',       descriptionKey: 'privacyPolicyDescrizione',       markdownSlug: 'privacy' },
-    { slot: 'cookie',        path: 'cookie',         titleKey: 'cookiePolicyMenu',       descriptionKey: 'cookiePolicyDescrizione',        markdownSlug: 'cookie' },
-    { slot: 'tos',           path: 'termini',        titleKey: 'terminiPolicyMenu',      descriptionKey: 'terminiPolicyDescrizione',       markdownSlug: 'TOS' },
-    { slot: 'legal',         path: 'legal',          titleKey: 'noteLegaliPolicyMenu',   descriptionKey: 'noteLegaliPolicyDescrizione',    markdownSlug: 'legal' },
-    { slot: 'accessibility', path: 'accessibilita',  titleKey: 'accessibilitaPolicyMenu', descriptionKey: 'accessibilitaPolicyDescrizione', markdownSlug: 'accessibility' },
-];
+/**
+ * Default "di sistema" per le 5 pagine legali standard (path sotto `policy/`, chiavi i18n,
+ * basename del Markdown in `assets/legal/`) — dati, non un meccanismo a parte: il figlio li usa
+ * con lo spread abbinandoli al proprio `PageType` (vedi `pages/policy/legal.pages.ts`), o li
+ * ignora e scrive la propria voce di `legalPages` per esteso, esattamente come per qualunque
+ * altra pagina legale di progetto. Nessuna delle due strade passa da qui: sono solo default.
+ */
+export const STANDARD_LEGAL_PAGES = {
+    privacy:       { path: 'privacy',       titleKey: 'privacyPolicyMenu',       descriptionKey: 'privacyPolicyDescrizione',       markdownSlug: 'privacy' },
+    cookie:        { path: 'cookie',        titleKey: 'cookiePolicyMenu',        descriptionKey: 'cookiePolicyDescrizione',        markdownSlug: 'cookie' },
+    tos:           { path: 'termini',       titleKey: 'terminiPolicyMenu',       descriptionKey: 'terminiPolicyDescrizione',       markdownSlug: 'TOS' },
+    legal:         { path: 'legal',         titleKey: 'noteLegaliPolicyMenu',    descriptionKey: 'noteLegaliPolicyDescrizione',    markdownSlug: 'legal' },
+    accessibility: { path: 'accessibilita', titleKey: 'accessibilitaPolicyMenu', descriptionKey: 'accessibilitaPolicyDescrizione', markdownSlug: 'accessibility' },
+} as const satisfies Record<string, Omit<LegalPageSpec, 'pageType'>>;
 
 // import dinamico → nessun arco statico Engine→dominio; un solo chunk condiviso per le policy.
 const loadPolicyComponent = (): Promise<Type<PageBaseComponent<string>>> =>
     import('../../../pages/policy/policy.component').then(m => m.PolicyComponent);
 
-/**
- * Nodo `policy/` con le pagine legali valorizzate; `null` se nessuno slot lo è.
- * Iniettato automaticamente da `buildSite`: il figlio valorizza solo gli slot in `legalPages`.
- */
-export function buildPolicySection(legalPages: ResolvedLegalPages): ParentPageInput | null {
-    const children: SitePageInput[] = [];
-    for (const spec of LEGAL_PAGES) {
-        const pageType = legalPages[spec.slot];
-        if (pageType == null) continue;
-        // Le pagine legali sono testo: niente smoke decorativo di default (il gate globale
-        // `site.smoke.enable` resta comunque sovraordinato). Un figlio che lo volesse può
-        // ridichiarare la pagina legale con un proprio `layout`.
-        children.push({ path: spec.path, title: spec.titleKey, description: spec.descriptionKey, pageType, component: loadPolicyComponent, layout: { showSmoke: false } });
-    }
-    return children.length > 0 ? { path: 'policy', title: 'policies', children } : null;
+/** Sottoinsieme di `legalPages` gestito dall'Engine: esclude le voci il cui `pageType` il figlio
+ *  ha già dichiarato a mano in `pages` (override — la sua vince, l'Engine non la crea e non ne
+ *  carica il Markdown). */
+export function filterManagedLegalPages(
+    legalPages: readonly LegalPageSpec[],
+    declared: ReadonlySet<PageType>,
+): readonly LegalPageSpec[] {
+    return legalPages.filter(spec => !declared.has(spec.pageType));
 }
 
-/** Slug del Markdown legale per un PageType valorizzato, o `null` se non è una pagina legale. */
-export function legalSlugFor(legalPages: ResolvedLegalPages, type: PageType): string | null {
-    for (const spec of LEGAL_PAGES) {
-        const ref = legalPages[spec.slot];
-        if (ref != null && ref === type) return spec.markdownSlug;
-    }
-    return null;
+/**
+ * Nodo `policy/` con le pagine legali gestite dall'Engine (già filtrate dall'override tramite
+ * `filterManagedLegalPages`); `null` se la lista è vuota. Iniettato automaticamente da
+ * `buildSite`. Ogni voce riceve lo stesso trattamento, senza distinguere una pagina "di sistema"
+ * da una di progetto: la differenza vive solo nei dati (`STANDARD_LEGAL_PAGES` o scritti a mano).
+ */
+export function buildPolicySection(managed: readonly LegalPageSpec[]): ParentPageInput | null {
+    if (managed.length === 0) return null;
+    // Le pagine legali sono testo: niente smoke decorativo di default (il gate globale
+    // `site.smoke.enable` resta comunque sovraordinato). Un figlio che lo volesse può
+    // ridichiarare la pagina legale con un proprio `layout`.
+    const children: SitePageInput[] = managed.map(spec => ({
+        path: spec.path,
+        title: spec.titleKey,
+        description: spec.descriptionKey,
+        pageType: spec.pageType,
+        component: loadPolicyComponent,
+        layout: { showSmoke: false },
+    }));
+    return { path: 'policy', title: 'policies', children };
+}
+
+/** Slug del Markdown legale per un PageType valorizzato, o `null` se non è una pagina legale
+ *  gestita dall'Engine (assente, o overridden dal figlio). */
+export function legalSlugFor(managed: readonly LegalPageSpec[], type: PageType): string | null {
+    return managed.find(spec => spec.pageType === type)?.markdownSlug ?? null;
 }

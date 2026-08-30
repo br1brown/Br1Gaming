@@ -3,8 +3,13 @@ import type { PageType } from '../../site';
 import type { PageBaseComponent } from './pages/page-base.component';
 import { environment } from '../../../environments/environment';
 import { hasCookiesConfigured } from './services/cookie/cookie-utils';
-import { buildPolicySection, legalSlugFor } from './legal/legal-pages';
+import { buildPolicySection, filterManagedLegalPages, legalSlugFor } from './legal/legal-pages';
 import type { StructuredDataInput } from './services/structured-data';
+
+/** Default "di sistema" per le 5 pagine legali standard — dati pronti da usare con lo spread
+ *  (vedi `LegalPageSpec` e `pages/policy/legal.pages.ts`), riesportati qui perché il figlio
+ *  importa la superficie pubblica dell'Engine da `siteBuilder.ts`, mai da `legal/legal-pages.ts`. */
+export { STANDARD_LEGAL_PAGES } from './legal/legal-pages';
 
 
 // ======================================================
@@ -103,25 +108,31 @@ export interface SmokeSettings {
 }
 
 /**
- * Slot delle pagine legali: il figlio li mappa ai propri `PageType` in `site.ts` e l'Engine
- * costruisce le rotte `policy/*`. Le chiavi combaciano col basename del Markdown servito
- * (`assets/legal/<slot>.<lang>.md`, eccetto `tos`→`TOS.md`); slot omesso = pagina non creata.
+ * Una pagina legale: il figlio la abbina al proprio `PageType` in `site.ts` (array `legalPages`)
+ * e l'Engine costruisce la rotta `policy/*`, la voce di footer e carica il Markdown. Ogni voce
+ * ha lo stesso trattamento — nessuna distinzione fra "pagine di sistema" (privacy, termini,
+ * note legali, accessibilità) e pagine di progetto (es. diritto di recesso): sono tutte righe
+ * della stessa lista. Per le 5 pagine standard, {@link STANDARD_LEGAL_PAGES} fornisce
+ * `path`/`titleKey`/`descriptionKey`/`markdownSlug` già pronti, da usare con lo spread (vedi
+ * `pages/policy/legal.pages.ts`) — restano comunque solo dati, nessuna scorciatoia nascosta.
+ *
+ * L'unica pagina con un ruolo diverso da "testo generico" è la Cookie Policy, che infatti non
+ * si identifica guardando questa lista: è il campo separato `cookiePolicy` (vedi `SiteConfig`)
+ * a dire quale `PageType`, se presente fra le voci di `legalPages`, è la Cookie Policy — serve
+ * al banner per il link e per il controllo "cookie usati ma nessuna Cookie Policy dichiarata".
  */
-export interface LegalPagesConfig {
-    /** Pagina Privacy Policy. Contenuto: `assets/legal/privacy.<lang>.md`. */
-    privacy?: PageType | null;
-    /** Pagina Cookie Policy (referenziata anche dal cookie-banner). Contenuto: `cookie.<lang>.md`. */
-    cookie?: PageType | null;
-    /** Pagina Termini di Servizio. Contenuto: `TOS.<lang>.md`. */
-    tos?: PageType | null;
-    /** Pagina Note Legali. Contenuto: `legal.<lang>.md`. */
-    legal?: PageType | null;
-    /** Pagina Dichiarazione di Accessibilità. Contenuto: `accessibility.<lang>.md`. */
-    accessibility?: PageType | null;
+export interface LegalPageSpec {
+    /** PageType del figlio a cui associare la pagina. */
+    pageType: PageType;
+    /** Segmento sotto `policy/` (es. 'recesso' → /policy/recesso). */
+    path: string;
+    /** Chiave i18n del titolo (voce di menu/footer). */
+    titleKey: string;
+    /** Chiave i18n della descrizione (meta/SEO). */
+    descriptionKey: string;
+    /** Basename del Markdown in `assets/legal` (`<slug>.<lang>.md`). */
+    markdownSlug: string;
 }
-
-/** Versione risolta di `LegalPagesConfig`: ogni slot è sempre presente (PageType o null). */
-export type ResolvedLegalPages = { [K in keyof LegalPagesConfig]-?: PageType | null };
 
 /**
  * Configurazione generale del sito.
@@ -189,8 +200,13 @@ export interface SiteConfig {
     loginPage?: PageType | null;
     /** Pagina "home" usata dal navbar per brand/logo. Se non valorizzata, il brand non è un link. */
     homePage?: PageType | null;
-    /** Slot delle pagine legali risolti (PageType valorizzato dal figlio, o `null`). */
-    legalPages: ResolvedLegalPages;
+    /** Pagine legali dichiarate dal figlio (privacy/termini/note legali/accessibilità/altro),
+     *  tutte trattate allo stesso modo. Vedi {@link LegalPageSpec}. */
+    legalPages: readonly LegalPageSpec[];
+    /** `PageType` della Cookie Policy fra le voci di `legalPages`, o `null` se assente/non
+     *  dichiarata. Unico riferimento "con ruolo": referenziato dal cookie-banner e dal controllo
+     *  obbligatorio (sito con cookie ⇒ deve avere una Cookie Policy). */
+    cookiePolicy: PageType | null;
 }
 
 // Identità ed estetica (descrizione, tema, smoke) vivono in global-settings.json → site (via
@@ -837,8 +853,15 @@ export interface SiteDefinition {
     loginPage?: PageType | LoginPageConfig | null;
     /** Pagina "home" usata dal navbar per brand/logo. Se non valorizzata, il brand non è un link. */
     homePage?: PageType | null;
-    /** Mappa gli slot legali (privacy, cookie, tos, legal) ai `PageType` del figlio. Slot omesso = pagina non creata. */
-    legalPages?: LegalPagesConfig;
+    /** Pagine legali del sito (privacy, termini, note legali, accessibilità, o qualunque altra
+     *  policy di progetto): un elemento per pagina, tutte con lo stesso trattamento automatico
+     *  (rotta `policy/*`, markdown, footer). Omessa/vuota → nessuna pagina legale creata.
+     *  Vedi {@link LegalPageSpec} e {@link STANDARD_LEGAL_PAGES} per i default delle 5 standard. */
+    legalPages?: readonly LegalPageSpec[];
+    /** `PageType` della Cookie Policy fra le voci di `legalPages` (se presente). Va dichiarato a
+     *  parte perché è l'unica pagina legale con un ruolo a runtime (link dal cookie-banner,
+     *  obbligatoria se il sito usa cookie) — ogni altra voce di `legalPages` è testo generico. */
+    cookiePolicy?: PageType | null;
     /** Comportamento della shell (navbar/footer/header/pannello). Default sensati per ogni flag omesso. */
     shell?: SiteShellConfig;
     /** Abilita le funzionalità PWA (Service Worker, aggiornamenti, install offline). Default: true. */
@@ -1078,25 +1101,8 @@ function buildFinalConfig(definition: SiteDefinition): SiteConfig {
         smoke: { ...DEFAULT_SMOKE, ...(cfg.smoke ?? {}) },
         loginPage: login.page,
         homePage: definition.homePage ?? null,
-        legalPages: {
-            privacy: definition.legalPages?.privacy ?? null,
-            cookie: definition.legalPages?.cookie ?? null,
-            tos: definition.legalPages?.tos ?? null,
-            legal: definition.legalPages?.legal ?? null,
-            accessibility: definition.legalPages?.accessibility ?? null,
-        },
-    };
-}
-
-/** Slot legali gestiti dall'Engine: valorizzati E non già dichiarati dal figlio (override). */
-function resolveEngineLegalPages(legalPages: ResolvedLegalPages, declared: ReadonlySet<PageType>): ResolvedLegalPages {
-    const managed = (ref: PageType | null): PageType | null => (ref != null && !declared.has(ref) ? ref : null);
-    return {
-        privacy: managed(legalPages.privacy),
-        cookie: managed(legalPages.cookie),
-        tos: managed(legalPages.tos),
-        legal: managed(legalPages.legal),
-        accessibility: managed(legalPages.accessibility),
+        legalPages: definition.legalPages ?? [],
+        cookiePolicy: definition.cookiePolicy ?? null,
     };
 }
 
@@ -1223,12 +1229,11 @@ function assertSlotResolved(slotName: string, type: PageType, pageMap: Map<strin
 
 /** Valida gli slot di ruolo pagina (`loginPage`, `homePage`, `legalPages`): ognuno, se valorizzato,
  *  deve puntare a una pagina realmente registrata. Lancia al primo slot rotto. */
-function validatePageRefs(config: SiteConfig, pageMap: Map<string, PageInfo>): void {
+function validatePageRefs(config: SiteConfig, legalPages: readonly LegalPageSpec[], pageMap: Map<string, PageInfo>): void {
     if (config.loginPage) assertSlotResolved('loginPage', config.loginPage, pageMap);
     if (config.homePage) assertSlotResolved('homePage', config.homePage, pageMap);
-    for (const slot of Object.keys(config.legalPages) as (keyof ResolvedLegalPages)[]) {
-        const ref = config.legalPages[slot];
-        if (ref != null) assertSlotResolved(`legalPages.${slot}`, ref, pageMap);
+    for (const spec of legalPages) {
+        assertSlotResolved(`legalPages["${spec.path}"]`, spec.pageType, pageMap);
     }
 }
 
@@ -1308,22 +1313,22 @@ function resolveNavigation(items: RawNavItem[], pageMap: Map<string, PageInfo>, 
         .filter((item): item is NavLink => item !== null);
 }
 
-/** Ordine di visualizzazione fisso delle pagine legali nella fascia "small prints" del footer:
- *  stesso ordine di dichiarazione di `LegalPages`/`legalSlots` (pages/policy/legal.pages.ts). */
-const LEGAL_FOOTER_SLOT_ORDER: readonly (keyof ResolvedLegalPages)[] = ['privacy', 'cookie', 'tos', 'legal', 'accessibility'];
-
 /**
- * Risolve gli slot di `config.legalPages` effettivamente valorizzati in `NavLink[]` per la fascia
- * "small prints" del footer, nell'ordine fisso di `LEGAL_FOOTER_SLOT_ORDER`. Uno slot `null`
- * (mai configurato, o rimosso insieme alla pagina che referenziava) è semplicemente assente dal
- * risultato — stessa logica "silente" di `resolveNavigation` per un `addPage` non risolto.
+ * Risolve `legalPages` (NON filtrata dall'override: una pagina overridden resta comunque nel
+ * footer) in `NavLink[]` per la fascia "small prints", nello stesso ordine della lista. Una voce
+ * che non risolve in `pageMap` (mai configurata, o rimossa insieme alla pagina che referenziava)
+ * è semplicemente assente dal risultato — stessa logica "silente" di `resolveNavigation` per un
+ * `addPage` non risolto.
  */
-function resolveLegalFooterLinks(legalPages: ResolvedLegalPages, pageMap: Map<string, PageInfo>, lang: string, defaultLang: string): NavLink[] {
-    return LEGAL_FOOTER_SLOT_ORDER
-        .map((slot): NavLink | null => {
-            const type = legalPages[slot];
-            if (type == null) return null;
-            const entry = pageMap.get(pageMapKey(type, lang, defaultLang));
+function resolveLegalFooterLinks(
+    legalPages: readonly LegalPageSpec[],
+    pageMap: Map<string, PageInfo>,
+    lang: string,
+    defaultLang: string,
+): NavLink[] {
+    return legalPages
+        .map((spec): NavLink | null => {
+            const entry = pageMap.get(pageMapKey(spec.pageType, lang, defaultLang));
             return entry ? { label: entry.title, path: entry.path, isExternal: entry.isExternal } : null;
         })
         .filter((item): item is NavLink => item !== null);
@@ -1348,11 +1353,16 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
     };
     const declaredPages = definition.pages(ctx);
 
-    // Override: una pagina legale dichiarata dal figlio vince sull'auto-creazione (stesso PageType).
+    // `finalConfig.legalPages` è già la lista completa (nessuna distinzione fra pagine "di
+    // sistema" e di progetto). `managedLegalPages` esclude l'override (una pagina legale
+    // dichiarata a mano dal figlio in `pages` vince sull'auto-creazione, stesso PageType);
+    // `allLegalPages` resta completa per footer/validazione, dove una pagina overridden va
+    // comunque mostrata/validata — l'ha creata il figlio, non l'Engine, ma esiste.
     const declaredPageTypes = collectDeclaredPageTypes(declaredPages, new Set<PageType>());
-    const engineLegalPages = resolveEngineLegalPages(finalConfig.legalPages, declaredPageTypes);
+    const allLegalPages = finalConfig.legalPages;
+    const managedLegalPages = filterManagedLegalPages(allLegalPages, declaredPageTypes);
 
-    const policySection = buildPolicySection(engineLegalPages);
+    const policySection = buildPolicySection(managedLegalPages);
     const sitePages = normalizeSitePages(policySection ? [...declaredPages, policySection] : declaredPages);
 
     const { rawHeader, rawFooter } = collectNavigation(definition);
@@ -1378,12 +1388,12 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
     // Slot che puntano a pagine non registrate → errore bloccante; poi la conformità cookie.
     // Controlla la sola variante default-lang: se esiste lì, esiste per costruzione in ogni lingua
     // (stesso identico albero attraversato a ogni iterazione del loop sopra).
-    validatePageRefs(finalConfig, pageMap);
-    if (cookiesEnabled && finalConfig.legalPages.cookie == null) {
+    validatePageRefs(finalConfig, allLegalPages, pageMap);
+    if (cookiesEnabled && finalConfig.cookiePolicy == null) {
         throw new Error(
             '[SiteBuilder] Il sito usa cookie (PWA o cookie di progetto) ma ' +
-            '`legalPages.cookie` non è valorizzato in site.ts. La pagina Cookie Policy è ' +
-            'obbligatoria: mappa lo slot `cookie` a un PageType.'
+            '`cookiePolicy` non è valorizzato in site.ts. La pagina Cookie Policy è ' +
+            'obbligatoria: valorizza `cookiePolicy` con il PageType della relativa voce in `legalPages`.'
         );
     }
 
@@ -1399,7 +1409,7 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
         validateNavDepth(linkFooter, 'footer');
         menuNavByLang.set(lang, menuNav);
         linkFooterByLang.set(lang, linkFooter);
-        legalFooterLinksByLang.set(lang, resolveLegalFooterLinks(finalConfig.legalPages, pageMap, lang, defaultLang));
+        legalFooterLinksByLang.set(lang, resolveLegalFooterLinks(allLegalPages, pageMap, lang, defaultLang));
     }
 
     return {
@@ -1412,7 +1422,7 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
         serverRenderEntries, // già con tutte le varianti-lingua dentro, grazie al loop sopra — nessun'altra moltiplicazione da fare a valle (app.config.server.ts, server.ts).
         getPath: (type: PageType, lang = defaultLang) => pageMap.get(pageMapKey(type, lang, defaultLang))?.path ?? null,
         getPageInfo: (type: PageType, lang = defaultLang) => pageMap.get(pageMapKey(type, lang, defaultLang)) ?? null,
-        getLegalSlug: (type: PageType) => legalSlugFor(engineLegalPages, type),
+        getLegalSlug: (type: PageType) => legalSlugFor(managedLegalPages, type),
         getSitemapEntries: () => sitemap, // già con lang per entry — generate-statics.ts la usa per raggruppare le varianti e generare hreflang.
     };
 }

@@ -1591,22 +1591,36 @@ Volutamente binario (loggato/sloggato, via `TokenService.isLoggedIn()`), non un 
 
 ### Pagine legali (`legalPages`)
 
-Mappi gli slot legali dell'Engine ai tuoi `PageType`; il builder costruisce da solo il contenitore `/policy/*` con le sole pagine valorizzate:
+`legalPages` è un array: un elemento per pagina legale, tutti con lo stesso trattamento (rotta sotto `/policy/`, `PolicyComponent`, Markdown localizzato, riga nella fascia legale del footer). Non c'è distinzione fra "pagine di sistema" e pagine di progetto — nemmeno la Cookie Policy è un caso a parte qui: lo è solo `cookiePolicy`, un riferimento separato (vedi sotto).
+
+Per le 5 pagine standard, `STANDARD_LEGAL_PAGES` (esportato da `siteBuilder.ts`) fornisce `path`/`titleKey`/`descriptionKey`/`markdownSlug` già pronti — li abbini al tuo `PageType` con lo spread:
 ```typescript
-legalPages: {
-    privacy:       PageType.PrivacyPolicy,
-    cookie:        PageType.CookiePolicy,
-    tos:           PageType.TermsOfService,
-    legal:         PageType.LegalNotice,
-    accessibility: PageType.AccessibilityStatement,
-},
+import { STANDARD_LEGAL_PAGES } from './core/engine/siteBuilder';
+
+legalPages: [
+    { pageType: PageType.PrivacyPolicy, ...STANDARD_LEGAL_PAGES.privacy },
+    { pageType: PageType.CookiePolicy, ...STANDARD_LEGAL_PAGES.cookie },
+    { pageType: PageType.TermsOfService, ...STANDARD_LEGAL_PAGES.tos },
+    { pageType: PageType.LegalNotice, ...STANDARD_LEGAL_PAGES.legal },
+    { pageType: PageType.AccessibilityStatement, ...STANDARD_LEGAL_PAGES.accessibility },
+],
+cookiePolicy: PageType.CookiePolicy,
 ```
-- **Slot omesso** → quella pagina non viene creata (es. una vetrina con i soli cookie).
-- **Cookie obbligatoria**: se il sito usa cookie (PWA o cookie di progetto) lo slot `cookie` dev'essere valorizzato, altrimenti il build si ferma con un errore esplicito.
-- **Contenuto**: Markdown localizzati in `src/assets/legal/` (slug `privacy`, `cookie`, `TOS`, `legal`, `accessibility` → `<slug>.<lang>.md`); il `PolicyComponent` interpola i placeholder dell'identità del sito (`{{ragioneSociale}}`, `{{partitaIva}}`, …) e `{{companyProfile}}` (blocco identità completo, come in `legal.<lang>.md`).
-- **Dichiarazione di Accessibilità**: slot facoltativo come gli altri tre (non `cookie`), nessun errore di build se lo ometti. Rilevante dal 28 giugno 2025 per i siti nello scope dell'European Accessibility Act (e-commerce, o fatturato >2M€/≥10 dipendenti, microimprese escluse). Attenzione: il regime esatto dipende da chi eroga il sito, Pubblica Amministrazione (Legge 4/2004, dichiarazione + obiettivi annuali via piattaforma AGID) e soggetti privati (D.Lgs. 82/2022, "informazioni sull'accessibilità" ex Allegato IV, senza obiettivi annuali) non sono lo stesso adempimento: il Markdown demo è un template generico di trasparenza (stato di conformità, limiti noti, canale di segnalazione), non un modulo ufficiale né un testo legale pronto all'uso, verifica con un consulente legale quale regime si applica al progetto.
+- **Voce assente** → quella pagina non viene creata (es. una vetrina con i soli cookie: ometti privacy/termini/note legali/accessibilità, tieni solo la voce cookie).
+- **Cookie obbligatoria**: se il sito usa cookie (PWA o cookie di progetto) `cookiePolicy` dev'essere valorizzato con il `PageType` di una voce presente in `legalPages`, altrimenti il build si ferma con un errore esplicito.
+- **Contenuto**: Markdown localizzati in `src/assets/legal/` (slug `privacy`, `cookie`, `TOS`, `legal`, `accessibility` per le 5 standard → `<slug>.<lang>.md`); il `PolicyComponent` interpola i placeholder dell'identità del sito (`{{ragioneSociale}}`, `{{partitaIva}}`, …) e `{{companyProfile}}` (blocco identità completo, come in `legal.<lang>.md`).
+- **Dichiarazione di Accessibilità**: voce facoltativa come le altre (tranne quella puntata da `cookiePolicy`), nessun errore di build se la ometti. Rilevante dal 28 giugno 2025 per i siti nello scope dell'European Accessibility Act (e-commerce, o fatturato >2M€/≥10 dipendenti, microimprese escluse). Attenzione: il regime esatto dipende da chi eroga il sito, Pubblica Amministrazione (Legge 4/2004, dichiarazione + obiettivi annuali via piattaforma AGID) e soggetti privati (D.Lgs. 82/2022, "informazioni sull'accessibilità" ex Allegato IV, senza obiettivi annuali) non sono lo stesso adempimento: il Markdown demo è un template generico di trasparenza (stato di conformità, limiti noti, canale di segnalazione), non un modulo ufficiale né un testo legale pronto all'uso, verifica con un consulente legale quale regime si applica al progetto.
 
 Override per-pagina: per gestire una policy a modo tuo (rotta dedicata, contenuto da API invece che da Markdown) dichiari tu stesso la pagina in `pages` con lo stesso `PageType`: la tua vince, l'Engine non la crea e non ne carica il `.md`. Le altre policy restano automatiche.
+
+**Una policy in più** (es. diritto di recesso per un e-commerce, un piano di accessibilità): aggiungi una voce a `legalPages`, scrivendo tu stesso `path`/`titleKey`/`descriptionKey`/`markdownSlug` — esattamente come le 5 standard, solo senza `STANDARD_LEGAL_PAGES` a fare da scorciatoia:
+```typescript
+legalPages: [
+    /* ... le 5 standard ... */
+    { pageType: PageType.WithdrawalPolicy, path: 'recesso', titleKey: 'recessoPolicyMenu', descriptionKey: 'recessoPolicyDescrizione', markdownSlug: 'recesso' },
+],
+```
+Non serve toccare l'Engine: stessa auto-creazione, stesso ordine nel footer (quello dell'array), stesso override per-pagina. Ricetta completa: [AGENTS.md](../AGENTS.md#aggiungere-una-policy-legale-extra-oltre-ai-5-slot-fissi).
 
 **Nel footer, non serve aggiungerle a mano.** Il footer le rende da solo in una fascia dedicata a chiusura pagina ("small prints", stesso pattern dei footer PA/Designers Italia: link istituzionali separati dalla navigazione vera, riga compatta invece di un'altra colonna), derivata direttamente da `legalPages` — nessuna voce da aggiungere in `footerNav`. È dinamica: uno slot omesso (o una pagina rimossa da `pages`) sparisce da solo dalla fascia, senza toccare `site.ts`. `footerNav`/`headerNav` restano per la navigazione libera del progetto — mettere di nuovo le stesse pagine lì le duplicherebbe.
 
