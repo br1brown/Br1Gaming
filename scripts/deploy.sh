@@ -333,6 +333,9 @@ echo -e "${BOLD}Pulizia${RESET}"
 docker image prune -f --filter "dangling=true" >/dev/null
 ok "Immagini orfane rimosse"
 
+br1_cleanup_preflight_images
+ok "Immagini di preflight e build cache orfana rimosse"
+
 # ── COERENZA CHIAVE FRONTEND↔BACKEND (deploy parziale + ApiKey ruotata) ──────
 # Frontend SSR e backend leggono l'ApiKey dal file effective (montato read-only) UNA sola
 # volta all'avvio e la tengono in cache (frontend: _br1/_backend ??=; backend: ValidKeys
