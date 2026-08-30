@@ -1,6 +1,6 @@
 import { buildSite } from './core/engine/siteBuilder';
 import { AppPages, appPagesDecl, GENERATORS, STORIES } from './pages/app.pages';
-import { LegalPages, legalSlots } from './pages/policy/legal.pages';
+import { LegalPages, legalPagesDecl } from './pages/policy/legal.pages';
 
 export type {
     SiteConfig,
@@ -27,8 +27,10 @@ export const ContestoSito = buildSite({
 
     homePage: PageType.Home,
 
-    // Slot legali: solo la Cookie Policy (vedi pages/policy/legal.pages.ts per la scelta di prodotto).
-    legalPages: legalSlots,
+    // Pagine legali del progetto (rotte /policy/* auto-generate). ID, voci e date di
+    // aggiornamento vivono in pages/policy/legal.pages.ts.
+    legalPages: legalPagesDecl,
+    cookiePolicy: PageType.CookiePolicy,
 
     // Le dichiarazioni pagina vivono nel file di area (pages/app.pages.ts): qui solo lo spread.
     pages: () => [...appPagesDecl],

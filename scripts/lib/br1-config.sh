@@ -171,3 +171,50 @@ if (process.env.CHECK_IDENTITY === '1') {
 process.stdout.write(warns.join('\n'));
 "
 }
+
+# Rimuove le immagini del preflight ("-pf-*") e la build cache diventata orfana di conseguenza.
+# Restano sempre vive altrimenti: sono taggate esplicitamente da compose, mai "dangling", quindi
+# il prune standard non le tocca. Sicuro: verificato che `docker builder prune -f` lascia intatta
+# la cache di QUALSIASI altra immagine ancora taggata sull'host (anche di progetti gemelli sulla
+# stessa VPS) — rimuove solo la cache non più referenziata da nessuna immagine viva.
+#
+# Enumerate per NOME via wildcard (non dai servizi della run corrente): un deploy parziale
+# (--frontend da solo) lascerebbe altrimenti un "-pf-backend" orfano di una run precedente.
+# Rimozione per nome e non per ID: se pf e prod producono lo stesso digest (contenuto identico),
+# `docker image rm <id>` fallisce perché l'ID è taggato in più repository — per nome invece
+# stacca solo quel tag, l'immagine di produzione resta intatta.
+br1_cleanup_preflight_images() {
+    local name
+    while IFS= read -r name; do
+        [[ -n "$name" ]] && { docker image rm "$name" >/dev/null 2>&1 || true; }
+    done < <(docker image ls --filter "reference=${COMPOSE_PROJECT_NAME}-pf-*" --format '{{.Repository}}:{{.Tag}}')
+    docker builder prune -f >/dev/null 2>&1 || true
+}
+
+# Rimuove dal disco della VPS ogni tag locale di un'immagine di release DIVERSO da quello appena
+# swappato in produzione (deploy-release.sh: qui non c'è preflight "-pf-*", vedi sopra, ma ogni
+# deploy scarica/carica un nuovo tag versionato e quello vecchio non è mai "dangling" — resta
+# taggato per sempre, il prune standard non lo tocca).
+#
+# Chiamata SOLO dopo lo swap riuscito: a quel punto il pull/load della versione corrente ha già
+# funzionato in questa run, quindi non stiamo scommettendo sulla disponibilità futura di GHCR —
+# se un domani un rollback la trova irraggiungibile (repo privata, login scaduto), si risolve
+# l'autenticazione allora, oppure si usa `--from-files` con i .tar.gz della Release (che non
+# passa da GHCR). Il server deve avere solo la versione giusta, non un archivio di tutte quelle
+# passate: la CI le conserva già su GHCR e come allegato della Release.
+#
+# Argomenti: uno o più "repository:tag" (l'output di `docker compose config --images`, che
+# risolve il riferimento reale rispettando l'eventuale override RELEASE_IMAGE_FRONTEND/BACKEND
+# dei fork) — così non c'è un nome GHCR hardcoded qui che dovrebbe restare sincronizzato con
+# quello (diverso) di ogni fork.
+br1_cleanup_old_release_images() {
+    local current repo tag name
+    for current in "$@"; do
+        repo="${current%:*}"
+        tag="${current##*:}"
+        while IFS= read -r name; do
+            [[ -z "$name" || "$name" == "${repo}:${tag}" ]] && continue
+            docker image rm "$name" >/dev/null 2>&1 || true
+        done < <(docker image ls --filter "reference=${repo}" --format '{{.Repository}}:{{.Tag}}')
+    done
+}

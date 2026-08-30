@@ -3,7 +3,7 @@ import { COOKIE_MAP } from '../../../services/cookie-registry';
 /**
  * Controlla in modo statico se sono necessari i cookie per il sito.
  * È usato dal builder (`siteBuilder`) in fase di costruzione del sito per
- * decidere se includere o meno la pagina mappata sullo slot `legalPages.cookie`.
+ * decidere se il sito richieda la pagina puntata da `cookiePolicy`.
  *
  * @param isWebApp - true se il sito è una PWA con Service Worker attivo.
  */

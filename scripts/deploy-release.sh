@@ -332,6 +332,18 @@ echo
 echo -e "${BOLD}Pulizia${RESET}"
 docker image prune -f --filter "dangling=true" >/dev/null
 ok "Immagini orfane rimosse"
+# Niente br1_cleanup_preflight_images qui: docker-compose.release.yml fissa `image:` a
+# ghcr.io/...:${RELEASE_TAG}, quindi preflight e produzione puntano allo STESSO tag — compose
+# non crea mai un'immagine "-pf-*" separata (solo container/rete cambiano nome). Il leak qui è
+# un altro: i tag delle release precedenti, ripulito sotto.
+_current_images=()
+while IFS= read -r _img; do
+    [[ -n "$_img" ]] && _current_images+=("$_img")
+done < <(docker compose "${compose_files[@]}" config --images "${services[@]}" 2>/dev/null)
+if (( ${#_current_images[@]} > 0 )); then
+    br1_cleanup_old_release_images "${_current_images[@]}"
+    ok "Tag locali delle release precedenti rimossi (restano su GHCR e nella Release per il rollback)"
+fi
 
 # ── COERENZA CHIAVE FRONTEND↔BACKEND (deploy parziale + ApiKey ruotata) ──────
 # Identica a deploy.sh: se la chiave è cambiata e hai deployato UN SOLO lato, l'altro (in

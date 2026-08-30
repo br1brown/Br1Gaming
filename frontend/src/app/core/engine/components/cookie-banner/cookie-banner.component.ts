@@ -22,7 +22,7 @@ export class CookieBannerComponent {
     private readonly pagemeta = inject(PageMetaService);
     
     readonly isCookiePolicy = computed(() => {
-        return ContestoSito.config.legalPages.cookie != null && this.pagemeta.currentPageType() === ContestoSito.config.legalPages.cookie;
+        return ContestoSito.config.cookiePolicy != null && this.pagemeta.currentPageType() === ContestoSito.config.cookiePolicy;
     });
 
     /**
@@ -75,9 +75,9 @@ export class CookieBannerComponent {
     );
 
     readonly bannerText = computed(() => {
-        // La pagina Cookie Policy è quella valorizzata nello slot `legalPages.cookie`
-        // (site.ts), non un PageType nominato qui: l'Engine resta agnostico ai nomi.
-        const cookiePage = ContestoSito.config.legalPages.cookie;
+        // La pagina Cookie Policy è quella valorizzata in `cookiePolicy` (site.ts), non un
+        // PageType nominato qui: l'Engine resta agnostico ai nomi.
+        const cookiePage = ContestoSito.config.cookiePolicy;
         const path = (cookiePage != null ? ContestoSito.getPath(cookiePage, this.translate.currentLang()) : null) ?? '';
         const key = this.hasDetailedCategories() ? 'introBannerCookie' : 'testoBannerCookie';
         return this.translate.translate(key, path);
