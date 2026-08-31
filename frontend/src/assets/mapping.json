@@ -108,5 +108,19 @@
   "buro.car.truck.e": "burocrazia/car-truck-e.svg",
   "buro.car.truck.w": "burocrazia/car-truck-w.svg",
   "buro.car.truck.n": "burocrazia/car-truck-n.svg",
-  "buro.car.truck.s": "burocrazia/car-truck-s.svg"
+  "buro.car.truck.s": "burocrazia/car-truck-s.svg",
+  "umarell.sfx.ferro": "umarell/sfx/ferro-12.mp3",
+  "umarell.sfx.livella": "umarell/sfx/livella.mp3",
+  "umarell.sfx.gettata": "umarell/sfx/gettata.mp3",
+  "umarell.sfx.cemento": "umarell/sfx/cemento.mp3",
+  "umarell.sfx.impalcatura": "umarell/sfx/impalcatura.mp3",
+  "umarell.sfx.orario": "umarell/sfx/orario.mp3",
+  "umarell.sfx.sicurezza": "umarell/sfx/sicurezza.mp3",
+  "umarell.sfx.rumore": "umarell/sfx/rumore.mp3",
+  "umarell.sfx.polvere": "umarell/sfx/polvere.mp3",
+  "umarell.sfx.sindacato": "umarell/sfx/sindacato.mp3",
+  "umarell.sfx.fail": "umarell/sfx/fail.mp3",
+  "game.umarell": "umarell/character.png",
+  "game.umarell.og": "game/umarell-og.png",
+  "umarell.brick": "umarell/brick.png"
 }

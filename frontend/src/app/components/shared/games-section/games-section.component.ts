@@ -20,6 +20,12 @@ const STATIC_GIOCHI: CardEntry[] = [
         imageId: 'game.ducenonduce',
         pageType: PageType.GameDuceNonDuce,
     },
+    {
+        title: 'Simulatore Umarell',
+        subtitle: 'Contempla il cantiere con le mani dietro la schiena e intervieni al momento giusto.',
+        imageId: 'game.umarell',
+        pageType: PageType.GameUmarell,
+    },
 ];
 
 /**

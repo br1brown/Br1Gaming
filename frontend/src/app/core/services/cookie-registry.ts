@@ -12,6 +12,7 @@ export const COOKIE_MAP = {
     'burocraziaTutorialDone': { category: ConsentCategory.Technical, valueType: 'boolean', descriptionKey: 'gamingCookieDescBurocraziaTutorial' },
     'burocraziaZoom': { category: ConsentCategory.Technical, valueType: 'number', descriptionKey: 'gamingCookieDescBurocraziaZoom' },
     'burocraziaRun': { category: ConsentCategory.Technical, valueType: 'json', descriptionKey: 'gamingCookieDescBurocraziaRun' },
+    'umarellRecord': { category: ConsentCategory.Technical, descriptionKey: 'gamingCookieDescUmarellRecord' },
     // Web Storage: timeline storie (parte voluminosa del salvataggio, fuori dai 4KB del cookie).
     'storyPlayerTimeline': { category: ConsentCategory.Technical, storage: 'local', valueType: 'json', descriptionKey: 'gamingStorageDescStoryPlayerTimeline' },
     // Web Storage di TERZA PARTE (Mapbox): telemetria/turnstile scritta da mapbox-gl sul radar chiese.

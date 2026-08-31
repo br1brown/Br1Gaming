@@ -51,6 +51,7 @@ export const ContestoSito = buildSite({
             });
             g.addPage(PageType.GameDuceNonDuce);
             g.addPage(PageType.GameBurocrazia);
+            g.addPage(PageType.GameUmarell);
         });
         // Utility: strumenti che non sono giochi (radar chiese + traduttore ITA→ESP).
         nav.addGroup('utility', (g) => {
@@ -64,6 +65,5 @@ export const ContestoSito = buildSite({
     // `footerNav` resta per la navigazione libera del progetto.
     footerNav: (f) => {
         f.addLink("githubDesc", 'https://github.com/br1brown/Br1Gaming');
-        f.addPage(PageType.CookiePolicy);
     },
 });

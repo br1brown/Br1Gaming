@@ -61,6 +61,7 @@
   "gamingCookieDescBurocraziaTutorial": "Ricorda che hai già completato il tutorial di Burocrazia, così non te lo ripropone",
   "gamingCookieDescBurocraziaZoom": "Ricorda il livello di zoom della mappa scelto in Burocrazia",
   "gamingCookieDescBurocraziaRun": "Salva il progresso della partita di Burocrazia (pratica, timbri e orario) per poterla riprendere",
+  "gamingCookieDescUmarellRecord": "Salva i record personali (combo massima, errori minimi, tempo migliore) nel gioco Simulatore Umarell",
   "gamingStorageDescStoryPlayerTimeline": "Salva la cronologia completa delle scelte nelle storie a bivi (la parte voluminosa del salvataggio, troppo grande per il cookie), così puoi riprendere e tornare indietro",
   "gamingStorageDescMapbox": "Telemetria tecnica di Mapbox (fornitore della mappa del radar chiese): identificativi anonimi salvati dalla libreria mappa per misurare l'utilizzo. Terza parte, scritti solo quando apri il radar con il consenso Analytics",
   "buroRunResumed": "Partita ripresa: bentornato in coda!",

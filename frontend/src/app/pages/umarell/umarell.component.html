@@ -1,0 +1,236 @@
+<!-- Struttura come burocrazia: stage a tutto schermo (flag layout.fitViewport in site.ts +
+     .fit-viewport in base.css danno l'altezza), niente colonna Bootstrap stretta come in
+     duce-non-duce — qui la scena deve riempire davvero lo schermo, non stare in un riquadro. -->
+<div class="umarell-stage position-relative overflow-hidden flex-grow-1 umarell-page">
+
+    <!-- Cantiere in pixel art, sfondo a tutta pagina. Nuvole, gancio della gru, benna dello
+         scavatore e l'umarell si muovono via SMIL (animateTransform), indipendenti dal ciclo di
+         gioco. Il muro cresce mattone su mattone con lo stato di gioco. -->
+    <div class="umarell-scene-bg position-absolute top-0 start-0 w-100 h-100" aria-hidden="true">
+        <svg viewBox="0 0 80 45" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" shape-rendering="crispEdges">
+            <defs>
+                <pattern id="umarellHazard" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                    <rect width="4" height="4" fill="#ffffff" />
+                    <rect width="2" height="4" fill="#ff8c00" />
+                </pattern>
+                <pattern id="umarellBrick" width="4" height="4" patternUnits="userSpaceOnUse">
+                    <image [attr.href]="asset.getUrl('umarell.brick')" x="0" y="0" width="4" height="4" />
+                </pattern>
+            </defs>
+
+            <!-- cielo -->
+            <rect x="0" y="0" width="80" height="28" fill="#bfe3f0" />
+            <rect x="0" y="28" width="80" height="7" fill="#e7d9b7" />
+
+            <!-- nuvole, in deriva continua -->
+            <g>
+                <rect x="6" y="5" width="5" height="2" fill="#ffffff" />
+                <rect x="8" y="4" width="3" height="2" fill="#ffffff" />
+                <animateTransform attributeName="transform" type="translate" from="-15 0" to="95 0" dur="26s" repeatCount="indefinite" />
+            </g>
+            <g>
+                <rect x="0" y="3" width="6" height="2" fill="#ffffff" />
+                <rect x="2" y="2" width="4" height="2" fill="#ffffff" />
+                <animateTransform attributeName="transform" type="translate" from="-15 0" to="95 0" dur="34s" begin="-14s" repeatCount="indefinite" />
+            </g>
+            <g>
+                <rect x="0" y="7" width="4" height="2" fill="#ffffff" />
+                <animateTransform attributeName="transform" type="translate" from="-15 0" to="95 0" dur="20s" begin="-6s" repeatCount="indefinite" />
+            </g>
+
+            <!-- terreno -->
+            <rect x="0" y="35" width="80" height="10" fill="#a97d4b" />
+            <rect x="0" y="35" width="80" height="2" fill="#8a6238" />
+            <rect x="9" y="39" width="8" height="3" fill="#8a6238" />
+            <rect x="55" y="39" width="12" height="3" fill="#8a6238" />
+
+            <!-- gru -->
+            <rect x="10" y="39" width="4" height="2" fill="#2b2b2b" />
+            <rect x="11" y="6" width="2" height="33" fill="#333333" />
+            <rect x="10" y="9" width="4" height="1" fill="#555555" />
+            <rect x="10" y="13" width="4" height="1" fill="#555555" />
+            <rect x="10" y="17" width="4" height="1" fill="#555555" />
+            <rect x="10" y="21" width="4" height="1" fill="#555555" />
+            <rect x="10" y="25" width="4" height="1" fill="#555555" />
+            <rect x="10" y="29" width="4" height="1" fill="#555555" />
+            <rect x="10" y="33" width="4" height="1" fill="#555555" />
+            <rect x="2" y="6" width="4" height="3" fill="#2b2b2b" />
+            <rect x="2" y="6" width="33" height="2" fill="#ffb703" />
+            <rect x="11" y="7" width="4" height="3" fill="#222222" />
+            <rect x="12" y="8" width="2" height="2" fill="#bfe3f0" />
+            <rect x="35" y="8" width="1" height="10" fill="#333333" />
+            <rect x="33" y="18" width="5" height="2" fill="#666666" />
+            <g>
+                <rect x="34" y="20" width="3" height="3" fill="#a0522d" />
+                <animateTransform attributeName="transform" type="translate" values="0 0; 0 1.5; 0 0" dur="2.4s" repeatCount="indefinite" />
+            </g>
+
+            <!-- edificio: guscio (dove i mattoni non sono ancora arrivati) + impalcature + ferri -->
+            <rect x="32" y="17" width="22" height="24" fill="#8d9096" />
+            <rect x="30" y="17" width="1" height="24" fill="#c79a56" />
+            <rect x="54" y="17" width="1" height="24" fill="#c79a56" />
+            <rect x="30" y="28" width="25" height="1" fill="#c79a56" />
+            <rect x="30" y="35" width="25" height="1" fill="#c79a56" />
+            <rect x="35" y="14" width="1" height="3" fill="#444444" />
+            <rect x="39" y="13" width="1" height="4" fill="#444444" />
+            <rect x="43" y="14" width="1" height="3" fill="#444444" />
+            <rect x="47" y="13" width="1" height="4" fill="#444444" />
+            <rect x="51" y="14" width="1" height="3" fill="#444444" />
+
+            <!-- mattoni posati: crescono con i punti (vedi visibleBricks()) — appiccicati (nessuna
+                 fuga), texture vera del mattone, ora abbastanza grande da leggersi bene. -->
+            @for (b of visibleBricks(); track $index) {
+            <rect [attr.x]="b.x" [attr.y]="b.y" width="4" height="4" fill="url(#umarellBrick)" />
+            }
+
+            <!-- escavatore, braccio in movimento -->
+            <rect x="59" y="38" width="19" height="4" fill="#333333" />
+            <rect x="61" y="38" width="1" height="4" fill="#222222" />
+            <rect x="64" y="38" width="1" height="4" fill="#222222" />
+            <rect x="67" y="38" width="1" height="4" fill="#222222" />
+            <rect x="70" y="38" width="1" height="4" fill="#222222" />
+            <rect x="61" y="31" width="11" height="7" fill="#ff7a00" />
+            <rect x="61" y="36" width="11" height="2" fill="#cc5f00" />
+            <rect x="63" y="25" width="6" height="6" fill="#ff7a00" />
+            <rect x="64" y="26" width="4" height="3" fill="#bfe3f0" />
+            <g>
+                <rect x="67" y="25" width="2" height="2" fill="#d16b00" />
+                <rect x="69" y="23" width="2" height="2" fill="#d16b00" />
+                <rect x="71" y="21" width="2" height="2" fill="#d16b00" />
+                <rect x="73" y="20" width="2" height="2" fill="#d16b00" />
+                <rect x="74" y="22" width="2" height="2" fill="#b85c00" />
+                <rect x="74" y="24" width="2" height="2" fill="#b85c00" />
+                <rect x="69" y="25" width="6" height="4" fill="#333333" />
+                <rect x="69" y="29" width="1" height="1" fill="#1a1a1a" />
+                <rect x="71" y="29" width="1" height="1" fill="#1a1a1a" />
+                <rect x="73" y="29" width="1" height="1" fill="#1a1a1a" />
+                <animateTransform attributeName="transform" type="rotate" values="0 67 25; -8 67 25; 0 67 25" dur="3.4s" repeatCount="indefinite" />
+            </g>
+
+            <!-- transenna -->
+            <rect x="0" y="42" width="80" height="3" fill="url(#umarellHazard)" />
+
+            <!-- l'umarell: foto vera ritagliata (di spalle, mani dietro la schiena). Piccolo, alla
+                 transenna davanti all'edificio — è fuori dal cantiere, sul lato pubblico, non dentro
+                 — con un leggero movimento. -->
+            <g>
+                <image [attr.href]="asset.getUrl('game.umarell')" x="37.7" y="36" width="2.7" height="8" preserveAspectRatio="xMidYMax meet" />
+                <animateTransform attributeName="transform" type="translate" values="0 0; 0 -0.3; 0 0" dur="2s" repeatCount="indefinite" />
+            </g>
+        </svg>
+    </div>
+
+    @if (!gameStarted()) {
+    <!-- Schermata iniziale (o di riepilogo, a edificio completato): pannello sovrapposto e
+         centrato sulla scena (come i pannelli di burocrazia), non più impilato sotto in flusso
+         normale. -->
+    <div class="umarell-overlay-start position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3">
+        <div class="umarell-panel text-center p-4">
+            @if (turnResult(); as result) {
+            <h1 class="display-5 fw-bold">Edificio completato!</h1>
+            <p class="text-muted mb-3">Hai posato tutti e {{ totalBricks }} i mattoni. Il gilet può andare in pensione.</p>
+            <div class="d-flex justify-content-center gap-3 flex-wrap mb-3">
+                <div class="umarell-card">
+                    <span class="umarell-card-pip">♠</span>
+                    <div class="umarell-card-label">Combo massima</div>
+                    <div class="umarell-card-value">{{ result.peakCombo }}</div>
+                    <span class="umarell-card-pip umarell-card-pip-br">♠</span>
+                </div>
+                <div class="umarell-card">
+                    <span class="umarell-card-pip">♣</span>
+                    <div class="umarell-card-label">Errori</div>
+                    <div class="umarell-card-value">{{ result.errors }}</div>
+                    <span class="umarell-card-pip umarell-card-pip-br">♣</span>
+                </div>
+                <div class="umarell-card">
+                    <span class="umarell-card-pip">♥</span>
+                    <div class="umarell-card-label">Tempo</div>
+                    <div class="umarell-card-value">{{ formatDuration(result.seconds) }}</div>
+                    <span class="umarell-card-pip umarell-card-pip-br">♥</span>
+                </div>
+            </div>
+            <button class="btn btn-primary btn-lg" (click)="startGame()">
+                Un altro edificio
+            </button>
+            } @else {
+            <h1 class="display-5 fw-bold">Simulatore Umarell</h1>
+            <p class="text-muted mb-1">Guarda la barra del cantiere: premi <strong>SPAZIO</strong> (o tocca la barra) esattamente quando il segnale entra nella zona gialla.</p>
+            <p class="text-muted mb-3">Ogni critica al momento giusto fa posare un mattone. Lasciarne scappare una, o premere fuori tempo, azzera la combo.</p>
+
+            <button class="btn btn-primary btn-lg" (click)="startGame()">
+                Indossa il gilet e inizia
+            </button>
+            }
+            @if (recordCombo(); as rc) {
+            <hr class="my-3">
+            <p class="text-muted mb-2 small">Record personali</p>
+            <div class="d-flex justify-content-center gap-3 flex-wrap mb-2">
+                <div class="umarell-card">
+                    <span class="umarell-card-pip">♠</span>
+                    <div class="umarell-card-label">Combo massima</div>
+                    <div class="umarell-card-value">{{ rc }}</div>
+                    <span class="umarell-card-pip umarell-card-pip-br">♠</span>
+                </div>
+                <div class="umarell-card">
+                    <span class="umarell-card-pip">♣</span>
+                    <div class="umarell-card-label">Errori minimi</div>
+                    <div class="umarell-card-value">{{ recordErrors() }}</div>
+                    <span class="umarell-card-pip umarell-card-pip-br">♣</span>
+                </div>
+                <div class="umarell-card">
+                    <span class="umarell-card-pip">♥</span>
+                    <div class="umarell-card-label">Tempo migliore</div>
+                    <div class="umarell-card-value">{{ formatDuration(recordSeconds()!) }}</div>
+                    <span class="umarell-card-pip umarell-card-pip-br">♥</span>
+                </div>
+            </div>
+            <button class="btn btn-sm btn-outline-secondary" (click)="resetRecords()">
+                Cancella record
+            </button>
+            }
+        </div>
+    </div>
+    }
+
+    @if (gameStarted()) {
+    <!-- HUD di gioco spezzato in due fasce sottili (come clock/obiettivo in alto + comandi in
+         basso di burocrazia), invece di un unico blocco: così la scena — e l'umarell — restano
+         visibili sotto, non coperti da un pannello enorme. -->
+    <div class="umarell-hud-top position-absolute top-0 start-0 end-0 text-center p-2 d-flex justify-content-center gap-3 flex-wrap">
+        <div class="umarell-card">
+            <span class="umarell-card-pip">♦</span>
+            <div class="umarell-card-label">Mattoni</div>
+            <div class="umarell-card-value">{{ bricks() }}/{{ totalBricks }}</div>
+            <span class="umarell-card-pip umarell-card-pip-br">♦</span>
+        </div>
+        <div class="umarell-card">
+            <span class="umarell-card-pip">♠</span>
+            <div class="umarell-card-label">Combo</div>
+            <div class="umarell-card-value">{{ combo() }}</div>
+            <span class="umarell-card-pip umarell-card-pip-br">♠</span>
+        </div>
+    </div>
+
+    <div class="umarell-toast-slot position-absolute top-0 start-0 end-0 d-flex justify-content-center pt-5 mt-4" aria-live="polite">
+        @if (feedback(); as f) {
+        <div class="alert alert-warning py-2 mb-0 d-inline-block">{{ f }}</div>
+        }
+    </div>
+
+    <div class="umarell-hud-dock position-absolute start-0 end-0 bottom-0 text-center p-2">
+        <div class="umarell-rhythm mx-auto mb-2">
+            <button type="button" class="umarell-track" aria-label="Critica adesso" (click)="attemptHit()">
+                <span class="umarell-sweet-spot"></span>
+                @for (n of notes(); track n.id) {
+                <span class="umarell-note" [style.animationDuration.ms]="travelMs" (animationend)="onNoteExpired(n.id)"></span>
+                }
+            </button>
+            <div class="small text-warning fw-semibold">SPAZIO (O TOCCA LA BARRA) NELLA ZONA GIALLA!</div>
+        </div>
+
+        <button class="btn btn-sm btn-outline-secondary" (click)="endTurn()">
+            Fine turno
+        </button>
+    </div>
+    }
+</div>

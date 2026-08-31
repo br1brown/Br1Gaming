@@ -21,6 +21,7 @@ export const AppPages = {
     StorySurviveUsa: 'app.avventura.sopravvivi-agli-usa',
     GameDuceNonDuce: 'app.gioco.ducenonduce',
     GameBurocrazia: 'app.gioco.burocrazia',
+    GameUmarell: 'app.gioco.umarell',
     Piaciuti: 'app.piaciuti',
     // Utility: strumenti che non sono giochi (il radar chiese, spostato qui, e il traduttore).
     UtilityRadar: 'app.utility.radar',
@@ -180,6 +181,17 @@ export const appPagesDecl: SitePageInput[] = [
         otherSEO: { ogImage: 'game.burocrazia.og' },
         component: () => import('./burocrazia/burocrazia.component')
             .then(m => m.BurocraziaComponent),
+    },
+
+    {
+        path: `umarell`,
+        title: `umarell`,
+        description: 'Contempla il cantiere con le mani dietro la schiena e intervieni al momento giusto.',
+        pageType: AppPages.GameUmarell,
+        layout: { fitViewport: true },
+        otherSEO: { ogImage: 'game.umarell.og' },
+        component: () => import('./umarell/umarell.component')
+            .then(m => m.UmarellComponent),
     },
 
     // ── Utility sotto /utility ───────────────────────────────────
