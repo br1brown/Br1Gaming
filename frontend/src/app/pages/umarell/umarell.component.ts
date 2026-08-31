@@ -28,6 +28,10 @@ const QUOTES: SfxKey[] = [
     'orario', 'sicurezza', 'rumore', 'polvere', 'sindacato',
 ];
 
+/** Quante frasi recenti restano escluse dal pool prima di ripescare: evita di sentire la stessa
+ *  critica due o tre colpi di fila su un totale di 10 (`QUOTES.length`). */
+const RECENT_QUOTES_TO_AVOID = 5;
+
 /** Tempo di percorrenza della corsia (spawn → fine), in ms: fisso, condiviso con l'animazione
  *  CSS (`.umarell-note`, bindata su questa stessa costante) così JS e animazione restano sincroni. */
 const TRAVEL_MS = 2400;
@@ -42,6 +46,15 @@ const NOTE_LEAD_MS = 1000;
 /** Ritardo di fallback se la durata dell'audio non è ancora nota (metadata non caricati, o asset
  *  mancante): via di mezzo ragionevole, né istantanea né troppo lunga. */
 const FALLBACK_NOTE_DELAY_MS = 2000;
+
+/** Volume delle battute vocali: le registrazioni escono già molto forti su un dispositivo medio,
+ *  dimezzato in riproduzione (il file resta invariato). */
+const VOICE_VOLUME = 0.5;
+
+/** Pausa prima della primissima nota di un turno: senza questa, la nota partiva nello stesso
+ *  istante del click su "Indossa il gilet e inizia", prima ancora che lo sguardo si fosse spostato
+ *  sulla corsia — il primo colpo falliva quasi sempre (solo audio di "fail", nessuna nota vista). */
+const FIRST_NOTE_DELAY_MS = 1200;
 
 /** Zona di critica sulla corsia (percentuale), stessa geometria della fascia gialla in CSS. */
 const SWEET_CENTER = 82.5;
@@ -148,6 +161,9 @@ export class UmarellComponent extends PageBaseComponent<void> implements OnDestr
     private nextNoteId = 0;
     private beatTimer: ReturnType<typeof setTimeout> | null = null;
     private feedbackTimer: ReturnType<typeof setTimeout> | null = null;
+    /** Ultime frasi pescate da `pickQuote`, più recente in coda: tenute fuori dal pool finché non
+     *  scorrono via (FIFO di lunghezza `RECENT_QUOTES_TO_AVOID`). */
+    private recentQuotes: SfxKey[] = [];
     /** Istante di inizio turno (`performance.now()`), per calcolare il tempo impiegato a riepilogo. */
     private turnStartMs = 0;
 
@@ -157,6 +173,7 @@ export class UmarellComponent extends PageBaseComponent<void> implements OnDestr
             for (const key of Object.keys(SFX_IDS) as SfxKey[]) {
                 const audio = new Audio(this.asset.getUrl(SFX_IDS[key]));
                 audio.preload = 'auto';
+                audio.volume = VOICE_VOLUME;
                 this.audioPool[key] = audio;
             }
             const saved = this.cookies.get('umarellRecord');
@@ -185,8 +202,11 @@ export class UmarellComponent extends PageBaseComponent<void> implements OnDestr
         this.errors.set(0);
         this.turnResult.set(null);
         this.notes.set([]);
+        this.recentQuotes = [];
         this.turnStartMs = performance.now();
-        this.spawnNote();
+        this.beatTimer = setTimeout(() => {
+            if (this.gameStarted()) this.spawnNote();
+        }, FIRST_NOTE_DELAY_MS);
     }
 
     /** Chiude il turno volontariamente (nessun record: quelli si guadagnano solo completando
@@ -237,7 +257,7 @@ export class UmarellComponent extends PageBaseComponent<void> implements OnDestr
         this.bricks.set(newBricks);
         this.showFeedback(perfect ? `CRITICA PERFETTA! +${gained} mattoni` : `BEL COLPO! +${gained} mattone`);
 
-        const quote = QUOTES[Math.floor(Math.random() * QUOTES.length)];
+        const quote = this.pickQuote();
         if (newBricks >= TOTAL_BRICKS) {
             this.playAudio(quote);
             this.completeBuilding();
@@ -253,6 +273,16 @@ export class UmarellComponent extends PageBaseComponent<void> implements OnDestr
         if (!stillThere) return;
         this.notes.update(ns => ns.filter(n => n.id !== id));
         this.registerMiss();
+    }
+
+    /** Pesca una critica escludendo le ultime `RECENT_QUOTES_TO_AVOID` già uscite; con 10 frasi
+     *  totali e 5 escluse il pool residuo non è mai vuoto. */
+    private pickQuote(): SfxKey {
+        const pool = QUOTES.filter(q => !this.recentQuotes.includes(q));
+        const picked = pool[Math.floor(Math.random() * pool.length)];
+        this.recentQuotes.push(picked);
+        if (this.recentQuotes.length > RECENT_QUOTES_TO_AVOID) this.recentQuotes.shift();
+        return picked;
     }
 
     private noteProgress(note: Note, now: number): number {
