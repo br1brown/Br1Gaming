@@ -16,13 +16,23 @@ type LegalPageId = (typeof LegalPages)[keyof typeof LegalPages];
 
 /** Pagine legali del progetto: PageType + default dell'Engine (`STANDARD_LEGAL_PAGES`) via
  *  spread. Nessuna scorciatoia nascosta: sono voci come le altre di `legalPages` in site.ts, che
- *  le tratta tutte allo stesso modo. */
+ *  le tratta tutte allo stesso modo.
+ *
+ *  Live solo Cookie e Privacy: Br1Gaming non ha un'identità societaria registrata (nessun
+ *  `data/identity.json` nel backend), quindi ToS/Note Legali/Accessibility restano commentate,
+ *  non cancellate — pronte se in futuro cambia lo status del progetto. Cookie serve comunque
+ *  (cookie tecnici di salvataggio partite + Mapbox come Analytics di terze parti, vedi
+ *  `cookie-registry.ts`); Privacy per lo stesso motivo (dati trattati anche senza un'entità
+ *  registrata dietro). ToS rivendicherebbe la proprietà dei contenuti per un'entità che non
+ *  esiste; Note Legali è l'identificazione di un prestatore di servizi commerciale (D.Lgs
+ *  70/2003) che qui non si applica; Accessibility riguarda PA/e-commerce/soglie di fatturato,
+ *  fuori scope per un progetto personale. */
 export const legalPagesDecl: LegalPageSpec[] = [
     { pageType: LegalPages.PrivacyPolicy, ...STANDARD_LEGAL_PAGES.privacy },
     { pageType: LegalPages.CookiePolicy, ...STANDARD_LEGAL_PAGES.cookie },
-    { pageType: LegalPages.TermsOfService, ...STANDARD_LEGAL_PAGES.tos },
-    { pageType: LegalPages.LegalNotice, ...STANDARD_LEGAL_PAGES.legal },
-    { pageType: LegalPages.AccessibilityStatement, ...STANDARD_LEGAL_PAGES.accessibility },
+    // { pageType: LegalPages.TermsOfService, ...STANDARD_LEGAL_PAGES.tos },
+    // { pageType: LegalPages.LegalNotice, ...STANDARD_LEGAL_PAGES.legal },
+    // { pageType: LegalPages.AccessibilityStatement, ...STANDARD_LEGAL_PAGES.accessibility },
 ];
 
 /**
@@ -36,7 +46,7 @@ export const legalPagesDecl: LegalPageSpec[] = [
 export const legalUpdated: Partial<Record<LegalPageId, Date>> = {
     [LegalPages.PrivacyPolicy]: new Date('2026-07-03'),
     [LegalPages.CookiePolicy]: new Date('2026-08-20'),
-    [LegalPages.TermsOfService]: new Date('2026-07-03'),
-    [LegalPages.LegalNotice]: new Date('2026-07-03'),
-    [LegalPages.AccessibilityStatement]: new Date('2026-07-08'),
+    // [LegalPages.TermsOfService]: new Date('2026-07-03'),
+    // [LegalPages.LegalNotice]: new Date('2026-07-03'),
+    // [LegalPages.AccessibilityStatement]: new Date('2026-07-08'),
 };
