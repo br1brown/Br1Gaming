@@ -9,6 +9,7 @@ export const LegalPages = {
     CookiePolicy: 'legal.cookie',
     TermsOfService: 'legal.tos',
     LegalNotice: 'legal.notice',
+    AccessibilityStatement: 'legal.accessibility',
 } as const;
 
 type LegalPageId = (typeof LegalPages)[keyof typeof LegalPages];
@@ -21,6 +22,7 @@ export const legalPagesDecl: LegalPageSpec[] = [
     { pageType: LegalPages.CookiePolicy, ...STANDARD_LEGAL_PAGES.cookie },
     { pageType: LegalPages.TermsOfService, ...STANDARD_LEGAL_PAGES.tos },
     { pageType: LegalPages.LegalNotice, ...STANDARD_LEGAL_PAGES.legal },
+    { pageType: LegalPages.AccessibilityStatement, ...STANDARD_LEGAL_PAGES.accessibility },
 ];
 
 /**
@@ -36,4 +38,5 @@ export const legalUpdated: Partial<Record<LegalPageId, Date>> = {
     [LegalPages.CookiePolicy]: new Date('2026-08-20'),
     [LegalPages.TermsOfService]: new Date('2026-07-03'),
     [LegalPages.LegalNotice]: new Date('2026-07-03'),
+    [LegalPages.AccessibilityStatement]: new Date('2026-07-08'),
 };
