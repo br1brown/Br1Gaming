@@ -42,6 +42,15 @@ $bp-md: 768px;
     --bs-secondary-bg:        var(--colorMutedBg#{$s});
     --bs-tertiary-bg:         var(--colorSubtleBg#{$s});
     --bs-secondary-color:     var(--colorMutedText#{$s});
+    // Subtle/emphasis system — .alert-*, .bg-*-subtle, .text-*-emphasis: senza questo, un
+    // subtheme annidato in tono diverso dal globale (es. pannello forced-light in pagina dark)
+    // erediterebbe badge/alert colorati sul tono dell'OS invece che sul proprio.
+    --bs-primary-bg-subtle:       var(--colorPrimaryBgSubtle#{$s});
+    --bs-primary-border-subtle:   var(--colorPrimaryBorderSubtle#{$s});
+    --bs-primary-text-emphasis:   var(--colorPrimaryTextEmphasis#{$s});
+    --bs-secondary-bg-subtle:     var(--colorSecondaryBgSubtle#{$s});
+    --bs-secondary-border-subtle: var(--colorSecondaryBorderSubtle#{$s});
+    --bs-secondary-text-emphasis: var(--colorSecondaryTextEmphasis#{$s});
     --colorNavBg:             var(--colorNavBg#{$s});
     --colorNavText:           var(--colorNavText#{$s});
 }

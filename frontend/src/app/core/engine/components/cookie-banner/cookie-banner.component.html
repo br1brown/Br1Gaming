@@ -152,8 +152,8 @@
 <!-- Azioni — condivise da banner e pannello, sempre tutte e tre: qui il consenso copre
      TechnicalOptional (Service Worker/PWA built-in + eventuali cookie di progetto nella stessa
      categoria) insieme ad Analytics/Profiling — Technical (badge fisso, esente per legge) non è
-     mai in gioco. Rifiuta/Accetta restano anche quando TechnicalOptional è l'unica categoria
-     attiva — con una sola categoria l'etichetta perde il "tutto".
+     mai in gioco. Le etichette dicono sempre "tutto/tutti", a prescindere dal numero di categorie
+     attive (vedi rejectLabel/acceptLabel nel component).
      Rifiuta e Accetta condividono LO STESSO stile (outline-secondary): pari peso visivo richiesto
      da EDPB/Garante — un "Accetta" pieno/verde contro un "Rifiuta" in outline nudgerebbe l'utente
      verso il consenso (dark pattern). Solo "Salva scelte" resta evidenziato: non è un'alternativa

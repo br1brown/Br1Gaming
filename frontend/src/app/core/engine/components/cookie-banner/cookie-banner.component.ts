@@ -61,18 +61,10 @@ export class CookieBannerComponent {
         this.cookieConsent.isAnalyticsNeeded() || this.cookieConsent.isProfilingNeeded()
     );
 
-    /** Numero di categorie attive: con una sola, Rifiuta/Accetta perdono il "tutto"
-     *  (non c'è nessun insieme su cui agire in blocco). */
-    private readonly activeCategoryCount = computed(() =>
-        [this.cookieConsent.isTechnicalOptionalNeeded(), this.cookieConsent.isAnalyticsNeeded(), this.cookieConsent.isProfilingNeeded()]
-            .filter(Boolean).length
-    );
-    readonly rejectLabel = computed(() =>
-        this.translate.translate(this.activeCategoryCount() > 1 ? 'rifiutaTuttiBannerCookie' : 'rifiutaBannerCookie')
-    );
-    readonly acceptLabel = computed(() =>
-        this.translate.translate(this.activeCategoryCount() > 1 ? 'accettaTuttiBannerCookie' : 'accettaBannerCookie')
-    );
+    /** Sempre "tutto/tutti", a prescindere dal numero di categorie attive: un'etichetta che
+     *  cambia forma in base al conteggio confonde più di quanto chiarisca. */
+    readonly rejectLabel = computed(() => this.translate.translate('rifiutaTuttiBannerCookie'));
+    readonly acceptLabel = computed(() => this.translate.translate('accettaTuttiBannerCookie'));
 
     readonly bannerText = computed(() => {
         // La pagina Cookie Policy è quella valorizzata in `cookiePolicy` (site.ts), non un
