@@ -421,6 +421,22 @@ export class ThemeService {
             ['--colorSecondaryDk', p.colorSecondaryDk],
             ['--colorSecondaryRgbLt', ThemeService.hexToRgbTriplet(p.colorSecondaryLt)],
             ['--colorSecondaryRgbDk', ThemeService.hexToRgbTriplet(p.colorSecondaryDk)],
+            // Idem per il subtle/emphasis system (.bg-*-subtle, .text-*-emphasis): senza queste
+            // fisse, un subtheme [data-bs-theme] nidificato in tono diverso dal globale (es. pannello
+            // forced-light dentro pagina dark) resterebbe con badge/alert colorati sul tono SBAGLIATO,
+            // perché --colorPrimaryBgSubtle/--colorSecondaryBgSubtle sopra sono tone-adaptive sull'OS.
+            ['--colorPrimaryBgSubtleLt', p.subtlePrimary.bgSubtleLt],
+            ['--colorPrimaryBgSubtleDk', p.subtlePrimary.bgSubtleDk],
+            ['--colorPrimaryBorderSubtleLt', p.subtlePrimary.borderSubtleLt],
+            ['--colorPrimaryBorderSubtleDk', p.subtlePrimary.borderSubtleDk],
+            ['--colorPrimaryTextEmphasisLt', p.subtlePrimary.textEmphasisLt],
+            ['--colorPrimaryTextEmphasisDk', p.subtlePrimary.textEmphasisDk],
+            ['--colorSecondaryBgSubtleLt', p.subtleSecondary.bgSubtleLt],
+            ['--colorSecondaryBgSubtleDk', p.subtleSecondary.bgSubtleDk],
+            ['--colorSecondaryBorderSubtleLt', p.subtleSecondary.borderSubtleLt],
+            ['--colorSecondaryBorderSubtleDk', p.subtleSecondary.borderSubtleDk],
+            ['--colorSecondaryTextEmphasisLt', p.subtleSecondary.textEmphasisLt],
+            ['--colorSecondaryTextEmphasisDk', p.subtleSecondary.textEmphasisDk],
             ['--colorHeadingLt', p.colorHeadingLt],
             ['--colorHeadingDk', p.colorHeadingDk],
             ['--colorHeadingRgbLt', ThemeService.hexToRgbTriplet(p.colorHeadingLt)],
@@ -611,6 +627,19 @@ export class ThemeService {
             `--colorSecondaryDk:${p.colorSecondaryDk};` +
             `--colorSecondaryRgbLt:${ThemeService.hexToRgbTriplet(p.colorSecondaryLt)};` +
             `--colorSecondaryRgbDk:${ThemeService.hexToRgbTriplet(p.colorSecondaryDk)};` +
+            // Varianti fisse Lt/Dk del subtle/emphasis system — stesso motivo di colorSecondaryLt/Dk sopra.
+            `--colorPrimaryBgSubtleLt:${p.subtlePrimary.bgSubtleLt};` +
+            `--colorPrimaryBgSubtleDk:${p.subtlePrimary.bgSubtleDk};` +
+            `--colorPrimaryBorderSubtleLt:${p.subtlePrimary.borderSubtleLt};` +
+            `--colorPrimaryBorderSubtleDk:${p.subtlePrimary.borderSubtleDk};` +
+            `--colorPrimaryTextEmphasisLt:${p.subtlePrimary.textEmphasisLt};` +
+            `--colorPrimaryTextEmphasisDk:${p.subtlePrimary.textEmphasisDk};` +
+            `--colorSecondaryBgSubtleLt:${p.subtleSecondary.bgSubtleLt};` +
+            `--colorSecondaryBgSubtleDk:${p.subtleSecondary.bgSubtleDk};` +
+            `--colorSecondaryBorderSubtleLt:${p.subtleSecondary.borderSubtleLt};` +
+            `--colorSecondaryBorderSubtleDk:${p.subtleSecondary.borderSubtleDk};` +
+            `--colorSecondaryTextEmphasisLt:${p.subtleSecondary.textEmphasisLt};` +
+            `--colorSecondaryTextEmphasisDk:${p.subtleSecondary.textEmphasisDk};` +
             `--colorNavBgLt:${p.colorNavBgLt};` +
             `--colorNavBgDk:${p.colorNavBgDk};` +
             `--colorNavTextLt:${p.colorNavTextLt};` +

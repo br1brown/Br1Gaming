@@ -1227,11 +1227,17 @@ function assertSlotResolved(slotName: string, type: PageType, pageMap: Map<strin
     }
 }
 
-/** Valida gli slot di ruolo pagina (`loginPage`, `homePage`, `legalPages`): ognuno, se valorizzato,
- *  deve puntare a una pagina realmente registrata. Lancia al primo slot rotto. */
+/** Valida gli slot di ruolo pagina (`loginPage`, `homePage`, `cookiePolicy`, `legalPages`): ognuno,
+ *  se valorizzato, deve puntare a una pagina realmente registrata. Lancia al primo slot rotto.
+ *  `cookiePolicy` è un puntatore SEPARATO da `legalPages` (può puntare a una delle sue voci, ma è
+ *  un campo a sé — vedi site.ts) ed è quindi controllato qui esplicitamente: senza questo, rimuovere
+ *  la pagina Cookie Policy da `legalPages` senza aggiornare/svuotare `cookiePolicy` passerebbe il
+ *  build senza errori, lasciando il banner cookie con un link morto (`getPath` torna `null` in
+ *  silenzio) — l'unico slot che degraderebbe così invece di fermare subito il build. */
 function validatePageRefs(config: SiteConfig, legalPages: readonly LegalPageSpec[], pageMap: Map<string, PageInfo>): void {
     if (config.loginPage) assertSlotResolved('loginPage', config.loginPage, pageMap);
     if (config.homePage) assertSlotResolved('homePage', config.homePage, pageMap);
+    if (config.cookiePolicy) assertSlotResolved('cookiePolicy', config.cookiePolicy, pageMap);
     for (const spec of legalPages) {
         assertSlotResolved(`legalPages["${spec.path}"]`, spec.pageType, pageMap);
     }
@@ -1389,6 +1395,12 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
     // Controlla la sola variante default-lang: se esiste lì, esiste per costruzione in ogni lingua
     // (stesso identico albero attraversato a ogni iterazione del loop sopra).
     validatePageRefs(finalConfig, allLegalPages, pageMap);
+    // `cookiePolicy` è obbligatoria SOLO se il sito usa davvero cookie (PWA o cookie di progetto):
+    // senza nulla da far scegliere non c'è nulla da dichiarare, quindi un sito nato senza cookie può
+    // legittimamente non averla mai. Se però il progetto la dichiara comunque (in `legalPages`, con
+    // `cookiePolicy` valorizzato) pur non avendo al momento cookie attivi — es. la tiene pronta in
+    // vista di un cookie futuro — la pagina resta costruita e raggiungibile, ma `footerLegalPages`
+    // qui sotto la toglie dai link automatici finché non torna a servire davvero.
     if (cookiesEnabled && finalConfig.cookiePolicy == null) {
         throw new Error(
             '[SiteBuilder] Il sito usa cookie (PWA o cookie di progetto) ma ' +
@@ -1396,6 +1408,14 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
             'obbligatoria: valorizza `cookiePolicy` con il PageType della relativa voce in `legalPages`.'
         );
     }
+
+    // Fascia "small prints" del footer: se la Cookie Policy è dichiarata ma il progetto non ha
+    // (più, o ancora) nulla da far scegliere (`!cookiesEnabled`), la si toglie dai link automatici —
+    // altrimenti mostrerebbe una voce che dichiara solo l'esenzione tecnica, spuria in footer. La
+    // pagina resta comunque raggiungibile via URL diretto: non è tolta dal routing, solo dai link.
+    const footerLegalPages = cookiesEnabled
+        ? allLegalPages
+        : allLegalPages.filter(spec => spec.pageType !== finalConfig.cookiePolicy);
 
     // Stesso schema del loop sopra, ma per i menu: una Map<lingua, NavLink[]> invece di due array
     // fissi — la lettura per lingua specifica avviene dopo, in getMenuNav/getLinkFooter più sotto.
@@ -1409,7 +1429,7 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
         validateNavDepth(linkFooter, 'footer');
         menuNavByLang.set(lang, menuNav);
         linkFooterByLang.set(lang, linkFooter);
-        legalFooterLinksByLang.set(lang, resolveLegalFooterLinks(allLegalPages, pageMap, lang, defaultLang));
+        legalFooterLinksByLang.set(lang, resolveLegalFooterLinks(footerLegalPages, pageMap, lang, defaultLang));
     }
 
     return {
