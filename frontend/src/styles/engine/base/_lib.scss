@@ -39,6 +39,7 @@ $bp-md: 768px;
     --bs-border-color:        var(--colorSurfaceBorder#{$s});
     --bs-secondary:           var(--colorSecondary#{$s});
     --bs-secondary-rgb:       var(--colorSecondaryRgb#{$s});
+    --colorSecondaryText:     var(--colorSecondaryText#{$s});
     --bs-secondary-bg:        var(--colorMutedBg#{$s});
     --bs-tertiary-bg:         var(--colorSubtleBg#{$s});
     --bs-secondary-color:     var(--colorMutedText#{$s});

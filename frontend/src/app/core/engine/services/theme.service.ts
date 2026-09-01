@@ -421,6 +421,8 @@ export class ThemeService {
             ['--colorSecondaryDk', p.colorSecondaryDk],
             ['--colorSecondaryRgbLt', ThemeService.hexToRgbTriplet(p.colorSecondaryLt)],
             ['--colorSecondaryRgbDk', ThemeService.hexToRgbTriplet(p.colorSecondaryDk)],
+            ['--colorSecondaryTextLt', p.colorSecondaryTextLt],
+            ['--colorSecondaryTextDk', p.colorSecondaryTextDk],
             // Idem per il subtle/emphasis system (.bg-*-subtle, .text-*-emphasis): senza queste
             // fisse, un subtheme [data-bs-theme] nidificato in tono diverso dal globale (es. pannello
             // forced-light dentro pagina dark) resterebbe con badge/alert colorati sul tono SBAGLIATO,
@@ -627,6 +629,8 @@ export class ThemeService {
             `--colorSecondaryDk:${p.colorSecondaryDk};` +
             `--colorSecondaryRgbLt:${ThemeService.hexToRgbTriplet(p.colorSecondaryLt)};` +
             `--colorSecondaryRgbDk:${ThemeService.hexToRgbTriplet(p.colorSecondaryDk)};` +
+            `--colorSecondaryTextLt:${p.colorSecondaryTextLt};` +
+            `--colorSecondaryTextDk:${p.colorSecondaryTextDk};` +
             // Varianti fisse Lt/Dk del subtle/emphasis system — stesso motivo di colorSecondaryLt/Dk sopra.
             `--colorPrimaryBgSubtleLt:${p.subtlePrimary.bgSubtleLt};` +
             `--colorPrimaryBgSubtleDk:${p.subtlePrimary.bgSubtleDk};` +

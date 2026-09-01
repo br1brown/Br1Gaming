@@ -12,7 +12,7 @@ export const LegalPages = {
     AccessibilityStatement: 'legal.accessibility',
 } as const;
 
-type LegalPageId = (typeof LegalPages)[keyof typeof LegalPages];
+export type LegalPageId = (typeof LegalPages)[keyof typeof LegalPages];
 
 /** Le 5 pagine legali standard: PageType di progetto + default dell'Engine
  *  (`STANDARD_LEGAL_PAGES`) via spread. Nessuna scorciatoia nascosta: sono voci come le altre di
@@ -26,18 +26,53 @@ export const legalPagesDecl: LegalPageSpec[] = [
     { pageType: LegalPages.AccessibilityStatement, ...STANDARD_LEGAL_PAGES.accessibility },
 ];
 
+/** Config per pagina legale: data di "ultimo aggiornamento" (opzionale, assente = nessuna riga) +
+ *  i 4 flag di `app-identity-render`, dichiarati per esteso pagina per pagina. */
+export interface LegalPageConfig {
+    updated?: Date;
+    showCompanyDetails: boolean;
+    showLegalDetails: boolean;
+    showContacts: boolean;
+    showOpeningHours: boolean;
+}
+
 /**
- * Data di "ultimo aggiornamento" per pagina legale, consumata da `PolicyComponent`. Dichiarata a
- * mano, non da git/mtime (non sopravvive a clone/Docker). ID senza data → nessuna riga mostrata.
+ * Config delle 5 pagine legali standard. Dati legali (capitale sociale, socio unico, in
+ * liquidazione) solo su Note Legali e Termini — trasparenza societaria richiesta da art. 2250 c.c.
+ * e Codice del Consumo. Orari di contatto mai in pagina: pertinenti al footer, non a un documento
+ * di disclosure legale.
  *
- * ⚠️ COOKIE: aggiorna la data di `CookiePolicy` ogni volta che modifichi `COOKIE_MAP`
- *    (`core/services/cookie-registry.ts`) o `ENGINE_COOKIE_MAP` (`services/cookie/cookie-type.ts`)
- *    — l'elenco cambia → la policy è "aggiornata".
+ * ⚠️ COOKIE: aggiorna la data di `CookiePolicy` quando cambi `COOKIE_MAP` o `ENGINE_COOKIE_MAP`.
  */
-export const legalUpdated: Partial<Record<LegalPageId, Date>> = {
-    [LegalPages.PrivacyPolicy]: new Date('2026-07-03'),
-    [LegalPages.CookiePolicy]: new Date('2026-08-20'),
-    [LegalPages.TermsOfService]: new Date('2026-07-03'),
-    [LegalPages.LegalNotice]: new Date('2026-07-03'),
-    [LegalPages.AccessibilityStatement]: new Date('2026-07-08'),
+export const legalPages: Partial<Record<LegalPageId, LegalPageConfig>> = {
+    [LegalPages.PrivacyPolicy]: {
+        updated: new Date('2026-07-03'),
+        showCompanyDetails: true, showLegalDetails: false, showContacts: true, showOpeningHours: false,
+    },
+    [LegalPages.CookiePolicy]: {
+        updated: new Date('2026-08-20'),
+        showCompanyDetails: true, showLegalDetails: false, showContacts: true, showOpeningHours: false,
+    },
+    [LegalPages.TermsOfService]: {
+        updated: new Date('2026-07-03'),
+        showCompanyDetails: true, showLegalDetails: true, showContacts: true, showOpeningHours: false,
+    },
+    [LegalPages.LegalNotice]: {
+        updated: new Date('2026-07-03'),
+        showCompanyDetails: true, showLegalDetails: true, showContacts: true, showOpeningHours: false,
+    },
+    [LegalPages.AccessibilityStatement]: {
+        updated: new Date('2026-07-08'),
+        showCompanyDetails: true, showLegalDetails: false, showContacts: true, showOpeningHours: false,
+    },
 };
+
+/** Default per un `pageType` assente da `legalPages`: societari + contatti, nessuna data. */
+const DEFAULT_LEGAL_PAGE_CONFIG: LegalPageConfig = {
+    showCompanyDetails: true, showLegalDetails: false, showContacts: true, showOpeningHours: false,
+};
+
+/** Config della pagina legale per `pageType`, o il default se assente da `legalPages`. */
+export function legalPageConfig(pageType: string): LegalPageConfig {
+    return legalPages[pageType as LegalPageId] ?? DEFAULT_LEGAL_PAGE_CONFIG;
+}

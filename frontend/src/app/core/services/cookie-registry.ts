@@ -4,7 +4,6 @@ import { ConsentCategory, type CookieConfig } from "../engine/services/cookie/co
  * Registro UNICO dell'archiviazione client (cookie + Web Storage): una riga qui attiva toggle nel
  * banner GDPR, tipizzazione di set/get/remove, riga in {{cookieList}} e pulizia alla revoca.
  * Shape, campi opzionali e variante `prefix`: frontend/README.md §"Aggiungere un cookie…".
- * La data legale sta in `pages/policy/legal.pages.ts` (`legalUpdated`), non qui.
  */
 export const COOKIE_MAP = {
     // Esempi — scommenta e adatta (la chiave è il nome raw della voce):
