@@ -15,7 +15,7 @@ import { NavDropdownComponent } from '../nav-dropdown/nav-dropdown.component';
 import { ContestoSito } from '../../../../site';
 import { filterNavByAuth, isNavGroup, NavLink } from '../../siteBuilder';
 import { AssetDirective } from '../../directives/asset.directive';
-import { UserNavComponent } from '../../../../components/shared/user-nav/user-nav.component';
+import { UserNavComponent } from '../user-nav/user-nav.component';
 import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
 import { TokenService } from '../../services/token.service';
 

@@ -2,9 +2,9 @@ import { Component, effect, inject, OnDestroy, PLATFORM_ID, signal } from '@angu
 import { isPlatformBrowser } from '@angular/common';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
-import { CopyActionComponent } from '../../components/shared/action/copy-action/copy-action.component';
-import { ShareActionComponent } from '../../components/shared/action/share-action/share-action.component';
-import { SpeechActionComponent } from '../../components/shared/action/speech-action/speech-action.component';
+import { CopyActionComponent } from '../../core/engine/components/copy-action/copy-action.component';
+import { ShareActionComponent } from '../../core/engine/components/share-action/share-action.component';
+import { SpeechActionComponent } from '../../core/engine/components/speech-action/speech-action.component';
 import { TranslatorSpeechService } from './translator-speech.service';
 
 /**

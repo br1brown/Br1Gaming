@@ -10,9 +10,9 @@ import { PageDirective } from '../../core/engine/directives/page.directive';
 import { MarkdownPipe } from '../../core/engine/pipes/markdown.pipe';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
-import { LikeActionComponent } from '../../components/shared/action/like-action/like-action.component';
-import { ShareActionComponent } from '../../components/shared/action/share-action/share-action.component';
-import { SpeechActionComponent } from '../../components/shared/action/speech-action/speech-action.component';
+import { LikeActionComponent } from '../../core/engine/components/like-action/like-action.component';
+import { ShareActionComponent } from '../../core/engine/components/share-action/share-action.component';
+import { SpeechActionComponent } from '../../core/engine/components/speech-action/speech-action.component';
 import { VariantWheelComponent } from '../../components/shared/variant-wheel/variant-wheel.component';
 
 
