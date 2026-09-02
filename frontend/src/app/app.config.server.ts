@@ -61,8 +61,9 @@ const serverConfig: ApplicationConfig = {
             },
         }, provideAppInitializer(() => {
             const doc = inject(DOCUMENT);
-            const { colorTema } = ContestoSito.config;
-            const palette = ThemeService.computePalette(colorTema);
+            const { colorTema, colorSecondary, colorBackground, colorText, colorInfo } = ContestoSito.config;
+            const overrides = { secondary: colorSecondary, background: colorBackground, text: colorText, info: colorInfo };
+            const palette = ThemeService.computePalette(colorTema, overrides);
             const tone = palette.naturalTone;
 
             // Attributi Bootstrap dark/light su <html>
@@ -85,7 +86,7 @@ const serverConfig: ApplicationConfig = {
             // di qualsiasi render component così Bootstrap legge le variabili correttamente.
             const style = doc.createElement('style');
             style.setAttribute('id', 'theme-init');
-            const styleHtml = ThemeService.buildThemeStyleTag(colorTema);
+            const styleHtml = ThemeService.buildThemeStyleTag(colorTema, overrides);
             const openTag = '<style id="theme-init">';
             style.textContent = styleHtml.substring(openTag.length, styleHtml.length - '</style>'.length);
             doc.head.appendChild(style);

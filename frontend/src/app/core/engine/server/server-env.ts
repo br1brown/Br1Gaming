@@ -129,6 +129,11 @@ export interface SiteEnv {
      *  Impostato da SEO_NOINDEX (1/true/yes). Default `false` (sito indicizzabile).
      *  Pensato per ambienti di staging/anteprima dietro lo stesso reverse proxy della prod. */
     readonly noindex: boolean;
+    /** Cartella del font custom montata da Docker (docker-compose: BR1_FONTS_DIR, default
+     *  `/app/fonts` — coincide col default in produzione perché WORKDIR è `/app`; in dev locale
+     *  risolve a `frontend/fonts/`). Cartella assente o vuota = nessun font custom, comportamento
+     *  odierno: vedi `custom-font-detect.ts`. Impostato da FONTS_DIR. */
+    readonly fontsDir: string;
 }
 
 /** Header di sicurezza condivisi col backend, letti da security-headers.json (file del template). */
@@ -212,6 +217,7 @@ export const serverEnv: ServerEnv = {
             assetsDir:           process.env['ASSETS_DIR'] ?? '',
             previewCryptoSecret: process.env['PREVIEW_CRYPTO_SECRET'] ?? '',
             noindex:             parseBool(process.env['SEO_NOINDEX']),
+            fontsDir:            process.env['FONTS_DIR'] || resolve(process.cwd(), 'fonts'),
         };
     },
     get security(): SecurityEnv {

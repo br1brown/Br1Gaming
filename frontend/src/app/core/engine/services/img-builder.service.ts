@@ -1,7 +1,8 @@
 import { Injectable, inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { ThemeService } from './theme.service';
-import { FontConfig } from '../../../../styles/font-config';
+import { WEB_FONTS } from '../font-system';
+import { resolvedFonts } from '../../../../styles/font-config';
 
 /**
  * IMG BUILDER SERVICE
@@ -50,8 +51,8 @@ export interface ImgBuildOptions {
     textColor?: string;
     /** Dimensione del font in pixel. Default: 40. */
     fontSize?: number;
-    /** Chiave del font (es. 'Arial', 'Georgia'). Default: FontConfig.DEFAULT_WEB_FONT. */
-    fontFamily?: keyof typeof FontConfig.WEB_FONTS;
+    /** Chiave del font (es. 'Arial', 'Georgia'). Default: il font web risolto del sito. */
+    fontFamily?: keyof typeof WEB_FONTS;
     /** Rapporto d'aspetto dell'immagine finale. Default: '4:3'. */
     ratio?: '4:3' | '16:9' | '1:1' | '9:16';
     /** Larghezza massima in pixel. Default: 1200. */
@@ -222,7 +223,7 @@ export class ImgBuilderService {
             fontSize: opts.fontSize ?? 40,
             // opts.fontFamily è una CHIAVE di WEB_FONTS: va risolta nello stack CSS reale,
             // altrimenti il canvas riceve la chiave (es. "Times") invece del font stack.
-            fontFamily: opts.fontFamily ? FontConfig.WEB_FONTS[opts.fontFamily] : FontConfig.DEFAULT_WEB_FONT,
+            fontFamily: opts.fontFamily ? WEB_FONTS[opts.fontFamily] : resolvedFonts.webStack,
             ratio: opts.ratio ?? '4:3',
             maxWidth: opts.maxWidth ?? 1000,
             lineHeight: opts.lineHeight ?? 1.4,

@@ -111,6 +111,24 @@ const s = JSON.parse(raw) as GlobalSettings;
 s.Localization?.SupportedLanguages   // tipizzato; `s.Localizaton` non compila
 ```
 
+#### Personalizzare tema (colori) e font
+Palette derivata in OKLCH da `site.colorTema` (contrasto WCAG garantito matematicamente): override opzionali `colorSecondary`/`colorBackground`/`colorText`/`colorInfo` per chi ha più di un colore da rispettare — un solo hex per campo copre light e dark. Font: catalogo/logica in `core/engine/font-system.ts` (Engine, non si tocca), scelta in `frontend/src/styles/font-config.ts` (Dominio, l'unico file da editare).
+```json
+// global-settings.json
+"site": { "colorTema": "#131e55", "colorSecondary": "#20c997", "colorBackground": "#f5f6fa" }
+```
+```bash
+mkdir -p fonts && cp MioFont.woff2 fonts/   # accanto a global-settings.json
+```
+```typescript
+// frontend/src/styles/font-config.ts — stesso nome file di sopra
+export const siteFonts: AppFontConfig = {
+    webDefault: 'System', serverDefault: ServerFont.Liberation,
+    custom: { family: 'MioFont', file: 'MioFont.woff2' },  // sostituisce web E immagini OG
+};
+```
+Dettagli, comportamento di default e limiti (`colorText` senza override segue `colorBackground`, non il brand) in [frontend/README.md](frontend/README.md) §"Tema e Sistema di Colori" e §"Font", e [DOCKER_README.md](DOCKER_README.md) §"Font custom".
+
 #### Feature flag / varianti di progetto via `Custom`
 La sezione `Custom` di `global-settings.json` (committabile, `additionalProperties: true`, nessuno schema fisso: ci metti quello che vuoi) è il punto giusto per un flag o una variante letta da entrambi i lati senza inventare un meccanismo nuovo — utile per accendere/spegnere una sezione, testare due varianti (CRO/A-B) o passare un ID (analytics, SDK esterno). **Non è remote-config**: cambiare un valore è una modifica al file + un nuovo deploy, non un toggle a runtime.
 ```json

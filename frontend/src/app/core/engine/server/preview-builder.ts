@@ -1,7 +1,7 @@
 import { ImgBuilderService, TextBlockSpec } from '../services/img-builder.service';
 import { FontMetrics } from '../services/font-metrics';
 import { loadServerFontMetrics } from './server-font-metrics';
-import { FontConfig } from '../../../../styles/font-config';
+import { resolvedFonts } from '../../../../styles/font-config';
 
 // Lato server le metriche vengono dai font reali installati (fallback alle tabelle se non leggibili).
 FontMetrics.configure(loadServerFontMetrics);
@@ -134,7 +134,7 @@ export class PreviewBuilder {
             textColor: opts.textColor ?? ImgBuilderService.getReadableTextColor(opts.bgColor),
             width: Math.max(1, Math.ceil(opts.width ?? this.CANVAS_WIDTH)),
             height: Math.max(1, Math.ceil(opts.height ?? this.CANVAS_HEIGHT)),
-            fontFamily: opts.fontFamily ?? FontConfig.DEFAULT_SERVER_FONT,
+            fontFamily: opts.fontFamily ?? resolvedFonts.serverStack,
             appFontSize: opts.appFontSize ?? this.FONT_SECONDARY,
             titleFontSize: opts.titleFontSize ?? this.FONT_PRIMARY,
             subtitleFontSize: opts.subtitleFontSize ?? this.FONT_SECONDARY,
@@ -260,7 +260,7 @@ export class PreviewBuilder {
             hPadR,
             vPad,
             fillOpacity: opts.fillOpacity ?? this.OPACITY_OVERLAY,
-            fontFamily: FontConfig.DEFAULT_SERVER_FONT,
+            fontFamily: resolvedFonts.serverStack,
             lineStep: fontSize * this.LINE_HEIGHT,
             textColor: ImgBuilderService.getReadableTextColor(opts.bgColor),
         };

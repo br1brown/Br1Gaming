@@ -166,6 +166,14 @@ export interface SiteConfig {
     description: Record<string, string>;
     /** Colore tema principale usato dalla UI. */
     colorTema: string;
+    /** Override opzionale del colore secondario. Assente = derivato da `colorTema` (muted). */
+    colorSecondary?: string;
+    /** Override opzionale del colore di sfondo (pagina/card/hover). Assente = derivato da `colorTema`. */
+    colorBackground?: string;
+    /** Override opzionale del colore del testo (corpo e headings). Assente = segue `colorBackground` (che a sua volta è `colorTema` se nemmeno quello è impostato). */
+    colorText?: string;
+    /** Override opzionale del colore informativo. Assente = `--bs-info*` resta gestito da Bootstrap. */
+    colorInfo?: string;
     /** Indica se il footer deve essere visibile. */
     showFooter: boolean;
     /** Indica se il Header deve essere visibile. */
@@ -1088,6 +1096,10 @@ function buildFinalConfig(definition: SiteDefinition): SiteConfig {
         version: normalizeVersion(environment.version) || '1.0.0',
         description: cfg.description ?? {},
         colorTema: cfg.colorTema ?? '#888888',
+        colorSecondary: cfg.colorSecondary,
+        colorBackground: cfg.colorBackground,
+        colorText: cfg.colorText,
+        colorInfo: cfg.colorInfo,
         showFooter: shell.showFooter ?? true,
         showNav: shell.showNav ?? true,
         fixedTopHeader: shell.fixedTopHeader ?? false,

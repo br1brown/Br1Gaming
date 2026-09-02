@@ -1,7 +1,9 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { FontMetric, FONT_METRICS } from '../services/font-metrics';
-import { ServerFont } from '../../../../styles/font-config';
+import { ServerFont } from '../font-system';
+import { resolvedFonts } from '../../../../styles/font-config';
+import { customFontFilePath } from './custom-font-detect';
 
 /**
  * SERVER FONT METRICS — loader runtime delle metriche font (lato server).
@@ -125,17 +127,24 @@ function parseCmapFormat4(b: Buffer, sub: number): (cp: number) => number {
     };
 }
 
-/** Costruisce le metriche di un font dai file reali (regular + bold). Lancia su dati implausibili. */
-function buildMetric(family: string, fallback: FontMetric): FontMetric {
-    const regular = parseFont(resolveFontFile(family));
+/** Calcola advance/fallbackAdvance da un font già aperto — nucleo condiviso da `buildMetric`
+ *  (font di sistema via fc-match) e `buildMetricFromFile` (font custom, path già noto). */
+function metricFromParsed(regular: ParsedFont, fallback: FontMetric, boldFactor: number): FontMetric {
     const toThousandEm = (units: number, font: ParsedFont): number => Math.round((units * 1000) / font.unitsPerEm);
-
     const advance: Record<number, number> = {};
     for (let cp = 32; cp <= 126; cp++) {
         const units = regular.advanceForCp(cp);
         if (units != null) advance[cp] = toThousandEm(units, regular);
     }
     const fallbackAdvance = advance[111] /* 'o' */ ?? fallback.fallbackAdvance;
+    const metric: FontMetric = { advance, fallbackAdvance, boldFactor };
+    assertSane(metric);
+    return metric;
+}
+
+/** Costruisce le metriche di un font di sistema dai file reali (regular + bold, via fc-match). */
+function buildMetric(family: string, fallback: FontMetric): FontMetric {
+    const regular = parseFont(resolveFontFile(family));
 
     // boldFactor: rapporto medio bold/regular sulle lettere; se il bold non si legge tieni il fallback.
     let boldFactor = fallback.boldFactor;
@@ -153,9 +162,13 @@ function buildMetric(family: string, fallback: FontMetric): FontMetric {
         if (sumRegular > 0) boldFactor = Math.round((sumBold / sumRegular) * 1000) / 1000;
     } catch { /* bold non leggibile: resta il boldFactor di fallback */ }
 
-    const metric: FontMetric = { advance, fallbackAdvance, boldFactor };
-    assertSane(metric);
-    return metric;
+    return metricFromParsed(regular, fallback, boldFactor);
+}
+
+/** Come `buildMetric`, ma da un path già noto (nessun fc-match) — un font custom non ha una
+ *  variante ":bold" registrata, quindi boldFactor resta sempre quello di fallback. */
+function buildMetricFromFile(filePath: string, fallback: FontMetric): FontMetric {
+    return metricFromParsed(parseFont(filePath), fallback, fallback.boldFactor);
 }
 
 /** Scarta risultati di parsing palesemente sbagliati (che il fallback per-errore non intercetterebbe). */
@@ -170,15 +183,24 @@ function assertSane(m: FontMetric): void {
 
 /**
  * Metriche per ogni font server lette dai file reali, con fallback per-font sullo snapshot baked-in.
- * Da passare a `FontMetrics.configure`. Sincrono e una-tantum: lo chiama il layer server all'avvio.
+ * Se c'è un custom con file confermato (`customFontFilePath`), aggiunge anche la sua voce sotto
+ * `resolvedFonts.serverKey` — assente, `measure()` ripiega da sola su Liberation. Da passare a
+ * `FontMetrics.configure`; sincrono e una-tantum, all'avvio.
  */
-export function loadServerFontMetrics(): Record<ServerFont, FontMetric> {
-    const result = {} as Record<ServerFont, FontMetric>;
+export function loadServerFontMetrics(): Record<string, FontMetric> {
+    const result: Record<string, FontMetric> = {};
     for (const key of Object.values(ServerFont) as ServerFont[]) {
         try {
             result[key] = buildMetric(FAMILY[key], FONT_METRICS[key]);
         } catch {
             result[key] = FONT_METRICS[key];
+        }
+    }
+    if (resolvedFonts.custom && customFontFilePath) {
+        try {
+            result[resolvedFonts.custom.family] = buildMetricFromFile(customFontFilePath, FONT_METRICS[ServerFont.Liberation]);
+        } catch {
+            result[resolvedFonts.custom.family] = FONT_METRICS[ServerFont.Liberation];
         }
     }
     return result;

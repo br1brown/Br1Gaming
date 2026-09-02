@@ -39,6 +39,10 @@ services:
     volumes:
       - ${BR1_SETTINGS_FILE:-./global-settings.json}:/app/global-settings.json:ro
       - ./security-headers.json:/app/security-headers.json:ro
+      # Font custom opzionale: se ./fonts contiene un file font (woff2/woff/ttf/otf), diventa il
+      # font di default del sito (vedi custom-font-detect.ts). Cartella assente/vuota = nessun
+      # cambiamento — Docker la crea vuota da sola se BR1_FONTS_DIR non esiste sull'host.
+      - ${BR1_FONTS_DIR:-./fonts}:/app/fonts:ro
     depends_on:
       backend:
         condition: service_healthy

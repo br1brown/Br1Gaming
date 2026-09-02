@@ -43,7 +43,7 @@ export class ContentResolver {
     private readonly http = inject(HttpClient);
     private readonly translate = inject(TranslateService);
     private readonly apiService = inject(ApiService);
-    private readonly fileReader = inject(LEGAL_FILE_READER);
+    private readonly legalfileReader = inject(LEGAL_FILE_READER);
 
     async loadResolved(pageType: PageType, lang?: string): Promise<ResolvedPage> {
 
@@ -84,8 +84,8 @@ export class ContentResolver {
     private async tryLoadPolicy(slug: string, lang: string): Promise<string | null> {
         // SSR: legge da disco (dist/browser/assets/legal). Se manca — tipico in
         // `ng serve`, dove quella cartella non esiste — ricade sull'HTTP come il browser.
-        if (this.fileReader) {
-            const fromDisk = await this.fileReader(slug, lang);
+        if (this.legalfileReader) {
+            const fromDisk = await this.legalfileReader(slug, lang);
             if (fromDisk !== null) return fromDisk;
         }
         return firstValueFrom(

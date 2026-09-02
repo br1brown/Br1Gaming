@@ -109,12 +109,18 @@ const _fileProject = _settings.project ?? {};
 // showLoginInHeader/showNotifications/forcedLightPanel/isWebApp/onlyPlainImage) sono migrati in site.ts,
 // quindi vengono filtrati via qui anche se un vecchio JSON li contiene ancora.
 const SITE_CONFIG = _settings.site ?? {};
-const SITE_AESTHETIC_KEYS = ['description', 'colorTema', 'smoke'];
+const SITE_AESTHETIC_KEYS = ['description', 'colorTema', 'colorSecondary', 'colorBackground', 'colorText', 'colorInfo', 'smoke'];
 
 // Identità dell'app — fonte unica: project.name / project.version.
 const APP_NAME = _fileProject.name || 'App';
 const APP_VERSION = _fileProject.version || '1.0.0';
 const COLOR_TEMA = SITE_CONFIG.colorTema ?? '#888888';
+const COLOR_OVERRIDES = {
+    secondary: SITE_CONFIG.colorSecondary,
+    background: SITE_CONFIG.colorBackground,
+    text: SITE_CONFIG.colorText,
+    info: SITE_CONFIG.colorInfo,
+};
 
 // PWA on/off — fonte unica: ContestoSito.config.isWebApp (site.ts). Guida la generazione
 // dei TRIGGER di installabilità: il manifest e, in index.html, <link rel="manifest"> più i
@@ -328,6 +334,10 @@ function updateIndexHtml(): void {
 export interface AppSiteConfig {
     description?: Record<string, string>;
     colorTema?: string;
+    colorSecondary?: string;
+    colorBackground?: string;
+    colorText?: string;
+    colorInfo?: string;
     smoke?: {
         enable?: boolean;
         color?: string;
@@ -430,7 +440,7 @@ function updateManifest(): void {
         return;
     }
 
-    const palette = ThemeService.computePalette(COLOR_TEMA);
+    const palette = ThemeService.computePalette(COLOR_TEMA, COLOR_OVERRIDES);
 
     const manifest: Record<string, unknown> = {
         name: APP_NAME,
