@@ -41,6 +41,12 @@ global-settings.local.json
 # Backup dei volumi dati prodotti da scripts/backup.sh
 /backups/
 
+# Font custom (siteFonts.custom in frontend/src/styles/font-config.ts): il file va
+# accanto a global-settings.json (vedi FONTS_DIR in DOCKER_README.md), ma è quasi
+# sempre a licenza — non si committa. La cartella resta nel repo solo come segnaposto.
+/fonts/*
+!/fonts/.gitkeep
+
 # OS generated files
 .DS_Store
 .DS_Store?

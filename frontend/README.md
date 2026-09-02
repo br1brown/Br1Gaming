@@ -774,6 +774,8 @@ Un font caricato dal cliente: metti il file in `fonts/`, la cartella accanto a `
 
 In Docker quella cartella diventa un volume (`BR1_FONTS_DIR`, dettagli in [DOCKER_README.md](../DOCKER_README.md)) — è lì, non nel codice, che il file fisico deve trovarsi in produzione.
 
+In sviluppo locale `start-frontend-dev.sh` punta già `FONTS_DIR` a quella cartella (il default risolverebbe relativo alla cwd di Node, cioè `frontend/`, non alla radice del progetto). Lanciando `ng serve` a mano vale lo stesso avviso: senza `FONTS_DIR` impostato a mano, un font custom presente in `fonts/` non verrebbe trovato.
+
 Nota tecnica sulle immagini OG: Sharp/librsvg risolvono i font tramite fontconfig, non tramite `@font-face` come il browser — un file presente nella cartella non è "visibile" a fontconfig da solo. Il Dockerfile e `docker-entrypoint.sh` se ne occupano già (registrano la cartella e rilanciano `fc-cache` a ogni avvio); non serve altro da parte tua.
 
 ---

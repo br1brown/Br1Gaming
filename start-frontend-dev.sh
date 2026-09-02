@@ -9,6 +9,11 @@ cd "$(dirname "$0")/frontend"
 export BACKEND_ORIGIN="http://localhost:5000"
 # La x-api-key non si imposta qui: il proxy dev e il Node SSR la leggono da global-settings.json.
 export ASSETS_DIR="$(pwd)/src/assets/files"
+# Font custom (frontend/src/styles/font-config.ts → custom.file): il default di FONTS_DIR risolve
+# relativo alla cwd del processo Node (qui frontend/), ma il file vive accanto a global-settings.json
+# (repo root) — va ripuntato esplicitamente, altrimenti in dev locale il font 404 in silenzio e
+# resta lo stack di sistema. Coincide col mount Docker (/app/fonts) solo in produzione.
+export FONTS_DIR="$(pwd)/../fonts"
 
 echo "Verifico dipendenze npm..."
 npm install
