@@ -40,7 +40,14 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist/app ./dist/app
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 
-RUN apk add --no-cache fontconfig ttf-dejavu font-roboto font-noto font-liberation wget && fc-cache -f && \
+# /app/fonts è il mount point del volume opzionale del font custom (docker-compose.yml,
+# BR1_FONTS_DIR): dichiararlo qui come cartella fontconfig è sicuro anche se al build è ancora
+# vuota — fc-match/Sharp lo scoprirà una volta montato il volume a runtime, dopo il refresh
+# della cache che fa docker-entrypoint.sh a ogni avvio (il volume non esiste ancora in questa fase).
+RUN apk add --no-cache fontconfig ttf-dejavu font-roboto font-noto font-liberation wget && \
+    mkdir -p /app/fonts /etc/fonts/conf.d && \
+    printf '<?xml version="1.0"?>\n<!DOCTYPE fontconfig SYSTEM "fonts.dtd">\n<fontconfig>\n  <dir>/app/fonts</dir>\n</fontconfig>\n' > /etc/fonts/conf.d/70-custom-fonts-dir.conf && \
+    fc-cache -f && \
     chmod +x /docker-entrypoint.sh && \
     addgroup -S app && adduser -S -G app app && chown -R app:app /app
 USER app

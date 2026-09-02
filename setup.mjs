@@ -116,11 +116,6 @@ export type {
 // dividilo in più file (uno per area tematica, sotto pages/) e assemblalo
 // qui con lo spread — pattern descritto in AGENTS.md § "Aggiungere una pagina".
 export const PageType = {
-    PrivacyPolicy: 'legal.privacy',
-    CookiePolicy: 'legal.cookie',
-    TermsOfService: 'legal.tos',
-    LegalNotice: 'legal.notice',
-    AccessibilityStatement: 'legal.accessibility',
     Home: 'home',
 } as const;
 export type PageType = (typeof PageType)[keyof typeof PageType];
@@ -135,27 +130,22 @@ export type PageType = (typeof PageType)[keyof typeof PageType];
 // navbar usa la forma estesa: loginPage: { page: PageType.Login, showInHeader: true }.
 // I pezzi pronti (pagina login, app-login-form, app-user-nav) sono gia' nel
 // progetto: vanno solo ricablati.
+//
+// PAGINE LEGALI SPENTE di default: nessun cookie di progetto + isWebApp:false = il sito non ha
+// nulla da far scegliere, quindi niente cookie-banner e nessuna Cookie Policy obbligatoria (si
+// disattiva da sola). Per attivarle: PageType.PrivacyPolicy/CookiePolicy/... + un array
+// legalPages (vedi STANDARD_LEGAL_PAGES in siteBuilder.ts per i default delle 5 standard) +
+// cookiePolicy: PageType.CookiePolicy, sul modello di pages/policy/ nel repo del template
+// (policy.component + legal.pages.ts) — ricetta completa in AGENTS.md § "Aggiungere una policy legale".
 export const ContestoSito = buildSite({
     homePage: PageType.Home,
 
-    legalPages: {
-        privacy: PageType.PrivacyPolicy,
-        cookie: PageType.CookiePolicy,
-        tos: PageType.TermsOfService,
-        legal: PageType.LegalNotice,
-        accessibility: PageType.AccessibilityStatement,
-    },
-
+    // Comportamento di navbar/footer/header/pannello: dichiara solo gli scostamenti dal default
+    // (ogni flag omesso resta al proprio default — riferimento completo in frontend/README.md
+    // §"Opzioni Avanzate di site.ts").
     shell: {
-        showNav: true,
-        showFooter: true,
-        fixedTopHeader: true,
-        showBrandIconInHeader: true,
-        forcedLightPanel: true,
+        fixedTopHeader: true, // default: false — qui la navbar resta fissa in alto allo scroll
     },
-
-    isWebApp: true,
-    onlyPlainImage: false,
 
     pages: () => [
         {
@@ -169,20 +159,10 @@ export const ContestoSito = buildSite({
         },
     ],
 
+    // Popola qui il menu principale con addPage / addLink / addGroup quando aggiungi pagine.
     headerNav: (h) => {
-        h.addGroup('menuPolicy', g => {
-            g.addPage(PageType.PrivacyPolicy);
-            g.addPage(PageType.CookiePolicy);
-            g.addPage(PageType.AccessibilityStatement);
-            g.addGroup('menuLegale', sg => {
-                sg.addPage(PageType.TermsOfService);
-                sg.addPage(PageType.LegalNotice);
-            });
-        });
     },
 
-    // Le pagine legali non si dichiarano qui: il footer le rende da solo in una fascia dedicata
-    // ("small prints"), derivata da legalPages sopra. footerNav resta per la navigazione libera.
     footerNav: (f) => {
     },
 });

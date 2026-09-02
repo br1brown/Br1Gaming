@@ -106,6 +106,12 @@
 .text-bg-secondary {
     color: var(--colorSecondaryText, #fff) !important;
 }
+/* --colorInfoText esiste SOLO se site.colorInfo è impostato (vedi PaletteOverrides.info in
+   theme.service.ts): var() senza secondo argomento risolto cade sul fallback #000, lo stesso
+   valore che Bootstrap già hardcoda oggi — zero cambiamento quando l'override è assente. */
+.text-bg-info {
+    color: var(--colorInfoText, #000) !important;
+}
 
 /* ── Token colori semantici ──────────────────────────────────────────────────
    --colorSecondary è calcolato da ThemeService.computePalette() in OKLCH

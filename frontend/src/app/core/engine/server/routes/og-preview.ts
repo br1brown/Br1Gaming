@@ -180,7 +180,12 @@ async function renderPreviewWithImage(res: Response, ogImageId: string, title: s
                         anchorCenterY: iconTop + iconSize / 2,
                         maxRight: OG_W - padding,
                         title: normalizedTitle,
-                        bgColor: ThemeService.computePalette(ContestoSito.config.colorTema).colorPrimary,
+                        bgColor: ThemeService.computePalette(ContestoSito.config.colorTema, {
+                            secondary: ContestoSito.config.colorSecondary,
+                            background: ContestoSito.config.colorBackground,
+                            text: ContestoSito.config.colorText,
+                            info: ContestoSito.config.colorInfo,
+                        }).colorPrimary,
                         fontSize: 40,
                     });
                     composites.push({ input: Buffer.from(badgeSvg, 'utf-8'), left: 0, top: 0 });

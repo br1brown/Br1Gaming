@@ -92,7 +92,7 @@ lingue supportate (sezione `Localization`) per SEO e `environment.ts`: non servo
 | `site.smoke` | — | Effetto particellare di sfondo (ometti/`enable:false` per disattivarlo). Sottocampi: `enable`, `color`, `opacity`, `maximumVelocity`, `particleRadius`, `density` |
 | `Custom` | `{}` | Valori liberi leggibili da backend (`IConfiguration["Custom:..."]`) e Node SSR (`getBr1Settings().Custom`) |
 
-> I flag di comportamento (`showNav`, `showFooter`, `fixedTopHeader`, `showBrandIconInHeader`, `showNotifications`, `forcedLightPanel`, `isWebApp`, `onlyPlainImage`, il `showInHeader` di `loginPage`) sono struttura e vivono in `frontend/src/app/site.ts` (`shell` / `isWebApp` / `onlyPlainImage` / `loginPage`).
+> I flag di comportamento (`showNav`, `showFooter`, `showPanel`, `fixedTopHeader`, `showBrandIconInHeader`, `showNotifications`, `panelForcedLight`, `isWebApp`, `onlyPlainImage`, il `showInHeader` di `loginPage`) sono struttura e vivono in `frontend/src/app/site.ts` (`shell` / `isWebApp` / `onlyPlainImage` / `loginPage`).
 
 ### `global-settings.local.json` — pubblicazione + segreti (gitignored)
 
@@ -132,6 +132,11 @@ Variabili lette al boot dal container Node frontend (`frontend/src/app/core/engi
 | `IMAGE_CACHE_DIR` | `<temp di sistema>/…` | Cartella dei thumbnail di `/cdn-cgi/asset` e `/cdn-cgi/preview`. Default nella temp (isolata per progetto), quindi **effimera**: riparte fredda a ogni riavvio. Per una cache **calda tra i deploy**, monta un volume persistente e puntalo qui (dettaglio in [frontend/README.md](frontend/README.md)) |
 | `IMAGE_CACHE_MAX_MB` | `500` | Cap della cache immagini su disco; oltre la soglia uno sweep LRU ogni 6 ore la riporta al 90% del cap |
 | `SEO_NOINDEX` | `false` | Se `true` (`1`/`yes`/`on`), rende l'intero deploy **non indicizzabile**: `X-Robots-Tag: noindex, nofollow` su ogni risposta + `robots.txt` dinamico `Disallow: /`. Per staging/anteprima dietro lo stesso reverse proxy della produzione. **Lascialo spento in produzione (default).** Su un deploy si imposta come passthrough prima del comando: `export SEO_NOINDEX=true; ./scripts/deploy.sh` (stessa convenzione di `Mail__Password`). L'overlay `docker-compose.public-test.yml` lo lascia spento (così il test SEO/Lighthouse è significativo); per un'anteprima non indicizzabile avviala con `PUBLIC_TEST_NOINDEX=true` |
+| `FONTS_DIR` | `/app/fonts` | Cartella in cui il server cerca il file dichiarato in `siteFonts.custom` (`frontend/src/styles/font-config.ts`) — vedi sotto. Il default coincide già col mount point Docker; da impostare solo per uno sviluppo locale con un percorso diverso |
+
+### Font custom (opzionale)
+
+Metti il file font in `./fonts` (host, accanto a `global-settings.json`), poi dichiaralo in `siteFonts.custom` (`family`/`file`) in `frontend/src/styles/font-config.ts` — `docker-compose.yml` monta quella cartella in sola lettura su `/app/fonts`. `custom` assente o file mancante dalla cartella: nessun cambiamento, resta lo stack di font di sistema di oggi. Il font sostituisce sia quello del sito sia quello delle immagini Open Graph (`/cdn-cgi/preview`) — non solo il web. Per un percorso host diverso da `./fonts`: `export BR1_FONTS_DIR=/percorso/font; ./scripts/deploy.sh`.
 
 ## Sviluppo locale
 

@@ -54,6 +54,12 @@ export class IdentityRenderComponent {
      *  sempre visibile (pagine legali). Solo la FORMA cambia: gli orari si mostrano in entrambi. */
     readonly hoursAccordion = input(false, { transform: booleanAttribute });
 
+    // Un booleano per blocco (default true): un consumer che vuole mostrarne solo alcuni li mette a false.
+    readonly showCompanyDetails = input(true, { transform: booleanAttribute });
+    readonly showLegalDetails = input(true, { transform: booleanAttribute });
+    readonly showContacts = input(true, { transform: booleanAttribute });
+    readonly showOpeningHours = input(true, { transform: booleanAttribute });
+
     readonly sections = computed<IdentitySection[]>(() => {
         const identity = this.identity();
         if (!identity) return [];
@@ -61,14 +67,8 @@ export class IdentityRenderComponent {
         // Numero imprecisato di sezioni-dati dinamiche. La sezione "Contatti" è
         // invece dedicata e renderizzata a parte (testo + badge impilati).
         return this.compactSections([
-            {
-                titleKey: 'datiSocietariAzienda',
-                items: this.identifierItems(identity),
-            },
-            {
-                titleKey: 'datiLegaliAzienda',
-                items: this.legalItems(identity),
-            },
+            ...(this.showCompanyDetails() ? [{ titleKey: 'datiSocietariAzienda', items: this.identifierItems(identity) }] : []),
+            ...(this.showLegalDetails() ? [{ titleKey: 'datiLegaliAzienda', items: this.legalItems(identity) }] : []),
         ]);
     });
 
@@ -76,7 +76,7 @@ export class IdentityRenderComponent {
      *  sono resi a parte da `app-opening-hours` (componente autonomo), non più una riga di testo qui. */
     readonly contactItems = computed<IdentityItem[]>(() => {
         const identity = this.identity();
-        if (!identity) return [];
+        if (!identity || !this.showContacts()) return [];
         return this.compactItems([
             this.createTextItem(identity.ragioneSociale, this.label('ragioneSocialeAzienda')),
             this.createTextItem(this.formatAddress(identity), this.label('sedeLegaleAzienda')),
@@ -86,14 +86,15 @@ export class IdentityRenderComponent {
         ]);
     });
 
-    /** Gli orari (delegati a `app-opening-hours`) hanno almeno una fascia valida da mostrare. */
-    readonly showOpeningHours = computed<boolean>(() => hasOpeningHours(this.identity()?.openingHours));
+    /** Orari (via `app-opening-hours`): richiesti da `showOpeningHours` e con dati presenti. */
+    readonly showOpeningHoursSection = computed<boolean>(() =>
+        this.showOpeningHours() && hasOpeningHours(this.identity()?.openingHours));
 
     /** Indica se la colonna Contatti (testo + badge, SENZA orari — colonna a sé) ha qualcosa da mostrare. */
     readonly hasContactInfo = computed<boolean>(() => this.contactItems().length > 0 || this.contacts().length > 0);
 
     /** Indica se c'è qualcosa da mostrare fra contatti e orari, sommati (usato per il gate dell'intera riga). */
-    readonly hasContacts = computed<boolean>(() => this.hasContactInfo() || this.showOpeningHours());
+    readonly hasContacts = computed<boolean>(() => this.hasContactInfo() || this.showOpeningHoursSection());
 
     /** Profili social del brand, solo quando `showSocial` è attivo (dato d'identità). L'icona la
      *  deduce `app-social-link` dall'URL; `name` (se c'è) è l'etichetta resa accanto nel footer. */
@@ -135,7 +136,7 @@ export class IdentityRenderComponent {
      */
     readonly contacts = computed<ContactChannel[]>(() => {
         const identity = this.identity();
-        if (!identity) return [];
+        if (!identity || !this.showContacts()) return [];
 
         const list: ContactChannel[] = [];
         const c = identity.contatti;
@@ -269,24 +270,38 @@ export class IdentityRenderComponent {
     }
 }
 
-/**
- * True se `identity` ha almeno un campo che `app-identity-render` renderizzerebbe (identificativi,
- * dati legali, contatti testuali/canali, orari o — se richiesto — social): stesso pattern di
- * `hasOpeningHours`, permette a un consumer (es. `{{companyProfile}}` nelle pagine legali) di non
- * riservare spazio per un blocco che, identità non `null` ma con ogni campo vuoto, risulterebbe
- * comunque invisibile. `includeSocial` è `false` di default perché i consumer che non passano
- * `[showSocial]="true"` (tutte le pagine legali) non renderizzano comunque i social.
- */
-export function hasIdentityContent(identity: Identity | null | undefined, includeSocial = false): boolean {
+/** Blocchi da considerare in {@link hasIdentityContent} — stessi 4 blocchi + social di `app-identity-render`. */
+export interface IdentityContentOptions {
+    includeCompanyDetails?: boolean;
+    includeLegalDetails?: boolean;
+    includeContacts?: boolean;
+    includeOpeningHours?: boolean;
+    includeSocial?: boolean;
+}
+
+/** True se `identity` ha almeno un campo valorizzato nei blocchi richiesti da `options`: evita di
+ *  montare `app-identity-render` per un blocco che risulterebbe vuoto. Le opzioni devono rispecchiare
+ *  gli `[show*]` passati al componente, altrimenti il gate può risultare vero a vuoto. */
+export function hasIdentityContent(identity: Identity | null | undefined, options: IdentityContentOptions = {}): boolean {
     if (!identity) return false;
+    const {
+        includeCompanyDetails = true,
+        includeLegalDetails = true,
+        includeContacts = true,
+        includeOpeningHours = true,
+        includeSocial = false,
+    } = options;
+
     const hasText = (value: string | null | undefined): value is string =>
         typeof value === 'string' && value.trim().length > 0;
 
     const ds = identity.datiSocietari;
-    const hasIdentifiers = hasText(identity.partitaIva) || hasText(identity.codiceFiscale)
-        || hasText(ds?.registroImprese) || hasText(ds?.numeroRea) || hasText(ds?.codiceSdi);
+    const hasIdentifiers = includeCompanyDetails && (
+        hasText(identity.partitaIva) || hasText(identity.codiceFiscale)
+        || hasText(ds?.registroImprese) || hasText(ds?.numeroRea) || hasText(ds?.codiceSdi)
+    );
 
-    const hasLegal = ds != null && (
+    const hasLegal = includeLegalDetails && ds != null && (
         (typeof ds.capitaleSociale === 'number' && Number.isFinite(ds.capitaleSociale))
         || typeof ds.capitaleInteramenteVersato === 'boolean'
         || typeof ds.isSocioUnico === 'boolean'
@@ -297,13 +312,16 @@ export function hasIdentityContent(identity: Identity | null | undefined, includ
     const hasAddress = address != null
         && [address.via, address.civico, address.cap, address.citta, address.provincia, address.nazione].some(hasText);
     const hasLegalRoleName = hasText(identity.titolareDelTrattamento?.nome) || hasText(identity.responsabileProtezioneDati?.nome);
-    const hasContactBlock = hasText(identity.ragioneSociale) || hasAddress || hasText(identity.rappresentanteLegale) || hasLegalRoleName;
+    const hasContactBlock = includeContacts
+        && (hasText(identity.ragioneSociale) || hasAddress || hasText(identity.rappresentanteLegale) || hasLegalRoleName);
 
     const c = identity.contatti;
-    const hasContactChannels = (c != null && (hasText(c.telefono) || hasText(c.email) || hasText(c.pec)))
-        || hasText(identity.titolareDelTrattamento?.email) || hasText(identity.responsabileProtezioneDati?.email);
+    const hasContactChannels = includeContacts && (
+        (c != null && (hasText(c.telefono) || hasText(c.email) || hasText(c.pec)))
+        || hasText(identity.titolareDelTrattamento?.email) || hasText(identity.responsabileProtezioneDati?.email)
+    );
 
-    const hasHours = hasOpeningHours(identity.openingHours);
+    const hasHours = includeOpeningHours && hasOpeningHours(identity.openingHours);
 
     const hasSocial = includeSocial && Array.isArray(identity.social)
         && identity.social.some(s => !!s && hasText(s.url));

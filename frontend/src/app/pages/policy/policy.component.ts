@@ -4,7 +4,7 @@ import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { CookieConsentService, buildPhysicalCookieKey } from '../../core/engine/services/cookie-consent.service';
 import { ConsentCategory, CookieConfig, EngineCookieKey, StorageMedium } from '../../core/engine/services/cookie/cookie-type';
 import { COOKIE_MAP, type CookieKey } from '../../core/services/cookie-registry';
-import { legalUpdated } from './legal.pages';
+import { legalPageConfig } from './legal.pages';
 import { hasIdentityContent, IdentityRenderComponent } from '../../components/shared/identity-render/identity-render.component';
 import { IdentityService } from '../../core/engine/services/identity.service';
 import type { Identity } from '../../core/engine/dto/identity.dto';
@@ -76,10 +76,20 @@ export class PolicyComponent extends PageBaseComponent<string> {
     /** Identità per l'IdentityRenderComponent (dalla risorsa condivisa dell'engine). */
     readonly identity = signal<Identity | null>(null);
 
-    /** True solo se l'identità ha almeno un campo valorizzato: `{{companyProfile}}` non deve
-     *  riservare spazio (né montare `app-identity-render`) quando risulterebbe comunque vuoto —
-     *  sia perché l'identità non è configurata (`null`), sia perché è presente ma senza dati. */
-    readonly hasCompanyProfile = computed(() => hasIdentityContent(this.identity()));
+    /** Blocchi di `app-identity-render` da mostrare per la pagina corrente, da `legal.pages.ts`. */
+    readonly identityFlags = computed(() => legalPageConfig(this.pageType()));
+
+    /** True se l'identità ha dati nei blocchi che `identityFlags` mostra per questa pagina: evita di
+     *  montare `app-identity-render` per un blocco vuoto. */
+    readonly hasCompanyProfile = computed(() => {
+        const flags = this.identityFlags();
+        return hasIdentityContent(this.identity(), {
+            includeCompanyDetails: flags.showCompanyDetails,
+            includeLegalDetails: flags.showLegalDetails,
+            includeContacts: flags.showContacts,
+            includeOpeningHours: flags.showOpeningHours,
+        });
+    });
 
     readonly cookieCategories = computed(() => {
         const categories: { key: ConsentCategory; name: string; description: string }[] = [];
@@ -221,12 +231,12 @@ export class PolicyComponent extends PageBaseComponent<string> {
      *  La data la formatta il servizio (culture-aware e reattivo, nessun `Intl` qui);
      *  l'attributo `datetime` porta l'ISO per un <time> semantico. */
     private policyUpdate(): { label: string; iso: string; formatted: string } | null {
-        const date = legalUpdated[this.pageType() as keyof typeof legalUpdated];
-        if (!date || isNaN(date.getTime())) return null;
+        const updated = this.identityFlags().updated;
+        if (!updated || isNaN(updated.getTime())) return null;
         return {
             label: this.translate.translate('ultimoAggiornamentoPolicy'),
-            iso: date.toISOString().slice(0, 10),
-            formatted: this.localization.formatter.date(date),
+            iso: updated.toISOString().slice(0, 10),
+            formatted: this.localization.formatter.date(updated),
         };
     }
 

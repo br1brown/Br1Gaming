@@ -116,7 +116,7 @@ Cosa va nel template HTML (classi Bootstrap):
 - Componenti (`card`, `alert`, `btn`, `spinner-border`, `badge`, `list-group`)
 - Responsive (`col-md-6`, `d-none d-lg-block`)
 
-Gli stili sono in SCSS, e hai un solo punto di partenza: `src/styles.scss`. Le fondamenta dell'Engine (token del tema, ponte Bootstrap, layout, accessibilità: `styles/engine/base`) sono cablate dalla build (`angular.json → "styles"`) e caricate sempre: non le vedi e non puoi romperle per sbaglio. A te restano `src/styles.scss` (l'entry), `src/styles/app/` (i tuoi partial, importati con `@use 'app/...'`) e lo strato opzionale dell'Engine. (`styles/engine/` è dell'Engine e si aggiorna dal template; `font-config.ts`, i font, resta tuo come già visto.)
+Gli stili sono in SCSS, e hai un solo punto di partenza: `src/styles.scss`. Le fondamenta dell'Engine (token del tema, ponte Bootstrap, layout, accessibilità: `styles/engine/base`) sono cablate dalla build (`angular.json → "styles"`) e caricate sempre: non le vedi e non puoi romperle per sbaglio. A te restano `src/styles.scss` (l'entry), `src/styles/app/` (i tuoi partial, importati con `@use 'app/...'`) e lo strato opzionale dell'Engine. (`styles/engine/` è dell'Engine e si aggiorna dal template; la scelta del font — `styles/font-config.ts` — resta tua, il catalogo dietro è in `core/engine/font-system.ts`, come già visto.)
 
 In `styles.scss`:
 - `@use 'engine/nav'`: strato opzionale dell'Engine per navbar/footer/dropdown. Vuoi una navigazione con un tuo stile grafico? Commenta questa riga e scrivi il tuo (es. in `styles/app/_nav.scss`): gli stili nav agiscono su classi globali (`.nav-link`, `.navbar .dropdown-menu`…) rese dal componente, quindi le ridipingi dai tuoi file. L'opt-out è a livello di CSS: il markup della navbar resta del componente Engine.
@@ -615,6 +615,19 @@ Da questo colore vengono generati automaticamente:
 
 I colori semantici fissi (warning, info, success, danger) non sono derivati dal brand: Bootstrap 5.3 fornisce già varianti WCAG-safe tone-adaptive nei suoi blocchi `[data-bs-theme]`. ThemeService imposta `data-bs-theme` su `<html>` in base a `prefers-color-scheme`, quindi `--bs-warning-text-emphasis` ecc. si risolvono automaticamente.
 
+### Override opzionali (secondario, sfondo, testo, info)
+
+`site.colorSecondary` / `site.colorBackground` / `site.colorText` / `site.colorInfo` in `global-settings.json` sostituiscono hue e chroma di una singola catena di derivazione — pipeline OKLCH/WCAG e varianti light/dark/subtle/emphasis restano quelle di sempre. Un solo hex per campo copre entrambi i toni, come `colorTema`.
+
+- **`colorSecondary`** — secondario (badge, `.btn-secondary`). Assente: muted del brand.
+- **`colorBackground`** — sfondo pagina/card/hover/superfici. Assente: derivato dal brand.
+- **`colorText`** — corpo e headings. Assente: segue `colorBackground` (non il brand) — testo e sfondo restano sempre intonati senza sceglierlo esplicitamente, perché un testo scollegato dallo sfondo supera comunque WCAG (che guarda solo il contrasto, non l'accostamento) ma può stonare. Impostato: override pieno e indipendente, stesso meccanismo degli altri tre.
+- **`colorInfo`** — `.text-bg-info`/`.alert-info`/`.btn-outline-info`. Unico senza fallback dal brand: assente, `--bs-info*` resta gestito per intero da Bootstrap.
+
+warning/success/danger restano sempre fissi: significato universale (allerta/successo/errore), non personalizzabile da qui.
+
+Un override esplicito su `colorBackground`/`colorText` produce anche una tinta più satura del caso derivato dal brand — i tetti di saturazione erano pensati per restare appena percettibili quando l'hue arrivava solo dal brand, e senza distinguere i due casi un colore scelto apposta finirebbe comunque quasi invisibile.
+
 ### Garanzia WCAG 4.5:1
 
 Tutti i colori di testo su sfondo sono calcolati per garantire contrasto WCAG AA:
@@ -704,11 +717,11 @@ Pannello forzato chiaro dentro una pagina scura: se hai un riquadro che deve res
 
 ```html
 <div [attr.data-bs-theme]="theme.panelBootstrapTheme">
-    <!-- contenuto sempre in tono chiaro se shell.forcedLightPanel è true -->
+    <!-- contenuto sempre in tono chiaro se shell.panelForcedLight è true -->
 </div>
 ```
 
-`panelBootstrapTheme` vale `'light'` quando `shell.forcedLightPanel` è attivo, altrimenti `null` (nessun forzamento).
+`panelBootstrapTheme` vale `'light'` quando `shell.panelForcedLight` è attivo, altrimenti `null` (nessun forzamento).
 
 ### Metodi Statici (SSR-Safe)
 
@@ -738,24 +751,32 @@ Non c'è nulla da attivare: i due meccanismi sono parte della pipeline di build 
 
 ### Font
 
-I font del sito hanno un'unica fonte di verità: [`frontend/src/styles/font-config.ts`](src/styles/font-config.ts). Nessun valore di font è hardcoded altrove: `ThemeService` legge da qui e inietta `--fontFamily` / `--bs-body-font-family`, e `ImgBuilderService` / `PreviewBuilder` lo usano per Canvas e immagini OG.
-
-Due dizionari, due contesti distinti:
-
-- `WEB_FONTS` → **browser e Canvas.** Stack di font di sistema (System, Georgia, Arial, Verdana…), zero dipendenze esterne: ogni OS usa il suo font nativo, niente file da scaricare.
-- `SERVER_FONTS` → **immagini OG generate da Sharp.** Font fisicamente installati nel container Docker (Roboto, DejaVu, Noto, Liberation).
+Il catalogo (font di sistema disponibili, tipi, calcolo dello stack finale) è Engine, in [`core/engine/font-system.ts`](src/app/core/engine/font-system.ts) — INTOCCABILE. La scelta del progetto è Dominio, un unico file: [`frontend/src/styles/font-config.ts`](src/styles/font-config.ts). Sono separati apposta: un aggiornamento del catalogo dal template (nuovo font di sistema) non deve generare un conflitto di merge in un figlio che ha solo scelto un font.
 
 ```typescript
-// font-config.ts — cambiare il default è una riga
-static readonly DEFAULT_WEB_FONT    = FontConfig.WEB_FONTS.System;        // browser + Canvas
-static readonly DEFAULT_SERVER_FONT = FontConfig.SERVER_FONTS.Liberation; // immagini OG
+// styles/font-config.ts — l'unico file da toccare
+export const siteFonts: AppFontConfig = {
+    webDefault: 'System',              // chiave di WEB_FONTS (autocomplete dall'Engine)
+    serverDefault: ServerFont.Liberation, // chiave di SERVER_FONTS, idem
+    // custom: { family: 'Marlboro', file: 'Marlboro.woff2' },  // vedi sotto
+};
 ```
 
-- **Cambiare il font di default:** modifica `DEFAULT_WEB_FONT` e/o `DEFAULT_SERVER_FONT`.
-- **Aggiungere un font web:** aggiungilo a `WEB_FONTS` (nessuna installazione richiesta).
-- **Aggiungere un font server:** aggiungilo a `SERVER_FONTS` **e** installalo nel `Dockerfile`, altrimenti Sharp non lo trova e ripiega sul fallback.
+`ThemeService`, `server.ts`, `ImgBuilderService` e `PreviewBuilder` non leggono mai `siteFonts` direttamente: leggono `resolvedFonts` (stesso file), il risultato già calcolato da `resolveFonts()` (Engine) — stack CSS pronti e la chiave per le metriche server. Nessun valore di font è hardcoded altrove.
 
-I due default sono volutamente separati perché web e server vivono in ambienti diversi: lo stack di sistema del browser non esiste dentro il container, e i font del container non servono al browser.
+- **Cambiare il font di sistema:** modifica `webDefault`/`serverDefault` in `siteFonts` — sono tipizzati sulle chiavi note, l'IDE le suggerisce.
+- **Aggiungere un font di sistema al catalogo:** tocca `font-system.ts` (Engine) — web: una voce in `WEB_FONTS`; server: enum `ServerFont` + voce in `SERVER_FONTS` **e** installazione nel `Dockerfile`, altrimenti Sharp non lo trova e ripiega sul fallback.
+- **`webDefault`/`serverDefault` restano volutamente separati**: web e server vivono in ambienti diversi (lo stack di sistema del browser non esiste nel container, i font del container non servono al browser).
+
+### Font custom (opzionale)
+
+Un font caricato dal cliente: metti il file in `fonts/`, la cartella accanto a `global-settings.json` alla radice del progetto, poi valorizza `custom: { family, file }` in `siteFonts` con lo stesso nome file. Sostituisce **entrambi** i default insieme (web e OG) — un solo font per il sito, mai uno sulla pagina e un altro nelle anteprime social. Reversibile: togli/commenta `custom` senza toccare quella cartella. File dichiarato ma assente: fallback silenzioso sui default di sistema, mai un riferimento rotto.
+
+In Docker quella cartella diventa un volume (`BR1_FONTS_DIR`, dettagli in [DOCKER_README.md](../DOCKER_README.md)) — è lì, non nel codice, che il file fisico deve trovarsi in produzione.
+
+In sviluppo locale `start-frontend-dev.sh` punta già `FONTS_DIR` a quella cartella (il default risolverebbe relativo alla cwd di Node, cioè `frontend/`, non alla radice del progetto). Lanciando `ng serve` a mano vale lo stesso avviso: senza `FONTS_DIR` impostato a mano, un font custom presente in `fonts/` non verrebbe trovato.
+
+Nota tecnica sulle immagini OG: Sharp/librsvg risolvono i font tramite fontconfig, non tramite `@font-face` come il browser — un file presente nella cartella non è "visibile" a fontconfig da solo. Il Dockerfile e `docker-entrypoint.sh` se ne occupano già (registrano la cartella e rilanciano `fc-cache` a ogni avvio); non serve altro da parte tua.
 
 ---
 
@@ -1351,7 +1372,7 @@ await this.share.downloadBlob(blob, 'social.png');
 
 Se non fornisci `bgColor`/`textColor`, vengono letti dai Signal del tema corrente (colori WCAG-conformi automatici).
 
-Oltre alle opzioni di layout, puoi passare `fontFamily` (una chiave di `FontConfig.WEB_FONTS`, risolta nello stack CSS reale) e `lineHeight` (moltiplicatore d'interlinea, default `1.4`). Per allegare l'immagine a un `FormData`/upload c'è `buildFile(text, filename?, opts?)`, che restituisce un `File` PNG già pronto (è `buildBlob` avvolto in un `new File([...])`).
+Oltre alle opzioni di layout, puoi passare `fontFamily` (una chiave di `WEB_FONTS`, risolta nello stack CSS reale) e `lineHeight` (moltiplicatore d'interlinea, default `1.4`). Per allegare l'immagine a un `FormData`/upload c'è `buildFile(text, filename?, opts?)`, che restituisce un `File` PNG già pronto (è `buildBlob` avvolto in un `new File([...])`).
 
 SSR-safe: il metodo statico `ImgBuilderService.buildSvg()` non tocca DOM né Angular, usabile in Node.js per generare preview server-side.
 
@@ -1481,17 +1502,18 @@ loginPage: PageType.Login,         // dove mandare gli utenti non autenticati (s
 shell: {                           // comportamento di navbar / footer / header / pannello contenuti
     showNav: true,                 // mostra la navbar (false nasconde anche il language picker)
     showFooter: true,              // mostra il footer
+    showPanel: true,               // mostra il pannello contenuti (gate: col globale off nessuna pagina può riattivarlo)
     fixedTopHeader: false,         // navbar fissa in alto allo scroll
     showBrandIconInHeader: true,   // favicon accanto al nome nel brand
     showNotifications: false,      // campanellino notifiche realtime con storico (default false, opt-in)
-    forcedLightPanel: true,        // pannello contenuti sempre chiaro, a prescindere dal tema OS
+    panelForcedLight: true,        // pannello contenuti sempre chiaro, a prescindere dal tema OS
     pageFade: true,                // fade-in d'ingresso pagina (gate: col globale off nessuna pagina può riattivarlo)
 },
 
-isWebApp: true,                    // funzionalità PWA (Service Worker, aggiornamenti, install offline)
+isWebApp: false,                   // funzionalità PWA (Service Worker, aggiornamenti, install offline) — default false, opt-in
 onlyPlainImage: false,             // anteprime social con sola immagine, senza scritte/favicon
 
-legalPages: { /* … */ },           // pagine legali → vedi sotto
+legalPages: [ /* … */ ],           // pagine legali → vedi sotto
 ```
 
 > `description` (mappa per-lingua `{ it, en, … }`), `colorTema` e l'effetto `smoke` non stanno qui: sono estetica e vivono in `global-settings.json → site`.
@@ -1696,8 +1718,8 @@ site.homePage;    // PageType del brand (o null)
 site.loginPage;   // PageType di redirect non-auth (o null)
 
 // Flag di shell appiattiti al top-level di SiteConfig (boolean; significato di ciascuno nel
-// blocco `shell` sopra): showNav, showFooter, fixedTopHeader, showBrandIconInHeader,
-// showLoginInHeader, showNotifications, forcedLightPanel, pageFade
+// blocco `shell` sopra): showNav, showFooter, showPanel, fixedTopHeader, showBrandIconInHeader,
+// showLoginInHeader, showNotifications, panelForcedLight, pageFade
 site.showNav;     // es. lettura di un singolo flag
 ```
 

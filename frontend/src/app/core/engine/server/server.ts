@@ -22,6 +22,9 @@ import { fileExists } from './fs-utils';
 import { apiProxyHandler } from './routes/api-proxy';
 import { cdnAssetHandler } from './routes/cdn-asset';
 import { ogPreviewHandler } from './routes/og-preview';
+import { customFontFilePath } from './custom-font-detect';
+import { resolvedFonts } from '../../../../styles/font-config';
+import { extname } from 'node:path';
 
 /** Alias sulla sezione server senza requireEnv, valutata al caricamento del modulo */
 const { server: nodeCfg, site } = serverEnv;
@@ -218,6 +221,27 @@ app.use('/assets/legal', async (req, res, next) => {
     }
     next();
 });
+
+/** MIME per le estensioni font supportate da `custom-font-detect.ts`. */
+const FONT_CONTENT_TYPE: Record<string, string> = {
+    '.woff2': 'font/woff2',
+    '.woff': 'font/woff',
+    '.ttf': 'font/ttf',
+    '.otf': 'font/otf',
+};
+
+/** Font custom: un solo file già noto (`customFontFilePath`), nessuna route con parametro quindi
+ *  nessun path traversal da difendere. Cache moderata, non "immutable": il nome file non porta un
+ *  hash di contenuto, un redeploy con lo stesso nome ma contenuto diverso deve propagarsi. */
+if (customFontFilePath && resolvedFonts.custom) {
+    const filePath: string = customFontFilePath;
+    const url = `/assets/fonts/${encodeURIComponent(resolvedFonts.custom.file)}`;
+    app.get(url, (_req, res) => {
+        res.set('Content-Type', FONT_CONTENT_TYPE[extname(filePath).toLowerCase()] ?? 'application/octet-stream');
+        res.set('Cache-Control', 'public, max-age=3600');
+        res.sendFile(filePath, err => { if (err) res.status(404).end(); });
+    });
+}
 
 /**
  * security.txt (RFC 9116) sul percorso canonico /.well-known/.

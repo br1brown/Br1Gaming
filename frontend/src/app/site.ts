@@ -23,8 +23,6 @@ export type PageType = (typeof PageType)[keyof typeof PageType];
 // Riferimento completo dei campi: frontend/README.md §"Opzioni Avanzate di site.ts".
 export const ContestoSito = buildSite({
 
-    isWebApp: false,
-
     homePage: PageType.Home,
 
     // Pagine legali del progetto (rotte /policy/* auto-generate). ID, voci e date di

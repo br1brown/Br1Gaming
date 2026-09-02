@@ -58,7 +58,9 @@ export class AppComponent {
         this.transferState.get(SHELL_FLAGS_STATE_KEY, {} as ShellFlags)
     );
 
-    readonly showPanel = computed(() => this.shellFlags().showPanel ?? true);
+    // Subordinato al globale (come showNav/showFooter): se site.ts spegne shell.showPanel,
+    // nessuna pagina può riaccenderlo col proprio layout.showPanel.
+    readonly showPanel = computed(() => ContestoSito.config.showPanel && (this.shellFlags().showPanel ?? true));
 
     // Vista full-bleed della pagina attiva (flag layout.fitViewport): lo shell rende il
     // <main> senza container/padding e senza pannello, e .fit-viewport (base.scss) fa
