@@ -8,7 +8,7 @@ import { ContestoSito } from './site';
 import { ShellFlags, SHELL_DATA_KEY } from './core/engine/siteBuilder';
 import { onNavigationEnd } from './core/engine/routing';
 import { ThemeService } from './core/engine/services/theme.service';
-import { FooterComponent } from './components/shared/footer/footer.component';
+import { FooterComponent } from './core/engine/components/footer/footer.component';
 import { NavbarComponent } from './core/engine/components/navbar/navbar.component';
 import { SmokeEffectComponent } from './core/engine/components/smoke-effect/smoke-effect.component';
 import { BackToTopComponent } from './core/engine/components/back-to-top/back-to-top.component';

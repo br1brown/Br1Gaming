@@ -5,7 +5,7 @@ import { CookieConsentService, buildPhysicalCookieKey } from '../../core/engine/
 import { ConsentCategory, CookieConfig, EngineCookieKey, StorageMedium } from '../../core/engine/services/cookie/cookie-type';
 import { COOKIE_MAP, type CookieKey } from '../../core/services/cookie-registry';
 import { legalPageConfig } from './legal.pages';
-import { hasIdentityContent, IdentityRenderComponent } from '../../components/shared/identity-render/identity-render.component';
+import { hasIdentityContent, IdentityRenderComponent } from '../../core/engine/components/identity-render/identity-render.component';
 import { IdentityService } from '../../core/engine/services/identity.service';
 import type { Identity } from '../../core/engine/dto/identity.dto';
 import { SITE_CONFIG } from '../../core/engine/siteBuilder';

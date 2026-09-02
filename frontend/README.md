@@ -43,16 +43,16 @@ Prima di scrivere una riga, tieni a mente una sola linea di confine. Tutto ciò 
 
 | Area | Di chi è | Cosa ci fai |
 | :--- | :--- | :--- |
-| `core/engine/**` | **Engine** (intoccabile) | Servizi, direttive, componenti shell, builder, server SSR, script di build. Lo consumi tramite token, signal e direttive — non lo modifichi |
+| `core/engine/**` | **Engine** (intoccabile) | Servizi, direttive, componenti shell, builder, server SSR, script di build — inclusa la libreria di componenti riusabili (`core/engine/components/**`: azione, contatto, social, `app-identity-render`, `app-login-form`, `app-upload-form`, footer, `app-icon`, `app-user-nav`…). Lo consumi tramite token, signal e direttive — non lo modifichi |
 | `site.ts` | Tuo | Il DSL del sito: assembla `PageType` dai file di area (`pages/*.pages.ts`), pagine, menu, shell, tema. È il primo file che apri |
 | `app.component.ts` / `.html` | Tuo (la **shell**) | Monta navbar, footer, cookie banner, back-to-top e smoke, e avvia `VersionCheckService.init()`. È il posto naturale dove iniettare un servizio sempre-attivo (es. `NotificationStreamService`) |
-| `components/shared/**` | Tuo (riusabili) | Le famiglie pronte — azione, contatto, social, `app-identity-render`, `app-login-form`, `app-upload-form`, footer. Riusabili così come sono, ma di proprietà del figlio: estendibili e modificabili |
+| `components/shared/**` | Tuo (specifici del progetto) | Vuoto di serie: qui ci metti i TUOI componenti riusabili — quelli davvero legati al dominio del progetto (una card di prodotto, un widget specifico) — o un bottone/canale in più che estende una base dell'Engine (vedi sotto) |
 | `core/services/**` | Tuo | `api.service.ts` (il client API che estendi con i tuoi endpoint), `auth.service.ts`, `cookie-registry.ts` (`COOKIE_MAP`) |
 | `core/dto/**` | Tuo | I contratti dati (`session.dto.ts`, `auth.dto.ts`) allineati a mano ai record C# |
 | `pages/**` | Tuo | Le schermate, ognuna estende `PageBaseComponent` |
 | `styles/**` | Tuo (entry `styles.scss`) | Stili globali: parti da `styles.scss`, i tuoi partial in `styles/app/`. `styles/engine/` è dell'Engine e non si tocca |
 
-Il confine non è arbitrario: `app.component.ts` (che è tuo) importa `FooterComponent` da `./components/shared/footer/...`, legge `ContestoSito.config.smoke` e chiama `VersionCheckService`, orchestrando cioè i pezzi dell'Engine montandoli nella shell, senza farne parte. La distinzione operativa è questa: gli oggetti sotto `core/engine/**` non si aprono per modificarli, si consumano (un `inject(...)`, una direttiva, un signal); tutto il resto è codice di progetto che adatti al tuo dominio. Quando un capitolo qui sotto dice "estendi" o "aggiungi un metodo", parla sempre di file fuori da `core/engine/**`; quando dice "consuma" o "leggi il signal", parla dell'Engine.
+Il confine non è arbitrario: `app.component.ts` (che è tuo) importa `FooterComponent` da `./core/engine/components/footer/...`, legge `ContestoSito.config.smoke` e chiama `VersionCheckService`, orchestrando cioè i pezzi dell'Engine montandoli nella shell, senza farne parte. La distinzione operativa è questa: gli oggetti sotto `core/engine/**` non si aprono per modificarli, si consumano (un `inject(...)`, una direttiva, un signal); tutto il resto è codice di progetto che adatti al tuo dominio. Quando un capitolo qui sotto dice "estendi" o "aggiungi un metodo", parla sempre di file fuori da `core/engine/**`; quando dice "consuma" o "leggi il signal", parla dell'Engine.
 
 ---
 
@@ -2070,13 +2070,13 @@ Genera un link `t.me` per avviare una chat Telegram.
 
 ### Aggiungere un componente d'azione (o di contatto)
 
-Le due famiglie sopra poggiano su una base comune, `BaseActionComponent` (`components/shared/base/base-action.component.ts`), che incarna il principio dei componenti autonomi: chi usa il bottone non inietta mai un servizio, passa al massimo una funzione che produce il dato. La base centralizza la parte "sporca" una volta sola:
+Le due famiglie sopra poggiano su una base comune, `BaseActionComponent` (`core/engine/components/base/base-action.component.ts`, Engine), che incarna il principio dei componenti autonomi: chi usa il bottone non inietta mai un servizio, passa al massimo una funzione che produce il dato. La base centralizza la parte "sporca" una volta sola:
 
 - gli input `label` / `showLabel` / `fullWidth` (con l'host che diventa `display: block` quando `fullWidth`);
 - la traduzione della label (`displayLabel`), che ricade su `defaultLabelKey` se non passi una `label`;
 - il metodo protetto `run(work)`, che gestisce il flag `loading()`, previene la doppia esecuzione (se è già in corso fa no-op), esegue il lavoro asincrono e, in caso di errore, mostra un toast `erroreImprevisto`.
 
-Per aggiungere un tuo bottone d'azione (in `components/shared/**`, territorio del figlio) dichiari solo due cose: la chiave i18n di default e la logica dentro `run()`. Tutto il resto lo eredita.
+Per aggiungere un tuo bottone d'azione — uno specifico del progetto, non generico abbastanza da meritare l'Engine — lo metti in `components/shared/**` (territorio tuo) e dichiari solo due cose: la chiave i18n di default e la logica dentro `run()`. Tutto il resto lo eredita dalla base dell'Engine.
 
 ```typescript
 @Component({
@@ -2099,7 +2099,7 @@ export class ArchiveActionComponent extends BaseActionComponent {
 }
 ```
 
-Nel template chiami `onClick()` sul bottone, leggi `displayLabel()` per il testo e `loading()` per lo spinner, esattamente come fanno `app-copy-action` o `app-pdf-action` (quest'ultimo è un buon esempio: estende la base e sovrascrive `displayLabel` per cambiare etichetta fra "apri" e "scarica"). I componenti di contatto seguono lo stesso principio ma su una base diversa, `BaseContactComponent` (`components/shared/contact/base-contact.component.ts`): essendo link e non azioni, specializza `BaseLinkComponent` invece di gestire `run()`, e ogni canale concreto dichiara `defaultLabelKey`, `glyph`, `color` e l'`href` derivato dalla `config`.
+Nel template chiami `onClick()` sul bottone, leggi `displayLabel()` per il testo e `loading()` per lo spinner, esattamente come fanno `app-copy-action` o `app-pdf-action` (quest'ultimo è un buon esempio: estende la base e sovrascrive `displayLabel` per cambiare etichetta fra "apri" e "scarica"). I componenti di contatto seguono lo stesso principio ma su una base diversa, `BaseContactComponent` (`core/engine/components/base/base-contact.component.ts`, Engine): essendo link e non azioni, specializza `BaseLinkComponent` invece di gestire `run()`, e ogni canale concreto dichiara `defaultLabelKey`, `glyph`, `color` e l'`href` derivato dalla `config`.
 
 ---
 

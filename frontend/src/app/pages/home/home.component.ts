@@ -22,17 +22,17 @@ import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { DesignSystemGalleryComponent } from '../../core/engine/components/design-system-gallery/design-system-gallery.component';
 import { ContestoSito } from '../../site';
 import { ALLOWED_WIDTHS, type AssetWidth } from '../../core/engine/asset-config';
-import { CopyActionComponent } from '../../components/shared/action/copy-action/copy-action.component';
-import { SpeechActionComponent } from '../../components/shared/action/speech-action/speech-action.component';
-import { DownloadActionComponent } from '../../components/shared/action/download-action/download-action.component';
-import { ShareActionComponent } from '../../components/shared/action/share-action/share-action.component';
-import { PrintActionComponent } from '../../components/shared/action/print-action/print-action.component';
-import { PdfActionComponent, PdfActionConfig } from '../../components/shared/action/pdf-action/pdf-action.component';
-import { MailContactComponent, MailContactConfig } from '../../components/shared/contact/mail-contact/mail-contact.component';
-import { PhoneContactComponent } from '../../components/shared/contact/phone-contact/phone-contact.component';
-import { WhatsappContactComponent, WhatsappContactConfig } from '../../components/shared/contact/whatsapp-contact/whatsapp-contact.component';
-import { TelegramContactComponent } from '../../components/shared/contact/telegram-contact/telegram-contact.component';
-import { SocialLinkComponent } from '../../components/shared/navigation/social-link/social-link.component';
+import { CopyActionComponent } from '../../core/engine/components/copy-action/copy-action.component';
+import { SpeechActionComponent } from '../../core/engine/components/speech-action/speech-action.component';
+import { DownloadActionComponent } from '../../core/engine/components/download-action/download-action.component';
+import { ShareActionComponent } from '../../core/engine/components/share-action/share-action.component';
+import { PrintActionComponent } from '../../core/engine/components/print-action/print-action.component';
+import { PdfActionComponent, PdfActionConfig } from '../../core/engine/components/pdf-action/pdf-action.component';
+import { MailContactComponent, MailContactConfig } from '../../core/engine/components/mail-contact/mail-contact.component';
+import { PhoneContactComponent } from '../../core/engine/components/phone-contact/phone-contact.component';
+import { WhatsappContactComponent, WhatsappContactConfig } from '../../core/engine/components/whatsapp-contact/whatsapp-contact.component';
+import { TelegramContactComponent } from '../../core/engine/components/telegram-contact/telegram-contact.component';
+import { SocialLinkComponent } from '../../core/engine/components/social-link/social-link.component';
 
 @Component({
     selector: 'app-home',
