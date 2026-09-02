@@ -262,7 +262,7 @@ export class ThemeService {
      */
     readonly colorPrimaryRgb: Signal<string>;
     /**
-     * `true` se `shell.forcedLightPanel` è `true` in site.ts.
+     * `true` se `shell.panelForcedLight` è `true` in site.ts.
      * Il pannello contenuti centrale resta in tono chiaro indipendentemente dalla preferenza OS.
      */
     readonly panelForcedLight: boolean;
@@ -316,7 +316,7 @@ export class ThemeService {
         this.colorPrimary       = computed(() => this._palette().colorPrimary);
         this.colorPrimaryText   = computed(() => this._palette().colorPrimaryText);
         this.colorPrimaryRgb    = computed(() => this._palette().colorPrimaryRgb);
-        this.panelForcedLight   = ContestoSito.config.forcedLightPanel;
+        this.panelForcedLight   = ContestoSito.config.panelForcedLight;
         this.panelBootstrapTheme = this.panelForcedLight ? 'light' : null;
 
         // 3. themeTone inizializzato con naturalTone (SSR-safe, senza leggere prefers-color-scheme).

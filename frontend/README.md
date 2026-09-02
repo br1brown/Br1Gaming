@@ -717,11 +717,11 @@ Pannello forzato chiaro dentro una pagina scura: se hai un riquadro che deve res
 
 ```html
 <div [attr.data-bs-theme]="theme.panelBootstrapTheme">
-    <!-- contenuto sempre in tono chiaro se shell.forcedLightPanel è true -->
+    <!-- contenuto sempre in tono chiaro se shell.panelForcedLight è true -->
 </div>
 ```
 
-`panelBootstrapTheme` vale `'light'` quando `shell.forcedLightPanel` è attivo, altrimenti `null` (nessun forzamento).
+`panelBootstrapTheme` vale `'light'` quando `shell.panelForcedLight` è attivo, altrimenti `null` (nessun forzamento).
 
 ### Metodi Statici (SSR-Safe)
 
@@ -1502,17 +1502,18 @@ loginPage: PageType.Login,         // dove mandare gli utenti non autenticati (s
 shell: {                           // comportamento di navbar / footer / header / pannello contenuti
     showNav: true,                 // mostra la navbar (false nasconde anche il language picker)
     showFooter: true,              // mostra il footer
+    showPanel: true,               // mostra il pannello contenuti (gate: col globale off nessuna pagina può riattivarlo)
     fixedTopHeader: false,         // navbar fissa in alto allo scroll
     showBrandIconInHeader: true,   // favicon accanto al nome nel brand
     showNotifications: false,      // campanellino notifiche realtime con storico (default false, opt-in)
-    forcedLightPanel: true,        // pannello contenuti sempre chiaro, a prescindere dal tema OS
+    panelForcedLight: true,        // pannello contenuti sempre chiaro, a prescindere dal tema OS
     pageFade: true,                // fade-in d'ingresso pagina (gate: col globale off nessuna pagina può riattivarlo)
 },
 
-isWebApp: true,                    // funzionalità PWA (Service Worker, aggiornamenti, install offline)
+isWebApp: false,                   // funzionalità PWA (Service Worker, aggiornamenti, install offline) — default false, opt-in
 onlyPlainImage: false,             // anteprime social con sola immagine, senza scritte/favicon
 
-legalPages: { /* … */ },           // pagine legali → vedi sotto
+legalPages: [ /* … */ ],           // pagine legali → vedi sotto
 ```
 
 > `description` (mappa per-lingua `{ it, en, … }`), `colorTema` e l'effetto `smoke` non stanno qui: sono estetica e vivono in `global-settings.json → site`.
@@ -1717,8 +1718,8 @@ site.homePage;    // PageType del brand (o null)
 site.loginPage;   // PageType di redirect non-auth (o null)
 
 // Flag di shell appiattiti al top-level di SiteConfig (boolean; significato di ciascuno nel
-// blocco `shell` sopra): showNav, showFooter, fixedTopHeader, showBrandIconInHeader,
-// showLoginInHeader, showNotifications, forcedLightPanel, pageFade
+// blocco `shell` sopra): showNav, showFooter, showPanel, fixedTopHeader, showBrandIconInHeader,
+// showLoginInHeader, showNotifications, panelForcedLight, pageFade
 site.showNav;     // es. lettura di un singolo flag
 ```
 

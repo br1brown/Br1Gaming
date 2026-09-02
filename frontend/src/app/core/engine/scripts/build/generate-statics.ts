@@ -105,8 +105,8 @@ const CONFIG_FINGERPRINT = fingerprintIdentitySections(_settings);
 const _fileLoc = _settings.Localization ?? {};
 const _fileProject = _settings.project ?? {};
 // Config di sito: solo identità/estetica finisce in environment.ts. I flag di
-// COMPORTAMENTO (showNav/showFooter/fixedTopHeader/showBrandIconInHeader/
-// showLoginInHeader/showNotifications/forcedLightPanel/isWebApp/onlyPlainImage) sono migrati in site.ts,
+// COMPORTAMENTO (showNav/showFooter/showPanel/fixedTopHeader/showBrandIconInHeader/
+// showLoginInHeader/showNotifications/panelForcedLight/isWebApp/onlyPlainImage) sono migrati in site.ts,
 // quindi vengono filtrati via qui anche se un vecchio JSON li contiene ancora.
 const SITE_CONFIG = _settings.site ?? {};
 const SITE_AESTHETIC_KEYS = ['description', 'colorTema', 'colorSecondary', 'colorBackground', 'colorText', 'colorInfo', 'smoke'];

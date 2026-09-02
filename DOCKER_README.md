@@ -92,7 +92,7 @@ lingue supportate (sezione `Localization`) per SEO e `environment.ts`: non servo
 | `site.smoke` | — | Effetto particellare di sfondo (ometti/`enable:false` per disattivarlo). Sottocampi: `enable`, `color`, `opacity`, `maximumVelocity`, `particleRadius`, `density` |
 | `Custom` | `{}` | Valori liberi leggibili da backend (`IConfiguration["Custom:..."]`) e Node SSR (`getBr1Settings().Custom`) |
 
-> I flag di comportamento (`showNav`, `showFooter`, `fixedTopHeader`, `showBrandIconInHeader`, `showNotifications`, `forcedLightPanel`, `isWebApp`, `onlyPlainImage`, il `showInHeader` di `loginPage`) sono struttura e vivono in `frontend/src/app/site.ts` (`shell` / `isWebApp` / `onlyPlainImage` / `loginPage`).
+> I flag di comportamento (`showNav`, `showFooter`, `showPanel`, `fixedTopHeader`, `showBrandIconInHeader`, `showNotifications`, `panelForcedLight`, `isWebApp`, `onlyPlainImage`, il `showInHeader` di `loginPage`) sono struttura e vivono in `frontend/src/app/site.ts` (`shell` / `isWebApp` / `onlyPlainImage` / `loginPage`).
 
 ### `global-settings.local.json` — pubblicazione + segreti (gitignored)
 

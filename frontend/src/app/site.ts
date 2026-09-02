@@ -34,18 +34,13 @@ export const ContestoSito = buildSite({
     legalPages: legalPagesDecl,
     cookiePolicy: PageType.CookiePolicy,
 
-    // Comportamento di navbar/footer/header/pannello (default applicati per ogni flag omesso).
+    // Comportamento di navbar/footer/header/pannello: solo gli scostamenti dal default (ogni
+    // flag omesso resta al proprio default, vedi SiteShellConfig in siteBuilder.ts).
     shell: {
-        showNav: true,
-        showFooter: true,
-        fixedTopHeader: true,
-        showBrandIconInHeader: true,
-        forcedLightPanel: true,
-        pageFade: true,
+        fixedTopHeader: true, // default: false — qui la navbar resta fissa in alto allo scroll
     },
 
-    isWebApp: true,        // funzionalità PWA (Service Worker, aggiornamenti, install offline)
-    onlyPlainImage: false, // anteprime social con sola immagine, senza scritte/favicon
+    isWebApp: true, // default: false — la demo mostra anche il lato PWA (Service Worker, install offline)
 
     // Le dichiarazioni pagina vivono nei file di area (pages/*.pages.ts): qui solo gli spread.
     pages: () => [

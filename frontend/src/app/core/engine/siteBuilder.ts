@@ -28,7 +28,7 @@ export const SITE_CONFIG = new InjectionToken<SiteConfig>('SITE_CONFIG');
 export interface ShellFlags {
     /** Mostra la navbar. Default (assente): mostrata, salvo `site.showNav` globale off. */
     showNav?: boolean;
-    /** Mostra il pannello contenuti. Default (assente): mostrato. */
+    /** Mostra il pannello contenuti. Default (assente): mostrato, salvo `site.showPanel` globale off. */
     showPanel?: boolean;
     /** Mostra il footer. Default (assente): mostrato. */
     showFooter?: boolean;
@@ -178,6 +178,10 @@ export interface SiteConfig {
     showFooter: boolean;
     /** Indica se il Header deve essere visibile. */
     showNav: boolean;
+    /** Indica se il pannello contenuti (`.content-panel`) può essere visibile. Default: `true`.
+     *  Fa da GATE come showNav/showFooter: se `false` nessuna pagina può riattivarlo col proprio
+     *  `layout.showPanel: true`. */
+    showPanel: boolean;
     /** FIssare la navBar in alto */
     fixedTopHeader?: boolean;
     /** Mostra l'icona (favIcon) accanto al nome dell'app nella navbar-brand. */
@@ -186,7 +190,9 @@ export interface SiteConfig {
     showLoginInHeader: boolean;
     /** Mostra il campanellino delle notifiche realtime (con storico). Default: false (opt-in). */
     showNotifications: boolean;
-    /** Abilita le funzionalità PWA: Service Worker, aggiornamenti automatici e installazione offline. */
+    /** Abilita le funzionalità PWA: Service Worker, aggiornamenti automatici e installazione offline.
+     *  Default: `false` (opt-in) — richiede consenso tecnico opzionale e aggiunge un cookie/storage
+     *  in più da far scegliere all'utente, quindi va acceso solo dove serve davvero. */
     isWebApp: boolean;
     /** Configurazione finale normalizzata dell'effetto smoke. */
     smoke: SmokeSettings;
@@ -194,7 +200,7 @@ export interface SiteConfig {
      * Se `true`, il pannello contenuti (`.content-panel`) è sempre chiaro
      * indipendentemente dalla preferenza OS. Default: `true`.
      */
-    forcedLightPanel: boolean;
+    panelForcedLight: boolean;
     /**
      * Fade-in d'ingresso pagina risolto (classe `.page-fade` sull'host, via `PageBaseComponent`).
      * Default: `true`. Fa da GATE come showNav/showFooter: se `false` nessuna pagina può riattivarlo.
@@ -820,6 +826,11 @@ export interface SiteShellConfig {
     showNav?: boolean;
     /** Mostra il footer. Default: true. */
     showFooter?: boolean;
+    /** Mostra il pannello contenuti (`.content-panel`, il box con shadow/rounded che avvolge le
+     *  pagine non full-bleed). Default: true. Gate come showNav/showFooter: se `false` nessuna
+     *  pagina può riattivarlo col proprio `layout.showPanel: true` — un sito che non vuole mai il
+     *  pannello lo spegne qui una volta sola, invece che pagina per pagina. */
+    showPanel?: boolean;
     /** Fissa la navbar in alto allo scroll. Default: false. */
     fixedTopHeader?: boolean;
     /** Mostra la favicon accanto al nome nella navbar-brand. Default: true. */
@@ -829,7 +840,7 @@ export interface SiteShellConfig {
      *  né apri una connessione SSE inutile. */
     showNotifications?: boolean;
     /** Pannello contenuti sempre chiaro, indipendentemente dal tema OS. Default: true. */
-    forcedLightPanel?: boolean;
+    panelForcedLight?: boolean;
     /** Fade-in d'ingresso pagina (`.page-fade` via PageBaseComponent). Default: true. Gate come
      *  showNav: il globale off vince, la pagina spegne solo col proprio `layout.pageFade: false`. */
     pageFade?: boolean;
@@ -872,7 +883,8 @@ export interface SiteDefinition {
     cookiePolicy?: PageType | null;
     /** Comportamento della shell (navbar/footer/header/pannello). Default sensati per ogni flag omesso. */
     shell?: SiteShellConfig;
-    /** Abilita le funzionalità PWA (Service Worker, aggiornamenti, install offline). Default: true. */
+    /** Abilita le funzionalità PWA (Service Worker, aggiornamenti, install offline). Default:
+     *  `false` (opt-in) — attivala solo per un sito che vuole davvero essere installabile. */
     isWebApp?: boolean;
     /**
      * Anteprime social con sola immagine, senza scritte/favicon sovrapposte. È un
@@ -1102,13 +1114,14 @@ function buildFinalConfig(definition: SiteDefinition): SiteConfig {
         colorInfo: cfg.colorInfo,
         showFooter: shell.showFooter ?? true,
         showNav: shell.showNav ?? true,
+        showPanel: shell.showPanel ?? true,
         fixedTopHeader: shell.fixedTopHeader ?? false,
         showBrandIconInHeader: shell.showBrandIconInHeader ?? true,
         showLoginInHeader: login.showInHeader,
         showNotifications: shell.showNotifications ?? false,
-        isWebApp: definition.isWebApp ?? true,
+        isWebApp: definition.isWebApp ?? false,
         onlyPlainImage: definition.onlyPlainImage ?? false,
-        forcedLightPanel: shell.forcedLightPanel ?? true,
+        panelForcedLight: shell.panelForcedLight ?? true,
         pageFade: shell.pageFade ?? true,
         smoke: { ...DEFAULT_SMOKE, ...(cfg.smoke ?? {}) },
         loginPage: login.page,
