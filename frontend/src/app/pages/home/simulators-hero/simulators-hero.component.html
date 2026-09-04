@@ -1,0 +1,23 @@
+<h2 class="h4 fw-bold mb-3 section-heading-scrim">{{ 'heroPesiMassimi' | translate }}</h2>
+
+<div class="sim-grid">
+    @for (tile of tiles; track tile.slug) {
+    <a class="sim-tile" [appPage]="tile.pageType">
+        <img [appAsset]="tile.imageId"
+             [appAssetSizes]="'(min-width: 992px) 50vw, 100vw'"
+             alt=""
+             class="sim-tile-bg"
+             loading="lazy">
+        <span class="sim-tile-scrim" aria-hidden="true"></span>
+        <span class="sim-tile-led" aria-hidden="true">{{ 'heroPronto' | translate }}</span>
+        <div class="sim-tile-body">
+            <h3 class="sim-tile-title">{{ tile.titleKey | translate }}</h3>
+            <p class="sim-tile-tagline">{{ tile.taglineKey | translate }}</p>
+            <span class="btn-skeuo sim-tile-cta">
+                <i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i>
+                {{ tile.ctaKey | translate }}
+            </span>
+        </div>
+    </a>
+    }
+</div>

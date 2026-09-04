@@ -1,0 +1,81 @@
+<div class="hub">
+    <h2 class="h4 fw-bold mb-3">{{ 'generatori' | translate }}</h2>
+
+    @if (loading()) {
+    <div class="hub-dial placeholder-glow" aria-hidden="true">
+        @for (n of skeletonSlots; track n) {
+        <span class="placeholder hub-chip-skel"></span>
+        }
+    </div>
+    } @else if (generators().length === 0) {
+    <p class="text-secondary">{{ 'hubNessunGeneratore' | translate }}</p>
+    } @else {
+
+    <!-- Selettore categoria: il "mobiletto" del jukebox — un tasto per generatore, niente card ripetute. -->
+    <div class="hub-dial" role="tablist" [attr.aria-label]="'hubSceltaCategoria' | translate">
+        @for (gen of generators(); track gen.slug) {
+        <button type="button"
+                class="hub-chip"
+                role="tab"
+                [class.active]="activeSlug() === gen.slug"
+                [attr.aria-selected]="activeSlug() === gen.slug"
+                (click)="pickCategory(gen.slug)">
+            <i class="fa-solid {{ iconFor(gen.slug) }}" aria-hidden="true"></i>
+            <span>{{ gen.name }}</span>
+        </button>
+        }
+    </div>
+
+    @if (active(); as gen) {
+    <div class="hub-console">
+
+        <!-- Descrizione reale del generatore selezionato (dal catalogo, non inventata qui):
+             è quello che manca per capire cosa fa prima di premere "Genera". -->
+        @if (gen.description) {
+        <p class="hub-description">{{ gen.description }}</p>
+        }
+
+        <!-- Variante (es. i 12 segni): pillole compatte, stesso pattern del dial ma per la sotto-scelta. -->
+        @if (gen.variant; as variant) {
+        <div class="hub-variant" role="radiogroup" [attr.aria-label]="variant.label">
+            @for (opt of variant.options; track opt.key) {
+            <button type="button"
+                    class="hub-variant-pill"
+                    [class.active]="activeVariant() === opt.key"
+                    [attr.aria-checked]="activeVariant() === opt.key"
+                    (click)="pickVariant(opt.key)">
+                {{ opt.label }}
+            </button>
+            }
+        </div>
+        }
+
+        <button type="button" class="btn-skeuo btn-skeuo-accent hub-lever" (click)="spin()" [disabled]="spinning()">
+            @if (spinning()) {
+            <span class="spinner-border spinner-border-sm" role="status"></span>
+            } @else {
+            <i class="fa-solid fa-arrow-rotate-right" aria-hidden="true"></i>
+            }
+            {{ (result() ? 'hubAncora' : 'hubGenera') | translate }}
+        </button>
+
+        @if (result(); as res) {
+        <div class="hub-reel">
+            <div [innerHTML]="res.markdown | markdown"></div>
+        </div>
+        @if (activePageType(); as pt) {
+        <a class="hub-more" [appPage]="pt">
+            {{ 'hubPaginaCompleta' | translate }}
+            <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+        </a>
+        }
+        } @else if (spinning()) {
+        <div class="hub-reel placeholder-glow" aria-hidden="true">
+            <span class="placeholder col-9 mb-2 d-block"></span>
+            <span class="placeholder col-6 d-block"></span>
+        </div>
+        }
+    </div>
+    }
+    }
+</div>

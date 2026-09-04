@@ -1,0 +1,104 @@
+:host {
+    display: block;
+    height: 100%;
+}
+
+.rw {
+    display: flex;
+    align-items: center;
+    gap: 1.1rem;
+    height: 100%;
+    padding: 1.1rem;
+    border-radius: 1.75rem;
+    background: #06120a;
+    border: 1px solid color-mix(in srgb, #39ff14 30%, transparent);
+    color: #d6ffdc;
+    overflow: hidden;
+}
+
+.rw-scope {
+    position: relative;
+    flex-shrink: 0;
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #0c2013 0%, #061109 78%, #030704 100%);
+    box-shadow: inset 0 0 12px rgba(57, 255, 20, 0.35);
+    overflow: hidden;
+}
+
+.rw-ring {
+    position: absolute;
+    border: 1px solid rgba(57, 255, 20, 0.25);
+    border-radius: 50%;
+}
+
+.rw-ring-1 { inset: 8%; }
+.rw-ring-2 { inset: 26%; }
+.rw-ring-3 { inset: 44%; }
+
+.rw-crosshair {
+    position: absolute;
+    background: rgba(57, 255, 20, 0.2);
+}
+
+.rw-crosshair-h { top: 50%; left: 4%; right: 4%; height: 1px; }
+.rw-crosshair-v { left: 50%; top: 4%; bottom: 4%; width: 1px; }
+
+.rw-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 6px;
+    height: 6px;
+    margin: -3px 0 0 -3px;
+    border-radius: 50%;
+    background: #39ff14;
+    box-shadow: 0 0 6px #39ff14;
+}
+
+/* Il "braccio" del sonar: un cuneo che ruota di continuo, come su un vero radar tattico. */
+.rw-sweep {
+    position: absolute;
+    inset: 0;
+    background: conic-gradient(from 0deg, rgba(57, 255, 20, 0.55), transparent 24%, transparent 100%);
+    animation: rw-spin 3.2s linear infinite;
+}
+
+@keyframes rw-spin {
+    to { transform: rotate(360deg); }
+}
+
+.rw-blip {
+    position: absolute;
+    font-size: .7rem;
+    line-height: 1;
+    transform: translate(-50%, -50%);
+    animation: rw-blip 2.6s ease-in-out infinite;
+    filter: drop-shadow(0 0 3px rgba(57, 255, 20, 0.7));
+}
+
+@keyframes rw-blip {
+    0%, 100% { opacity: .25; }
+    50% { opacity: 1; }
+}
+
+.rw-readout {
+    min-width: 0;
+}
+
+.rw-readout h2 { color: #d6ffdc; }
+.rw-readout p { color: rgba(214, 255, 220, 0.65); }
+
+/* .btn-skeuo-phosphor (styles/app/_skeuo.scss) dà il rilievo fisico; qui solo le rifiniture
+   specifiche del gadget: dimensione compatta e niente sottolineatura da link. */
+.rw-cta {
+    padding: .5rem 1rem;
+    font-size: .82rem;
+    text-decoration: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rw-sweep { animation: none; }
+    .rw-blip { animation: none; opacity: .8; }
+}

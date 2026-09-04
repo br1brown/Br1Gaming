@@ -1,0 +1,129 @@
+:host {
+    display: block;
+}
+
+.hub {
+    border-radius: 1.75rem;
+    border: 1px solid var(--colorSurfaceBorder);
+    background: var(--colorSurface);
+    color: var(--colorSurfaceText);
+    padding: 1.5rem;
+    height: 100%;
+}
+
+/* Il "mobiletto": una riga di tasti selezione, come i cassetti di un jukebox. Wrap libero: da
+   mobile scorre su più righe invece di un'unica lista orizzontale scomoda. */
+.hub-dial {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin-bottom: 1.25rem;
+}
+
+/* Ogni categoria è un "tasto" del macchinario (coerente col "cassetto" della copy): piccolo
+   bisello fisico, non una pillola app-UI generica. Stato attivo = tasto premuto/incassato. */
+.hub-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .5rem .9rem;
+    border-radius: .65rem;
+    border: 1px solid color-mix(in srgb, black 18%, transparent);
+    background: linear-gradient(180deg, color-mix(in srgb, white 6%, var(--bs-tertiary-bg)) 0%, var(--bs-tertiary-bg) 100%);
+    color: inherit;
+    font-size: .85rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 0 color-mix(in srgb, black 16%, transparent), inset 0 1px 0 color-mix(in srgb, white 12%, transparent);
+    transition: background-color .15s ease, box-shadow .15s ease, transform .1s ease;
+}
+
+.hub-chip:hover:not(.active) {
+    background: color-mix(in srgb, currentColor 6%, var(--bs-tertiary-bg));
+}
+
+.hub-chip:active {
+    transform: translateY(1px);
+}
+
+.hub-chip.active {
+    background: linear-gradient(180deg, color-mix(in srgb, white 18%, var(--colorPrimary)) 0%, var(--colorPrimary) 100%);
+    color: var(--colorPrimaryText);
+    box-shadow: 0 1px 0 color-mix(in srgb, black 30%, var(--colorPrimary)) inset, 0 0 0 1px color-mix(in srgb, black 20%, var(--colorPrimary));
+    transform: translateY(1px);
+}
+
+.hub-chip-skel {
+    width: 6.5rem;
+    height: 2.1rem;
+    border-radius: .65rem;
+}
+
+.hub-description {
+    color: var(--bs-secondary-color);
+    font-size: .88rem;
+    margin: 0 0 .9rem;
+}
+
+.hub-variant {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+    margin-bottom: 1rem;
+}
+
+.hub-variant-pill {
+    padding: .3rem .75rem;
+    border-radius: 999px;
+    border: 1px dashed color-mix(in srgb, currentColor 22%, transparent);
+    background: transparent;
+    color: inherit;
+    font-size: .78rem;
+    cursor: pointer;
+}
+
+.hub-variant-pill.active {
+    border-style: solid;
+    border-color: var(--colorPrimary);
+    color: var(--colorPrimary);
+    font-weight: 700;
+}
+
+/* La leva riusa il pulsante fisico condiviso (.btn-skeuo, styles/app/_skeuo.scss): qui solo il
+   dettaglio specifico del mobiletto, l'icona che gira a ogni "tiro". */
+.hub-lever i {
+    transition: transform .3s ease;
+}
+
+.hub-lever:active i {
+    transform: rotate(180deg);
+}
+
+/* Il "rullino" del risultato: pop-in a ogni nuova generazione, come lo scontrino di una slot. */
+.hub-reel {
+    margin-top: 1.1rem;
+    padding: 1.1rem 1.25rem;
+    border-radius: 1.1rem;
+    background: var(--bs-tertiary-bg);
+    animation: hub-pop .25s ease-out;
+}
+
+@keyframes hub-pop {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+}
+
+.hub-more {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    margin-top: .75rem;
+    font-size: .85rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hub-reel { animation: none; }
+    .hub-lever:active i { transform: none; }
+}

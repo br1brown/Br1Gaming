@@ -38,6 +38,7 @@ export const environment: AppEnvironment = {
     availableLanguages: ["it"],
     config: {
             "colorTema": "#add8e6",
+            "colorSecondary": "#fff000",
             "smoke": {
                     "enable": true,
                     "color": "#add8e6",
@@ -50,5 +51,5 @@ export const environment: AppEnvironment = {
                     "it": "Generatori ignoranti, avventure interattive, universo Br1."
             }
     },
-    configFingerprint: "1b0b0d4dface"
+    configFingerprint: "c33c1ba56058"
 };

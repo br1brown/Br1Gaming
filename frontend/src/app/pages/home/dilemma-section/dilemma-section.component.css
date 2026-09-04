@@ -1,0 +1,51 @@
+.dilemma-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 1rem;
+}
+
+.dilemma-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    padding: 1.1rem;
+    border-radius: 1.5rem;
+    border: 1px solid var(--colorSurfaceBorder);
+    background: var(--colorSurface);
+    color: var(--colorSurfaceText);
+    min-height: 9rem;
+}
+
+/* Le storie sono link diretti (tutta la card, come content-card): la freccia in basso a destra
+   segnala "entra", niente pulsante/testo aggiuntivo da inventare. */
+a.dilemma-card {
+    text-decoration: none;
+    padding-right: 2.5rem;
+    transition: background-color .15s ease, transform .15s ease;
+}
+
+a.dilemma-card:hover,
+a.dilemma-card:focus-visible {
+    background: var(--colorSurfaceHover);
+    transform: translateY(-2px);
+}
+
+.dilemma-arrow {
+    position: absolute;
+    right: 1.1rem;
+    bottom: 1.1rem;
+    color: var(--bs-secondary-color);
+}
+
+.dilemma-title {
+    font-weight: 700;
+    font-size: 1rem;
+    margin: 0;
+}
+
+.dilemma-desc {
+    color: var(--bs-secondary-color);
+    font-size: .85rem;
+    margin: 0;
+}

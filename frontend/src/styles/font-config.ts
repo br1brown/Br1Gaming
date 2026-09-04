@@ -5,7 +5,7 @@
 import { resolveFonts, ServerFont, type AppFontConfig } from '../app/core/engine/font-system';
 
 export const siteFonts: AppFontConfig = {
-    webDefault: 'System',
+    webDefault: 'Georgia',
     serverDefault: ServerFont.Liberation,
     // Font caricato dal cliente: metti il file nella cartella `fonts/` accanto a
     // global-settings.json, poi scommenta con lo stesso nome file.

@@ -1,0 +1,24 @@
+<h2 class="h4 fw-bold mb-3 section-heading-scrim">{{ 'storie' | translate }}</h2>
+
+<div class="dilemma-grid">
+
+    @if (loading()) {
+    @for (n of skeletonSlots; track n) {
+    <div class="dilemma-card placeholder-glow" aria-hidden="true">
+        <span class="placeholder col-7 mb-2 d-block"></span>
+        <span class="placeholder col-10 d-block"></span>
+    </div>
+    }
+    } @else {
+    @for (s of stories(); track s.slug) {
+    <a class="dilemma-card" [appPage]="s.pageType">
+        <h3 class="dilemma-title">{{ s.title }}</h3>
+        @if (s.description) {
+        <p class="dilemma-desc">{{ s.description }}</p>
+        }
+        <i class="fa-solid fa-chevron-right dilemma-arrow" aria-hidden="true"></i>
+    </a>
+    }
+    }
+
+</div>

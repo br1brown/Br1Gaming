@@ -15,6 +15,7 @@
       "it": "Generatori ignoranti, avventure interattive, universo Br1."
     },
     "colorTema": "#add8e6",
+    "colorSecondary": "#fff000",
     "smoke": {
       "enable": true,
       "color": "#add8e6",

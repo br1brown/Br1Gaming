@@ -1,0 +1,128 @@
+/* Due "sportelli" affiancati da desktop, impilati su mobile. Altezza generosa: è il blocco
+   dominante della viewport (BR1-UI §3.A) — non una card come le altre. */
+.sim-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+@media (max-width: 767.98px) {
+    .sim-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.sim-tile {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    isolation: isolate;
+    border-radius: 1.5rem;
+    aspect-ratio: 4 / 5;
+    background-color: var(--colorSurface);
+    border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+    box-shadow: var(--shadowElevated);
+    color: #fff;
+    text-decoration: none;
+    transition: transform .2s ease, box-shadow .2s ease;
+}
+
+@media (min-width: 768px) {
+    .sim-tile { aspect-ratio: 16 / 11; }
+}
+
+.sim-tile:hover,
+.sim-tile:focus-visible {
+    transform: translateY(-4px);
+    box-shadow: var(--shadowElevatedHover);
+}
+
+.sim-tile-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 30%;
+    transition: transform .4s ease;
+}
+
+.sim-tile:hover .sim-tile-bg,
+.sim-tile:focus-visible .sim-tile-bg {
+    transform: scale(1.03);
+}
+
+/* Scrim: leggibilità del testo sopra l'illustrazione, più marcato in basso dove sta il body. */
+.sim-tile-scrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(10, 12, 14, 0.1) 0%, rgba(10, 12, 14, 0.55) 55%, rgba(10, 12, 14, 0.92) 100%);
+}
+
+/* Targhetta "sportello aperto": un cartellino da insegna, non un LED da hacker — bezel scuro,
+   font monospazio, glow contenuto. Skeuomorfismo misurato: leggibile, non invadente. */
+.sim-tile-led {
+    position: absolute;
+    top: 1.1rem;
+    right: 1.1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .3rem .6rem;
+    border-radius: .4rem;
+    background: rgba(8, 10, 8, 0.6);
+    border: 1px solid rgba(57, 255, 20, 0.35);
+    font: 700 .68rem/1 ui-monospace, "Courier New", monospace;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #8CFF6E;
+}
+
+.sim-tile-led::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: #39ff14;
+    box-shadow: 0 0 4px #39ff14;
+    animation: sim-led-pulse 2.6s ease-in-out infinite;
+}
+
+@keyframes sim-led-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .4; }
+}
+
+.sim-tile-body {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    padding: 1.25rem 1.5rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+}
+
+.sim-tile-title {
+    font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+    font-weight: 800;
+    margin: 0;
+    color: #fff;
+}
+
+.sim-tile-tagline {
+    font-size: .92rem;
+    color: rgba(255, 255, 255, 0.82);
+    margin: 0 0 .5rem;
+    max-width: 42ch;
+}
+
+.sim-tile-cta {
+    align-self: flex-start;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sim-tile-led::before { animation: none; }
+    .sim-tile-bg, .sim-tile { transition: none; }
+}

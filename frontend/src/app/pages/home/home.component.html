@@ -1,98 +1,61 @@
 <main class="col-12 col-md-10 offset-md-1 col-lg-10 offset-lg-1">
 
-    <!-- Hero -->
-    <section class="text-center py-5 px-3 mb-5 bg-body-tertiary rounded-4">
-        <div class="row justify-content-center">
-            <div class="col-lg-8">
-                <h1 class="display-5 fw-bold mb-2">{{ appName }}</h1>
-                <p class="lead text-secondary mb-0">{{ 'homeTagline' | translate }}</p>
+    <!-- Hero: solo la firma del sito, minima — il tono lo dà subito sotto la griglia, non un
+         muro di testo introduttivo (BR1-UI §1). -->
+    <section class="text-center mb-4">
+        <h1 class="display-6 fw-bold mb-1 section-heading-scrim d-inline-block">{{ appName }}</h1>
+        <p class="lead text-secondary mb-0 small">{{ 'homeTagline' | translate }}</p>
+    </section>
+
+    <!-- Bento Grid: CSS Grid nativo, asimmetrico da desktop, colonna singola su mobile
+         (BR1-DEV §1 "Layout Engine"). -->
+    <div class="bento">
+
+        <!-- A. I Pesi Massimi: idratato subito, è il blocco dominante above-the-fold. -->
+        <section class="bento-cell bento-simulators">
+            <app-simulators-hero />
+        </section>
+
+        <!-- B. Hub Generatori (7 in 1) + C. Micro-tool istantanei: stessa riga da desktop. -->
+        <section class="bento-cell bento-hub">
+            @defer (hydrate on viewport) {
+            <app-generator-hub />
+            } @placeholder {
+            <div class="bento-skeleton placeholder-glow" aria-hidden="true">
+                <span class="placeholder col-9 mb-2 d-block" style="height: 1.5rem"></span>
+                <span class="placeholder col-12 d-block" style="height: 8rem"></span>
             </div>
-        </div>
-    </section>
-
-    <!-- Generatori (sopra la piega: idratato subito). La sezione si carica da sé l'elenco. -->
-    <section class="mb-5">
-        <app-generators-section />
-    </section>
-
-    <!-- Storie e Giochi affiancati: metà colonne ciascuno → una riga unica da desktop, impilati su mobile.
-         Ogni colonna resta un @defer indipendente (idratazione incrementale on viewport). Le sezioni
-         usano itemColClass="col-12" per impilare le card in colonna singola nella mezza larghezza. -->
-    <div class="row g-4">
-
-        <!-- Storie -->
-        <div class="col-12 col-md-6">
-            @defer (hydrate on viewport) {
-            <section class="mb-5 mb-md-0">
-                <app-stories-section itemColClass="col-12" />
-            </section>
-            } @placeholder {
-            <section class="mb-5 mb-md-0" aria-hidden="true">
-                <span class="placeholder col-3 col-md-4 d-block mb-3" style="height: 1.75rem"></span>
-                <div class="row g-3 placeholder-glow">
-                    @for (n of skeletonSlots; track n) {
-                    <div class="col-12">
-                        <div class="card" style="min-height: 96px">
-                            <div class="card-body">
-                                <span class="placeholder col-7 mb-2 d-block"></span>
-                                <span class="placeholder col-10 d-block"></span>
-                            </div>
-                        </div>
-                    </div>
-                    }
-                </div>
-            </section>
             }
-        </div>
+        </section>
 
-        <!-- Giochi -->
-        <div class="col-12 col-md-6">
+        <section class="bento-cell bento-tools">
             @defer (hydrate on viewport) {
-            <section class="mb-5 mb-md-0">
-                <app-games-section itemColClass="col-12" />
-            </section>
+            <app-translator-widget />
             } @placeholder {
-            <section class="mb-5 mb-md-0" aria-hidden="true">
-                <span class="placeholder col-3 col-md-4 d-block mb-3" style="height: 1.75rem"></span>
-                <div class="row g-3 placeholder-glow">
-                    @for (n of skeletonSlots; track n) {
-                    <div class="col-12">
-                        <div class="card" style="min-height: 96px">
-                            <div class="card-body">
-                                <span class="placeholder col-7 mb-2 d-block"></span>
-                                <span class="placeholder col-10 d-block"></span>
-                            </div>
-                        </div>
-                    </div>
-                    }
-                </div>
-            </section>
+            <div class="bento-skeleton placeholder-glow" aria-hidden="true">
+                <span class="placeholder col-12 d-block" style="height: 6rem"></span>
+            </div>
             }
-        </div>
+            @defer (hydrate on viewport) {
+            <app-radar-widget />
+            } @placeholder {
+            <div class="bento-skeleton placeholder-glow" aria-hidden="true">
+                <span class="placeholder col-12 d-block" style="height: 6rem"></span>
+            </div>
+            }
+        </section>
+
+        <!-- D. Innesco Narrativo: dilemma immediato, niente spiegazioni. -->
+        <section class="bento-cell bento-dilemma">
+            @defer (hydrate on viewport) {
+            <app-dilemma-section />
+            } @placeholder {
+            <div class="bento-skeleton placeholder-glow" aria-hidden="true">
+                <span class="placeholder col-9 mb-2 d-block" style="height: 1.5rem"></span>
+                <span class="placeholder col-12 d-block" style="height: 5rem"></span>
+            </div>
+            }
+        </section>
 
     </div>
-
-    <!-- Utility (radar chiese, traduttore): sezione a larghezza piena sotto le altre.
-         @defer indipendente (idratazione on viewport), come Storie/Giochi. -->
-    @defer (hydrate on viewport) {
-    <section class="mt-5">
-        <app-utility-section />
-    </section>
-    } @placeholder {
-    <section class="mt-5" aria-hidden="true">
-        <span class="placeholder col-3 col-md-4 d-block mb-3" style="height: 1.75rem"></span>
-        <div class="row g-3 placeholder-glow">
-            @for (n of skeletonSlots; track n) {
-            <div class="col-12 col-md-6">
-                <div class="card" style="min-height: 96px">
-                    <div class="card-body">
-                        <span class="placeholder col-7 mb-2 d-block"></span>
-                        <span class="placeholder col-10 d-block"></span>
-                    </div>
-                </div>
-            </div>
-            }
-        </div>
-    </section>
-    }
 </main>

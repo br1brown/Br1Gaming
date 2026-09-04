@@ -187,7 +187,9 @@ function generatorSharedPage(
 ): LeafPageInput {
     const loadGenerator = generatorLoaders[basePageType];
     return {
-        path: `${urlSegment}/:id`,
+        // ":slug" (non ":id"): il resolver dell'engine legge sempre route.paramMap.get('slug'),
+        // qualunque cosa rappresenti semanticamente (qui l'id content-addressed della condivisione).
+        path: `${urlSegment}/:slug`,
         title: `generatore-${urlSegment}`,
         pageType: sharedPageType,
         layout: { showPanel: false },

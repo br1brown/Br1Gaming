@@ -1,0 +1,30 @@
+<div class="tw">
+    <h2 class="h6 fw-bold mb-1 d-flex align-items-center gap-2">
+        <i class="fa-solid fa-language" aria-hidden="true"></i>
+        {{ 'translator' | translate }}
+    </h2>
+    <p class="text-secondary small mb-2">{{ 'translatorWidgetSottotitolo' | translate }}</p>
+
+    <input type="text"
+           class="form-control rounded-pill tw-input"
+           [value]="testo()"
+           (input)="onInput($event)"
+           [attr.maxlength]="maxChars"
+           [attr.placeholder]="'translatorWidgetPlaceholder' | translate"
+           [attr.aria-label]="'translatorItaliano' | translate">
+
+    <div class="tw-output" [class.tw-output-empty]="!tradotto() && !loading()">
+        @if (loading()) {
+        <span class="placeholder-glow"><span class="placeholder col-8"></span></span>
+        } @else if (tradotto()) {
+        {{ tradotto() }}
+        } @else {
+        {{ 'translatorWidgetVuoto' | translate }}
+        }
+    </div>
+
+    <a class="tw-more" [appPage]="PageType.UtilityTranslator">
+        {{ 'translatorWidgetApri' | translate }}
+        <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+    </a>
+</div>

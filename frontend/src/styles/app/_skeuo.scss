@@ -1,0 +1,94 @@
+// Pulsante "fisico" — bisello luce/ombra + stato premuto, un solo linguaggio visivo riusato per
+// tutti i CTA primari della home (sportelli, macchinario generatori, radar), invece di N effetti
+// diversi per componente. Costruito sui design token (--colorPrimary/--colorPrimaryText, già
+// WCAG-safe e tone-adaptive): resta leggibile in ogni tema, non è un colore nuovo inventato qui.
+.btn-skeuo {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .7rem 1.4rem;
+    border: none;
+    border-radius: .9rem;
+    font-weight: 700;
+    font-size: .9rem;
+    line-height: 1.1;
+    cursor: pointer;
+    color: var(--colorPrimaryText);
+    background: linear-gradient(180deg,
+        color-mix(in srgb, white 22%, var(--colorPrimary)) 0%,
+        var(--colorPrimary) 55%,
+        color-mix(in srgb, black 18%, var(--colorPrimary)) 100%);
+    box-shadow:
+        0 3px 0 color-mix(in srgb, black 35%, var(--colorPrimary)),
+        0 8px 16px color-mix(in srgb, black 28%, transparent),
+        inset 0 1px 0 color-mix(in srgb, white 35%, transparent);
+    transition: transform .1s ease, box-shadow .1s ease, filter .15s ease;
+}
+
+.btn-skeuo:hover:not(:disabled) {
+    filter: brightness(1.04);
+}
+
+.btn-skeuo:active:not(:disabled) {
+    transform: translateY(2px);
+    box-shadow:
+        0 1px 0 color-mix(in srgb, black 35%, var(--colorPrimary)),
+        0 3px 6px color-mix(in srgb, black 22%, transparent),
+        inset 0 1px 3px color-mix(in srgb, black 25%, transparent);
+}
+
+.btn-skeuo:disabled {
+    opacity: .65;
+    cursor: default;
+}
+
+.btn-skeuo:focus-visible {
+    outline: var(--focusRingWidth) solid var(--focusRingColor);
+    outline-offset: var(--focusRingOffset);
+}
+
+// Variante "fosforo": stesso rilievo, il verde già usato dalla pagina /radar (radar.component.ts) —
+// non un colore nuovo, solo lo stesso accento reso fisico.
+.btn-skeuo-phosphor {
+    color: #06120a;
+    background: linear-gradient(180deg, #6dff4b 0%, #39ff14 55%, #22b30a 100%);
+    box-shadow:
+        0 3px 0 #1c8c08,
+        0 8px 16px rgba(0, 0, 0, .35),
+        inset 0 1px 0 rgba(255, 255, 255, .5);
+}
+
+.btn-skeuo-phosphor:active:not(:disabled) {
+    box-shadow:
+        0 1px 0 #1c8c08,
+        0 3px 6px rgba(0, 0, 0, .28),
+        inset 0 1px 3px rgba(0, 0, 0, .3);
+}
+
+// Variante "accento": il colore secondario del brand (site.colorSecondary in global-settings.json —
+// il giallo del logo), già derivato WCAG-safe dall'Engine (--colorSecondary/--colorSecondaryText,
+// vedi ThemeService). Riservata all'azione più "viva" della pagina (es. il tasto Genera del
+// macchinario generatori), per non diluire l'accento usandolo ovunque.
+.btn-skeuo-accent {
+    color: var(--colorSecondaryText);
+    background: linear-gradient(180deg,
+        color-mix(in srgb, white 28%, var(--colorSecondary)) 0%,
+        var(--colorSecondary) 55%,
+        color-mix(in srgb, black 12%, var(--colorSecondary)) 100%);
+    box-shadow:
+        0 3px 0 color-mix(in srgb, black 30%, var(--colorSecondary)),
+        0 8px 16px color-mix(in srgb, black 22%, transparent),
+        inset 0 1px 0 color-mix(in srgb, white 40%, transparent);
+}
+
+.btn-skeuo-accent:active:not(:disabled) {
+    box-shadow:
+        0 1px 0 color-mix(in srgb, black 30%, var(--colorSecondary)),
+        0 3px 6px color-mix(in srgb, black 18%, transparent),
+        inset 0 1px 3px color-mix(in srgb, black 20%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .btn-skeuo { transition: none; }
+}

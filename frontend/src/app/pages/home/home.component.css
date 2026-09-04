@@ -1,0 +1,36 @@
+/* Bento Grid nativa: 12 colonne da desktop, asimmetrica (hub più largo dei micro-tool),
+   fallback a colonna singola pulita su mobile (BR1-DEV §1). */
+.bento {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+}
+
+.bento-cell {
+    min-width: 0;
+}
+
+.bento-simulators { grid-column: 1 / -1; }
+
+.bento-hub { grid-column: span 12; }
+.bento-tools {
+    grid-column: span 12;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+.bento-dilemma { grid-column: 1 / -1; }
+
+@media (min-width: 992px) {
+    .bento-hub { grid-column: span 7; }
+    .bento-tools { grid-column: span 5; }
+}
+
+.bento-skeleton {
+    height: 100%;
+    padding: 1.25rem;
+    border-radius: 1.75rem;
+    border: 1px solid var(--colorSurfaceBorder);
+    background: var(--colorSurface);
+}

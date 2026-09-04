@@ -21,6 +21,7 @@
 // @use 'app/...'). Per riusare gli strumenti dell'Engine (breakpoint, colori):
 //   @use 'engine/base/lib' as lib;   →  lib.$bp-md, lib.shade(var(--bs-primary), 12%)
 // @use 'app/example';
+@use 'app/skeuo';
 
 :root {
     --shellMaxWidth: 1440px;
