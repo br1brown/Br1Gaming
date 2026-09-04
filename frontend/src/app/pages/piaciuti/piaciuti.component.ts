@@ -5,20 +5,10 @@ import { MarkdownPipe } from '../../core/engine/pipes/markdown.pipe';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { PageDirective } from '../../core/engine/directives/page.directive';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
-import { ShareEntry, GeneratorInfo } from '../../core/dto/generator.dto';
+import { ContentResolver } from '../../core/engine/pages/content.resolver';
+import { ShareEntry, GeneratorInfo, PiaciutiPageContent } from '../../core/dto/generator.dto';
 import { ContestoSito, PageType } from '../../site';
-
-// slug del generatore → PageType della sua pagina (stessa mappa della home: niente slug a mano nei link).
-const GENERATOR_PAGE_TYPES: Partial<Record<string, PageType>> = {
-    'incel': PageType.GeneratorIncel,
-    'startup': PageType.GeneratorStartup,
-    'auto': PageType.GeneratorAuto,
-    'antiveg': PageType.GeneratorAntiveg,
-    'locali': PageType.GeneratorLocali,
-    'kebab': PageType.GeneratorKebab,
-    'mbeb': PageType.GeneratorMbeb,
-    'oroscopo': PageType.GeneratorOroscopo,
-};
+import { GENERATOR_SLUG_TO_PAGE_TYPE } from '../app.pages';
 
 // Quante generazioni mostrare per generatore nella panoramica prima del link "Vedi tutte".
 const PREVIEW_LIMIT = 6;
@@ -37,7 +27,7 @@ interface PiaciutoGroup {
     slug: string;
     name: string;
     pageType: PageType | null;
-    /** Path della pagina del generatore, per i link di recupero `?g=<id>`. */
+    /** Path del playground del generatore: `${path}/${card.id}` è il link diretto alla singola voce. */
     path: string | null;
     /** Carte mostrate (in panoramica sono troncate a PREVIEW_LIMIT). */
     cards: PiaciutoCard[];
@@ -53,7 +43,11 @@ interface PiaciutoGroup {
  *  - panoramica (senza `gen`): una sezione per generatore, in ordine di catalogo, con anteprima
  *    troncata e link "Vedi tutte" verso la modalità filtrata;
  *  - per generatore (`?gen=auto`): la lista completa di quel solo generatore (filtrata server-side).
- * Lista dinamica e non SEO-critica → caricata lato client.
+ * Entrambe indicizzate: risolte in SSR via `piaciutiContentLoader` (app.pages.ts), non più caricate
+ * lato client — a differenza della SINGOLA frase condivisa (`/generatori/<slug>/:id`), sempre
+ * `noindex` (vedi generatorSharedContentLoader). Il cambio di `?gen=` a pagina già montata ricarica
+ * qui, richiamando lo stesso resolver: la resource generica di PageBaseComponent osserva solo
+ * pageType/lang/:slug di rotta, non i query param.
  */
 @Component({
     selector: 'app-piaciuti',
@@ -64,8 +58,8 @@ interface PiaciutoGroup {
            estende l'area cliccabile a tutta la card, non solo al bottone. */
         .piaciuti-card { position: relative; transition: box-shadow .2s ease; cursor: pointer; }
         .piaciuti-card:hover { box-shadow: var(--shadowElevatedHover); }
-        /* Anteprima troncata: si vede solo l'inizio della generazione, il resto si apre
-           cliccando la card o il bottone "Leggi tutto" (link a ?g=<id> sulla pagina del generatore). */
+        /* Anteprima troncata: si vede solo l'inizio della generazione, il resto si apre cliccando
+           la card o il bottone "Leggi tutto" (link a <path del generatore>/<id> della voce). */
         .piaciuti-preview {
             position: relative;
             display: -webkit-box;
@@ -86,9 +80,10 @@ interface PiaciutoGroup {
         }
     `],
 })
-export class PiaciutiComponent extends PageBaseComponent<unknown> {
+export class PiaciutiComponent extends PageBaseComponent<PiaciutiPageContent> {
     private readonly platform = inject(PLATFORM_ID);
     private readonly document = inject(DOCUMENT);
+    private readonly contentResolver = inject(ContentResolver);
 
     /** "Tempo fa" in italiano da un istante ISO (es. "2 ore fa"). */
     ago(iso: string): string {
@@ -103,10 +98,10 @@ export class PiaciutiComponent extends PageBaseComponent<unknown> {
         const y = Math.floor(d / 365); return `${y} ${y === 1 ? 'anno' : 'anni'} fa`;
     }
 
-    /** Copia negli appunti il link di recupero (?g=) della singola voce, senza doverla aprire. */
+    /** Copia negli appunti il link diretto (`<path>/<id>`) della singola voce, senza doverla aprire. */
     async copyLink(path: string | null, id: string): Promise<void> {
         if (!path) return;
-        const url = `${this.document.location.origin}${path}?g=${id}`;
+        const url = `${this.document.location.origin}${path}/${id}`;
         try {
             await this.document.defaultView?.navigator.clipboard.writeText(url);
             this.notify.toast(this.translate.translate('condivisiLinkCopiato'), 'success');
@@ -161,7 +156,7 @@ export class PiaciutiComponent extends PageBaseComponent<unknown> {
         const counts = this.counts();
         return sources.map(g => {
             const all = bySlug.get(g.slug)!;
-            const pageType = GENERATOR_PAGE_TYPES[g.slug] ?? null;
+            const pageType = GENERATOR_SLUG_TO_PAGE_TYPE[g.slug] ?? null;
             // In panoramica si tronca all'anteprima; in modalità filtrata si mostra tutto.
             const cards = filtered ? all : all.slice(0, PREVIEW_LIMIT);
             // Totale reale dai conteggi (panoramica); in modalità filtrata sono già tutte caricate.
@@ -180,25 +175,37 @@ export class PiaciutiComponent extends PageBaseComponent<unknown> {
 
     constructor() {
         super();
-        // Caricamento lato client; si ri-esegue quando cambia il query param `gen` (stessa pagina,
-        // componente riusato dal router): la modalità filtrata recupera dal backend solo quel generatore.
+        // Contenuto: SSR + prima idratazione arrivano già risolti da pageContent() (il contentLoader
+        // di questa pagina legge ?gen= dal Router — vedi piaciutiContentLoader in app.pages.ts).
+        effect(() => {
+            const content = this.pageContent();
+            if (!content) return;
+            this.entries.set(content.shares);
+            this.generators.set(content.generators);
+            this.counts.set(content.counts);
+        });
+
+        // Cambio di `?gen=` a pagina già montata (link "Vedi tutte"/"Tutti i generatori"): la
+        // resource generica di PageBaseComponent osserva solo pageType/lang/:slug di rotta, non i
+        // query param, quindi non si ri-esegue da sola per questo — richiamiamo qui lo STESSO
+        // resolver (nessuna logica di fetch duplicata). Il valore iniziale di `gen` arriva già
+        // dall'effect sopra: il primo giro si salta, altrimenti ri-fetcheremmo due volte all'avvio.
         if (isPlatformBrowser(this.platform)) {
-            effect(() => void this.load(this.filterSlug()));
+            let first = true;
+            effect(() => {
+                this.filterSlug(); // dipendenza
+                if (first) { first = false; return; }
+                void this.reload();
+            });
         }
     }
 
-    private async load(slug: string | null): Promise<void> {
-        this.entries.set(null);
-        const [shares, generators, counts] = await Promise.all([
-            this.api.getShares(200, slug ?? undefined).catch((): ShareEntry[] => []),
-            this.generators().length ? Promise.resolve(this.generators())
-                : this.api.getGenerators().catch((): GeneratorInfo[] => []),
-            // I conteggi servono solo alla panoramica (link "Vedi tutte"); in modalità filtrata si saltano.
-            slug ? Promise.resolve(this.counts())
-                : this.api.getSharesCounts().catch((): Record<string, number> => ({})),
-        ]);
-        this.generators.set(generators);
-        this.counts.set(counts);
-        this.entries.set(shares);
+    private async reload(): Promise<void> {
+        const resolved = await this.contentResolver.loadResolved(this.pageType(), this.lang());
+        const content = resolved.content as PiaciutiPageContent | null;
+        if (!content) return;
+        this.entries.set(content.shares);
+        this.generators.set(content.generators);
+        this.counts.set(content.counts);
     }
 }

@@ -31,6 +31,12 @@ export interface PageMetaInput {
     updatedTime?: string | null;
     /** Dati strutturati ricchi tipizzati: un item o una lista (vedi `structured-data.ts`). Tradotti in JSON-LD. */
     structuredData?: StructuredDataInput | null;
+    /** `true` = questa istanza di pagina non va indicizzata (vedi `PageInfo.noindex`): emette
+     *  `<meta name="robots" content="noindex, nofollow">`. Complementare all'`X-Robots-Tag`
+     *  statico via header (pagine protette): quello resta autoritativo per le pagine senza body
+     *  SSR, questo copre il caso — nuovo — di un'istanza noindex dentro una pagina normalmente
+     *  indicizzata (es. `?g=`/uno slug "recuperato" di un contenuto altrimenti generico). */
+    noindex?: boolean | null;
 }
 
 /**
@@ -104,7 +110,7 @@ export class PageMetaService {
      * @param input - Vedi {@link PageMetaInput}. `title` è il titolo grezzo (es. "Home", non "Home | Template").
      */
     setPageMeta(input: PageMetaInput): void {
-        const { title: pageTitle, description, imgId, ogType, updatedTime, structuredData } = input;
+        const { title: pageTitle, description, imgId, ogType, updatedTime, structuredData, noindex } = input;
 
         // Titolo browser: "Pagina | AppName", oppure solo "AppName" se pageTitle è vuoto
         const { appName } = ContestoSito.config;
@@ -113,6 +119,15 @@ export class PageMetaService {
         // Aggiorna il tag <title> del browser
         this.title.setTitle(browserTitle);
         this.announcedTitle.set(browserTitle);
+
+        // noindex di istanza: assente/false → nessun tag (la pagina segue l'indicizzazione di
+        // default, eventualmente già coperta dall'header statico). true → meta esplicito, letto
+        // dai crawler sull'HTML SSR esattamente come l'header, senza bisogno di eseguire JS.
+        if (noindex) {
+            this.meta.updateTag({ name: 'robots', content: 'noindex, nofollow' });
+        } else {
+            this.meta.removeTag('name="robots"');
+        }
 
         // Aggiorna i tag per i social (Open Graph e Twitter)
         this.meta.updateTag({ name: 'twitter:title', content: browserTitle });

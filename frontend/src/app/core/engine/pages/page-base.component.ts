@@ -173,6 +173,7 @@ export abstract class PageBaseComponent<T> {
                 imgId: info.ogImage, ogType: info.ogType,
                 updatedTime: this.pageUpdatedOn(),
                 structuredData,
+                noindex: info.noindex,
             });
         });
     }

@@ -66,14 +66,25 @@ export interface ShareSaveResult {
 }
 
 /**
- * Contenuto risolto della pagina generatore (il `<T>` di GeneratorDetailComponent).
- *
- * `result` è valorizzato dal resolver SOLO nel recupero `?g=` (frase condivisa): così la
- * generazione recuperata è già in SSR e il component non la ri-fetcha. Per la generazione
- * NUOVA resta `null` — la produce il client, evitando un re-generate ad ogni cambio lingua.
+ * Contenuto risolto della pagina generatore (il `<T>` di GeneratorDetailComponent), condiviso
+ * dalle due rotte che usano questo componente:
+ * - `/generatori/<slug>` (playground): `result` resta `null`, la produce il client via "Ancora!".
+ * - `/generatori/<slug>/:id` (frase condivisa, `recovered: true`): `result` arriva già valorizzato
+ *   dal resolver (SSR), niente ri-fetch client. Sempre `noindex` (vedi app.pages.ts).
  */
 export interface GeneratorPageContent {
     generator: GeneratorInfo;
     result: GenerateResponse | null;
     recovered: boolean;
+}
+
+/** Contenuto risolto della pagina Piaciuti (il `<T>` di PiaciutiComponent): la raccolta pubblica,
+ *  in panoramica o filtrata su un solo generatore (`filterSlug`). */
+export interface PiaciutiPageContent {
+    shares: ShareEntry[];
+    generators: GeneratorInfo[];
+    /** Conteggi per generatore (slug → totale): servono solo alla panoramica, vuoto in modalità filtrata. */
+    counts: Record<string, number>;
+    /** Slug del generatore filtrato al momento della risoluzione (`?gen=`), o `null` in panoramica. */
+    filterSlug: string | null;
 }

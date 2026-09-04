@@ -1,8 +1,9 @@
 import { DOCUMENT } from '@angular/common';
-import { afterNextRender, Component, computed, inject, input, signal } from '@angular/core';
+import { afterNextRender, Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { GeneratorInfo, GenerateResponse, GeneratorPageContent } from '../../core/dto/generator.dto';
 import { ContestoSito, PageType } from '../../site';
+import { GENERATOR_SLUG_TO_PAGE_TYPE } from '../app.pages';
 import { SpeechService } from '../../core/engine/services/speech.service';
 import { ImgBuilderService } from '../../core/engine/services/img-builder.service';
 import { AssetDirective } from '../../core/engine/directives/asset.directive';
@@ -74,29 +75,29 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
     });
     readonly coverVisible = signal(true);
 
-    /** Query param `?g=<id>`: se presente, all'avvio si recupera quella generazione condivisa
-     *  invece di generarne una nuova (link condivisibile). Bind automatico via
-     *  withComponentInputBinding. */
-    readonly g = input<string>();
-
     /** Generazione prodotta dal client ("Ancora!"): quando c'è, vince sul `result` SSR del resolver. */
     private readonly localResult = signal<GenerateResponse | null>(null);
-    /** Risultato mostrato: quello del client se presente, altrimenti quello SSR dal resolver (recupero `?g=`). */
+    /** Risultato mostrato: quello del client se presente, altrimenti quello SSR dal resolver (rotta
+     *  "frase condivisa" `/generatori/<slug>/:id`, `pageContent().recovered`). */
     readonly result = computed<GenerateResponse | null>(() => this.localResult() ?? this.pageContent()?.result ?? null);
     readonly loading = signal(false);
-    /** Id pubblico dell'ultima generazione condivisa (per il link condivisibile). */
+    /** Id pubblico dell'ultima generazione condivisa in QUESTA sessione (per il link condivisibile,
+     *  costruito da `ensureSavedLink`). Sulla rotta "frase condivisa" il link è già l'URL corrente:
+     *  non serve un id salvato a parte, vedi `pageContent().recovered`. */
     readonly savedId = signal<string | null>(null);
-    /** true quando il risultato mostrato proviene dai condivisi (recupero `?g=`), non da una generazione client. */
+    /** true quando il risultato mostrato proviene dalla rotta "frase condivisa"
+     *  (`/generatori/<slug>/:id`), non da una generazione client. */
     readonly recovered = computed(() => this.localResult() === null && (this.pageContent()?.recovered ?? false));
-    /** true se il risultato mostrato è già tra i piaciuti (registrato o recuperato da lì). */
-    readonly liked = computed(() => this.savedId() !== null || this.g() != null);
+    /** true se il risultato mostrato è già tra i piaciuti (registrato in questa sessione, o la
+     *  pagina stessa è la rotta "frase condivisa" di un piaciuto). */
+    readonly liked = computed(() => this.savedId() !== null || this.recovered());
 
     constructor() {
         super();
-        // Recupero `?g=`: la generazione è già risolta in SSR (resolver) → niente da fare. Altrimenti
-        // genera lato client. Niente scroll: la pagina è appena arrivata.
+        // Rotta "frase condivisa": il contenuto arriva già risolto in SSR (resolver) → niente da
+        // fare. Playground: genera lato client. Niente scroll: la pagina è appena arrivata.
         afterNextRender(() => {
-            if (!this.result()) void this.generate();
+            if (!this.result() && !this.pageContent()?.recovered) void this.generate();
         });
     }
 
@@ -122,20 +123,19 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
     }
 
     /**
-     * Assicura che il risultato corrente sia tra i piaciuti e restituisce il link
-     * condivisibile che punta a *quell'* oggetto (`?g=<id>`). È il cuore del "mi piace": registra
-     * (una volta sola: l'id viene riusato) e dà al chiamante un link stabile verso quella frase.
+     * Assicura che il risultato corrente sia tra i piaciuti e restituisce il link condivisibile
+     * che punta a *quell'* oggetto (`/generatori/<slug>/<id>`, non più `?g=<id>`). È il cuore del
+     * "mi piace": registra (una volta sola: l'id viene riusato) e dà al chiamante un link stabile.
      *
+     * - Già sulla rotta "frase condivisa" → l'URL corrente È GIÀ quel link, nessuna registrazione.
      * - Generazione genuina (con firma HMAC) non ancora piaciuta → la registra e ottiene l'id.
      * - Già registrata in questa sessione → riusa `savedId`, niente doppia registrazione.
-     * - Risultato recuperato dai piaciuti (`?g=`, sig vuota) → è già un oggetto: link al suo id.
      *
      * Un errore propaga: il chiamante (like-action) lo mostra come toast d'errore.
      */
     private async ensureSavedLink(): Promise<string> {
-        if (this.savedId()) return `${this.getCurrentUrl()}?g=${this.savedId()}`;
-        const recoveredId = this.g();
-        if (recoveredId) return `${this.getCurrentUrl()}?g=${recoveredId}`;
+        if (this.pageContent()?.recovered) return this.getCurrentUrl();
+        if (this.savedId()) return `${this.getCurrentUrl()}/${this.savedId()}`;
 
         const res = this.result();
         const slug = this.generator()?.slug;
@@ -143,18 +143,20 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
 
         const { id } = await this.api.saveGeneration(slug, { markdown: res.markdown, score: res.score, sig: res.sig });
         this.savedId.set(id);
-        return `${this.getCurrentUrl()}?g=${id}`;
+        return `${this.getCurrentUrl()}/${id}`;
     }
 
     /**
-     * Dallo stato "frase recuperata" (`?g=`) torna al generatore "vuoto": rimuove la query dall'URL
-     * e produce subito una generazione nuova. La navigazione riusa l'istanza del componente (stessa
-     * rotta), quindi `afterNextRender` non riparte: la generazione la lanciamo a mano.
+     * Dalla rotta "frase condivisa" (`/generatori/<slug>/:id`) torna al playground del generatore.
+     * Naviga verso una rotta diversa (PageType diverso da quello "condiviso"): l'istanza del
+     * componente NON viene riusata, quindi non generiamo qui — il playground appena montato lo fa
+     * da sé al proprio `afterNextRender` (niente doppia chiamata al backend).
      */
     goToGenerator(): void {
-        const path = ContestoSito.getPath(this.pageType());
+        const slug = this.generator()?.slug;
+        const basePageType = slug ? GENERATOR_SLUG_TO_PAGE_TYPE[slug] : null;
+        const path = basePageType ? ContestoSito.getPath(basePageType) : null;
         if (path) void this.router.navigateByUrl(path);
-        void this.generate(true);
     }
 
     // Porta in vista il risultato appena rigenerato (block: 'nearest' = non si muove se già visibile).
@@ -192,15 +194,16 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
     };
 
     /**
-     * Titolo per la Web Share API. Se il risultato è già tra i piaciuti (like-action premuto prima,
-     * o frase recuperata via `g()`) allega il link a *quell'* oggetto; altrimenti il link generico
-     * alla pagina del generatore.
+     * Titolo per la Web Share API. Sulla rotta "frase condivisa" l'URL corrente è già il link
+     * all'oggetto; sul playground, se già piaciuta in questa sessione (like-action premuto prima)
+     * allega il link a *quell'* oggetto; altrimenti il link generico alla pagina del generatore.
      */
     readonly shareTitle = computed(() => {
         const gen = this.generator();
         if (!gen) return '';
-        const id = this.savedId() ?? this.g();
-        const url = id ? `${this.getCurrentUrl()}?g=${id}` : this.getCurrentUrl();
+        if (this.pageContent()?.recovered) return `${gen.name}: ${this.getCurrentUrl()}`;
+        const id = this.savedId();
+        const url = id ? `${this.getCurrentUrl()}/${id}` : this.getCurrentUrl();
         return `${gen.name}: ${url}`;
     });
 
@@ -210,19 +213,24 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
         return gen ? `${gen.slug}.png` : 'risultato.png';
     });
 
-    // ── Dispatch per generatore (wrapper tipizzati: niente slug a mano) ──
+    // ── Dispatch per generatore (wrapper tipizzati: niente slug a mano nelle chiamate API) ──
+    //
+    // Chiave = slug del generatore (da pageContent(), non pageType()): questo componente serve sia
+    // il playground (/generatori/<slug>) sia la rotta "frase condivisa" (/generatori/<slug>/:id,
+    // PageType diverso ma stesso generatore) — lo slug è l'identità stabile tra le due.
 
     private fetchGeneratedText(): Promise<GenerateResponse> {
-        switch (this.pageType()) {
-            case PageType.GeneratorIncel: return this.api.generateIncel();
-            case PageType.GeneratorStartup: return this.api.generateStartup();
-            case PageType.GeneratorAuto: return this.api.generateAuto();
-            case PageType.GeneratorAntiveg: return this.api.generateAntiveg();
-            case PageType.GeneratorLocali: return this.api.generateLocali();
-            case PageType.GeneratorKebab: return this.api.generateKebab();
-            case PageType.GeneratorMbeb: return this.api.generateMbeb();
-            case PageType.GeneratorOroscopo: return this.api.generateOroscopo(this.activeVariant() ?? '');
-            default: throw new Error(`PageType non è un generatore: ${this.pageType()}`);
+        const slug = this.generator()?.slug;
+        switch (slug) {
+            case 'incel': return this.api.generateIncel();
+            case 'startup': return this.api.generateStartup();
+            case 'auto': return this.api.generateAuto();
+            case 'antiveg': return this.api.generateAntiveg();
+            case 'locali': return this.api.generateLocali();
+            case 'kebab': return this.api.generateKebab();
+            case 'mbeb': return this.api.generateMbeb();
+            case 'oroscopo': return this.api.generateOroscopo(this.activeVariant() ?? '');
+            default: throw new Error(`Slug non è un generatore noto: ${slug}`);
         }
     }
 }

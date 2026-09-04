@@ -865,6 +865,14 @@ export type PageInfo = {
     /** Dati strutturati statici (da `otherSEO.structuredData`): stringa (@type), oggetto o lista.
      *  Quelli dinamici arrivano dal `ContentResolver` via `ResolvedPage.structuredData` (precedenza). */
     structuredData?: StructuredDataInput;
+    /** `true` se questa ISTANZA di pagina va esclusa dall'indicizzazione: valore di base dal flag
+     *  statico (`otherSEO.noindex`), un `contentLoader` può alzarlo per una singola richiesta (es.
+     *  una vista "recuperata" via slug/query di un contenuto altrimenti generico — la pagina resta
+     *  SSR/pubblica, solo non indicizzabile). Reso come `<meta name="robots">` da PageMetaService:
+     *  complementare, non sostitutivo, dell'`X-Robots-Tag` statico via header (vedi
+     *  `ServerRenderEntry.noindex` in server.ts) — quello resta l'unico segnale per le pagine
+     *  protette (shell client-rendered, niente body SSR dove mettere un meta tag utile). */
+    noindex?: boolean;
 };
 
 export interface BuiltSite {
@@ -1153,6 +1161,9 @@ function processPages(
                 throw new Error(`[SiteBuilder] PageType duplicato rilevato: "${String(page.pageType)}" (lingua "${lang}"). Ogni pagina deve avere un pageType unico.`);
             }
             seenInternalPaths.add(fullPath);
+            // La pagina di login (slot `loginPage`) è noindex per default; qualunque altra pagina
+            // segue il proprio flag (undefined ⇒ false). Un `noindex: false` esplicito sul login vince.
+            const noindex = page.pageType === loginPageType ? (page.noindex ?? true) : !!page.noindex;
             pageMap.set(key, {
                 title: page.title,             // chiave i18n del titolo — NON tradotta qui, solo salvata.
                 path: fullPath,                 // il path GIÀ nella lingua corretta (prefisso incluso).
@@ -1161,13 +1172,11 @@ function processPages(
                 ogImage: page.ogImage,
                 ogType: page.ogType ?? 'website',
                 structuredData: page.structuredData,
+                noindex,                        // valore statico di base: un contentLoader può alzarlo per una singola richiesta (vedi PageInfo.noindex).
             });
             // Vale per QUALSIASI foglia, non solo le rotte parametriche sotto: una pagina normale
             // (es. una lista) può avere un `content` senza avere `dynamicParams`.
             if (page.contentLoader) contentLoaders.set(page.pageType, page.contentLoader);
-            // La pagina di login (slot `loginPage`) è noindex per default; qualunque altra pagina
-            // segue il proprio flag (undefined ⇒ false). Un `noindex: false` esplicito sul login vince.
-            const noindex = page.pageType === loginPageType ? (page.noindex ?? true) : !!page.noindex;
 
             // requiresAuth → 'client' (i bot non loggano, l'SSR è inutile); altrimenti renderMode esplicito o 'server'.
             // noindex NON forza il client-render: la pagina resta SSR/pubblica, solo non indicizzabile.
