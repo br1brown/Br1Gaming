@@ -2,12 +2,12 @@ import { Component, computed, input } from '@angular/core';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { FooterNavGroupComponent } from '../footer-nav-group/footer-nav-group.component';
 import { FooterLinkRowComponent } from '../footer-link-row/footer-link-row.component';
-import { NavLink, isNavGroup } from '../../siteBuilder';
+import { NavLink, isNavGroup, navLinkKey } from '../../shell-nav';
 
 /**
  * FOOTER NAV COMPONENT
  *
- * Render della griglia di link cablati da ContestoSito.linkFooter, con DUE resa diverse per lo
+ * Render della griglia di link risolti da `ShellNavService.footer()`, con DUE resa diverse per lo
  * stesso identico input (`addPage`/`addLink`/`addGroup`, la stessa sintassi della navbar):
  *   - un `addGroup` (categoria reale di navigazione) → colonna a sé, header + lista, come sempre.
  *   - un `addPage`/`addLink` sciolto in cima (fuori da un gruppo) → niente colonna a sé (sprecherebbe
@@ -34,6 +34,8 @@ import { NavLink, isNavGroup } from '../../siteBuilder';
 })
 export class FooterNavComponent {
     readonly links = input.required<NavLink[]>();
+    /** Chiave `track` per il template — vedi doc su `navLinkKey` in shell-nav.ts. */
+    readonly navLinkKey = navLinkKey;
 
     /** Voci di primo livello che sono gruppi reali (`addGroup`): una colonna ciascuna. */
     readonly groups = computed(() => this.links().filter(isNavGroup));

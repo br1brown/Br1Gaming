@@ -5,7 +5,7 @@ import { injectCurrentUrl } from '../../routing';
 import { isDesktopViewport } from '../../breakpoints';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { NavLinkComponent } from '../nav-link/nav-link.component';
-import { NavLink, isNavGroup } from '../../siteBuilder';
+import { NavLink, isNavGroup, navLinkKey } from '../../shell-nav';
 
 /** Margine dal bordo inferiore del viewport quando si calcola il tetto d'altezza del flyout. */
 const SUBMENU_VIEWPORT_MARGIN = 16;
@@ -45,6 +45,8 @@ export class NavSubmenuComponent {
 
     /** Type-guard riusato nel template per ramificare figlio-gruppo / figlio-link. */
     readonly isGroup = isNavGroup;
+    /** Chiave `track` per il template — vedi doc su `navLinkKey` in shell-nav.ts. */
+    readonly navLinkKey = navLinkKey;
 
     readonly isActive = computed(() => {
         this.currentUrl(); // dipendenza signal: re-eval ad ogni navigazione

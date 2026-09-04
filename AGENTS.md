@@ -67,7 +67,7 @@ legalPages: [
 Poi: chiavi i18n in `addon.<lang>.json` (mai `basic.<lang>.json`, quello è Engine) e `src/assets/legal/recesso.<lang>.md` per ogni lingua configurata.
 
 #### Rimuovere una pagina legale (es. non serve più la Privacy Policy)
-Speculare all'aggiunta: togli la voce da `legalPages` (`site.ts`) — pagina, rotta e riga nel footer spariscono da soli, "voce assente" è il pattern normale (vedi sopra), non serve toccare altro in `siteBuilder.ts`. Un riferimento diretto rimasto altrove (es. `g.addPage(PageType.PrivacyPolicy)` in `headerNav`) non rompe il build — `resolveNavigation` scarta in silenzio un `PageType` non più registrato — ma ripulirlo evita una voce di menu morta.
+Speculare all'aggiunta: togli la voce da `legalPages` (`site.ts`) — pagina, rotta e riga nel footer spariscono da soli, "voce assente" è il pattern normale (vedi sopra), non serve toccare altro in `siteBuilder.ts`. Un riferimento diretto rimasto altrove (es. `g.addPage(PageType.PrivacyPolicy)` in `nav.ts`) non rompe il build — `resolveNavItems` scarta in silenzio un `PageType` non più registrato — ma ripulirlo evita una voce di menu morta.
 **Eccezione**: se togli la pagina puntata da `cookiePolicy` (stesso file, campo separato dall'array `legalPages` — dettagli in [frontend/README.md](frontend/README.md#pagine-legali-legalpages) §"Rimuovere una pagina"), il build si ferma con un errore esplicito finché non aggiorni anche quel puntatore — a differenza delle altre 4, la Cookie Policy non è mai "silenziosamente assente": o è configurata correttamente, o niente.
 
 #### Aggiungere un endpoint al client

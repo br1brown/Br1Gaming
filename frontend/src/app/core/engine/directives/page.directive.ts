@@ -42,7 +42,7 @@ export class PageDirective {
 
     readonly appPage = input.required<PageType>();
     /** Valori per gli eventuali segmenti `:xxx` del path risolto — vedi `NavItemOptions.params`
-     *  in siteBuilder.ts, stessa regola di sostituzione. */
+     *  in shell-nav.ts, stessa regola di sostituzione. */
     readonly appPageParams = input<Record<string, string>>();
     /** Query params del link, bindati a parte su RouterLink — mai concatenati nel path. */
     readonly appPageQueryParams = input<Record<string, string>>();

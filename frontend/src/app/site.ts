@@ -47,28 +47,6 @@ export const ContestoSito = buildSite({
         ...appPagesDecl,
     ],
 
-    // Menu header/footer: builder con addPage / addLink / addGroup (gruppi annidabili;
-    // limiti di profondità e resa per dispositivo: frontend/README.md §"Navigazione Multilivello").
-    headerNav: (h) => {
-        h.addPage(PageType.CheFaccio);
-        // authOnly: mostra il link solo a utenti loggati (la pagina è protetta da requiresAuth).
-        h.addPage(PageType.Impostazioni, { authOnly: true });
-        h.addGroup('menuPolicy', g => {
-            g.addPage(PageType.PrivacyPolicy);
-            g.addPage(PageType.CookiePolicy);
-            g.addPage(PageType.AccessibilityStatement);
-            g.addGroup('menuLegale', sg => {
-                sg.addPage(PageType.TermsOfService);
-                sg.addPage(PageType.LegalNotice);
-            });
-        });
-        h.addPage(PageType.Social);
-    },
-
-    // Le pagine legali NON si dichiarano qui: `footer.component` le rende da sole, in una fascia
-    // dedicata ("small prints") derivata da `legalPages` sopra — vedi `FooterLinkRowComponent`.
-    // `footerNav` resta per la navigazione libera del progetto.
-    footerNav: (f) => {
-        f.addLink('githubDesc', 'https://github.com/br1brown/Br1WebEngine');
-    },
+    // Menu header/footer: NON qui — è dato, non struttura del sito, risolto a runtime.
+    // Vive in `nav.ts`, vedi `ShellNavResolver` in `core/engine/shell-nav.ts`.
 });

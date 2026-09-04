@@ -25,7 +25,7 @@
         <div id="navbar-menu" class="collapse navbar-collapse" [class.show]="menuOpen()">
             @if (menuItems().length > 0) {
             <ul #navListEl class="navbar-nav">
-                @for (item of menuItems(); track item.path; let i = $index) {
+                @for (item of menuItems(); track navLinkKey(item); let i = $index) {
                 <!-- inert + visibility:hidden (solo da md in su, vedi scss) sulle voci oltre
                      visibleCount(): restano misurabili (offsetWidth reale) da recomputeOverflow()
                      ma escono dal flusso e dalla tab-order — sono duplicate, interattive, dentro

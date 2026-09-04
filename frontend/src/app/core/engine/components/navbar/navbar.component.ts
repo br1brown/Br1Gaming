@@ -1,5 +1,5 @@
-import { afterNextRender, Component, computed, DestroyRef, effect, ElementRef, inject, isDevMode, signal, viewChild, viewChildren } from '@angular/core';
-import { NgTemplateOutlet } from '@angular/common';
+import { afterNextRender, Component, computed, DestroyRef, effect, ElementRef, inject, isDevMode, PLATFORM_ID, signal, viewChild, viewChildren } from '@angular/core';
+import { isPlatformBrowser, NgTemplateOutlet } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter } from 'rxjs/operators';
@@ -13,7 +13,9 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
 import { NavLinkComponent } from '../nav-link/nav-link.component';
 import { NavDropdownComponent } from '../nav-dropdown/nav-dropdown.component';
 import { ContestoSito } from '../../../../site';
-import { applyPathParams, filterNavByAuth, isNavGroup, NavLink } from '../../siteBuilder';
+import { applyPathParams } from '../../siteBuilder';
+import { filterNavByAuth, isNavGroup, navLinkKey, NavLink } from '../../shell-nav';
+import { ShellNavService } from '../../services/shell-nav.service';
 import { AssetDirective } from '../../directives/asset.directive';
 import { UserNavComponent } from '../user-nav/user-nav.component';
 import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
@@ -56,6 +58,10 @@ export class NavbarComponent {
     private readonly elRef = inject(ElementRef);
     private readonly destroyRef = inject(DestroyRef);
     private readonly tokenService = inject(TokenService);
+    private readonly shellNav = inject(ShellNavService);
+    private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+    /** Chiave `track` per il template — vedi doc su `navLinkKey` in shell-nav.ts. */
+    protected readonly navLinkKey = navLinkKey;
 
     readonly appName = ContestoSito.config.appName;
     // Path della home dallo slot `homePage`, nella lingua corrente; `null` se non valorizzato →
@@ -63,12 +69,12 @@ export class NavbarComponent {
     readonly homePath = computed<string | null>(() => ContestoSito.config.homePage != null
         ? ContestoSito.getPath(ContestoSito.config.homePage, this.translate.currentLang())
         : null);
-    /** Menu così come dichiarato in `site.ts` nella lingua corrente, senza filtro auth: usato solo
+    /** Menu risolto da `ShellNavService` per la lingua corrente, senza filtro auth: usato solo
      *  per le decisioni strutturali che devono restare stabili a prescindere dal login (soglia
      *  overflow "Altro", warning di usabilità, sentinel `altroDropdownIndex`) — vedi `menuItems`
-     *  per il render. La STRUTTURA (conteggio/profondità) è identica in ogni lingua — solo i
-     *  `path` cambiano — quindi leggerlo una volta alla costruzione per i sentinel sotto è corretto. */
-    private readonly rawMenuItems = computed(() => ContestoSito.getMenuNav(this.translate.currentLang()));
+     *  per il render. Il servizio è già risolto al primo render (atteso da `provideAppInitializer`
+     *  in app.config.ts): leggerlo qui, anche in un field initializer sincrono, è sicuro. */
+    private readonly rawMenuItems = computed(() => this.shellNav.header());
     /** Menu effettivamente reso: filtra le voci/gruppi `authOnly` in base al login corrente
      *  (`TokenService.isLoggedIn()`). In SSR e prima dell'idratazione l'utente risulta sempre
      *  sloggato (nessun token), quindi anche i bot vedono solo le voci pubbliche — coerente con
@@ -203,7 +209,9 @@ export class NavbarComponent {
      *  si mostra sempre l'insieme completo. */
     private recomputeOverflow(): void {
         const currentItems = this.menuItems();
-        if (!isDesktopViewport()) {
+        // isDesktopViewport() è solo-browser per contratto (breakpoints.ts) — guardia necessaria
+        // perché l'effect() che chiama questo metodo (sotto) gira anche in SSR.
+        if (!this.isBrowser || !isDesktopViewport()) {
             this.visibleCount.set(currentItems.length);
             return;
         }

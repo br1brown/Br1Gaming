@@ -5,6 +5,7 @@ import { environment } from '../../../environments/environment';
 import { hasCookiesConfigured } from './services/cookie/cookie-utils';
 import { buildPolicySection, filterManagedLegalPages, legalSlugFor } from './legal/legal-pages';
 import type { StructuredDataInput } from './services/structured-data';
+import type { NavLink } from './shell-nav';
 
 /** Default "di sistema" per le 5 pagine legali standard — dati pronti da usare con lo spread
  *  (vedi `LegalPageSpec` e `pages/policy/legal.pages.ts`), riesportati qui perché il figlio
@@ -546,33 +547,10 @@ export type ExternalPage = Omit<ExternalPageInput, 'kind'> & {
 export type SitePage = ParentPage | LeafPage | ExternalPage;
 export type InternalSitePage = ParentPage | LeafPage;
 
-/**
- * Struttura finale usata dal menu e dal footer.
- *
- * Dopo la fase di build, la navigazione viene esposta in questa forma:
- * - label visibile
- * - path finale risolto
- * - eventuali figli se è un gruppo
- */
-export type NavLink = {
-    /** Etichetta visibile del link. */
-    label: string;
-    /** Path o URL finale del link — con eventuali segmenti `:xxx` già sostituiti (vedi
-     *  `NavItemOptions.params`), MAI con una query string appesa a mano: quella vive separata in
-     *  `queryParams` (routerLink non la interpreterebbe se concatenata nella stringa). */
-    path: string;
-    /** true se il link punta a una risorsa esterna al sito (externalUrl o link diretto http/https). */
-    isExternal: boolean;
-    /** Query params del link, se impostati via `NavItemOptions.queryParams` — bindati a parte
-     *  (`[queryParams]`) dal componente che rende il link, mai concatenati in `path`. */
-    queryParams?: Record<string, string>;
-    /** Eventuali link figli se l'elemento rappresenta un gruppo. */
-    children?: NavLink[];
-    /** `true` se la voce (o l'intero gruppo) va mostrata solo a utente loggato — vedi
-     *  `NavItemOptions.authOnly` su `addPage`/`addLink`/`addGroup`. Filtrato a runtime da
-     *  `filterNavByAuth`, non qui: la struttura resta identica per bot e utenti sloggati. */
-    authOnly?: boolean;
-};
+// Navigazione (header/footer): tipi e risoluzione vivono in `shell-nav.ts`, non qui — dato
+// risolvibile a runtime, non struttura del sito. `getLegalFooterLinks` sotto ne resta un
+// consumer (la fascia "small prints" DERIVA da `legalPages`, quella sì build-time) e importa
+// `NavLink` da lì.
 
 // ======================================================
 // TYPE GUARDS
@@ -614,47 +592,6 @@ export const isExternalPage = (page: SitePage): page is ExternalPage =>
  */
 export const isInternalPage = (page: SitePage): page is InternalSitePage =>
     page.kind === 'parent' || page.kind === 'leaf';
-
-/**
- * Verifica se un item raw di navigazione è un gruppo.
- *
- * Serve nella fase di risoluzione finale della navigazione.
- */
-const isRawGroup = (
-    item: RawNavItem
-): item is { kind: 'group'; label: string; children: RawNavItem[]; authOnly?: boolean } =>
-    item.kind === 'group';
-
-/** Verifica se un `NavLink` è un gruppo (ha figli): usato da navbar, dropdown, submenu e footer per il render ricorsivo. */
-export const isNavGroup = (item: NavLink): item is NavLink & { children: NavLink[] } =>
-    Array.isArray(item.children) && item.children.length > 0;
-
-/**
- * Filtra ricorsivamente un albero `NavLink` in base allo stato di login: le voci (o interi
- * gruppi) con `authOnly: true` spariscono se `loggedIn` è `false`. Un gruppo rimasto senza
- * figli dopo il filtro sparisce a sua volta — stessa regola già applicata in fase di build
- * per i gruppi vuoti (`resolveNavigation`), qui ripetuta perché il login è runtime, non build.
- *
- * Solo `true`/`false`: l'Engine non conosce ruoli, solo "loggato / non loggato"
- * (`TokenService.isLoggedIn()`). Chi ha bisogno di granularità per-ruolo la gestisce nel
- * Dominio (es. filtrando `ContestoSito.menuNav`/`linkFooter` prima di passarlo ai componenti).
- *
- * Usato da `navbar.component.ts` (Engine) e `footer.component.ts` (Dominio, stesso pattern
- * di `AuthService.isLoggedIn` già usato da `user-nav.component.ts`).
- */
-export function filterNavByAuth(items: NavLink[], loggedIn: boolean): NavLink[] {
-    return items.reduce<NavLink[]>((visible, item) => {
-        if (item.authOnly && !loggedIn) return visible;
-        if (isNavGroup(item)) {
-            const children = filterNavByAuth(item.children, loggedIn);
-            if (children.length === 0) return visible;
-            visible.push({ ...item, children });
-        } else {
-            visible.push(item);
-        }
-        return visible;
-    }, []);
-}
 
 /**
  * Verifica se l'input dichiarato rappresenta una pagina contenitore.
@@ -791,71 +728,8 @@ const collectDeclaredPageTypes = (pages: SitePageInput[], acc: Set<PageType>): S
 // BUILDER PUBBLICI
 // ======================================================
 
-/**
- * Opzioni comuni alle tre azioni del builder di navigazione (`addPage`/`addLink`/`addGroup`).
- */
-export interface NavItemOptions {
-    /**
-     * Se `true`, la voce — o l'intero gruppo, se su `addGroup` — compare in navbar/footer solo
-     * per utenti loggati (`TokenService.isLoggedIn()`), sparendo del tutto per visitatori e bot:
-     * niente più link fantasma verso pagine `requiresAuth` per chi non può comunque accedervi.
-     * Il filtro è runtime (`filterNavByAuth`), non in fase di build: la struttura risolta resta
-     * identica, cambia solo cosa viene mostrato al render. Default `false` (sempre visibile).
-     *
-     * Volutamente binario — loggato/non loggato, non un sistema di ruoli: la granularità
-     * per-ruolo è complessità di dominio (un progetto che ne ha bisogno filtra a valle,
-     * `ContestoSito.menuNav`/`linkFooter`, prima di passarli ai componenti), non generica
-     * abbastanza da meritare un seam nell'Engine.
-     */
-    authOnly?: boolean;
-    /**
-     * Valori per i segmenti `:xxx` del path risolto (`addPage`) o passato (`addLink`), es.
-     * `{ slug: 'incel' }` su `/generatori/:slug` produce `/generatori/incel` — serve a collegare
-     * in menu una voce concreta di una rotta parametrica senza ricostruire il path a mano
-     * (`getPath(pageType)` da solo risolverebbe al template letterale). Un segmento senza valore
-     * resta invariato (warning in dev); chiavi senza un segmento da riempire sono ignorate.
-     */
-    params?: Record<string, string>;
-    /** Query params del link, es. `{ gen: 'incel' }` → `?gen=incel`. Tenuti separati dal path
-     *  risolto (mai concatenati a mano): il componente che rende il link li passa a `[queryParams]`,
-     *  l'unico modo con cui `routerLink` li interpreta davvero come query e non come segmento path. */
-    queryParams?: Record<string, string>;
-}
-
-/**
- * Builder usato all'interno delle sezioni di navigazione.
- *
- * Espone tre azioni:
- * - `addPage(...)`  -> aggiunge un riferimento a una pagina tramite PageType
- * - `addLink(...)`  -> aggiunge un link diretto
- * - `addGroup(...)` -> crea un gruppo annidato con una callback
- */
-export interface SiteNavigationSectionBuilder {
-    /**
-     * Aggiunge un riferimento a una pagina del sito tramite `PageType`.
-     * @param pageType Tipo pagina da risolvere in fase finale.
-     * @param options Opzioni della voce (es. `authOnly`).
-     */
-    addPage: (pageType: PageType, options?: NavItemOptions) => void;
-    /**
-     * Aggiunge un link diretto alla navigazione.
-     * @param labelTranslationKey Chiave di traduzione o etichetta del link.
-     * @param destinationPath Path o URL di destinazione.
-     * @param options Opzioni della voce (es. `authOnly`).
-     */
-    addLink: (labelTranslationKey: string, destinationPath: string, options?: NavItemOptions) => void;
-    /**
-     * Crea un gruppo annidato nella navigazione.
-     * @param groupLabelTranslationKey Chiave di traduzione o etichetta del gruppo.
-     * @param configureGroupItems Callback che definisce gli elementi del gruppo.
-     * @param options Opzioni del gruppo (es. `authOnly`: nasconde l'intero gruppo se sloggato).
-     */
-    addGroup: (
-        groupLabelTranslationKey: string,
-        configureGroupItems: (groupItemsBuilder: SiteNavigationSectionBuilder) => void,
-        options?: NavItemOptions
-    ) => void;
-}
+// Il builder di navigazione (NavItemOptions/NavSectionBuilder/addPage/addLink/addGroup) vive in
+// `shell-nav.ts`: la navigazione è dato, risolto a runtime — vedi `ShellNavResolver`.
 
 /**
  * Sottoinsieme della configurazione sito esposto alla factory di `defineSitePages`.
@@ -954,10 +828,6 @@ export interface SiteDefinition {
      * per permettere di condizionare pagine in base a flag come `isWebApp`.
      */
     pages: (ctx: SitePageContext) => SitePageInput[];
-    /** Popola le voci della navigazione header tramite addPage / addGroup / addLink. */
-    headerNav?: (nav: SiteNavigationSectionBuilder) => void;
-    /** Popola le voci della navigazione footer tramite addPage / addGroup / addLink. */
-    footerNav?: (nav: SiteNavigationSectionBuilder) => void;
 }
 
 export type ServerRenderEntry = {
@@ -1003,16 +873,13 @@ export interface BuiltSite {
     /** Pagine interne esponibili ad Angular Router (albero canonico, non prefissato: la
      *  moltiplicazione per lingua avviene in `routing.ts`, non qui). */
     pages: InternalSitePage[];
-    /** Navigazione dell'header per lingua. `lang` omesso risolve alla lingua default. */
-    getMenuNav: (lang?: string) => NavLink[];
-    /** Navigazione del footer per lingua. `lang` omesso risolve alla lingua default. */
-    getLinkFooter: (lang?: string) => NavLink[];
     /**
      * Link alle pagine legali configurate (`config.legalPages`), per lingua, in ordine fisso
      * (privacy, cookie, tos, legal, accessibility) — pensati per la fascia "small prints" a
-     * chiusura del footer (pattern PA/Designers Italia), non per `footerNav`. Auto-derivati dagli
-     * slot: nessuna dichiarazione manuale nel figlio, e uno slot rimosso (pagina cancellata da
-     * `pages`) sparisce da qui da solo, senza bisogno di toccare `site.ts`.
+     * chiusura del footer (pattern PA/Designers Italia), non per il menu footer generico (quello
+     * vive in `ShellNavResolver.footer`, vedi shell-nav.ts). Auto-derivati dagli slot: nessuna
+     * dichiarazione manuale nel figlio, e uno slot rimosso (pagina cancellata da `pages`)
+     * sparisce da qui da solo, senza bisogno di toccare `site.ts`.
      */
     getLegalFooterLinks: (lang?: string) => NavLink[];
     /** Piano di rendering server-only derivato dalle pagine foglia interne valide, per ogni lingua. */
@@ -1090,22 +957,6 @@ export type SitemapEntry = {
 // ======================================================
 // MODELLI INTERNI DELLA NAVIGAZIONE
 // ======================================================
-
-/**
- * Rappresentazione interna "grezza" della navigazione.
- *
- * Durante la build non risolviamo subito i link finali,
- * ma accumuliamo una struttura intermedia composta da:
- * - riferimenti a pagine (`kind: 'page'`)
- * - link diretti (`kind: 'link'`)
- * - gruppi (`kind: 'group'`)
- *
- * Solo alla fine questa struttura viene trasformata in `NavLink[]`.
- */
-type RawNavItem =
-    | { kind: 'page'; type: PageType; authOnly?: boolean; params?: Record<string, string>; queryParams?: Record<string, string> }
-    | { kind: 'link'; label: string; path: string; authOnly?: boolean; params?: Record<string, string>; queryParams?: Record<string, string> }
-    | { kind: 'group'; label: string; children: RawNavItem[]; authOnly?: boolean };
 
 // ======================================================
 // ENGINE PRINCIPALE
@@ -1240,28 +1091,6 @@ function buildFinalConfig(definition: SiteDefinition): SiteConfig {
         legalPages: definition.legalPages ?? [],
         cookiePolicy: definition.cookiePolicy ?? null,
     };
-}
-
-/** Strumenti per popolare una sezione di navigazione (header/footer): addPage / addLink / addGroup. */
-function createNavigationSectionBuilder(target: RawNavItem[]): SiteNavigationSectionBuilder {
-    return {
-        addPage: (pageType, options) => { target.push({ kind: 'page', type: pageType, authOnly: options?.authOnly, params: options?.params, queryParams: options?.queryParams }); },
-        addLink: (label, path, options) => { target.push({ kind: 'link', label, path, authOnly: options?.authOnly, params: options?.params, queryParams: options?.queryParams }); },
-        addGroup: (label, configure, options) => {
-            const children: RawNavItem[] = [];
-            configure(createNavigationSectionBuilder(children));
-            target.push({ kind: 'group', label, children, authOnly: options?.authOnly });
-        },
-    };
-}
-
-/** Esegue le callback headerNav/footerNav del figlio e raccoglie gli item di navigazione grezzi. */
-function collectNavigation(definition: SiteDefinition): { rawHeader: RawNavItem[]; rawFooter: RawNavItem[] } {
-    const rawHeader: RawNavItem[] = [];
-    const rawFooter: RawNavItem[] = [];
-    definition.headerNav?.(createNavigationSectionBuilder(rawHeader));
-    definition.footerNav?.(createNavigationSectionBuilder(rawFooter));
-    return { rawHeader, rawFooter };
 }
 
 /**
@@ -1410,51 +1239,6 @@ function validatePageRefs(config: SiteConfig, legalPages: readonly LegalPageSpec
 }
 
 /**
- * Limiti di profondità della navigazione (header e footer condividono la stessa struttura).
- * Livello 1 = voci di primo livello; ogni discesa in `children` aggiunge un livello.
- */
-const NAV_DEPTH_WARN = 4; // da questo livello in poi: avviso di usabilità (dev). 3 livelli (voce → dropdown → sottomenu) è la profondità dimostrata dal template ed è ok.
-const NAV_DEPTH_MAX = 5;  // livelli oltre questo: errore bloccante a build/avvio
-
-/**
- * Valida la profondità di una sezione di navigazione risolta: lancia se si annida oltre
- * `NAV_DEPTH_MAX` livelli, avvisa (solo in dev) se si raggiunge `NAV_DEPTH_WARN`.
- *
- * @throws Se un gruppo genera figli oltre il quinto livello di profondità.
- */
-function validateNavDepth(items: NavLink[], section: 'header' | 'footer'): void {
-    // Profondità massima effettivamente raggiunta, per decidere l'avviso una sola volta.
-    let maxDepth = 0;
-
-    const walk = (nodes: NavLink[], depth: number): void => {
-        if (depth > maxDepth) maxDepth = depth;
-        for (const node of nodes) {
-            if (isNavGroup(node)) {
-                // I figli di questo gruppo stanno a depth+1: oltre il quinto livello è bloccante.
-                if (depth + 1 > NAV_DEPTH_MAX) {
-                    throw new Error(
-                        `[SiteBuilder] Navigazione ${section}: superato il limite di ${NAV_DEPTH_MAX} livelli di ` +
-                        `profondità sul gruppo "${node.label}". Annidare oltre il quinto livello non è consentito: ` +
-                        `riduci la gerarchia.`
-                    );
-                }
-                walk(node.children, depth + 1);
-            }
-        }
-    };
-
-    walk(items, 1);
-
-    if (isDevMode() && maxDepth >= NAV_DEPTH_WARN) {
-        console.warn(
-            `[SiteBuilder] Navigazione ${section}: profondità ${maxDepth} livelli (max consigliato: ${NAV_DEPTH_WARN - 1}). ` +
-            `Aumentare la profondità della navigazione peggiora usabilità, accessibilità, facilità di navigazione e ` +
-            `comprensione della struttura informativa. Valuta di appiattire la gerarchia.`
-        );
-    }
-}
-
-/**
  * Nodo di un catalogo di slug dinamici per una rotta parametrica (vedi `LeafPageInput.dynamicParams`):
  * un valore accettato per il `:segmento` alla sua profondità, con `children` opzionali per il
  * segmento successivo (assenti sul caso più comune, un solo `:param`). La gerarchia stessa evita
@@ -1593,45 +1377,11 @@ export function applyPathParams(path: string, params: Record<string, string> | u
 }
 
 /**
- * Risolve gli item grezzi di navigazione in `NavLink` finali per una data lingua: i riferimenti
- * `PageType` passano dalla `pageMap` (via `pageMapKey`); i gruppi vuoti e i riferimenti non
- * risolti vengono scartati.
- */
-function resolveNavigation(items: RawNavItem[], pageMap: Map<string, PageInfo>, lang: string, defaultLang: string): NavLink[] {
-    return items
-        .map((item): NavLink | null => {
-            if (item.kind === 'page') {
-                // Stessa chiave usata in processPages(): per lang=default è il PageType nudo, per le
-                // altre lingue è "type::lang" — così ogni chiamata (una per lingua, vedi buildSite)
-                // pesca il path GIÀ nella lingua giusta, senza bisogno di tradurlo qui.
-                const entry = pageMap.get(pageMapKey(item.type, lang, defaultLang));
-                if (!entry && isDevMode()) {
-                    console.warn(`[SiteBuilder] addPage("${String(item.type)}") non risolve a nessuna pagina registrata (disabilitata o mai dichiarata in pages): voce di navigazione esclusa.`);
-                }
-                if (!entry) return null;
-                const path = applyPathParams(entry.path, item.params, `addPage("${String(item.type)}")`);
-                return { label: entry.title, path, isExternal: entry.isExternal, queryParams: item.queryParams, authOnly: item.authOnly };
-            }
-            if (isRawGroup(item)) {
-                const children = resolveNavigation(item.children, pageMap, lang, defaultLang);
-                // '#group:...' è un sentinel: la navbar lo tratta come dropdown, non ci naviga.
-                return children.length > 0
-                    ? { label: item.label, path: `#group:${item.label}`, isExternal: false, children, authOnly: item.authOnly }
-                    : null;
-            }
-            // Link diretto; esterno se inizia con http(s) → la navbar aggiunge target/rel.
-            const path = applyPathParams(item.path, item.params, `addLink("${item.label}")`);
-            return { label: item.label, path, isExternal: path.startsWith('http://') || path.startsWith('https://'), queryParams: item.queryParams, authOnly: item.authOnly };
-        })
-        .filter((item): item is NavLink => item !== null);
-}
-
-/**
  * Risolve `legalPages` (NON filtrata dall'override: una pagina overridden resta comunque nel
  * footer) in `NavLink[]` per la fascia "small prints", nello stesso ordine della lista. Una voce
  * che non risolve in `pageMap` (mai configurata, o rimossa insieme alla pagina che referenziava)
- * è semplicemente assente dal risultato — stessa logica "silente" di `resolveNavigation` per un
- * `addPage` non risolto.
+ * è semplicemente assente dal risultato — stessa logica "silente" di `resolveNavItems`
+ * (shell-nav.ts) per un `addPage` non risolto.
  */
 function resolveLegalFooterLinks(
     legalPages: readonly LegalPageSpec[],
@@ -1677,8 +1427,6 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
 
     const policySection = buildPolicySection(managedLegalPages);
     const sitePages = normalizeSitePages(policySection ? [...declaredPages, policySection] : declaredPages);
-
-    const { rawHeader, rawFooter } = collectNavigation(definition);
 
     // pageMap/serverRenderEntries/sitemap accumulano le varianti di TUTTE le lingue: dichiarati UNA
     // VOLTA fuori dal loop, cosicché ogni giro di processPages() aggiunga la propria lingua alle
@@ -1727,18 +1475,9 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
         ? allLegalPages
         : allLegalPages.filter(spec => spec.pageType !== finalConfig.cookiePolicy);
 
-    // Stesso schema del loop sopra, ma per i menu: una Map<lingua, NavLink[]> invece di due array
-    // fissi — la lettura per lingua specifica avviene dopo, in getMenuNav/getLinkFooter più sotto.
-    const menuNavByLang = new Map<string, NavLink[]>();
-    const linkFooterByLang = new Map<string, NavLink[]>();
+    // Stesso schema del loop sopra, ma per la fascia legale del footer: una Map<lingua, NavLink[]>.
     const legalFooterLinksByLang = new Map<string, NavLink[]>();
     for (const lang of environment.availableLanguages) {
-        const menuNav = resolveNavigation(rawHeader, pageMap, lang, defaultLang);
-        const linkFooter = resolveNavigation(rawFooter, pageMap, lang, defaultLang);
-        validateNavDepth(menuNav, 'header'); // stesso controllo di profondità di prima, ripetuto per lingua (l'albero è identico, ma non costa rifarlo).
-        validateNavDepth(linkFooter, 'footer');
-        menuNavByLang.set(lang, menuNav);
-        linkFooterByLang.set(lang, linkFooter);
         legalFooterLinksByLang.set(lang, resolveLegalFooterLinks(footerLegalPages, pageMap, lang, defaultLang));
     }
 
@@ -1746,8 +1485,6 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
         config: finalConfig,
         pages: sitePages.filter(isInternalPage), // albero canonico, UNA sola volta, non prefissato: routing.ts lo moltiplica per lingua per conto suo.
         // lang omesso → defaultLang; lingua sconosciuta → ripiega comunque su defaultLang (mai `undefined`).
-        getMenuNav: (lang = defaultLang) => menuNavByLang.get(lang) ?? menuNavByLang.get(defaultLang) ?? [],
-        getLinkFooter: (lang = defaultLang) => linkFooterByLang.get(lang) ?? linkFooterByLang.get(defaultLang) ?? [],
         getLegalFooterLinks: (lang = defaultLang) => legalFooterLinksByLang.get(lang) ?? legalFooterLinksByLang.get(defaultLang) ?? [],
         serverRenderEntries, // già con tutte le varianti-lingua dentro, grazie al loop sopra — nessun'altra moltiplicazione da fare a valle (app.config.server.ts, server.ts).
         getPath: (type: PageType, lang = defaultLang) => pageMap.get(pageMapKey(type, lang, defaultLang))?.path ?? null,

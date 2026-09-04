@@ -159,7 +159,7 @@ Le pagine vivono nei file di area `pages/*.pages.ts` (uno per gruppo tematico, e
 | `requiresAuth` (guard + SSR off), `renderMode` | `legalPages` (slot Privacy/Cookie/TOS/Note legali) |
 | `layout` (`showNav`/`showFooter`/`showPanel`/`fitViewport`/`showSmoke`/`pageFade` per-pagina) | `shell` (default globali di navbar/footer/pannello) |
 | `description`, `otherSEO` (`ogImage`, `ogType`, `structuredData`, `noindex`) | `isWebApp`, `onlyPlainImage` |
-| `children` (gruppo di menu annidato, es. le `/policy/*` dell'Engine) o `externalUrl` (link esterno) | `headerNav` / `footerNav` (callback builder `addPage`/`addLink`/`addGroup`) |
+| `children` (gruppo di menu annidato, es. le `/policy/*` dell'Engine) o `externalUrl` (link esterno) | — |
 | `enabled: false` (spegne la pagina ovunque in un colpo solo: rotta, menu, sitemap, padre incluso) | `pages` — la sola riga che tocca le aree, ed è solo uno spread: `pages: () => [...appPagesDecl]` |
 
 `children` (rotta annidata) non è `addGroup` (voce di menu annidata): sono due nidificazioni diverse, non intercambiabili. `children` in un file di area crea una vera route Angular contenitore: il nodo padre non ha `pageType` né `component` (esiste solo per il path condiviso), e i figli sono pagine reali sotto quel prefisso, ed è così che l'Engine costruisce `/policy/privacy`, `/policy/cookie`, ecc. `addGroup` (vedi «Navigazione Multilivello» sotto) invece non tocca il routing: raggruppa voci già esistenti sotto un dropdown/accordion nel menu, le pagine restano ai loro path originali. Un esempio di `children`:
@@ -254,7 +254,7 @@ pages: (ctx) => [
 ],
 ```
 
-> `requiresAuth` protegge la rotta, non nasconde la voce di menu. Sono due cose distinte: senza altro, un `addPage(PageType.AreaRiservata)` in `headerNav`/`footerNav` resta visibile anche a chi non è loggato (e verrebbe rimbalzato al login/401 al click). Per nascondere la voce stessa finché non si è loggati, usa `authOnly` sul builder di navigazione, vedi "Navigazione Multilivello" più sotto.
+> `requiresAuth` protegge la rotta, non nasconde la voce di menu. Sono due cose distinte: senza altro, un `addPage(PageType.AreaRiservata)` nel resolver di navigazione (`nav.ts`, vedi "Navigazione Multilivello" più sotto) resta visibile anche a chi non è loggato (e verrebbe rimbalzato al login/401 al click). Per nascondere la voce stessa finché non si è loggati, usa `authOnly` sul builder di navigazione.
 
 ### Leggere la Sessione in una Pagina
 
@@ -1491,7 +1491,7 @@ Oltre a `path`, `title` e `description`, ogni dichiarazione di pagina (nei file 
 }
 ```
 
-A livello top di `site.ts` (oltre a `pages` / `headerNav` / `footerNav`) dichiari struttura e comportamento del sito. Ogni campo ha un default: dichiari solo quelli che vuoi cambiare.
+A livello top di `site.ts` (oltre a `pages`) dichiari struttura e comportamento del sito. Ogni campo ha un default: dichiari solo quelli che vuoi cambiare. Il menu di header/footer NON è qui — vive in `nav.ts`, vedi «Navigazione Multilivello» più sotto.
 ```typescript
 // site.ts
 homePage: PageType.Home,           // pagina del brand/logo nel navbar (se omessa, il brand non è un link)
@@ -1572,19 +1572,35 @@ pages: (ctx) => [
 
 ### Navigazione Multilivello (Navbar e Footer)
 
-I menu in `site.ts` (`headerNav` e `footerNav`) sono **callback** che ricevono un builder, non array. Il builder espone tre azioni: `addPage(PageType)` (voce singola), `addLink('chiaveLabel', '/path')` (link diretto, anche URL esterno), `addGroup('chiaveLabel', b => …)` (gruppo/dropdown), e i gruppi sono annidabili (dentro un `addGroup` ne richiami un altro):
+Il menu di header/footer NON vive in `site.ts`: `ContestoSito`/`buildSite()` sono build-time (Angular vuole `routes` statico al bootstrap), mentre quali destinazioni mostrare, in che ordine, con che etichetta, è un **dato**, risolvibile a runtime — anche da un'API, anche diverso per utente loggato. Vive in `frontend/src/app/nav.ts`, un `ShellNavResolver` (tipo esportato da `core/engine/shell-nav.ts`) fornito a `SHELL_NAV_RESOLVER` in `app.config.ts`. `ShellNavService` (Engine) lo risolve una volta sola — condiviso da navbar e footer, non un fetch a testa — prima che qualunque componente si costruisca, e lo ri-risolve ad ogni cambio lingua.
+
+`header`/`footer` sono **callback** che ricevono un builder, non array — sincrone (`void`) per una dichiarazione statica, o `async` se dipendono da un'API (stesso builder in entrambi i casi, cambia solo se la callback aspetta qualcosa prima di chiamarlo). Il builder espone tre azioni: `addPage(PageType, { label? })` (voce singola, con etichetta custom opzionale al posto del titolo della pagina), `addLink('chiaveLabel', 'https://…')` (URL esterno — per una pagina interna usa sempre `addPage`), `addGroup('chiaveLabel', b => …)` (gruppo/dropdown), e i gruppi sono annidabili (dentro un `addGroup` ne richiami un altro):
 
 ```typescript
-headerNav: (nav) => {
-    nav.addPage(PageType.AboutUs);
-    nav.addGroup('navServizi', servizi => {
-        servizi.addPage(PageType.Consulting);
-        servizi.addGroup('navSviluppo', dev => {            // gruppi annidabili
-            dev.addPage(PageType.WebDev);
-            dev.addLink('navBlog', 'https://blog.example.com'); // link esterno
+// nav.ts
+export const navResolver: ShellNavResolver = {
+    header: (nav) => {
+        nav.addPage(PageType.AboutUs);
+        nav.addGroup('navServizi', servizi => {
+            servizi.addPage(PageType.Consulting);
+            servizi.addGroup('navSviluppo', dev => {            // gruppi annidabili
+                dev.addPage(PageType.WebDev);
+                dev.addLink('navBlog', 'https://blog.example.com'); // link esterno
+            });
         });
-    });
-}
+    },
+};
+```
+
+Un resolver che dipende da un'API (es. voci per-utente): stesso builder, callback `async`, `addPage` con `params` per l'istanza concreta di una rotta parametrica (stesso meccanismo con cui il resto del sito risolve un `PageType` parametrico, vedi `dynamicParams` in AGENTS.md) e `label` per l'etichetta che preferisci invece del titolo generico della pagina:
+
+```typescript
+header: async (nav, ctx) => {
+    const preferiti = await inject(ApiService).getPreferiti();
+    for (const p of preferiti) {
+        nav.addPage(PageType.Prodotto, { params: { slug: p.id }, label: p.nome });
+    }
+},
 ```
 
 L'Engine elabora i gruppi in modo automatico:
@@ -1594,12 +1610,12 @@ L'Engine elabora i gruppi in modo automatico:
 
 Limiti di profondità: se superi i 3 livelli di profondità, in fase di sviluppo riceverai un avviso di usabilità in console (`NAV_DEPTH_WARN`), e un errore bloccante se si superano i 5 livelli (`NAV_DEPTH_MAX`).
 
-Limite di voci di primo livello (Navbar Desktop): superate le 6 voci dirette in `headerNav` (stessa soglia dell'avviso in console per l'usabilità), la Navbar desktop raccoglie automaticamente le voci in eccesso in un dropdown finale "Altro", nessuna configurazione richiesta, l'Engine misura lo spazio disponibile a runtime (`ResizeObserver`) e sposta lì solo ciò che davvero non entra nella riga. Sotto la soglia, o su mobile (dove il menu è comunque impilato verticalmente), il comportamento non cambia.
+Limite di voci di primo livello (Navbar Desktop): superate le 6 voci dirette in `header` (stessa soglia dell'avviso in console per l'usabilità), la Navbar desktop raccoglie automaticamente le voci in eccesso in un dropdown finale "Altro", nessuna configurazione richiesta, l'Engine misura lo spazio disponibile a runtime (`ResizeObserver`) e sposta lì solo ciò che davvero non entra nella riga. Sotto la soglia, o su mobile (dove il menu è comunque impilato verticalmente), il comportamento non cambia.
 
 Voci visibili solo da loggato (`authOnly`): `addPage`/`addLink`/`addGroup` accettano un terzo parametro opzionale `{ authOnly: true }`, la voce (o, su `addGroup`, l'intero gruppo coi suoi figli) compare in navbar e footer solo per utenti loggati, sparendo del tutto per visitatori e bot (nessun link verso una pagina a cui comunque non potrebbero accedere). È il complemento lato-menu di `requiresAuth` sulla pagina (vedi "Proteggere una Pagina"): quello protegge la rotta, questo nasconde la voce.
 
 ```typescript
-headerNav: (h) => {
+header: (h) => {
     h.addPage(PageType.AreaRiservata, { authOnly: true }); // solo da loggato
     h.addGroup('navAdmin', g => {                          // l'intero gruppo, non solo i figli
         g.addPage(PageType.Utenti);
@@ -1608,7 +1624,7 @@ headerNav: (h) => {
 }
 ```
 
-Volutamente binario (loggato/sloggato, via `TokenService.isLoggedIn()`), non un sistema di ruoli: la navbar è pensata per restare generica, un progetto che ha bisogno di granularità per-ruolo filtra a monte (nel proprio `AuthService`/store, prima che la voce raggiunga `site.ts`, oppure componendo il menu in base a `session<T>()`), non nell'Engine.
+Volutamente binario (loggato/sloggato, via `TokenService.isLoggedIn()`), non un sistema di ruoli: la navbar è pensata per restare generica, un progetto che ha bisogno di granularità per-ruolo filtra a monte (nel proprio resolver di `nav.ts`, prima che la voce venga costruita, oppure componendo il menu in base a `session<T>()`), non nell'Engine.
 
 ### Pagine legali (`legalPages`)
 

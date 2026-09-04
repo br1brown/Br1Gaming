@@ -18,7 +18,7 @@
  * Poi CHIEDE conferma [s/N] per la "cerimonia" da template a progetto (DISTRUTTIVA):
  *   5. Rimuove la demo (frontend + backend): pagina Social + galleria social
  *      (store/SiteService/social.json), home → placeholder, addon i18n → {},
- *      BaseController minimo, data/identity.json azzerato a scheletro, site.ts riscritto.
+ *      BaseController minimo, data/identity.json azzerato a scheletro, site.ts/nav.ts riscritti.
  *      L'identità del sito resta servita dall'Engine (GET /identity).
  *   6. Elimina il README.md vetrina del template.
  *   7. Elimina .github/CODE_OF_CONDUCT.md e .github/CONTRIBUTING.md (governance da
@@ -115,7 +115,7 @@ export type {
 // PageType — identità di ogni pagina
 // ═══════════════════════════════════════════════════════════════════════
 // Ogni pagina DEVE avere un valore qui. Aggiungine uno e usalo in
-// pages / headerNav / footerNav: rotte, menu e sitemap si aggiornano da soli.
+// pages / nav.ts: rotte, menu e sitemap si aggiornano da soli.
 // A poche pagine un oggetto piatto come questo basta; se il progetto cresce,
 // dividilo in più file (uno per area tematica, sotto pages/) e assemblalo
 // qui con lo spread — pattern descritto in AGENTS.md § "Aggiungere una pagina".
@@ -162,14 +162,60 @@ export const ContestoSito = buildSite({
             layout: { showNav: false },
         },
     ],
-
-    // Popola qui il menu principale con addPage / addLink / addGroup quando aggiungi pagine.
-    headerNav: (h) => {
-    },
-
-    footerNav: (f) => {
-    },
+    // Il menu di header/footer NON è qui: vive in nav.ts (dato, non struttura del sito) —
+    // popolalo con addPage / addLink / addGroup quando aggiungi pagine.
 });
+`;
+
+const MINIMAL_NAV_TS = `import type { ShellNavResolver } from './core/engine/shell-nav';
+
+// Navigazione di header/footer: risolta a runtime (ShellNavService), non a build time come
+// site.ts — può restare così com'è (sincrona, vuota) o diventare async se un domani ti serve
+// un menu che dipende da un'API (es. per utente loggato). Popolala con addPage / addLink /
+// addGroup quando aggiungi voci — riferimento completo in frontend/README.md
+// §"Navigazione Multilivello".
+export const navResolver: ShellNavResolver = {
+    header: (_h) => {
+    },
+    footer: (_f) => {
+    },
+};
+`;
+
+// policy.component.ts resta (l'Engine lo importa per path fisso da legal-pages.ts, anche a
+// legalPages vuoto) e legge solo legalPageConfig() da qui: il file resta, LegalPages/legalPagesDecl
+// si svuotano (coerente con "PAGINE LEGALI SPENTE di default" in MINIMAL_SITE_TS) invece di sparire.
+const MINIMAL_LEGAL_PAGES_TS = `import { type LegalPageSpec } from '../../core/engine/siteBuilder';
+
+// Pagine legali SPENTE di default: nessuna voce qui sotto, nessuna pagina legale creata (vedi
+// site.ts). Per attivarle: aggiungi l'ID a LegalPages e la voce a legalPagesDecl (spread da
+// STANDARD_LEGAL_PAGES per le 5 standard, esportato da core/engine/siteBuilder.ts), poi in
+// site.ts valorizza legalPages + cookiePolicy — ricetta completa in AGENTS.md
+// § "Aggiungere una policy legale extra".
+export const LegalPages = {} as const;
+export type LegalPageId = (typeof LegalPages)[keyof typeof LegalPages];
+export const legalPagesDecl: LegalPageSpec[] = [];
+
+/** Config per pagina legale: data di "ultimo aggiornamento" (opzionale, assente = nessuna riga) +
+ *  i 4 flag di app-identity-render. Valorizzala per ogni voce che aggiungi a LegalPages sopra. */
+export interface LegalPageConfig {
+    updated?: Date;
+    showCompanyDetails: boolean;
+    showLegalDetails: boolean;
+    showContacts: boolean;
+    showOpeningHours: boolean;
+}
+export const legalPages: Partial<Record<LegalPageId, LegalPageConfig>> = {};
+
+/** Default per un \`pageType\` assente da \`legalPages\`: societari + contatti, nessuna data. */
+const DEFAULT_LEGAL_PAGE_CONFIG: LegalPageConfig = {
+    showCompanyDetails: true, showLegalDetails: false, showContacts: true, showOpeningHours: false,
+};
+
+/** Config della pagina legale per \`pageType\`, o il default se assente da \`legalPages\`. */
+export function legalPageConfig(pageType: string): LegalPageConfig {
+    return legalPages[pageType as LegalPageId] ?? DEFAULT_LEGAL_PAGE_CONFIG;
+}
 `;
 
 const MINIMAL_HOME_TS = `import { Component } from '@angular/core';
@@ -241,6 +287,8 @@ function ejectDemo() {
 
     // Riscrittura dei file "di partenza" (dominio del figlio).
     writeNew(join(fe, 'app/site.ts'), MINIMAL_SITE_TS);
+    writeNew(join(fe, 'app/nav.ts'), MINIMAL_NAV_TS);
+    writeNew(join(fe, 'app/pages/policy/legal.pages.ts'), MINIMAL_LEGAL_PAGES_TS);
     writeNew(join(fe, 'app/pages/home/home.component.ts'), MINIMAL_HOME_TS);
     writeNew(join(fe, 'app/pages/home/home.component.html'), MINIMAL_HOME_HTML);
     writeNew(join(fe, 'assets/i18n/addon.it.json'), '{}\n');
@@ -271,27 +319,9 @@ function ejectDemo() {
         return src;
     });
 
-    // content.resolver: via il case Social (e la dipendenza ApiService, ora inutile).
-    // Rimozioni mirate perché il file contiene template-literal (${...}) non incorporabili.
-    editFile(join(fe, 'app/pages/content.resolver.ts'), src => {
-        src = removeChunk(src, `import { ApiService } from '../core/services/api.service';\n`, 'resolver ApiService import');
-        src = removeChunk(src, `    private readonly apiService = inject(ApiService);\n`, 'resolver ApiService field');
-        src = src.replace(
-            `            if (legalSlug) {
-                content = await this.tryLoadPolicy(legalSlug, language);
-            } else {
-                switch (pageType) {
-                    case PageType.Social:
-                        content = await this.apiService.getSocial();
-                        break;
-                }
-            }`,
-            `            if (legalSlug) {
-                content = await this.tryLoadPolicy(legalSlug, language);
-            }`
-        );
-        return src;
-    });
+    // Niente più un case da ripulire in content.resolver.ts (Engine, non si tocca): la demo
+    // Social porta la propria logica in app.pages.ts (contentLoader/dynamicParams), cancellato
+    // sotto in blocco con l'intera pagina — non resta nulla da disattivare a mano nel resolver.
 
     // api.service: via getSocial + path + import HttpParams (usato solo lì).
     editFile(join(fe, 'app/core/services/api.service.ts'), src => {
@@ -315,9 +345,14 @@ function ejectDemo() {
         return src;
     });
 
-    // Cancella la pagina demo Social.
+    // Cancella le pagine demo (Social, "che faccio") e l'area che le dichiarava: il nuovo
+    // site.ts minimale non importa più da app.pages.ts, che senza questa rimozione resterebbe
+    // sul disco con un import morto verso ./social/social.component (cancellato sotto) —
+    // compilato comunque (tsconfig non ha un `include` che lo escluda), build rotta.
+    rmSync(join(fe, 'app/pages/app.pages.ts'), { force: true });
     rmSync(join(fe, 'app/pages/social'), { recursive: true, force: true });
-    console.log('  ✓  rimossa: frontend/src/app/pages/social');
+    rmSync(join(fe, 'app/pages/che-faccio'), { recursive: true, force: true });
+    console.log('  ✓  rimosse: frontend/src/app/pages/{app.pages.ts, social, che-faccio}');
 
     // Asset demo 4K (usato dal playground di resize nella home demo): via il file e la voce
     // dal mapping. Nel progetto resta solo la favicon; la home placeholder non lo referenzia.

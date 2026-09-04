@@ -5,7 +5,7 @@
         <span class="small fw-semibold d-block mb-1 footer-subgroup-title">{{ group().label | translate }}</span>
     }
     <ul class="list-unstyled mb-0">
-        @for (child of group().children; track child.path) {
+        @for (child of group().children; track navLinkKey(child)) {
             <li>
                 @if (isGroup(child)) {
                     <app-footer-nav-group [group]="child" [level]="level() + 1" />

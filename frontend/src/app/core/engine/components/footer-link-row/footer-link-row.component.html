@@ -1,6 +1,6 @@
 @if (links().length > 0) {
     <ul class="list-inline small mb-0 d-flex flex-wrap justify-content-center column-gap-4 row-gap-1">
-        @for (link of links(); track link.path) {
+        @for (link of links(); track navLinkKey(link)) {
             <li class="list-inline-item mb-0">
                 <app-nav-link [link]="link" />
             </li>
