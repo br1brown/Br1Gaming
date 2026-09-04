@@ -2,6 +2,7 @@ using System.Globalization;
 using Backend.Delivery;
 using Backend.Notifications;
 using Backend.Security;
+using Backend.Sitemap;
 using Backend.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -39,6 +40,13 @@ public abstract class EngineApiController : ControllerBase
 
     /// <summary>Consegna esiti con switch realtime/email: <c>Delivery.DeliverAsync(message)</c>.</summary>
     protected IDeliveryService Delivery => HttpContext.RequestServices.GetRequiredService<IDeliveryService>();
+
+    /// <summary>
+    /// Avvisa il frontend che un catalogo dietro <c>dynamicParams</c> è cambiato, invalidando la
+    /// cache della sitemap: <c>Sitemap.NotifyChangedAsync()</c>. Spento finché <c>Frontend.Origin</c>
+    /// non è configurato (no-op silenzioso, vedi <see cref="SitemapNotifier"/>).
+    /// </summary>
+    protected SitemapNotifier Sitemap => HttpContext.RequestServices.GetRequiredService<SitemapNotifier>();
 
     /// <summary>
     /// Cifratura generica AES-GCM: <c>Crypto.Encrypt(bytes)</c> / <c>Crypto.Decrypt(blob)</c>.

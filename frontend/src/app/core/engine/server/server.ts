@@ -22,6 +22,7 @@ import { fileExists } from './fs-utils';
 import { apiProxyHandler } from './routes/api-proxy';
 import { cdnAssetHandler } from './routes/cdn-asset';
 import { ogPreviewHandler } from './routes/og-preview';
+import { dynamicSitemapHandler, revalidateSitemapHandler } from './routes/dynamic-sitemap';
 import { customFontFilePath } from './custom-font-detect';
 import { resolvedFonts } from '../../../../styles/font-config';
 import { extname } from 'node:path';
@@ -71,6 +72,23 @@ const noindexPagePaths = new Set(
         .map(entry => normalizePagePath(entry.path))
 );
 
+/** true se ogni segmento di `pattern` combacia col segmento corrispondente di `path`: un segmento
+ *  che inizia per ":" combacia con QUALSIASI valore in quella posizione. Serve perché le rotte
+ *  parametriche finiscono in `serverRenderEntries` col loro template letterale (":slug"). */
+function pathMatchesPattern(pattern: string, path: string): boolean {
+    const patternSegments = pattern.split('/');
+    const pathSegments = path.split('/');
+    if (patternSegments.length !== pathSegments.length) return false;
+    return patternSegments.every((seg, i) => seg.startsWith(':') || seg === pathSegments[i]);
+}
+
+function isKnownPagePath(path: string, patterns: Set<string>): boolean {
+    for (const pattern of patterns) {
+        if (pathMatchesPattern(pattern, path)) return true;
+    }
+    return false;
+}
+
 function getSeoStatusForPath(path: string): number | null {
     const normalized = normalizePagePath(path);
     const errorMatch = /^\/error\/(\d{3})$/.exec(normalized);
@@ -81,7 +99,7 @@ function getSeoStatusForPath(path: string): number | null {
         if (code >= 400 && code <= 599) return code;
     }
     if (normalized === '/error') return 500;
-    return knownPagePaths.has(normalized) ? null : 404;
+    return isKnownPagePath(normalized, knownPagePaths) ? null : 404;
 }
 
 /** Tentativo di caricamento iniziale del mapping all'avvio del processo (non bloccante:
@@ -200,6 +218,14 @@ app.get(CdnCgiPaths.asset, cdnAssetHandler);
 
 /** Endpoint Social Preview: genera al volo l'immagine Open Graph / Twitter Card */
 app.get(CdnCgiPaths.preview, ogPreviewHandler);
+
+/** sitemap.xml: non più un file statico generato al build — endpoint runtime, davanti allo
+ *  static handler apposta. Dettagli (cache, dynamicParams) in routes/dynamic-sitemap.ts. */
+app.get('/sitemap.xml', dynamicSitemapHandler);
+
+/** Invalidazione on-demand della cache sitemap, chiamata dal backend .NET (`SitemapNotifier`).
+ *  Auth e logica in routes/dynamic-sitemap.ts. */
+app.post('/internal/revalidate-sitemap', revalidateSitemapHandler);
 
 /** Sicurezza: nega l'accesso diretto alla cartella file per forzare l'uso della CDN via ID */
 app.use('/assets/files', (_req, res) => { res.status(404).end(); });
@@ -351,7 +377,7 @@ app.use(async (request: Request, response: Response, next) => {
 
         // Pagine protette (requiresAuth): mai indicizzate. Sono client-rendered, quindi un bot
         // riceverebbe lo shell con meta `index,follow`; l'header noindex (autoritativo) lo evita.
-        if (noindexPagePaths.has(normalizePagePath(request.path))) {
+        if (isKnownPagePath(normalizePagePath(request.path), noindexPagePaths)) {
             response.setHeader('X-Robots-Tag', 'noindex, nofollow');
         }
 

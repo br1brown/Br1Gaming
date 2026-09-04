@@ -5,7 +5,13 @@ import { injectCurrentUrl } from '../../routing';
 import { isDesktopViewport } from '../../breakpoints';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { NavLinkComponent } from '../nav-link/nav-link.component';
-import { NavLink, isNavGroup } from '../../siteBuilder';
+import { NavLink, isNavGroup, navLinkKey } from '../../shell-nav';
+
+/** Margine dal bordo inferiore del viewport quando si calcola il tetto d'altezza del flyout. */
+const SUBMENU_VIEWPORT_MARGIN = 16;
+/** Sotto questa soglia non ha senso comprimere oltre: meglio uno scroll leggibile (poche righe
+ *  visibili + indicazione che continua) che un pannello schiacciato a un dito di altezza. */
+const SUBMENU_MIN_HEIGHT = 160;
 
 /**
  * NAV SUBMENU COMPONENT
@@ -39,6 +45,8 @@ export class NavSubmenuComponent {
 
     /** Type-guard riusato nel template per ramificare figlio-gruppo / figlio-link. */
     readonly isGroup = isNavGroup;
+    /** Chiave `track` per il template — vedi doc su `navLinkKey` in shell-nav.ts. */
+    readonly navLinkKey = navLinkKey;
 
     readonly isActive = computed(() => {
         this.currentUrl(); // dipendenza signal: re-eval ad ogni navigazione
@@ -67,13 +75,21 @@ export class NavSubmenuComponent {
         this.linkClick.emit();
     }
 
-    /** All'apertura del flyout desktop sceglie il lato: destra di default, sinistra se non c'è spazio. */
+    /**
+     * All'apertura del flyout desktop sceglie il lato (destra di default, sinistra se non c'è
+     * spazio) e il tetto d'altezza: un gruppo con tanti figli scrolla al proprio interno invece
+     * di sforare il viewport. Il tetto è lo spazio libero REALE sotto l'ancora, non un vh fisso.
+     */
     updateFlip(): void {
         if (!this.isBrowser) return;
         const root = this.host.nativeElement.querySelector<HTMLElement>(':scope > .dropdown-submenu');
         const panel = root?.querySelector<HTMLElement>(':scope > .submenu-panel');
         if (!root || !panel) return;
-        const spaceRight = window.innerWidth - root.getBoundingClientRect().right;
+        const rect = root.getBoundingClientRect();
+        const spaceRight = window.innerWidth - rect.right;
         this.flipLeft.set(spaceRight < (panel.offsetWidth || 220));
+
+        const available = window.innerHeight - rect.top - SUBMENU_VIEWPORT_MARGIN;
+        panel.style.setProperty('--submenu-max-height', `${Math.max(available, SUBMENU_MIN_HEIGHT)}px`);
     }
 }

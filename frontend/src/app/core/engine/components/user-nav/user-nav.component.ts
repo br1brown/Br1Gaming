@@ -6,7 +6,7 @@ import { TranslateService } from '../../services/translate.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { NavLinkComponent } from '../nav-link/nav-link.component';
 import { ContestoSito } from '../../../../site';
-import { NavLink } from '../../siteBuilder';
+import { NavLink } from '../../shell-nav';
 
 /**
  * Area login/logout della navbar: dopo il logout ricarica la route per rivalutare l'authGuard.

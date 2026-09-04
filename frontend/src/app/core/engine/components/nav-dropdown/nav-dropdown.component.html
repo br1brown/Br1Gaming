@@ -9,7 +9,7 @@
         <span class="nav-dropdown-caret" aria-hidden="true"></span>
     </button>
     <ul class="dropdown-menu list-unstyled" [class.show]="open()">
-        @for (child of item().children; track child.path) {
+        @for (child of item().children; track navLinkKey(child)) {
             <li>
                 @if (isGroup(child)) {
                     <app-nav-submenu [item]="child" (linkClick)="linkClick.emit()" />

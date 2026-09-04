@@ -550,12 +550,13 @@ Ereditando da queste classi ogni controller riceve, senza nulla nel costruttore,
 | `BackgroundQueue` | `IBackgroundTaskQueue` | Accoda un task lungo. |
 | `Delivery` | `IDeliveryService` | Consegna l'esito con switch realtime/email. |
 | `Crypto` | `IEngineCrypto` | Cifra/decifra byte arbitrari (AES-GCM). |
+| `Sitemap` | `SitemapNotifier` | Avvisa il frontend che un catalogo `dynamicParams` è cambiato, invalidando la cache di `/sitemap.xml`. |
 | `ConnectionId` | `string?` | connectionId della SSE del chiamante, o `null`. |
 | `CurrentCulture` | `CultureInfo` | Cultura della richiesta. |
 | `CurrentLanguage` | `string` | Codice lingua a due lettere (es. `"it"`). |
 | `User` | `ClaimsPrincipal` | I claim della sessione. |
 
-I servizi sopra (`Notifications`, `BackgroundQueue`, `Delivery`, `Crypto`) sono singleton risolti pigramente da `HttpContext.RequestServices`: il getter scatta solo quando lo invochi dentro un'azione. Non vanno iniettati nel costruttore, per `Crypto` in particolare, farlo costruirebbe (e quindi fallirebbe, se `Security.CryptoSecret` è vuota) `EngineCrypto` a ogni richiesta, anche in un'azione che non cifra nulla.
+I servizi sopra (`Notifications`, `BackgroundQueue`, `Delivery`, `Crypto`, `Sitemap`) sono singleton risolti pigramente da `HttpContext.RequestServices`: il getter scatta solo quando lo invochi dentro un'azione. Non vanno iniettati nel costruttore, per `Crypto` in particolare, farlo costruirebbe (e quindi fallirebbe, se `Security.CryptoSecret` è vuota) `EngineCrypto` a ogni richiesta, anche in un'azione che non cifra nulla.
 
 `EngineProtectedController` aggiunge inoltre `CurrentSession<T>()`: rilegge il payload di sessione tipizzato (`User.GetSession<T>()`) senza dover importare l'extension method, vedi «Sistema di Login e Sessioni JWT».
 

@@ -1,9 +1,9 @@
-import { afterNextRender, Component, computed, DestroyRef, effect, ElementRef, inject, isDevMode, signal, viewChild, viewChildren } from '@angular/core';
-import { NgTemplateOutlet } from '@angular/common';
+import { afterNextRender, Component, computed, DestroyRef, effect, ElementRef, inject, isDevMode, PLATFORM_ID, signal, viewChild, viewChildren } from '@angular/core';
+import { isPlatformBrowser, NgTemplateOutlet } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter } from 'rxjs/operators';
-import { injectCurrentUrl } from '../../routing';
+import { injectCurrentUrl, mergeRouteParams } from '../../routing';
 import { isDesktopViewport } from '../../breakpoints';
 import { ThemeService } from '../../services/theme.service';
 import { TranslateService } from '../../services/translate.service';
@@ -13,7 +13,9 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
 import { NavLinkComponent } from '../nav-link/nav-link.component';
 import { NavDropdownComponent } from '../nav-dropdown/nav-dropdown.component';
 import { ContestoSito } from '../../../../site';
-import { filterNavByAuth, isNavGroup, NavLink } from '../../siteBuilder';
+import { applyPathParams } from '../../siteBuilder';
+import { filterNavByAuth, isNavGroup, navLinkKey, NavLink } from '../../shell-nav';
+import { ShellNavService } from '../../services/shell-nav.service';
 import { AssetDirective } from '../../directives/asset.directive';
 import { UserNavComponent } from '../user-nav/user-nav.component';
 import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
@@ -56,6 +58,10 @@ export class NavbarComponent {
     private readonly elRef = inject(ElementRef);
     private readonly destroyRef = inject(DestroyRef);
     private readonly tokenService = inject(TokenService);
+    private readonly shellNav = inject(ShellNavService);
+    private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+    /** Chiave `track` per il template — vedi doc su `navLinkKey` in shell-nav.ts. */
+    protected readonly navLinkKey = navLinkKey;
 
     readonly appName = ContestoSito.config.appName;
     // Path della home dallo slot `homePage`, nella lingua corrente; `null` se non valorizzato →
@@ -63,12 +69,12 @@ export class NavbarComponent {
     readonly homePath = computed<string | null>(() => ContestoSito.config.homePage != null
         ? ContestoSito.getPath(ContestoSito.config.homePage, this.translate.currentLang())
         : null);
-    /** Menu così come dichiarato in `site.ts` nella lingua corrente, senza filtro auth: usato solo
+    /** Menu risolto da `ShellNavService` per la lingua corrente, senza filtro auth: usato solo
      *  per le decisioni strutturali che devono restare stabili a prescindere dal login (soglia
      *  overflow "Altro", warning di usabilità, sentinel `altroDropdownIndex`) — vedi `menuItems`
-     *  per il render. La STRUTTURA (conteggio/profondità) è identica in ogni lingua — solo i
-     *  `path` cambiano — quindi leggerlo una volta alla costruzione per i sentinel sotto è corretto. */
-    private readonly rawMenuItems = computed(() => ContestoSito.getMenuNav(this.translate.currentLang()));
+     *  per il render. Il servizio è già risolto al primo render (atteso da `provideAppInitializer`
+     *  in app.config.ts): leggerlo qui, anche in un field initializer sincrono, è sicuro. */
+    private readonly rawMenuItems = computed(() => this.shellNav.header());
     /** Menu effettivamente reso: filtra le voci/gruppi `authOnly` in base al login corrente
      *  (`TokenService.isLoggedIn()`). In SSR e prima dell'idratazione l'utente risulta sempre
      *  sloggato (nessun token), quindi anche i bot vedono solo le voci pubbliche — coerente con
@@ -153,26 +159,20 @@ export class NavbarComponent {
         // mobile aperto, indipendente dal fatto che la navbar sia fixed o in flusso normale.
         afterNextRender(() => this.observeNavHeight());
 
-        // Overflow "Altro" attivo solo oltre la soglia raccomandata: sotto, si mostrano sempre
-        // tutte le voci senza il costo di ResizeObserver + calcolo a ogni resize/cambio lingua.
-        // Il gate usa rawMenuItems (il totale dichiarato, non il filtrato): se una parte delle
-        // voci è authOnly, il numero visibile può salire dopo un login, quindi l'osservatore va
-        // armato comunque ogni volta che è dichiarato abbastanza per poterlo servire.
-        if (this.rawMenuItems().length > MAX_RECOMMENDED_TOP_LEVEL_ITEMS) {
-            afterNextRender(() => this.setupOverflowObserver());
-            // Le voci in overflow sono position:absolute (vedi scss): un loro cambio di larghezza
-            // (es. etichette più lunghe/corte nella nuova lingua, o comparsa/sparizione di voci
-            // authOnly al login/logout) non fa scattare da solo il ResizeObserver su navListEl,
-            // perché non contribuiscono alla sua box — da qui il ricalcolo esplicito. queueMicrotask:
-            // il ResizeObserver in browser batcha gli aggiornamenti; TranslatePipe/isLoggedIn
-            // aggiornano già i rispettivi segnali appena cambiano, ma un microtask di margine
-            // evita di misurare durante lo stesso ciclo.
-            effect(() => {
-                this.translate.currentLang();
-                this.tokenService.isLoggedIn();
-                queueMicrotask(() => this.recomputeOverflow());
-            });
-        }
+        // Overflow "Altro" SEMPRE attivo, indipendente dal numero di voci: il conteggio non
+        // garantisce nulla sulla larghezza reale (un'etichetta lunga può non entrare anche con
+        // 2-3 voci sole). MAX_RECOMMENDED_TOP_LEVEL_ITEMS resta solo un avviso per chi scrive il
+        // menu (sopra), non una condizione per il layout.
+        afterNextRender(() => this.setupOverflowObserver());
+        // Le voci in overflow sono position:absolute: un loro cambio di larghezza (etichette
+        // diverse per lingua, o voci authOnly al login/logout) non fa scattare da solo il
+        // ResizeObserver su navListEl, da qui il ricalcolo esplicito. queueMicrotask: margine
+        // per non misurare nello stesso ciclo in cui i segnali sono appena cambiati.
+        effect(() => {
+            this.translate.currentLang();
+            this.tokenService.isLoggedIn();
+            queueMicrotask(() => this.recomputeOverflow());
+        });
     }
 
     private observeNavHeight(): void {
@@ -208,9 +208,10 @@ export class NavbarComponent {
      *  Sotto md il pannello collassabile impila già tutto verticalmente: nessun overflow da gestire,
      *  si mostra sempre l'insieme completo. */
     private recomputeOverflow(): void {
-        if (this.rawMenuItems().length <= MAX_RECOMMENDED_TOP_LEVEL_ITEMS) return;
         const currentItems = this.menuItems();
-        if (!isDesktopViewport()) {
+        // isDesktopViewport() è solo-browser per contratto (breakpoints.ts) — guardia necessaria
+        // perché l'effect() che chiama questo metodo (sotto) gira anche in SSR.
+        if (!this.isBrowser || !isDesktopViewport()) {
             this.visibleCount.set(currentItems.length);
             return;
         }
@@ -305,14 +306,19 @@ export class NavbarComponent {
 
     /** Cambio lingua esplicito: prima lo stato (attende il caricamento dei cataloghi della nuova
      *  lingua), poi la navigazione al path equivalente — così URL e contenuto restano sempre
-     *  allineati, invece di lasciare l'URL fermo mentre cambia solo lo stato sotto silenzio. */
+     *  allineati, invece di lasciare l'URL fermo mentre cambia solo lo stato sotto silenzio.
+     *  `getPath` su una pagina parametrica (es. `/social-feed/:slug`) torna il template letterale:
+     *  senza sostituire i param della route attiva, il `:slug` finirebbe nell'URL per davvero —
+     *  un path che non combacia con nessuna rotta (404). */
     private async applyLanguageSwitch(lang: string): Promise<void> {
         await this.translate.setLanguage(lang);
         const currentType = this.pageMeta.currentPageType();
         const homeType = ContestoSito.config.homePage;
-        const target = (currentType != null ? ContestoSito.getPath(currentType, lang) : null)
+        const template = (currentType != null ? ContestoSito.getPath(currentType, lang) : null)
             ?? (homeType != null ? ContestoSito.getPath(homeType, lang) : null)
             ?? '/';
+        const params = mergeRouteParams(this.router.routerState.snapshot);
+        const target = applyPathParams(template, params, 'NavbarComponent.applyLanguageSwitch');
         void this.router.navigate([target]);
         this.closeNavigation();
     }

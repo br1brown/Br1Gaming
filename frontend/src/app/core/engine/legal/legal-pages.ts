@@ -50,6 +50,10 @@ export function buildPolicySection(managed: readonly LegalPageSpec[]): ParentPag
         pageType: spec.pageType,
         component: loadPolicyComponent,
         layout: { showSmoke: false },
+        // Pagine di servizio: fuori indice e fuori sitemap per default (crawl budget sprecato su
+        // contenuti che non portano traffico). Un figlio che le volesse indicizzate dichiara la
+        // pagina a mano con `otherSEO.noindex: false` (override standard, vedi filterManagedLegalPages).
+        otherSEO: { noindex: true },
     }));
     return { path: 'policy', title: 'policies', children };
 }

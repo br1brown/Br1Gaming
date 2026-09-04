@@ -4,7 +4,7 @@ import { injectCurrentUrl } from '../../routing';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { NavLinkComponent } from '../nav-link/nav-link.component';
 import { NavSubmenuComponent } from '../nav-submenu/nav-submenu.component';
-import { NavLink, isNavGroup } from '../../siteBuilder';
+import { NavLink, isNavGroup, navLinkKey } from '../../shell-nav';
 
 @Component({
     selector: 'app-nav-dropdown',
@@ -24,6 +24,8 @@ export class NavDropdownComponent {
 
     /** Type-guard riusato nel template per ramificare figlio-gruppo / figlio-link. */
     readonly isGroup = isNavGroup;
+    /** Chiave `track` per il template — vedi doc su `navLinkKey` in shell-nav.ts. */
+    readonly navLinkKey = navLinkKey;
 
     readonly isActive = computed(() => {
         this.currentUrl(); // dipendenza signal: re-eval ad ogni navigazione

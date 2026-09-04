@@ -1,5 +1,5 @@
 import { buildSite } from './core/engine/siteBuilder';
-import { AppPages, appPagesDecl, GENERATORS, STORIES } from './pages/app.pages';
+import { AppPages, appPagesDecl } from './pages/app.pages';
 import { LegalPages, legalPagesDecl } from './pages/policy/legal.pages';
 
 export type {
@@ -33,35 +33,6 @@ export const ContestoSito = buildSite({
     // Le dichiarazioni pagina vivono nel file di area (pages/app.pages.ts): qui solo lo spread.
     pages: () => [...appPagesDecl],
 
-    headerNav: (nav) => {
-        nav.addGroup('generatori', (g) => {
-            // I generatori veri e propri stanno in un sottogruppo annidato, così i Piaciuti
-            // (che raccolgono i loro output) vivono accanto a loro senza sembrare un generatore.
-            g.addGroup('tuttiIGeneratori', (gg) => {
-                GENERATORS.forEach(([, pageType]) => gg.addPage(pageType));
-            });
-            g.addPage(PageType.Piaciuti);
-        });
-        nav.addGroup('giochi', (g) => {
-            // Le storie (avventure a bivi) in un sottogruppo annidato; gli altri giochi restano fuori.
-            g.addGroup('storie', (gg) => {
-                STORIES.forEach(([, pageType]) => gg.addPage(pageType));
-            });
-            g.addPage(PageType.GameDuceNonDuce);
-            g.addPage(PageType.GameBurocrazia);
-            g.addPage(PageType.GameUmarell);
-        });
-        // Utility: strumenti che non sono giochi (radar chiese + traduttore ITA→ESP).
-        nav.addGroup('utility', (g) => {
-            g.addPage(PageType.UtilityRadar);
-            g.addPage(PageType.UtilityTranslator);
-        });
-    },
-
-    // Le pagine legali NON si dichiarano qui: `footer.component` le rende da sole, in una fascia
-    // dedicata ("small prints") derivata da `legalPages` sopra — vedi `FooterLinkRowComponent`.
-    // `footerNav` resta per la navigazione libera del progetto.
-    footerNav: (f) => {
-        f.addLink("githubDesc", 'https://github.com/br1brown/Br1Gaming');
-    },
+    // Menu header/footer: NON qui — è dato, non struttura del sito, risolto a runtime.
+    // Vive in `nav.ts`, vedi `ShellNavResolver` in `core/engine/shell-nav.ts`.
 });

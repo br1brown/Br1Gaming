@@ -159,7 +159,7 @@ Le pagine vivono nei file di area `pages/*.pages.ts` (uno per gruppo tematico, e
 | `requiresAuth` (guard + SSR off), `renderMode` | `legalPages` (slot Privacy/Cookie/TOS/Note legali) |
 | `layout` (`showNav`/`showFooter`/`showPanel`/`fitViewport`/`showSmoke`/`pageFade` per-pagina) | `shell` (default globali di navbar/footer/pannello) |
 | `description`, `otherSEO` (`ogImage`, `ogType`, `structuredData`, `noindex`) | `isWebApp`, `onlyPlainImage` |
-| `children` (gruppo di menu annidato, es. le `/policy/*` dell'Engine) o `externalUrl` (link esterno) | `headerNav` / `footerNav` (callback builder `addPage`/`addLink`/`addGroup`) |
+| `children` (gruppo di menu annidato, es. le `/policy/*` dell'Engine) o `externalUrl` (link esterno) | — |
 | `enabled: false` (spegne la pagina ovunque in un colpo solo: rotta, menu, sitemap, padre incluso) | `pages` — la sola riga che tocca le aree, ed è solo uno spread: `pages: () => [...appPagesDecl]` |
 
 `children` (rotta annidata) non è `addGroup` (voce di menu annidata): sono due nidificazioni diverse, non intercambiabili. `children` in un file di area crea una vera route Angular contenitore: il nodo padre non ha `pageType` né `component` (esiste solo per il path condiviso), e i figli sono pagine reali sotto quel prefisso, ed è così che l'Engine costruisce `/policy/privacy`, `/policy/cookie`, ecc. `addGroup` (vedi «Navigazione Multilivello» sotto) invece non tocca il routing: raggruppa voci già esistenti sotto un dropdown/accordion nel menu, le pagine restano ai loro path originali. Un esempio di `children`:
@@ -179,11 +179,11 @@ export const blogPagesDecl: SitePageInput[] = [
 
 I link interni puntano al `PageType`, mai al path: rinominare un path è una riga nella dichiarazione (menu, footer e link continuano a funzionare), rimuovere un ID fa segnalare a TypeScript ogni punto che ancora lo usa, e gli ID restano leggibili anche fuori dal codice: query string (`?returnPageType=…`), log, messaggi d'errore del builder.
 
-Con più lingue configurate, ogni pagina ottiene una variante-URL per lingua (lingua default non prefissata, le altre sì: vedi «Internazionalizzazione (i18n)» → «Lingua nell'URL»): il `path` dichiarato nel file di area non si traduce per lingua, è lo stesso segmento sotto ogni prefisso. Vedi «Developer Journey», «Opzioni Avanzate di site.ts», «Navigazione Multilivello», «Vista a tutto schermo», «Pagine legali». Ricetta rapida: [AGENTS.md](../AGENTS.md#aggiungere-una-pagina).
+Con più lingue configurate, ogni pagina ottiene una variante-URL per lingua (lingua default non prefissata, le altre sì: vedi «Internazionalizzazione (i18n)» → «Lingua nell'URL»). Il `path` dichiarato nel file di area può essere lo stesso segmento sotto ogni prefisso (stringa, default storico) oppure un segmento diverso per lingua (`{ it: 'chi-siamo', en: 'about-us' }` → `/chi-siamo` e `/en/about-us`) — una lingua del sito senza una propria chiave ricade sul segmento della lingua di default. Link interni, sitemap/hreflang e il selettore lingua in navbar seguono da soli il `PageType`, non serve altro punto da toccare. Vedi «Developer Journey», «Opzioni Avanzate di site.ts», «Navigazione Multilivello», «Vista a tutto schermo», «Pagine legali». Ricetta rapida: [AGENTS.md](../AGENTS.md#aggiungere-una-pagina).
 
 ### Dati a una pagina
 
-Per passare qualcosa a una pagina hai quattro canali, tutti letti come `@Input()` per nome: `data` statico, parametro di rotta `:x`, query `?x=` e il resolver. Per avere il contenuto già al primo render aggiungi un `case` in `ContentResolver.loadResolved()`. La configurazione libera di progetto si legge con `inject(APP_CUSTOM)` (la sezione `Custom`), mentre la configurazione risolta e normalizzata del sito con `inject(SITE_CONFIG)`. Vedi «Passare Dati a una Pagina», «ContentResolver», «Configurazione di progetto (Custom)», «Token SITE_CONFIG». Ricetta rapida (tipi generati per `global-settings.json`): [AGENTS.md](../AGENTS.md#leggere-global-settingsjson-tipizzato).
+Per passare qualcosa a una pagina hai quattro canali, tutti letti come `@Input()` per nome: `data` statico, parametro di rotta `:x`, query `?x=` e il resolver. Per avere il contenuto già al primo render dichiara un `contentLoader` sulla pagina (`pages/*.pages.ts`, stesso posto di `dynamicParams`) — il `ContentResolver` dell'Engine resta generico, non lo tocchi. La configurazione libera di progetto si legge con `inject(APP_CUSTOM)` (la sezione `Custom`), mentre la configurazione risolta e normalizzata del sito con `inject(SITE_CONFIG)`. Vedi «Passare Dati a una Pagina», «ContentResolver», «Configurazione di progetto (Custom)», «Token SITE_CONFIG». Ricetta rapida (tipi generati per `global-settings.json`): [AGENTS.md](../AGENTS.md#leggere-global-settingsjson-tipizzato).
 
 ### Aspetto & i18n
 
@@ -210,7 +210,7 @@ Per creare una nuova schermata, segui questo workflow per mantenere integro e ty
 3. **Creare il componente:** Crea il componente in `pages/` estendendo `PageBaseComponent` per ereditare i servizi dell'Engine (api, traduzioni, asset, notify e meta-tag automatici).
 4. **Proteggere la pagina (opzionale):** Usa `requiresAuth: true` nella dichiarazione della pagina (nel suo file di area, `pages/*.pages.ts`) per demandare all'Engine il controllo auth e il redirect.
 5. **Navigare in Sicurezza:** Usa la direttiva `[appPage]="PageType.MioNuovoComponente"` nell'HTML per delegare al framework il calcolo della rotta corretta.
-6. **Caricare dati prima del render (opzionale):** Se la pagina necessita di dati SEO-critici pronti al primo render, aggiungi un caso nello switch del `ContentResolver`.
+6. **Caricare dati prima del render (opzionale):** Se la pagina necessita di dati SEO-critici pronti al primo render, dichiara un `contentLoader` sulla pagina (stesso posto di `dynamicParams`, in `pages/*.pages.ts`) — il `ContentResolver` dell'Engine resta generico, non lo tocchi.
 
 > Nota: gli snippet di codice e i pattern implementativi (le "ricette") sono consultabili nel file `AGENTS.md` alla radice, oppure basta prendere spunto dai file della demo (es. la cartella `home`).
 
@@ -254,7 +254,7 @@ pages: (ctx) => [
 ],
 ```
 
-> `requiresAuth` protegge la rotta, non nasconde la voce di menu. Sono due cose distinte: senza altro, un `addPage(PageType.AreaRiservata)` in `headerNav`/`footerNav` resta visibile anche a chi non è loggato (e verrebbe rimbalzato al login/401 al click). Per nascondere la voce stessa finché non si è loggati, usa `authOnly` sul builder di navigazione, vedi "Navigazione Multilivello" più sotto.
+> `requiresAuth` protegge la rotta, non nasconde la voce di menu. Sono due cose distinte: senza altro, un `addPage(PageType.AreaRiservata)` nel resolver di navigazione (`nav.ts`, vedi "Navigazione Multilivello" più sotto) resta visibile anche a chi non è loggato (e verrebbe rimbalzato al login/401 al click). Per nascondere la voce stessa finché non si è loggati, usa `authOnly` sul builder di navigazione.
 
 ### Leggere la Sessione in una Pagina
 
@@ -1023,7 +1023,7 @@ Togliere una lingua: basta rimuoverla da `SupportedLanguages`. I file `basic.*.j
 Con più di una lingua configurata, ogni pagina interna ottiene un URL per lingua: la lingua di default resta non prefissata (`/chi-siamo`), le altre sono prefissate col codice lingua (`/en/chi-siamo`). Con una sola lingua configurata questo meccanismo è strutturalmente assente: zero route aggiuntive, zero costo, comportamento identico a un sito mono-lingua.
 
 - **Nessun redirect automatico su Accept-Language.** Un URL non prefissato (`/`) serve sempre e deterministicamente la lingua di default — a chiunque, utente reale o bot. Scelta allineata alla raccomandazione ufficiale di Google (*Managing Multi-Regional and Multilingual Sites*): un redirect basato sulla lingua percepita rischia di impedire a Googlebot — che tipicamente non invia un `Accept-Language` significativo — di scoprire e indicizzare le varianti. È anche il meccanismo che rende affidabili le anteprime social (Telegram, WhatsApp, ecc.), che cachano l'anteprima per URL una volta sola. Il cambio lingua è sempre una scelta esplicita dell'utente, via selettore in navbar.
-- **Navigazione interna** (`[appPage]`, switch da navbar): risolve sempre il path nella lingua corrente — `ContestoSito.getPath(type, lang)` e `getPageInfo(type, lang)` accettano un secondo parametro lingua opzionale (default: lingua di default del sito).
+- **Navigazione interna** (`[appPage]`, switch da navbar): risolve sempre il path nella lingua corrente — `ContestoSito.getPath(type, lang)` e `getPageInfo(type, lang)` accettano un secondo parametro lingua opzionale (default: lingua di default del sito). Il `path` dichiarato in `site.ts` può essere per-lingua (`{ it: 'chi-siamo', en: 'about-us' }`, non solo lo stesso segmento sotto ogni prefisso): lo switch lingua ti porta sul path TRADOTTO della pagina corrente, non solo su un prefisso diverso — vedi «Pagine & rotte» più sopra.
 - **Cambio pagina tra lingue diverse**: `PageBaseComponent` legge `route.data.lang` (iniettato dal router insieme a `pageType`) e allinea `TranslateService` — è il punto unico "URL → stato lingua", non va replicato altrove.
 
 `hreflang`: con più lingue, ogni pagina emette `<link rel="alternate" hreflang="...">` per ciascuna variante + `x-default` (verso la lingua default), e la sitemap porta gli stessi riferimenti incrociati (`<xhtml:link>`) per URL, pratica raccomandata per siti multilingua URL-based. Con una sola lingua: nessun tag emesso, il solo `canonical` basta.
@@ -1031,7 +1031,6 @@ Con più di una lingua configurata, ogni pagina interna ottiene un URL per lingu
 RTL e accessibilità: `TranslateService` imposta anche `<html dir="rtl|ltr">` insieme a `lang` (lista statica di codici RTL: arabo, ebraico, persiano, urdu, ecc., non `Intl.Locale.getTextInfo()`, non ancora baseline: Firefox non lo supporta). Il language picker in navbar marca ogni voce con `[attr.lang]` sul proprio codice (WCAG 3.1.2 «Language of Parts»): uno screen reader pronuncia il nome di ogni lingua nella lingua corretta, non in quella della pagina corrente.
 
 Limiti noti:
-- Il `path` dichiarato in `site.ts` non si traduce per lingua — stesso segmento sotto ogni prefisso (`/en/chi-siamo`, non `/en/about-us`). Path realmente diversi per lingua richiederebbero pagine/`PageType` separati, non supportato oggi.
 - I codici in `SupportedLanguages` sono sottotag lingua base: `TranslateService.normalizeBcp47()` ricondurrebbe `en-US`/`en-GB` entrambi a `en`, quindi due varianti regionali della stessa lingua come voci **distinte** collidono. Una singola lingua con regione (es. solo `pt-BR`) funziona.
 
 **Usare le traduzioni nel codice:**
@@ -1214,7 +1213,7 @@ La convenzione vive inline in `api.service.ts`. Tre passi:
 
 1. **Path** — aggiungi la voce alla costante `API` in cima al file (stringa, o funzione per i path parametrici come `blob`).
 2. **Metodo pubblico** — esponi un metodo dedicato che chiama l'helper protetto del `BaseApiService`: `api_get<T>()` / `api_post<T>()` per le chiamate una-tantum, `api_resource<T>()` per i dati reattivi (si ri-fetchano al cambio di signal, es. lingua).
-3. **(Opzionale) ContentResolver** — se l'endpoint alimenta una pagina al primo render, aggiungi un `case` in `ContentResolver.loadResolved()` (vedi *Developer Journey → Passo 5*).
+3. **(Opzionale) `contentLoader`** — se l'endpoint alimenta una pagina al primo render, dichiaralo sulla pagina in `pages/*.pages.ts` (vedi *Developer Journey → Passo 6*).
 
 Esempio (path parametrico + metodo che ne consuma il risultato): [AGENTS.md](../AGENTS.md#aggiungere-un-endpoint-al-client).
 
@@ -1389,7 +1388,7 @@ In SSR viene generata automaticamente un'immagine personalizzata per la condivis
 - Overlay con titolo e sottotitolo
 - Badge con favicon del sito
 
-Non chiami `PageMetaService` a mano (è privato all'Engine): dichiari i meta in `site.ts` (`description`, `otherSEO`) o, per i dati derivati dal contenuto, nel `ContentResolver`. L'Engine li riapplica da solo a ogni cambio pagina e di lingua.
+Non chiami `PageMetaService` a mano (è privato all'Engine): dichiari i meta in `site.ts` (`description`, `otherSEO`) o, per i dati derivati dal contenuto, nel `contentLoader` della pagina. L'Engine li riapplica da solo a ogni cambio pagina e di lingua.
 
 Importante: `og:image` si aggiorna solo in SSR. I crawler non eseguono JavaScript, vedono la versione server-rendered. Le modifiche client-side all'og:image non hanno effetto sui preview di Facebook/LinkedIn/WhatsApp.
 
@@ -1424,7 +1423,7 @@ I dati strutturati si dichiarano in un solo campo, `otherSEO.structuredData`, in
 - un **oggetto** `{ kind, … }` con campi parlanti (`article` / `faq` / `product` / `event`) → **senza conoscere schema.org**, tradotto dall'Engine in JSON-LD valido;
 - un **array** → più entità sulla stessa pagina (es. un Article + una FAQ + un `raw`).
 
-La traduzione vive in un unico punto (`structured-data.ts`): se domani schema.org cambia si tocca solo quello, non la config dei figli. Si impostano statici in `site.ts` o dinamici dal `ContentResolver` (derivati dal contenuto, es. autore e data di un Article, con la precedenza). Per i tipi non coperti c'è la via di fuga `kind: 'raw'` (JSON-LD grezzo). I campi non impostati ricadono sui dati già esistenti (titolo, og:image, ultima modifica, Organization del sito): così anche un semplice `{ kind: 'article' }` produce un'entità completa. E senza dichiarare nulla, ogni pagina ha comunque il grafo base `Organization`+`WebSite`+`WebPage`. Per gli articoli (`kind: 'article'`) l'Engine emette anche i meta Open Graph `article:*` (`published_time`, `modified_time`, `author`, `section`, un `tag` per voce), gemelli dei dati JSON-LD, abbinali a `ogType: 'article'`. Esempi in [AGENTS.md](../AGENTS.md).
+La traduzione vive in un unico punto (`structured-data.ts`): se domani schema.org cambia si tocca solo quello, non la config dei figli. Si impostano statici in `site.ts` o dinamici dal `contentLoader` della pagina (derivati dal contenuto, es. autore e data di un Article, con la precedenza). Per i tipi non coperti c'è la via di fuga `kind: 'raw'` (JSON-LD grezzo). I campi non impostati ricadono sui dati già esistenti (titolo, og:image, ultima modifica, Organization del sito): così anche un semplice `{ kind: 'article' }` produce un'entità completa. E senza dichiarare nulla, ogni pagina ha comunque il grafo base `Organization`+`WebSite`+`WebPage`. Per gli articoli (`kind: 'article'`) l'Engine emette anche i meta Open Graph `article:*` (`published_time`, `modified_time`, `author`, `section`, un `tag` per voce), gemelli dei dati JSON-LD, abbinali a `ogType: 'article'`. Esempi in [AGENTS.md](../AGENTS.md).
 
 ### URL Canonico e `og:locale`
 
@@ -1492,7 +1491,7 @@ Oltre a `path`, `title` e `description`, ogni dichiarazione di pagina (nei file 
 }
 ```
 
-A livello top di `site.ts` (oltre a `pages` / `headerNav` / `footerNav`) dichiari struttura e comportamento del sito. Ogni campo ha un default: dichiari solo quelli che vuoi cambiare.
+A livello top di `site.ts` (oltre a `pages`) dichiari struttura e comportamento del sito. Ogni campo ha un default: dichiari solo quelli che vuoi cambiare. Il menu di header/footer NON è qui — vive in `nav.ts`, vedi «Navigazione Multilivello» più sotto.
 ```typescript
 // site.ts
 homePage: PageType.Home,           // pagina del brand/logo nel navbar (se omessa, il brand non è un link)
@@ -1573,19 +1572,35 @@ pages: (ctx) => [
 
 ### Navigazione Multilivello (Navbar e Footer)
 
-I menu in `site.ts` (`headerNav` e `footerNav`) sono **callback** che ricevono un builder, non array. Il builder espone tre azioni: `addPage(PageType)` (voce singola), `addLink('chiaveLabel', '/path')` (link diretto, anche URL esterno), `addGroup('chiaveLabel', b => …)` (gruppo/dropdown), e i gruppi sono annidabili (dentro un `addGroup` ne richiami un altro):
+Il menu di header/footer NON vive in `site.ts`: `ContestoSito`/`buildSite()` sono build-time (Angular vuole `routes` statico al bootstrap), mentre quali destinazioni mostrare, in che ordine, con che etichetta, è un **dato**, risolvibile a runtime — anche da un'API, anche diverso per utente loggato. Vive in `frontend/src/app/nav.ts`, un `ShellNavResolver` (tipo esportato da `core/engine/shell-nav.ts`) fornito a `SHELL_NAV_RESOLVER` in `app.config.ts`. `ShellNavService` (Engine) lo risolve una volta sola — condiviso da navbar e footer, non un fetch a testa — prima che qualunque componente si costruisca, e lo ri-risolve ad ogni cambio lingua.
+
+`header`/`footer` sono **callback** che ricevono un builder, non array — sincrone (`void`) per una dichiarazione statica, o `async` se dipendono da un'API (stesso builder in entrambi i casi, cambia solo se la callback aspetta qualcosa prima di chiamarlo). Il builder espone tre azioni: `addPage(PageType, { label? })` (voce singola, con etichetta custom opzionale al posto del titolo della pagina), `addLink('chiaveLabel', 'https://…')` (URL esterno — per una pagina interna usa sempre `addPage`), `addGroup('chiaveLabel', b => …)` (gruppo/dropdown), e i gruppi sono annidabili (dentro un `addGroup` ne richiami un altro):
 
 ```typescript
-headerNav: (nav) => {
-    nav.addPage(PageType.AboutUs);
-    nav.addGroup('navServizi', servizi => {
-        servizi.addPage(PageType.Consulting);
-        servizi.addGroup('navSviluppo', dev => {            // gruppi annidabili
-            dev.addPage(PageType.WebDev);
-            dev.addLink('navBlog', 'https://blog.example.com'); // link esterno
+// nav.ts
+export const navResolver: ShellNavResolver = {
+    header: (nav) => {
+        nav.addPage(PageType.AboutUs);
+        nav.addGroup('navServizi', servizi => {
+            servizi.addPage(PageType.Consulting);
+            servizi.addGroup('navSviluppo', dev => {            // gruppi annidabili
+                dev.addPage(PageType.WebDev);
+                dev.addLink('navBlog', 'https://blog.example.com'); // link esterno
+            });
         });
-    });
-}
+    },
+};
+```
+
+Un resolver che dipende da un'API (es. voci per-utente): stesso builder, callback `async`, `addPage` con `params` per l'istanza concreta di una rotta parametrica (stesso meccanismo con cui il resto del sito risolve un `PageType` parametrico, vedi `dynamicParams` in AGENTS.md) e `label` per l'etichetta che preferisci invece del titolo generico della pagina:
+
+```typescript
+header: async (nav, ctx) => {
+    const preferiti = await inject(ApiService).getPreferiti();
+    for (const p of preferiti) {
+        nav.addPage(PageType.Prodotto, { params: { slug: p.id }, label: p.nome });
+    }
+},
 ```
 
 L'Engine elabora i gruppi in modo automatico:
@@ -1595,12 +1610,12 @@ L'Engine elabora i gruppi in modo automatico:
 
 Limiti di profondità: se superi i 3 livelli di profondità, in fase di sviluppo riceverai un avviso di usabilità in console (`NAV_DEPTH_WARN`), e un errore bloccante se si superano i 5 livelli (`NAV_DEPTH_MAX`).
 
-Limite di voci di primo livello (Navbar Desktop): superate le 6 voci dirette in `headerNav` (stessa soglia dell'avviso in console per l'usabilità), la Navbar desktop raccoglie automaticamente le voci in eccesso in un dropdown finale "Altro", nessuna configurazione richiesta, l'Engine misura lo spazio disponibile a runtime (`ResizeObserver`) e sposta lì solo ciò che davvero non entra nella riga. Sotto la soglia, o su mobile (dove il menu è comunque impilato verticalmente), il comportamento non cambia.
+Limite di voci di primo livello (Navbar Desktop): superate le 6 voci dirette in `header` (stessa soglia dell'avviso in console per l'usabilità), la Navbar desktop raccoglie automaticamente le voci in eccesso in un dropdown finale "Altro", nessuna configurazione richiesta, l'Engine misura lo spazio disponibile a runtime (`ResizeObserver`) e sposta lì solo ciò che davvero non entra nella riga. Sotto la soglia, o su mobile (dove il menu è comunque impilato verticalmente), il comportamento non cambia.
 
 Voci visibili solo da loggato (`authOnly`): `addPage`/`addLink`/`addGroup` accettano un terzo parametro opzionale `{ authOnly: true }`, la voce (o, su `addGroup`, l'intero gruppo coi suoi figli) compare in navbar e footer solo per utenti loggati, sparendo del tutto per visitatori e bot (nessun link verso una pagina a cui comunque non potrebbero accedere). È il complemento lato-menu di `requiresAuth` sulla pagina (vedi "Proteggere una Pagina"): quello protegge la rotta, questo nasconde la voce.
 
 ```typescript
-headerNav: (h) => {
+header: (h) => {
     h.addPage(PageType.AreaRiservata, { authOnly: true }); // solo da loggato
     h.addGroup('navAdmin', g => {                          // l'intero gruppo, non solo i figli
         g.addPage(PageType.Utenti);
@@ -1609,7 +1624,7 @@ headerNav: (h) => {
 }
 ```
 
-Volutamente binario (loggato/sloggato, via `TokenService.isLoggedIn()`), non un sistema di ruoli: la navbar è pensata per restare generica, un progetto che ha bisogno di granularità per-ruolo filtra a monte (nel proprio `AuthService`/store, prima che la voce raggiunga `site.ts`, oppure componendo il menu in base a `session<T>()`), non nell'Engine.
+Volutamente binario (loggato/sloggato, via `TokenService.isLoggedIn()`), non un sistema di ruoli: la navbar è pensata per restare generica, un progetto che ha bisogno di granularità per-ruolo filtra a monte (nel proprio resolver di `nav.ts`, prima che la voce venga costruita, oppure componendo il menu in base a `session<T>()`), non nell'Engine.
 
 ### Pagine legali (`legalPages`)
 
@@ -2117,16 +2132,21 @@ npm run generate:statics
 | :--- | :--- |
 | `src/index.html` | `<html lang>`, `<title>`, tutti i meta OpenGraph/Twitter, favicon |
 | `public/manifest.webmanifest` | `name`, `description`, `theme_color`, `background_color`, `lang`, `version` |
-| `public/sitemap.xml` | URL di tutte le pagine indicizzabili con `priority`, `changefreq` e `lastmod` automatici — con più lingue, una entry per pagina per lingua con blocchi `<xhtml:link rel="alternate" hreflang="...">` incrociati (+ `x-default`) |
 | `public/robots.txt` | `Allow: /` + URL sitemap. Le pagine protette **non** sono elencate (un robots.txt è pubblico e ne rivelerebbe i path): la loro non-indicizzazione è gestita a runtime dal server SSR con `X-Robots-Tag: noindex` |
 | `public/llms.txt` | Indice del sito per i crawler AI (convenzione `llms.txt`): nome, descrizione, elenco pagine |
 | `public/security.txt` | Contatto di sicurezza RFC 9116 (`Expires` rigenerato a ogni build); servito sul percorso canonico `/.well-known/security.txt` dal Node SSR |
 | `public/theme-init.js` | Script anti-flash del tema (vedi *Tema → Anti-flash*): sincrono nel `<head>`, imposta `data-bs-theme` da `prefers-color-scheme` prima che Bootstrap carichi gli stili |
 | `src/environments/environment.ts` | `defaultLang`, `availableLanguages`, `configFingerprint` — **file generato automaticamente, non modificare manualmente** |
 
+> `sitemap.xml` NON è più generata da questo script: è un endpoint runtime (`GET /sitemap.xml`, sezione «sitemap.xml: endpoint runtime» più sotto), non un file in `public/`.
+
 > `configFingerprint`: guardia contro un `environment.ts` non rigenerato. Uno hash (12 caratteri) delle sole sezioni identity-critiche di `global-settings.json` (`project`/`Localization`/`site`). Il Node SSR lo ricalcola al boot dal config letto a runtime e lo confronta con quello scritto nel bundle: se non coincidono stampa un warning in log, capita tipicamente lanciando `ng serve` senza passare dai pre-hook (`predev`/`prestart`), o modificando `global-settings.json` senza rilanciare `npm run generate:statics`. Non blocca l'avvio: è un segnale di dev, non un gate.
 
-> Versionati vs solo-build: solo due output generati sono versionati come seed, `src/index.html` e `src/environments/environment.ts`, perché servono al type-check e alla build prima della prima rigenerazione (`index.html` è il documento di build, `environment.ts` è importato dal TS): lo script li tiene aggiornati e la diff si committa insieme a `global-settings.json`. Tutto ciò che finisce in `public/` (`manifest.webmanifest`, `robots.txt`, `sitemap.xml`, `llms.txt`, `security.txt`, `theme-init.js`, `icons/`) è solo output di build, gitignored (`public/` è ignorata per intero): viene rigenerato dal pre-hook `prebuild` e non va mai committato.
+> Versionati vs solo-build: solo due output generati sono versionati come seed, `src/index.html` e `src/environments/environment.ts`, perché servono al type-check e alla build prima della prima rigenerazione (`index.html` è il documento di build, `environment.ts` è importato dal TS): lo script li tiene aggiornati e la diff si committa insieme a `global-settings.json`. Tutto ciò che finisce in `public/` (`manifest.webmanifest`, `robots.txt`, `llms.txt`, `security.txt`, `theme-init.js`, `icons/`) è solo output di build, gitignored (`public/` è ignorata per intero): viene rigenerato dal pre-hook `prebuild` e non va mai committato.
+
+### sitemap.xml: endpoint runtime, non file statico
+
+A differenza degli altri output di questa pagina, `sitemap.xml` non è un file generato al build: è un endpoint (`GET /sitemap.xml`, `server/routes/dynamic-sitemap.ts`), montato in `server.ts` prima dello static handler. Fa gli stessi calcoli che faceva lo script (via `services/sitemap-xml.ts`, condiviso) più l'espansione delle pagine con `dynamicParams` dichiarato (campo opzionale di `LeafPageInput`, in `siteBuilder.ts`: una funzione che recupera dal backend l'albero `SlugNode[]` degli slug accettati per una rotta con `:segmenti`) — non enumerabili a build time perché il catalogo arriva da un'API. Cache in-process con TTL (default 7 giorni, env var `SITEMAP_CACHE_TTL_MS` in millisecondi) — alto perché non è più il meccanismo primario di aggiornamento, solo un fallback: l'invalidazione vera arriva on-demand dal backend (`POST /internal/revalidate-sitemap`, `SitemapNotifier`, vedi backend/README.md) dopo una scrittura su un catalogo `dynamicParams`. Il consumer è quasi solo un crawler, non serve ricalcolare a ogni richiesta; richieste concorrenti durante un ricalcolo condividono la stessa promise, e se il ricalcolo fallisce ma esiste una cache scaduta si serve quella invece di un errore. `robots.txt` continua a puntare allo stesso URL (`Sitemap: <base>/sitemap.xml`), invariato.
 
 ### Icone PWA automatiche (`generate-icons.ts`)
 
@@ -2151,21 +2171,19 @@ Lingua di default e lingue supportate non sono variabili d'ambiente: lo script l
 | `requiresAuth: true` | Esclusa dalla sitemap **e** marcata `noindex` dal server SSR (`X-Robots-Tag: noindex, nofollow`), senza comparire in robots.txt. Forza anche il client-render |
 | `otherSEO: { noindex: true }` | Esclusa dalla sitemap **e** marcata `noindex` dal server SSR (`X-Robots-Tag: noindex, nofollow`). A differenza di `requiresAuth` la pagina resta **pubblica e SSR**: solo non indicizzabile (es. landing duplicate, thank-you) |
 
+Le 5 pagine legali standard (privacy/cookie/termini/note legali/accessibilità, `legal/legal-pages.ts`) sono `otherSEO: { noindex: true }` di default: pagine di servizio, niente crawl budget speso su contenuti che non portano traffico. Un progetto figlio che le vuole indicizzate dichiara la pagina a mano con `otherSEO.noindex: false` (override standard, `filterManagedLegalPages`).
+
 > Deploy non indicizzabile (staging): per un'anteprima/staging dietro lo stesso reverse proxy della produzione, imposta l'env var `SEO_NOINDEX=true` sul container Node SSR: il server emette `X-Robots-Tag: noindex, nofollow` su ogni risposta e serve un `robots.txt` dinamico `Disallow: /`. Default off → in produzione il sito resta indicizzabile. Vedi [DOCKER_README.md](../DOCKER_README.md).
 
-### Priority e Changefreq Automatici
+### `sitemap.xml`: solo `loc` e `xhtml:link`, `<lastmod>` dove è verificabile
 
-| Profondità del path | Esempio | `priority` | `changefreq` |
-| :--- | :--- | :--- | :--- |
-| 0 (root) | `/` | `1.0` | `weekly` |
-| 1 | `/chi-siamo` | `0.8` | `monthly` |
-| 2+ | `/blog/articolo` | `0.6` e a scendere (`1.0 − 0.2·profondità`, con minimo `0.3`) | `yearly` |
+La sitemap emette solo `<loc>` e i blocchi `xhtml:link` (hreflang). Niente `priority`/`changefreq`: Google li ignora da anni, restano solo peso morto nel file.
 
-Profondità calcolata sul path senza prefisso lingua: una pagina in `/en/blog/articolo` ha la stessa `priority`/`changefreq` della sua variante `/blog/articolo`, non un livello in meno per il segmento `/en/` in più.
+Niente `<lastmod>` generico per le pagine STATICHE: una data identica su ogni URL del sito (bumpata a mano) non è un segnale che Google verifica, e comunicarla comunque rischia di far scartare il tag come inattendibile. `<lastmod>` compare solo dove è per-entità e verificabile: le pagine generate da `dynamicParams`, se il backend espone una data di modifica sul nodo FOGLIA del ramo (`SlugNode.lastModified`, YYYY-MM-DD — un nodo intermedio, es. una categoria in una rotta multi-segmento, non produce mai una entry propria). Se il nodo non la porta, `<lastmod>` viene OMESSO per quella URL invece di ricadere silenziosamente su una data generica.
 
-### `og:updated_time` e `<lastmod>` della sitemap
+### `og:updated_time`
 
-Entrambi sono impostati a `project.lastModified` in `global-settings.json` (formato italiano `GG/MM/AAAA`, convertito in `YYYY-MM-DD`). La si bumpa a mano quando i contenuti cambiano davvero: dà al `<lastmod>` un valore accurato e stabile, come richiesto da Google per considerarlo attendibile. Fallback alla data del build se il campo è assente o non valido.
+Impostato a `project.lastModified` in `global-settings.json` (formato italiano `GG/MM/AAAA`, convertito in `YYYY-MM-DD`). La si bumpa a mano quando i contenuti cambiano davvero. Fallback alla data corrente se il campo è assente o non valido. Solo per il tag Open Graph — non alimenta più `<lastmod>` della sitemap (vedi sopra).
 
 ### `og:locale`
 

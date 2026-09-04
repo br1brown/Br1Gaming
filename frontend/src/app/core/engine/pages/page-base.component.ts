@@ -1,13 +1,16 @@
 import { computed, Directive, effect, HostBinding, inject, input, PLATFORM_ID, resource, untracked } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { map } from 'rxjs';
 import { ApiService } from '../../services/api.service';
+import { ApiError } from '../services/base-api.service';
 import { AssetService } from '../services/asset.service';
 import { NotificationService } from '../services/notification.service';
 import { TranslateService } from '../services/translate.service';
 import { PageMetaService } from '../services/page-meta.service';
 import { PageType } from '../../../site';
-import { ContentResolver, ResolvedPage } from '../../../pages/content.resolver';
+import { ContentResolver, ResolvedPage } from './content.resolver';
 
 /**
  * Base comune per tutte le pagine.
@@ -55,7 +58,8 @@ export abstract class PageBaseComponent<T> {
      * raggiunte navigando sì. SSR e idratazione concordano (entrambi prima navigazione) → niente
      * mismatch sulla classe. Si somma a `withViewTransitions({ skipInitialTransition: true })`.
      */
-    private readonly fadeAllowed = inject(Router).navigated;
+    private readonly engineRouter = inject(Router);
+    private readonly fadeAllowed = this.engineRouter.navigated;
 
     /**
      * Applica `.page-fade` sull'host quando il flag è attivo. DEVE essere @HostBinding, non
@@ -67,6 +71,16 @@ export abstract class PageBaseComponent<T> {
         return this.fadeAllowed && this.pageFadeEnabled();
     }
 
+    /** Parametro `:slug` della rotta corrente, se presente — reattivo anche entro la stessa istanza
+     *  componente (una rotta parametrica riusa l'istanza al cambio di solo `:slug`, senza
+     *  ricreazione): senza questo, il ricaricato sotto perderebbe lo slug dopo la prima navigazione.
+     *  Nome convenzionale, stesso di contentLoaderResolver. */
+    private readonly activatedRoute = inject(ActivatedRoute);
+    private readonly routeSlug = toSignal(
+        this.activatedRoute.paramMap.pipe(map(pm => pm.get('slug') ?? undefined)),
+        { initialValue: this.activatedRoute.snapshot.paramMap.get('slug') ?? undefined }
+    );
+
     /**
      * Ricarica del contenuto al cambio lingua (lato browser). `resource()` sostituisce l'effect
      * scritto a mano + la guardia `reqId`: gestisce da solo la cancellazione delle richieste
@@ -75,14 +89,25 @@ export abstract class PageBaseComponent<T> {
      * `contentByResolve` (resolver del router). `defaultValue: null` → `.value()` è `null` (mai
      * throw, anche in errore) finché non c'è un caricamento completato.
      */
-    private readonly contentResource = resource<ResolvedPage<T> | null, { pageType: PageType; lang: string } | undefined>({
+    private readonly contentResource = resource<ResolvedPage<T> | null, { pageType: PageType; lang: string; slug?: string } | undefined>({
         params: () => isPlatformBrowser(this.platformId)
             // this.lang() (l'input di route, sincrono) e NON this.translate.currentLang(): quest'ultimo
             // si aggiorna in modo asincrono (l'effect sotto attende setLanguage()), this.lang() è già
             // corretto nello stesso istante — niente fetch nella lingua vecchia al mount della pagina.
-            ? { pageType: this.pageType(), lang: this.lang() }
+            ? { pageType: this.pageType(), lang: this.lang(), slug: this.routeSlug() }
             : undefined, // SSR: nessuna fetch qui, il primo contenuto arriva da contentByResolve (resolver del router).
-        loader: ({ params }) => this.contentResolverService.loadResolved(params.pageType, params.lang) as Promise<ResolvedPage<T>>,
+        // Ricaricato client (cambio lingua): non passa dal resolver del router, quindi un 404
+        // (slug diventato invalido) non può tornare come UrlTree — l'unica via è navigare
+        // esplicitamente. Stesso trattamento di contentLoaderResolver: solo il 404 dirotta, ogni
+        // altro errore resta silenzioso (apiErrorInterceptor ha già avvisato l'utente).
+        loader: ({ params }) => this.contentResolverService.loadResolved(params.pageType, params.lang, params.slug)
+            .catch(error => {
+                if (error instanceof ApiError && error.status === 404) {
+                    void this.engineRouter.navigateByUrl('/error/404');
+                    return null;
+                }
+                throw error;
+            }) as Promise<ResolvedPage<T> | null>,
         defaultValue: null,
     });
 
@@ -105,6 +130,14 @@ export abstract class PageBaseComponent<T> {
      */
     protected getCurrentUrl(): string {
         return this.pageMeta.getCanonicalUrl();
+    }
+
+    /** Data ISO (YYYY-MM-DD) di ultimo aggiornamento REALE del contenuto, per `og:updated_time` e
+     *  `dateModified` JSON-LD — diversa dalla data di build/deploy, che l'Engine già gestisce da sé.
+     *  Default `null`: quasi nessuna pagina ne ha una vera. Override dove esiste (es. PolicyComponent,
+     *  dalla data dichiarata in legal.pages.ts). */
+    protected pageUpdatedOn(): string | null {
+        return null;
     }
 
     constructor() {
@@ -138,6 +171,7 @@ export abstract class PageBaseComponent<T> {
             this.pageMeta.setPageMeta({
                 title, description,
                 imgId: info.ogImage, ogType: info.ogType,
+                updatedTime: this.pageUpdatedOn(),
                 structuredData,
             });
         });

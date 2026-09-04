@@ -3,8 +3,8 @@ import { CSP_NONCE, inject, Injectable, InjectionToken, DOCUMENT, signal, Signal
 import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRouteSnapshot, RouterStateSnapshot, Router } from '@angular/router';
 import { ContestoSito, PageType } from '../../../site';
-import { onNavigationEnd } from '../routing';
-import { pickLocaleText } from '../siteBuilder';
+import { onNavigationEnd, mergeRouteParams } from '../routing';
+import { applyPathParams, pickLocaleText } from '../siteBuilder';
 import { CdnCgi } from './asset.service';
 import { TranslateService } from './translate.service';
 import { IdentityService } from './identity.service';
@@ -68,6 +68,7 @@ export class PageMetaService {
     private readonly document = inject(DOCUMENT);
     private readonly translate = inject(TranslateService);
     private readonly identity = inject(IdentityService);
+    private readonly router = inject(Router);
     private readonly cspNonce = inject(CSP_NONCE, { optional: true });
 
     /** Cifratura preview: disponibile solo in SSR, null nel browser. */
@@ -192,7 +193,7 @@ export class PageMetaService {
         }
 
         // Aggiorna JSON-LD structured data (usa la description risolta, coerente con i meta tag)
-        this.updateStructuredData(pageTitle || appName, metaDescription, imageUrl, canonicalUrl, structuredData);
+        this.updateStructuredData(pageTitle || appName, metaDescription, imageUrl, canonicalUrl, structuredData, updatedTime);
     }
 
     /** Emette i meta Open Graph `article:*` dell'entità principale (da `structuredData` di tipo
@@ -342,6 +343,11 @@ export class PageMetaService {
         const pageType = this.currentPageType();
         if (pageType == null) return;
 
+        // Su un PageType parametrico (es. `/social-feed/:slug`) `getPath` torna il template
+        // letterale: senza risolvere i param della rotta attiva, l'hreflang punterebbe a un
+        // `:slug` non sostituito invece che alla pagina gemella reale nell'altra lingua.
+        const params = mergeRouteParams(this.router.routerState.snapshot);
+
         const addHreflang = (hreflang: string, path: string): void => {
             const link = this.document.createElement('link');
             link.rel = 'alternate';
@@ -352,10 +358,10 @@ export class PageMetaService {
 
         for (const lang of allLangs) {
             const path = ContestoSito.getPath(pageType, lang);
-            if (path) addHreflang(lang, path);
+            if (path) addHreflang(lang, applyPathParams(path, params, 'PageMetaService.updateHreflangTags'));
         }
         const defaultPath = ContestoSito.getPath(pageType, this.translate.defaultLang);
-        if (defaultPath) addHreflang('x-default', defaultPath);
+        if (defaultPath) addHreflang('x-default', applyPathParams(defaultPath, params, 'PageMetaService.updateHreflangTags'));
     }
 
     /**
@@ -374,6 +380,7 @@ export class PageMetaService {
         imageUrl?: string | null,
         canonicalUrl: string = this.getCanonicalUrl(),
         structuredData?: StructuredDataInput | null,
+        dateModified?: string | null,
     ): void {
         const { appName } = ContestoSito.config;
         const siteUrl = this.getSiteUrl(canonicalUrl);
@@ -444,13 +451,9 @@ export class PageMetaService {
             publisher: { '@id': publisherId },
         };
 
-        // Segnale di freschezza: riusa il valore effettivo di og:updated_time (override per-pagina
-        // se impostato, altrimenti il timestamp di build emesso in index.html da generate-statics).
-        const dateModified = this.meta.getTag('property="og:updated_time"')?.content;
-
         // Structured data tipizzati → JSON-LD (unico punto di traduzione, in structured-data.ts).
         // Compone uno o più item: il primo arricchisce il WebPage, gli altri sono nodi a sé.
-        const sd = buildStructuredDataGraph(structuredData, { pageName: title, imageUrl, dateModified, publisherId });
+        const sd = buildStructuredDataGraph(structuredData, { pageName: title, imageUrl, dateModified: dateModified ?? undefined, publisherId });
 
         // Meta Open Graph dell'entità principale (es. article:*), gemelli dei dati JSON-LD.
         this.updateArticleMeta(sd.ogMeta);

@@ -1,7 +1,7 @@
 import { Component, input } from '@angular/core';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { NavLinkComponent } from '../nav-link/nav-link.component';
-import { NavLink, isNavGroup } from '../../siteBuilder';
+import { NavLink, isNavGroup, navLinkKey } from '../../shell-nav';
 
 /**
  * FOOTER NAV GROUP COMPONENT
@@ -24,4 +24,6 @@ export class FooterNavGroupComponent {
 
     /** Type-guard riusato nel template per ramificare figlio-gruppo / figlio-link. */
     readonly isGroup = isNavGroup;
+    /** Chiave `track` per il template — vedi doc su `navLinkKey` in shell-nav.ts. */
+    readonly navLinkKey = navLinkKey;
 }

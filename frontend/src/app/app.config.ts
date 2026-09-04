@@ -17,6 +17,8 @@ import { apiErrorInterceptor } from './core/engine/interceptors/api-error.interc
 import { isTechnicalOptionalConsentGiven } from './core/engine/services/cookie-consent.service';
 import { ContestoSito } from './site';
 import { SITE_CONFIG } from './core/engine/siteBuilder';
+import { SHELL_NAV_RESOLVER, ShellNavService } from './core/engine/services/shell-nav.service';
+import { navResolver } from './nav';
 import { LOCALE_CONFIG, LOCALE_STATE_KEY, type LocaleConfig } from './core/engine/services/translate.service';
 import { APP_CUSTOM, CUSTOM_STATE_KEY, type AppCustom } from './core/engine/app-custom';
 import { API_PREFIX } from './core/engine/asset-config';
@@ -57,6 +59,8 @@ export const appConfig: ApplicationConfig = {
         provideAppInitializer(async () => {
             const translateService = inject(TranslateService);
             const authService = inject(AuthService);
+            // inject() PRIMA di ogni await: dopo il primo, l'injection context non è più garantito.
+            const shellNavService = inject(ShellNavService);
             // Istanzia ThemeService subito così il listener prefersReducedMotion
             // è attivo prima che i componenti inizino a leggerne il signal.
             inject(ThemeService);
@@ -64,6 +68,11 @@ export const appConfig: ApplicationConfig = {
             // I titoli delle pagine nelle route sono chiavi di traduzione
             // La lingua iniziale va quindi caricata prima che l'app cominci a usarli
             await translateService.setInitialLanguage();
+
+            // Navigazione di header/footer (ShellNavService): attesa qui, PRIMA che un componente
+            // si costruisca — NavbarComponent la legge anche in un field initializer sincrono
+            // (altroDropdownIndex), deve già essere pronta al primo render, non arrivare dopo.
+            await shellNavService.resolve(translateService.currentLang());
 
             // Il ripristino sessione arriva subito dopo, cosi' le pagine protette custom
             // partono gia' con uno stato auth coerente
@@ -84,6 +93,10 @@ export const appConfig: ApplicationConfig = {
         {
             provide: SITE_CONFIG,
             useValue: ContestoSito.config,
+        },
+        {
+            provide: SHELL_NAV_RESOLVER,
+            useValue: navResolver,
         },
         {
             provide: LOCALE_CONFIG,

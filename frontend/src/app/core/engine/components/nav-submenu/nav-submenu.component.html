@@ -14,7 +14,7 @@
         <span class="nav-dropdown-caret submenu-caret" aria-hidden="true"></span>
     </button>
     <ul class="dropdown-menu submenu-panel list-unstyled">
-        @for (child of item().children; track child.path) {
+        @for (child of item().children; track navLinkKey(child)) {
             <li>
                 @if (isGroup(child)) {
                     <app-nav-submenu [item]="child" (linkClick)="onLinkClick()" />

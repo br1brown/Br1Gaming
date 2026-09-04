@@ -5,15 +5,19 @@
  * - src/index.html           → lang, title, theme-color, meta PWA
  * - src/environments/environment.ts → identità/estetica del progetto iniettate nel bundle
  * - public/manifest.webmanifest → nome, descrizione, colori
- * - public/sitemap.xml       → tutte le pagine indicizzabili
  * - public/robots.txt        → user-agent, disallow, sitemap URL
  * - public/llms.txt          → indice del sito per i crawler AI (convenzione llms.txt)
  * - public/security.txt      → contatto di sicurezza RFC 9116 (servito su /.well-known/)
  * - public/theme-init.js     → script anti-flash del tema, referenziato da index.html
  *
+ * sitemap.xml NON è più generata qui: è un endpoint runtime (server/routes/dynamic-sitemap.ts),
+ * gli STESSI calcoli di prima (via services/sitemap-xml.ts, condiviso) più le pagine con
+ * `dynamicParams` (che a build time non sono enumerabili — il catalogo arriva da un'API), con
+ * cache in-process a TTL. Vedi CHANGELOG per il perché del cambio da file statico a endpoint.
+ *
  * Solo index.html ed environment.ts sono generati MA versionati (seed: type-check e build
  * passano anche prima della prima esecuzione). Tutto ciò che finisce in public/ (manifest,
- * robots, sitemap, llms, security.txt, theme-init, icons) è solo output di build, gitignored
+ * robots, llms, security.txt, theme-init, icons) è solo output di build, gitignored
  * (public/ è ignorata per intero): lo rigenera il pre-hook prebuild.
  *
  * Eseguire con:
@@ -22,7 +26,7 @@
  * Variabile d'ambiente:
  *   FRONTEND_BASE_URL — URL base del sito (default: https://example.com con warning)
  *
- * Esclusioni sitemap e robots automatiche (gestite dal siteBuilder):
+ * Esclusioni robots automatiche (gestite dal siteBuilder):
  *   - Pagine disabilitate (enabled: false)
  *   - Pagine esterne (externalUrl)
  *   - Pagine protette da autenticazione (requiresAuth: true)
@@ -35,9 +39,9 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'fs';
 import { join } from 'path';
 import { ContestoSito } from '../../../../site';
 import { ThemeService } from '../../services/theme.service';
-import { SitemapEntry, resolveLangPrefix } from '../../siteBuilder';
 import { fingerprintIdentitySections } from '../config/config-fingerprint';
 import { deepMergeSettings } from '../config/settings-merge';
+import { getLastModifiedDate } from '../config/last-modified';
 import type { GlobalSettings } from '../../global-settings.types';
 
 const ROOT = join(__dirname, '../../../../../../');
@@ -180,7 +184,6 @@ const SITE_CONFIG_OUT = {
 
 const INDEX = join(ROOT, 'src', 'index.html');
 const MANIFEST = join(ROOT, 'public', 'manifest.webmanifest');
-const SITEMAP = join(ROOT, 'public', 'sitemap.xml');
 const ROBOTS = join(ROOT, 'public', 'robots.txt');
 const LLMS = join(ROOT, 'public', 'llms.txt');
 const SECURITY = join(ROOT, 'public', 'security.txt');
@@ -188,29 +191,6 @@ const THEME_INIT = join(ROOT, 'public', 'theme-init.js');
 
 // Rimuove lo slash finale per evitare doppi slash negli URL generati
 const BASE_URL = (process.env['FRONTEND_BASE_URL'] || 'https://example.com').replace(/\/$/, '');
-
-/**
- * Data di ultima modifica (YYYY-MM-DD) per `og:updated_time` e `<lastmod>` della sitemap.
- * Fonte: `project.lastModified` in global-settings.json (formato `GG/MM/AAAA`), da bumpare
- * a mano quando i contenuti cambiano. Fallback alla data del build se assente o non valida.
- */
-function getLastModifiedDate(): string {
-    const raw = _fileProject['lastModified'];
-    if (typeof raw === 'string') {
-        const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(raw.trim());
-        if (m) {
-            const [, dd, mm, yyyy] = m;
-            const d = new Date(`${yyyy}-${mm}-${dd}T00:00:00Z`);
-            // Round-trip: scarta date impossibili (es. 30/02) che Date farebbe slittare.
-            const valid = !isNaN(d.getTime())
-                && d.getUTCMonth() + 1 === Number(mm)
-                && d.getUTCDate() === Number(dd);
-            if (valid) return `${yyyy}-${mm}-${dd}`;
-        }
-        console.warn(`[statics] project.lastModified="${raw}" non valido (atteso GG/MM/AAAA) — uso la data odierna`);
-    }
-    return new Date().toISOString().slice(0, 10);
-}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -267,20 +247,6 @@ function replaceTag(html: string, pattern: RegExp, replacement: string, label: s
     return html.replace(pattern, replacement);
 }
 
-// ── Calcolo priority e changefreq per sitemap ─────────────────────────────
-
-function getPriority(path: string): string {
-    const depth = path === '/' ? 0 : path.split('/').filter(Boolean).length;
-    return Math.max(0.3, 1.0 - depth * 0.2).toFixed(1);
-}
-
-function getChangefreq(path: string): string {
-    const depth = path === '/' ? 0 : path.split('/').filter(Boolean).length;
-    if (depth === 0) return 'weekly';
-    if (depth === 1) return 'monthly';
-    return 'yearly';
-}
-
 // ── Aggiornamento index.html ──────────────────────────────────────────────
 
 function updateIndexHtml(): void {
@@ -300,7 +266,7 @@ function updateIndexHtml(): void {
     html = replaceTag(html, /<title>[^<]*<\/title>/, `<title>${appName}</title>`, '<title>');
 
     const defaultImageUrl = `${BASE_URL}/icons/icon-512x512.png`;
-    const updatedTime = getLastModifiedDate();
+    const updatedTime = getLastModifiedDate(_fileProject);
 
     // <meta name="theme-color"> è omesso: viene iniettato dinamicamente per-request
     // dall'app-initializer SSR (app.config.server.ts), con varianti light/dark via media attribute.
@@ -473,89 +439,6 @@ function updateManifest(): void {
     console.log(`[statics] manifest.webmanifest aggiornato`);
 }
 
-// ── Generazione sitemap.xml ───────────────────────────────────────────────
-
-/** Path "nudo" (senza prefisso lingua) di una entry: chiave di raggruppamento cross-lingua per
- *  i blocchi hreflang incrociati — entry con la stessa chiave sono varianti-lingua della stessa
- *  pagina logica. Con una sola lingua configurata `resolveLangPrefix` ritorna sempre stringa
- *  vuota, quindi la chiave coincide col path stesso (nessun raggruppamento reale). */
-function bareSitemapPath(entry: SitemapEntry): string {
-    const prefix = resolveLangPrefix(entry.lang, DEFAULT_LANG);
-    return prefix ? (entry.path.slice(prefix.length) || '/') : entry.path;
-}
-
-function buildSitemapXml(entries: SitemapEntry[]): string {
-    // Google usa <lastmod> solo se e' accurato e verificabile: usare la data
-    // dell'ultimo commit e' piu' affidabile della data di build, che cambierebbe
-    // anche senza modifiche reali ai contenuti.
-    const lastmod = getLastModifiedDate();
-    // Con una sola lingua configurata: nessun blocco hreflang, output identico a prima
-    // dell'introduzione degli URL localizzati.
-    const multiLang = AVAILABLE_LANGS.length > 1;
-
-    const groups = new Map<string, SitemapEntry[]>();
-    if (multiLang) {
-        for (const entry of entries) {
-            const key = bareSitemapPath(entry);
-            const group = groups.get(key);
-            if (group) group.push(entry); else groups.set(key, [entry]);
-        }
-    }
-
-    const urls = entries
-        .map((entry) => {
-            const lines = ['  <url>', `    <loc>${BASE_URL}${entry.path}</loc>`];
-            if (multiLang) {
-                // Blocchi hreflang incrociati verso ogni variante-lingua della stessa pagina
-                // (raccomandazione Google per sitemap multilingua URL-based) + x-default.
-                const siblings = groups.get(bareSitemapPath(entry)) ?? [entry];
-                for (const sibling of siblings) {
-                    lines.push(`    <xhtml:link rel="alternate" hreflang="${sibling.lang}" href="${BASE_URL}${sibling.path}" />`);
-                }
-                const defaultSibling = siblings.find(s => s.lang === DEFAULT_LANG);
-                if (defaultSibling) {
-                    lines.push(`    <xhtml:link rel="alternate" hreflang="x-default" href="${BASE_URL}${defaultSibling.path}" />`);
-                }
-            }
-            // Profondità calcolata sul path NUDO (senza prefisso lingua): altrimenti ogni pagina
-            // non-default-lang risulterebbe artificialmente "meno importante" di un livello solo
-            // per il segmento `/en/` in più — priority/changefreq riflettono la pagina logica,
-            // non la lunghezza dell'URL.
-            const depthPath = bareSitemapPath(entry);
-            lines.push(
-                `    <lastmod>${lastmod}</lastmod>`,
-                `    <changefreq>${getChangefreq(depthPath)}</changefreq>`,
-                `    <priority>${getPriority(depthPath)}</priority>`,
-                '  </url>',
-            );
-            return lines.join('\n');
-        })
-        .join('\n');
-
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"${multiLang ? ' xmlns:xhtml="http://www.w3.org/1999/xhtml"' : ''}>
-${urls}
-</urlset>
-`;
-}
-
-function updateSitemap(): void {
-    const entries = ContestoSito.getSitemapEntries();
-
-    if (entries.length === 0) {
-        console.warn('[statics] Nessuna pagina per sitemap trovata.');
-        return;
-    }
-
-    writeFileSync(SITEMAP, buildSitemapXml(entries), 'utf8');
-    console.log(`[statics] sitemap.xml aggiornata (${entries.length} pagine)`);
-
-    if (BASE_URL === 'https://example.com') {
-        console.warn('[statics] ATTENZIONE: FRONTEND_BASE_URL non configurato. ' +
-            'Impostare FRONTEND_BASE_URL=https://tuodominio.it prima del build di produzione.');
-    }
-}
-
 // ── Generazione robots.txt ────────────────────────────────────────────────
 
 function updateRobots(): void {
@@ -640,7 +523,6 @@ function main(): void {
 
     updateIndexHtml();
     updateManifest();
-    updateSitemap();
     updateRobots();
     updateLlms();
     updateSecurityTxt();

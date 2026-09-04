@@ -1,6 +1,6 @@
 import { Component, input } from '@angular/core';
 import { NavLinkComponent } from '../nav-link/nav-link.component';
-import { NavLink } from '../../siteBuilder';
+import { NavLink, navLinkKey } from '../../shell-nav';
 
 /**
  * FOOTER LINK ROW COMPONENT
@@ -8,7 +8,7 @@ import { NavLink } from '../../siteBuilder';
  * Riga compatta orizzontale di link, senza titolo — non un'altra colonna della griglia di
  * navigazione (`footer-nav`/`footer-nav-group`). Due consumer distinti, stesso componente:
  *   - la fascia legale (`config.legalPages`, via `FooterComponent`);
- *   - i link/pagine dichiarati sciolti in cima a `footerNav` (fuori da un `addGroup`, via
+ *   - i link/pagine dichiarati sciolti in cima al resolver footer (fuori da un `addGroup`, via
  *     `FooterNavComponent`) — vedi lì il perché non ricevono più una colonna a testa.
  *
  * Motivazione (Fitts/Hick/Miller, non il pattern di un design system specifico — verificato che
@@ -30,4 +30,6 @@ import { NavLink } from '../../siteBuilder';
 })
 export class FooterLinkRowComponent {
     readonly links = input.required<NavLink[]>();
+    /** Chiave `track` per il template — vedi doc su `navLinkKey` in shell-nav.ts. */
+    readonly navLinkKey = navLinkKey;
 }

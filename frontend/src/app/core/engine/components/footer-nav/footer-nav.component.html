@@ -2,7 +2,7 @@
     <nav [attr.aria-label]="'footerNav' | translate">
     @if (groups().length > 0) {
         <div class="footer-nav-groups mb-3">
-            @for (group of groups(); track group.path) {
+            @for (group of groups(); track navLinkKey(group)) {
                 <app-footer-nav-group [group]="group" [level]="0" />
             }
         </div>

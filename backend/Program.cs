@@ -15,6 +15,7 @@ using Backend.Models.Configuration;
 using Backend.Notifications;
 using Backend.Privacy;
 using Backend.Security;
+using Backend.Sitemap;
 using Backend.Tasks;
 using Backend.Services;
 using Backend.Stories;
@@ -89,6 +90,8 @@ builder.Services.Configure<MailOptions>(
     builder.Configuration.GetSection("Mail"));
 builder.Services.Configure<ErrorReportingOptions>(
     builder.Configuration.GetSection("ErrorReporting"));
+builder.Services.Configure<FrontendOptions>(
+    builder.Configuration.GetSection("Frontend"));
 
 var security = builder.Configuration
     .GetSection("Security")
@@ -144,6 +147,15 @@ builder.Services.AddHostedService<EmailSenderHostedService>();
 // (ErrorReporting.WebhookUrl vuoto): nessuna chiamata HTTP uscente finché non lo configuri.
 // Nessun pacchetto NuGet aggiuntivo: solo HttpClient tipizzato via IHttpClientFactory.
 builder.Services.AddHttpClient<IErrorReportingService, EngineErrorReporting>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
+
+// Invalidazione on-demand della cache di sitemap.xml sul frontend Node SSR: un POST verso
+// Frontend.Origin dopo ogni scrittura che cambia un catalogo dietro dynamicParams. Spento di
+// default (Frontend.Origin vuoto): nessuna chiamata HTTP uscente finché non lo configuri (vedi
+// FrontendOptions). Stesso schema HttpClient tipizzato di IErrorReportingService.
+builder.Services.AddHttpClient<SitemapNotifier>(client =>
 {
     client.Timeout = TimeSpan.FromSeconds(5);
 });
@@ -246,6 +258,10 @@ app.Logger.LogInformation("Mailer {State}.",
 // ── ERROR REPORTING ─────────────────────────────────────────────────
 app.Logger.LogInformation("Error reporting {State}.",
     app.Services.GetRequiredService<IErrorReportingService>().IsEnabled ? "attivo" : "non configurato");
+
+// ── SITEMAP NOTIFIER ────────────────────────────────────────────────
+app.Logger.LogInformation("Invalidazione cache sitemap sul frontend {State}.",
+    app.Services.GetRequiredService<SitemapNotifier>().IsEnabled ? "attiva" : "non configurata");
 
 // ── PIPELINE HTTP ───────────────────────────────────────────────────
 // L'ordine è critico. Vedi README.md → "Ordine della pipeline HTTP".

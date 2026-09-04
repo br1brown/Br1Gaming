@@ -159,7 +159,6 @@ Il confine in pratica, ovvero chi possiede cosa: ecco cosa significano "Engine e
 
 > Dominio a contratto fisso: alcuni file di Dominio sono importati dall'Engine per path e nome. Il figlio ne cambia liberamente il corpo, ma deve preservarne path, nome dell'export e forma, altrimenti l'Engine non compila. Non sono "campo libero", sono punti di contatto a contratto fisso:
 > - `site.ts` → `ContestoSito` (da `buildSite`), `PageType` (un oggetto `as const`, tipicamente assemblato da file di area sotto `pages/*.pages.ts`, ma l'Engine pretende solo che `site.ts` lo esporti con questo nome — la forma interna è libera), tipi `SmokeSettings`/`SitePageInput`. È il DSL: l'Engine lo legge ovunque (routing, builder, meta, tema…).
-> - `pages/content.resolver.ts` → `ContentResolver` (con `loadResolved`), `ResolvedPage`, `contentLoaderResolver` — usati da `routing.ts` e `PageBaseComponent`. Aggiungi `case` allo switch, non rinominare gli export.
 > - `core/services/api.service.ts` → la classe `ApiService` iniettabile (`PageBaseComponent` espone `this.api`). La estendi con metodi, non la elimini.
 
 > Compatibilità: niente semver, un contratto esplicito invece. Il template non pubblica versioni numerate né segue semver, si distribuisce per `git merge`, non come pacchetto. La garanzia reale è duplice. La prima è l'elenco "Dominio a contratto fisso" qui sopra, cioè ciò che l'Engine promette di non rompere silenziosamente: un cambio lì, come rinominare un export o cambiare una firma, è per definizione una modifica che rompe i figli, e va sempre in `CHANGELOG.md`. La seconda è che `CHANGELOG.md` è la superficie da leggere prima di un merge grosso, non dopo un conflitto: registra ogni cambiamento con la sua motivazione, incluse le voci marcate "breaking" con l'azione richiesta al figlio. Se un merge va in conflitto fuori dai path Engine/Scaffold della tabella sopra, è quasi sempre perché il figlio ha toccato un file a contratto fisso: la soluzione è lì, non nella cronologia dei tag.
@@ -199,7 +198,7 @@ Il Node SSR del frontend gestisce, oltre alle pagine Angular, anche alcune route
 | `/assets/files/*` | **Bloccata** (404): i file sorgente degli asset si servono soltanto via `/cdn-cgi/asset` |
 | `/.well-known/security.txt` | Contatto di sicurezza RFC 9116 (generato al build da `generate-statics.ts`) |
 
-> Il Node SSR applica anche, in automatico, la compressione gzip sulle risposte testuali (escluso lo stream di notifiche SSE, che resta non compresso così gli eventi arrivano subito al browser invece di restare nel buffer) e un graceful shutdown su SIGTERM/SIGINT che drena le connessioni prima di uscire. I file statici SEO (`sitemap.xml`, `robots.txt`, `llms.txt`, `security.txt`) sono generati al build.
+> Il Node SSR applica anche, in automatico, la compressione gzip sulle risposte testuali (escluso lo stream di notifiche SSE, che resta non compresso così gli eventi arrivano subito al browser invece di restare nel buffer) e un graceful shutdown su SIGTERM/SIGINT che drena le connessioni prima di uscire. I file statici SEO (`robots.txt`, `llms.txt`, `security.txt`) sono generati al build; `sitemap.xml` invece è un endpoint (`GET /sitemap.xml`), generato a richiesta — include anche le pagine parametriche con `dynamicParams`, non enumerabili al build.
 
 ---
 
