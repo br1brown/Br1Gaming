@@ -221,6 +221,10 @@ export interface SiteConfig {
      *  dichiarata. Unico riferimento "con ruolo": referenziato dal cookie-banner e dal controllo
      *  obbligatorio (sito con cookie ⇒ deve avere una Cookie Policy). */
     cookiePolicy: PageType | null;
+    /** Cache in-process (TTL, `SITEMAP_CACHE_TTL_MS`) dell'endpoint `/sitemap.xml` per le pagine
+     *  con `dynamicParams`. Default: `true`. Vive qui (non in una env var soltanto) perché letto
+     *  sia da Node sia potenzialmente da Angular, stesso `ContestoSito.config`. */
+    dynamicSitemapCache: boolean;
 }
 
 // Identità ed estetica (descrizione, tema, smoke) vivono in global-settings.json → site (via
@@ -241,8 +245,16 @@ export interface SiteConfig {
  * Le pagine esterne lo rimuovono esplicitamente con `Omit`.
  */
 type BasePageInput = {
-    /** Segmento di path relativo della pagina interna. */
-    path: string;
+    /**
+     * Segmento di path relativo della pagina interna.
+     *
+     * - **stringa** → stesso segmento sotto ogni prefisso lingua (`/en/chi-siamo`, non tradotto) —
+     *   il default, per chi non ha bisogno di URL localizzati.
+     * - **oggetto** `{ tagLingua: segmento }` → un segmento diverso per lingua (`{ it: 'chi-siamo',
+     *   en: 'about-us' }` → `/chi-siamo` e `/en/about-us`). Una lingua del sito senza una propria
+     *   chiave ricade sul segmento della lingua di default (mai un path assente).
+     */
+    path: string | Partial<Record<string, string>>;
     /** Titolo o chiave di traduzione associata alla pagina. */
     title: string;
     /** Indica se la pagina e figli devono essere inclusa nella build finale. Default: true */
@@ -417,6 +429,28 @@ export type LeafPageInput = BasePageInput & {
         noindex?: boolean;
     };
 
+    /**
+     * Catalogo runtime dei valori per i `:segmenti` parametrici del `path` (es. `/prodotti/:slug`,
+     * o multi-segmento `/classifica/:categoria/detail/:tipo`), recuperato da un'API — non
+     * enumerabile a build time (`hasUnresolvedPathParam` esclude comunque la rotta da
+     * sitemap.xml/llms.txt statici). Usato dall'endpoint di sitemap dinamica per espandere la
+     * rotta in URL concreti — vedi {@link flattenDynamicParams}.
+     *
+     * Un path con un solo `:param` usa solo nodi foglia. Con più `:segmenti` usa la gerarchia
+     * `children` per associare ogni valore solo al segmento successivo a cui appartiene davvero —
+     * niente prodotto cartesiano tra elenchi indipendenti (eviterebbe combinazioni inesistenti,
+     * es. una categoria "film" abbinata a un tipo che esiste solo per "serie"). Per un segmento
+     * statico con poche opzioni note a priori, spesso conviene una pagina sorella letterale invece
+     * di un `:param` qui: resta nel sitemap statico gratis.
+     */
+    dynamicParams?: (ctx: DynamicParamsContext) => Promise<SlugNode[]>;
+
+    /** Carica il contenuto della pagina (chiamato da ContentResolver): la pagina porta la propria
+     *  logica di fetch invece di un case nel resolver generico. `inject()` va chiamato PRIMA di
+     *  ogni await — eseguito in injection context valido via `runInInjectionContext` (stesso
+     *  motivo del ResolveFn in routing.ts). */
+    contentLoader?: ContentLoader;
+
     /** Non consentito per una pagina interna */
     externalUrl?: never;
 };
@@ -523,10 +557,15 @@ export type InternalSitePage = ParentPage | LeafPage;
 export type NavLink = {
     /** Etichetta visibile del link. */
     label: string;
-    /** Path o URL finale del link. */
+    /** Path o URL finale del link — con eventuali segmenti `:xxx` già sostituiti (vedi
+     *  `NavItemOptions.params`), MAI con una query string appesa a mano: quella vive separata in
+     *  `queryParams` (routerLink non la interpreterebbe se concatenata nella stringa). */
     path: string;
     /** true se il link punta a una risorsa esterna al sito (externalUrl o link diretto http/https). */
     isExternal: boolean;
+    /** Query params del link, se impostati via `NavItemOptions.queryParams` — bindati a parte
+     *  (`[queryParams]`) dal componente che rende il link, mai concatenati in `path`. */
+    queryParams?: Record<string, string>;
     /** Eventuali link figli se l'elemento rappresenta un gruppo. */
     children?: NavLink[];
     /** `true` se la voce (o l'intero gruppo) va mostrata solo a utente loggato — vedi
@@ -769,6 +808,18 @@ export interface NavItemOptions {
      * abbastanza da meritare un seam nell'Engine.
      */
     authOnly?: boolean;
+    /**
+     * Valori per i segmenti `:xxx` del path risolto (`addPage`) o passato (`addLink`), es.
+     * `{ slug: 'incel' }` su `/generatori/:slug` produce `/generatori/incel` — serve a collegare
+     * in menu una voce concreta di una rotta parametrica senza ricostruire il path a mano
+     * (`getPath(pageType)` da solo risolverebbe al template letterale). Un segmento senza valore
+     * resta invariato (warning in dev); chiavi senza un segmento da riempire sono ignorate.
+     */
+    params?: Record<string, string>;
+    /** Query params del link, es. `{ gen: 'incel' }` → `?gen=incel`. Tenuti separati dal path
+     *  risolto (mai concatenati a mano): il componente che rende il link li passa a `[queryParams]`,
+     *  l'unico modo con cui `routerLink` li interpreta davvero come query e non come segmento path. */
+    queryParams?: Record<string, string>;
 }
 
 /**
@@ -887,6 +938,12 @@ export interface SiteDefinition {
      *  `false` (opt-in) — attivala solo per un sito che vuole davvero essere installabile. */
     isWebApp?: boolean;
     /**
+     * Cache in-process (TTL, `SITEMAP_CACHE_TTL_MS`) dell'endpoint `/sitemap.xml` per le pagine
+     * con `dynamicParams`. Default: `true` — disattivala solo se serve sempre il dato più fresco
+     * (costo: una chiamata a `dynamicParams`/backend per ogni richiesta, non solo a TTL scaduto).
+     */
+    dynamicSitemapCache?: boolean;
+    /**
      * Anteprime social con sola immagine, senza scritte/favicon sovrapposte. È un
      * comportamento di rendering della preview (non branding) → vive qui. Default: false.
      */
@@ -984,6 +1041,13 @@ export interface BuiltSite {
     getLegalSlug: (type: PageType) => string | null;
     /** Restituisce le voci della sitemap (path + metadati + lingua), una per pagina per lingua. */
     getSitemapEntries: () => SitemapEntry[];
+    /** Restituisce le pagine con `dynamicParams` dichiarato — una entry per PAGINA (non per
+     *  lingua): il catalogo di slug è dato di dominio, non cambia per lingua, solo il template
+     *  dell'URL cambia (`pathByLang`). Consumata dall'endpoint di sitemap dinamica. */
+    getDynamicPages: () => DynamicPageEntry[];
+    /** Restituisce il `contentLoader` dichiarato dalla pagina, o `null` se non ne ha uno (es. pagine
+     *  legali, gestite genericamente via `getLegalSlug`). Consumata da ContentResolver. */
+    getContentLoader: (type: PageType) => ContentLoader | null;
 }
 
 /**
@@ -1001,6 +1065,26 @@ export type SitemapEntry = {
     description?: string;
     /** Lingua di questa variante dell'URL (es. "it", "en"). */
     lang: string;
+    /** Identità stabile della pagina logica attraverso le lingue — chiave di raggruppamento per
+     *  l'hreflang incrociato in sitemap (generate-statics.ts), non il path: con URL localizzati
+     *  due varianti-lingua della stessa pagina possono avere segmenti letteralmente diversi. */
+    pageType: PageType;
+    /**
+     * Data (YYYY-MM-DD) di ultima modifica DELL'ENTITÀ, propagata da `SlugNode.lastModified` —
+     * solo le entry dinamiche la valorizzano. Assente per ogni entry statica, o `null` per un
+     * nodo dinamico senza data: in entrambi i casi `<lastmod>` è OMESSO, mai un fallback sulla
+     * data generica del sito (vedi `services/sitemap-xml.ts`).
+     */
+    lastmod?: string | null;
+    /**
+     * Chiave di raggruppamento hreflang AGGIUNTIVA rispetto a `pageType` — serve quando un solo
+     * `pageType` produce PIÙ entità concrete (es. le N pagine di una rotta parametrica), altrimenti
+     * le lingue di entità diverse si mischierebbero nello stesso blocco hreflang. Assente → si
+     * raggruppa per solo `pageType`, sufficiente per le pagine statiche (un `pageType` = una
+     * pagina). Per le dinamiche, una rappresentazione stabile dei parametri (es.
+     * `JSON.stringify(params)`) identifica la stessa entità attraverso le lingue.
+     */
+    groupKey?: string;
 };
 
 // ======================================================
@@ -1019,8 +1103,8 @@ export type SitemapEntry = {
  * Solo alla fine questa struttura viene trasformata in `NavLink[]`.
  */
 type RawNavItem =
-    | { kind: 'page'; type: PageType; authOnly?: boolean }
-    | { kind: 'link'; label: string; path: string; authOnly?: boolean }
+    | { kind: 'page'; type: PageType; authOnly?: boolean; params?: Record<string, string>; queryParams?: Record<string, string> }
+    | { kind: 'link'; label: string; path: string; authOnly?: boolean; params?: Record<string, string>; queryParams?: Record<string, string> }
     | { kind: 'group'; label: string; children: RawNavItem[]; authOnly?: boolean };
 
 // ======================================================
@@ -1038,6 +1122,32 @@ type RawNavItem =
 export function pickLocaleText(map: Record<string, string> | undefined, lang: string): string {
     if (!map) return '';
     return map[lang] ?? map[environment.defaultLang] ?? Object.values(map)[0] ?? '';
+}
+
+/**
+ * Risolve `BasePageInput.path` (letterale o per-lingua) sulla lingua richiesta. A differenza di
+ * `pickLocaleText` (testo: "qualcosa è meglio di niente", fallback fino al primo valore disponibile)
+ * qui il fallback si ferma alla lingua di default: un path è un'identità di rotta, non prosa — se
+ * manca anche lì è una svista di chi ha scritto il sito, da segnalare, non da coprire pescando a
+ * caso tra le lingue configurate (produrrebbe un URL diverso a ogni riordino delle chiavi).
+ */
+export function resolvePagePath(path: string | Partial<Record<string, string>>, lang: string, defaultLang: string): string {
+    if (typeof path === 'string') return path;
+    const resolved = path[lang] ?? path[defaultLang];
+    if (resolved === undefined && isDevMode()) {
+        console.warn(`[SiteBuilder] path per-lingua senza segmento per "${lang}" né fallback su "${defaultLang}": ${JSON.stringify(path)} — path vuoto, la pagina rischia di collassare sul genitore.`);
+    }
+    return resolved ?? '';
+}
+
+/**
+ * true se il path (già risolto sulla lingua) ha un segmento `:xxx` — rotta parametrica, il cui
+ * catalogo arriva da un'API a runtime e non è enumerabile a build time. Usata per ESCLUDERE
+ * queste pagine da sitemap/llms.txt: un `<loc>` con `:xxx` letterale non è un URL vero, sarebbe
+ * un link rotto per qualunque crawler che lo seguisse.
+ */
+function hasUnresolvedPathParam(path: string): boolean {
+    return path.split('/').some(segment => segment.startsWith(':'));
 }
 
 /**
@@ -1121,6 +1231,7 @@ function buildFinalConfig(definition: SiteDefinition): SiteConfig {
         showNotifications: shell.showNotifications ?? false,
         isWebApp: definition.isWebApp ?? false,
         onlyPlainImage: definition.onlyPlainImage ?? false,
+        dynamicSitemapCache: definition.dynamicSitemapCache ?? true,
         panelForcedLight: shell.panelForcedLight ?? true,
         pageFade: shell.pageFade ?? true,
         smoke: { ...DEFAULT_SMOKE, ...(cfg.smoke ?? {}) },
@@ -1134,8 +1245,8 @@ function buildFinalConfig(definition: SiteDefinition): SiteConfig {
 /** Strumenti per popolare una sezione di navigazione (header/footer): addPage / addLink / addGroup. */
 function createNavigationSectionBuilder(target: RawNavItem[]): SiteNavigationSectionBuilder {
     return {
-        addPage: (pageType, options) => { target.push({ kind: 'page', type: pageType, authOnly: options?.authOnly }); },
-        addLink: (label, path, options) => { target.push({ kind: 'link', label, path, authOnly: options?.authOnly }); },
+        addPage: (pageType, options) => { target.push({ kind: 'page', type: pageType, authOnly: options?.authOnly, params: options?.params, queryParams: options?.queryParams }); },
+        addLink: (label, path, options) => { target.push({ kind: 'link', label, path, authOnly: options?.authOnly, params: options?.params, queryParams: options?.queryParams }); },
         addGroup: (label, configure, options) => {
             const children: RawNavItem[] = [];
             configure(createNavigationSectionBuilder(children));
@@ -1175,6 +1286,8 @@ function processPages(
     pages: SitePage[],
     pageMap: Map<string, PageInfo>,
     serverRenderEntries: ServerRenderEntry[],
+    dynamicPages: Map<PageType, DynamicPageEntry>,
+    contentLoaders: Map<PageType, ContentLoader>,
     loginPageType: PageType | null,
     lang: string,        // lingua di QUESTA chiamata — buildSite() chiama processPages() una volta per lingua.
     defaultLang: string, // serve a pageMapKey()/resolveLangPrefix() per sapere quando NON prefissare/comporre.
@@ -1195,8 +1308,10 @@ function processPages(
             }
 
             // Path completo: parent (già prefissato dalla lingua, vedi chiamata a walk() in fondo alla
-            // funzione) + segmento della pagina, con gli slash doppi collassati in uno solo.
-            const fullPath = `/${[parent, page.path].filter(Boolean).join('/')}`.replace(/\/+/g, '/');
+            // funzione) + segmento della pagina (risolto sulla lingua corrente — letterale o per-lingua,
+            // vedi resolvePagePath), con gli slash doppi collassati in uno solo.
+            const resolvedSegment = resolvePagePath(page.path, lang, defaultLang);
+            const fullPath = `/${[parent, resolvedSegment].filter(Boolean).join('/')}`.replace(/\/+/g, '/');
 
             if (isParentPage(page)) return walk(page.children, fullPath); // contenitore: nessuna entry propria, solo ricorsione sui figli.
 
@@ -1218,6 +1333,9 @@ function processPages(
                 ogType: page.ogType ?? 'website',
                 structuredData: page.structuredData,
             });
+            // Vale per QUALSIASI foglia, non solo le rotte parametriche sotto: una pagina normale
+            // (es. una lista) può avere un `content` senza avere `dynamicParams`.
+            if (page.contentLoader) contentLoaders.set(page.pageType, page.contentLoader);
             // La pagina di login (slot `loginPage`) è noindex per default; qualunque altra pagina
             // segue il proprio flag (undefined ⇒ false). Un `noindex: false` esplicito sul login vince.
             const noindex = page.pageType === loginPageType ? (page.noindex ?? true) : !!page.noindex;
@@ -1227,10 +1345,33 @@ function processPages(
             // Una entry per QUESTA variante-lingua: con N lingue, N entry per la stessa pagina logica.
             serverRenderEntries.push({ path: fullPath, renderMode: page.requiresAuth ? 'client' : (page.renderMode ?? 'server'), requiresAuth: !!page.requiresAuth, noindex });
 
-            // Fuori dalla sitemap le pagine protette (crawler non accede) e quelle noindex (non indicizzabili).
-            // `lang` incluso nell'entry: serve a generate-statics.ts per raggruppare le varianti-lingua
-            // della stessa pagina e generare i blocchi hreflang incrociati nella sitemap.
-            return page.requiresAuth || noindex ? [] : [{ path: fullPath, description: page.description, lang }];
+            // Fuori dalla sitemap le pagine protette, quelle noindex e le rotte parametriche (un
+            // `<loc>` con `:xxx` letterale non sarebbe un URL vero — vedi hasUnresolvedPathParam).
+            // `lang` serve a raggruppare le varianti-lingua per l'hreflang; `pageType` è la chiave
+            // di quel raggruppamento (non il path, che con URL localizzati può differire per lingua).
+            if (page.requiresAuth || noindex) return [];
+            if (hasUnresolvedPathParam(fullPath)) {
+                // Rotta parametrica, mai enumerabile a build time: con `dynamicParams` la
+                // raccogliamo per la sitemap dinamica, una entry PER PAGINA non per lingua
+                // (il catalogo di slug non cambia per lingua, solo il template dell'URL).
+                if (page.dynamicParams) {
+                    const existing = dynamicPages.get(page.pageType);
+                    if (existing) {
+                        existing.pathByLang[lang] = fullPath;
+                    } else {
+                        dynamicPages.set(page.pageType, {
+                            pageType: page.pageType,
+                            description: page.description,
+                            pathByLang: { [lang]: fullPath },
+                            dynamicParams: page.dynamicParams,
+                        });
+                    }
+                } else if (isDevMode()) {
+                    console.warn(`[SiteBuilder] "${fullPath}" è una rotta parametrica: esclusa da sitemap/llms.txt (il catalogo concreto arriva da un'API a runtime, non enumerabile a build time). Aggiungi \`dynamicParams\` alla pagina per includerla nella sitemap dinamica.`);
+                }
+                return [];
+            }
+            return [{ path: fullPath, description: page.description, lang, pageType: page.pageType }];
         });
 
     // Punto d'ingresso del cammino: parte già dal prefisso della lingua corrente (stringa vuota per
@@ -1314,6 +1455,144 @@ function validateNavDepth(items: NavLink[], section: 'header' | 'footer'): void 
 }
 
 /**
+ * Nodo di un catalogo di slug dinamici per una rotta parametrica (vedi `LeafPageInput.dynamicParams`):
+ * un valore accettato per il `:segmento` alla sua profondità, con `children` opzionali per il
+ * segmento successivo (assenti sul caso più comune, un solo `:param`). La gerarchia stessa evita
+ * combinazioni ambigue: un figlio esiste solo sotto il genitore a cui appartiene davvero.
+ */
+export interface SlugNode {
+    /** Valore concreto del segmento a questa profondità (es. lo slug di una categoria, o dell'elemento finale). */
+    slug: string;
+    /** Nodi del `:segmento` successivo della stessa rotta, se ce n'è un altro sotto questo. */
+    children?: SlugNode[];
+    /**
+     * Data (YYYY-MM-DD) di ultima modifica DELL'ENTITÀ (dato del backend, non del sito) — ha senso
+     * solo sul nodo FOGLIA, quello che identifica l'entità popolata in pagina (vedi
+     * `flattenDynamicParams`); su un nodo intermedio è ignorata. Assente → `<lastmod>` OMESSO per
+     * quella URL, mai un fallback sulla data generica del sito.
+     */
+    lastModified?: string;
+}
+
+/** Contesto passato a `LeafPageInput.dynamicParams` per recuperare il catalogo dal backend dell'app. */
+export interface DynamicParamsContext {
+    /** Chiama il backend dell'app (stesso host/baseUrl usato a runtime) e ne restituisce il JSON. */
+    fetchBackendJson: <T>(path: string) => Promise<T>;
+}
+
+/** Contesto passato a `LeafPageInput.contentLoader`: lingua risolta e, per le rotte parametriche, lo slug. */
+export interface ContentLoaderContext {
+    lang: string;
+    slug?: string;
+}
+
+/** Esito di `LeafPageInput.contentLoader`. */
+export interface ContentLoaderResult {
+    content: unknown;
+    /** Fuso sopra il `PageInfo` statico di site.ts per QUESTA richiesta (es. titolo/descrizione
+     *  presi dal contenuto appena caricato, come il nome di un articolo o di una generazione). */
+    info?: Partial<PageInfo>;
+    structuredData?: StructuredDataInput | null;
+}
+
+export type ContentLoader = (ctx: ContentLoaderContext) => Promise<ContentLoaderResult>;
+
+/**
+ * Una pagina con `dynamicParams`, raccolta da `processPages()` — una entry per PAGINA non per
+ * lingua: `dynamicParams` va invocato una sola volta, `pathByLang` porta il template già risolto
+ * per ogni lingua (`:param` ancora letterale), pronto per `flattenDynamicParams`/`applyPathParams`.
+ */
+export interface DynamicPageEntry {
+    pageType: PageType;
+    description?: string;
+    pathByLang: Record<string, string>;
+    dynamicParams: (ctx: DynamicParamsContext) => Promise<SlugNode[]>;
+}
+
+/** Risultato di `flattenDynamicParams` per un percorso radice→foglia dell'albero `SlugNode`:
+ *  i valori concreti dei `:segmenti` PIÙ la data di modifica dell'entità, se il nodo foglia
+ *  (quello che identifica l'entità popolata — vedi `SlugNode.lastModified`) la porta. */
+export interface FlattenedDynamicParams {
+    params: Record<string, string>;
+    /** `SlugNode.lastModified` del nodo foglia di questo ramo — `undefined` se il nodo non
+     *  la porta (il chiamante lo traduce in `SitemapEntry.lastmod: null`, mai un fallback
+     *  silenzioso sulla data generica del sito). */
+    lastModified?: string;
+}
+
+/** Tetto di sicurezza su UNA chiamata a `flattenDynamicParams`: un provider `dynamicParams` che
+ *  degenera non deve far crescere la memoria senza limite, qui DURANTE l'espansione (diverso dal
+ *  warning sui limiti di protocollo in `services/sitemap-xml.ts`, che vede solo l'XML finale).
+ *  Stesso valore per coincidenza, non accoppiamento: questa funzione non sa di sitemap. */
+const MAX_FLATTENED_ENTRIES = 50_000;
+
+/**
+ * Espande l'albero di {@link SlugNode} in combinazioni concrete di parametri (una per percorso
+ * radice→foglia), associando la profondità di ogni nodo al `:segmento` di `path` nello stesso
+ * ordine (i letterali in mezzo, es. `/detail/`, restano intatti — vedi `applyPathParams`). Un
+ * ramo con profondità sbagliata viene scartato (warning in dev). Oltre
+ * {@link MAX_FLATTENED_ENTRIES} combinazioni, l'espansione si ferma con un warning sempre emesso
+ * (segnale operativo, non di dichiarazione).
+ */
+export function flattenDynamicParams(path: string, nodes: SlugNode[]): FlattenedDynamicParams[] {
+    const paramNames = path.split('/').filter(segment => segment.startsWith(':')).map(segment => segment.slice(1));
+    if (paramNames.length === 0) return [];
+
+    const results: FlattenedDynamicParams[] = [];
+    let truncated = false;
+    const walk = (level: SlugNode[], depth: number, acc: Record<string, string>): void => {
+        for (const node of level) {
+            if (results.length >= MAX_FLATTENED_ENTRIES) { truncated = true; return; }
+            const next = { ...acc, [paramNames[depth]]: node.slug };
+            const isLastParam = depth === paramNames.length - 1;
+            if (isLastParam) {
+                if (node.children?.length && isDevMode()) {
+                    console.warn(`[SiteBuilder] dynamicParams per "${path}": il nodo "${node.slug}" ha children oltre l'ultimo parametro della rotta (ne servono ${paramNames.length}) — ignorati.`);
+                }
+                // Il nodo FOGLIA (questo) identifica l'entità: è l'unico il cui `lastModified`
+                // conta — quello di un nodo intermedio (es. una categoria) non produce mai una
+                // entry propria, quindi non ha un `<lastmod>` a cui applicarsi.
+                results.push({ params: next, lastModified: node.lastModified });
+            } else if (node.children?.length) {
+                walk(node.children, depth + 1, next);
+            } else if (isDevMode()) {
+                console.warn(`[SiteBuilder] dynamicParams per "${path}": il nodo "${node.slug}" si ferma al livello ${depth + 1} ma la rotta ha ${paramNames.length} parametri — combinazione incompleta, scartata.`);
+            }
+        }
+    };
+    walk(nodes, 0, {});
+    if (truncated) {
+        console.warn(`[SiteBuilder] dynamicParams per "${path}": espansione troncata a ${MAX_FLATTENED_ENTRIES} combinazioni (limite di sicurezza) — il provider sta restituendo più elementi di quanti questa funzione ne accumuli.`);
+    }
+    return results;
+}
+
+/**
+ * Sostituisce nel path i segmenti `:xxx` coi valori di `params` (es. `/generatori/:slug` +
+ * `{ slug: 'incel' }` → `/generatori/incel`) — per collegare in menu/link una voce concreta di
+ * una rotta parametrica. Un segmento senza valore resta invariato (warning in dev); chiavi senza
+ * un segmento corrispondente sono ignorate.
+ */
+export function applyPathParams(path: string, params: Record<string, string> | undefined, devContext: string): string {
+    if (!params) return path;
+    return path
+        .split('/')
+        .map(segment => {
+            if (!segment.startsWith(':')) return segment;
+            const key = segment.slice(1);
+            const value = params[key];
+            if (value === undefined) {
+                if (isDevMode()) {
+                    console.warn(`[SiteBuilder] ${devContext}: manca il valore per il parametro ":${key}" nel path "${path}" — il link resta rotto.`);
+                }
+                return segment;
+            }
+            return encodeURIComponent(value);
+        })
+        .join('/');
+}
+
+/**
  * Risolve gli item grezzi di navigazione in `NavLink` finali per una data lingua: i riferimenti
  * `PageType` passano dalla `pageMap` (via `pageMapKey`); i gruppi vuoti e i riferimenti non
  * risolti vengono scartati.
@@ -1329,7 +1608,9 @@ function resolveNavigation(items: RawNavItem[], pageMap: Map<string, PageInfo>, 
                 if (!entry && isDevMode()) {
                     console.warn(`[SiteBuilder] addPage("${String(item.type)}") non risolve a nessuna pagina registrata (disabilitata o mai dichiarata in pages): voce di navigazione esclusa.`);
                 }
-                return entry ? { label: entry.title, path: entry.path, isExternal: entry.isExternal, authOnly: item.authOnly } : null;
+                if (!entry) return null;
+                const path = applyPathParams(entry.path, item.params, `addPage("${String(item.type)}")`);
+                return { label: entry.title, path, isExternal: entry.isExternal, queryParams: item.queryParams, authOnly: item.authOnly };
             }
             if (isRawGroup(item)) {
                 const children = resolveNavigation(item.children, pageMap, lang, defaultLang);
@@ -1339,7 +1620,8 @@ function resolveNavigation(items: RawNavItem[], pageMap: Map<string, PageInfo>, 
                     : null;
             }
             // Link diretto; esterno se inizia con http(s) → la navbar aggiunge target/rel.
-            return { label: item.label, path: item.path, isExternal: item.path.startsWith('http://') || item.path.startsWith('https://'), authOnly: item.authOnly };
+            const path = applyPathParams(item.path, item.params, `addLink("${item.label}")`);
+            return { label: item.label, path, isExternal: path.startsWith('http://') || path.startsWith('https://'), queryParams: item.queryParams, authOnly: item.authOnly };
         })
         .filter((item): item is NavLink => item !== null);
 }
@@ -1403,6 +1685,8 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
     // stesse strutture invece di sovrascriverle.
     const pageMap = new Map<string, PageInfo>();
     const serverRenderEntries: ServerRenderEntry[] = [];
+    const dynamicPages = new Map<PageType, DynamicPageEntry>();
+    const contentLoaders = new Map<PageType, ContentLoader>();
     const defaultLang = environment.defaultLang; // letto una volta, riusato in tutto il resto della funzione.
     let sitemap: SitemapEntry[] = [];
     // Un giro per lingua configurata (environment.availableLanguages, da global-settings.json via
@@ -1410,9 +1694,10 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
     // identico a un sito mono-lingua "classico", zero route/entry in più.
     for (const lang of environment.availableLanguages) {
         sitemap = sitemap.concat(
-            // processPages POPOLA pageMap/serverRenderEntries per riferimento (side-effect) e
-            // RITORNA solo le voci sitemap di questa lingua — da qui il concat invece di un'assegnazione.
-            processPages(sitePages, pageMap, serverRenderEntries, finalConfig.loginPage ?? null, lang, defaultLang)
+            // processPages POPOLA pageMap/serverRenderEntries/dynamicPages per riferimento
+            // (side-effect) e RITORNA solo le voci sitemap di questa lingua — da qui il concat
+            // invece di un'assegnazione.
+            processPages(sitePages, pageMap, serverRenderEntries, dynamicPages, contentLoaders, finalConfig.loginPage ?? null, lang, defaultLang)
         );
     }
 
@@ -1469,5 +1754,7 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
         getPageInfo: (type: PageType, lang = defaultLang) => pageMap.get(pageMapKey(type, lang, defaultLang)) ?? null,
         getLegalSlug: (type: PageType) => legalSlugFor(managedLegalPages, type),
         getSitemapEntries: () => sitemap, // già con lang per entry — generate-statics.ts la usa per raggruppare le varianti e generare hreflang.
+        getDynamicPages: () => Array.from(dynamicPages.values()),
+        getContentLoader: (type: PageType) => contentLoaders.get(type) ?? null,
     };
 }

@@ -50,6 +50,7 @@ export const ContestoSito = buildSite({
     // Menu header/footer: builder con addPage / addLink / addGroup (gruppi annidabili;
     // limiti di profondità e resa per dispositivo: frontend/README.md §"Navigazione Multilivello").
     headerNav: (h) => {
+        h.addPage(PageType.CheFaccio);
         // authOnly: mostra il link solo a utenti loggati (la pagina è protetta da requiresAuth).
         h.addPage(PageType.Impostazioni, { authOnly: true });
         h.addGroup('menuPolicy', g => {

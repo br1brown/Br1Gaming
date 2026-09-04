@@ -49,9 +49,13 @@ Variables → New repository variable:
 - Nome: `FRONTEND_BASE_URL`
 - Valore: il dominio pubblico **completo**, es. `https://miodominio.it`
 
-Non è un segreto (è il tuo URL pubblico), ma va nella CI perché il frontend congela i
-`canonical`/`sitemap` a build-time. Deve combaciare esattamente con `frontend.hostname` nel
-`global-settings.local.json` della VPS, altrimenti il sito è raggiungibile ma con URL SEO sbagliati.
+Non è un segreto (è il tuo URL pubblico), ma va nella CI perché il frontend congela nel bundle,
+a build-time, gli URL assoluti di default in `index.html` (`og:url`/`og:image`). A runtime lo
+stesso valore (`FRONTEND_BASE_URL` nell'ambiente del container) alimenta `canonical` e
+`sitemap.xml` (quest'ultima generata a richiesta, non più al build — vedi §"sitemap.xml: endpoint
+runtime" in [frontend/README.md](frontend/README.md)). Deve combaciare esattamente con
+`frontend.hostname` nel `global-settings.local.json` della VPS in ENTRAMBI i momenti, altrimenti
+il sito è raggiungibile ma con URL SEO sbagliati.
 
 Il push su GHCR usa il `GITHUB_TOKEN` automatico: nessun altro segreto da configurare. La prima
 release rende il package GHCR privato di default, vedi "Registry privato" più sotto.

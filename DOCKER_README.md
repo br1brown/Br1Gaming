@@ -117,7 +117,7 @@ lingue supportate (sezione `Localization`) per SEO e `environment.ts`: non servo
 > eccezione è l'override documentato nella `_nota` del file (vedi il README principale). In
 > `global-settings` resta solo la sicurezza del progetto: `ApiKeys`, `CorsOrigins`, `BehindProxy`, `Token`.
 
-`BACKEND_ORIGIN` (`http://backend:8080`) resta una variabile d'ambiente del compose: è l'indirizzo Docker-interno del backend, non una scelta di configurazione utente.
+`BACKEND_ORIGIN` (`http://backend:8080`) resta una variabile d'ambiente del compose: è l'indirizzo Docker-interno del backend, non una scelta di configurazione utente. Stesso trattamento, direzione opposta, per `Frontend__Origin` (`http://frontend:3000`, sezione `Frontend` del backend, convenzione .NET `Frontend:Origin`): l'indirizzo Docker-interno del frontend, usato solo da `SitemapNotifier` per invalidare la cache di `/sitemap.xml` dopo una scrittura su un catalogo `dynamicParams` (dettaglio in [backend/README.md](backend/README.md)).
 
 ### Variabili d'ambiente del frontend SSR (opzionali)
 
@@ -133,6 +133,7 @@ Variabili lette al boot dal container Node frontend (`frontend/src/app/core/engi
 | `IMAGE_CACHE_MAX_MB` | `500` | Cap della cache immagini su disco; oltre la soglia uno sweep LRU ogni 6 ore la riporta al 90% del cap |
 | `SEO_NOINDEX` | `false` | Se `true` (`1`/`yes`/`on`), rende l'intero deploy **non indicizzabile**: `X-Robots-Tag: noindex, nofollow` su ogni risposta + `robots.txt` dinamico `Disallow: /`. Per staging/anteprima dietro lo stesso reverse proxy della produzione. **Lascialo spento in produzione (default).** Su un deploy si imposta come passthrough prima del comando: `export SEO_NOINDEX=true; ./scripts/deploy.sh` (stessa convenzione di `Mail__Password`). L'overlay `docker-compose.public-test.yml` lo lascia spento (così il test SEO/Lighthouse è significativo); per un'anteprima non indicizzabile avviala con `PUBLIC_TEST_NOINDEX=true` |
 | `FONTS_DIR` | `/app/fonts` | Cartella in cui il server cerca il file dichiarato in `siteFonts.custom` (`frontend/src/styles/font-config.ts`) — vedi sotto. Il default coincide già col mount point Docker; da impostare solo per uno sviluppo locale con un percorso diverso |
+| `SITEMAP_CACHE_TTL_MS` | `604800000` (7 giorni) | TTL della cache in-process di `/sitemap.xml` per le pagine con `dynamicParams`. Alto perché non è il meccanismo primario di aggiornamento: l'invalidazione vera arriva on-demand dal backend (`SitemapNotifier`, `POST /internal/revalidate-sitemap`) dopo una scrittura su un catalogo dinamico — questo TTL è solo il fallback se quella notifica si perde. Dettaglio in [frontend/README.md](frontend/README.md) |
 
 ### Font custom (opzionale)
 

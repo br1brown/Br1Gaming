@@ -21,9 +21,13 @@
  *      BaseController minimo, data/identity.json azzerato a scheletro, site.ts riscritto.
  *      L'identità del sito resta servita dall'Engine (GET /identity).
  *   6. Elimina il README.md vetrina del template.
- *   7. Esegue i controlli statici disponibili (lint/tsc/i18n/cicli) come gate.
- *   8. Auto-cancella questo setup.mjs.
- *   9. Fa un commit locale "init <Nome>".
+ *   7. Elimina .github/CODE_OF_CONDUCT.md e .github/CONTRIBUTING.md (governance da
+ *      repo open source: fork, PR pubbliche, issue tracker pubblico — morti in un
+ *      figlio privato) e sfoltisce .github/SECURITY.md dell'header di reporting
+ *      vulnerabilità (email dell'autore del template), tenendo features+checklist.
+ *   8. Esegue i controlli statici disponibili (lint/tsc/i18n/cicli) come gate.
+ *   9. Auto-cancella questo setup.mjs.
+ *   10. Fa un commit locale "init <Nome>".
  */
 
 import { readFileSync, writeFileSync, existsSync, renameSync, rmSync } from 'fs';
@@ -468,6 +472,21 @@ async function main() {
     // README vetrina: il template stesso dice "nel figlio si elimina solo questo README".
     rmSync(join(ROOT, 'README.md'), { force: true });
     console.log('  ✓  rimosso: README.md (vetrina del template)');
+
+    // Governance da repo open source (fork, PR pubbliche, issue tracker pubblico):
+    // non ha senso in un figlio privato.
+    for (const f of ['CODE_OF_CONDUCT.md', 'CONTRIBUTING.md']) {
+        rmSync(join(ROOT, '.github', f), { force: true });
+        console.log(`  ✓  rimosso: .github/${f} (governance del template)`);
+    }
+
+    // SECURITY.md: l'header di reporting (email dell'autore del template) è
+    // template-only; features di sicurezza + checklist deploy restano, utili al figlio.
+    editFile(join(ROOT, '.github', 'SECURITY.md'), src => {
+        const heading = '## Funzionalità di sicurezza incluse nel template';
+        const i = src.indexOf(heading);
+        return i === -1 ? src : `# Security Policy\n\n${src.slice(i)}`;
+    });
 
     // Gate: i controlli devono passare prima del commit.
     console.log('\n  Controlli pre-commit...');

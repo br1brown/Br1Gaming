@@ -8,7 +8,7 @@ Le regole trasversali e le ricette pratiche del progetto, per chi ci sviluppa, u
 
 - **Engine = INTOCCABILE**, si aggiorna dal template via merge: `backend/Engine/`, `frontend/src/app/core/engine/`, `frontend/src/styles/engine/`, `frontend/src/assets/i18n/basic.*.json`. Lo **consumi** (token, signal, direttive, classi base), non lo modifichi mai.
 - **Dominio = tuo**: tutto il resto. Cambi i comportamenti per **configurazione** (`global-settings(.local).json`, `site.ts`, sezione `Custom`) o per **estensione** (sottoclassi `Engine*`, nuovi servizi), mai editando l'Engine — o il prossimo merge dal template va in conflitto.
-- **Risolvere un conflitto di `git merge template/main`:** sui path Engine e Scaffold vince **sempre** il template (`git checkout template/main -- <path>`); sul Dominio vince **sempre** il tuo progetto. Alcuni file di Dominio sono però **a contratto fisso** con l'Engine (path/nome export/forma non negoziabili, es. `site.ts`, `content.resolver.ts`) — l'elenco completo e il comando esatto sono in [README.md](README.md#-template-vivo-nascita-e-aggiornamento-dei-progetti-figli) § *"Dominio a contratto fisso"*: leggilo prima di risolvere un conflitto su uno di quei file, non a intuito.
+- **Risolvere un conflitto di `git merge template/main`:** sui path Engine e Scaffold vince **sempre** il template (`git checkout template/main -- <path>`); sul Dominio vince **sempre** il tuo progetto. Alcuni file di Dominio sono però **a contratto fisso** con l'Engine (path/nome export/forma non negoziabili, es. `site.ts`, `api.service.ts`) — l'elenco completo e il comando esatto sono in [README.md](README.md#-template-vivo-nascita-e-aggiornamento-dei-progetti-figli) § *"Dominio a contratto fisso"*: leggilo prima di risolvere un conflitto su uno di quei file, non a intuito.
 
 ## Build, run, test
 
@@ -48,6 +48,7 @@ export class NuovaComponent extends PageBaseComponent<void> { }
 ```html
 <a [appPage]="PageType.NuovaPagina">Vai</a>   <!-- mai URL grezzi -->
 ```
+`path` accetta anche un segmento diverso per lingua invece della stringa (`path: { it: 'nuova', en: 'new' }`, con più lingue configurate): lo switch lingua e la sitemap/hreflang seguono da soli, nessun altro punto da toccare. Una lingua senza una propria chiave ricade sul segmento della lingua di default.
 
 #### Aggiungere una policy legale extra (oltre ai 5 slot fissi)
 `legalPages` (`site.ts`) è un array: ogni voce ha lo stesso trattamento (rotta `/policy/*`, `PolicyComponent`, riga nel footer), che sia una delle 5 standard o una policy di progetto (es. diritto di recesso per un e-commerce) — nessuna distinzione, non serve toccare `siteBuilder.ts`/`legal-pages.ts`. Per le 5 standard, `STANDARD_LEGAL_PAGES` (da `siteBuilder.ts`) dà `path`/`titolo`/`descrizione`/`nome file` pronti da spreadare; una voce in più li scrive per esteso. Ricetta completa in [frontend/README.md](frontend/README.md#pagine-legali-legalpages). Voce assente → nessun errore, nessuna pagina in più (stesso pattern silenzioso degli altri campi opzionali).
@@ -194,17 +195,24 @@ Dichiari `kind` + campi, l'Engine traduce in schema.org (`structured-data.ts`). 
 otherSEO: { structuredData: { kind: 'faq', questions: [{ question: 'Come?', answer: 'Così.' }] } }
 ```
 ```typescript
-// content.resolver.ts — DINAMICI dal contenuto (hanno la precedenza sullo statico). Il case va
-// nello switch(pageType) dentro loadResolved() (vedi il metodo completo in ContentResolver,
-// frontend/src/app/pages/content.resolver.ts) — qui solo il case, non l'intero metodo:
-switch (pageType) {
-  case PageType.Articolo: {
-    const art = await this.apiService.getArticolo(id); content = art;
-    structuredData = art && { kind: 'article', headline: art.titolo, author: art.autore, publishedOn: art.data };
-    break;
-  }
-  // casi non coperti: { kind: 'raw', jsonLd: { '@type': 'Recipe', name: '…' } }
+// app.pages.ts — DINAMICI dal contenuto (hanno la precedenza sullo statico). Va nel
+// `contentLoader` della pagina (stesso posto di `dynamicParams`), non nel resolver generico
+// dell'Engine. `info` si fonde sopra il PageInfo statico di site.ts: usalo anche solo per
+// titolo/descrizione, senza structuredData, se ti basta quello (es. il titolo nel tab del browser).
+{
+  pageType: PageType.Articolo,
+  contentLoader: async (ctx) => {
+    const art = await inject(ApiService).getArticolo(ctx.slug);
+    return {
+      content: art,
+      info: art && { title: art.titolo, description: art.sommario },
+      structuredData: art && { kind: 'article', headline: art.titolo, author: art.autore, publishedOn: art.data },
+    };
+  },
 }
+// casi non coperti: { kind: 'raw', jsonLd: { '@type': 'Recipe', name: '…' } }
+// Query param della richiesta corrente (es. ?g=...): l'hook gira in un injection context valido,
+// inject(Router) e leggi router.getCurrentNavigation()?.finalUrl ?? router.parseUrl(router.url).
 ```
 
 ## Ricette — backend

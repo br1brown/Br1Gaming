@@ -5,7 +5,7 @@ import { appConfig } from './app.config';
 import { ContestoSito } from './site';
 import type { SiteRenderMode } from './core/engine/siteBuilder';
 import { SSR_BACKEND_ORIGIN, SSR_API_KEY } from './core/engine/services/base-api.service';
-import { LEGAL_FILE_READER } from './pages/content.resolver';
+import { LEGAL_FILE_READER } from './core/engine/pages/content.resolver';
 import { SSR_PREVIEW_ENCRYPT_FN, SSR_FRONTEND_ORIGIN } from './core/engine/services/page-meta.service';
 import { ThemeService } from './core/engine/services/theme.service';
 import { serverEnv, getBr1Settings } from './core/engine/server/server-env';

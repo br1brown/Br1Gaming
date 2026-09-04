@@ -30,6 +30,9 @@ services:
       BACKEND_ORIGIN: "http://backend:8080"
       GLOBAL_SETTINGS_PATH: /app/global-settings.json
       SECURITY_HEADERS_PATH: /app/security-headers.json
+      # Letta a runtime da canonical/hreflang/sitemap.xml (server-env.ts), non dal bundle. Senza
+      # impostarla, ricade da sola su `https://<frontend.hostname>`.
+      FRONTEND_BASE_URL: "${FRONTEND_BASE_URL:-}"
       # Passthrough OPZIONALE: se NON imposti la variabile nell'ambiente, resta vuota = sito
       # indicizzabile (default di produzione). Per una copia di staging che NON deve finire su
       # Google:  export SEO_NOINDEX=true; ./scripts/deploy.sh
@@ -67,6 +70,10 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     environment:
+      # Indirizzo interno del frontend (FrontendOptions.Origin), per invalidare la cache sitemap
+      # dopo una scrittura che cambia un catalogo dietro dynamicParams. Sempre vero in questa
+      # topologia — non un passthrough opzionale come Mail__Password sotto.
+      - Frontend__Origin=http://frontend:3000
       # Passaggio OPZIONALE di segreti via variabile d'ambiente (precedenza sul JSON montato).
       # Senza valore = "passthrough": il valore arriva dall'ambiente di chi lancia il deploy; se la
       # variabile non è impostata non viene passata e resta il valore del JSON. Esempio per tenere

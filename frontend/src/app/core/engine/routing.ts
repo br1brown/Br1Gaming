@@ -1,11 +1,11 @@
-import { CanActivateFn, NavigationEnd, Route, Router, Routes } from '@angular/router';
+import { CanActivateFn, NavigationEnd, Route, Router, RouterStateSnapshot, Routes } from '@angular/router';
 import { inject, Signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs';
 import { ContestoSito } from '../../site';
 import { environment } from '../../../environments/environment';
-import { contentLoaderResolver } from '../../pages/content.resolver';
-import { InternalSitePage, isInternalPage, isParentPage, ShellFlags, SHELL_DATA_KEY } from './siteBuilder';
+import { contentLoaderResolver } from './pages/content.resolver';
+import { InternalSitePage, isInternalPage, isParentPage, resolvePagePath, ShellFlags, SHELL_DATA_KEY } from './siteBuilder';
 import { authGuard, languageSyncGuard } from './route-guards';
 
 /**
@@ -24,6 +24,20 @@ export function onNavigationEnd<T>(project: (router: Router) => T, initial: T): 
 export function injectCurrentUrl(): Signal<string> {
     const router = inject(Router);
     return onNavigationEnd(() => router.url, router.url);
+}
+
+/** Merge dei param di rotta lungo tutta la catena attiva (root → foglia) di uno snapshot del
+ *  router: una rotta annidata porta il proprio `:param` solo sul segmento che lo dichiara. Usata
+ *  ovunque serva risolvere un `PageType` parametrico verso un link/URL concreto (navbar, meta
+ *  hreflang) — vedi `applyPathParams` in siteBuilder.ts. */
+export function mergeRouteParams(state: RouterStateSnapshot): Record<string, string> {
+    let node = state.root;
+    let params: Record<string, string> = { ...node.params };
+    while (node.firstChild) {
+        node = node.firstChild;
+        params = { ...params, ...node.params };
+    }
+    return params;
 }
 
 // authGuard e languageSyncGuard vivono in route-guards.ts (file a parte): qui restano solo la
@@ -68,7 +82,11 @@ function toAngularRoute(page: InternalSitePage, lang: string): Route {
     if (page.requiresAuth) canActivate.push(authGuard);
 
     const route: Route = {
-        path: page.path, // segmento dichiarato in site.ts — MAI tradotto per lingua, solo prefissato (vedi sopra).
+        // Segmento dichiarato in site.ts, risolto sulla lingua corrente — letterale o per-lingua
+        // (vedi resolvePagePath in siteBuilder.ts). STESSA risoluzione di processPages() lì: le
+        // due devono produrre lo stesso path per la stessa pagina+lingua, o i link interni
+        // smetterebbero di corrispondere alla rotta Angular vera qui.
+        path: resolvePagePath(page.path, lang, environment.defaultLang),
         canActivate,
         data: {
             ...page.data,       // data liberi del figlio (site.ts) — diventano @Input() via withComponentInputBinding.

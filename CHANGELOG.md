@@ -4,6 +4,44 @@ Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspetta
 
 ## [Non rilasciato]
 
+### `sitemap.xml`: da file generato al build a endpoint runtime, con pagine dinamiche (`dynamicParams`)
+
+Il builder poteva enumerare solo le pagine dichiarate staticamente in `site.ts`: una rotta parametrica con un solo `PageType`/componente per N elementi di un catalogo backend (es. `/prodotti/:slug`) non aveva mai un momento di build in cui elencare gli slug reali, e restava fuori da `sitemap.xml` — un limite architetturale noto, non solo un buco di copertura.
+
+- `public/sitemap.xml` **non è più generato da `generate-statics.ts`**: `sitemap.xml` è ora un endpoint (`GET /sitemap.xml`, `server/routes/dynamic-sitemap.ts`), montato nel Node SSR prima dello static handler. Stessi calcoli di prima (ora in `services/sitemap-xml.ts`, condiviso) più l'espansione delle pagine con `dynamicParams` dichiarato (nuovo campo opzionale di `LeafPageInput`: una funzione che recupera dal backend l'albero `SlugNode[]` degli slug accettati per una rotta con `:segmenti`).
+- Cache in-process con TTL (default 7 giorni, `SITEMAP_CACHE_TTL_MS`) invalidata on-demand dal backend: nuovo `SitemapNotifier` (Engine, backend) fa un `POST /internal/revalidate-sitemap` dopo una scrittura su un catalogo `dynamicParams` — un figlio lo richiama con `Sitemap.NotifyChangedAsync()` dai propri controller (proprietà ambient su `EngineApiController`, stesso schema di `Delivery`/`Crypto`). Spento finché `Frontend.Origin` non è configurato (nuova `FrontendOptions`, sezione `Frontend` di `global-settings.json`); `docker-compose.yml` del template la valorizza già (`Frontend__Origin=http://frontend:3000`).
+- `<priority>`/`<changefreq>` **rimossi**: Google li ignora da anni, restavano solo peso morto. `<lastmod>` non fa più fallback su `project.lastModified` (una data identica su ogni URL, segnale che Google finisce per ignorare come inattendibile): ora è emesso solo dove verificabile per-entità (`SlugNode.lastModified` sul nodo foglia di una pagina dinamica) e **omesso** altrove — anche per le pagine statiche, che prima lo portavano sempre.
+- **Breaking, solo se l'infrastruttura di deploy assume `sitemap.xml` come file statico**: un reverse proxy/CDN con una regola dedicata per servire `/sitemap.xml` direttamente da `public/` (bypassando il Node SSR), o una cache "immutabile" su tutto `public/**`, smette di funzionare — il file non esiste più, la richiesta va al Node SSR. Il template stesso non ha questo problema (`public/` non è mai stata esposta direttamente, sempre servita dal Node SSR), ma un figlio con un'infrastruttura di deploy personalizzata va verificato.
+- Verificato: `dotnet build` backend (0 warning, 0 errori); build di produzione frontend (type-check incluso), lint, i18n-check e circular-deps-check puliti.
+
+### `ContentResolver`: switch centralizzato sostituito da `contentLoader` per pagina
+
+`ContentResolver.loadResolved()` era un file di Dominio "a contratto fisso": ogni pagina con dati SEO-critici al primo render richiedeva un nuovo `case` nel suo switch — un file unico che ogni figlio doveva estendere a mano, e che l'Engine importava per path/nome nonostante vivesse nel Dominio (l'unica voce di quel tipo nell'elenco "Dominio a contratto fisso").
+
+- `contentLoader` (nuovo campo opzionale di `LeafPageInput`, stesso posto di `dynamicParams` in `pages/*.pages.ts`): ogni pagina porta la propria logica di fetch, invece di un `case` in un file condiviso.
+- `ContentResolver` è ora generico (zero `PageType` conosciuti, gestisce solo le pagine legali in modo trasversale) e si è **spostato da `pages/content.resolver.ts` (Dominio) a `core/engine/pages/content.resolver.ts` (Engine)** — non è più un file di Dominio "a contratto fisso": rimosso dall'elenco in README.md.
+- **Breaking per ogni figlio che ha aggiunto `case` al vecchio switch:** al merge, `pages/content.resolver.ts` del figlio confligge con la rimozione del file (o resta silenziosamente non importato da nulla, se il conflitto si risolve prendendo la versione del template). Migrazione: sposta la logica di ogni `case` in un `contentLoader` sulla rispettiva pagina in `pages/*.pages.ts` — vedi la ricetta in [AGENTS.md](AGENTS.md#aggiungere-una-pagina) e §"Developer Journey" in [frontend/README.md](frontend/README.md).
+- Verificato: build di produzione frontend (type-check incluso), i18n-check e circular-deps-check puliti.
+
+### Pagine legali standard: `noindex` di default
+
+Le 5 pagine legali standard (privacy/cookie/termini/note legali/accessibilità) finivano nella sitemap e restavano indicizzabili come una pagina di contenuto qualunque — crawl budget speso su pagine di servizio che non portano traffico di ricerca.
+
+- `buildPolicySection` (`legal/legal-pages.ts`) ora dichiara le pagine legali gestite dall'Engine con `otherSEO: { noindex: true }`: fuori da `sitemap.xml` e marcate `X-Robots-Tag: noindex, nofollow` a runtime, di default.
+- **Breaking per i figli già live che le vogliono indicizzate** (raro, ma capita: alcuni preferiscono indicizzare la propria Privacy Policy): al merge, le 5 pagine legali standard spariscono dalla sitemap e diventano `noindex` silenziosamente. Chi le vuole indicizzate dichiara la pagina a mano in `pages` col proprio `PageType` e `otherSEO: { noindex: false }` (override standard: `filterManagedLegalPages` esclude dall'auto-gestione ogni `PageType` già dichiarato dal figlio).
+- Verificato: build di produzione frontend (type-check incluso) pulita.
+
+### `path` per-lingua in `site.ts` (URL localizzati non solo prefissati)
+
+Con più lingue configurate, il `path` di una pagina interna era sempre lo stesso segmento sotto ogni prefisso (`/en/chi-siamo`, mai `/en/about-us`) — un limite esplicitamente documentato come "non supportato oggi" in frontend/README.md.
+
+- `BasePageInput.path` accetta ora, oltre alla stringa (comportamento storico, resta il default), un oggetto `{ tagLingua: segmento }` (es. `{ it: 'chi-siamo', en: 'about-us' }`): un segmento diverso per lingua. Una lingua del sito senza una propria chiave ricade sul segmento della lingua di default.
+- Nuovo `resolvePagePath()` (`siteBuilder.ts`), unico punto di risoluzione, usato sia da `routing.ts` (rotta Angular reale) sia da `processPages()` (menu/sitemap/hreflang): le due chiamate producono per costruzione lo stesso path per la stessa pagina+lingua.
+- Link a una voce concreta di una rotta parametrica (`NavItemOptions.params`/`appPageParams`) e query string separate dal path (`NavItemOptions.queryParams`/`appPageQueryParams`) — necessari per collegare in menu/link una singola entità di una pagina con `dynamicParams` senza ricostruire il path a mano.
+- Fix: i tag `<link rel="alternate" hreflang>` che l'Engine emette automaticamente su ogni pagina (`PageMetaService`) risolvevano correttamente le lingue solo per un `PageType` senza `:segmenti` — su una pagina parametrica (es. `/social-feed/instagram`) puntavano al template letterale non risolto (`/social-feed/:slug`), individuato testando `dynamicParams` end-to-end in Docker. Stesso trattamento già applicato a `[appPage]`/`NavbarComponent` (`applyPathParams` sui param di rotta correnti); la logica di merge dei param (root→foglia) è ora condivisa (`mergeRouteParams` in `routing.ts`) invece che duplicata.
+- Non breaking: chi non usa la forma a oggetto non nota differenze.
+- Verificato: build di produzione frontend (type-check incluso), lint, i18n-check e circular-deps-check puliti; `dotnet build` backend pulito; stack Docker Compose completo (backend+frontend) testato end-to-end con test avversativi su sitemap.xml, hreflang, pagine dinamiche `dynamicParams` e path per-lingua.
+
 ### `.text-bg-primary`/`.text-bg-secondary`: testo bianco fisso invece del brand
 
 Bootstrap compila `.text-bg-primary`/`.text-bg-secondary` con `color: #fff !important` fisso (contrastato contro il SUO grigio di default a build-time), ignorando `--colorPrimaryText`/`--colorSecondaryText` che ThemeService calcola apposta per lo sfondo brand runtime — un commento in `_bootstrap-theme.scss` assumeva (erroneamente) che le due cose coincidessero già. Su un brand con secondary chiaro/medio il bianco fisso scende sotto AA (verificato: 2.85:1 nel catalogo Design System di un figlio).

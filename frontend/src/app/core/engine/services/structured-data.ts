@@ -10,7 +10,7 @@
  *
  * Dove si imposta (vedi PageInfo / ResolvedPage):
  *   - statico  → `site.ts` `otherSEO.structuredData` (es. una FAQ con domande fisse)
- *   - dinamico → un caso del `ContentResolver`, derivandolo dal contenuto (es. autore/data di un Article)
+ *   - dinamico → il `contentLoader` di una pagina, derivandolo dal contenuto (es. autore/data di un Article)
  */
 
 /** Autore in forma minima: solo il nome, o nome + URL. L'adapter lo mappa su `Person`. */

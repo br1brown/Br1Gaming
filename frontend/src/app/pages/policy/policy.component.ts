@@ -230,12 +230,20 @@ export class PolicyComponent extends PageBaseComponent<string> {
      *  Le date sono in `pages/legal.pages.ts` (vicino agli ID delle pagine legali che rappresentano).
      *  La data la formatta il servizio (culture-aware e reattivo, nessun `Intl` qui);
      *  l'attributo `datetime` porta l'ISO per un <time> semantico. */
-    private policyUpdate(): { label: string; iso: string; formatted: string } | null {
+    /** Sorgente unica per og:updated_time/dateModified (PageBaseComponent): stessa data mostrata
+     *  a video, così i due non possono disallinearsi. */
+    protected override pageUpdatedOn(): string | null {
         const updated = this.identityFlags().updated;
-        if (!updated || isNaN(updated.getTime())) return null;
+        return updated && !isNaN(updated.getTime()) ? updated.toISOString().slice(0, 10) : null;
+    }
+
+    private policyUpdate(): { label: string; iso: string; formatted: string } | null {
+        const iso = this.pageUpdatedOn();
+        const updated = this.identityFlags().updated;
+        if (!iso || !updated) return null;
         return {
             label: this.translate.translate('ultimoAggiornamentoPolicy'),
-            iso: updated.toISOString().slice(0, 10),
+            iso,
             formatted: this.localization.formatter.date(updated),
         };
     }
