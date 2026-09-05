@@ -2,10 +2,9 @@ import { DOCUMENT } from '@angular/common';
 import { afterNextRender, Component, computed, inject, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { Router } from '@angular/router';
-import { PageType } from '../../site';
 import { StoryPlayerFacade } from '../../core/services/story-player.facade';
 import { ApiError } from '../../core/engine/services/base-api.service';
-import { StoryInfo } from '../../core/dto/story.dto';
+import { StorySummary } from '../../core/dto/story.dto';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { MarkdownPipe } from '../../core/engine/pipes/markdown.pipe';
 import { AssetDirective } from '../../core/engine/directives/asset.directive';
@@ -32,7 +31,7 @@ import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
         .story-cover img { display: block; max-height: clamp(220px, 38vh, 420px); }
     `],
 })
-export class StoryPlayerComponent extends PageBaseComponent<StoryInfo> {
+export class StoryPlayerComponent extends PageBaseComponent<StorySummary> {
     private readonly router = inject(Router);
     private readonly document = inject(DOCUMENT);
     readonly facade = inject(StoryPlayerFacade);
@@ -61,23 +60,14 @@ export class StoryPlayerComponent extends PageBaseComponent<StoryInfo> {
     constructor() {
         super();
         afterNextRender(() => {
-            void this.initStory().catch(error => {
+            const slug = this.storyInfo()?.slug;
+            if (!slug) return; // pageContent() non ancora arrivato: niente da avviare.
+            void this.facade.init(slug).catch(error => {
                 if (error instanceof ApiError && error.status === 404) {
                     void this.router.navigateByUrl('/error/404');
                 }
             });
         });
-    }
-
-    // ── Dispatch per storia (wrapper tipizzati: niente slug a mano) ───
-
-    private initStory(): Promise<void> {
-        switch (this.pageType()) {
-            case PageType.StoryPoveriMaschi: return this.facade.initPoveriMaschi();
-            case PageType.StoryMagrogamer09: return this.facade.initMagrogamer09();
-            case PageType.StorySurviveUsa: return this.facade.initSurviveUsa();
-            default: throw new Error(`PageType non è una storia: ${this.pageType()}`);
-        }
     }
 
     async choose(choiceId: string): Promise<void> {

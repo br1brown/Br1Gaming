@@ -9,6 +9,8 @@ export interface CardEntry {
     subtitle: string | null;
     imageId: string | null;
     pageType: PageType;
+    /** Valori per gli eventuali segmenti `:xxx` del path (pagine parametriche, es. i generatori). */
+    params?: Record<string, string>;
 }
 
 /** Minuscolo + senza accenti: rende la ricerca tollerante a maiuscole e diacritici ("città" ≈ "citta"). */

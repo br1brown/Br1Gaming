@@ -1,6 +1,6 @@
 import type { ShellNavResolver } from './core/engine/shell-nav';
 import { PageType } from './site';
-import { GENERATORS, STORIES } from './pages/app.pages';
+import { GENERATOR_SLUGS, STORY_SLUGS } from './pages/app.pages';
 
 // Navigazione di header/footer: dato, non struttura del sito (per questo vive qui e non in
 // site.ts — vedi ShellNavResolver in core/engine/shell-nav.ts).
@@ -9,15 +9,19 @@ export const navResolver: ShellNavResolver = {
         nav.addGroup('generatori', (g) => {
             // I generatori veri e propri stanno in un sottogruppo annidato, così i Piaciuti
             // (che raccolgono i loro output) vivono accanto a loro senza sembrare un generatore.
+            // Un solo PageType per tutti (playground /generatori/:slug): il :slug e l'etichetta
+            // (stessa chiave i18n di prima, "generatore-<slug>") li fornisce qui la voce di nav.
             g.addGroup('tuttiIGeneratori', (gg) => {
-                GENERATORS.forEach(([, pageType]) => gg.addPage(pageType));
+                GENERATOR_SLUGS.forEach(slug =>
+                    gg.addPage(PageType.Generatore, { params: { slug }, label: `generatore-${slug}` }));
             });
             g.addPage(PageType.Piaciuti);
         });
         nav.addGroup('giochi', (g) => {
             // Le storie (avventure a bivi) in un sottogruppo annidato; gli altri giochi restano fuori.
             g.addGroup('storie', (gg) => {
-                STORIES.forEach(([, pageType]) => gg.addPage(pageType));
+                STORY_SLUGS.forEach(slug =>
+                    gg.addPage(PageType.Storia, { params: { slug }, label: `avventura-${slug}` }));
             });
             g.addPage(PageType.GameDuceNonDuce);
             g.addPage(PageType.GameBurocrazia);

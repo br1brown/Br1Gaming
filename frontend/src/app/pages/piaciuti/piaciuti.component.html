@@ -22,11 +22,7 @@
             <section class="mb-5">
                 <div class="d-flex justify-content-between align-items-baseline mb-3">
                     <h2 class="h5 fw-bold mb-0">
-                        @if (group.pageType !== null) {
-                        <a [appPage]="group.pageType" class="text-decoration-none">{{ group.name }}</a>
-                        } @else {
-                        {{ group.name }}
-                        }
+                        <a [appPage]="generatorPageType" [appPageParams]="{ slug: group.slug }" class="text-decoration-none">{{ group.name }}</a>
                     </h2>
                     @if (group.hasMore) {
                     <a class="small text-decoration-none" [routerLink]="piaciutiPath" [queryParams]="{ gen: group.slug }">
@@ -45,7 +41,6 @@
                                 <div class="d-flex justify-content-end align-items-center">
                                     <small class="text-secondary">{{ ago(card.createdUtc) }}</small>
                                 </div>
-                                @if (group.path) {
                                 <div class="d-flex gap-2 mt-2">
                                     <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 position-relative z-2"
                                             (click)="copyLink(group.path, card.id)"
@@ -58,7 +53,6 @@
                                         {{ 'condivisiApri' | translate }} <i class="fa-solid fa-arrow-right ms-1" aria-hidden="true"></i>
                                     </a>
                                 </div>
-                                }
                             </div>
                         </div>
                     </div>

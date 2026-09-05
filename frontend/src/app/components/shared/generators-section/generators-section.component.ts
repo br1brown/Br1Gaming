@@ -4,7 +4,6 @@ import { CardGridComponent, CardEntry } from '../card-grid/card-grid.component';
 import { PageDirective } from '../../../core/engine/directives/page.directive';
 import { ApiService } from '../../../core/services/api.service';
 import { PageType } from '../../../site';
-import { GENERATOR_SLUG_TO_PAGE_TYPE } from '../../../pages/app.pages';
 
 /**
  * Sezione "Generatori": titolo + griglia di card dei generatori, con la CTA verso i Piaciuti
@@ -35,15 +34,16 @@ export class GeneratorsSectionComponent {
     /** true finché l'elenco è in caricamento (per non mostrare "vuoto" mentre arriva). */
     readonly loading = this.resource.isLoading;
 
-    /** Solo i generatori con una pagina propria, mappati a card pronte per la griglia. */
+    /** Ogni generatore del catalogo, mappato a card pronte per la griglia — un solo PageType per
+     *  tutti (/generatori/:slug), niente più filtro: ogni generatore del backend ha già una pagina. */
     readonly cards = computed<CardEntry[]>(() =>
         (this.resource.value() ?? [])
-            .filter(g => g.slug in GENERATOR_SLUG_TO_PAGE_TYPE)
             .map(g => ({
                 title: g.name,
                 subtitle: g.description ?? null,
                 imageId: `generator.${g.slug}`,
-                pageType: GENERATOR_SLUG_TO_PAGE_TYPE[g.slug]! as PageType,
+                pageType: PageType.Generatore,
+                params: { slug: g.slug },
             }))
     );
 }

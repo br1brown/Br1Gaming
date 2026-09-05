@@ -4,22 +4,7 @@ import { MarkdownPipe } from '../../../core/engine/pipes/markdown.pipe';
 import { PageDirective } from '../../../core/engine/directives/page.directive';
 import { ApiService } from '../../../core/services/api.service';
 import { GenerateResponse, GeneratorInfo } from '../../../core/dto/generator.dto';
-import { GENERATOR_SLUG_TO_PAGE_TYPE } from '../../../pages/app.pages';
 import { PageType } from '../../../site';
-
-/** slug → chiamata API di generazione. Stesso dispatch di `generator-detail` (lì per PageType, qui
- *  per slug: l'hub sceglie la categoria da un catalogo dati, non da una rotta). `variant` è la chiave
- *  scelta nel selettore inline (es. il segno per l'oroscopo), assente per i generatori normali. */
-const GENERATE_FNS: Record<string, (api: ApiService, variant: string | null) => Promise<GenerateResponse>> = {
-    incel: api => api.generateIncel(),
-    startup: api => api.generateStartup(),
-    auto: api => api.generateAuto(),
-    antiveg: api => api.generateAntiveg(),
-    locali: api => api.generateLocali(),
-    kebab: api => api.generateKebab(),
-    mbeb: api => api.generateMbeb(),
-    oroscopo: (api, variant) => api.generateOroscopo(variant ?? ''),
-};
 
 /** slug → icona del selettore (puro accento visivo, un dito per ogni "cassetto" del mobiletto). */
 const ICONS: Record<string, string> = {
@@ -51,15 +36,14 @@ const DEFAULT_ICON = 'fa-dice';
 export class GeneratorHubComponent {
     private readonly api = inject(ApiService);
 
-    protected readonly PageType = PageType;
     protected readonly skeletonSlots = [0, 1, 2, 3, 4, 5, 6];
 
     private readonly resource = this.api.generatorsResource();
     readonly loading = this.resource.isLoading;
 
-    /** Solo i generatori con una pagina propria (stesso filtro di `generators-section`). */
-    protected readonly generators = computed<GeneratorInfo[]>(() =>
-        (this.resource.value() ?? []).filter(g => g.slug in GENERATOR_SLUG_TO_PAGE_TYPE));
+    /** Catalogo generatori: un solo PageType per tutti (/generatori/:slug), quindi ogni generatore
+     *  del backend ha già una pagina propria — niente più filtro. */
+    protected readonly generators = computed<GeneratorInfo[]>(() => this.resource.value() ?? []);
 
     /** Categoria scelta nel selettore, o null finché il catalogo non è arrivato / niente è stato toccato. */
     private readonly pickedSlug = signal<string | null>(null);
@@ -89,14 +73,16 @@ export class GeneratorHubComponent {
         this.result.set(null);
     }
 
-    /** Tira la leva: genera per la categoria (ed eventuale variante) correntemente selezionata. */
+    /** Tira la leva: genera per la categoria (ed eventuale variante) correntemente selezionata.
+     *  Chiave della variante presa da `variant.key` (es. 'segno' per l'oroscopo), non hardcoded. */
     async spin(): Promise<void> {
         const gen = this.active();
-        const fn = gen ? GENERATE_FNS[gen.slug] : null;
-        if (!gen || !fn) return;
+        if (!gen) return;
+        const variant = gen.variant;
+        const inputs = variant ? { [variant.key]: this.activeVariant() ?? '' } : undefined;
         this.spinning.set(true);
         try {
-            this.result.set(await fn(this.api, this.activeVariant()));
+            this.result.set(await this.api.generate(gen.slug, inputs));
         } catch {
             // L'apiErrorInterceptor ha già notificato l'utente: qui si resta sull'ultimo risultato.
         } finally {
@@ -104,11 +90,10 @@ export class GeneratorHubComponent {
         }
     }
 
-    /** PageType della pagina dedicata alla categoria attiva, per il link "pagina completa". */
-    readonly activePageType = computed<PageType | null>(() => {
-        const slug = this.activeSlug();
-        return slug ? (GENERATOR_SLUG_TO_PAGE_TYPE[slug] as PageType ?? null) : null;
-    });
+    /** PageType della pagina dedicata alla categoria attiva, per il link "pagina completa" —
+     *  costante (un solo PageType per tutti i generatori): il template ci passa lo slug a parte
+     *  via `[appPageParams]`. */
+    protected readonly generatorPageType = PageType.Generatore;
 
     /** Icona del selettore per uno slug (usata nel template, niente lookup ripetuto lì). */
     protected iconFor(slug: string): string {

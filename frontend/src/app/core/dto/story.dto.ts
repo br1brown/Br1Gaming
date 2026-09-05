@@ -1,9 +1,3 @@
-/** Metadati di una storia, risolti tramite API in SSR. */
-export interface StoryInfo {
-    title: string;
-    description: string;
-}
-
 export interface StorySummary {
     slug: string;
     title: string;

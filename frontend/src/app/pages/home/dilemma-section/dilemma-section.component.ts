@@ -3,13 +3,11 @@ import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
 import { PageDirective } from '../../../core/engine/directives/page.directive';
 import { ApiService } from '../../../core/services/api.service';
 import { PageType } from '../../../site';
-import { STORY_SLUG_TO_PAGE_TYPE } from '../../app.pages';
 
 interface StoryTeaser {
     slug: string;
     title: string;
     description: string | null;
-    pageType: PageType;
 }
 
 /**
@@ -33,14 +31,17 @@ export class DilemmaSectionComponent {
     private readonly resource = this.api.storiesResource();
     readonly loading = this.resource.isLoading;
 
-    /** Solo le storie con una pagina propria, con titolo/descrizione così come arrivano dal backend. */
+    /** Per il link nel template: un solo PageType per tutte le storie (/avventura/:slug), lo slug
+     *  viaggia a parte via `[appPageParams]`. */
+    protected readonly storyPageType = PageType.Storia;
+
+    /** Titolo/descrizione così come arrivano dal backend, nessuna storia esclusa: un solo PageType
+     *  per tutte (/avventura/:slug), ogni storia del backend ha già una pagina. */
     readonly stories = computed<StoryTeaser[]>(() =>
         (this.resource.value() ?? [])
-            .filter(s => s.slug in STORY_SLUG_TO_PAGE_TYPE)
             .map(s => ({
                 slug: s.slug,
                 title: s.title,
                 description: s.description ?? null,
-                pageType: STORY_SLUG_TO_PAGE_TYPE[s.slug]! as PageType,
             })));
 }

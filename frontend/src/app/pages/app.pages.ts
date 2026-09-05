@@ -1,10 +1,9 @@
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
-import type { LeafPageInput, SitePageInput, ContentLoader, ContentLoaderResult, PageInfo } from '../core/engine/siteBuilder';
+import type { SitePageInput, ContentLoader, ContentLoaderResult, PageInfo } from '../core/engine/siteBuilder';
 import { ApiService } from '../core/services/api.service';
 import { ApiError } from '../core/engine/services/base-api.service';
 import { GeneratorInfo, GenerateResponse, GeneratorPageContent, PiaciutiPageContent, ShareEntry } from '../core/dto/generator.dto';
-import type { StorySummary } from '../core/dto/story.dto';
 
 /** Titolo della pagina dalla frase generata (frase condivisa, `/generatori/<slug>/:id`). Qui si
  *  normalizza solo il whitespace: il troncamento e l'eventuale ellissi sono delegati al livello a
@@ -13,52 +12,65 @@ function titleFromGeneration(text: string): string {
     return text.replace(/\s+/g, ' ').trim();
 }
 
-/** ContentLoader del playground di un generatore (`/generatori/<slug>`): solo le info del
- *  generatore, la generazione la produce il client ("Ancora!"). La frase condivisa/recuperata
- *  vive nella rotta gemella `/generatori/<slug>/:id`, vedi `generatorSharedContentLoader`. */
-function generatorContentLoader(loadGenerator: (api: ApiService) => Promise<GeneratorInfo>): ContentLoader {
+/** ContentLoader del playground di un generatore (`/generatori/:slug`): un solo componente/rotta
+ *  per tutti i generatori — `ctx.params['slug']` arriva dal catalogo (`dynamicParams` sotto), slug
+ *  sconosciuto → 404 vero. La generazione la produce il client ("Ancora!"); la frase condivisa/
+ *  recuperata vive nella rotta gemella `/generatori/:slug/:id`, vedi `generatorSharedContentLoader`. */
+function generatorContentLoader(): ContentLoader {
     return (ctx) => {
         const api = inject(ApiService);
         return (async (): Promise<ContentLoaderResult> => {
-            const gen = await loadGenerator(api).catch(() => null);
-            if (!gen) return { content: null };
-            const info: Partial<PageInfo> = { title: gen.name, description: gen.description };
+            const slug = ctx.params['slug'];
+            if (!slug) return { content: null };
+            const gen = await api.getGenerator(slug).catch(() => null);
+            if (!gen) throw new ApiError(404, null);
+            const info: Partial<PageInfo> = { title: gen.name, description: gen.description, ogImage: `generator.${slug}.og` };
             return { content: { generator: gen, result: null, recovered: false } satisfies GeneratorPageContent, info };
         })();
     };
 }
 
-/** ContentLoader della pagina "frase condivisa" di un generatore (`/generatori/<slug>/:id`):
- *  `ctx.slug` è l'id content-addressed della generazione salvata (vedi Shares/IShareStore nel
- *  backend). Id sconosciuto → 404 vero (redirect a /error/404 via contentLoaderResolver), non una
- *  pagina vuota. Sempre `noindex`: la singola frase è contenuto sottile/potenzialmente duplicato —
- *  la raccolta pubblica (/generatori/piaciuti) resta invece indicizzata, vedi PiaciutiComponent. */
-function generatorSharedContentLoader(loadGenerator: (api: ApiService) => Promise<GeneratorInfo>): ContentLoader {
+/** ContentLoader della pagina "frase condivisa" di un generatore (`/generatori/:slug/:id`): `:id` è
+ *  l'id content-addressed della generazione salvata (vedi Shares/IShareStore nel backend). Slug o id
+ *  sconosciuto → 404 vero (redirect a /error/404 via contentLoaderResolver), non una pagina vuota.
+ *  Deliberatamente FUORI da dynamicParams: non va nella sitemap, coerente col noindex sotto — la
+ *  singola frase è contenuto sottile/potenzialmente duplicato, la raccolta pubblica
+ *  (/generatori/piaciuti) resta invece indicizzata, vedi PiaciutiComponent. */
+function generatorSharedContentLoader(): ContentLoader {
     return (ctx) => {
         const api = inject(ApiService);
         return (async (): Promise<ContentLoaderResult> => {
-            if (!ctx.slug) return { content: null };
+            const slug = ctx.params['slug'];
+            const id = ctx.params['id'];
+            if (!slug || !id) return { content: null };
             const [gen, entry] = await Promise.all([
-                loadGenerator(api).catch(() => null),
-                api.getGeneration(ctx.slug).catch(() => null),
+                api.getGenerator(slug).catch(() => null),
+                api.getGeneration(id).catch(() => null),
             ]);
             if (!gen || !entry) throw new ApiError(404, null);
             // sig vuota: una generazione recuperata è già nei condivisi, non si ri-condivide.
             const result: GenerateResponse = { text: entry.text, markdown: entry.markdown, score: entry.score, sig: '' };
-            const info: Partial<PageInfo> = { title: titleFromGeneration(entry.text), description: gen.description, noindex: true };
+            const info: Partial<PageInfo> = {
+                title: titleFromGeneration(entry.text), description: gen.description,
+                ogImage: `generator.${slug}.og`, noindex: true,
+            };
             return { content: { generator: gen, result, recovered: true } satisfies GeneratorPageContent, info };
         })();
     };
 }
 
-/** ContentLoader condiviso dalle pagine storia: titolo/descrizione SEO dal contenuto caricato. */
-function storyContentLoader(loadStory: (api: ApiService) => Promise<StorySummary | null>): ContentLoader {
+/** ContentLoader dell'unica pagina storia (`/avventura/:slug`): titolo/descrizione SEO dal
+ *  contenuto caricato, slug sconosciuto → 404 vero. */
+function storyContentLoader(): ContentLoader {
     return (ctx) => {
         const api = inject(ApiService);
         return (async (): Promise<ContentLoaderResult> => {
-            const story = await loadStory(api).catch(() => null);
-            if (!story) return { content: null };
-            return { content: story, info: { title: story.title, description: story.description } };
+            const slug = ctx.params['slug'];
+            if (!slug) return { content: null };
+            const story = await api.getStory(slug).catch(() => null);
+            if (!story) throw new ApiError(404, null);
+            const info: Partial<PageInfo> = { title: story.title, description: story.description, ogImage: `story.${slug}.og` };
+            return { content: story, info };
         })();
     };
 }
@@ -66,9 +78,8 @@ function storyContentLoader(loadStory: (api: ApiService) => Promise<StorySummary
 /** ContentLoader della pagina Piaciuti (panoramica o filtrata via `?gen=<slug>`): sempre
  *  indicizzata (a differenza della singola frase condivisa sopra), quindi risolta in SSR come
  *  qualunque altra pagina — niente più caricamento client-only. `?gen=` non passa da
- *  `ContentLoaderContext` (solo lingua/slug di rotta): letto qui dal Router, stesso pattern già
- *  visto per `?g=` prima di questa rotta dedicata. Riusata anche per il ricaricato client al
- *  cambio filtro, vedi piaciuti.component.ts. */
+ *  `ContentLoaderContext.params` (solo i `:segmenti` della rotta, questa non ne ha): letto qui dal
+ *  Router. Riusata anche per il ricaricato client al cambio filtro, vedi piaciuti.component.ts. */
 function piaciutiContentLoader(): ContentLoader {
     return (ctx) => {
         const api = inject(ApiService);
@@ -96,27 +107,14 @@ function piaciutiContentLoader(): ContentLoader {
 export const AppPages = {
     Home: 'app.home',
     Generatori: 'app.generatori',
-    GeneratorIncel: 'app.generatore.incel',
-    GeneratorStartup: 'app.generatore.startup',
-    GeneratorAuto: 'app.generatore.auto',
-    GeneratorAntiveg: 'app.generatore.antiveg',
-    GeneratorLocali: 'app.generatore.locali',
-    GeneratorKebab: 'app.generatore.kebab',
-    GeneratorMbeb: 'app.generatore.mbeb',
-    GeneratorOroscopo: 'app.generatore.oroscopo',
-    // Frase condivisa di un generatore (/generatori/<slug>/:id — vedi generatorSharedContentLoader):
-    // stessa identità dei generatori sopra ma pagina/route a sé, noindex, mai in nav.
-    GeneratorIncelShared: 'app.generatore.incel.condiviso',
-    GeneratorStartupShared: 'app.generatore.startup.condiviso',
-    GeneratorAutoShared: 'app.generatore.auto.condiviso',
-    GeneratorAntivegShared: 'app.generatore.antiveg.condiviso',
-    GeneratorLocaliShared: 'app.generatore.locali.condiviso',
-    GeneratorKebabShared: 'app.generatore.kebab.condiviso',
-    GeneratorMbebShared: 'app.generatore.mbeb.condiviso',
-    GeneratorOroscopoShared: 'app.generatore.oroscopo.condiviso',
-    StoryPoveriMaschi: 'app.avventura.poveri-maschi',
-    StoryMagrogamer09: 'app.avventura.magrogamer09',
-    StorySurviveUsa: 'app.avventura.sopravvivi-agli-usa',
+    // Un solo PageType per TUTTI i generatori (playground, /generatori/:slug): il catalogo arriva
+    // dal backend via dynamicParams, un generatore nuovo compare da solo, senza toccare qui.
+    Generatore: 'app.generatore',
+    // Frase condivisa (/generatori/:slug/:id — vedi generatorSharedContentLoader): stessa identità
+    // per tutti i generatori, pagina/route a sé (noindex, mai in dynamicParams/nav).
+    GeneratoreCondiviso: 'app.generatore.condiviso',
+    // Un solo PageType per tutte le storie (/avventura/:slug), stesso motivo.
+    Storia: 'app.avventura.storia',
     GameDuceNonDuce: 'app.gioco.ducenonduce',
     GameBurocrazia: 'app.gioco.burocrazia',
     GameUmarell: 'app.gioco.umarell',
@@ -126,147 +124,13 @@ export const AppPages = {
     UtilityTranslator: 'app.utility.translator',
 } as const;
 
-/** Identità delle pagine di quest'area (sottoinsieme di PageType). Usato dai catalogo/helper sotto. */
-type AppPageId = (typeof AppPages)[keyof typeof AppPages];
-
-// ═══════════════════════════════════════════════════════════════════════
-// Wrapper tipizzati per il contentLoader dei generatori/storie, chiave = PageType
-// (stesso schema del vecchio generatorLoader/switch del ContentResolver).
-// ═══════════════════════════════════════════════════════════════════════
-const generatorLoaders: Partial<Record<AppPageId, (api: ApiService) => Promise<GeneratorInfo>>> = {
-    [AppPages.GeneratorIncel]: api => api.getIncel(),
-    [AppPages.GeneratorStartup]: api => api.getStartup(),
-    [AppPages.GeneratorAuto]: api => api.getAuto(),
-    [AppPages.GeneratorAntiveg]: api => api.getAntiveg(),
-    [AppPages.GeneratorLocali]: api => api.getLocali(),
-    [AppPages.GeneratorKebab]: api => api.getKebab(),
-    [AppPages.GeneratorMbeb]: api => api.getMbeb(),
-    [AppPages.GeneratorOroscopo]: api => api.getOroscopo(),
-};
-
-const storyLoaders: Partial<Record<AppPageId, (api: ApiService) => Promise<StorySummary | null>>> = {
-    [AppPages.StoryPoveriMaschi]: api => api.getStoryPoveriMaschi(),
-    [AppPages.StoryMagrogamer09]: api => api.getStoryMagrogamer09(),
-    [AppPages.StorySurviveUsa]: api => api.getStorySurviveUsa(),
-};
-
-// ═══════════════════════════════════════════════════════════════════════
-// HELPER — crea una pagina generatore con path esplicito
-// ═══════════════════════════════════════════════════════════════════════
-function generatorPage(
-    urlSegment: string,
-    pageType: AppPageId,
-    // OG dedicata: di default coincide con l'immagine web (`generator.<slug>`), ma un generatore può
-    // puntare a una versione già croppata 1200x630 per l'anteprima social (es. `generator.<slug>.og`).
-    ogImage: string = `generator.${urlSegment}`,
-): LeafPageInput {
-    const loadGenerator = generatorLoaders[pageType];
-    return {
-        // Path relativo: il prefisso `generatori/` lo fornisce il parent.
-        path: urlSegment,
-        title: `generatore-${urlSegment}`,
-        pageType,
-        layout: { showPanel: false },
-        otherSEO: { ogImage },
-        component: () => import('./generator-detail/generator-detail.component')
-            .then(m => m.GeneratorDetailComponent),
-        contentLoader: loadGenerator ? generatorContentLoader(loadGenerator) : undefined,
-    };
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// HELPER — crea la pagina "frase condivisa" gemella di un generatore (stesso componente, contenuto
-// via :id invece che generato al volo). Stesso urlSegment/loadGenerator di generatorPage: le due
-// vivono fianco a fianco in appPagesDecl (path statico + path parametrico, non annidate).
-// ═══════════════════════════════════════════════════════════════════════
-function generatorSharedPage(
-    urlSegment: string,
-    sharedPageType: AppPageId,
-    basePageType: AppPageId,
-    ogImage: string = `generator.${urlSegment}`,
-): LeafPageInput {
-    const loadGenerator = generatorLoaders[basePageType];
-    return {
-        // ":slug" (non ":id"): il resolver dell'engine legge sempre route.paramMap.get('slug'),
-        // qualunque cosa rappresenti semanticamente (qui l'id content-addressed della condivisione).
-        path: `${urlSegment}/:slug`,
-        title: `generatore-${urlSegment}`,
-        pageType: sharedPageType,
-        layout: { showPanel: false },
-        otherSEO: { ogImage },
-        component: () => import('./generator-detail/generator-detail.component')
-            .then(m => m.GeneratorDetailComponent),
-        contentLoader: loadGenerator ? generatorSharedContentLoader(loadGenerator) : undefined,
-    };
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// HELPER — crea una pagina avventura con path esplicito
-// ═══════════════════════════════════════════════════════════════════════
-function storyPage(
-    urlSegment: string,
-    pageType: AppPageId,
-    // OG dedicata opaca: default = immagine web (`story.<slug>`); una storia con card trasparente
-    // punta a una sorgente OG opaca (`story.<slug>.og`) per non rovinare l'anteprima social.
-    ogImage: string = `story.${urlSegment}`,
-): LeafPageInput {
-    const loadStory = storyLoaders[pageType];
-    return {
-        // Path relativo: il prefisso `avventura/` lo fornisce il parent.
-        path: urlSegment,
-        title: `avventura-${urlSegment}`,
-        pageType,
-        // Lo smoke è voluto SOLO sulla home: qui le storie hanno pannello e col default storico
-        // lo mostrerebbero, quindi lo spegniamo esplicitamente.
-        layout: { showSmoke: false },
-        otherSEO: { ogImage },
-        component: () => import('./story-player/story-player.component')
-            .then(m => m.StoryPlayerComponent),
-        contentLoader: loadStory ? storyContentLoader(loadStory) : undefined,
-    };
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// CATALOGHI — unico punto da estendere per aggiungere un generatore/una storia
-// (slug + PageType): alimentano sia le route (sotto i parent) sia la navbar (site.ts).
-// ═══════════════════════════════════════════════════════════════════════
-// Ordine di navbar/route. La home segue invece l'ordine del backend (Info.Order); qui lo si rispecchia
-// per coerenza, raggruppati per tema: personaggi (incel, startupparo, mbeb, oroscopo),
-// nomi di attività (nomi bar, kebabbari), invettive (automobilistiche, anti-vegani).
-export const GENERATORS = [
-    // 3° elemento = id OG dedicato (immagine OPACA, "forma OG"): serve quando la card è trasparente,
-    // così l'anteprima social resta opaca e non esce lavata/nera. incel/mbeb/startup: ritaglio su fondo
-    // brand; auto: la foto originale opaca (la card userà poi il ritaglio trasparente).
-    // 4° elemento = PageType della pagina gemella "frase condivisa" (/generatori/<slug>/:id).
-    ['incel', AppPages.GeneratorIncel, 'generator.incel.og', AppPages.GeneratorIncelShared],
-    ['startup', AppPages.GeneratorStartup, 'generator.startup.og', AppPages.GeneratorStartupShared],
-    ['mbeb', AppPages.GeneratorMbeb, 'generator.mbeb.og', AppPages.GeneratorMbebShared],
-    ['oroscopo', AppPages.GeneratorOroscopo, 'generator.oroscopo.og', AppPages.GeneratorOroscopoShared],
-    ['locali', AppPages.GeneratorLocali, 'generator.locali.og', AppPages.GeneratorLocaliShared],
-    ['kebab', AppPages.GeneratorKebab, 'generator.kebab.og', AppPages.GeneratorKebabShared],
-    ['auto', AppPages.GeneratorAuto, 'generator.auto.og', AppPages.GeneratorAutoShared],
-    ['antiveg', AppPages.GeneratorAntiveg, 'generator.antiveg.og', AppPages.GeneratorAntivegShared],
-] as const;
-
-/** Slug del generatore → PageType della sua pagina playground (non quella "condivisa"). Usata dai
- *  componenti che devono tornare/linkare al generatore partendo solo dallo slug (Piaciuti,
- *  GeneratorDetailComponent.goToGenerator): un solo posto, non una mappa duplicata per componente. */
-export const GENERATOR_SLUG_TO_PAGE_TYPE: Partial<Record<string, AppPageId>> = Object.fromEntries(
-    GENERATORS.map(([slug, pageType]) => [slug, pageType])
-);
-
-export const STORIES = [
-    // 3° elemento = id OG dedicato opaco (card trasparente → OG resta opaca).
-    ['poveri-maschi', AppPages.StoryPoveriMaschi, 'story.poveri-maschi.og'],
-    ['magrogamer09', AppPages.StoryMagrogamer09, 'story.magrogamer09.og'],
-    ['sopravvivi-agli-usa', AppPages.StorySurviveUsa, 'story.sopravvivi-agli-usa.og'],
-] as const;
-
-/** Slug della storia → PageType della sua pagina: un solo posto, non una mappa duplicata per
- *  componente (dilemma-section, in origine). Dallo stesso elenco che alimenta le route. */
-export const STORY_SLUG_TO_PAGE_TYPE: Partial<Record<string, AppPageId>> = Object.fromEntries(
-    STORIES.map(([slug, pageType]) => [slug, pageType])
-);
+// Ordine di comparsa in nav/home. La home segue invece l'ordine del backend (Info.Order); qui lo si
+// rispecchia per coerenza, raggruppati per tema: personaggi (incel, startupparo, mbeb, oroscopo),
+// nomi di attività (nomi bar, kebabbari), invettive (automobilistiche, anti-vegani). Sola lista di
+// slug: il catalogo VERO (nome/descrizione) arriva dal backend, questo serve solo a chi (nav.ts)
+// deve elencare le voci senza già avere il catalogo sottomano.
+export const GENERATOR_SLUGS = ['incel', 'startup', 'mbeb', 'oroscopo', 'locali', 'kebab', 'auto', 'antiveg'] as const;
+export const STORY_SLUGS = ['poveri-maschi', 'magrogamer09', 'sopravvivi-agli-usa'] as const;
 
 /** Dichiarazioni pagina di quest'area, assemblate in site.ts → pages(). */
 export const appPagesDecl: SitePageInput[] = [
@@ -275,16 +139,16 @@ export const appPagesDecl: SitePageInput[] = [
         title: 'homeNav',
         pageType: AppPages.Home,
         // La home espone già Generatori/Storie/Giochi come sezioni: la navbar sarebbe ridondante.
-        // showSmoke:true — lo smoke decorativo è voluto SOLO qui; la home non ha pannello, quindi
-        // senza questo flag (default storico = pannello && !full-bleed) non lo mostrerebbe.
-        layout: { showPanel: false, showNav: false, showSmoke: true },
+        // showSmoke:true — lo smoke decorativo è voluto SOLO qui; senza pannello (default del sito,
+        // vedi site.ts shell.showPanel) smoke di suo non si mostrerebbe (default: pannello && !full-bleed).
+        layout: { showNav: false, showSmoke: true },
         description: 'Generatori casuali, avventure interattive e tanto altro da Br1.',
         component: () => import('./home/home.component').then(m => m.HomeComponent),
     },
 
     // ── Generatori (+ Piaciuti) sotto /generatori ────────────────
-    // Parent senza component: fa solo da prefisso di path (gli URL figli
-    // restano /generatori/<slug>, /generatori/<slug>/:id e /generatori/piaciuti).
+    // Parent senza component: fa solo da prefisso di path (gli URL figli restano /generatori/:slug,
+    // /generatori/:slug/:id e /generatori/piaciuti).
     {
         path: 'generatori',
         title: 'generatori',
@@ -296,24 +160,44 @@ export const appPagesDecl: SitePageInput[] = [
                 title: 'generatori',
                 description: 'Tutti i generatori di testo demenziali di Br1: incel, startup, kebabbari e altri.',
                 pageType: AppPages.Generatori,
-                layout: { showPanel: false },
                 component: () => import('./generatori/generatori.component')
                     .then(m => m.GeneratoriComponent),
             },
-            ...GENERATORS.map(([slug, pageType, ogImage]) => generatorPage(slug, pageType, ogImage)),
-            // Frasi condivise (/generatori/<slug>/:id): pagine gemelle, path statico + parametrico
-            // fianco a fianco, non annidate (stesso schema di social-feed/social-feed/:slug del motore).
-            ...GENERATORS.map(([slug, pageType, ogImage, sharedPageType]) =>
-                generatorSharedPage(slug, sharedPageType, pageType, ogImage)),
+            // "piaciuti" PRIMA di ":slug": Angular Router prova le rotte nell'ordine dell'array, e
+            // ":slug" (un segmento, combacia con qualunque stringa) intercetterebbe "piaciuti" se
+            // venisse prima — un letterale deve sempre precedere un parametrico che lo eclisserebbe.
             {
                 path: 'piaciuti',
                 title: 'condivisi',
                 description: 'Le frasi più belle piaciute agli utenti: la raccolta pubblica dei generatori.',
                 pageType: AppPages.Piaciuti,
-                layout: { showPanel: false },
                 component: () => import('./piaciuti/piaciuti.component')
                     .then(m => m.PiaciutiComponent),
                 contentLoader: piaciutiContentLoader(),
+            },
+            {
+                path: ':slug',
+                title: 'generatore',
+                pageType: AppPages.Generatore,
+                component: () => import('./generator-detail/generator-detail.component')
+                    .then(m => m.GeneratorDetailComponent),
+                // Catalogo dal backend: un generatore nuovo compare in sitemap/route da solo.
+                dynamicParams: async (ctx) => {
+                    const all = await ctx.fetchBackendJson<{ slug: string }[]>('/generators');
+                    return all.map(g => ({ slug: g.slug }));
+                },
+                contentLoader: generatorContentLoader(),
+            },
+            {
+                // Path gemello (non annidato) del playground sopra — stesso schema di
+                // social-feed/social-feed/:slug del motore demo. Niente dynamicParams: fuori sitemap,
+                // coerente col noindex del contentLoader (vedi generatorSharedContentLoader).
+                path: ':slug/:id',
+                title: 'generatore',
+                pageType: AppPages.GeneratoreCondiviso,
+                component: () => import('./generator-detail/generator-detail.component')
+                    .then(m => m.GeneratorDetailComponent),
+                contentLoader: generatorSharedContentLoader(),
             },
         ],
     },
@@ -322,7 +206,24 @@ export const appPagesDecl: SitePageInput[] = [
     {
         path: 'avventura',
         title: 'avventura',
-        children: STORIES.map(([slug, pageType, ogImage]) => storyPage(slug, pageType, ogImage)),
+        children: [
+            {
+                path: ':slug',
+                title: 'avventura',
+                pageType: AppPages.Storia,
+                // Unica pagina che riaccende il pannello (spento globalmente, vedi site.ts
+                // shell.showPanel). Lo smoke è voluto SOLO sulla home: qui, col pannello riacceso,
+                // il default lo mostrerebbe, quindi lo spegniamo esplicitamente.
+                layout: { showPanel: true, showSmoke: false },
+                component: () => import('./story-player/story-player.component')
+                    .then(m => m.StoryPlayerComponent),
+                dynamicParams: async (ctx) => {
+                    const all = await ctx.fetchBackendJson<{ slug: string }[]>('/stories');
+                    return all.map(s => ({ slug: s.slug }));
+                },
+                contentLoader: storyContentLoader(),
+            },
+        ],
     },
 
     // ── Altri giochi (top-level) ─────────────────────────────────
@@ -385,7 +286,6 @@ export const appPagesDecl: SitePageInput[] = [
                 title: 'translator',
                 description: 'Traduttore italiano spagnolo, ma giuro che traduce le cose vere, giuste e perfette',
                 pageType: AppPages.UtilityTranslator,
-                layout: { showPanel: false },
                 component: () => import('./translator/translator.component')
                     .then(m => m.TranslatorComponent),
             },

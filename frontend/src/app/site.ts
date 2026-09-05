@@ -30,6 +30,12 @@ export const ContestoSito = buildSite({
     legalPages: legalPagesDecl,
     cookiePolicy: PageType.CookiePolicy,
 
+    // Pannello contenuti spento globalmente (quasi nessuna pagina lo vuole): le poche che lo
+    // riaccendono lo fanno col proprio `layout.showPanel: true` (oggi solo Storia).
+    shell: {
+        showPanel: false,
+    },
+
     // Le dichiarazioni pagina vivono nel file di area (pages/app.pages.ts): qui solo lo spread.
     pages: () => [...appPagesDecl],
 

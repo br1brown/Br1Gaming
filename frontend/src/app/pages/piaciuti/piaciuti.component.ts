@@ -8,7 +8,7 @@ import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { ContentResolver } from '../../core/engine/pages/content.resolver';
 import { ShareEntry, GeneratorInfo, PiaciutiPageContent } from '../../core/dto/generator.dto';
 import { ContestoSito, PageType } from '../../site';
-import { GENERATOR_SLUG_TO_PAGE_TYPE } from '../app.pages';
+import { applyPathParams } from '../../core/engine/siteBuilder';
 
 // Quante generazioni mostrare per generatore nella panoramica prima del link "Vedi tutte".
 const PREVIEW_LIMIT = 6;
@@ -26,9 +26,9 @@ interface PiaciutoCard {
 interface PiaciutoGroup {
     slug: string;
     name: string;
-    pageType: PageType | null;
-    /** Path del playground del generatore: `${path}/${card.id}` è il link diretto alla singola voce. */
-    path: string | null;
+    /** Path REALE (già risolto sullo slug) del playground del generatore: `${path}/${card.id}` è il
+     *  link diretto alla singola voce. */
+    path: string;
     /** Carte mostrate (in panoramica sono troncate a PREVIEW_LIMIT). */
     cards: PiaciutoCard[];
     /** Totale caricato per questo generatore (per il contatore di "Vedi tutte"). */
@@ -99,8 +99,7 @@ export class PiaciutiComponent extends PageBaseComponent<PiaciutiPageContent> {
     }
 
     /** Copia negli appunti il link diretto (`<path>/<id>`) della singola voce, senza doverla aprire. */
-    async copyLink(path: string | null, id: string): Promise<void> {
-        if (!path) return;
+    async copyLink(path: string, id: string): Promise<void> {
         const url = `${this.document.location.origin}${path}/${id}`;
         try {
             await this.document.defaultView?.navigator.clipboard.writeText(url);
@@ -115,6 +114,9 @@ export class PiaciutiComponent extends PageBaseComponent<PiaciutiPageContent> {
 
     /** Path della pagina piaciuti, per i link "Vedi tutte" / "Tutti i generatori". */
     protected readonly piaciutiPath = ContestoSito.getPath(PageType.Piaciuti) ?? '/';
+    /** Per il link al generatore nel template: un solo PageType per tutti (/generatori/:slug), lo
+     *  slug viaggia a parte via `[appPageParams]`. */
+    protected readonly generatorPageType = PageType.Generatore;
 
     private readonly entries = signal<ShareEntry[] | null>(null);
     /** Catalogo dei generatori in ordine, per raggruppare e dare i nomi. */
@@ -154,9 +156,11 @@ export class PiaciutiComponent extends PageBaseComponent<PiaciutiPageContent> {
             bySlug.has(g.slug) && (!filtered || g.slug === filtered));
 
         const counts = this.counts();
+        // Un solo PageType per tutti i generatori (/generatori/:slug): il path REALE si risolve
+        // qui, sostituendo :slug — [routerLink]="[group.path, card.id]" non lo farebbe da solo.
+        const generatorPath = ContestoSito.getPath(PageType.Generatore) ?? '/generatori/:slug';
         return sources.map(g => {
             const all = bySlug.get(g.slug)!;
-            const pageType = GENERATOR_SLUG_TO_PAGE_TYPE[g.slug] ?? null;
             // In panoramica si tronca all'anteprima; in modalità filtrata si mostra tutto.
             const cards = filtered ? all : all.slice(0, PREVIEW_LIMIT);
             // Totale reale dai conteggi (panoramica); in modalità filtrata sono già tutte caricate.
@@ -164,8 +168,7 @@ export class PiaciutiComponent extends PageBaseComponent<PiaciutiPageContent> {
             return {
                 slug: g.slug,
                 name: g.name,
-                pageType,
-                path: pageType !== null ? ContestoSito.getPath(pageType) ?? null : null,
+                path: applyPathParams(generatorPath, { slug: g.slug }, 'PiaciutiComponent'),
                 cards,
                 total,
                 hasMore: !filtered && total > cards.length,

@@ -1273,10 +1273,13 @@ export interface DynamicParamsContext {
     fetchBackendJson: <T>(path: string) => Promise<T>;
 }
 
-/** Contesto passato a `LeafPageInput.contentLoader`: lingua risolta e, per le rotte parametriche, lo slug. */
+/** Contesto passato a `LeafPageInput.contentLoader`: lingua risolta e i valori di tutti i
+ *  `:segmenti` della rotta corrente, come chiavi di `ActivatedRoute.paramMap` — una rotta
+ *  `/classifica/:categoria/detail/:tipo` porta entrambe le chiavi. Vuoto (`{}`) sulle pagine
+ *  senza segmenti parametrici. */
 export interface ContentLoaderContext {
     lang: string;
-    slug?: string;
+    params: Record<string, string>;
 }
 
 /** Esito di `LeafPageInput.contentLoader`. */

@@ -14,14 +14,15 @@
      responsive: oltre la collapseMobile-esima su mobile (d-none) e oltre la collapseDesktop-esima da
      desktop. Le posizioni intermedie restano nascoste solo su mobile (d-md-block le riporta da ≥ md). -->
 <div class="row g-3">
-    @for (item of visibleItems(); track item.pageType; let i = $index) {
+    @for (item of visibleItems(); track item.pageType + (item.params?.['slug'] ?? ''); let i = $index) {
     <app-content-card [class]="itemColClass()"
                       [class.d-none]="collapsed() && i >= collapseMobile()"
                       [class.d-md-block]="collapsed() && i >= collapseMobile() && i < collapseDesktop()"
                       [title]="item.title"
                       [subtitle]="item.subtitle"
                       [imageId]="item.imageId"
-                      [pageType]="item.pageType" />
+                      [pageType]="item.pageType"
+                      [params]="item.params" />
     } @empty {
     <!-- Vuoto durante una ricerca = nessun match. Il vuoto "normale" (lista non caricata / senza
          elementi) lo gestisce la sezione che ospita la griglia, con un messaggio dedicato. -->

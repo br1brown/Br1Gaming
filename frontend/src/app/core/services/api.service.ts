@@ -71,8 +71,8 @@ export class ApiService extends BaseApiService {
     }
 
     // ─── Storie ──────────────────────────────────────────────
-    // Superficie pubblica = wrapper tipizzati per storia: i consumer non scrivono
-    // mai slug a mano. Le private con lo slug restano l'unico punto che parla REST.
+    // Un solo componente/rotta per tutte le storie (/avventura/:slug): niente wrapper per storia,
+    // lo slug arriva dalla rotta (dynamicParams lo enumera dal catalogo) e viaggia fin qui.
 
     /** Catalogo delle storie disponibili. */
     getStories(): Promise<StorySummary[]> {
@@ -88,38 +88,17 @@ export class ApiService extends BaseApiService {
         return this.api_resource<StorySummary[]>(API.stories);
     }
 
-    /** Info della storia "Siamo Maschi". */
-    getStoryPoveriMaschi(): Promise<StorySummary> { return this.getStory('poveri-maschi'); }
-
-    /** Info della storia "Magrogamer09". */
-    getStoryMagrogamer09(): Promise<StorySummary> { return this.getStory('magrogamer09'); }
-
-    /** Info della storia "Sopravviveresti agli USA?". */
-    getStorySurviveUsa(): Promise<StorySummary> { return this.getStory('sopravvivi-agli-usa'); }
-
-    /** Passo di gioco su "Siamo Maschi". */
-    playPoveriMaschi(sceneId?: string, choiceId?: string, stats?: Record<string, number>): Promise<StorySnapshotDto> {
-        return this.playStory('poveri-maschi', sceneId, choiceId, stats);
-    }
-
-    /** Passo di gioco su "Magrogamer09". */
-    playMagrogamer09(sceneId?: string, choiceId?: string, stats?: Record<string, number>): Promise<StorySnapshotDto> {
-        return this.playStory('magrogamer09', sceneId, choiceId, stats);
-    }
-
-    /** Passo di gioco su "Sopravviveresti agli USA?". */
-    playSurviveUsa(sceneId?: string, choiceId?: string, stats?: Record<string, number>): Promise<StorySnapshotDto> {
-        return this.playStory('sopravvivi-agli-usa', sceneId, choiceId, stats);
-    }
-
-    private getStory(slug: string): Promise<StorySummary> {
+    /** Info della storia (slug sconosciuto → 404 dal backend). */
+    getStory(slug: string): Promise<StorySummary> {
         return this.api_get<StorySummary>(API.story(slug));
     }
 
-    // Passo di gioco: nessun parametro = start, solo sceneId = resume, sceneId + choiceId = scelta.
-    // `silent: true`: lo StoryPlayerFacade ha la propria UI d'errore (signal `error` + redirect
-    // a /error/404 sullo story-not-found), quindi niente notifica automatica dall'interceptor.
-    private playStory(slug: string, sceneId?: string, choiceId?: string, stats?: Record<string, number>): Promise<StorySnapshotDto> {
+    /**
+     * Passo di gioco: nessun parametro = start, solo sceneId = resume, sceneId + choiceId = scelta.
+     * `silent: true`: lo StoryPlayerFacade ha la propria UI d'errore (signal `error` + redirect
+     * a /error/404 sullo story-not-found), quindi niente notifica automatica dall'interceptor.
+     */
+    playStory(slug: string, sceneId?: string, choiceId?: string, stats?: Record<string, number>): Promise<StorySnapshotDto> {
         return this.api_post<StorySnapshotDto>(API.storyPlay(slug), { sceneId, choiceId, stats }, { silent: true });
     }
 
@@ -140,62 +119,18 @@ export class ApiService extends BaseApiService {
         return this.api_resource<GeneratorInfo[]>(API.generators);
     }
 
-    /** Info del generatore Incel. */
-    getIncel(): Promise<GeneratorInfo> { return this.getGenerator('incel'); }
-
-    /** Info del generatore Startupparo. */
-    getStartup(): Promise<GeneratorInfo> { return this.getGenerator('startup'); }
-
-    /** Info del generatore Automobilista. */
-    getAuto(): Promise<GeneratorInfo> { return this.getGenerator('auto'); }
-
-    /** Info del generatore Anti-Vegano. */
-    getAntiveg(): Promise<GeneratorInfo> { return this.getGenerator('antiveg'); }
-
-    /** Info del generatore Politiche Locali. */
-    getLocali(): Promise<GeneratorInfo> { return this.getGenerator('locali'); }
-
-    /** Info del generatore MBEB. */
-    getMbeb(): Promise<GeneratorInfo> { return this.getGenerator('mbeb'); }
-
-    /** Info del generatore Kebabbari. */
-    getKebab(): Promise<GeneratorInfo> { return this.getGenerator('kebab'); }
-
-    /** Info del generatore Oroscopo (include la variante: i 12 segni). */
-    getOroscopo(): Promise<GeneratorInfo> { return this.getGenerator('oroscopo'); }
-
-    /** Genera un nuovo testo Incel. */
-    generateIncel(): Promise<GenerateResponse> { return this.generate('incel'); }
-
-    /** Genera un nuovo profilo Startupparo. */
-    generateStartup(): Promise<GenerateResponse> { return this.generate('startup'); }
-
-    /** Genera un nuovo testo Automobilista. */
-    generateAuto(): Promise<GenerateResponse> { return this.generate('auto'); }
-
-    /** Genera un nuovo testo Anti-Vegano. */
-    generateAntiveg(): Promise<GenerateResponse> { return this.generate('antiveg'); }
-
-    /** Genera un nuovo testo Politiche Locali. */
-    generateLocali(): Promise<GenerateResponse> { return this.generate('locali'); }
-
-    /** Genera un nuovo testo MBEB. */
-    generateMbeb(): Promise<GenerateResponse> { return this.generate('mbeb'); }
-
-    /** Genera un nuovo nome di kebabbaro/locale straniero. */
-    generateKebab(): Promise<GenerateResponse> { return this.generate('kebab'); }
-
-    /** Genera l'oroscopo per il segno scelto: passa il segno nel dizionario d'ingresso (chiave 'segno',
-     *  = la dimensione della variante), che il backend usa per fissare i dati astrologici del segno. */
-    generateOroscopo(segno: string): Promise<GenerateResponse> { return this.generate('oroscopo', { segno }); }
-
-    private getGenerator(slug: string): Promise<GeneratorInfo> {
+    /** Info del generatore (slug sconosciuto → 404 dal backend). Include la variante (es. i 12
+     *  segni dell'oroscopo) quando il generatore ne ha una. */
+    getGenerator(slug: string): Promise<GeneratorInfo> {
         return this.api_get<GeneratorInfo>(API.generator(slug));
     }
 
-    private generate(slug: string, inputs?: Record<string, string>): Promise<GenerateResponse> {
-        // Il "dizionario d'ingresso" del generatore viaggia come query param: il backend lo usa per
-        // pilotare la generazione (oggi la variante, es. `?segno=ariete`). Assente per i normali.
+    /**
+     * Genera un nuovo testo per il generatore indicato. `inputs` è il "dizionario d'ingresso"
+     * (es. `{ segno: 'ariete' }` per l'oroscopo), assente per i generatori senza variante — viaggia
+     * come query param, il backend lo usa per pilotare la generazione.
+     */
+    generate(slug: string, inputs?: Record<string, string>): Promise<GenerateResponse> {
         const entries = Object.entries(inputs ?? {});
         const qs = entries.length
             ? '?' + entries.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&')

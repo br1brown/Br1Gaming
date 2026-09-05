@@ -50,11 +50,11 @@ export class ContentResolver {
     private readonly injector = inject(EnvironmentInjector);
 
     /**
-     * `slug` è il parametro `:slug` della rotta, per pagine dettaglio parametriche (es.
-     * `/prodotti/:slug`) — assente per le altre. Arriva dal resolver del router e dal ricaricato
-     * client allo stesso modo, e passa tale e quale al `contentLoader`.
+     * `params` sono i valori di tutti i `:segmenti` della rotta corrente (es. `/prodotti/:slug`,
+     * o multi-segmento) — vuoto sulle pagine senza segmenti parametrici. Arriva dal resolver del
+     * router e dal ricaricato client allo stesso modo, e passa tale e quale al `contentLoader`.
      */
-    async loadResolved(pageType: PageType, lang?: string, slug?: string): Promise<ResolvedPage> {
+    async loadResolved(pageType: PageType, lang?: string, params: Record<string, string> = {}): Promise<ResolvedPage> {
 
         const language = lang ?? this.translate.currentLang();
 
@@ -72,7 +72,7 @@ export class ContentResolver {
             } else {
                 const loader = ContestoSito.getContentLoader(pageType);
                 if (loader) {
-                    const result = await runInInjectionContext(this.injector, () => loader({ lang: language, slug }));
+                    const result = await runInInjectionContext(this.injector, () => loader({ lang: language, params }));
                     content = result.content;
                     structuredData = result.structuredData ?? null;
                     if (result.info && info) info = { ...info, ...result.info };
@@ -81,8 +81,8 @@ export class ContentResolver {
         } catch (error) {
             // Uno slug/id inesistente (404 dal backend) risale a contentLoaderResolver (sotto),
             // che lo trasforma in un redirect verso /error/404 — un 404 vero, non una pagina vuota
-            // appesa in silenzio. Ogni altro errore resta come oggi: l'apiErrorInterceptor ha già
-            // avvisato l'utente via Swal, restituiamo null content e il router completa comunque.
+            // appesa in silenzio. Ogni altro errore: l'apiErrorInterceptor ha già avvisato l'utente
+            // via Swal, restituiamo null content e il router completa comunque.
             if (error instanceof ApiError && error.status === 404) throw error;
             content = null;
         }
@@ -105,8 +105,8 @@ export class ContentResolver {
 }
 
 /* Factory ResolveFn per core/engine/routing.ts. `lang` è passato esplicitamente in chiusura (nota
- * in routing.ts sul perché non si legge da TranslateService.currentLang() qui). Il `:slug` della
- * rotta passa sempre attraverso al `contentLoader`, se gli serve.
+ * in routing.ts sul perché non si legge da TranslateService.currentLang() qui). Tutti i `:segmenti`
+ * della rotta (come `route.paramMap`) passano attraverso al `contentLoader`, se gli servono.
  *
  * `inject()` va preso QUI, sincrono (prima di ogni await) — l'unico punto con injection context
  * garantito per un ResolveFn; per questo il redirect sul 404 usa `.catch()` sulla promise già
@@ -120,7 +120,8 @@ export const contentLoaderResolver = (pageType: PageType, lang: string): Resolve
     (route) => {
         const contentResolver = inject(ContentResolver);
         const router = inject(Router);
-        return contentResolver.loadResolved(pageType, lang, route.paramMap.get('slug') ?? undefined)
+        const params = Object.fromEntries(route.paramMap.keys.map(key => [key, route.paramMap.get(key)!]));
+        return contentResolver.loadResolved(pageType, lang, params)
             .catch(error => {
                 if (error instanceof ApiError && error.status === 404) return new RedirectCommand(router.parseUrl('/error/404'));
                 throw error;

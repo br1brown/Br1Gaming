@@ -11,7 +11,7 @@
     }
     } @else {
     @for (s of stories(); track s.slug) {
-    <a class="dilemma-card" [appPage]="s.pageType">
+    <a class="dilemma-card" [appPage]="storyPageType" [appPageParams]="{ slug: s.slug }">
         <h3 class="dilemma-title">{{ s.title }}</h3>
         @if (s.description) {
         <p class="dilemma-desc">{{ s.description }}</p>

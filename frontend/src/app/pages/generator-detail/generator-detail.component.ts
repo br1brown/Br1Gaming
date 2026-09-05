@@ -3,7 +3,7 @@ import { afterNextRender, Component, computed, inject, signal } from '@angular/c
 import { Router, RouterLink } from '@angular/router';
 import { GeneratorInfo, GenerateResponse, GeneratorPageContent } from '../../core/dto/generator.dto';
 import { ContestoSito, PageType } from '../../site';
-import { GENERATOR_SLUG_TO_PAGE_TYPE } from '../app.pages';
+import { applyPathParams } from '../../core/engine/siteBuilder';
 import { SpeechService } from '../../core/engine/services/speech.service';
 import { ImgBuilderService } from '../../core/engine/services/img-builder.service';
 import { AssetDirective } from '../../core/engine/directives/asset.directive';
@@ -147,16 +147,16 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
     }
 
     /**
-     * Dalla rotta "frase condivisa" (`/generatori/<slug>/:id`) torna al playground del generatore.
+     * Dalla rotta "frase condivisa" (`/generatori/:slug/:id`) torna al playground del generatore.
      * Naviga verso una rotta diversa (PageType diverso da quello "condiviso"): l'istanza del
      * componente NON viene riusata, quindi non generiamo qui — il playground appena montato lo fa
      * da sé al proprio `afterNextRender` (niente doppia chiamata al backend).
      */
     goToGenerator(): void {
         const slug = this.generator()?.slug;
-        const basePageType = slug ? GENERATOR_SLUG_TO_PAGE_TYPE[slug] : null;
-        const path = basePageType ? ContestoSito.getPath(basePageType) : null;
-        if (path) void this.router.navigateByUrl(path);
+        const path = slug ? ContestoSito.getPath(PageType.Generatore) : null;
+        if (!path) return;
+        void this.router.navigateByUrl(applyPathParams(path, { slug: slug! }, 'GeneratorDetailComponent.goToGenerator'));
     }
 
     // Porta in vista il risultato appena rigenerato (block: 'nearest' = non si muove se già visibile).
@@ -213,24 +213,14 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
         return gen ? `${gen.slug}.png` : 'risultato.png';
     });
 
-    // ── Dispatch per generatore (wrapper tipizzati: niente slug a mano nelle chiamate API) ──
-    //
-    // Chiave = slug del generatore (da pageContent(), non pageType()): questo componente serve sia
-    // il playground (/generatori/<slug>) sia la rotta "frase condivisa" (/generatori/<slug>/:id,
-    // PageType diverso ma stesso generatore) — lo slug è l'identità stabile tra le due.
-
+    /** Genera per il generatore corrente (slug da `pageContent()`, valido sia sul playground che
+     *  sulla rotta "frase condivisa"): `inputs` è il dizionario d'ingresso della variante — chiave
+     *  presa da `variant.key` (es. 'segno' per l'oroscopo), non hardcoded qui. */
     private fetchGeneratedText(): Promise<GenerateResponse> {
         const slug = this.generator()?.slug;
-        switch (slug) {
-            case 'incel': return this.api.generateIncel();
-            case 'startup': return this.api.generateStartup();
-            case 'auto': return this.api.generateAuto();
-            case 'antiveg': return this.api.generateAntiveg();
-            case 'locali': return this.api.generateLocali();
-            case 'kebab': return this.api.generateKebab();
-            case 'mbeb': return this.api.generateMbeb();
-            case 'oroscopo': return this.api.generateOroscopo(this.activeVariant() ?? '');
-            default: throw new Error(`Slug non è un generatore noto: ${slug}`);
-        }
+        if (!slug) throw new Error('Generatore non ancora caricato');
+        const variant = this.variant();
+        const inputs = variant ? { [variant.key]: this.activeVariant() ?? '' } : undefined;
+        return this.api.generate(slug, inputs);
     }
 }

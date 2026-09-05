@@ -63,12 +63,10 @@
         <div class="hub-reel">
             <div [innerHTML]="res.markdown | markdown"></div>
         </div>
-        @if (activePageType(); as pt) {
-        <a class="hub-more" [appPage]="pt">
+        <a class="hub-more" [appPage]="generatorPageType" [appPageParams]="{ slug: gen.slug }">
             {{ 'hubPaginaCompleta' | translate }}
             <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
         </a>
-        }
         } @else if (spinning()) {
         <div class="hub-reel placeholder-glow" aria-hidden="true">
             <span class="placeholder col-9 mb-2 d-block"></span>

@@ -35,21 +35,10 @@ export class StoryPlayerFacade {
     private playFn!: PlayFn;
     private currentSlug = '';
 
-    // ── Init nominati per storia (typo-proof: niente slug nei consumer) ──
-
-    /** Avvia (o riprende) "Siamo Maschi". */
-    initPoveriMaschi(): Promise<void> {
-        return this.initWithPlay('poveri-maschi', (s, c, st) => this.api.playPoveriMaschi(s, c, st));
-    }
-
-    /** Avvia (o riprende) "Magrogamer09". */
-    initMagrogamer09(): Promise<void> {
-        return this.initWithPlay('magrogamer09', (s, c, st) => this.api.playMagrogamer09(s, c, st));
-    }
-
-    /** Avvia (o riprende) "Sopravviveresti agli USA?". */
-    initSurviveUsa(): Promise<void> {
-        return this.initWithPlay('sopravvivi-agli-usa', (s, c, st) => this.api.playSurviveUsa(s, c, st));
+    /** Avvia (o riprende) la storia con questo slug — un solo componente/rotta per tutte le storie
+     *  (`/avventura/:slug`), niente più un init per storia. */
+    init(slug: string): Promise<void> {
+        return this.initWithPlay(slug, (s, c, st) => this.api.playStory(slug, s, c, st));
     }
 
     // ── Operazioni di gioco ───────────────────────────────────────────
