@@ -33,10 +33,8 @@ const SHELL_FLAGS_STATE_KEY = makeStateKey<ShellFlags>(SHELL_DATA_KEY);
     selector: 'app-root',
     imports: [RouterOutlet, NavbarComponent, FooterComponent, SmokeEffectComponent, BackToTopComponent, CookieBannerComponent, TranslatePipe],
     templateUrl: './app.component.html',
-    // L'altezza minima (viewport) NON è più l'utility .min-vh-100: Bootstrap la fissa a 100vh
-    // (= large viewport, barre ritratte), che su mobile spinge le viste full-bleed sotto la
-    // chrome del browser. Ora la dà base.scss su `app-root` con `min-height: 100dvh` (+ fallback
-    // 100vh), che segue l'altezza visibile dinamica. Vedi base.scss (regola `app-root`).
+    // L'altezza minima a tutto schermo è gestita nativamente su `app-root` in base.scss con
+    // `min-height: 100dvh` (altezza dinamica reale su mobile, evita i problemi del 100vh fisso).
     host: { class: 'd-flex flex-column' }
 })
 export class AppComponent {
@@ -73,15 +71,10 @@ export class AppComponent {
 
     readonly showFooter = computed(() => ContestoSito.config.showFooter && (this.shellFlags().showFooter ?? true));
 
-    // Nota: `prefers-reduced-motion` NON entra qui — sarebbe un signal client-only (matchMedia) che
-    // il server non legge, causando un mismatch di idratazione (SSR rende lo smoke, il client lo toglie).
-    // Il rispetto del reduced-motion vive dentro SmokeEffectComponent (non anima, canvas vuoto), così
-    // l'`@if` dipende solo da config/layout — identico in SSR e client.
-    //
-    // `smoke.enable` (global-settings.json) è il gate: se off, nessuna pagina mostra lo smoke.
-    // Passato quello, il flag per-pagina `showSmoke` decide: se assente eredita il comportamento
-    // storico (mostrato dove c'è pannello e non full-bleed), altrimenti vince l'override esplicito —
-    // così una pagina senza pannello (es. una home) può comunque forzare lo smoke con `showSmoke: true`.
+    // `smoke.enable` (globale) fa da gate primario.
+    // Il flag di pagina `showSmoke` vince sul default (pannello sì, full-bleed no), 
+    // permettendo eccezioni (es. forzare lo smoke su una rotta full-bleed).
+    // Nota: prefers-reduced-motion è delegata internamente allo SmokeEffectComponent per non rompere l'idratazione.
     readonly showSmoke = computed(() =>
         this.smoke.enable &&
         (this.shellFlags().showSmoke ?? (this.showPanel() && !this.fitViewport()))
@@ -97,10 +90,8 @@ export class AppComponent {
 
         inject(VersionCheckService).init();
 
-        // <details> chiusi (gruppi cookie della Cookie Policy) non stampano il contenuto: corretto a
-        // schermo, ma in stampa vogliamo vedere tutto. matchMedia('print') (più affidabile di
-        // beforeprint in Safari) riapre solo i <details> chiusi e li richiude all'uscita — quelli
-        // già aperti a mano restano aperti.
+        // Riapre temporaneamente in stampa i tag <details> chiusi (es. Cookie Policy) 
+        // per renderne visibile l'intero contenuto.
         if (isPlatformBrowser(this.platformId)) {
             let reopenedByPrint: HTMLDetailsElement[] = [];
             window.matchMedia('print').addEventListener('change', ({ matches }) => {
@@ -113,10 +104,7 @@ export class AppComponent {
                 }
             });
 
-            // Focus in una SPA: un cambio pagina non ricarica il documento, il browser non sposta né
-            // annuncia il focus (chi usa tastiera/screen reader resta sul link cliccato). Approccio
-            // duale: focus su #main-content + aria-live che annuncia il titolo (il solo focus non
-            // basta su alcune combo SR/browser). skip(1): il primo NavigationEnd è il load iniziale.
+            // Ripristina il focus su #main-content al cambio pagina (A11y), saltando il load iniziale.
             inject(Router).events.pipe(
                 filter((e): e is NavigationEnd => e instanceof NavigationEnd),
                 skip(1),

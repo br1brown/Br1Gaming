@@ -9,14 +9,13 @@ namespace Backend.Tasks;
 // fuori dalla richiesta HTTP, ciascun task nel proprio scope DI.
 
 /// <summary>
-/// Coda di lavoro in background generica: un endpoint accoda un task e torna subito (202), il task
-/// gira fuori dalla richiesta HTTP in <see cref="BackgroundTaskHostedService"/>.
+/// Coda di lavoro in background generica (<see cref="System.Threading.Channels.Channel{T}"/>).
+/// Consente di accodare un task e rispondere subito (es. 202), delegandone l'esecuzione a un HostedService.
 /// </summary>
 /// <remarks>
-/// È lo stesso pattern dell'invio email (coda <see cref="System.Threading.Channels.Channel{T}"/> + hosted service), ma generico.
-/// Evita l'anti-pattern <c>Task.Run</c> nel controller: lì lo scope DI viene distrutto a fine
-/// richiesta, le eccezioni si perdono e non c'è stop pulito allo shutdown. Il task riceve un
-/// <see cref="IServiceProvider"/> già "scopato" per risolvere i servizi scoped (store/DbContext).
+/// Il task accodato riceverà un <see cref="IServiceProvider"/> con un proprio scope DI isolato e il 
+/// <see cref="CancellationToken"/> di shutdown dell'host.
+/// Evitare l'uso diretto di <c>Task.Run</c> nei controller per scongiurare la distruzione asincrona dello scope DI.
 /// </remarks>
 public interface IBackgroundTaskQueue
 {

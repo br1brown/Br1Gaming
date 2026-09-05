@@ -74,23 +74,14 @@ export function buildPhysicalCookieKey(rawKey: CookieKey | EngineCookieKey, conf
 
 /**
  * COOKIE CONSENT SERVICE
- * Gestione centralizzata del consenso cookie — Conformità EU (ePrivacy + GDPR).
- *
- * Il principio cardine è il "Privacy by Default": le scritture sono bloccate finché l'utente non
- * esprime un consenso esplicito per la categoria relativa — ECCETTO Technical, sempre esente per
- * legge (strettamente necessaria a erogare il servizio richiesto, art. 122 Codice Privacy / art.
- * 5.3 ePrivacy): si dichiara, non si chiede (vedi isCategoryAccepted). Le altre tre categorie —
- * Analytics, Profiling, TechnicalOptional (tecnica ma NON strettamente necessaria, es. il Service
- * Worker/PWA built-in) — sono trattate in modo simmetrico: ciascuna ha il proprio switch nel
- * banner, il proprio signal di consenso, un consenso per l'intera categoria.
- *
- * isXxxNeeded è auto-calcolata dalla propria fetta di COOKIE_MAP. Aggiungere un cookie ad
- * Analytics/Profiling/TechnicalOptional fa comparire automaticamente il relativo switch nel
- * banner; un cookie Technical compare invece come riga informativa col badge "Necessari"
- * (hasTechnicalCategory), mai come switch.
- *
- * Le funzionalità built-in (service worker) sono gestite tramite
- * ENGINE_COOKIE_MAP per mantenere la COOKIE_MAP pulita per lo sviluppatore.
+ * Gestione centralizzata del consenso (ePrivacy + GDPR) con principio "Privacy by Default".
+ * 
+ * - Technical: Esente per legge. Si dichiara (banner/policy) ma non si richiede consenso.
+ * - Analytics / Profiling / TechnicalOptional: Categorie simmetriche. Ciascuna sblocca
+ *   la scrittura solo a consenso esplicito, con switch dedicato nel banner.
+ * 
+ * L'interfaccia (isXxxNeeded) si auto-calcola combinando COOKIE_MAP (progetto) 
+ * ed ENGINE_COOKIE_MAP (built-in, es. Service Worker).
  */
 @Injectable({ providedIn: 'root' })
 export class CookieConsentService {
@@ -199,7 +190,7 @@ export class CookieConsentService {
             engine[CookieConsentService.NGSW_WORKER] = ENGINE_COOKIE_MAP['ngsw-worker.js'];
         }
 
-        // ATTENZIONE: le proprietà isXxxNeeded() sono computed signals.
+        // Architettura reattiva: le proprietà isXxxNeeded() sono computed signals.
         // Durante la fase di costruttore (o init), chiamarle potrebbe restituire dati falsati o dare errore
         // se altri signal di cui dipendono non si sono stabilizzati.
         // Per questo motivo, qui ricalcoliamo la stessa logica "a mano" in modo sincrono usando i dati grezzi.
@@ -529,18 +520,18 @@ export class CookieConsentService {
     // ─── HELPER INTERNI ───────────────────────────────────────────────
 
     /** Technical è esente per legge (art. 122 Codice Privacy / art. 5.3 ePrivacy): SEMPRE
-     *  accettata, senza condizioni — non lega la risposta a `hasTechnicalCategory()` (l'avevamo
-     *  fatto, e si è rivelato un bug: quel computed guarda solo COOKIE_MAP/TechnicalOptional/
-     *  Analytics/Profiling, ma un cookie Technical built-in può entrare in `_cm` anche per una via
-     *  che `hasTechnicalCategory` non vede — es. `bearerToken`, registrato appena `loginPage` è
-     *  configurato, indipendentemente da qualunque categoria di consenso. Con la versione
-     *  "esplicita" un sito solo-login (nessuna PWA, nessun cookie di progetto) si sarebbe visto
-     *  bloccare in silenzio la scrittura del token — oggi non successo solo perché
-     *  `TokenService`/`ESSENTIAL_ENGINE_STORAGE_KEYS` bypassano comunque questo gate, un incrocio di
-     *  tre garanzie sparse che nessuno garantisce resti vero per il prossimo cookie built-in
-     *  aggiunto. Il `true` fisso non ha invarianti da mantenere: Technical è esente per
-     *  definizione, punto — non "esente quando succede che lo sia". Le altre tre categorie sono
-     *  simmetriche: un signal di consenso ciascuna. */
+     *  accettata, senza condizioni — NON legarla a `hasTechnicalCategory()`: sembra equivalente ma
+     *  non lo è, quel computed guarda solo COOKIE_MAP/TechnicalOptional/Analytics/Profiling,
+     *  mentre un cookie Technical built-in può entrare in `_cm` per una via che
+     *  `hasTechnicalCategory` non vede — es. `bearerToken`, registrato appena `loginPage` è
+     *  configurato, indipendentemente da qualunque categoria di consenso. Legandola a quel
+     *  computed, un sito solo-login (nessuna PWA, nessun cookie di progetto) si vedrebbe bloccare
+     *  in silenzio la scrittura del token: oggi lo evitano solo `TokenService`/
+     *  `ESSENTIAL_ENGINE_STORAGE_KEYS`, che bypassano comunque questo gate — un incrocio di tre
+     *  garanzie sparse che nessuno garantisce resti vero per il prossimo cookie built-in aggiunto.
+     *  Il `true` fisso non ha invarianti da mantenere: Technical è esente per definizione, punto —
+     *  non "esente quando succede che lo sia". Le altre tre categorie sono simmetriche: un signal
+     *  di consenso ciascuna. */
     private isCategoryAccepted(category: ConsentCategory): boolean {
         switch (category) {
             case ConsentCategory.Technical: return true;

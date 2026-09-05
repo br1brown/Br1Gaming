@@ -51,11 +51,8 @@ builder.Configuration.AddJsonFile(
 builder.Configuration.AddJsonFile("global-settings.json", optional: true, reloadOnChange: false);
 
 // global-settings.local.json: override coi SEGRETI (ApiKeys, Token) — gitignored.
-// In DEV locale è la sorgente di verità della API key: caricato DOPO global-settings.json,
-// il layering di ASP.NET fa lo stesso deep-merge che in prod fa scripts/lib/br1-config.sh
-// (.br1-settings.effective.json). In Docker/prod il file non esiste (i segreti sono già
-// fusi nel global-settings.json montato) → optional, nessun effetto. Stessa coppia di path
-// dev (../) e Docker (cwd) usata per global-settings.json.
+// In dev è la sorgente di verità dei segreti. In prod/Docker questo file non esiste 
+// (i segreti sono iniettati o montati direttamente sul file base).
 builder.Configuration.AddJsonFile(
     Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "global-settings.local.json")),
     optional: true, reloadOnChange: false);

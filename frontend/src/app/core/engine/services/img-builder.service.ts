@@ -250,7 +250,7 @@ export class ImgBuilderService {
      *
      * La misura della larghezza è iniettabile (`opts.measureFn`): nel browser si passa
      * `ctx.measureText` (metriche reali), sul server la tabella `FontMetrics` (Liberation/Arial);
-     * in assenza si usa la stima costante storica. Il fit VERTICALE è comunque esatto perché le
+     * in assenza si usa una stima a larghezza costante. Il fit VERTICALE è comunque esatto perché le
      * righe diventano `<tspan>`/righe esplicite: il loro numero — e quindi l'altezza — è quello qui.
      *
      * @param availableHeight Altezza che il SOLO testo può occupare (il chiamante ha già sottratto

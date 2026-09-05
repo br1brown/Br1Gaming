@@ -237,7 +237,7 @@ export function buildStructuredData(data: StructuredData, ctx: SdContext): SdRes
 /**
  * Compone uno o più `StructuredData` nel contributo al grafo della pagina.
  *
- * - Singolo item → arricchisce il nodo `WebPage` (comportamento storico).
+ * - Singolo item → arricchisce il nodo `WebPage`.
  * - Array → il **primo** item tipizzato arricchisce il `WebPage` (il "cos'è" della pagina); gli
  *   altri item tipizzati diventano **nodi standalone**; i nodi `raw` sono sempre aggiunti al grafo.
  *

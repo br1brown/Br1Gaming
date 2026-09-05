@@ -19,7 +19,7 @@ public class AppIdentityStore : FileIdentityStore
 
     /// <summary>
     /// Compone l'identità: riceve il modello da <c>data/identity.json</c> (o <c>null</c>) e lo
-    /// restituisce — oggi invariato. Fondi qui pezzi presi altrove (DB/API) prima di restituirlo.
+    /// restituisce — di base invariato. Fondi qui pezzi presi altrove (DB/API) prima di restituirlo.
     /// </summary>
     /// <example><code>
     /// identity ??= new SiteIdentity();

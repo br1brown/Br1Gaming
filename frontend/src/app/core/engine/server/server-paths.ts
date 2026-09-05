@@ -20,19 +20,9 @@ export const assetFilesDir = site.assetsDir
     : join(browserDistFolder, 'assets/files');
 
 /**
- * Percorso della cache per le immagini processate da Sharp (thumbnail CDN + preview social).
- *
- * È dato derivato ed effimero: rigenerabile su richiesta e servito SOLO dagli handler Node
- * (l'accesso diretto a /assets/files è 404 in server.ts), mai come file statico. Per questo
- * NON deve vivere sotto src/assets né nel build output: starci dentro la farebbe (a) sorvegliare
- * da `ng serve` → reload della pagina a ogni miniatura generata, (b) copiare in dist a ogni build.
- *
- * Default: cartella dedicata nella temp di sistema, isolata per progetto tramite un hash del
- * percorso asset — così più siti (questo template e i suoi figli) sullo stesso host non si
- * mischiano le immagini, mentre in container ogni istanza ha già la sua /tmp.
- *
- * Override con IMAGE_CACHE_DIR per puntarla a un volume persistente in produzione (cache calda
- * tra i restart); senza override la cache è fredda dopo un riavvio e si rigenera on-demand.
+ * Percorso cache (effimero e isolato) per le miniature Sharp.
+ * Vive in `os.tmpdir()` per evitare cicli di reload su `ng serve` o l'inclusione forzata in `dist`.
+ * Sovrascrivibile tramite `IMAGE_CACHE_DIR` per puntarla a un volume persistente in produzione.
  */
 const cacheDirOverride = process.env['IMAGE_CACHE_DIR']?.trim();
 export const cacheDir = cacheDirOverride

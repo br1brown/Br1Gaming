@@ -1,5 +1,5 @@
 {
-  "_nota": "Header di sicurezza del template: identici per ogni progetto e NON gestiti dal progetto figlio (si aggiornano col git pull). Letti sia dal backend (.NET) sia dal frontend Node SSR. Per un override eccezionale (es. estendere la CSP con un dominio CDN) modifica direttamente questo file. OVERRIDE FIGLIO (Br1Gaming): la pagina /radar usa Mapbox+GPS, quindi qui geolocation=(self), connect/img-src includono api.mapbox.com (+events.mapbox.com) e worker-src consente blob: per i web worker di mapbox-gl.",
+  "_nota": "Header di sicurezza del template: identici per ogni progetto e non gestiti dal progetto figlio (si aggiornano col git pull). Letti sia dal backend (.NET) sia dal frontend Node SSR. Per un override eccezionale (es. estendere la CSP con un dominio CDN) modifica direttamente questo file.",
   "Security": {
     "Headers": {
       "X-Frame-Options": "SAMEORIGIN",

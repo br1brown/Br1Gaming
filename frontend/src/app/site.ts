@@ -18,8 +18,8 @@ export const PageType = {
 } as const;
 export type PageType = (typeof PageType)[keyof typeof PageType];
 
-// Struttura del sito: slot globali, pagine e menu. Identita' ed estetica (nome,
-// versione, lingue, tema, smoke) NON stanno qui: vivono in global-settings.json.
+// Struttura del sito: slot globali e pagine. Identita' ed estetica (nome, versione,
+// lingue, tema, smoke) vivono in global-settings.json.
 // Riferimento completo dei campi: frontend/README.md §"Opzioni Avanzate di site.ts".
 export const ContestoSito = buildSite({
 
@@ -39,6 +39,6 @@ export const ContestoSito = buildSite({
     // Le dichiarazioni pagina vivono nel file di area (pages/app.pages.ts): qui solo lo spread.
     pages: () => [...appPagesDecl],
 
-    // Menu header/footer: NON qui — è dato, non struttura del sito, risolto a runtime.
-    // Vive in `nav.ts`, vedi `ShellNavResolver` in `core/engine/shell-nav.ts`.
+    // Menu di header/footer: dato risolto a runtime in `nav.ts`, vedi `ShellNavResolver`
+    // in `core/engine/shell-nav.ts`.
 });

@@ -4,7 +4,7 @@
 
 Benvenuto nel frontend di Br1WebEngine: un progetto Angular con sopra un livello dichiarativo, pensato per Server-Side Rendering (SSR) e Developer Experience (DX).
 
-La complessità tipica (routing frammentato, meta tag SEO sparsi, lazy loading) è stata centralizzata in un singolo Domain Specific Language (DSL).
+Il livello di complessità tipica (routing frammentato, meta tag SEO sparsi, lazy loading) è stata centralizzata in un singolo Domain Specific Language (DSL).
 
 ---
 
@@ -12,7 +12,7 @@ La complessità tipica (routing frammentato, meta tag SEO sparsi, lazy loading) 
 
 ### 1. `site.ts` + `pages/*.pages.ts`: Il DSL di Configurazione
 Perché è utile: in Angular standard aggiungere una pagina richiede configurare il routing, aggiornare i menu e gestire manualmente la SEO.
-Cosa fa l'Engine: ogni pagina si dichiara come oggetto (path, title, component, meta) in un file di area sotto `src/app/pages/*.pages.ts`, non in `site.ts`, che si limita ad assemblarle insieme a menu, slot legali, shell e tema (è comunque il primo file che apri: da lì risali a tutto il resto). Da quelle dichiarazioni l'Engine crea a runtime le rotte, nasconde/mostra la navbar in base a `layout.showNav`, e se la pagina ha `requiresAuth: true`, l'SSR viene spento forzando il client-side rendering.
+Cosa fa l'Engine: ogni pagina si dichiara come oggetto (path, title, component, meta) in un file di area sotto `src/app/pages/*.pages.ts`, non in `site.ts`, che si limita ad assemblarle insieme a `legalPages`, shell (comportamento navbar/footer/pannello) e slot login/home (è comunque il primo file che apri: da lì risali a tutto il resto). Da quelle dichiarazioni l'Engine crea a runtime le rotte, nasconde/mostra la navbar in base a `layout.showNav`, e se la pagina ha `requiresAuth: true`, l'SSR viene spento forzando il client-side rendering.
 
 ### 2. Auto-SEO Dinamica
 Basta aggiungere `description` o `ogImage` nell'oggetto pagina dentro `site.ts`. Un Resolver intercetta la navigazione e inietta prima del rendering i corretti tag Head, OpenGraph e i dati strutturati.
@@ -179,7 +179,7 @@ export const blogPagesDecl: SitePageInput[] = [
 
 I link interni puntano al `PageType`, mai al path: rinominare un path è una riga nella dichiarazione (menu, footer e link continuano a funzionare), rimuovere un ID fa segnalare a TypeScript ogni punto che ancora lo usa, e gli ID restano leggibili anche fuori dal codice: query string (`?returnPageType=…`), log, messaggi d'errore del builder.
 
-Con più lingue configurate, ogni pagina ottiene una variante-URL per lingua (lingua default non prefissata, le altre sì: vedi «Internazionalizzazione (i18n)» → «Lingua nell'URL»). Il `path` dichiarato nel file di area può essere lo stesso segmento sotto ogni prefisso (stringa, default storico) oppure un segmento diverso per lingua (`{ it: 'chi-siamo', en: 'about-us' }` → `/chi-siamo` e `/en/about-us`) — una lingua del sito senza una propria chiave ricade sul segmento della lingua di default. Link interni, sitemap/hreflang e il selettore lingua in navbar seguono da soli il `PageType`, non serve altro punto da toccare. Vedi «Developer Journey», «Opzioni Avanzate di site.ts», «Navigazione Multilivello», «Vista a tutto schermo», «Pagine legali». Ricetta rapida: [AGENTS.md](../AGENTS.md#aggiungere-una-pagina).
+Con più lingue configurate, ogni pagina ottiene una variante-URL per lingua (lingua default non prefissata, le altre sì: vedi «Internazionalizzazione (i18n)» → «Lingua nell'URL»). Il `path` dichiarato nel file di area può essere lo stesso segmento sotto ogni prefisso (stringa, il caso di default) oppure un segmento diverso per lingua (`{ it: 'chi-siamo', en: 'about-us' }` → `/chi-siamo` e `/en/about-us`) — una lingua del sito senza una propria chiave ricade sul segmento della lingua di default. Link interni, sitemap/hreflang e il selettore lingua in navbar seguono da soli il `PageType`, non serve altro punto da toccare. Vedi «Developer Journey», «Opzioni Avanzate di site.ts», «Navigazione Multilivello», «Vista a tutto schermo», «Pagine legali». Ricetta rapida: [AGENTS.md](../AGENTS.md#aggiungere-una-pagina).
 
 ### Dati a una pagina
 
@@ -362,52 +362,42 @@ Così un 404 di navigazione e un 404 di una `GET` falliscono con parole appropri
 
 ## 🔒 Consenso Cookie e Privacy (GDPR/ePrivacy)
 
-`CookieConsentService` gestisce in modo unificato cookie e Web Storage (localStorage/sessionStorage) con strategia "Privacy by Default": nessuna voce viene scritta finché l'utente non esprime consenso esplicito per quella categoria. Un'unica mappa, un'unica API (`set`/`get`/`remove`) che instrada sul mezzo giusto, un unico elenco in policy. Conforme al modello "cookie e altri strumenti di tracciamento" delle Linee guida del Garante (2021).
+`CookieConsentService` gestisce cookie e Web Storage con strategia "Privacy by Default": nessuna scrittura senza consenso esplicito, un'unica mappa, un'unica API (`set`/`get`/`remove`), un unico elenco in policy.
 
-### Quattro Categorie di Consenso
+### Categorie di Consenso
+- **Technical**: Strettamente necessari (sessione, consenso). Esenti per legge. Mostrati con badge "Necessari", niente switch.
+- **TechnicalOptional**: Tecnici ma non necessari (es. Service Worker, widget opzionali). Richiedono consenso.
+- **Analytics**: Tracciamento e statistiche. Richiedono consenso.
+- **Profiling**: Pubblicità e profilazione. Richiedono consenso.
 
-| Categoria | Cosa include | Consenso |
-| :--- | :--- | :--- |
-| **Technical** | Cookie strettamente necessari (sessione, memorie del consenso, eventuali voci di progetto in `COOKIE_MAP`) | Esente per legge — mai un vero switch |
-| **TechnicalOptional** | Tecnici ma NON strettamente necessari — Service Worker/PWA built-in, eventuali voci di progetto | Esplicito, come le due sotto |
-| **Analytics** | Tracciamento e analytics (Google Analytics, ecc.) | Esplicito |
-| **Profiling** | Pubblicità comportamentale e profilazione | Esplicito |
-
-**Technical è l'unico caso speciale**: i suoi cookie sono strettamente necessari a erogare il servizio richiesto (art. 122 Codice Privacy / art. 5.3 direttiva ePrivacy) e quindi **esenti da consenso per legge** — `isCategoryAccepted` li considera sempre accettati, non vengono mai bloccati né ripuliti alla revoca, e nel banner compaiono come riga informativa con badge "Necessari", senza switch. Le altre tre categorie — **TechnicalOptional** compresa — sono trattate in modo perfettamente simmetrico: ciascuna ha il proprio switch nel banner, il proprio signal di consenso (`_technicalOptionalAccepted`/`_analyticsAccepted`/`_profilingAccepted`), un consenso per l'intera categoria. Il **Service Worker/PWA** built-in (`isWebApp:true`) è l'unico membro di TechnicalOptional che l'Engine registra da solo — perché non è strettamente necessario (va oltre il minimo: offline/installabilità) — ma un cookie di progetto nella stessa categoria condivide lo stesso switch/bucket. `isTechnicalOptionalNeeded()` riflette solo questa categoria; `hasTechnicalCategory()` è vero anche per i cookie Technical essenziali di progetto, per `bearerToken` (registrato appena `loginPage` è configurato, indipendentemente da qualunque categoria di consenso) e per le memorie del consenso (sempre Technical) — usalo per sapere se la categoria Technical va *dichiarata* in banner/policy, a prescindere dal bisogno di un consenso vero.
-
-### Aggiungere un cookie o una voce di Web Storage
-
-Registra la voce nel `COOKIE_MAP` (in `src/app/core/services/cookie-registry.ts`): scegli la categoria giusta e la policy la elenca, il banner mostra il relativo switch (tranne per Technical) e la pulizia alla revoca la gestisce automaticamente. Un cookie strettamente necessario va in `ConsentCategory.Technical`: mai uno switch, mai bloccato o ripulito (badge "Necessari" nel banner). Un cookie tecnico ma NON strettamente necessario va invece in `ConsentCategory.TechnicalOptional`: switch vero nel banner (condiviso con l'eventuale PWA — vedi «Quattro Categorie di Consenso» sopra), bloccabile/ripulibile come Analytics/Profiling. La stessa mappa descrive cookie e Web Storage: il campo `storage` decide il mezzo (omesso = cookie; `'local'`/`'session'` = Web Storage). I tipi (`ConsentCategory`, `CookieConfig`) vivono in `src/app/core/engine/services/cookie/cookie-type.ts`:
+### Aggiungere voci in `COOKIE_MAP`
+Registra le voci in `src/app/core/services/cookie-registry.ts` per automatizzare il consenso, il banner e la policy:
 
 ```typescript
 import { ConsentCategory, type CookieConfig } from '../engine/services/cookie/cookie-type';
 
 export const COOKIE_MAP = {
     'mioTracker': {
-        category: ConsentCategory.Analytics,       // categoria di consenso
-        descriptionKey: 'mioTrackerDescrizioneListaCookie', // chiave i18n per la Cookie Policy
-        valueType: 'boolean',                       // opzionale: 'string' (default) | 'number' | 'boolean' | 'json'
-    },
-    '_ga': {                                        // cookie di TERZA PARTE
         category: ConsentCategory.Analytics,
-        provider: 'Google Analytics',               // terzo che lo imposta (omesso = prima parte)
-        providerUrl: 'https://policies.google.com/privacy', // → nome provider cliccabile alla sua policy
-        durationKey: 'gaDurataListaCookie',         // chiave i18n della durata (default: "1 anno")
+        descriptionKey: 'mioTrackerDescrizioneListaCookie', 
+        valueType: 'boolean', // 'string' | 'number' | 'boolean' | 'json'
+    },
+    '_ga': {
+        category: ConsentCategory.Analytics,
+        provider: 'Google Analytics',
+        providerUrl: 'https://policies.google.com/privacy',
+        durationKey: 'gaDurataListaCookie',
     },
     'mioSalvataggio': {
-        category: ConsentCategory.Technical,        // strettamente necessario → esente, niente switch, badge "Necessari"
-        storage: 'local',                           // → localStorage (omesso = cookie; 'session' = sessionStorage)
+        category: ConsentCategory.Technical,
+        storage: 'local', // 'local' | 'session' | omesso = cookie
         valueType: 'json',
         descriptionKey: 'mioSalvataggioDescrizioneListaCookie',
     },
-    'widgetChatOpzionale': {
-        category: ConsentCategory.TechnicalOptional, // tecnico ma NON strettamente necessario → switch vero nel banner
-        descriptionKey: 'widgetChatDescrizioneListaCookie',
-    },
-    'sdkTerzaParte.telemetria': {                   // FAMIGLIA di chiavi Web Storage con suffisso dinamico
-        category: ConsentCategory.Analytics,        //   (tipico di SDK di terza parte: es. `…:<hash-del-token>`)
+    'sdkTerzaParte.telemetria': {
+        category: ConsentCategory.Analytics,
         storage: 'local',
-        match: 'prefix',                            // → una sola voce censisce/pulisce TUTTE le chiavi che iniziano così
+        match: 'prefix', // Rimuove tutte le chiavi che iniziano così
         provider: 'Fornitore SDK',
         providerUrl: 'https://esempio.tld/privacy',
         descriptionKey: 'sdkTelemetriaDescrizioneListaCookie',
@@ -415,178 +405,45 @@ export const COOKIE_MAP = {
 } as const satisfies Readonly<Record<string, CookieConfig>>;
 ```
 
-`CookieConfig`: `category` (Technical / TechnicalOptional / Analytics / Profiling — vedi «Quattro Categorie di Consenso» sopra), `descriptionKey?` (i18n per la Cookie Policy), `valueType?` (cast automatico), `storage?` (mezzo: cookie / local / session), `match?` (strategia di match della chiave sul Web Storage: omesso/`'exact'` = chiave singola; `'prefix'` = famiglia di chiavi, vedi sotto) e, per la dichiarazione standard nella policy (allineata a Cookiebot/OneTrust), `provider?` (omesso = prima parte; valorizzato = nome del terzo), `providerUrl?` (link alla policy del terzo → il nome diventa cliccabile) e `durationKey?` (chiave i18n della durata dichiarata del cookie; default "1 anno" = Max-Age di default di `set()`; per il Web Storage la durata è derivata dal mezzo). Le stringhe localizzate (`descriptionKey`, `durationKey`) vivono negli i18n.
-
-Nel componente:
-```typescript
-this.consent.set('mioTracker', true, 60 * 60 * 24); // 1 giorno — tipo inferito da valueType
-this.consent.set('mioSalvataggio', { livello: 3 }); // → localStorage, serializzato in JSON
-```
-
-La voce è scritta solo se la categoria è accettata. Per i cookie il nome fisico è prefissato con la categoria (`{category}_{rawKey}`, es. `analytics_mioTracker`, via `buildPhysicalCookieKey()`); per il Web Storage la chiave è raw (`mioSalvataggio`).
-
-Censire una famiglia di chiavi (`match: 'prefix'`): alcuni SDK di terza parte scrivono nel Web Storage più chiavi con un suffisso dinamico, tipicamente derivato dal token o da un identificativo di sessione (es. `sdkTerzaParte.telemetria:<hash>`, `sdkTerzaParte.telemetria.uuid:<hash>`). Non potendo censirle una a una (il suffisso non è noto a priori), una singola voce con `match: 'prefix'` le rappresenta tutte: la chiave della voce diventa un prefisso, e alla revoca del consenso vengono rimosse tutte le chiavi dello Storage che iniziano così. La voce compare in policy come una riga normale (nome = il prefisso). Attenzione: una voce `prefix` è solo lettura dal lato consenso, `set()` su di essa è un no-op (le chiavi reali le crea l'SDK, non tu); esiste per elencarle in policy e pulirle alla revoca. Vale solo per il Web Storage (`storage: 'local' | 'session'`). Il consenso a monte lo gestisci tu: carica l'SDK di terza parte solo dopo che la sua categoria è accettata (`consent.analyticsAccepted()` ecc.), così senza consenso quelle chiavi non vengono nemmeno scritte (Privacy by Default).
-
-> Chiavi essenziali protette: la pulizia per prefisso non tocca mai le chiavi essenziali del motore (`consent_log`, `bearerToken`), sono la prova del consenso e la sessione, il progetto non le conosce e un prefisso troppo largo (es. `consent`) le prenderebbe in pieno: l'Engine le salta sempre. Caveat sul tuo lato: il prefisso è "cieco", cattura qualunque chiave che inizi così, comprese altre tue voci esatte che gli finiscono sotto (es. prefisso `dati` + voce `dati.salvati`). Scegli un prefisso abbastanza specifico da non collidere con le tue altre chiavi.
-
-### Stato del Consenso e Azioni (reattivo)
-
-`CookieConsentService` (iniettabile ovunque) espone lo stato del consenso come signal di sola lettura e le azioni che lo modificano. Tutto è reattivo: un `computed` che legge un signal di consenso si riaggiorna da solo quando l'utente accetta o rifiuta dal banner.
-
+**Uso nei componenti (tipizzato e reattivo):**
 ```typescript
 private readonly consent = inject(CookieConsentService);
 
-// Stato per categoria (Signal<boolean>)
+// Scrittura/Lettura/Rimozione
+this.consent.set('mioTracker', true, 60 * 60 * 24); // Scrive solo se categoria accettata
+const v = this.consent.get('mioTracker');           // Tipizzato (boolean | null)
+this.consent.remove('mioTracker');                  // Sempre permesso
+
+// Gating basato su Signal
+effect(() => {
+    if (this.consent.analyticsAccepted()) {
+        this.loadAnalytics();
+    }
+});
+
+// Stato Consenso e Azioni
 this.consent.technicalOptionalAccepted();
-this.consent.analyticsAccepted();
-this.consent.profilingAccepted();
-
-this.consent.responded();   // Signal<boolean> — true se l'utente ha già scelto (ora o in passato)
-this.consent.isNeeded();    // Signal<boolean> — true se almeno una categoria richiede consenso (false in SSR)
-
-// Azioni — modificano lo stato e persistono la scelta
-this.consent.accept();                                  // accetta tutte le categorie attive
-this.consent.reject();                                  // rifiuta tutto
-this.consent.saveSelected(technicalOptional, analytics, profiling); // selezione granulare dai toggle
-this.consent.reopen();                                  // riapre il banner per modificare le preferenze
+this.consent.responded();
+this.consent.accept();
+this.consent.reject();
 ```
 
-Gating di una feature sul consenso: per attivare qualcosa solo dopo il consenso della sua categoria (il caso tipico è caricare gli analytics), fai dipendere la logica dal signal corrispondente, così reagisce sia all'accettazione immediata sia a una scelta già salvata:
-
-```typescript
-constructor() {
-    effect(() => {
-        if (this.consent.analyticsAccepted()) {
-            this.loadAnalytics(); // gira solo quando l'utente ha acconsentito agli analytics
-        }
-    });
-}
-```
+> ⚠️ **Niente storage diretto:** Regola ESLint `no-restricted-globals` blocca `localStorage`/`sessionStorage` fuori dal servizio. Tutto passa dal gate del consenso.
 
 ### Global Privacy Control (GPC)
+- Rilevato da `navigator.globalPrivacyControl`.
+- Se presente, Analytics e Profiling sono rifiutati automaticamente (l'utente può sovrascrivere).
+- Banner mostra badge di conferma.
 
-`consent.gpcSignaled` (`boolean`, non un signal: non può cambiare durante la sessione) è `true` quando il browser, o un'estensione, manda l'header/proprietà `navigator.globalPrivacyControl`, l'opt-out universale riconosciuto come Universal Opt-Out Mechanism e obbligatorio da onorare in California/Colorado/Connecticut (e altri stati USA) dal 2026.
+### Dichiarazione Cookie in Policy
+I placeholder Markdown `{{cookieList}}` e `{{cookieCategories}}` generano l'informativa tabellare per categorie, unendo i cookie dell'Engine e quelli di `COOKIE_MAP`.
 
-Onorato automaticamente al bootstrap del servizio, solo per Analytics/Profiling (GPC riguarda "vendita/condivisione" dei dati, mai i cookie strettamente necessari): se l'utente non ha ancora risposto esplicitamente per quella categoria, viene registrato un rifiuto, non solo applicato in-memory ai signal, altrimenti il banner riproporrebbe la stessa domanda ad ogni visita nonostante il browser stia già rispondendo "no" per conto dell'utente. Una scelta manuale successiva dal banner prevale sempre e sovrascrive quella automatica.
-
-Il banner mostra una conferma visibile (`gpcRilevatoBannerCookie` in `basic.{lang}.json`) quando il segnale è stato onorato, così com'è richiesto dalle normative che lo trattano: non basta rispettarlo, va anche mostrato che è stato rispettato.
-
-```typescript
-this.consent.gpcSignaled; // → boolean, letto una volta all'avvio del servizio
-```
-
-### Accessori tipizzati — `set` / `get` / `remove`
-
-`set` / `get` / `remove` sono tipizzati sulla chiave e instradano da soli sul mezzo giusto (cookie o Web Storage, secondo `storage`). Il tipo del valore (`boolean` / `number` / `json` / `string`) è inferito da `valueType` tramite `InferCookieType`, quindi niente cast a mano. La scrittura resta gated dal consenso (e bloccata per chiavi non censite) ed è robusta a valori non serializzabili (li salta senza crashare); le letture no, sono privacy-safe.
-
-```typescript
-this.consent.set('mioTracker', true, 60 * 60 * 24); // boolean (da valueType); Max-Age vale solo per i cookie
-const v = this.consent.get('mioTracker');            // → boolean | null, già castato
-this.consent.remove('mioTracker');                   // sempre permesso, anche a consenso revocato
-```
-
-> ⚠️ Niente storage diretto. Una regola ESLint (`no-restricted-globals`) vieta `localStorage`/`sessionStorage` grezzi fuori da `CookieConsentService` e `TokenService` (infra auth). Così ogni persistenza passa dal gate del consenso ed è garantita nell'inventario della policy: privacy by default per costruzione, non per memoria. In SSR il Web Storage non è leggibile: `get` torna `null` lato server (non usarlo per contenuto renderizzato SSR, per quello servono i cookie, leggibili dall'header `Cookie`).
-
-### Service Worker e Consenso TechnicalOptional
-
-Il Service Worker è registrato solo dopo che l'utente accetta il consenso TechnicalOptional. Questo include:
-- Registrazione `provideServiceWorker()` all'avvio
-- `VersionCheckService` inizia il polling degli aggiornamenti
-
-### Dichiarazione Cookie GDPR nella Cookie Policy
-
-La pagina Cookie Policy deve elencare categorie e cookie usati dal sito (richiesto dal GDPR per ogni cookie non tecnico). L'elenco si inserisce nel Markdown della policy tramite due placeholder, espansi automaticamente dal `PolicyComponent`:
-
-| Placeholder | Cosa rende |
-| :--- | :--- |
-| `{{cookieList}}` | **Elenco riepilogo-first**: le voci (cookie **e** Web Storage) raggruppate per categoria in pannelli collassabili (`<details>` nativo), **chiusi di default** — così regge anche con centinaia di voci. Header del gruppo con nome, conteggio e descrizione della categoria; per ogni voce: nome fisico, mezzo, descrizione, **provider** (cliccabile se ha `providerUrl`) e **durata**. |
-| `{{cookieCategories}}` | Card delle categorie presenti (Technical / TechnicalOptional / Analytics / Profiling). *Ridondante col nuovo `{{cookieList}}`, che ne fonde già le descrizioni negli header: il markdown demo non lo usa più, ma il token resta supportato per chi lo vuole.* |
-
-Extra automatici, solo sulla Cookie Policy (identificata per `PageType`): oltre ai placeholder, il `PolicyComponent` aggiunge da sé la riga «Ultimo aggiornamento» (data per pagina legale dal dizionario `legalUpdated` in `pages/legal.pages.ts`, `Date` hardcoded, resa con `<time>` semantico e formattata per lingua via `Intl`), la sezione «Come controllare i cookie» (guide dei browser localizzate per lingua) e un pannello di gestione del consenso in pagina (il cookie-banner in `panelMode`: stessi toggle/pulsanti, in-flusso, mostrato dopo che si è risposto).
-
-I dati provengono direttamente da `CookieConsentService`: il `PolicyComponent` legge i signal reattivi e costruisce le liste localizzate.
-
-```typescript
-private readonly cookieConsent = inject(CookieConsentService);
-
-// Categorie attive — solo quelle realmente richieste dal sito
-this.cookieConsent.isTechnicalOptionalNeeded();  // include SW (isWebApp)
-this.cookieConsent.isAnalyticsNeeded();
-this.cookieConsent.isProfilingNeeded();
-this.cookieConsent.hasTechnicalCategory();       // Technical (esente) va dichiarata a prescindere dal consenso
-
-// Voci "engine" attive (ngsw-worker.js, consenso, consent_log, bearerToken) — filtrate per configurazione
-this.cookieConsent.activeEngine(); // → Record<string, CookieConfig>
-
-// Nome fisico del cookie nel browser (es. 'technicaloptional_consent_technical_optional')
-buildPhysicalCookieKey(rawKey, config);
-```
-
-La lista finale è l'unione di `activeEngine()` (voci built-in: Service Worker se `isWebApp`, memorie del consenso, più `consent_log` e `bearerToken` su Web Storage) e `COOKIE_MAP` (voci del progetto). Per ogni voce il `PolicyComponent` mostra mezzo (Cookie / Archiviazione locale / di sessione), provider (con link se `providerUrl` è dichiarato; assente = «Prima parte») e durata. Le descrizioni usano le `descriptionKey`, le durate le `durationKey`; le etichette di categoria e mezzo le chiavi i18n in `basic.{lang}.json`.
-
-### Google Consent Mode v2 — obbligatorio se usi GA4/Google Ads, ricetta pronta (non attiva finché non serve)
-
-L'Engine resta provider-agnostico: `COOKIE_MAP` nasce vuoto e nessun tag Google è caricato finché non lo aggiungi tu. Ma se il progetto usa (o userà) GA4/Google Ads, dal 28 marzo 2024 Google richiede il Consent Mode v2, senza il quale i tag degradano o smettono di funzionare in UE. Non è nell'Engine perché è specifico di un vendor terzo (romperebbe la neutralità e obbligherebbe ogni sito a portarsi dietro codice morto); è però già cablato tutto il necessario lato consenso: questa è la ricetta da applicare il giorno in cui attivi Google, quattro punti, tutti nel Dominio:
-
-1. `src/index.html`: stub di default, PRIMA di qualsiasi script `gtag.js`/GTM. Consenso negato finché l'utente non risponde (obbligatorio: deve caricare prima del tag stesso):
-```html
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('consent', 'default', {
-    'ad_storage': 'denied',
-    'ad_user_data': 'denied',
-    'ad_personalization': 'denied',
-    'analytics_storage': 'denied',
-    'wait_for_update': 500
-  });
-</script>
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXX"></script>
-<script>
-  gtag('js', new Date());
-  gtag('config', 'G-XXXXXXX');
-</script>
-```
-Aggiungilo a mano solo quando attivi davvero GA/Ads: prima di allora è codice morto che non ha ragione di stare nel seed di ogni sito.
-
-2. `security-headers.json`: whitelisting CSP. La CSP di default è `script-src 'self'` / `connect-src 'self'`: senza estenderla, il browser blocca `gtag.js` in silenzio. Usa l'override eccezionale già documentato nella `_nota` del file:
-```
-script-src 'self' {SCRIPT_NONCE_PLACEHOLDER} https://www.googletagmanager.com;
-connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com
-```
-
-3. `cookie-registry.ts`: censisci i cookie di Google. Stesso pattern già mostrato sopra per `_ga` (`provider: 'Google Analytics'`, `providerUrl`, `durationKey`): categoria `Analytics` per GA4, `Profiling` per Google Ads/remarketing.
-
-4. Un servizio di progetto che aggiorna il consenso reattivamente. Stesso pattern di gating già documentato (`effect()` su un signal di `CookieConsentService`), qui rivolto a `gtag('consent', 'update', …)` invece che al caricamento di uno script:
-```typescript
-// core/services/analytics.service.ts — iniettato una volta da app.component.ts (la shell)
-declare const gtag: (...args: unknown[]) => void;
-
-@Injectable({ providedIn: 'root' })
-export class AnalyticsService {
-    private readonly consent = inject(CookieConsentService);
-
-    constructor() {
-        effect(() => {
-            if (typeof gtag !== 'function') return;
-            gtag('consent', 'update', {
-                analytics_storage: this.consent.analyticsAccepted() ? 'granted' : 'denied',
-                ad_storage: this.consent.profilingAccepted() ? 'granted' : 'denied',
-                ad_user_data: this.consent.profilingAccepted() ? 'granted' : 'denied',
-                ad_personalization: this.consent.profilingAccepted() ? 'granted' : 'denied',
-            });
-        });
-    }
-}
-```
-Mappatura sulle categorie di questo Engine: `analytics_storage` ← `analyticsAccepted()`; `ad_storage`/`ad_user_data`/`ad_personalization` (pubblicità comportamentale) ← `profilingAccepted()`, non `analyticsAccepted()`: sono due consensi giuridicamente distinti anche per Google.
-
-### Altri due obblighi da tenere presenti (fuori scope Engine oggi)
-
-Nessuno dei due è una feature del template (nessun chatbot, nessuna generazione IA, nessuna newsletter integrata), ma diventano rilevanti nel momento in cui un progetto figlio li aggiunge:
-
-- **AI Act, trasparenza (dal 2 agosto 2026).** Se il progetto aggiunge un chatbot: avviso esplicito e immediatamente percepibile al primo messaggio ("Stai parlando con un sistema di IA"), non un testo nascosto in fondo alla pagina. Se pubblica contenuti (testo/immagini/video) generati da IA senza revisione editoriale umana: etichettatura visibile. Riguarda anche le PMI, non solo i grandi provider. L'Engine non ha nulla da gestire finché non esiste il chatbot/i contenuti, ma la scadenza è vicina: pianificalo per tempo.
-- **Newsletter/marketing (consenso separato dal consenso cookie).** Se il progetto aggiunge un form di iscrizione: l'autorizzazione a scrivere all'indirizzo email non è una categoria di `ConsentCategory`: quel sistema gestisce storage/tracciamento lato browser (Technical/Analytics/Profiling), non il permesso di inviare comunicazioni. Serve una checkbox dedicata, non pre-spuntata, e (se il progetto fa anche profilazione sugli iscritti) una seconda checkbox separata per quello: consensi granulari e specifici, non raggruppati in uno solo.
+### Google Consent Mode v2
+Se usi GA4 o Ads:
+1. **`src/index.html`**: Aggiungi stub predefinito (`denied`) prima di GTM/gtag.
+2. **`security-headers.json`**: Autorizza gli script Google.
+3. **`cookie-registry.ts`**: Censisci `_ga` e soci.
+4. **`analytics.service.ts`**: Crea un servizio che usa `effect()` per chiamare `gtag('consent', 'update', ...)` in base ai signal di `CookieConsentService`.
 
 ---
 
@@ -1491,7 +1348,7 @@ Oltre a `path`, `title` e `description`, ogni dichiarazione di pagina (nei file 
 }
 ```
 
-A livello top di `site.ts` (oltre a `pages`) dichiari struttura e comportamento del sito. Ogni campo ha un default: dichiari solo quelli che vuoi cambiare. Il menu di header/footer NON è qui — vive in `nav.ts`, vedi «Navigazione Multilivello» più sotto.
+A livello top di `site.ts` (oltre a `pages`) dichiari struttura e comportamento del sito. Ogni campo ha un default: dichiari solo quelli che vuoi cambiare. Il menu di header/footer è dato risolto a runtime in `nav.ts`, vedi «Navigazione Multilivello» più sotto.
 ```typescript
 // site.ts
 homePage: PageType.Home,           // pagina del brand/logo nel navbar (se omessa, il brand non è un link)
@@ -1515,7 +1372,7 @@ onlyPlainImage: false,             // anteprime social con sola immagine, senza 
 legalPages: [ /* … */ ],           // pagine legali → vedi sotto
 ```
 
-> `description` (mappa per-lingua `{ it, en, … }`), `colorTema` e l'effetto `smoke` non stanno qui: sono estetica e vivono in `global-settings.json → site`.
+> `description` (mappa per-lingua `{ it, en, … }`), `colorTema` e l'effetto `smoke` sono estetica e vivono in `global-settings.json → site`.
 
 I profili social del brand e la natura dell'entità sono dati d'identità: vivono in `backend/data/identity.json` (campi `social` e `personal`), serviti dall'Engine su `GET /identity` e letti dalla risorsa condivisa `IdentityService`. `social` è una lista di URL: l'Engine li emette come `sameAs` dell'entità brand nel JSON-LD, il segnale che Google usa per il Knowledge Panel, e l'icona nel footer è dedotta dall'URL (quindi più profili dello stesso social convivono). Lista vuota o identità assente → nessun `sameAs`. Se tra i profili c'è un URL Twitter/X, l'handle alimenta anche il meta `twitter:site`. (Esempio in [AGENTS.md](../AGENTS.md).)
 
@@ -1572,7 +1429,7 @@ pages: (ctx) => [
 
 ### Navigazione Multilivello (Navbar e Footer)
 
-Il menu di header/footer NON vive in `site.ts`: `ContestoSito`/`buildSite()` sono build-time (Angular vuole `routes` statico al bootstrap), mentre quali destinazioni mostrare, in che ordine, con che etichetta, è un **dato**, risolvibile a runtime — anche da un'API, anche diverso per utente loggato. Vive in `frontend/src/app/nav.ts`, un `ShellNavResolver` (tipo esportato da `core/engine/shell-nav.ts`) fornito a `SHELL_NAV_RESOLVER` in `app.config.ts`. `ShellNavService` (Engine) lo risolve una volta sola — condiviso da navbar e footer, non un fetch a testa — prima che qualunque componente si costruisca, e lo ri-risolve ad ogni cambio lingua.
+Il menu di header/footer vive in `frontend/src/app/nav.ts`, un `ShellNavResolver` (tipo esportato da `core/engine/shell-nav.ts`) fornito a `SHELL_NAV_RESOLVER` in `app.config.ts`: quali destinazioni mostrare, in che ordine, con che etichetta, è un **dato**, risolvibile a runtime — anche da un'API, anche diverso per utente loggato — mentre `ContestoSito`/`buildSite()` (`site.ts`) sono build-time (Angular vuole `routes` statico al bootstrap). `ShellNavService` (Engine) lo risolve una volta sola — condiviso da navbar e footer, non un fetch a testa — prima che qualunque componente si costruisca, e lo ri-risolve ad ogni cambio lingua.
 
 `header`/`footer` sono **callback** che ricevono un builder, non array — sincrone (`void`) per una dichiarazione statica, o `async` se dipendono da un'API (stesso builder in entrambi i casi, cambia solo se la callback aspetta qualcosa prima di chiamarlo). Il builder espone tre azioni: `addPage(PageType, { label? })` (voce singola, con etichetta custom opzionale al posto del titolo della pagina), `addLink('chiaveLabel', 'https://…')` (URL esterno — per una pagina interna usa sempre `addPage`), `addGroup('chiaveLabel', b => …)` (gruppo/dropdown), e i gruppi sono annidabili (dentro un `addGroup` ne richiami un altro):
 
@@ -1645,7 +1502,7 @@ cookiePolicy: PageType.CookiePolicy,
 ```
 - **Voce assente** → quella pagina non viene creata (es. una vetrina con i soli cookie: ometti privacy/termini/note legali/accessibilità, tieni solo la voce cookie).
 - **Cookie obbligatoria**: se il sito usa cookie (PWA o cookie di progetto) `cookiePolicy` dev'essere valorizzato con il `PageType` di una voce presente in `legalPages`, altrimenti il build si ferma con un errore esplicito. Se invece la tieni comunque presente pur senza cookie attivi al momento (`hasCookiesConfigured()` falso — niente PWA, niente voci in `COOKIE_MAP`), la pagina resta costruita e raggiungibile via URL diretto, ma l'Engine la toglie da sé dalla fascia legale del footer (`siteBuilder.ts`); va replicata la stessa condizione nel proprio `headerNav` se ce l'hai anche lì (vedi `site.ts`).
-- **Rimuovere una pagina**: basta togliere la voce da `legalPages` — "voce assente" sopra vale anche in cancellazione, nessun'altra modifica richiesta. Eccezione: se rimuovi proprio la pagina puntata da `cookiePolicy` senza aggiornare/svuotare anche quel campo, il build si ferma con un errore esplicito (`validatePageRefs` verifica che `cookiePolicy` risolva sempre a una pagina realmente registrata, come già faceva per `loginPage`/`homePage`) — l'unico dei 5 slot per cui una rimozione a metà non passa in silenzio.
+- **Rimuovere una pagina**: basta togliere la voce da `legalPages` — "voce assente" sopra vale anche in cancellazione, nessun'altra modifica richiesta. Eccezione: se rimuovi proprio la pagina puntata da `cookiePolicy` senza aggiornare/svuotare anche quel campo, il build si ferma con un errore esplicito (`validatePageRefs` verifica che `cookiePolicy` risolva sempre a una pagina realmente registrata, come già faceva per `loginPage`/`homePage`) — l'unica delle 5 standard per cui una rimozione a metà non passa in silenzio.
 - **Contenuto**: Markdown localizzati in `src/assets/legal/` (slug `privacy`, `cookie`, `TOS`, `legal`, `accessibility` per le 5 standard → `<slug>.<lang>.md`); il `PolicyComponent` interpola i placeholder dell'identità del sito (`{{ragioneSociale}}`, `{{partitaIva}}`, …) e `{{companyProfile}}` (blocco identità completo, come in `legal.<lang>.md`).
 - **Dichiarazione di Accessibilità**: voce facoltativa come le altre (tranne quella puntata da `cookiePolicy`), nessun errore di build se la ometti. Rilevante dal 28 giugno 2025 per i siti nello scope dell'European Accessibility Act (e-commerce, o fatturato >2M€/≥10 dipendenti, microimprese escluse). Attenzione: il regime esatto dipende da chi eroga il sito, Pubblica Amministrazione (Legge 4/2004, dichiarazione + obiettivi annuali via piattaforma AGID) e soggetti privati (D.Lgs. 82/2022, "informazioni sull'accessibilità" ex Allegato IV, senza obiettivi annuali) non sono lo stesso adempimento: il Markdown demo è un template generico di trasparenza (stato di conformità, limiti noti, canale di segnalazione), non un modulo ufficiale né un testo legale pronto all'uso, verifica con un consulente legale quale regime si applica al progetto.
 
@@ -1719,7 +1576,7 @@ const trackingId = custom['Analytics']?.['TrackingId'] as string | undefined;
 
 ### Token `SITE_CONFIG`: la Config Risolta del Sito
 
-Mentre `Custom` è uno spazio libero per il progetto, `SITE_CONFIG` è il token DI che espone la `SiteConfig` finale normalizzata dall'Engine (provider in `app.config.ts`, valore `ContestoSito.config`). `inject(SITE_CONFIG)` restituisce la configurazione già risolta (default applicati, slot legali completi, riferimenti sanitizzati) senza ri-derivarla:
+Mentre `Custom` è uno spazio libero per il progetto, `SITE_CONFIG` è il token DI che espone la `SiteConfig` finale normalizzata dall'Engine (provider in `app.config.ts`, valore `ContestoSito.config`). `inject(SITE_CONFIG)` restituisce la configurazione già risolta (default applicati, `legalPages` completo, riferimenti sanitizzati) senza ri-derivarla:
 
 ```typescript
 import { SITE_CONFIG } from './core/engine/siteBuilder';
@@ -1728,7 +1585,7 @@ const site = inject(SITE_CONFIG);
 site.appName;     // nome applicativo
 site.version;     // versione canonica
 site.colorTema;   // colore brand di default (usato anche da ThemeService, vedi sopra)
-site.legalPages;  // slot legali risolti (PageType o null per ciascuno)
+site.legalPages;  // LegalPageSpec[] risolte (array, una voce per pagina legale configurata)
 site.homePage;    // PageType del brand (o null)
 site.loginPage;   // PageType di redirect non-auth (o null)
 
@@ -2120,7 +1977,7 @@ Nel template chiami `onClick()` sul bottone, leggi `displayLabel()` per il testo
 
 ## 🏗️ Script di Build: `generate-statics.ts`
 
-Lo script sincronizza i file statici e inietta nel frontend (via `src/environments/environment.ts`) identità ed estetica del progetto: `project.name`/`project.version`, i codici lingua (`Localization`) e la sezione `site` (descrizione, tema, smoke) da `global-settings.json`. I codici lingua qui sono il seed di build (shell, fallback `pickLocaleText`, routing per-lingua); la cultura runtime (nomi nativi, giorni, formattazione) la deriva il frontend via `Intl`. La struttura e il comportamento (pagine, menu, `shell`, `isWebApp`, `loginPage`, `legalPages`) restano in `site.ts`. Va eseguito ogni volta che si modifica `global-settings.json` o `site.ts` (è già nei passi `prebuild`/`prestart`; in Docker la config arriva via l'ARG `BR1_PROJECT_JSON`).
+Lo script sincronizza i file statici e inietta nel frontend (via `src/environments/environment.ts`) identità ed estetica del progetto: `project.name`/`project.version`, i codici lingua (`Localization`) e la sezione `site` (descrizione, tema, smoke) da `global-settings.json`. I codici lingua qui sono il seed di build (shell, fallback `pickLocaleText`, routing per-lingua); la cultura runtime (nomi nativi, giorni, formattazione) la deriva il frontend via `Intl`. La struttura e il comportamento (pagine, `shell`, `isWebApp`, `loginPage`, `legalPages`) restano in `site.ts`; il menu vive in `nav.ts`. Va eseguito ogni volta che si modifica `global-settings.json` o `site.ts` (è già nei passi `prebuild`/`prestart`; in Docker la config arriva via l'ARG `BR1_PROJECT_JSON`).
 
 ```bash
 npm run generate:statics
@@ -2146,7 +2003,7 @@ npm run generate:statics
 
 ### sitemap.xml: endpoint runtime, non file statico
 
-A differenza degli altri output di questa pagina, `sitemap.xml` non è un file generato al build: è un endpoint (`GET /sitemap.xml`, `server/routes/dynamic-sitemap.ts`), montato in `server.ts` prima dello static handler. Fa gli stessi calcoli che faceva lo script (via `services/sitemap-xml.ts`, condiviso) più l'espansione delle pagine con `dynamicParams` dichiarato (campo opzionale di `LeafPageInput`, in `siteBuilder.ts`: una funzione che recupera dal backend l'albero `SlugNode[]` degli slug accettati per una rotta con `:segmenti`) — non enumerabili a build time perché il catalogo arriva da un'API. Cache in-process con TTL (default 7 giorni, env var `SITEMAP_CACHE_TTL_MS` in millisecondi) — alto perché non è più il meccanismo primario di aggiornamento, solo un fallback: l'invalidazione vera arriva on-demand dal backend (`POST /internal/revalidate-sitemap`, `SitemapNotifier`, vedi backend/README.md) dopo una scrittura su un catalogo `dynamicParams`. Il consumer è quasi solo un crawler, non serve ricalcolare a ogni richiesta; richieste concorrenti durante un ricalcolo condividono la stessa promise, e se il ricalcolo fallisce ma esiste una cache scaduta si serve quella invece di un errore. `robots.txt` continua a puntare allo stesso URL (`Sitemap: <base>/sitemap.xml`), invariato.
+A differenza degli altri output di questa pagina, `sitemap.xml` non è un file generato al build: è un endpoint (`GET /sitemap.xml`, `server/routes/dynamic-sitemap.ts`), montato in `server.ts` prima dello static handler. Usa gli stessi calcoli dello script `generate-statics` (via `services/sitemap-xml.ts`, condiviso) più l'espansione delle pagine con `dynamicParams` dichiarato (campo opzionale di `LeafPageInput`, in `siteBuilder.ts`: una funzione che recupera dal backend l'albero `SlugNode[]` degli slug accettati per una rotta con `:segmenti`) — non enumerabili a build time perché il catalogo arriva da un'API. Cache in-process con TTL (default 7 giorni, env var `SITEMAP_CACHE_TTL_MS` in millisecondi): l'aggiornamento primario è la notifica on-demand dal backend (`POST /internal/revalidate-sitemap`, `SitemapNotifier`, vedi backend/README.md) dopo una scrittura su un catalogo `dynamicParams`, il TTL è solo un fallback per il caso in cui quella notifica si perda. Il consumer è quasi solo un crawler, non serve ricalcolare a ogni richiesta; richieste concorrenti durante un ricalcolo condividono la stessa promise, e se il ricalcolo fallisce ma esiste una cache scaduta si serve quella invece di un errore. `robots.txt` continua a puntare allo stesso URL (`Sitemap: <base>/sitemap.xml`), invariato.
 
 ### Icone PWA automatiche (`generate-icons.ts`)
 

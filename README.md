@@ -31,6 +31,22 @@ Br1WebEngine si prende in carico la parte noiosa di ogni progetto web (routing, 
 
 Stack: Angular 21 (standalone, zoneless), ASP.NET Core (.NET 9), Node 24 SSR, Docker. Il tutto è guidato da un singolo file di configurazione; il resto è dettaglio.
 
+## 💡 Funzionalità Integrate
+
+Senza scrivere una riga di codice infrastrutturale, dalla scatola esce già tutto questo (sì, anche le cose che di norma rimandi a "dopo"):
+
+- **Render ibrido & idratazione parziale**: SSR su Node/Express per la SEO, con `@defer (hydrate on viewport)` per idratare solo i blocchi pesanti allo scroll — nessun flash della pagina.
+- **SEO e social**: tag OpenGraph e JSON-LD per pagina (cinque tipi dichiarabili — articolo, FAQ, prodotto, evento, dato grezzo — statici da `site.ts` o presi dal contenuto), SSR granulare guidato da `site.ts`, più `sitemap.xml`, `robots.txt` e anteprime `og:image` dinamiche. Per un'attività fisica basta il sottotipo schema.org giusto (`LocalBusiness`, `Restaurant`, oltre 150 varianti): orari e indirizzo finiscono nel nodo corretto senza altro codice.
+- **Sicurezza by-design**: protezione attiva contro Stored XSS (file isolati, markdown sanificato, JSON-LD inline escapato contro il breakout dal `<script>`), rate limiting, CORS, API key, header di sicurezza (incluso HSTS subdomains), upload persistenti (Blob Store); prevenzione Host Header Injection e script di deploy fail-fast sui segreti. Errori API standardizzati in `ProblemDetails` (RFC 9457) senza leak di stack trace.
+- **Dati personali (GDPR)**: `GET`/`DELETE /me/data` già pronti e protetti da login per export e diritto all'oblio — l'Engine fornisce endpoint, autenticazione e cifratura della risposta (chiave dedicata, separata da quella JWT); il figlio implementa una sola `IPersonalDataStore` che aggrega dai propri store di dominio.
+- **Pronto all'uso**: routing, navigazione, i18n, PWA (manifest, meta-tag, robots/llms.txt generati al build), consenso cookie e pagine legali già funzionanti — si parte dritti dalla logica di dominio.
+- **Menu Multilivello**: supporto nativo a navigazione ricorsiva sia nella Navbar (con flyout desktop che evita di uscire dallo schermo e accordion su mobile) sia nel Footer. Basta annidare i gruppi in `nav.ts`.
+- **Notifiche realtime**: canale server→client via SSE (`INotificationStream` / `NotificationStreamService`) per spingere notifiche ai client connessi — targeting per broadcast/connessione/gruppo, indipendente dal login, payload che non si ferma al testo. Dettagli in [backend](backend/README.md) e [frontend](frontend/README.md).
+- **Task in background e delivery**: coda generica in-memory (`IBackgroundTaskQueue` + hosted service, scope DI per task) per il pattern "POST risponde subito `202` → lavoro lungo → notifica a fine task", con un `IDeliveryService` che di **default consegna in realtime e stop** (niente email a sorpresa se l'utente è offline) e, su richiesta con `Auto`, aggiunge il **fallback email** quando il destinatario non è connesso.
+- **Integrazioni con servizi esterni**: schema pronto sia per chiamare API di terze parti (client HTTP tipizzato, URL/chiavi in configurazione, mai hardcoded) sia per ricevere webhook in ingresso (endpoint pubblico con verifica della firma sul body grezzo, elaborazione in background). Dettagli in [backend/README.md](backend/README.md).
+- **Consenso cookie**: se il progetto usa GA4/Google Ads lato browser, la ricetta pronta per **Google Consent Mode v2** (obbligatorio in UE/UK) collega i quattro consensi già gestiti dal banner cookie senza codice morto finché non la attivi. Dettagli in [frontend/README.md](frontend/README.md) §"Google Consent Mode v2".
+- **Tema derivato, non incollato**: palette calcolata in OKLCH da un solo colore brand con contrasto WCAG garantito matematicamente, più override opzionali (secondario, sfondo, testo, info) per chi ne ha più di uno da rispettare. Un font custom nella cartella montata su Docker diventa il font di default del sito, nessuna modifica al CSS — e lo stesso file sostituisce pure il font delle immagini `og:image` generate al volo, così l'anteprima social non stona mai col sito. Dettagli in [frontend/README.md](frontend/README.md) §"Tema e Sistema di Colori".
+
 ---
 
 ## 📚 Mappa della documentazione
@@ -131,7 +147,7 @@ backend/                Web API ASP.NET Core (.NET 9)
 
 frontend/src/app/       Angular 21 (standalone, zoneless)
 ├── core/engine/        ⚙️  Engine: DSL, SSR, servizi infrastrutturali — INTOCCABILE
-├── site.ts             assembla le pagine dichiarate in pages/*.pages.ts: menu, slot legali, tema
+├── site.ts             assembla le pagine dichiarate in pages/*.pages.ts: legalPages, shell, login/home
 ├── pages/              schermate (estendono PageBaseComponent) + dichiarazioni di rotta (*.pages.ts)
 └── components/         UI riusabile ("stupida": riceve input(), emette output())
 ```
@@ -169,7 +185,7 @@ Documenti: nel figlio sparisce un file e uno soltanto, questo README, perché è
 
 Regola generale: il Dominio si tocca; l'Engine (`backend/Engine/`, `frontend/src/app/core/engine/`) resta com'è e si aggiorna da sé col merge dal template (vedi Template vivo). Mettere mano al Dominio vuol dire riusarne i file demo: li svuoti e li riempi col tuo contenuto, lasciando nomi e posizioni dove sono.
 
-Le pagine, le rotte e la navigazione si dichiarano nei file di area `frontend/src/app/pages/*.pages.ts` (uno per gruppo tematico); `site.ts` li assembla e tiene per sé menu, slot globali (login, pagine legali) e l'aspetto della shell (navbar, footer). Da quelle dichiarazioni l'Engine genera da sé rotte, voci di menu, sitemap e meta-tag SEO. L'identità e l'estetica del sito, cioè nome, versione, lingue, descrizione, colore del tema ed effetto smoke, non abitano qui: stanno in `global-settings.json` e vengono iniettate al build. Il componente di una pagina sta in `frontend/src/app/pages/<nome>/` (estende `PageBaseComponent`); i pezzi di UI riusabili stanno in `frontend/src/app/components/`. Ogni opzione, voce per voce, è in [frontend/README.md](frontend/README.md).
+Le pagine, le rotte e la navigazione si dichiarano nei file di area `frontend/src/app/pages/*.pages.ts` (uno per gruppo tematico); `site.ts` li assembla e tiene per sé slot globali (login, pagine legali) e l'aspetto della shell (navbar, footer); il menu vive in `nav.ts`. Da quelle dichiarazioni l'Engine genera da sé rotte, voci di menu, sitemap e meta-tag SEO. Identità ed estetica del sito — nome, versione, lingue, descrizione, colore del tema ed effetto smoke — vivono in `global-settings.json` e vengono iniettate al build. Il componente di una pagina sta in `frontend/src/app/pages/<nome>/` (estende `PageBaseComponent`); i pezzi di UI riusabili stanno in `frontend/src/app/components/`. Ogni opzione, voce per voce, è in [frontend/README.md](frontend/README.md).
 
 I contenuti e i testi legali (privacy, cookie, termini) sono Markdown in `frontend/src/assets/legal/`; le traduzioni del progetto stanno in `frontend/src/assets/i18n/addon.*.json`; l'identità del sito, cioè dati legali, social del brand e tipo entità, sta in `backend/data/identity.json` (servita dall'Engine su `GET /identity`).
 
@@ -199,23 +215,6 @@ Il Node SSR del frontend gestisce, oltre alle pagine Angular, anche alcune route
 | `/.well-known/security.txt` | Contatto di sicurezza RFC 9116 (generato al build da `generate-statics.ts`) |
 
 > Il Node SSR applica anche, in automatico, la compressione gzip sulle risposte testuali (escluso lo stream di notifiche SSE, che resta non compresso così gli eventi arrivano subito al browser invece di restare nel buffer) e un graceful shutdown su SIGTERM/SIGINT che drena le connessioni prima di uscire. I file statici SEO (`robots.txt`, `llms.txt`, `security.txt`) sono generati al build; `sitemap.xml` invece è un endpoint (`GET /sitemap.xml`), generato a richiesta — include anche le pagine parametriche con `dynamicParams`, non enumerabili al build.
-
----
-
-## 💡 Funzionalità Integrate
-
-Senza scrivere una riga di codice infrastrutturale, dalla scatola esce già tutto questo (sì, anche le cose che di norma rimandi a "dopo"):
-
-- **SEO e social**: tag OpenGraph e JSON-LD per pagina (cinque tipi dichiarabili — articolo, FAQ, prodotto, evento, dato grezzo — statici da `site.ts` o presi dal contenuto), SSR granulare guidato da `site.ts`, più `sitemap.xml`, `robots.txt` e anteprime `og:image` dinamiche. Per un'attività fisica basta il sottotipo schema.org giusto (`LocalBusiness`, `Restaurant`, oltre 150 varianti): orari e indirizzo finiscono nel nodo corretto senza altro codice.
-- **Sicurezza by-design**: protezione attiva contro Stored XSS (file isolati, markdown sanificato, JSON-LD inline escapato contro il breakout dal `<script>`), rate limiting, CORS, API key, header di sicurezza (incluso HSTS subdomains); prevenzione Host Header Injection e script di deploy fail-fast sui segreti. Errori API standardizzati in `ProblemDetails` (RFC 9457) senza leak di stack trace.
-- **Dati personali (GDPR)**: `GET`/`DELETE /me/data` già pronti e protetti da login per export e diritto all'oblio — l'Engine fornisce endpoint, autenticazione e cifratura della risposta (chiave dedicata, separata da quella JWT); il figlio implementa una sola `IPersonalDataStore` che aggrega dai propri store di dominio.
-- **Pronto all'uso**: routing, navigazione, i18n, PWA, consenso cookie e pagine legali già funzionanti — si parte dritti dalla logica di dominio.
-- **Menu Multilivello**: supporto nativo a navigazione ricorsiva sia nella Navbar (con flyout desktop che evita di uscire dallo schermo e accordion su mobile) sia nel Footer. Basta annidare i gruppi in `site.ts`.
-- **Notifiche realtime**: canale server→client via SSE (`INotificationStream` / `NotificationStreamService`) per spingere notifiche ai client connessi — targeting per broadcast/connessione/gruppo, indipendente dal login, payload che non si ferma al testo. Dettagli in [backend](backend/README.md) e [frontend](frontend/README.md).
-- **Task in background e delivery**: coda generica in-memory (`IBackgroundTaskQueue` + hosted service, scope DI per task) per il pattern "POST risponde subito `202` → lavoro lungo → notifica a fine task", con un `IDeliveryService` che di **default consegna in realtime e stop** (niente email a sorpresa se l'utente è offline) e, su richiesta con `Auto`, aggiunge il **fallback email** quando il destinatario non è connesso.
-- **Integrazioni con servizi esterni**: schema pronto sia per chiamare API di terze parti (client HTTP tipizzato, URL/chiavi in configurazione, mai hardcoded) sia per ricevere webhook in ingresso (endpoint pubblico con verifica della firma sul body grezzo, elaborazione in background). Dettagli in [backend/README.md](backend/README.md).
-- **Consenso cookie**: se il progetto usa GA4/Google Ads lato browser, la ricetta pronta per **Google Consent Mode v2** (obbligatorio in UE/UK) collega i quattro consensi già gestiti dal banner cookie senza codice morto finché non la attivi. Dettagli in [frontend/README.md](frontend/README.md) §"Google Consent Mode v2".
-- **Tema derivato, non incollato**: palette calcolata in OKLCH da un solo colore brand con contrasto WCAG garantito matematicamente, più override opzionali (secondario, sfondo, testo, info) per chi ne ha più di uno da rispettare. Un font custom nella cartella montata su Docker diventa il font di default del sito, nessuna modifica al CSS — e lo stesso file sostituisce pure il font delle immagini `og:image` generate al volo, così l'anteprima social non stona mai col sito. Dettagli in [frontend/README.md](frontend/README.md) §"Tema e Sistema di Colori".
 
 ---
 

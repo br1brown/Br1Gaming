@@ -112,7 +112,7 @@ export class ContentResolver {
  * garantito per un ResolveFn; per questo il redirect sul 404 usa `.catch()` sulla promise già
  * creata, non async/await (un `inject()` dopo un await fallirebbe fuori contesto).
  *
- * ATTENZIONE: un `ResolveFn` redirige SOLO con `RedirectCommand` — un `UrlTree` nudo (es.
+ * Nota sul routing: un `ResolveFn` redirige SOLO con `RedirectCommand` — un `UrlTree` nudo (es.
  * `router.parseUrl(...)`) viene trattato come DATO risolto, non come redirect (diverso da
  * `CanActivateFn`). Un `UrlTree` nudo qui produrrebbe un soft-404: la pagina resterebbe sulla
  * rotta richiesta con `content: null`, invece di redirigere davvero a `/error/404`. */

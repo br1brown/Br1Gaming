@@ -13,28 +13,14 @@ export interface ImgRenderConfig extends ImgBuildOptions {
 
 /**
  * IMG RENDER DIRECTIVE
- *
- * Trasforma un <img> nel render di un'immagine generata da ImgBuilderService:
- * la directive costruisce il canvas a partire dalla `imgRender` config e
- * ne aggiorna `src` (data URL PNG) automaticamente. Niente wrapper, niente
- * classi proprie — l'<img> e' l'immagine e accetta tutti gli attributi
- * standard (alt, class, style…).
- *
- *   <img [appImgRender]="config"
- *        (canvasChange)="canvas.set($event)"
- *        alt="Anteprima logo"
- *        class="img-fluid rounded">
- *
- * Il canvas raw viene emesso come output: il consumer lo memorizza per
- * pilotare download/condivisione, anche se la live di interesse sta in
- * un altro ramo del template.
- *
- * Su SSR e quando la generazione fallisce, l'attributo `src` viene rimosso:
- * il browser mostra il testo `alt` come fallback HTML standard.
- *
- * Selector vincolato a img[appImgRender]: errore a compile time se usata su
- * altro elemento. Un token monotono evita che build asincrone sovrapposte
- * si "sorpassino" lasciando in mostra un'immagine ormai obsoleta.
+ * 
+ * Trasforma un `<img>` nel render di un'immagine canvas da ImgBuilderService.
+ * 
+ * - Output `canvasChange`: emesso al render per download/condivisione.
+ * - SSR / Fallback: su server o errore rimuove il `src`, ripiegando sul testo `alt`.
+ * - Race-condition safe: ignora i risultati di build asincrone resi obsoleti.
+ * 
+ * Uso: `<img [appImgRender]="config" (canvasChange)="...">`
  */
 @Directive({
     selector: 'img[appImgRender]',

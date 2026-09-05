@@ -6,15 +6,9 @@
  * Il browser bundle non importa mai questo file.
  *
  * Schema:
- *  - Chiave (in ordine di precedenza): `PREVIEW_CRYPTO_SECRET` esplicito →
- *    API key server-side (`Security.ApiKeys[0]`) → `${appName}:${version}`.
- *    Il fallback sull'API key (segreto, non pubblico) rende i blob NON falsificabili
- *    anche senza configurare un secret dedicato: senza di esso un attaccante che legge
- *    appName e version (entrambi pubblici) potrebbe forgiare og:image arbitrarie sul
- *    dominio. `${appName}:${version}` resta solo come ultima rete in contesti senza API key.
- *  - Algoritmo: AES-GCM 256 con IV deterministico (primi 12 byte di SHA-256 del payload).
- *    Stesso payload → stesso blob → URL stabile e cacheable da browser/CDN.
- *  - Output: base64url di `IV ‖ ciphertext ‖ auth_tag` (senza padding `=`).
+ * - Chiave (priorità): `PREVIEW_CRYPTO_SECRET` → `Security.ApiKeys[0]` → `${appName}:${version}` (fallback pubblico, insicuro).
+ * - Algoritmo: AES-GCM 256 con IV deterministico (primi 12 byte di SHA-256 del payload) per URL stabili e cacheable.
+ * - Output: base64url di `IV ‖ ciphertext ‖ auth_tag` (senza padding).
  */
 
 import { createCipheriv, createDecipheriv, createHash } from 'node:crypto';

@@ -6,29 +6,15 @@ import { AssetService } from '../services/asset.service';
 
 /**
  * QR RENDER DIRECTIVE
- *
- * Trasforma un <img> nel render di un QR code: la directive genera il QR
- * via QrCodeService a partire dalla `qrContent` config e ne aggiorna `src`
- * automaticamente. Niente wrapper, niente classi proprie — l'<img> e' il
- * QR e accetta tutte le classi/attributi standard.
- *
- *   <img [appQrContent]="config"
- *        (blobChange)="qrBlob.set($event)"
- *        (errorChange)="qrError.set($event)"
- *        alt="QR Code WhatsApp"
- *        class="img-fluid">
- *
- * Il `blob` originale e il messaggio di errore tradotto vengono emessi
- * come output: il consumer li raccoglie in signal locali per pilotare
- * pulsanti di download/condivisione e alert di errore, anche se vivono
- * in un altro ramo del template.
- *
- * Su SSR e quando la generazione fallisce, l'attributo `src` viene rimosso:
- * il browser mostra il testo `alt` come fallback HTML standard.
- *
- * Selector vincolato a img[appQrContent]: errore a compile time se usata su
- * altro elemento. Un token monotono evita che build asincrone sovrapposte
- * si "sorpassino" lasciando in mostra un QR ormai obsoleto.
+ * 
+ * Trasforma un `<img>` nel render di un QR code, aggiornandone il `src` in automatico.
+ * 
+ * - Output `blobChange`: emesso al render, utile per bottoni di download/condivisione.
+ * - Output `errorChange`: emette l'errore localizzato se la generazione fallisce.
+ * - SSR / Fallback: su server o in caso d'errore rimuove il `src`, ripiegando sul testo `alt`.
+ * - Race-condition safe: ignora i risultati di render asincroni resi obsoleti da nuovi input.
+ * 
+ * Uso: `<img [appQrContent]="config" (blobChange)="..." (errorChange)="...">`
  */
 @Directive({
     selector: 'img[appQrContent]',

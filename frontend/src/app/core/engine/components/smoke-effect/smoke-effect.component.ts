@@ -10,30 +10,12 @@ import {
 import { SmokeSettings } from '../../../../site';
 
 /**
- * SmokeEffectComponent — Effetto decorativo a particelle di fumo.
+ * SmokeEffectComponent — Effetto decorativo a particelle di fumo su <canvas>.
  *
- * Disegna particelle semitrasparenti su un elemento <canvas> HTML5 che si muovono
- * lentamente sullo schermo, creando un effetto visivo di fumo/nebbia.
- *
- * CONFIGURAZIONE:
- *   I parametri (densita', velocita', colore, opacita', raggio) si trovano in
- *   global-settings.json, sotto la sezione "site" → "smoke", e vengono iniettati
- *   nel frontend via environment.ts (normalizzati in SmokeSettings da buildSite).
- *
- * COME DISABILITARLO:
- *   In global-settings.json, ometti "site.smoke" oppure imposta "enable: false".
- *
- * COME FUNZIONA:
- *   - Al caricamento, il canvas viene dimensionato alla finestra e vengono
- *     create N particelle in posizioni casuali (N = config.density).
- *   - Un loop di animazione (requestAnimationFrame) muove le particelle e le
- *     ridisegna con un gradiente radiale per l'effetto sfumato.
- *   - Le particelle che escono dal viewport rientrano dal lato opposto.
- *   - Al resize della finestra, il canvas si adatta automaticamente.
- *
- * CLEANUP:
- *   DestroyRef gestisce automaticamente la rimozione del listener di resize
- *   e la cancellazione dell'animazione quando il componente viene distrutto.
+ * Parametri (densità, colore, ecc.) letti da `site.smoke` in `global-settings.json`.
+ * Ometti `site.smoke` o usa `enable: false` per disattivarlo alla radice.
+ * L'animazione gira via `requestAnimationFrame` ed è automaticamente disattivata 
+ * (canvas vuoto) per gli utenti con `prefers-reduced-motion` abilitato.
  */
 @Component({
     selector: 'app-smoke-effect',
@@ -58,10 +40,9 @@ export class SmokeEffectComponent {
             const ctx = canvas.getContext('2d');
             if (!ctx) return;
 
-            // Accessibilità: chi ha `prefers-reduced-motion: reduce` non deve vedere l'animazione.
-            // La decisione vive qui (lato browser, dopo l'idratazione) e non nell'`@if` del template:
-            // così l'elemento è presente identico in SSR e client (niente mismatch di idratazione) e il
-            // canvas resta semplicemente vuoto e invisibile — nessuna particella, nessun rAF.
+            // Il check per `prefers-reduced-motion` viene fatto qui (lato client) e non con un `@if`
+            // per evitare un mismatch di idratazione con SSR. Se l'utente non vuole animazioni,
+            // il canvas rimane nel DOM ma non avvia alcun loop e resta invisibile.
             if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
 
             this.resizeCanvas(canvas);

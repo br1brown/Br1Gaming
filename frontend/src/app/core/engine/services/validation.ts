@@ -1,9 +1,8 @@
 /**
  * VALIDATION — regole di validazione e normalizzazione condivise dell'intero sito.
  *
- * Un unico posto per le regole che prima vivevano sparse (validatori inline di `QrCodeService`,
- * strip del telefono in `ContactUrl`). Le usano i builder di link (`ContactUrl`), il generatore di
- * QR (`QrCodeService`) e chiunque debba validare un input dell'utente/config.
+ * Un unico posto per le regole di validazione: le usano i builder di link (`ContactUrl`), il
+ * generatore di QR (`QrCodeService`) e chiunque debba validare un input dell'utente/config.
  *
  * **Contratto condiviso col backend:** le regole di `phone` (charset + numero singolo) rispecchiano
  * `ValidPhone` di `backend/Engine/Identity/Identity.cs`; `email`/`url` rispecchiano `MailAddress`/`Uri`

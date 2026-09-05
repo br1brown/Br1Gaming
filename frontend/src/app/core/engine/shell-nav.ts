@@ -13,8 +13,8 @@ export type NavLink = {
     /** Etichetta visibile del link. */
     label: string;
     /** Path o URL finale del link — con eventuali segmenti `:xxx` già sostituiti (vedi
-     *  `NavItemOptions.params`), MAI con una query string appesa a mano: quella vive separata in
-     *  `queryParams` (routerLink non la interpreterebbe se concatenata nella stringa). */
+     *  `NavItemOptions.params`), ma senza query string appesa: quest'ultima va definita separatamente in
+     *  `queryParams` (routerLink non la interpreterebbe se concatenata direttamente nella stringa). */
     path: string;
     /** true se il link punta a una risorsa esterna al sito (externalUrl o link diretto http/https). */
     isExternal: boolean;

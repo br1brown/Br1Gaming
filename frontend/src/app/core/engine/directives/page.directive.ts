@@ -7,28 +7,15 @@ import { TranslateService } from '../services/translate.service';
 /**
  * PAGE DIRECTIVE
  *
- * Traduce un PageType nel path corrispondente e lo passa a RouterLink,
- * eliminando il boilerplate `[routerLink]="ContestoSito.getPath(PageType.X) ?? '/'"`.
+ * Risolve un `PageType` e naviga via `RouterLink` (aggiunto come hostDirective).
+ * Selezionare sempre tramite PageType per mantenere i link aggiornati se i path cambiano.
  *
- *   <a [appPage]="PageType.Home">Home</a>
- *   <a [appPage]="PageType.PrivacyPolicy" class="footer-link">Privacy</a>
+ * - Base: `<a [appPage]="PageType.Home">Home</a>`
+ * - Path Params (es. /user/:id): `<a [appPage]="PageType.User" [appPageParams]="{ id: '1' }">`
+ * - Query Params: `<a [appPage]="PageType.Search" [appPageQueryParams]="{ q: 'test' }">`
  *
- * Un `PageType` con segmenti `:xxx` (rotta parametrica, es. un solo pageType/componente per N
- * elementi del backend) altrimenti risolverebbe al template letterale, non a un link funzionante —
- * `appPageParams` li riempie, `appPageQueryParams` aggiunge la query string (separata, mai
- * concatenata a mano nel path):
- *
- *   <a [appPage]="PageType.GeneratorDetail" [appPageParams]="{ slug: 'incel' }">Incel</a>
- *   <a [appPage]="PageType.Piaciuti" [appPageQueryParams]="{ gen: 'incel' }">Piaciuti di questo</a>
- *
- * RouterLink è applicato come hostDirective: l'elemento host si comporta
- * esattamente come con [routerLink] (SPA navigation, keyboard, right-click).
- * Se il PageType non è registrato nel sito, naviga verso '/' (con un avviso in console, solo in dev).
- *
- * `href` è bindato esplicitamente (path + query, serializzati a mano) perché RouterLink come
- * hostDirective non aggiorna il proprio @HostBinding('attr.href') quando routerLink/queryParams
- * sono impostati via effect — altrimenti href=null e cursore testo. La navigazione reale resta
- * quella di RouterLink; questo href serve solo a mostrare/copiare l'URL giusto.
+ * Nota su `href`: viene re-iniettato a mano perché `RouterLink` via `hostDirectives`
+ * non aggiorna nativamente l'attributo DOM `href` in tempo reale, necessario per il "Copia Link".
  */
 @Directive({
     selector: '[appPage]',

@@ -25,7 +25,7 @@ public class BlobController : EngineBlobController
 
     /// <summary>
     /// Restituisce il file dello <c>slug</c> (con estensione). <c>webopt</c>: chiede la versione
-    /// web-ottimizzata (oggi = resize immagini max 1920px→WebP; altri tipi invariati).
+    /// web-ottimizzata (di default = resize immagini max 1920px→WebP; altri tipi invariati).
     /// </summary>
     [HttpGet("{slug}")]
     public IActionResult Get(string slug, [FromQuery] bool webopt = false)
@@ -45,8 +45,8 @@ public class BlobController : EngineBlobController
         Response.Headers.ETag = etag;
         Response.Headers.CacheControl = "public, max-age=31536000, immutable";
 
-        // If-None-Match → 304 senza riaprire né ridecodificare nulla: è ciò che evita il resize
-        // SkiaSharp sui re-hit (prima ogni richiesta webopt ricodificava da capo).
+        // If-None-Match → 304 senza riaprire né ridecodificare nulla: evita il resize SkiaSharp
+        // su ogni re-hit.
         if (RequestMatchesETag(etag))
             return StatusCode(StatusCodes.Status304NotModified);
 

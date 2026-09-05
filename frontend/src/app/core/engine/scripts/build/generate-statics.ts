@@ -10,11 +10,6 @@
  * - public/security.txt      → contatto di sicurezza RFC 9116 (servito su /.well-known/)
  * - public/theme-init.js     → script anti-flash del tema, referenziato da index.html
  *
- * sitemap.xml NON è più generata qui: è un endpoint runtime (server/routes/dynamic-sitemap.ts),
- * gli STESSI calcoli di prima (via services/sitemap-xml.ts, condiviso) più le pagine con
- * `dynamicParams` (che a build time non sono enumerabili — il catalogo arriva da un'API), con
- * cache in-process a TTL. Vedi CHANGELOG per il perché del cambio da file statico a endpoint.
- *
  * Solo index.html ed environment.ts sono generati MA versionati (seed: type-check e build
  * passano anche prima della prima esecuzione). Tutto ciò che finisce in public/ (manifest,
  * robots, llms, security.txt, theme-init, icons) è solo output di build, gitignored
@@ -173,8 +168,8 @@ const DESCRIPTION_MAP: Record<string, string> =
 const DESCRIPTION = DESCRIPTION_MAP[DEFAULT_LANG] ?? Object.values(DESCRIPTION_MAP)[0] ?? '';
 
 // Solo identità/estetica finisce in environment.ts (description normalizzata a mappa).
-// L'identità legale/social del brand e il tipo entità NON stanno qui: sono dato runtime,
-// serviti dall'Engine (GET /identity), e alimentano da lì footer, pagine legali e JSON-LD.
+// L'identità legale/social del brand e il tipo entità sono dato runtime, serviti
+// dall'Engine (GET /identity), e alimentano da lì footer, pagine legali e JSON-LD.
 const SITE_CONFIG_OUT = {
     ...Object.fromEntries(
         Object.entries(SITE_CONFIG).filter(([k]) => SITE_AESTHETIC_KEYS.includes(k) && k !== 'description')
@@ -274,9 +269,9 @@ function updateIndexHtml(): void {
         ['name', 'app-version', APP_VERSION],
         ['property', 'og:updated_time', updatedTime],
         ['name', 'description', description],
-        // I meta apple-mobile-web-app-* NON stanno qui: sono trigger PWA e vivono nel
-        // blocco PWA condizionato da IS_WEBAPP (vedi più sotto), così spariscono quando
-        // il sito non è installabile invece di restare sempre presenti.
+        // I meta apple-mobile-web-app-* sono trigger PWA e vivono nel blocco PWA
+        // condizionato da IS_WEBAPP (vedi più sotto), così spariscono quando il sito
+        // non è installabile invece di restare sempre presenti.
         ['name', 'application-name', appName],
         ['name', 'twitter:title', appName],
         ['name', 'twitter:description', description],

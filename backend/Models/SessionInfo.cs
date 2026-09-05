@@ -3,7 +3,7 @@ namespace Backend.Models;
 /// <summary>
 /// Payload di sessione nel claim "session" del JWT (leggibile via <c>User.GetSession&lt;SessionInfo&gt;()</c>).
 /// Deve rispecchiare a mano <c>frontend/src/app/core/dto/session.dto.ts</c> (niente codegen). Solo dati
-/// NON sensibili (il JWT è leggibile dal client). Esempio del template — adatta i campi al progetto.
+/// Dati pubblici e identificativi (il JWT è leggibile dal client in chiaro). Esempio del template — adatta i campi al progetto.
 /// </summary>
 public record SessionInfo
 {

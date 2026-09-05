@@ -36,7 +36,7 @@ export interface ShellFlags {
     /** Vista full-bleed (niente pannello/container). Default (assente): off. */
     fitViewport?: boolean;
     /** Mostra l'effetto smoke su questa pagina, indipendentemente dal pannello.
-     *  Default (assente): eredita il comportamento storico (mostrato dove c'è pannello e non full-bleed);
+     *  Default (assente): mostrato dove c'è pannello e non full-bleed;
      *  `true` lo forza anche senza pannello, `false` lo spegne. Subordinato al gate globale `site.smoke.enable`. */
     showSmoke?: boolean;
 }
@@ -364,7 +364,7 @@ export type LeafPageInput = BasePageInput & {
         /**
          * Mostra o nasconde l'effetto smoke SOLO su questa pagina, in modo indipendente dal pannello.
          * Subordinato al gate globale `site.smoke.enable` (se off, nessuna pagina può accenderlo).
-         * Default (assente): eredita il comportamento storico — smoke dove c'è pannello e non è full-bleed.
+         * Default (assente): smoke dove c'è pannello e non è full-bleed.
          * `true` lo forza anche su pagine senza pannello (es. una home senza pannello); `false` lo spegne. */
         showSmoke?: boolean;
         /**

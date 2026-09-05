@@ -100,9 +100,9 @@ export class NavbarComponent {
     /** Altezza reale della navbar, esposta come custom property `--nav-height` (vedi template)
      *  e usata in due punti: lo spacer sotto la navbar fixed, e il tetto di altezza del pannello
      *  mobile aperto (`calc(100dvh - var(--nav-height))`, navbar.component.scss). 56px = 3.5rem
-     *  di default, coerente col valore fisso storico finché non viene misurata; da lì in poi
-     *  segue l'elemento vero (voci di menu che vanno a capo, zoom testo, ecc.), così né lo
-     *  spacer né il tetto restano tarati su un'altezza diversa da quella reale. */
+     *  di default (l'altezza standard della navbar Bootstrap), una stima sicura finché non viene
+     *  misurata; da lì in poi segue l'elemento vero (voci di menu che vanno a capo, zoom testo,
+     *  ecc.), così né lo spacer né il tetto restano tarati su un'altezza diversa da quella reale. */
     readonly navHeight = signal(56);
 
     // ── Overflow "Altro" (desktop) ──────────────────────────────────────────────────────

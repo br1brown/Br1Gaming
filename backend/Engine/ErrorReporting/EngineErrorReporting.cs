@@ -68,8 +68,8 @@ internal sealed class EngineErrorReporting : IErrorReportingService
         }
         catch (Exception ex)
         {
-            // Non deve MAI propagare: segnalare un errore non deve poterne generare un altro
-            // (e non deve far crashare il task in background che la sta eseguendo).
+            // Isolamento garantito: il fallimento della segnalazione di un errore viene 
+            // soppresso per evitare crash a catena nel task in background.
             _logger.LogWarning(ex, "Invio della segnalazione errore al webhook fallito.");
         }
     }

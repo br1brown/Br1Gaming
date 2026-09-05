@@ -12,23 +12,11 @@ const CHECK_INTERVAL_MS = 10 * 60 * 1000;
 /**
  * VERSION CHECK SERVICE
  *
- * Sorgente di verità per la versione corrente: `ContestoSito.config.version`
- * dichiarata in `site.ts`. Il valore viene scritto a build time da
- * `generate-statics.ts`:
- *   - meta tag `app-version` in `index.html` (baseline + sorgente del polling)
- *   - hash di NGSW (usato da SwUpdate per la PWA installata)
- *
- * Quando rileva un aggiornamento (da una delle due fonti) propone il reload
- * all'utente. Entrambe le fonti sono attive in parallelo perché coprono
- * scenari diversi:
- *   - tab senza Service Worker (sempre quando `isWebApp:false`): SwUpdate è
- *     disabilitato → polling di `index.html` e confronto del meta `app-version`
- *   - PWA / tab con SW attivo: il SW intercetta e cache-a `index.html` → il
- *     polling vede la versione cache (stabile) e a decidere è SwUpdate tramite
- *     gli hash in ngsw.json
- *
- * Il polling punta a `index.html` (non al manifest) perché è sempre presente,
- * anche con `isWebApp:false` quando il manifest non viene generato né servito.
+ * Monitora gli aggiornamenti dell'app tramite due fonti parallele:
+ * 1. SwUpdate (per PWA installate / tab con Service Worker attivo)
+ * 2. Polling del meta tag `app-version` in `index.html` (fallback o `isWebApp:false`)
+ * 
+ * Se rileva una nuova versione propone il reload all'utente.
  */
 @Injectable({ providedIn: 'root' })
 export class VersionCheckService implements OnDestroy {
@@ -57,21 +45,9 @@ export class VersionCheckService implements OnDestroy {
          */
         if (!this.isBrowser) return;
 
-        /**
-         * GATE SUL CONSENSO TechnicalOptional:
-         * Quando serve un consenso TechnicalOptional (di norma solo il caso PWA — i cookie
-         * Technical "veri" sono esenti per legge e mai a consenso) il polling parte solo dopo che
-         * l'utente accetta: senza consenso il Service Worker non è registrato (vedi
-         * provideServiceWorker in app.config.ts) e un fetch ricorrente ogni 10 minuti sarebbe spreco
-         * di risorse senza un meccanismo di aggiornamento attivo. All'accettazione, al reload
-         * successivo, SwUpdate si integra e il controllo versione riparte.
-         *
-         * MA se non serve alcun consenso TechnicalOptional (non-PWA) non c'è alcun banner da
-         * accettare per questo: in quel caso il polling è l'UNICO meccanismo di aggiornamento e va
-         * attivato comunque. Legge solo il meta `app-version` da index.html via fetch e non scrive
-         * cookie, quindi non richiede consenso. Senza questo ramo, su un sito così il controllo
-         * versione resterebbe spento per sempre — proprio lo scenario che emerge con `isWebApp:false`.
-         */
+        // Se la PWA richiede il consenso TechnicalOptional, avvia il check solo se fornito 
+        // (il SW non verrebbe registrato altrimenti). Se non richiesto (es. sito non-PWA), 
+        // il polling parte subito essendo l'unico meccanismo di aggiornamento.
         if (this.consent.isTechnicalOptionalNeeded() && !isTechnicalOptionalConsentGiven()) return;
 
         // Recupera la versione attuale iniettata nel meta tag dell'index.html

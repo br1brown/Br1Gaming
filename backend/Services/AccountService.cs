@@ -33,7 +33,7 @@ public class AccountService
         const string validUsername = "admin";
         const string validPassword = "Password1!";
 
-        // Fail-closed: in Production le credenziali demo del template non devono MAI autenticare.
+        // Fail-closed: in Production le credenziali demo del template sono disabilitate per sicurezza.
         // Se un progetto accende il login (valorizzando SecretKey) ma dimentica di sostituire questa
         // verifica, la porta resta chiusa invece di aprirsi con una password pubblica nel repo. Quando
         // il figlio cambia le costanti qui sopra, la condizione si spegne da sé (sono compile-time).

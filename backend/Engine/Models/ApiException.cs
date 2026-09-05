@@ -4,41 +4,14 @@ namespace Backend.Models;
 /// Eccezione base per gli errori API che devono essere tradotti in una risposta HTTP controllata.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Questa classe e' il punto d'ingresso del pattern "lancia e basta" usato nel template.
-/// Invece di catturare errori nei controller e costruire manualmente risposte di errore,
-/// i controller lanciano un'eccezione di questa gerarchia. Il middleware
-/// <see cref="Backend.Security.ApiExceptionHandler"/> la intercetta automaticamente
-/// e la converte in un payload ProblemDetails (RFC 9457) con lo status code corretto.
-/// </para>
-/// <para>
-/// Il messaggio non e' una stringa fissa ma una <see cref="MessageKey"/>: l'handler la risolve
-/// nella lingua della richiesta tramite <c>IStringLocalizer&lt;SharedResource&gt;</c> (file .resx).
-/// Eventuali <see cref="MessageArgs"/> riempiono i segnaposto del testo (es. <c>{0}</c>).
-/// </para>
-/// <para>
-/// Ogni sottoclasse rappresenta uno scenario di errore specifico con il suo codice HTTP:
-/// <list type="bullet">
-/// <item><see cref="DecodingException"/> (400) — il payload non e' decodificabile</item>
-/// <item><see cref="InvalidParametersException"/> (400) — parametri mancanti o non validi</item>
-/// <item><see cref="UnauthorizedException"/> (401) — credenziali assenti o non valide</item>
-/// <item><see cref="ForbiddenException"/> (403) — autenticato ma senza permessi</item>
-/// <item><see cref="NotFoundException"/> (404) — la risorsa non esiste o non e' leggibile</item>
-/// <item><see cref="DataNotFoundException"/> (404) — i dati esistono ma sono vuoti</item>
-/// <item><see cref="ConflictException"/> (409) — risorsa gia' esistente o conflitto di stato</item>
-/// <item><see cref="GoneException"/> (410) — risorsa rimossa definitivamente</item>
-/// <item><see cref="UnprocessableEntityException"/> (422) — dati validi ma semanticamente errati</item>
-/// <item><see cref="TooManyRequestsException"/> (429) — limite applicativo superato</item>
-/// <item><see cref="NotImplementedEndpointException"/> (501) — funzionalita' non ancora implementata</item>
-/// <item><see cref="BadGatewayException"/> (502) — risposta non valida da upstream</item>
-/// <item><see cref="ServiceUnavailableException"/> (503) — servizio temporaneamente non disponibile</item>
-/// <item><see cref="GatewayTimeoutException"/> (504) — upstream non risponde in tempo</item>
-/// </list>
-/// </para>
-/// <para>
-/// Per aggiungere un nuovo tipo di errore: creare una sottoclasse che passa una chiave di risorsa
-/// e lo status code; aggiungere la chiave nei file <c>Resources/SharedResource*.resx</c>.
-/// </para>
+/// Base del pattern "lancia e basta": le eccezioni lanciate nei controller vengono
+/// intercettate da <see cref="Backend.Security.ApiExceptionHandler"/> e tradotte in
+/// un payload <c>ProblemDetails</c> (RFC 9457) con il corretto status HTTP.
+/// 
+/// Messaggi localizzati: <see cref="MessageKey"/> viene risolta tramite <c>IStringLocalizer</c>
+/// (.resx), applicando eventuali <see cref="MessageArgs"/> ai segnaposto.
+/// 
+/// Per estendere: crea una sottoclasse passando status HTTP e chiave risorsa al costruttore base.
 /// </remarks>
 public class ApiException : Exception
 {
