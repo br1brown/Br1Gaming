@@ -36,7 +36,7 @@ Risponde `[s/N]`: `N` tiene la demo (comoda per esplorare), `s` parte puliti (ej
 | :--- | :--- |
 | `global-settings.json` | Nome, lingue, colore tema |
 | `global-settings.local.json` | Porte e segreti (già generato da `setup.mjs`); valorizza `Security.Token.SecretKey` (≥32 char) solo se vuoi accendere il login |
-| `frontend/src/app/pages/*.pages.ts` + `site.ts` | Le tue pagine (path, titolo, componente) nei file di area; menu e slot globali in `site.ts` |
+| `frontend/src/app/pages/*.pages.ts` + `site.ts` | Le tue pagine (path, titolo, componente) nei file di area; slot globali in `site.ts`, menu in `nav.ts` |
 | `backend/data/identity.json` | Dati legali e social del sito (servito su `GET /identity`) |
 
 ## 4. Su

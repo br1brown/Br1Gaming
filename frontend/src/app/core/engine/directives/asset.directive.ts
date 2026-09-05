@@ -5,36 +5,19 @@ import { ALLOWED_WIDTHS, type AssetWidth } from '../asset-config';
 /**
  * ASSET DIRECTIVE
  *
- * Applica `src` a un elemento HTML che supporta src (img, video, audio,
- * source, iframe, embed) a partire dall'id dell'asset e da una width
- * opzionale. Il src si aggiorna reattivamente al cambio degli input.
+ * Collega reattivamente l'ID di un asset al `src` di tag multimediali (img, video, iframe, ecc.).
  *
- *   <img appAsset="hero" appAssetSizes="100vw" alt="...">              ← responsive (srcset)
- *   <img appAsset="hero" appAssetSizes="100vw" [appAssetPriority]="true" alt="..."> ← LCP above-the-fold
- *   <img appAsset="thumb" [appAssetWidth]="320" alt="...">             ← una misura fissa
- *   <img appAsset="icon" alt="...">                                    ← originale, una sola sorgente
- *   <video appAsset="intro" controls></video>
- *   <iframe appAsset="manuale" title="..."></iframe>
+ * - Base: `<img appAsset="icon">`
+ * - Fissa: `<img appAsset="thumb" [appAssetWidth]="320">`
+ * - Responsive: `<img appAsset="hero" appAssetSizes="100vw">` (genera `srcset` automatico)
+ * - LCP Priority: Aggiungere `[appAssetPriority]="true"` per fetchpriority=high e loading=eager.
  *
- * Hint moderni applicati a OGNI `<img>` gestita (mai su video/iframe/…):
- *  - `decoding="async"` (decodifica fuori dal main thread);
- *  - `loading` = `lazy` di default, `eager` + `fetchpriority="high"` se `appAssetPriority`
- *    (marca l'immagine LCP above-the-fold come prioritaria, lascia pigre le altre).
+ * Ottimizzazioni automatiche (solo su `<img>`):
+ * - `decoding="async"`
+ * - `loading="lazy"` (se non priority)
+ * - `appAssetWidth` ha precedenza su srcset. Viene ignorato dal backend per file non-raster.
  *
- * Immagini RESPONSIVE (opt-in): valorizza `appAssetSizes` (es. `100vw` o
- * `(min-width:768px) 50vw, 100vw`). La directive emette allora `srcset` con tutte le
- * larghezze whitelisted (`ALLOWED_WIDTHS`) + `sizes`: il browser scarica la misura giusta
- * per viewport/DPR — meno banda su mobile, LCP migliore. Senza `appAssetSizes` resta una
- * sola sorgente (comportamento storico). `appAssetWidth` (misura fissa) ha la precedenza
- * e disattiva lo srcset.
- *
- * `appAssetWidth` ha senso solo per immagini raster: il server lo ignora
- * automaticamente per video / pdf / svg restituendo lo stream originale,
- * quindi e' sicuro lasciarlo non valorizzato anche per quei tag. Su tag non-`<img>`
- * (video/iframe/…) gli attributi responsive non vengono emessi.
- *
- * Il selector e' vincolato ai tag elencati: errore a compile time se la
- * directive viene applicata a un elemento privo di `src`.
+ * Tipato sul tag: errore in compilazione se applicato a elementi privi di `src`.
  */
 @Directive({
     selector: 'img[appAsset], video[appAsset], audio[appAsset], source[appAsset], iframe[appAsset], embed[appAsset]',

@@ -15,7 +15,7 @@ namespace Backend.Security;
 /// token, volutamente senza codegen.
 ///
 /// Attenzione: il contenuto del JWT è leggibile dal client (base64, non cifrato).
-/// Mettere qui solo dati NON sensibili.
+/// Inserire esclusivamente dati pubblici o identificativi (il token JWT è leggibile in chiaro).
 /// </remarks>
 public static class SessionPayload
 {

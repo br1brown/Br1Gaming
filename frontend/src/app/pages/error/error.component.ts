@@ -24,10 +24,10 @@ export class ErrorComponent {
     private readonly titleService = inject(Title);
     private readonly url = injectCurrentUrl(); // signal reattivo, si aggiorna ad ogni navigazione (routing.ts).
 
-    // ErrorComponent NON estende PageBaseComponent (niente pageType: una pagina d'errore non è una
-    // pagina registrata) e la sua route (wildcard `**`/`error/:errorCode`) è UNICA, non una copia
-    // per lingua come le pagine vere — quindi non ha un `route.data.lang` da leggere. Unica opzione:
-    // dedurre la lingua dal PRIMO SEGMENTO dell'URL corrente (es. "/en/pagina-inesistente" → "en").
+    // ErrorComponent omette l'ereditarietà da PageBaseComponent (niente pageType: una pagina d'errore non è una
+    // pagina registrata). La sua route (wildcard `**`/`error/:errorCode`) è UNICA, non una copia
+    // per lingua come le pagine vere — manca quindi il `route.data.lang`. L'opzione usata per
+    // dedurre la lingua sfrutta il PRIMO SEGMENTO dell'URL corrente (es. "/en/pagina-inesistente" → "en").
     readonly lang = computed(() => detectLangFromPath(this.url(), environment.availableLanguages, environment.defaultLang));
 
     constructor() {

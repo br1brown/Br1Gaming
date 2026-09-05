@@ -162,7 +162,7 @@ export const ContestoSito = buildSite({
             layout: { showNav: false },
         },
     ],
-    // Il menu di header/footer NON è qui: vive in nav.ts (dato, non struttura del sito) —
+    // Menu di header/footer: dato risolto a runtime in nav.ts —
     // popolalo con addPage / addLink / addGroup quando aggiungi pagine.
 });
 `;

@@ -71,14 +71,14 @@ export abstract class PageBaseComponent<T> {
         return this.fadeAllowed && this.pageFadeEnabled();
     }
 
-    /** Parametro `:slug` della rotta corrente, se presente — reattivo anche entro la stessa istanza
-     *  componente (una rotta parametrica riusa l'istanza al cambio di solo `:slug`, senza
-     *  ricreazione): senza questo, il ricaricato sotto perderebbe lo slug dopo la prima navigazione.
-     *  Nome convenzionale, stesso di contentLoaderResolver. */
+    /** TUTTI i `:segmenti` della rotta corrente, come `route.paramMap` — reattivo anche entro la
+     *  stessa istanza componente (una rotta parametrica riusa l'istanza al cambio di un solo
+     *  segmento, senza ricreazione): senza questo, il ricaricato sotto perderebbe i parametri dopo
+     *  la prima navigazione. Stessa forma di `contentLoaderResolver`. */
     private readonly activatedRoute = inject(ActivatedRoute);
-    private readonly routeSlug = toSignal(
-        this.activatedRoute.paramMap.pipe(map(pm => pm.get('slug') ?? undefined)),
-        { initialValue: this.activatedRoute.snapshot.paramMap.get('slug') ?? undefined }
+    private readonly routeParams = toSignal(
+        this.activatedRoute.paramMap.pipe(map(pm => Object.fromEntries(pm.keys.map(key => [key, pm.get(key)!])))),
+        { initialValue: Object.fromEntries(this.activatedRoute.snapshot.paramMap.keys.map(key => [key, this.activatedRoute.snapshot.paramMap.get(key)!])) }
     );
 
     /**
@@ -89,18 +89,18 @@ export abstract class PageBaseComponent<T> {
      * `contentByResolve` (resolver del router). `defaultValue: null` → `.value()` è `null` (mai
      * throw, anche in errore) finché non c'è un caricamento completato.
      */
-    private readonly contentResource = resource<ResolvedPage<T> | null, { pageType: PageType; lang: string; slug?: string } | undefined>({
+    private readonly contentResource = resource<ResolvedPage<T> | null, { pageType: PageType; lang: string; params: Record<string, string> } | undefined>({
         params: () => isPlatformBrowser(this.platformId)
             // this.lang() (l'input di route, sincrono) e NON this.translate.currentLang(): quest'ultimo
             // si aggiorna in modo asincrono (l'effect sotto attende setLanguage()), this.lang() è già
             // corretto nello stesso istante — niente fetch nella lingua vecchia al mount della pagina.
-            ? { pageType: this.pageType(), lang: this.lang(), slug: this.routeSlug() }
+            ? { pageType: this.pageType(), lang: this.lang(), params: this.routeParams() }
             : undefined, // SSR: nessuna fetch qui, il primo contenuto arriva da contentByResolve (resolver del router).
         // Ricaricato client (cambio lingua): non passa dal resolver del router, quindi un 404
-        // (slug diventato invalido) non può tornare come UrlTree — l'unica via è navigare
+        // (un parametro diventato invalido) non può tornare come UrlTree — l'unica via è navigare
         // esplicitamente. Stesso trattamento di contentLoaderResolver: solo il 404 dirotta, ogni
         // altro errore resta silenzioso (apiErrorInterceptor ha già avvisato l'utente).
-        loader: ({ params }) => this.contentResolverService.loadResolved(params.pageType, params.lang, params.slug)
+        loader: ({ params }) => this.contentResolverService.loadResolved(params.pageType, params.lang, params.params)
             .catch(error => {
                 if (error instanceof ApiError && error.status === 404) {
                     void this.engineRouter.navigateByUrl('/error/404');

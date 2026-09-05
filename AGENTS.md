@@ -50,7 +50,7 @@ export class NuovaComponent extends PageBaseComponent<void> { }
 ```
 `path` accetta anche un segmento diverso per lingua invece della stringa (`path: { it: 'nuova', en: 'new' }`, con più lingue configurate): lo switch lingua e la sitemap/hreflang seguono da soli, nessun altro punto da toccare. Una lingua senza una propria chiave ricade sul segmento della lingua di default.
 
-#### Aggiungere una policy legale extra (oltre ai 5 slot fissi)
+#### Aggiungere una policy legale extra (oltre alle 5 standard)
 `legalPages` (`site.ts`) è un array: ogni voce ha lo stesso trattamento (rotta `/policy/*`, `PolicyComponent`, riga nel footer), che sia una delle 5 standard o una policy di progetto (es. diritto di recesso per un e-commerce) — nessuna distinzione, non serve toccare `siteBuilder.ts`/`legal-pages.ts`. Per le 5 standard, `STANDARD_LEGAL_PAGES` (da `siteBuilder.ts`) dà `path`/`titolo`/`descrizione`/`nome file` pronti da spreadare; una voce in più li scrive per esteso. Ricetta completa in [frontend/README.md](frontend/README.md#pagine-legali-legalpages). Voce assente → nessun errore, nessuna pagina in più (stesso pattern silenzioso degli altri campi opzionali).
 ```typescript
 // pages/policy/legal.pages.ts — nuovo PageType (diventa parte di PageType tramite lo spread in site.ts)
@@ -202,7 +202,7 @@ otherSEO: { structuredData: { kind: 'faq', questions: [{ question: 'Come?', answ
 {
   pageType: PageType.Articolo,
   contentLoader: async (ctx) => {
-    const art = await inject(ApiService).getArticolo(ctx.slug);
+    const art = await inject(ApiService).getArticolo(ctx.params['slug']);
     return {
       content: art,
       info: art && { title: art.titolo, description: art.sommario },
@@ -342,7 +342,7 @@ Senza una sezione `Mail` valida in config (`Host` + `FromAddress`) `IsEnabled` �
 // global-settings.local.json
 "ErrorReporting": { "WebhookUrl": "https://tuoendpoint.tld/webhook/errori" }
 ```
-Il payload porta anche `project` (da `project.name`): più progetti sulla stessa VPS possono puntare allo **stesso** webhook restando distinguibili. Dettagli (payload completo, perché resta un webhook generico e non un client Sentry nativo) in [backend/README.md](backend/README.md) §10.
+Il payload porta anche `project` (da `project.name`): più progetti sulla stessa VPS possono puntare allo **stesso** webhook restando distinguibili. Dettagli in [backend/README.md](backend/README.md) §10.
 
 #### Caricare/servire un file
 `BlobController` (Dominio, `Controllers/BlobController.cs`) è già pronto: `POST /blob/up` (richiede login) restituisce uno slug, `GET /blob/{slug}` lo riserve (con resize on-demand per immagini via `?webopt=true`). Per cambiare solo il limite di dimensione (default 10 MB), tocca l'attributo sulla stessa azione:

@@ -107,7 +107,7 @@ export class CheFaccioComponent extends PageBaseComponent<void> {
     markdownHtml = '';
     autoPreview = true;
 
-    // --- Demo immagini integrata nella home ---
+    // --- Demo immagini ---
     imgText = 'Hello World';
     imgFontSize = 60;
 
@@ -154,12 +154,12 @@ export class CheFaccioComponent extends PageBaseComponent<void> {
         {
             label: this.translate.translate('scaricaAzione'),
             icon: 'fa-solid fa-download',
-            action: () => this.downloadHomeImage()
+            action: () => this.downloadImgDemo()
         },
         {
             label: this.translate.translate('condividiAzione'),
             icon: 'fa-solid fa-share-nodes',
-            action: () => this.shareHomeImage()
+            action: () => this.shareImgDemo()
         }
     ]);
 
@@ -408,7 +408,7 @@ wa = { phone: '+39...', text: 'Ciao' };
         this.imgConfig.set(this.buildImgConfig());
     }
 
-    resetHomeImage(): void {
+    resetImgDemo(): void {
         this.imgText = 'Hello World';
         this.imgFontSize = 60;
         this.onImageInputChange();
@@ -422,13 +422,13 @@ wa = { phone: '+39...', text: 'Ciao' };
         };
     }
 
-    downloadHomeImage(): void {
+    downloadImgDemo(): void {
         const canvas = this.imgCanvas();
         if (!canvas) return;
         void this.share.downloadCanvas(canvas, `${this.appName.toLowerCase().replace(/\s+/g, '-')}-image.png`);
     }
 
-    shareHomeImage(): void {
+    shareImgDemo(): void {
         const canvas = this.imgCanvas();
         if (!canvas) return;
         void this.share

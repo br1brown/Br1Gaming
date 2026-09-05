@@ -14,7 +14,8 @@ import { buildSitemapXml } from '../../services/sitemap-xml';
  * raro in cui quella notifica si perda.
  */
 
-// Alto (7 giorni) perché non è più il meccanismo primario di aggiornamento — solo un fallback.
+// Alto (7 giorni): l'aggiornamento primario è la notifica `POST /internal/revalidate-sitemap`,
+// il TTL è solo un fallback per il caso in cui quella notifica si perda.
 const _ttlMs = Number(process.env['SITEMAP_CACHE_TTL_MS']);
 const CACHE_TTL_MS = Number.isFinite(_ttlMs) && _ttlMs > 0 ? _ttlMs : 7 * 24 * 60 * 60 * 1000;
 

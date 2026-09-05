@@ -38,7 +38,7 @@ public class AppPersonalDataStore : IPersonalDataStore
         if (session is null)
             return; // token senza payload di sessione: nessun dato a cui risalire
 
-        // Prima i dati di dominio (profilo, ordini, ... — oggi nessuno), l'account per ultimo:
+        // Prima i dati di dominio (profilo, ordini, ... — di default nessuno), l'account per ultimo:
         // se una cancellazione a monte fallisce, l'utente esiste ancora e può riprovare.
         await _accounts.DeleteAccountAsync(session, cancellationToken);
     }

@@ -159,13 +159,11 @@ public interface INotificationStream
 }
 
 /// <summary>
-/// Implementazione in memoria di <see cref="INotificationStream"/>: un registro thread-safe di
-/// connessioni, ciascuna con il proprio canale bufferizzato.
+/// Implementazione in memoria di <see cref="INotificationStream"/> basata su canali bufferizzati thread-safe.
 /// </summary>
 /// <remarks>
-/// In memoria = adatto a una singola istanza di backend (il default del template). Con più istanze
-/// servirebbe un backplane (es. Redis) per instradare un push all'istanza che possiede la connessione:
-/// è il punto in cui questa classe verrebbe sostituita, senza toccare publisher né endpoint.
+/// Progettata per una singola istanza backend. In scenari multi-istanza va sostituita 
+/// registrando un provider basato su backplane (es. Redis).
 /// </remarks>
 public sealed class NotificationStream : INotificationStream
 {

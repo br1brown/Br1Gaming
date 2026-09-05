@@ -73,7 +73,7 @@ export interface GlobalSettings {
     SupportedLanguages?: [string, ...string[]];
   };
   /**
-   * Sicurezza specifica del progetto: chiavi API, origini CORS, reverse proxy e token JWT. Gli header di sicurezza fissi (uguali per ogni progetto) NON stanno qui: vivono in security-headers.json, file del template che il progetto figlio non gestisce.
+   * Sicurezza specifica del progetto: chiavi API, origini CORS, reverse proxy e token JWT. Gli header di sicurezza fissi (uguali per ogni progetto) vivono in security-headers.json, file del template che il progetto figlio non gestisce.
    */
   Security?: {
     /**
@@ -163,7 +163,7 @@ export interface GlobalSettings {
     WebhookUrl?: string;
   };
   /**
-   * Identità ed estetica del sito (committabile, del progetto). Iniettata nel frontend al build via environment.ts. NB: i flag di COMPORTAMENTO (showNav, showFooter, showPanel, fixedTopHeader, showBrandIconInHeader, showLoginInHeader, showNotifications, panelForcedLight, isWebApp, onlyPlainImage) NON stanno qui: sono struttura e vivono in site.ts (`shell` / `isWebApp` / `onlyPlainImage`), insieme a pagine, menu e loginPage.
+   * Identità ed estetica del sito (committabile, del progetto). Iniettata nel frontend al build via environment.ts. I flag di comportamento (showNav, showFooter, showPanel, fixedTopHeader, showBrandIconInHeader, showLoginInHeader, showNotifications, panelForcedLight, isWebApp, onlyPlainImage) sono struttura e vivono in site.ts (`shell` / `isWebApp` / `onlyPlainImage`), insieme a pagine e loginPage; il menu di header/footer è dato risolto a runtime in nav.ts.
    */
   site?: {
     /**
@@ -177,11 +177,11 @@ export interface GlobalSettings {
      */
     colorTema?: string;
     /**
-     * Override opzionale del colore secondario (badge, `.btn-secondary`). Se assente resta la variante muted di `colorTema`, come oggi. Se presente sostituisce hue e chroma della catena di derivazione: le varianti light/dark/subtle/emphasis restano comunque calcolate e garantite WCAG.
+     * Override opzionale del colore secondario (badge, `.btn-secondary`). Se assente resta la variante muted di `colorTema`. Se presente sostituisce hue e chroma della catena di derivazione: le varianti light/dark/subtle/emphasis restano comunque calcolate e garantite WCAG.
      */
     colorSecondary?: string;
     /**
-     * Override opzionale del colore di sfondo (pagina, card, hover, superfici). Se assente resta derivato da `colorTema`, come oggi. Un solo valore genera automaticamente sia la variante light sia quella dark, come per `colorTema`. Resta comunque una superficie chiara/scura tinta, non un blocco di colore pieno.
+     * Override opzionale del colore di sfondo (pagina, card, hover, superfici). Se assente resta derivato da `colorTema`. Un solo valore genera automaticamente sia la variante light sia quella dark, come per `colorTema`. Resta comunque una superficie chiara/scura tinta, non un blocco di colore pieno.
      */
     colorBackground?: string;
     /**
@@ -189,7 +189,7 @@ export interface GlobalSettings {
      */
     colorText?: string;
     /**
-     * Override opzionale del colore informativo (badge/alert '.text-bg-info', '.alert-info', '.btn-outline-info'). A differenza di colorSecondary/colorBackground/colorText NON ha un fallback derivato dal brand: se assente, Bootstrap 5.3 gestisce '--bs-info*' per intero coi suoi blocchi tono-adattivi nativi, come oggi. warning/success/danger restano sempre fissi (significato universale, non personalizzabile).
+     * Override opzionale del colore informativo (badge/alert '.text-bg-info', '.alert-info', '.btn-outline-info'). A differenza di colorSecondary/colorBackground/colorText NON ha un fallback derivato dal brand: se assente, Bootstrap 5.3 gestisce '--bs-info*' per intero coi suoi blocchi tono-adattivi nativi. warning/success/danger restano sempre fissi (significato universale, non personalizzabile).
      */
     colorInfo?: string;
     /**

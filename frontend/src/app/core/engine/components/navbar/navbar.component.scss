@@ -195,13 +195,12 @@
         background-color: transparent;
     }
 
-    /* Pannello mobile come overlay a schermo intero invece di un accordion che si espande
-       sotto la barra e spinge/scorre in un box con tetto calcolato — pattern più recente
-       (stile offcanvas) che elimina alla radice la classe di bug che il vecchio approccio si
-       portava dietro: #navbar-menu.show esce COMPLETAMENTE dal flusso (position:fixed), quindi
-       non fa più crescere .container-fluid, e brand/selettore lingua/toggler (tutti prima di
-       lui nel DOM, semplici item flex — vedi HTML) restano fermi senza bisogno di alcun
-       posizionamento assoluto o calcolo compensativo. */
+    /* Pannello mobile come overlay a schermo intero (stile offcanvas) invece di un accordion
+       che si espande sotto la barra e spinge/scorre in un box con tetto calcolato:
+       #navbar-menu.show esce COMPLETAMENTE dal flusso (position:fixed), quindi non fa crescere
+       .container-fluid, e brand/selettore lingua/toggler (tutti prima di lui nel DOM, semplici
+       item flex — vedi HTML) restano fermi senza bisogno di alcun posizionamento assoluto o
+       calcolo compensativo. */
     .navbar-collapse.show {
         position: fixed;
         /* Parte subito sotto la riga superiore (brand/lingua/toggler), che resta sempre

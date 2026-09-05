@@ -37,10 +37,8 @@ export interface LegalPageConfig {
 }
 
 /**
- * Config delle 5 pagine legali standard. Dati legali (capitale sociale, socio unico, in
- * liquidazione) solo su Note Legali e Termini — trasparenza societaria richiesta da art. 2250 c.c.
- * e Codice del Consumo. Orari di contatto mai in pagina: pertinenti al footer, non a un documento
- * di disclosure legale.
+ * Config delle 5 pagine legali standard. Dati legali (capitale sociale, partita IVA, ecc.) 
+ * solo su Note Legali e Termini. Gli orari di contatto sono omessi dai documenti legali.
  *
  * ⚠️ COOKIE: aggiorna la data di `CookiePolicy` quando cambi `COOKIE_MAP` o `ENGINE_COOKIE_MAP`.
  */

@@ -43,7 +43,7 @@ export class ApiService extends BaseApiService {
     /**
      * URL relativo del blob (`/api/blob/{slug}`) per l'uso diretto in template, senza scaricarlo in
      * memoria. Sempre relativo, anche in SSR: il browser lo raggiunge via proxy, non l'URL interno.
-     * `webopt`: versione web-ottimizzata (oggi = resize immagini max 1920px→WebP; altri tipi invariati).
+     * `webopt`: versione web-ottimizzata (di default = resize immagini max 1920px→WebP; altri tipi invariati).
      */
     getBlobUrl(slug: string, webopt = true): string {
         const base = `${this.apiProxyPrefix}/${API.blob(slug)}`;

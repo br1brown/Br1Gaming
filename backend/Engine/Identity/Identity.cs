@@ -142,10 +142,9 @@ public class FileIdentityStore : IIdentityStore
     }
 
     /// <summary>
-    /// Restituisce il paese (trimmato) se è un codice ISO 3166-1 alpha-2 valido, validato con
-    /// <see cref="RegionInfo"/> (primitiva del framework, gemello lato server di <c>Intl.DisplayNames</c>).
-    /// Assente ⇒ <c>null</c> (omesso); presente ma non un codice valido ⇒ **lancia**: niente tolleranza
-    /// sul testo libero legacy (<c>"Italia"</c> non è un codice, va scritto <c>"IT"</c>).
+    /// Valida e restituisce il paese se è un codice ISO 3166-1 alpha-2 valido (tramite <see cref="RegionInfo"/>).
+    /// Se il valore non è un codice valido (es. "Italia" invece di "IT"), lancia un'eccezione senza tolleranza.
+    /// Restituisce <c>null</c> se omesso.
     /// </summary>
     protected static string? ValidCountry(string? raw)
     {
@@ -170,11 +169,9 @@ public class FileIdentityStore : IIdentityStore
         .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Restituisce la valuta in maiuscolo canonico se è un codice ISO 4217 noto, validato con la primitiva
-    /// del framework (<see cref="RegionInfo.ISOCurrencySymbol"/>) — è il gemello di <see cref="ValidCountry"/>
-    /// per il paese. Assente ⇒ <c>null</c> (il frontend usa <c>EUR</c> come default dichiarato); presente ma
-    /// non un codice valido ⇒ **lancia** (<c>"Euro"</c>/<c>"XYZ"</c> non sono codici). Toglie il degrado
-    /// silenzioso: prima una valuta sbagliata veniva resa in EUR senza alcun segnale.
+    /// Valida e restituisce la valuta canonica (uppercase) se è un codice ISO 4217 noto al framework.
+    /// Lancia un'eccezione se il codice non è valido (es. "Euro"), per evitare fallback silenziosi
+    /// verso il default (EUR) gestito poi dal frontend. Restituisce <c>null</c> se omesso.
     /// </summary>
     protected static string? ValidCurrency(string? raw)
     {
@@ -199,18 +196,11 @@ public class FileIdentityStore : IIdentityStore
         new(@"^\+?\d{6,15}$", System.Text.RegularExpressions.RegexOptions.Compiled);
 
     /// <summary>
-    /// Verifica che il telefono sia **un solo numero**, sanificato alla fonte. Nel footer diventa un link
-    /// <c>tel:</c> cliccabile (che non può puntare a due numeri) **e** un testo visibile: due controlli.
-    /// (1) L'intera stringa deve avere solo cifre e separatori visivi (<see cref="PhoneShape"/>): niente
-    /// lettere/testo/markup che verrebbero conservati e resi. (2) Ridotta a cifre + <c>+</c> — la forma
-    /// con cui <c>ContactUrl.phone</c> costruisce l'href — deve restare un unico numero E.164-plausibile
-    /// (<see cref="SingleNumber"/>). Così **spazi, <c>/</c>, trattini, punti e parentesi in un numero solo
-    /// restano validi** (a differenza del vecchio <c>PhoneAttribute</c>, che rifiutava <c>06/1234567</c>),
-    /// mentre **due numeri** (troppe cifre), un **secondo <c>+</c>** o qualunque **testo estraneo** vengono
-    /// colti. Assente ⇒ <c>null</c> (omesso); presente ma non conforme ⇒ **lancia**. Conserva la stringa
-    /// originale (la formattazione leggibile è per la resa). Difesa a più strati: anche il footer sanifica
-    /// (href ridotto alle sole cifre + sanitizer di Angular sul binding <c>[href]</c>, testo escapato in
-    /// interpolazione), ma qui il dato entra già pulito.
+    /// Valida un numero di telefono garantendo che sia utilizzabile sia come link <c>tel:</c> che come testo visibile.
+    /// - <see cref="PhoneShape"/>: Ammette solo cifre, +, e separatori visivi (spazi, /, -, ., parentesi).
+    /// - <see cref="SingleNumber"/>: Rimuovendo i separatori, deve restare un singolo numero E.164 plausibile (1 <c>+</c> e 6-15 cifre).
+    /// Impedisce inserimenti anomali (es. testo estraneo, markup o due numeri concatenati) lanciando
+    /// un'eccezione se la validazione fallisce, ma restituisce la stringa originale formattata.
     /// </summary>
     protected static string? ValidPhone(string? raw)
     {

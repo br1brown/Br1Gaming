@@ -24,9 +24,9 @@ export const navResolver: ShellNavResolver = {
         h.addPage(PageType.Social);
     },
 
-    // Le pagine legali NON si dichiarano qui: `footer.component` le rende da sole, in una fascia
+    // Le pagine legali sono gestite automaticamente da `footer.component` in una fascia
     // dedicata ("small prints") derivata da `legalPages` di site.ts — vedi `FooterLinkRowComponent`.
-    // Questo resta per la navigazione libera del progetto.
+    // Usa questa sezione per configurare i link della navigazione libera del progetto.
     footer: (f) => {
         f.addLink('githubDesc', 'https://github.com/br1brown/Br1WebEngine');
     },

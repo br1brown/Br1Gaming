@@ -131,8 +131,8 @@ export interface SiteEnv {
     readonly noindex: boolean;
     /** Cartella del font custom montata da Docker (docker-compose: BR1_FONTS_DIR, default
      *  `/app/fonts` — coincide col default in produzione perché WORKDIR è `/app`; in dev locale
-     *  risolve a `frontend/fonts/`). Cartella assente o vuota = nessun font custom, comportamento
-     *  odierno: vedi `custom-font-detect.ts`. Impostato da FONTS_DIR. */
+     *  risolve a `frontend/fonts/`). Cartella assente o vuota = nessun font custom (vedi
+     *  `custom-font-detect.ts`). Impostato da FONTS_DIR. */
     readonly fontsDir: string;
 }
 

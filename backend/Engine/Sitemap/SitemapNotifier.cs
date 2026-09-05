@@ -54,8 +54,8 @@ public sealed class SitemapNotifier
         }
         catch (Exception ex)
         {
-            // Non deve MAI propagare: un problema di invalidazione cache non deve mai far fallire
-            // la scrittura che l'ha innescata (e non deve far crashare chi la chiama in background).
+            // Esecuzione isolata: un problema di invalidazione cache sul frontend viene assorbito
+            // per evitare di far fallire la scrittura a monte o il task in background.
             _logger.LogWarning(ex, "Invalidazione della cache sitemap sul frontend fallita.");
         }
     }

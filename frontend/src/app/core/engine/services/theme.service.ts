@@ -206,7 +206,7 @@ export interface PaletteOverrides {
      * Hue/chroma per un `colorInfo*`/`subtleInfo` calcolato ad hoc — a differenza degli altri tre
      * campi, `info` non ha un fallback derivato dal brand: assente, `computePalette` non produce
      * alcun token `colorInfo*` e Bootstrap 5.3 continua a gestire `--bs-info*` per intero coi suoi
-     * blocchi `[data-bs-theme]` nativi, come oggi. Presente: stessa pipeline WCAG di `secondary`
+     * blocchi `[data-bs-theme]` nativi. Presente: stessa pipeline WCAG di `secondary`
      * (findCompliantColor + subtle/emphasis), iniettata SOLO sulle variabili `--bs-info*` interessate.
      */
     info?: string;
@@ -531,7 +531,7 @@ export class ThemeService {
 
         // Info — SOLO se PaletteOverrides.info era presente in computePalette (vedi PaletteTokens).
         // Assente: questi campi sono undefined, niente viene toccato, --bs-info* resta gestito da
-        // Bootstrap come oggi. Presente: stesso schema --bs-primary*/--bs-secondary* sopra.
+        // Bootstrap. Presente: stesso schema --bs-primary*/--bs-secondary* sopra.
         if (p.colorInfoLt !== undefined && p.colorInfoDk !== undefined && p.subtleInfo) {
             const colorInfo = lt ? p.colorInfoLt : p.colorInfoDk;
             const colorInfoText = lt ? p.colorInfoTextLt! : p.colorInfoTextDk!;
@@ -578,8 +578,8 @@ export class ThemeService {
     // (comune in SSR dove molte route chiamano buildThemeHeadTags nella stessa sessione Node).
     private static readonly _paletteCache = new Map<string, PaletteTokens>();
 
-    // Chiave di cache: colorTema + override serializzati (assenti = stringa vuota, stesso
-    // comportamento odierno quando PaletteOverrides non è passato).
+    // Chiave di cache: colorTema + override serializzati (assenti = stringa vuota, invariata
+    // quando PaletteOverrides non è passato).
     private static _paletteCacheKey(colorTema: string, overrides?: PaletteOverrides): string {
         return `${colorTema}|${overrides?.secondary ?? ''}|${overrides?.background ?? ''}|${overrides?.text ?? ''}|${overrides?.info ?? ''}`;
     }
@@ -691,7 +691,7 @@ export class ThemeService {
                 `--colorNavText:${s ? p.colorNavTextLt : p.colorNavTextDk};` +
                 `--colorNavBorder:${s ? p.colorNavBorderLt : p.colorNavBorderDk};` +
                 // Info — SOLO se PaletteOverrides.info era presente (vedi PaletteTokens/_applyPalette).
-                // Assente: stringa vuota, --bs-info* resta gestito per intero da Bootstrap come oggi.
+                // Assente: stringa vuota, --bs-info* resta gestito per intero da Bootstrap.
                 (p.colorInfoLt !== undefined && p.colorInfoDk !== undefined && p.subtleInfo
                     ? `--bs-info:${s ? p.colorInfoLt : p.colorInfoDk};` +
                       `--bs-info-rgb:${ThemeService.hexToRgbTriplet(s ? p.colorInfoLt : p.colorInfoDk)};` +
@@ -822,8 +822,8 @@ export class ThemeService {
         const colorTemaText = ThemeService.getReadableTextColor(colorTema);
         const naturalTone = ThemeService.computeThemeTone(colorTema);
 
-        // Hue/chroma di sfondo: dall'override se presente, altrimenti dal brand (comportamento
-        // odierno) — un solo hex alimenta comunque entrambi i toni, come C_t/H_t per colorTema.
+        // Hue/chroma di sfondo: dall'override se presente, altrimenti dal brand — un solo hex
+        // alimenta comunque entrambi i toni, come C_t/H_t per colorTema.
         const chFor = (hex?: string): [number, number] => {
             if (!hex) return [C_t, H_t];
             const [, c, h] = ThemeService.hexToOklch(hex);
@@ -912,10 +912,10 @@ export class ThemeService {
         );
 
         // Secondary: hue/chroma indipendenti se overrides.secondary è presente, altrimenti C più
-        // bassa del brand come oggi — è una variante muted, non un accento.
+        // bassa del brand — è una variante muted, non un accento.
         let C_sec: number, H_sec: number;
-        // L di partenza della ricerca: di default le due costanti fisse (comportamento odierno,
-        // pensate per il caso "muted del brand"). Con un override esplicito si parte invece dalla
+        // L di partenza della ricerca: di default le due costanti fisse (pensate per il caso
+        // "muted del brand"). Con un override esplicito si parte invece dalla
         // L del colore scelto — findCompliantColor cerca comunque il primo punto conforme più
         // vicino al punto di partenza, quindi ancorarsi alla L originale riduce lo scarto percepito
         // tra il colore scelto e il risultato finale (a parità di garanzia WCAG: il target non cambia,
@@ -947,7 +947,7 @@ export class ThemeService {
         // Info: SOLO se overrides.info è presente — stessa pipeline di secondary (findCompliantColor
         // con fallback bianco/nero, poi subtle/emphasis), ma senza fallback derivato dal brand: quando
         // assente questi token restano undefined e _applyPalette/_buildThemeStyleTagFromPalette non
-        // toccano --bs-info*, che resta gestito per intero da Bootstrap come oggi.
+        // toccano --bs-info*, che resta gestito per intero da Bootstrap.
         let colorInfoLt: string | undefined;
         let colorInfoDk: string | undefined;
         let colorInfoTextLt: '#000000' | '#ffffff' | undefined;

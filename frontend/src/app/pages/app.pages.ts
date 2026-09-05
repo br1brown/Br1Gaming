@@ -69,13 +69,14 @@ export const appPagesDecl: SitePageInput[] = [
             return Object.keys(all).map(name => ({ slug: name }));
         },
         contentLoader: withApi(async (ctx, api) => {
-            if (!ctx.slug) return { content: null };
-            const one = await api.getSocial([ctx.slug]);
+            const slug = ctx.params['slug'];
+            if (!slug) return { content: null };
+            const one = await api.getSocial([slug]);
             // Il backend risponde 200 con un Record vuoto/senza quella chiave se il social non
             // esiste (non 404 HTTP): lo traduciamo qui in un vero ApiError(404), altrimenti la
             // pagina resterebbe silenziosamente vuota.
-            if (!one[ctx.slug]) throw new ApiError(404, null);
-            return { content: one, info: { title: ctx.slug } };
+            if (!one[slug]) throw new ApiError(404, null);
+            return { content: one, info: { title: slug } };
         }),
     },
     {

@@ -70,25 +70,12 @@ public class ApiKeySchemeOptions : AuthenticationSchemeOptions
 /// Handler ASP.NET che autentica una richiesta tramite header <c>X-Api-Key</c>.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Questo handler implementa il controllo del "biglietto d'ingresso". Ogni richiesta HTTP
-/// (tranne OPTIONS) deve presentare una chiave API valida, cioe' una stringa presente
-/// nell'array <c>Security.ApiKeys</c> (configurato in <c>global-settings.local.json</c>,
-/// il file dei segreti fuori da git).
-/// </para>
-/// <para>
-/// Le richieste <c>OPTIONS</c> vengono lasciate passare senza controllo. Questo e' necessario
-/// perche' il browser invia automaticamente una richiesta OPTIONS (preflight) prima di ogni
-/// chiamata cross-origin con header custom (come <c>X-Api-Key</c> stesso). Se bloccassimo
-/// le OPTIONS, il browser non riceverebbe mai la risposta CORS e la richiesta vera non
-/// partirebbe nemmeno.
-/// </para>
-/// <para>
-/// Quando la chiave e' valida, l'handler crea un'identita' minima con il claim
-/// <c>ApiKeyValidated=true</c>. Questa identita' non rappresenta un utente, ma segnala
-/// al resto della pipeline che il client ha superato il primo livello di autenticazione.
-/// Il JWT Bearer handler (se attivo) arricchira' poi questa identita' con i dati dell'utente.
-/// </para>
+/// Flusso di validazione:
+/// 1. Ignora le richieste OPTIONS (necessarie per il preflight CORS).
+/// 2. Estrae l'header <c>X-Api-Key</c> e lo confronta in tempo costante con le chiavi 
+///    valide presenti in <c>Security.ApiKeys</c>.
+/// 3. In caso di match, emette un'identità base con claim <c>ApiKeyValidated=true</c>.
+/// L'identità finale (con ruolo e payload utente) verrà aggiunta in seguito dal middleware JWT.
 /// </remarks>
 public class ApiKeyHandler : AuthenticationHandler<ApiKeySchemeOptions>
 {

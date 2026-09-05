@@ -49,22 +49,11 @@ export type NotificationHandler<T = unknown> = (notification: StreamNotification
 /**
  * NOTIFICATION STREAM SERVICE
  *
- * Estende — per composizione — il {@link NotificationService}: si occupa SOLO del trasporto
- * realtime (apre un `EventSource` verso l'endpoint SSE dell'engine) e del dispatch, mentre per
- * mostrare riusa ciò che NotificationService già espone (es. `toast`). Non reimplementa la UI.
- *
- * Caratteristiche:
- *  - **Solo browser**: in SSR non apre nulla (niente connessioni server-side, niente FOUC).
- *  - **Zoneless-safe**: ogni evento in arrivo viene scritto in un `signal`, così la change
- *    detection (signal-based, senza zone.js) se ne accorge.
- *  - **Stato reattivo**: `notifications()` espone la lista ricevuta (per badge / centro notifiche),
- *    oltre all'eventuale toast.
- *  - **Dispatch per tipo**: `on(type, handler)` registra una reazione custom; senza handler per
- *    quel tipo si ricade sul toast di default. È il punto in cui rendi le notifiche "non testuali".
- *
- * Attivazione: il servizio si connette da sé quando viene iniettato in un contesto browser
- * (es. nel costruttore di un componente sempre attivo). Non è auto-iniettato globalmente, così
- * un sito apre lo stream solo se davvero gli serve.
+ * Trasporto realtime SSE e dispatch delle notifiche. In SSR rimane inerte.
+ * 
+ * - Mantiene lo stato reattivo zoneless-safe (via signal) per lista, non-letti e connectionId.
+ * - Esegue un dispatch per tipo (es. `toast` di default, o handler custom tramite `on()`).
+ * - Attivazione lazy: apre la connessione solo alla prima iniezione nel browser.
  */
 @Injectable({ providedIn: 'root' })
 export class NotificationStreamService {
@@ -126,11 +115,8 @@ export class NotificationStreamService {
             catch { /* frame malformato: ignora */ }
         });
 
-        // Su un errore transitorio EventSource resta in CONNECTING e ritenta da sé (rimandando
-        // Last-Event-ID → il server replaya dallo storico): qui aggiorniamo solo lo stato. Su un
-        // errore terminale (handshake fallito, content-type errato, CORS) va in CLOSED e NON
-        // ritenta: liberiamo il riferimento e riproviamo noi, così lo stream riparte quando il
-        // backend torna su invece di restare morto per tutta la vita della scheda.
+        // Su errore transitorio EventSource ritenta da sé (con Last-Event-ID). 
+        // Su errore terminale (CLOSED) forziamo un nostro retry periodico.
         source.onopen = () => {
             this._connected.set(true);
             // Ri-idrata lo storico a ogni (ri)apertura: al primo collegamento popola il campanellino;
