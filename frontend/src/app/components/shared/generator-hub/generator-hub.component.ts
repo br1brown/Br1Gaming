@@ -4,7 +4,7 @@ import { MarkdownPipe } from '../../../core/engine/pipes/markdown.pipe';
 import { PageDirective } from '../../../core/engine/directives/page.directive';
 import { ApiService } from '../../../core/services/api.service';
 import { GenerateResponse, GeneratorInfo } from '../../../core/dto/generator.dto';
-import { GENERATOR_PAGE_TYPES } from '../generators-section/generators-section.component';
+import { GENERATOR_SLUG_TO_PAGE_TYPE } from '../../../pages/app.pages';
 import { PageType } from '../../../site';
 
 /** slug → chiamata API di generazione. Stesso dispatch di `generator-detail` (lì per PageType, qui
@@ -59,7 +59,7 @@ export class GeneratorHubComponent {
 
     /** Solo i generatori con una pagina propria (stesso filtro di `generators-section`). */
     protected readonly generators = computed<GeneratorInfo[]>(() =>
-        (this.resource.value() ?? []).filter(g => g.slug in GENERATOR_PAGE_TYPES));
+        (this.resource.value() ?? []).filter(g => g.slug in GENERATOR_SLUG_TO_PAGE_TYPE));
 
     /** Categoria scelta nel selettore, o null finché il catalogo non è arrivato / niente è stato toccato. */
     private readonly pickedSlug = signal<string | null>(null);
@@ -107,7 +107,7 @@ export class GeneratorHubComponent {
     /** PageType della pagina dedicata alla categoria attiva, per il link "pagina completa". */
     readonly activePageType = computed<PageType | null>(() => {
         const slug = this.activeSlug();
-        return slug ? (GENERATOR_PAGE_TYPES[slug] ?? null) : null;
+        return slug ? (GENERATOR_SLUG_TO_PAGE_TYPE[slug] as PageType ?? null) : null;
     });
 
     /** Icona del selettore per uno slug (usata nel template, niente lookup ripetuto lì). */

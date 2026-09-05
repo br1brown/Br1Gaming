@@ -4,22 +4,7 @@ import { CardGridComponent, CardEntry } from '../card-grid/card-grid.component';
 import { PageDirective } from '../../../core/engine/directives/page.directive';
 import { ApiService } from '../../../core/services/api.service';
 import { PageType } from '../../../site';
-
-/**
- * slug del generatore → PageType della sua pagina. Unico punto in cui, dall'elenco che arriva dal
- * backend, si selezionano i generatori "catalogati" (quelli con una pagina propria) e li si collega
- * alla loro rotta. Esportata così che chi rende l'elenco non ripeta la mappa.
- */
-export const GENERATOR_PAGE_TYPES: Partial<Record<string, PageType>> = {
-    'incel': PageType.GeneratorIncel,
-    'startup': PageType.GeneratorStartup,
-    'auto': PageType.GeneratorAuto,
-    'antiveg': PageType.GeneratorAntiveg,
-    'locali': PageType.GeneratorLocali,
-    'kebab': PageType.GeneratorKebab,
-    'mbeb': PageType.GeneratorMbeb,
-    'oroscopo': PageType.GeneratorOroscopo,
-};
+import { GENERATOR_SLUG_TO_PAGE_TYPE } from '../../../pages/app.pages';
 
 /**
  * Sezione "Generatori": titolo + griglia di card dei generatori, con la CTA verso i Piaciuti
@@ -53,12 +38,12 @@ export class GeneratorsSectionComponent {
     /** Solo i generatori con una pagina propria, mappati a card pronte per la griglia. */
     readonly cards = computed<CardEntry[]>(() =>
         (this.resource.value() ?? [])
-            .filter(g => g.slug in GENERATOR_PAGE_TYPES)
+            .filter(g => g.slug in GENERATOR_SLUG_TO_PAGE_TYPE)
             .map(g => ({
                 title: g.name,
                 subtitle: g.description ?? null,
                 imageId: `generator.${g.slug}`,
-                pageType: GENERATOR_PAGE_TYPES[g.slug]!,
+                pageType: GENERATOR_SLUG_TO_PAGE_TYPE[g.slug]! as PageType,
             }))
     );
 }

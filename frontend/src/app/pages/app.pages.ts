@@ -262,6 +262,12 @@ export const STORIES = [
     ['sopravvivi-agli-usa', AppPages.StorySurviveUsa, 'story.sopravvivi-agli-usa.og'],
 ] as const;
 
+/** Slug della storia → PageType della sua pagina: un solo posto, non una mappa duplicata per
+ *  componente (dilemma-section, in origine). Dallo stesso elenco che alimenta le route. */
+export const STORY_SLUG_TO_PAGE_TYPE: Partial<Record<string, AppPageId>> = Object.fromEntries(
+    STORIES.map(([slug, pageType]) => [slug, pageType])
+);
+
 /** Dichiarazioni pagina di quest'area, assemblate in site.ts → pages(). */
 export const appPagesDecl: SitePageInput[] = [
     {
