@@ -59,6 +59,17 @@
     border-radius: .65rem;
 }
 
+/* Ritratto del generatore invece dell'icona generica: stessa immagine usata nella card dedicata
+   (id `generator.<slug>`), solo più piccola — un dito diverso per ogni "cassetto" del mobiletto,
+   non più un glifo FontAwesome scelto a mano. */
+.hub-chip-icon {
+    width: 1.3rem;
+    height: 1.3rem;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
 .hub-description {
     color: var(--bs-secondary-color);
     font-size: .88rem;

@@ -20,7 +20,14 @@
                 [class.active]="activeSlug() === gen.slug"
                 [attr.aria-selected]="activeSlug() === gen.slug"
                 (click)="pickCategory(gen.slug)">
-            <i class="fa-solid {{ iconFor(gen.slug) }}" aria-hidden="true"></i>
+            @if (!brokenIcons().has(gen.slug)) {
+            <img [appAsset]="'generator.' + gen.slug"
+                 [appAssetWidth]="125"
+                 alt=""
+                 class="hub-chip-icon"
+                 loading="lazy"
+                 (error)="onIconError(gen.slug)">
+            }
             <span>{{ gen.name }}</span>
         </button>
         }

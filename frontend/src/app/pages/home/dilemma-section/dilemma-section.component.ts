@@ -1,6 +1,7 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
 import { PageDirective } from '../../../core/engine/directives/page.directive';
+import { AssetDirective } from '../../../core/engine/directives/asset.directive';
 import { ApiService } from '../../../core/services/api.service';
 import { PageType } from '../../../site';
 
@@ -8,6 +9,9 @@ interface StoryTeaser {
     slug: string;
     title: string;
     description: string | null;
+    /** Stesso contratto slug→id dei generatori (`generator.<slug>`): nessuna mappa da tenere
+     *  aggiornata, una storia nuova prende l'immagine da sola se il file esiste in mapping.json. */
+    imageId: string;
 }
 
 /**
@@ -19,7 +23,7 @@ interface StoryTeaser {
 @Component({
     selector: 'app-dilemma-section',
     standalone: true,
-    imports: [TranslatePipe, PageDirective],
+    imports: [TranslatePipe, PageDirective, AssetDirective],
     templateUrl: './dilemma-section.component.html',
     styleUrl: './dilemma-section.component.css',
 })
@@ -35,6 +39,15 @@ export class DilemmaSectionComponent {
      *  viaggia a parte via `[appPageParams]`. */
     protected readonly storyPageType = PageType.Storia;
 
+    /** Slug delle storie la cui immagine di copertina è mancante/rotta: la card ripiega sul
+     *  trattamento testuale invece di lasciare un riquadro vuoto (stesso spirito di
+     *  ContentCardComponent.onImageError per i generatori, qui per-item). */
+    protected readonly brokenImages = signal(new Set<string>());
+
+    protected onImageError(slug: string): void {
+        this.brokenImages.update(set => new Set(set).add(slug));
+    }
+
     /** Titolo/descrizione così come arrivano dal backend, nessuna storia esclusa: un solo PageType
      *  per tutte (/avventura/:slug), ogni storia del backend ha già una pagina. */
     readonly stories = computed<StoryTeaser[]>(() =>
@@ -43,5 +56,6 @@ export class DilemmaSectionComponent {
                 slug: s.slug,
                 title: s.title,
                 description: s.description ?? null,
+                imageId: `story.${s.slug}`,
             })));
 }

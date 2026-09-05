@@ -11,7 +11,17 @@
     }
     } @else {
     @for (s of stories(); track s.slug) {
-    <a class="dilemma-card" [appPage]="storyPageType" [appPageParams]="{ slug: s.slug }">
+    <a class="dilemma-card" [class.has-image]="!brokenImages().has(s.slug)"
+       [appPage]="storyPageType" [appPageParams]="{ slug: s.slug }">
+        @if (!brokenImages().has(s.slug)) {
+        <img [appAsset]="s.imageId"
+             [appAssetSizes]="'(min-width: 768px) 33vw, 50vw'"
+             alt=""
+             class="dilemma-card-bg"
+             loading="lazy"
+             (error)="onImageError(s.slug)">
+        <span class="dilemma-card-scrim" aria-hidden="true"></span>
+        }
         <h3 class="dilemma-title">{{ s.title }}</h3>
         @if (s.description) {
         <p class="dilemma-desc">{{ s.description }}</p>

@@ -8,13 +8,45 @@
     position: relative;
     display: flex;
     flex-direction: column;
+    justify-content: flex-end;
     gap: .5rem;
     padding: 1.1rem;
+    overflow: hidden;
+    isolation: isolate;
     border-radius: 1.5rem;
     border: 1px solid var(--colorSurfaceBorder);
     background: var(--colorSurface);
     color: var(--colorSurfaceText);
     min-height: 9rem;
+}
+
+/* Con copertina il testo siede sopra la foto (come sim-tile): niente bordo tema, bianco fisso —
+   il contrasto lo garantisce lo scrim, non il colore di superficie sottostante. */
+.dilemma-card.has-image {
+    border-color: transparent;
+    color: #fff;
+}
+
+.dilemma-card-bg {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform .4s ease;
+}
+
+a.dilemma-card:hover .dilemma-card-bg,
+a.dilemma-card:focus-visible .dilemma-card-bg {
+    transform: scale(1.03);
+}
+
+.dilemma-card-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(180deg, rgba(10, 12, 14, 0.1) 0%, rgba(10, 12, 14, 0.55) 60%, rgba(10, 12, 14, 0.88) 100%);
 }
 
 /* Le storie sono link diretti (tutta la card, come content-card): la freccia in basso a destra
@@ -38,6 +70,10 @@ a.dilemma-card:focus-visible {
     color: var(--bs-secondary-color);
 }
 
+.dilemma-card.has-image .dilemma-arrow {
+    color: rgba(255, 255, 255, 0.82);
+}
+
 .dilemma-title {
     font-weight: 700;
     font-size: 1rem;
@@ -48,4 +84,12 @@ a.dilemma-card:focus-visible {
     color: var(--bs-secondary-color);
     font-size: .85rem;
     margin: 0;
+}
+
+.dilemma-card.has-image .dilemma-desc {
+    color: rgba(255, 255, 255, 0.82);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dilemma-card-bg { transition: none; }
 }

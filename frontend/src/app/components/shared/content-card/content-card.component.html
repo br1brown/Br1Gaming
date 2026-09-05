@@ -1,29 +1,21 @@
-<!-- Riga di lista (non più card verticale): miniatura a sinistra, testo al centro, chevron.
-     Tutta la riga è il link → niente bottone "Vai" separato. Su mobile occupa l'intera
-     larghezza (vedi griglia col-12 in home), così il testo non resta compresso. -->
-<a class="card content-card-row flex-row overflow-hidden h-100 text-reset text-decoration-none"
+<!-- Copertina fotografica + scrim, stesso trattamento delle card storia in home (dilemma-section):
+     un solo linguaggio visivo per tutte le card di contenuto del sito, non più una riga di lista
+     con miniatura piccola. Tutta la card è il link, la freccia in basso a destra segnala "entra". -->
+<a class="card content-card-cover overflow-hidden h-100 text-decoration-none"
+   [class.has-image]="imageId() && imageVisible()"
    [routerLink]="path()">
     @if (imageId() && imageVisible()) {
-    <!-- L'img è in position:absolute dentro questo box a larghezza fissa: NON contribuisce
-         all'altezza (una sorgente verticale non allunga più la riga: l'altezza la dà SEMPRE
-         il testo del card-body). object-fit-contain la fa rientrare TUTTA nel riquadro senza
-         ritagli, anche con proporzioni non giuste. -->
-    <div class="content-card-thumb flex-shrink-0 position-relative">
-        <img [appAsset]="imageId()!"
-             [appAssetWidth]="320"
-             [alt]="title()"
-             class="position-absolute top-0 start-0 w-100 h-100 object-fit-contain"
-             loading="lazy"
-             (error)="onImageError()">
-    </div>
+    <img [appAsset]="imageId()!"
+         [appAssetSizes]="'(min-width: 768px) 33vw, 50vw'"
+         [alt]="title()"
+         class="content-card-bg"
+         loading="lazy"
+         (error)="onImageError()">
+    <span class="content-card-scrim" aria-hidden="true"></span>
     }
-    <div class="card-body d-flex align-items-center gap-3 py-3">
-        <div class="flex-grow-1 content-card-text">
-            <h3 class="card-title h6 mb-1">{{ title() }}</h3>
-            @if (subtitle()) {
-            <p class="card-text text-muted small mb-0">{{ subtitle() }}</p>
-            }
-        </div>
-        <i class="fa-solid fa-chevron-right text-secondary flex-shrink-0" aria-hidden="true"></i>
-    </div>
+    <h3 class="content-card-title h6 mb-1">{{ title() }}</h3>
+    @if (subtitle()) {
+    <p class="content-card-desc small mb-0">{{ subtitle() }}</p>
+    }
+    <i class="fa-solid fa-chevron-right content-card-arrow" aria-hidden="true"></i>
 </a>

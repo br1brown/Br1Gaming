@@ -2,22 +2,10 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
 import { MarkdownPipe } from '../../../core/engine/pipes/markdown.pipe';
 import { PageDirective } from '../../../core/engine/directives/page.directive';
+import { AssetDirective } from '../../../core/engine/directives/asset.directive';
 import { ApiService } from '../../../core/services/api.service';
 import { GenerateResponse, GeneratorInfo } from '../../../core/dto/generator.dto';
 import { PageType } from '../../../site';
-
-/** slug → icona del selettore (puro accento visivo, un dito per ogni "cassetto" del mobiletto). */
-const ICONS: Record<string, string> = {
-    incel: 'fa-user-slash',
-    startup: 'fa-rocket',
-    auto: 'fa-car-side',
-    antiveg: 'fa-drumstick-bite',
-    locali: 'fa-martini-glass',
-    kebab: 'fa-utensils',
-    mbeb: 'fa-id-badge',
-    oroscopo: 'fa-moon',
-};
-const DEFAULT_ICON = 'fa-dice';
 
 /**
  * Hub "7 in 1": un unico elemento (selettore categoria + leva) al posto di N card identiche
@@ -29,7 +17,7 @@ const DEFAULT_ICON = 'fa-dice';
 @Component({
     selector: 'app-generator-hub',
     standalone: true,
-    imports: [TranslatePipe, MarkdownPipe, PageDirective],
+    imports: [TranslatePipe, MarkdownPipe, PageDirective, AssetDirective],
     templateUrl: './generator-hub.component.html',
     styleUrl: './generator-hub.component.css',
 })
@@ -37,6 +25,15 @@ export class GeneratorHubComponent {
     private readonly api = inject(ApiService);
 
     protected readonly skeletonSlots = [0, 1, 2, 3, 4, 5, 6];
+
+    /** Slug la cui immagine del tasto è mancante/rotta: il tasto ripiega sul solo nome, stesso
+     *  spirito di ContentCardComponent.onImageError — niente icona generica di fallback: se manca
+     *  l'immagine mancava anche la voce nel mapping, la si aggiunge lì, non qui in codice. */
+    protected readonly brokenIcons = signal(new Set<string>());
+
+    protected onIconError(slug: string): void {
+        this.brokenIcons.update(set => new Set(set).add(slug));
+    }
 
     private readonly resource = this.api.generatorsResource();
     readonly loading = this.resource.isLoading;
@@ -94,9 +91,4 @@ export class GeneratorHubComponent {
      *  costante (un solo PageType per tutti i generatori): il template ci passa lo slug a parte
      *  via `[appPageParams]`. */
     protected readonly generatorPageType = PageType.Generatore;
-
-    /** Icona del selettore per uno slug (usata nel template, niente lookup ripetuto lì). */
-    protected iconFor(slug: string): string {
-        return ICONS[slug] ?? DEFAULT_ICON;
-    }
 }
