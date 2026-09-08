@@ -39,6 +39,13 @@ import { VariantWheelComponent } from '../../components/shared/variant-wheel/var
             from { opacity: 0; transform: translateY(8px); }
             to   { opacity: 1; transform: none; }
         }
+        /* Stessa firma della leva del mobiletto in home (hub-lever, generator-hub.component.css):
+           l'icona gira a ogni "tiro", non solo un cambio di testo. */
+        .gen-lever i { transition: transform .3s ease; }
+        .gen-lever:active i { transform: rotate(180deg); }
+        @media (prefers-reduced-motion: reduce) {
+            .gen-lever:active i { transform: none; }
+        }
     `],
 })
 export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageContent> {

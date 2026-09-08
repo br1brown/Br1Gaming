@@ -39,21 +39,34 @@
             {{ 'condivisiVaiAlGeneratore' | translate }}
         </button>
         } @else {
-        <button class="btn btn-primary rounded-pill px-4" (click)="generate(true)" [disabled]="loading()">
+        <!-- Stessa leva fisica del mobiletto in home (.btn-skeuo, hub-lever): la pagina intera del
+             generatore era rimasta un CTA Bootstrap generico mentre il widget in home aveva già
+             questo linguaggio "macchinario". Qui uniformiamo. -->
+        <button type="button" class="btn-skeuo btn-skeuo-accent gen-lever" (click)="generate(true)" [disabled]="loading()">
             @if (loading()) {
-            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+            <span class="spinner-border spinner-border-sm" role="status"></span>
+            } @else {
+            <i class="fa-solid fa-arrow-rotate-right" aria-hidden="true"></i>
             }
             {{ (result() ? 'ancora' : 'genera') | translate }}!
         </button>
         }
 
         @if (result(); as res) {
-        <div class="row">
-                <app-speech-action [action]="speakText" class="col" />
+        <!-- flex semplice, non la griglia Bootstrap: con "row"/"col" i bottoni crescevano per
+             riempire lo spazio residuo, e quella crescita dipendeva dal contenuto interno
+             (l'icona ascolta/stop, uno spinner al posto dell'icona) — bastava un pixel di
+             differenza per far andare o no a capo l'intera riga insieme al bottone "Ancora!"
+             accanto. "gen-actions" è solo un gancio CSS (styles/app/_skeuo.scss, Dominio): i
+             bottoni restano gli stessi componenti Engine invariati, qui li vestiamo da tasti
+             tondi fisici e li blocchiamo a dimensione fissa via selettori globali, senza toccare
+             un solo file sotto core/engine. -->
+        <div class="d-flex align-items-center gap-2 gen-actions">
+                <app-speech-action [action]="speakText" />
                 @if (!recovered()) {
-                <app-like-action [action]="likeThis" [liked]="liked()" class="col" />
+                <app-like-action [action]="likeThis" [liked]="liked()" />
                 }
-                <app-share-action [action]="buildShareCanvas" class="col"
+                <app-share-action [action]="buildShareCanvas"
                                   [title]="shareTitle()" [filename]="shareFilename()" />
         </div>
         }
