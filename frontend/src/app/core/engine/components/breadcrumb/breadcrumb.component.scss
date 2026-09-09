@@ -22,18 +22,23 @@
         align-items: center;
     }
 
+    // --bs-secondary-color è già calibrato da ThemeService per il contrasto AA target
+    // (theme.service.ts, colorMutedText): il colore da solo basta a restare conforme — pa11y
+    // verifica questo elemento quando il crumb intermedio è un link vero (trail a 3+ livelli).
     &__link {
         color: var(--bs-secondary-color);
         text-decoration: none;
         transition: all 0.2s ease-in-out;
         display: inline-flex;
         align-items: center;
-        opacity: 0.85;
+        // Hit-slop: allarga l'area cliccabile senza toccare le dimensioni visive (padding
+        // compensato da un margin negativo pari, così il layout della pillola resta identico).
+        padding: 0.35rem 0.25rem;
+        margin: -0.35rem -0.25rem;
 
         &:hover,
         &:focus-visible {
             color: var(--bs-body-color);
-            opacity: 1;
             text-shadow: 0 0 10px rgba(var(--bs-body-color-rgb), 0.3);
             text-decoration: none;
         }
@@ -69,10 +74,10 @@
         padding: 0 0.2rem;
     }
 
-    // Elemento intermedio senza path (finto percorso, es. "Policy")
+    // Elemento intermedio senza path (finto percorso, es. "Policy"): testo vero, stesso principio
+    // di __link — --bs-secondary-color da solo è già AA-compliant.
     &__fake-path {
         color: var(--bs-secondary-color);
-        opacity: 0.85;
         display: inline-flex;
         align-items: center;
         cursor: default;

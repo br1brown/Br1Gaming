@@ -1,4 +1,4 @@
-import { buildSite, resolveLangPrefix } from './core/engine/siteBuilder';
+import { buildSite } from './core/engine/siteBuilder';
 import { AppPages, appPagesDecl } from './pages/app.pages';
 import { LegalPages, legalPagesDecl } from './pages/policy/legal.pages';
 
