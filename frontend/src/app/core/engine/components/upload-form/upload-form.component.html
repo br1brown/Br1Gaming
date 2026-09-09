@@ -10,16 +10,22 @@
         <input type="file"
                class="d-none"
                [accept]="acceptAttr()"
+               [multiple]="multiple()"
                [disabled]="isLoading()"
                (change)="onFileSelected($event)" />
 
-        @if (selectedFile(); as file) {
-            <i class="fa-solid fa-file-circle-check text-primary mb-2 d-block fs-4" aria-hidden="true"></i>
-            <span class="small text-body-secondary">{{ 'uploadFileScelto' | translate }}</span>
-            <span class="d-block fw-semibold text-truncate">{{ file.name }}</span>
-        } @else {
-            <i class="fa-solid fa-cloud-arrow-up text-body-tertiary mb-2 d-block fs-4" aria-hidden="true"></i>
-            <span class="small text-body-secondary">{{ 'uploadAreaTrascinamento' | translate }}</span>
+        @if (selectedFiles(); as files) {
+            @if (files.length === 1) {
+                <i class="fa-solid fa-file-circle-check text-primary mb-2 d-block fs-4" aria-hidden="true"></i>
+                <span class="small text-body-secondary">{{ fileChosenLabel() }}</span>
+                <span class="d-block fw-semibold text-truncate">{{ files[0].name }}</span>
+            } @else if (files.length > 1) {
+                <i class="fa-solid fa-file-circle-check text-primary mb-2 d-block fs-4" aria-hidden="true"></i>
+                <span class="d-block fw-semibold">{{ multipleChosenLabel() }}</span>
+            } @else {
+                <i class="fa-solid fa-cloud-arrow-up text-body-tertiary mb-2 d-block fs-4" aria-hidden="true"></i>
+                <span class="small text-body-secondary">{{ dropzoneText() }}</span>
+            }
         }
     </label>
 
@@ -37,7 +43,7 @@
         @if (isLoading()) {
             <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
         }
-        {{ (isLoading() ? 'uploadCaricamento' : 'uploadAzione') | translate }}
+        {{ isLoading() ? uploadingLabel() : submitLabel() }}
     </button>
 
 </div>

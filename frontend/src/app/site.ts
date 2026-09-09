@@ -1,4 +1,4 @@
-import { buildSite } from './core/engine/siteBuilder';
+import { buildSite, resolveLangPrefix } from './core/engine/siteBuilder';
 import { AppPages, appPagesDecl } from './pages/app.pages';
 import { LegalPages, legalPagesDecl } from './pages/policy/legal.pages';
 
@@ -38,6 +38,8 @@ export const ContestoSito = buildSite({
     // flag omesso resta al proprio default, vedi SiteShellConfig in siteBuilder.ts).
     shell: {
         fixedTopHeader: true, // default: false — qui la navbar resta fissa in alto allo scroll
+        showBreadcrumb: true, // default: false — demo: visibile ovunque per farlo esplorare subito
+        //showPanel: false
     },
 
     isWebApp: true, // default: false — la demo mostra anche il lato PWA (Service Worker, install offline)
@@ -47,6 +49,4 @@ export const ContestoSito = buildSite({
         ...appPagesDecl,
     ],
 
-    // Menu di header/footer: dato risolto a runtime in `nav.ts`, vedi `ShellNavResolver`
-    // in `core/engine/shell-nav.ts`.
 });

@@ -34,6 +34,8 @@
   "apiStatusTitle": "Stato API",
   "internalsApiDesc": "Comunicazione con il backend ASP.NET Core.",
   "socialFilterLabel": "Filtra per nome...",
+  "uploadDemoTitle": "Upload file",
+  "uploadDemoDesc": "Carica file nel volume uploads/ e recuperali via slug (GUID).",
   "assetResolverTitle": "Asset Resolver",
   "assetResolverDesc": "Risolve un ID immagine tramite AssetService e opzionalmente lo ridimensiona in WebP.",
   "assetResolverInputLabel": "ID immagine...",

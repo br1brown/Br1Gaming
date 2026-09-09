@@ -1,0 +1,31 @@
+@if (visible()) {
+    <nav class="app-breadcrumb" [attr.aria-label]="'breadcrumbNav' | translate">
+        <ol>
+            @for (item of displayedItems(); track item.path ?? item.label; let first = $first; let last = $last) {
+                <li>
+                    @if (item.path && !last) {
+                        <a [routerLink]="item.path" class="app-breadcrumb__link" [class.is-home]="first">
+                            @if (first) {
+                                <i class="fa-solid fa-house" aria-hidden="true"></i>
+                                <span class="visually-hidden">{{ item.label }}</span>
+                            } @else {
+                                <span class="app-breadcrumb__text">{{ item.label }}</span>
+                            }
+                        </a>
+                    } @else if (last) {
+                        <span class="app-breadcrumb__current" aria-current="page">
+                            <span class="app-breadcrumb__text">{{ item.label }}</span>
+                        </span>
+                    } @else if (item.label === '...') {
+                        <span class="app-breadcrumb__ellipsis" aria-hidden="true">...</span>
+                    } @else {
+                        <span class="app-breadcrumb__fake-path">{{ item.label }}</span>
+                    }
+                    @if (!last) {
+                        <span class="app-breadcrumb__sep" aria-hidden="true">/</span>
+                    }
+                </li>
+            }
+        </ol>
+    </nav>
+}

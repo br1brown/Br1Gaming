@@ -29,19 +29,41 @@ else
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/gh-summary.sh
+source "${SCRIPT_DIR}/../lib/gh-summary.sh"
 
 if ! command -v node >/dev/null 2>&1; then
     echo "  WARN Node.js non trovato — controllo dipendenze cicliche saltato"
     exit 2
 fi
 
+CYCLES_LOG="$(mktemp)"
+trap 'rm -f "$CYCLES_LOG"' EXIT
+
 set +e
-node "${SCRIPT_DIR}/circular-deps.mjs"
-code=$?
+node "${SCRIPT_DIR}/circular-deps.mjs" 2>&1 | tee "$CYCLES_LOG"
+code=${PIPESTATUS[0]}
 set -e
 
 case $code in
-    0) echo -e "  ${GREEN}OK${RESET} Nessuna dipendenza ciclica pericolosa" ;;
+    0)
+        echo -e "  ${GREEN}OK${RESET} Nessuna dipendenza ciclica pericolosa"
+        gh_summary_append "### 🔄 Dipendenze cicliche
+✅ Nessun ciclo eager pericoloso"
+        ;;
     2) exit 2 ;;
-    *) echo -e "  ${RED}ERR${RESET} Dipendenza ciclica pericolosa rilevata" >&2; exit 1 ;;
+    *)
+        echo -e "  ${RED}ERR${RESET} Dipendenza ciclica pericolosa rilevata" >&2
+        gh_summary_append "### 🔄 Dipendenze cicliche
+❌ Ciclo eager pericoloso rilevato
+
+<details><summary>Dettaglio</summary>
+
+\`\`\`
+$(cat "$CYCLES_LOG")
+\`\`\`
+
+</details>"
+        exit 1
+        ;;
 esac

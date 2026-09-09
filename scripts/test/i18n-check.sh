@@ -43,6 +43,15 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 I18N_DIR="${SCRIPT_DIR}/../../frontend/src/assets/i18n"
+# shellcheck source=scripts/lib/gh-summary.sh
+source "${SCRIPT_DIR}/../lib/gh-summary.sh"
+
+# Duplica tutto l'output (stdout+stderr) anche su file: il Job Summary in fondo ne
+# riusa il contenuto (solo le righe "chiave mancante") senza dover restrutturare
+# check_catalog() per accumulare i dettagli oltre a stamparli.
+I18N_LOG="$(mktemp)"
+trap 'rm -f "$I18N_LOG"' EXIT
+exec > >(tee "$I18N_LOG") 2>&1
 
 # Su Git Bash/Windows, Node.js è il binario nativo Win32 e non capisce i path
 # Unix-style /c/Users/... — li converte in C:/Users/... con cygpath -m.
@@ -79,6 +88,8 @@ fi
 
 if [[ ${#LANGS[@]} -eq 1 ]]; then
     ok "Una sola lingua configurata (${LANGS[0]}), test superato"
+    gh_summary_append "### 🌍 Completezza i18n
+✅ Una sola lingua configurata (${LANGS[0]}) — niente da confrontare"
     exit 0
 fi
 
@@ -146,8 +157,20 @@ done
 
 if [[ $FAILURES -gt 0 ]]; then
     fail "${FAILURES} catalogo/i con chiavi non sincronizzate"
+    gh_summary_append "### 🌍 Completezza i18n (${LANGS[*]})
+❌ ${FAILURES} catalogo/i non sincronizzato/i
+
+<details><summary>Dettaglio</summary>
+
+\`\`\`
+$(grep -E 'chiave mancante|File mancante' "$I18N_LOG" || true)
+\`\`\`
+
+</details>"
     exit 1
 fi
 
 ok "Controllo completezza i18n superato"
+gh_summary_append "### 🌍 Completezza i18n (${LANGS[*]})
+✅ Tutti i cataloghi allineati"
 exit 0

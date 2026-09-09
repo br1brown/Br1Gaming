@@ -7,12 +7,15 @@
  * - public/manifest.webmanifest → nome, descrizione, colori
  * - public/robots.txt        → user-agent, disallow, sitemap URL
  * - public/llms.txt          → indice del sito per i crawler AI (convenzione llms.txt)
- * - public/security.txt      → contatto di sicurezza RFC 9116 (servito su /.well-known/)
  * - public/theme-init.js     → script anti-flash del tema, referenziato da index.html
+ *
+ * security.txt (RFC 9116) NON è qui: è un endpoint runtime (routes/dynamic-security-txt.ts),
+ * non un file di build — il contatto viene dall'identità del sito, dato modificabile senza
+ * redeploy come ogni altro contatto di progetto.
  *
  * Solo index.html ed environment.ts sono generati MA versionati (seed: type-check e build
  * passano anche prima della prima esecuzione). Tutto ciò che finisce in public/ (manifest,
- * robots, llms, security.txt, theme-init, icons) è solo output di build, gitignored
+ * robots, llms, theme-init, icons) è solo output di build, gitignored
  * (public/ è ignorata per intero): lo rigenera il pre-hook prebuild.
  *
  * Eseguire con:
@@ -181,7 +184,6 @@ const INDEX = join(ROOT, 'src', 'index.html');
 const MANIFEST = join(ROOT, 'public', 'manifest.webmanifest');
 const ROBOTS = join(ROOT, 'public', 'robots.txt');
 const LLMS = join(ROOT, 'public', 'llms.txt');
-const SECURITY = join(ROOT, 'public', 'security.txt');
 const THEME_INIT = join(ROOT, 'public', 'theme-init.js');
 
 // Rimuove lo slash finale per evitare doppi slash negli URL generati
@@ -467,25 +469,6 @@ function updateLlms(): void {
     console.log(`[statics] llms.txt aggiornato (${entries.length} pagine)`);
 }
 
-// ── Generazione security.txt (RFC 9116) ───────────────────────────────────
-
-function updateSecurityTxt(): void {
-    // Expires obbligatorio per RFC 9116: rigenerato a ogni build (+1 anno), così non
-    // scade mai finché il sito viene ribuildato. Contact punta al sito stesso, che è un
-    // URI valido per la segnalazione; personalizzabile sovrascrivendo questo file.
-    const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
-    const lines = [
-        '# security.txt — RFC 9116',
-        `Contact: ${BASE_URL}`,
-        `Expires: ${expires}`,
-        `Preferred-Languages: ${AVAILABLE_LANGS.join(', ')}`,
-        `Canonical: ${BASE_URL}/.well-known/security.txt`,
-    ];
-
-    writeFileSync(SECURITY, lines.join('\n') + '\n', 'utf8');
-    console.log(`[statics] security.txt aggiornato`);
-}
-
 // ── Generazione theme-init.js (anti-flash tema, pre-idratazione) ───────────
 
 function updateThemeInit(): void {
@@ -520,7 +503,6 @@ function main(): void {
     updateManifest();
     updateRobots();
     updateLlms();
-    updateSecurityTxt();
     updateThemeInit();
 }
 

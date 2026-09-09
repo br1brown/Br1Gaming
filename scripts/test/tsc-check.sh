@@ -36,6 +36,8 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FRONTEND_DIR="${SCRIPT_DIR}/../../frontend"
 NG_BIN="${FRONTEND_DIR}/node_modules/@angular/cli/bin/ng.js"
+# shellcheck source=scripts/lib/gh-summary.sh
+source "${SCRIPT_DIR}/../lib/gh-summary.sh"
 
 if ! command -v node >/dev/null 2>&1; then
     echo "  WARN Node.js non trovato — controllo build saltato"
@@ -49,9 +51,24 @@ fi
 
 cd "$FRONTEND_DIR"
 
-if node "$NG_BIN" build --configuration production; then
+BUILD_LOG="$(mktemp)"
+trap 'rm -f "$BUILD_LOG"' EXIT
+
+if node "$NG_BIN" build --configuration production 2>&1 | tee "$BUILD_LOG"; then
     echo -e "  ${GREEN}OK${RESET} Build di produzione (type-check incluso) superata"
+    gh_summary_append "### 🏗️ TypeScript (build di produzione)
+✅ Nessun errore di tipo/template"
 else
     echo -e "  ${RED}ERR${RESET} Build di produzione fallita" >&2
+    gh_summary_append "### 🏗️ TypeScript (build di produzione)
+❌ Build fallita
+
+<details><summary>Dettaglio (ultime 80 righe)</summary>
+
+\`\`\`
+$(tail -n 80 "$BUILD_LOG")
+\`\`\`
+
+</details>"
     exit 1
 fi

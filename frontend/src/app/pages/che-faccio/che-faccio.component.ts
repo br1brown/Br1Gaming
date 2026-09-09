@@ -32,6 +32,7 @@ import { PhoneContactComponent } from '../../core/engine/components/phone-contac
 import { WhatsappContactComponent, WhatsappContactConfig } from '../../core/engine/components/whatsapp-contact/whatsapp-contact.component';
 import { TelegramContactComponent } from '../../core/engine/components/telegram-contact/telegram-contact.component';
 import { SocialLinkComponent } from '../../core/engine/components/social-link/social-link.component';
+import { UploadFormComponent } from '../../core/engine/components/upload-form/upload-form.component';
 
 /**
  * "Che faccio" (`/che-faccio`, `/en/what-i-do`): la vetrina completa delle funzionalità
@@ -58,6 +59,7 @@ import { SocialLinkComponent } from '../../core/engine/components/social-link/so
         WhatsappContactComponent,
         TelegramContactComponent,
         SocialLinkComponent,
+        UploadFormComponent,
     ],
     templateUrl: './che-faccio.component.html',
 })
@@ -140,6 +142,13 @@ export class CheFaccioComponent extends PageBaseComponent<void> {
     // --- Sistema & API ---
     socialFilter = '';
     readonly socialResult = signal('');
+
+    // --- Upload (ApiService.uploadBlob/.uploadBlobs) ---
+    /** Nome originale + slug restituito: `uploadBlobs` mantiene l'ordine di `files`, qui si
+     *  affianca il nome per rendere visibile la corrispondenza file→GUID nella demo. */
+    readonly uploadedItems = signal<{ name: string; slug: string }[]>([]);
+    readonly uploadLoading = signal(false);
+    readonly uploadError = signal<string | null>(null);
 
     // --- Risoluzione asset + playground resize ---
     assetId = 'img4k';
@@ -332,6 +341,30 @@ asset.getUrl('nomeAsset', 480)
 <a [appAssetHref]="'documento'">
   Scarica PDF
 </a>`,
+
+        upload:
+`<!-- Template: componente Engine, dumb -->
+<app-upload-form
+  [multiple]="true"
+  [accept]="['image/*']"
+  [maxSize]="10 * 1024 * 1024"
+  [isLoading]="uploadLoading()"
+  [externalError]="uploadError()"
+  (filesConfirmed)="onFilesConfirmed($event)" />
+
+// Componente: l'upload vero lo fa ApiService
+async onFilesConfirmed(files: File[]) {
+  this.uploadLoading.set(true);
+  try {
+    const slugs = await this.api.uploadBlobs(files);
+    // slugs: string[] nello stesso ordine di files
+  } finally {
+    this.uploadLoading.set(false);
+  }
+}
+
+<!-- Render: URL relativo, cache eterna (slug = GUID) -->
+<img [src]="api.getBlobUrl(slug)" alt="…">`,
 
         actionComponents:
 `// ── AZIONI (bottone + servizio) ──
@@ -532,6 +565,23 @@ wa = { phone: '+39...', text: 'Ciao' };
 
         const res = await this.api.getSocial(nomi);
         this.socialResult.set(JSON.stringify(res, null, 2));
+    }
+
+    /** Riceve i `File` già validati da `UploadFormComponent` (estensione/peso), li carica via
+     *  `ApiService.uploadBlobs` e accoda nome+slug (stesso ordine di `files`) a quelli già
+     *  mostrati in pagina — la corrispondenza file→GUID resta visibile nella demo. */
+    async onFilesConfirmed(files: File[]): Promise<void> {
+        this.uploadLoading.set(true);
+        this.uploadError.set(null);
+        try {
+            const slugs = await this.api.uploadBlobs(files);
+            const items = files.map((file, i) => ({ name: file.name, slug: slugs[i] }));
+            this.uploadedItems.update(existing => [...existing, ...items]);
+        } catch {
+            this.uploadError.set(this.translate.translate('uploadErroreGenerico'));
+        } finally {
+            this.uploadLoading.set(false);
+        }
     }
 
     resolveAsset(): void {

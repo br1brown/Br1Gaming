@@ -289,7 +289,7 @@ Aggiungere un campo al profilo di sessione (es. `brandColor`) è quindi un'unica
 | :--- | :--- | :--- |
 | `LoginFormComponent` | `app-login-form` | Form username/password riusabile; emette `(loggedIn)` al successo. Non naviga da solo. |
 | `UserNavComponent` | `app-user-nav` | Area Login/Logout nella navbar. Il link di login appare solo con `loginPage: { page, showInHeader: true }`; il logout, da loggati, appare comunque. Gestisce il logout con modale di conferma. |
-| `UploadFormComponent` | `app-upload-form` | Componente "dumb" per drag-and-drop e selezione file. Emette il `File` nativo delegando la chiamata API al componente genitore. |
+| `UploadFormComponent` | `app-upload-form` | Componente "dumb" per drag-and-drop e selezione file (anche multipla via `[multiple]`). Emette `File[]` nativi delegando la chiamata API al componente genitore. |
 
 ### Ciclo di Vita del Token
 
@@ -441,7 +441,7 @@ I placeholder Markdown `{{cookieList}}` e `{{cookieCategories}}` generano l'info
 ### Google Consent Mode v2
 Se usi GA4 o Ads:
 1. **`src/index.html`**: Aggiungi stub predefinito (`denied`) prima di GTM/gtag.
-2. **`security-headers.json`**: Autorizza gli script Google.
+2. **`security-headers.override.json`**: Autorizza gli script Google (vedi §"Estendere la CSP" più sotto — non toccare `security-headers.json`).
 3. **`cookie-registry.ts`**: Censisci `_ga` e soci.
 4. **`analytics.service.ts`**: Crea un servizio che usa `effect()` per chiamare `gtag('consent', 'update', ...)` in base ai signal di `CookieConsentService`.
 
@@ -990,6 +990,7 @@ Usata internamente da `PolicyComponent` per le pagine legali. Disponibile in qua
 | `getBlobUrl(slug, webopt?)` | `string` | URL relativo del file (`/api/blob/{slug}`) per `<img src>` / `<a href>` — senza download in memoria. Anche in GET passa dal proxy `/api` protetto da API key |
 | `getBlob(slug)` | `Promise<Blob>` | File scaricato in memoria (anteprima locale, download forzato) |
 | `uploadBlob(file)` | `Promise<{ slug }>` | Carica un file nel volume uploads (richiede JWT) |
+| `uploadBlobs(files)` | `Promise<string[]>` | Carica più file in sequenza, stesso ordine di `files`; fallimento a metà propaga l'errore senza rollback dei file già caricati |
 | `login(username, password)` | `Promise<LoginResult>` | Autenticazione utente (solo se JWT abilitato) |
 
 > L'identità del sito non sta in `ApiService`. Footer, pagine legali e SEO la leggono dalla risorsa condivisa dell'Engine `IdentityService` (`identity()` signal, `GET /identity`, una sola fetch per lingua). Vedi IdentityService.
@@ -1022,13 +1023,13 @@ const { angularUrl } = this.asset.getUrlFromBlob(blob); // SafeUrl; revocato in 
 
 > Default `webopt = true`: è un flag generico che chiede al backend la versione ottimizzata per il web del file, qualunque essa sia, non è legato alle immagini per definizione. Oggi l'unica ottimizzazione implementata è quella per le immagini (lato più lungo max 1920 px, conversione in WebP), quindi i contenuti per cui non esiste ancora una pipeline (PDF, video…) vengono serviti tali e quali; ma il flag è il punto di aggancio previsto per future riduzioni lato API di altri tipi di contenuto. Per ottenere sempre il file originale, così com'è stato caricato (es. download a piena risoluzione), passa `getBlobUrl(slug, false)`.
 
-#### Caricare un file (`uploadBlob`)
+#### Caricare uno o più file (`uploadBlob`/`uploadBlobs`)
 
-`uploadBlob(file)` carica il file e restituisce lo `slug` con cui recuperarlo in seguito (via `getBlobUrl` / `getBlob`). Si abbina a `app-upload-form`, il componente drag-and-drop riusabile:
+`uploadBlob(file)` carica un singolo file e restituisce lo `slug` con cui recuperarlo in seguito (via `getBlobUrl` / `getBlob`). Si abbina a `app-upload-form`, il componente drag-and-drop riusabile — che emette sempre `File[]` (`filesConfirmed`), anche fuori da `[multiple]`:
 
 ```typescript
-// <app-upload-form (fileConfirmed)="onFileConfirmed($event)" [isLoading]="isUploading()" />
-async onFileConfirmed(file: File): Promise<void> {
+// <app-upload-form (filesConfirmed)="onFilesConfirmed($event)" [isLoading]="isUploading()" />
+async onFilesConfirmed([file]: File[]): Promise<void> {
     this.isUploading.set(true);
     try {
         const { slug } = await this.api.uploadBlob(file);
@@ -1039,7 +1040,24 @@ async onFileConfirmed(file: File): Promise<void> {
 }
 ```
 
-> Nota: `uploadBlob` richiede JWT valido (l'utente deve essere loggato). Anche le GET (`getBlobUrl`, `getBlob`) richiedono l'API key: l'endpoint `/blob/{slug}` non è anonimo, quindi i file non sono una risorsa pubblica raggiungibile direttamente dal backend (es. da un crawler) come lo sono gli asset statici. Nel browser la chiave non va gestita: la inietta in modo trasparente il proxy SSR `/api`.
+Con `[multiple]="true"` sul componente, usa `uploadBlobs(files)` invece: carica in sequenza (l'endpoint accetta un `IFormFile` alla volta) e restituisce gli slug nello stesso ordine di `files`.
+
+```typescript
+// <app-upload-form [multiple]="true" (filesConfirmed)="onFilesConfirmed($event)" [isLoading]="isUploading()" />
+async onFilesConfirmed(files: File[]): Promise<void> {
+    this.isUploading.set(true);
+    try {
+        const slugs = await this.api.uploadBlobs(files);
+        // slugs[i] ↔ files[i].name — tieni la corrispondenza esplicita se la mostri, non solo gli slug
+    } finally {
+        this.isUploading.set(false);
+    }
+}
+```
+
+`labels` (`input<UploadFormLabels>`, opzionale) sovrascrive i testi del form campo per campo (dropzone, bottone, errori); un campo non passato ricade sulla chiave i18n di default — utile per un wording diverso dal generico del sito senza toccare i cataloghi i18n.
+
+> Nota: `uploadBlob`/`uploadBlobs` richiedono JWT valido (l'utente deve essere loggato). Anche le GET (`getBlobUrl`, `getBlob`) richiedono l'API key: l'endpoint `/blob/{slug}` non è anonimo, quindi i file non sono una risorsa pubblica raggiungibile direttamente dal backend (es. da un crawler) come lo sono gli asset statici. Nel browser la chiave non va gestita: la inietta in modo trasparente il proxy SSR `/api`.
 
 Pattern one-shot (dati statici, caricati una volta):
 ```typescript
@@ -1251,10 +1269,10 @@ Importante: `og:image` si aggiorna solo in SSR. I crawler non eseguono JavaScrip
 
 ### Generazione og:image: la rotta `/cdn-cgi/preview`
 
-L'og:image non è un file statico: l'Engine la genera al volo. Il Node SSR espone `/cdn-cgi/preview` (`server/routes/og-preview.ts`), che produce un'immagine OpenGraph/Twitter Card 1200×630 in due varianti, scelte dal payload:
+L'og:image non è un file statico: l'Engine la genera al volo. Il Node SSR espone `/cdn-cgi/preview` (`server/routes/og-preview.ts`), che produce un'immagine OpenGraph/Twitter Card 1200×630 in due varianti, scelte dal payload — layout allineato alle linee guida 2026 (safe-zone 80px, favicon/badge in alto a sinistra, testo primario nei due terzi superiori, headline pesante + subline max una riga):
 
-- **Card testuale** — quando non c'è un'immagine di sfondo: SVG con nome app, favicon, titolo e sottotitolo sul colore brand.
-- **Variante con immagine** — quando il payload porta un `id` asset: sfondo sfocato + immagine in primo piano + (salvo `onlyImage`) favicon e badge col titolo.
+- **Card testuale** — quando non c'è un'immagine di sfondo: favicon in alto a sinistra (piccolo marchio d'identità, SENZA nome app accanto — i crawler social lo mostrano già nel proprio chrome UI, ripeterlo dentro l'immagine è ridondante) + titolo grande allineato a sinistra + subline opzionale (una riga, troncata con ellissi). Sfondo sul colore brand, rinforzato a contrasto WCAG AAA (`ImgBuilderService.strongFillColor`) contro il testo overlay.
+- **Variante con immagine** — quando il payload porta un `id` asset: sfondo sfocato + immagine in primo piano + (salvo `onlyImage`) favicon in alto a sinistra e badge col titolo + subline (stessa disciplina "una riga" della card testuale).
 
 Il risultato viene cachato su disco (WebP) come ogni thumbnail di `/cdn-cgi/asset`.
 
@@ -1268,12 +1286,24 @@ Schema.org viene iniettato automaticamente per ogni pagina. Migliora l'apparenza
 
 | Entità | `@id` | Quando |
 | :--- | :--- | :--- |
-| `Organization` *(o `Person`)* | `{origin}#organization` *(o `#person`)* | Sempre — l'entità brand: nome (ragione sociale, fallback nome sito), URL e icona del sito (`logo` per Organization, `image` per Person); `sameAs` dai social; `address` (`PostalAddress` dalla sede); `contactPoint` (`ContactPoint` con telefono/email, `hoursAvailable` dagli orari, `availableLanguage` dalle lingue del sito); e — solo Organization — `legalName`/`vatID`/`taxID` da ragione sociale/P.IVA/CF; più la via di fuga `identity.extra` (proprietà schema.org arbitrarie fuse nel nodo). Il tipo dipende da `identity.personal` (default Organization); identità assente → Organization minimale |
+| `Organization` *(o `Person`)* | `{origin}#organization` *(o `#person`)* | Sempre — l'entità brand: nome (ragione sociale, fallback nome sito), URL e icona del sito (`logo` per Organization, `image` per Person); `sameAs` dai social; `address` (`PostalAddress` dalla sede), `contactPoint` (`ContactPoint` con telefono/email) — SOLO se abilitati per campo in `site.ts` (`jsonld: { indirizzo, telefono, email, partitaIva, codiceFiscale }`, vedi sotto — default `false` (eccetto `partitaIva`, `true`), i dati restano comunque visibili nel footer/pagine legali indipendentemente da questi flag, che riguardano solo l'esposizione nel JSON-LD pubblico), `hoursAvailable`/`availableLanguage` sempre inclusi se disponibili; e — solo Organization — `legalName` (sempre, da ragione sociale: è già la stessa stringa esposta in `name`), `vatID`/`taxID` da P.IVA/CF SOLO se `jsonld.partitaIva`/`.codiceFiscale`; più la via di fuga `identity.extra` (proprietà schema.org arbitrarie fuse nel nodo). Il tipo dipende da `identity.personal` (default Organization); identità assente → Organization minimale |
 | `WebSite` | `{origin}#website` | Sempre — collega le pagine al sito e all'organizzazione |
 | `WebPage` (o tipo scelto) | `{canonical}#webpage` | Sempre — la pagina corrente, con `inLanguage`, `isPartOf`, `publisher` e `dateModified` (dal valore effettivo di `og:updated_time`) |
 | `BreadcrumbList` | — | Solo quando il path non è la root (`/`) |
 
 Ogni script è marcato con l'attributo `data-br1-jsonld` (per aggiornarli/rimuoverli in blocco) e riceve il nonce CSP della richiesta in SSR, così rispetta la Content-Security-Policy senza `unsafe-inline`.
+
+**`jsonld` (`site.ts`, `{ email, telefono, indirizzo, partitaIva, codiceFiscale }`, default `false` — eccetto `partitaIva`, default `true`)**: quali dati facoltativi di `identity` finiscono nel nodo brand del JSON-LD — stessi nomi dei campi di `identity.json`/`identity.dto.ts` che ciascuno gate (`email`/`telefono` nel `ContactPoint`, `indirizzo` nella `PostalAddress` da sede legale/operativa, `partitaIva`/`codiceFiscale` come `vatID`/`taxID`, solo Organization/attività), apposta per non dover tradurre a mente tra i due file. Un flag per campo, non un interruttore unico, perché non hanno lo stesso profilo di rischio: `partitaIva` è un identificativo puramente numerico, verificabile pubblicamente su VIES/camera di commercio a prescindere — zero dato personale codificato, per questo è l'unico con default `true` (Google la raccomanda esplicitamente). `codiceFiscale` invece resta `false`: per una vera società spesso coincide numericamente con la P.IVA (nessun dato in più), ma per una ditta individuale è il codice fiscale della persona fisica dietro l'attività — codifica data e luogo di nascita — e il motore non sa distinguere i due casi (entrambi `personal: false`), quindi il default resta prudente. `legalName` non è in questa lista: se `identity.ragioneSociale` è valorizzata esce comunque identica da `name` (sempre presente), un flag lì non nasconderebbe nulla. `sameAs` (i social) nemmeno: sono URL che hai già scelto di pubblicare (compaiono anche nel footer) e Google li segnala come il segnale più importante per il Knowledge Panel — nessun motivo di gate.
+
+Nessuna di queste proprietà è "Required" per Google (la [guida ufficiale su Organization](https://developers.google.com/search/docs/appearance/structured-data/organization) le marca tutte "Recommended"), quindi tecnicamente sono tutte facoltative — la scelta di quali rendere un flag esplicito segue il profilo di rischio, non lo schema.
+
+Un JSON-LD pubblico è testo strutturato, pensato apposta per essere estratto in automatico — dai motori di ricerca (rich result "chiama ora", scheda indirizzo), ma allo stesso modo dai bot di scraping/spam, che bersagliano proprio i JSON-LD perché più economici da parsare di un dato scritto nel footer. Per questo il default è spento su tutti: un sito personale (`identity.personal: true`) non ha motivo di esporre un dato personale in quel formato. Il footer e le pagine legali (`identity-render`) restano sempre visibili se i campi di `identity` sono valorizzati, **indipendentemente** da questi flag — riguardano solo l'esposizione nel JSON-LD. Attivali singolarmente per un sito vetrina con dati pubblici dedicati (non un'utenza/indirizzo personale) — es. un'attività fisica vuole l'indirizzo per il local SEO ma può tenere spenti mail/telefono:
+```ts
+buildSite({
+    // ...
+    jsonld: { indirizzo: true, partitaIva: true, telefono: false, email: false, codiceFiscale: false },
+});
+```
 
 I dati strutturati si dichiarano in un solo campo, `otherSEO.structuredData`, in tre forme (anche combinabili in una lista):
 - una **stringa** → solo il `@type` della pagina (es. `'AboutPage'`, per i tipi non coperti; default `WebPage`);
@@ -1336,6 +1366,7 @@ Oltre a `path`, `title` e `description`, ogni dichiarazione di pagina (nei file 
         showPanel: false,     // nasconde il pannello laterale
         fitViewport: true,    // vista full-bleed immersiva: riempie il viewport; di default niente padding/pannello/smoke/footer (navbar sì)
         pageFade: false,      // spegne il fade-in d'ingresso solo su questa pagina (il globale shell.pageFade fa da gate)
+        showBreadcrumb: true, // forza il breadcrumb in entrambe le direzioni su questa pagina (default: euristica, vedi sotto — gate: col globale off nessuna pagina può riattivarlo)
     },
 
     // Meta tag OpenGraph aggiuntivi
@@ -1364,6 +1395,7 @@ shell: {                           // comportamento di navbar / footer / header 
     showNotifications: false,      // campanellino notifiche realtime con storico (default false, opt-in)
     panelForcedLight: true,        // pannello contenuti sempre chiaro, a prescindere dal tema OS
     pageFade: true,                // fade-in d'ingresso pagina (gate: col globale off nessuna pagina può riattivarlo)
+    showBreadcrumb: true,          // gate globale del breadcrumb (default true) — la visibilità per pagina resta un'euristica, vedi sotto
 },
 
 isWebApp: false,                   // funzionalità PWA (Service Worker, aggiornamenti, install offline) — default false, opt-in
@@ -1747,6 +1779,31 @@ La directive usa Pointer Events unificati (mouse, touch, penna). Un timer di sic
 
 ## 🃏 Componenti Condivisi
 
+### `app-breadcrumb`: Percorso di Navigazione
+
+A differenza degli altri componenti di questa sezione, non si monta a mano: lo shell lo include già in `app.component.html`, sopra il pannello contenuti. Si configura da `site.ts`, non nel template di una pagina.
+
+Il trail (Home → ... → pagina corrente) viene calcolato da `BreadcrumbService` risalendo l'albero di `ContestoSito.pages` dal `PageType` della rotta corrente — la stessa fonte che alimenta il `BreadcrumbList` JSON-LD (vedi §"JSON-LD Strutturato"), quindi le due gerarchie non possono divergere.
+
+Visibilità di default "intelligente": compare da solo quando il percorso ha più di un livello reale (Home + pagina corrente) — una pagina radice (la Home) non lo mostra mai, non serve spegnerlo a mano ovunque. Un genitore dichiarato in `site.ts` ma senza una propria pagina "indice" (es. `Policy`, un `ParentPage` fatto solo di figlie, senza un `/policy` a sé — vedi `buildPolicySection` in `legal-pages.ts`) non conta come livello intermedio: il suo titolo si fonde in quello della pagina figlia (`"Policy - Cookie Policy"` come un'unica label) invece di comparire come gradino cliccabile a vuoto. Gate a due stadi, stesso pattern di `showNav`/`showFooter`:
+```typescript
+shell: { showBreadcrumb: true },                    // site.ts — globale, di default true. Off qui: nessuna pagina può riaccenderlo
+// in pages/*.pages.ts, per una singola pagina:
+layout: { showBreadcrumb: false },                   // forza esplicitamente (entrambe le direzioni). Assente → euristica sopra
+```
+
+Per un trail non deducibile dall'albero (es. un'entità di una pagina `dynamicParams` che vuole un livello in più, prodotto da dati esterni), sovrascrivi il resolver invece del componente:
+```typescript
+// site.ts
+resolveBreadcrumb: (type, ctx) => {
+    if (type !== PageType.SocialFeed) return null;    // null → torna al calcolo automatico
+    return [
+        { label: 'breadcrumbHome', path: '/' },
+        { label: ctx.currentTitle ?? '', path: undefined },  // ultimo livello: mai un link
+    ];
+},
+```
+
 ### `app-loading`: Spinner Condizionale
 
 Wrappa un blocco di contenuto e mostra uno spinner finché `loading` è `true`, poi proietta il contenuto. Evita di scrivere a mano la coppia `@if (loading()) { spinner } @else { ... }` in ogni pagina, ed è già accessibile (`role="status"`, `aria-live`, testo i18n per gli screen reader).
@@ -2084,10 +2141,14 @@ Cosa resta fuori per scelta: chunking manuale, plugin esbuild custom o un builde
 L'endpoint `/health` restituisce JSON strutturato (non una stringa generica):
 
 ```json
-{ "status": "ok", "mode": "ssr", "a11yPaths": ["/home", "/chi-siamo", "..."] }
+[object Object]
 ```
 
-`a11yPaths` è la lista delle pagine pubbliche SSR statiche per gli audit live. È intenzionalmente separata dalla sitemap: include le pagine `noindex`, comprese le policy legali, perché restano superficie utente da verificare con Pa11y e Lighthouse. Gli script la uniscono alle URL concrete di `/sitemap.xml`, quindi includono anche le pagine `dynamicParams` enumerate dal backend nello stack di test. Pa11y ne controlla fino a 100 (`A11Y_DYNAMIC_MAX`) e Lighthouse fino a 20 (`LIGHTHOUSE_DYNAMIC_MAX`); oltre il tetto selezionano un campione distribuito e deterministico. Pagine protette e client-only restano escluse.
+`auditPaths` è la lista delle pagine pubbliche SSR statiche per gli audit live (nome scelto perché alimenta sia Pa11y che Lighthouse, non solo l'accessibilità). È intenzionalmente separata dalla sitemap: include le pagine `noindex`, comprese le policy legali, perché restano superficie utente da verificare con Pa11y e Lighthouse; contiene però solo la lingua di default (`Localization.DefaultLanguage`), perché le varianti-lingua di una stessa pagina condividono template e markup — cambia solo il testo tradotto — e un audit strutturale/di performance darebbe lo stesso esito in ogni lingua. Pagine protette e client-only restano escluse.
+
+Le pagine `dynamicParams` (rotte parametriche enumerate a runtime dal backend, es. `social-feed/:slug`) NON sono in `auditPaths` — arrivano invece da un endpoint dedicato, `GET /internal/dynamic-audit-paths`, che le raggruppa per `pageType` (una entry `{ "pageType": ["/path1", "/path2", ...] }` per gruppo, sola lingua di default). `live-test.sh` (scripts/test/) campiona OGNI gruppo indipendentemente — non un unico campione su tutte le pagine dinamiche mescolate insieme: un `pageType` con mille entità (es. un blog, in un figlio futuro) non "ruba" campione a uno con cinque (es. la demo `social-feed`), sono due componenti indipendenti con un proprio profilo di accessibilità/performance. Pa11y campiona fino a 100 istanze per gruppo (`A11Y_DYNAMIC_MAX`), Lighthouse fino a 5 (`LIGHTHOUSE_DYNAMIC_MAX`, seriale e costoso per pagina — un campione più piccolo basta, le istanze di uno stesso `pageType` condividono template); oltre il tetto ciascun gruppo seleziona un campione distribuito e deterministico sul proprio elenco.
+
+`imageCache` sono i contatori hit/miss della cache su disco delle miniature (`/cdn-cgi/asset`, `/cdn-cgi/preview` — vedi §"Cache Immagini su Disco"): `hits` sono le richieste servite direttamente dalla cache, `misses` quelle che hanno dovuto lanciare un job sharp (decode/resize). In-memory e per-processo, azzerati a ogni riavvio: bastano a valutare al volo se `IMAGE_CACHE_MAX_MB` è dimensionato bene per il traffico reale, senza dover collegare un sistema di metriche esterno.
 
 ### Status Code SEO-Aware
 
@@ -2117,30 +2178,43 @@ Default (nessuna variabile impostata): `localhost`, `127.0.0.1`, `[::1]`, permet
 ### CSP Nonce Per-Request (Solo Produzione)
 
 In produzione (`node server.mjs`), ogni risposta SSR ottiene un nonce casuale a 16 byte (base64url):
-- Rimpiazza `{SCRIPT_NONCE_PLACEHOLDER}` nell'header `Content-Security-Policy`
-- Angular inietta `nonce="..."` su tutti gli `<script>` inline generati in SSR
-- In development (HMR attivo) viene usato `unsafe-inline` (richiesto da webpack HMR)
+- Rimpiazza `{NONCE_PLACEHOLDER}` nell'header `Content-Security-Policy`, sia in `script-src` sia in `style-src-elem` (stesso nonce, riusato tra le due direttive)
+- Angular inietta `nonce="..."` su tutti gli `<script>` inline e sui `<style>` di style encapsulation generati in SSR (via `CSP_NONCE`, `app.config.server.ts`); il tag `theme-init` (creato via DOM nativo, non tramite Angular) riceve lo stesso nonce esplicitamente
+- `style-src-attr` resta invece su `'unsafe-inline'` — copre i binding `[style.x]`/`[ngStyle]` (navbar, icone, temi dinamici): valori genuinamente per-istanza, i browser non supportano nonce sugli attributi `style`
+- In development (HMR attivo) viene usato `unsafe-inline` ovunque (richiesto da webpack HMR)
 
 ### Estendere la CSP (domini esterni: mappe, analytics, CDN)
 
-La Content-Security-Policy non è hardcoded nel server: vive in [`security-headers.json`](../security-headers.json) alla radice, unica sorgente condivisa letta sia dal backend .NET sia dal Node SSR (il layer che la invia al browser, `security-headers.ts`). La default è restrittiva: `default-src 'self'`, nessun dominio esterno.
+La Content-Security-Policy base vive in [`security-headers.json`](../security-headers.json) alla radice, unica sorgente condivisa letta sia dal backend .NET sia dal Node SSR (il layer che la invia al browser, `security-headers.ts`). La default è restrittiva: `default-src 'self'`, nessun dominio esterno.
 
-Quando integri un servizio di terze parti (tile di una mappa, analytics, font da CDN) il browser blocca le richieste finché non autorizzi il dominio nella direttiva giusta. Si modifica direttamente `security-headers.json`: è l'override eccezionale previsto dalla sua `_nota`:
+`security-headers.json` è un file del **template**: identico per ogni progetto, aggiornato solo dal merge dell'upstream. **Non va editato a mano** — il Node SSR ne verifica lo sha256 all'avvio (`EXPECTED_TEMPLATE_SHA256` in `security-headers.ts`) e si rifiuta di partire se il contenuto su disco non combacia, per evitare che una modifica locale diverga silenziosamente dai futuri aggiornamenti del template.
+
+Quando integri un servizio di terze parti (tile di una mappa, analytics, font da CDN, un player embed) il browser blocca le richieste finché non autorizzi il dominio nella direttiva giusta. Si fa in [`security-headers.override.json`](../security-headers.override.json), anch'esso alla radice: file del **progetto figlio**, committabile (non un segreto), che il template non tocca mai. Ogni chiave sotto `csp` è una direttiva; i valori vengono **aggiunti** a quelli già presenti nel template, mai in sostituzione:
 
 | Cosa integri | Direttiva da estendere |
 | :--- | :--- |
 | fetch/XHR/WebSocket (API esterne, tile mappa) | `connect-src` |
-| `<script>` da CDN | `script-src` (lascia intatto `{SCRIPT_NONCE_PLACEHOLDER}`) |
+| `<script>` da CDN | `script-src` |
 | Immagini da host esterni | `img-src` |
-| Font da CDN (es. Google Fonts) | `font-src` (+ `style-src` per il CSS del font) |
+| Font da CDN (es. Google Fonts) | `font-src` (+ `style-src-elem` per il `<link>` del CSS del font — non `style-src`, ignorato per i `<link>`/`<style>` da quando è presente `style-src-elem`) |
+| `<iframe>` embed (YouTube, Spotify, ...) | `frame-src` |
+| Audio/video diretti | `media-src` |
 
 Esempio: abilitare Mapbox:
 ```json
-"connect-src 'self' https://api.mapbox.com https://events.mapbox.com",
-"script-src 'self' {SCRIPT_NONCE_PLACEHOLDER} https://api.mapbox.com"
+{
+  "csp": {
+    "connect-src": ["https://api.mapbox.com", "https://events.mapbox.com"],
+    "script-src": ["https://api.mapbox.com"]
+  }
+}
 ```
 
-Due avvertenze: non rimuovere `{SCRIPT_NONCE_PLACEHOLDER}` da `script-src` (è ciò che l'SSR sostituisce col nonce per-request), e `security-headers.json` è un file del template, di norma si aggiorna col merge dall'upstream, e l'estensione della CSP è l'unica modifica di progetto attesa al suo interno.
+Il nonce per-request (`'nonce-...'`) resta sempre presente in `script-src` a prescindere da questo file: lo aggiunge il server, non serve dichiararlo nell'override. Una direttiva assente da `security-headers.override.json` (o l'intero file assente) lascia la CSP del template invariata.
+
+### X-Request-Id: Correlazione SSR ↔ Backend
+
+Ogni richiesta riceve un `X-Request-Id` (riusato dal reverse proxy a monte se presente e ben formato — alfanumerico + `.-_`, max 128 caratteri — altrimenti generato qui con `randomUUID()`), riflesso nella risposta e propagato al backend .NET dal proxy `/api/*` (`api-proxy.ts`). Il backend lo promuove a `TraceIdentifier` (vedi `SecurityExtensions.cs` → "Ordine della pipeline HTTP" in [backend/README.md](../backend/README.md)) e lo aggiunge a ogni `ProblemDetails`. Un log SSR e un log .NET per la stessa richiesta condividono così lo stesso id, senza dover incrociare i timestamp.
 
 ### Server Fingerprinting Nascosto
 

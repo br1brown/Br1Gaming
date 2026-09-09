@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.Options;
 using Backend.Delivery;
 using Backend.Diagnostics;
+using Backend.Engine;
 using Backend.Engine.Localization;
 using Backend.Identity;
 using Backend.Mail;
@@ -100,14 +101,23 @@ var mail = builder.Configuration
     .Get<MailOptions>() ?? new MailOptions();
 
 // ── SERVIZI APPLICATIVI ─────────────────────────────────────────────
-// IContentStore (FileContentStore): accesso dati demo (galleria social), sostituibile con DB.
-// SiteService: logica di business del progetto. L'identità del sito è servita dall'engine (vedi AddTemplateIdentity).
 // AuthService: infrastruttura JWT; AccountService/AppPersonalDataStore: account utenti e dati
 // personali del progetto — tutti e tre registrati solo se LoginEnabled (vedi sotto).
 builder.Services.AddMemoryCache();
+
+// <DEMO_BLOCK_START>
+// IContentStore (FileContentStore): accesso dati demo (galleria social), sostituibile con DB.
+// SiteService: logica di business del progetto.
 builder.Services.AddSingleton<IContentStore, FileContentStore>();
-builder.Services.AddSingleton<BlobStore>();
 builder.Services.AddScoped<SiteService>();
+// <DEMO_BLOCK_END>
+
+// BlobStore: storage dei file caricati (upload).
+// L'identità del sito è servita dall'Engine (GET /identity): riempi data/identity.json.
+builder.Services.AddSingleton<BlobStore>();
+// Cache dei blob ridimensionati/riconvertiti al volo (GET /blob/{slug}?webopt=true): dedicata,
+// con SizeLimit proprio — vedi BoundedByteCache per il perchè non riusa la IMemoryCache condivisa.
+builder.Services.AddSingleton(_ => new BoundedByteCache("BLOB_WEBOPT_CACHE_MAX_MB"));
 
 // Identità del sito: sorgente di PROGETTO (AppIdentityStore) sopra il default file-based dell'Engine.
 // Vince sul default registrato da AddTemplateIdentity (TryAdd): è qui che il figlio compone

@@ -48,6 +48,10 @@ export abstract class PageBaseComponent<T> {
      * `layout.pageFade`), iniettato via route.data come `pageType`. L'alias tiene libero il nome
      * `pageFade` per il getter @HostBinding sotto.
      */
+    // Alias necessario: deve combaciare con la chiave route.data['pageFade']
+    // (withComponentInputBinding), il nome interno resta libero per il getter @HostBinding
+    // `pageFade` sotto (vedi commento sopra).
+    // eslint-disable-next-line @angular-eslint/no-input-rename
     protected readonly pageFadeEnabled = input<boolean>(false, { alias: 'pageFade' });
 
     /**

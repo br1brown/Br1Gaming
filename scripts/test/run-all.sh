@@ -27,7 +27,7 @@
 #   del frontend), i test che li richiedono escono con exit 2 e vengono saltati.
 #   In CI non è un problema perché il workflow installa node prima di chiamare
 #   questo script. Sulla VPS i test statici (lint, tsc, i18n) saltano sempre;
-#   quelli live (a11y, lighthouse) saltano se manca anche il server.
+#   l'audit live (Pa11y + Lighthouse) salta se manca anche il server.
 #   Se un giorno node fosse installato sull'host, tutto girerebbe normalmente.
 # =============================================================================
 
@@ -91,8 +91,8 @@ run_test "Lint"                 "${SCRIPT_DIR}/lint-check.sh"
 run_test "Completezza i18n"     "${SCRIPT_DIR}/i18n-check.sh"
 run_test "TypeScript"           "${SCRIPT_DIR}/tsc-check.sh"
 run_test "Dipendenze cicliche"  "${SCRIPT_DIR}/circular-deps-check.sh"
-run_test           "Accessibilità (WCAG)" "${SCRIPT_DIR}/a11y-test.sh"       "${BASE_URL}"
-run_test           "Budget Lighthouse"    "${SCRIPT_DIR}/lighthouse-test.sh" "${BASE_URL}"
+run_test "Invarianti SiteBuilder" "${SCRIPT_DIR}/site-builder-check.sh"
+run_test "Audit live (Pa11y + Lighthouse)" "${SCRIPT_DIR}/live-test.sh" "${BASE_URL}"
 
 echo
 

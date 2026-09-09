@@ -25,6 +25,8 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FRONTEND_DIR="${SCRIPT_DIR}/../../frontend"
 ESLINT_BIN="${FRONTEND_DIR}/node_modules/.bin/eslint"
+# shellcheck source=scripts/lib/gh-summary.sh
+source "${SCRIPT_DIR}/../lib/gh-summary.sh"
 
 if ! command -v npm >/dev/null 2>&1; then
     echo "  WARN npm non trovato — controllo ESLint saltato"
@@ -38,9 +40,24 @@ fi
 
 cd "$FRONTEND_DIR"
 
-if npm run lint --silent; then
+LINT_LOG="$(mktemp)"
+trap 'rm -f "$LINT_LOG"' EXIT
+
+if npm run lint --silent 2>&1 | tee "$LINT_LOG"; then
     echo -e "  ${GREEN}OK${RESET} ESLint superato"
+    gh_summary_append "### 🧹 Lint (ESLint)
+✅ Nessun errore"
 else
     echo -e "  ${RED}ERR${RESET} ESLint ha trovato errori" >&2
+    gh_summary_append "### 🧹 Lint (ESLint)
+❌ Errori trovati
+
+<details><summary>Dettaglio</summary>
+
+\`\`\`
+$(tail -n 60 "$LINT_LOG")
+\`\`\`
+
+</details>"
     exit 1
 fi

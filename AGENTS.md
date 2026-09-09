@@ -14,7 +14,7 @@ Le regole trasversali e le ricette pratiche del progetto, per chi ci sviluppa, u
 
 - **Frontend:** `cd frontend && npm install && npm run start` — **Backend:** `cd backend && dotnet run` (`/health` anonimo; senza `Security.ApiKeys` nel `.local`, ogni richiesta è `401`).
 - **Nuovo progetto figlio:** `node setup.mjs "Nome Progetto"`.
-- **Qualità (gate = CI, GitHub Actions):** lint, i18n, tsc, dipendenze circolari, a11y, Lighthouse, `npm audit`, vulnerabilità NuGet, gitleaks. In locale on-demand: `./scripts/test/run-all.sh`. Niente hook pre-push: non re-introdurlo. I test unitari sono privati di ogni progetto.
+- **Qualità (gate = CI, GitHub Actions):** lint, i18n, tsc, dipendenze circolari, invarianti SiteBuilder, audit live Pa11y+Lighthouse, `npm audit`, vulnerabilità NuGet, gitleaks, CodeQL. In locale on-demand: `./scripts/test/run-all.sh`. Niente hook pre-push: non re-introdurlo. I test unitari sono privati di ogni progetto.
 
 ## Commit
 
@@ -50,6 +50,16 @@ export class NuovaComponent extends PageBaseComponent<void> { }
 ```
 `path` accetta anche un segmento diverso per lingua invece della stringa (`path: { it: 'nuova', en: 'new' }`, con più lingue configurate): lo switch lingua e la sitemap/hreflang seguono da soli, nessun altro punto da toccare. Una lingua senza una propria chiave ricade sul segmento della lingua di default.
 
+#### ContentLoader con ApiService (withApi)
+`contentLoader` viene eseguito in un Injection Context valido: puoi usare `inject()` al suo interno. Per non ripetere `const api = inject(ApiService);` a ogni rotta, si usa di solito questo helper di dominio (che `setup.mjs` ti inserisce già nel `site.ts` di base):
+```typescript
+export function withApi(loaderFn: (ctx: ContentLoaderContext, api: ApiService) => Promise<ContentLoaderResult>): ContentLoader {
+    return (ctx) => loaderFn(ctx, inject(ApiService));
+}
+// Da usare così:
+contentLoader: withApi(async (ctx, api) => ({ content: await api.getMioDato() })),
+```
+
 #### Aggiungere una policy legale extra (oltre alle 5 standard)
 `legalPages` (`site.ts`) è un array: ogni voce ha lo stesso trattamento (rotta `/policy/*`, `PolicyComponent`, riga nel footer), che sia una delle 5 standard o una policy di progetto (es. diritto di recesso per un e-commerce) — nessuna distinzione, non serve toccare `siteBuilder.ts`/`legal-pages.ts`. Per le 5 standard, `STANDARD_LEGAL_PAGES` (da `siteBuilder.ts`) dà `path`/`titolo`/`descrizione`/`nome file` pronti da spreadare; una voce in più li scrive per esteso. Ricetta completa in [frontend/README.md](frontend/README.md#pagine-legali-legalpages). Voce assente → nessun errore, nessuna pagina in più (stesso pattern silenzioso degli altri campi opzionali).
 ```typescript
@@ -78,6 +88,32 @@ getArticolo(id: string): Promise<Articolo> {
 }
 ```
 
+#### Caricare file da un form (upload)
+Due pezzi separati, Engine + Dominio — vedi la regola d'oro in cima al file. `UploadFormComponent` (Engine, `core/engine/components/upload-form/`) è un componente UI puro: gestisce click/drag-and-drop, validazione (`accept`, `maxSize`, `multiple`) ed emette solo `File[]`, mai un upload. L'upload vero — verso `POST /blob/up`, che richiede login — sta al chiamante, tramite `ApiService.uploadBlob`/`.uploadBlobs` (Dominio):
+```html
+<!-- gate sullo stesso pattern di login già in uso nella pagina (@if (auth.isLoggedIn())), non un avviso custom -->
+@if (auth.isLoggedIn()) {
+  <app-upload-form
+    [multiple]="true"
+    [accept]="['image/*']"
+    [isLoading]="uploadLoading()"
+    [externalError]="uploadError()"
+    (filesConfirmed)="onFilesConfirmed($event)" />
+}
+```
+```typescript
+protected async onFilesConfirmed(files: File[]): Promise<void> {
+  this.uploadLoading.set(true);
+  try {
+    const slugs = await this.api.uploadBlobs(files);   // sequenziale, stesso ordine di `files`
+    // slugs[i] ↔ files[i].name — tieni la corrispondenza esplicita se la mostri, non solo gli slug
+  } finally {
+    this.uploadLoading.set(false);
+  }
+}
+```
+`labels` (input opzionale, `UploadFormLabels`) sovrascrive i testi campo per campo — non passato, ciascuno ricade sulla chiave i18n di default. Per servire/recuperare il file caricato, vedi la ricetta backend "Caricare/servire un file" più sotto (`getBlobUrl(slug)`/`getBlob(slug)` sul client).
+
 #### Persistere dati lato client (cookie, Web Storage, consenso)
 Un registro (`COOKIE_MAP` in `core/services/cookie-registry.ts`), un'API, gated dal consenso: registrare una voce basta per toggle nel banner, riga in policy (mezzo/provider/durata) e pulizia alla revoca. Ricetta completa (shape della voce, campi opzionali, la variante `match: 'prefix'` per famiglie di chiavi di SDK di terza parte) in [frontend/README.md](frontend/README.md#aggiungere-un-cookie-o-una-voce-di-web-storage). Qui solo la forma di chiamata, che è quella che serve scrivendo codice:
 ```typescript
@@ -92,7 +128,7 @@ Mai `localStorage`/`sessionStorage` diretti (lo vieta una regola ESLint, eccetto
 Dal 2024 è requisito Google, pieno enforcement nel 2026: senza, un account perde remarketing/conversion modeling per il traffico UE/UK. Ricetta completa (snippet interi) in [frontend/README.md](frontend/README.md) §"Google Consent Mode v2". Qui solo la mappa di proprietà, perché è quella che conta per non romperla al prossimo merge:
 
 1. `src/index.html` (**Dominio**) — stub `gtag('consent','default',{...:'denied'})` PRIMA di qualunque `gtag.js`/GTM.
-2. `security-headers.json` (**Scaffold, con eccezione dichiarata** nella `_nota` del file) — whitelist CSP per i domini Google (`script-src`/`connect-src`). **Attenzione:** è Scaffold, quindi un `git merge template/main` lo sovrascrive con la versione del template a ogni merge — l'override CSP **non sopravvive da solo**, va riapplicato a mano dopo ogni merge dal template.
+2. `security-headers.override.json` (**Dominio**, radice del progetto) — whitelist CSP per i domini Google (`script-src`/`connect-src`), sotto la chiave `csp`. **Non toccare `security-headers.json`**: è Engine, il Node SSR ne verifica lo sha256 all'avvio e si rifiuta di partire se è stato modificato a mano. `security-headers.override.json` invece è un file di progetto, committabile, che il template non tocca mai: sopravvive a ogni merge senza doverlo riapplicare. Dettaglio in [frontend/README.md](frontend/README.md) §"Estendere la CSP".
 3. `cookie-registry.ts` (**Dominio**) — censisci `_ga`/`_gid` ecc.: categoria `Analytics` (GA4) o `Profiling` (Ads/remarketing) — sono due consensi distinti anche per Google.
 4. Un `effect()` di progetto (**Dominio**, es. `core/services/analytics.service.ts`) che chiama `gtag('consent','update', {...})` sui signal `analyticsAccepted()`/`profilingAccepted()` di `CookieConsentService` — stesso pattern di gating della ricetta sopra.
 

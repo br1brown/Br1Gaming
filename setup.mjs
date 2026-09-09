@@ -103,13 +103,23 @@ function removeChunk(src, chunk, label) {
 
 // ── Contenuti minimi del "progetto vuoto" (scritti dall'eject) ───────────────
 
-const MINIMAL_SITE_TS = `import { buildSite } from './core/engine/siteBuilder';
+const MINIMAL_SITE_TS = `import { inject } from '@angular/core';
+import { buildSite } from './core/engine/siteBuilder';
+import { ApiService } from './core/services/api.service';
 
 export type {
     SiteConfig,
     SitePageInput,
-    SmokeSettings
+    SmokeSettings,
+    ContentLoader,
+    ContentLoaderContext,
+    ContentLoaderResult
 } from './core/engine/siteBuilder';
+
+/** Helper opzionale per le rotte: inietta l'ApiService e tipizza il contentLoader. */
+export function withApi(loaderFn: (ctx: ContentLoaderContext, api: ApiService) => Promise<ContentLoaderResult>): ContentLoader {
+    return (ctx) => loaderFn(ctx, inject(ApiService));
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 // PageType — identità di ogni pagina
@@ -305,18 +315,13 @@ function ejectDemo() {
     console.log('  ✓  bruciati: SiteService, IContentStore/FileContentStore, data/social.json');
     console.log('  ✓  azzerato a scheletro: backend/data/identity.json');
 
-    // Program.cs: via le registrazioni dello store/SiteService demo (l'identità resta su AddTemplateIdentity).
+    // Program.cs: via le registrazioni dello store/SiteService demo.
     editFile(join(be, 'Program.cs'), src => {
-        src = removeChunk(src, `builder.Services.AddSingleton<IContentStore, FileContentStore>();\n`, 'Program IContentStore reg');
-        src = removeChunk(src, `builder.Services.AddScoped<SiteService>();\n`, 'Program SiteService reg');
-        src = src.replace(
-`// IContentStore (FileContentStore): accesso dati demo (galleria social), sostituibile con DB.
-// SiteService: logica di business del progetto. L'identità del sito è servita dall'engine (vedi AddTemplateIdentity).
-// AuthService: infrastruttura JWT, registrata solo se LoginEnabled.`,
-`// BlobStore: storage dei file caricati (upload).
-// AuthService: infrastruttura JWT, registrata solo se LoginEnabled.
-// L'identità del sito è servita dall'Engine (GET /identity): riempi data/identity.json.`);
-        return src;
+        const regex = /\/\/ <DEMO_BLOCK_START>[\s\S]*?\/\/ <DEMO_BLOCK_END>\r?\n?/g;
+        if (!regex.test(src)) {
+            console.warn(`  ⚠  blocco DEMO_BLOCK non trovato in Program.cs: salto`);
+        }
+        return src.replace(regex, '');
     });
 
     // Niente più un case da ripulire in content.resolver.ts (Engine, non si tocca): la demo
@@ -325,24 +330,11 @@ function ejectDemo() {
 
     // api.service: via getSocial + path + import HttpParams (usato solo lì).
     editFile(join(fe, 'app/core/services/api.service.ts'), src => {
-        src = removeChunk(src, `import { HttpParams } from '@angular/common/http';\n`, 'api HttpParams import');
-        src = removeChunk(src, `    social: 'social',\n`, 'api social path');
-        src = removeChunk(src,
-`    /**
-     * Recupera i link ai social network.
-     * @param nomi  Filtro opzionale: array di nomi (es. ['facebook','instagram']).
-     * Genera query string con chiavi ripetute: ?nomi=facebook&nomi=instagram
-     */
-    getSocial(nomi?: string[]): Promise<Record<string, string>> {
-        let params = new HttpParams();
-        if (nomi?.length) {
-            nomi.forEach(n => params = params.append('nomi', n));
+        const regex = /\/\/ <DEMO_BLOCK_START>[\s\S]*?\/\/ <DEMO_BLOCK_END>\r?\n?/g;
+        if (!regex.test(src)) {
+            console.warn(`  ⚠  blocchi DEMO_BLOCK non trovati in api.service.ts: salto`);
         }
-        return this.api_get<Record<string, string>>(API.social, params);
-    }
-
-`, 'api getSocial method');
-        return src;
+        return src.replace(regex, '');
     });
 
     // Cancella le pagine demo (Social, "che faccio") e l'area che le dichiarava: il nuovo

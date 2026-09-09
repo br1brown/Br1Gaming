@@ -1,11 +1,15 @@
 import { Injectable } from '@angular/core';
+// <DEMO_BLOCK_START>
 import { HttpParams } from '@angular/common/http';
+// <DEMO_BLOCK_END>
 import { LoginRequest, LoginResult } from '../dto/auth.dto';
 import { BaseApiService } from '../engine/services/base-api.service';
 
 /** Endpoint backend. Aggiungere il path qui, poi il metodo pubblico sotto. */
 const API = {
+// <DEMO_BLOCK_START>
     social: 'social',
+// <DEMO_BLOCK_END>
     login: 'auth/login',
     blob: (slug: string) => `blob/${encodeURIComponent(slug)}`,
     blobUpload: 'blob/up',
@@ -19,6 +23,7 @@ const API = {
 @Injectable({ providedIn: 'root' })
 export class ApiService extends BaseApiService {
 
+    // <DEMO_BLOCK_START>
     /**
      * Recupera i link ai social. `nomi`: filtro opzionale — genera query a chiavi ripetute
      * (`?nomi=facebook&nomi=instagram`).
@@ -30,6 +35,7 @@ export class ApiService extends BaseApiService {
         }
         return this.api_get<Record<string, string>>(API.social, params);
     }
+    // <DEMO_BLOCK_END>
 
     /**
      * Recupera un file dal volume uploads come oggetto `Blob` (immagini, documenti, ecc.).
@@ -58,6 +64,23 @@ export class ApiService extends BaseApiService {
         const formData = new FormData();
         formData.append('file', file);
         return this.api_post_form<{ slug: string }>(API.blobUpload, formData);
+    }
+
+    /**
+     * Carica più file e restituisce i rispettivi slug, nello stesso ordine di `files`. In
+     * sequenza (l'endpoint accetta un `IFormFile` alla volta, non esiste una POST multipla):
+     * se una richiesta fallisce si ferma lì e propaga l'errore — gli slug dei file già caricati
+     * con successo prima del fallimento non sono nella risposta né vengono ripuliti dal server
+     * (rollback esplicito a carico del chiamante, se serve, via `api_delete` su `blob/{slug}` —
+     * oggi non esposto: il backend non ha ancora una DELETE su questo endpoint).
+     */
+    async uploadBlobs(files: File[]): Promise<string[]> {
+        const slugs: string[] = [];
+        for (const file of files) {
+            const { slug } = await this.uploadBlob(file);
+            slugs.push(slug);
+        }
+        return slugs;
     }
 
     /**

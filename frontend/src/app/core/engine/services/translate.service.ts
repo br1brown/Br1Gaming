@@ -128,7 +128,7 @@ export class TranslateService {
     translate(key: string, ...args: unknown[]): string {
         const template = this.translations()[key];
         if (!template) {
-            if (this.availableLangs().length > 1 && isDevMode()) {
+            if (key !== '' && this.availableLangs().length > 1 && isDevMode()) {
                 console.warn(`Translation key "${key}" not found`);
             }
             return key;

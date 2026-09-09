@@ -29,7 +29,7 @@ Prima di scrivere codice, ti preghiamo di leggere le guide di sviluppo interne:
 
 ### Controlli di qualità
 
-I controlli girano in due posti: la **CI** a ogni push/PR (il gate ufficiale) e, **on-demand in locale**, `./scripts/test/run-all.sh` dalla root (i test live a11y/Lighthouse girano solo se è attivo un server da testare).
+I controlli girano in due posti: la **CI** a ogni push/PR (il gate ufficiale) e, **on-demand in locale**, `./scripts/test/run-all.sh` dalla root (l'audit live Pa11y/Lighthouse gira solo se è attivo un server da testare).
 
 **In CI** (`.github/workflows/`) ogni push e pull request esegue questi job:
 
@@ -37,7 +37,8 @@ I controlli girano in due posti: la **CI** a ogni push/PR (il gate ufficiale) e,
 - **Compila frontend** — `npm audit` (blocca solo su critical, prod), ESLint, type-check, dipendenze circolari, generazione asset statici/icone, build di produzione Angular
 - **Completezza i18n** — simmetria delle chiavi di traduzione tra tutte le lingue
 - **Sicurezza (gitleaks)** — secret scanning del repo (solo in CI)
-- **Test live** — alza lo stack dietro reverse proxy (`public-test.sh`) ed esegue gli audit di accessibilità e Lighthouse (dipende da backend + frontend verdi)
+- **Test live** — alza lo stack dietro reverse proxy (`public-test.sh`) ed esegue l'audit Pa11y + Lighthouse su un browser condiviso (`live-test.sh`, dipende da backend + frontend verdi)
+- **CodeQL** (workflow separato, `CodeQL.yml`) — analisi statica di sicurezza su frontend e backend, risultati nel tab Security → Code scanning
 
 ## Segnalazioni di Problemi e Bug
 

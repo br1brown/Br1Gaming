@@ -1,0 +1,88 @@
+// Pillolina semi-trasparente con blur e troncamento — blur/alpha nel range "regular" del
+// Liquid Glass: più bassi si leggono come un bordo, non come vetro, su sfondi scuri.
+.app-breadcrumb {
+    font-size: 0.8125rem;
+
+    ol {
+        display: inline-flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        list-style: none;
+        margin: 0;
+        padding: 0.35rem 1rem;
+        background: rgba(var(--bs-body-color-rgb), 0.12);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(var(--bs-body-color-rgb), 0.1);
+        border-radius: 50rem;
+    }
+
+    li {
+        display: flex;
+        align-items: center;
+    }
+
+    &__link {
+        color: var(--bs-secondary-color);
+        text-decoration: none;
+        transition: all 0.2s ease-in-out;
+        display: inline-flex;
+        align-items: center;
+        opacity: 0.85;
+
+        &:hover,
+        &:focus-visible {
+            color: var(--bs-body-color);
+            opacity: 1;
+            text-shadow: 0 0 10px rgba(var(--bs-body-color-rgb), 0.3);
+            text-decoration: none;
+        }
+    }
+
+    &__text {
+        max-width: 150px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: inline-block;
+        vertical-align: bottom;
+    }
+
+    // Ultimo elemento (pagina corrente): mai un link, più cicciotta
+    &__current {
+        color: var(--bs-body-color);
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+
+        .app-breadcrumb__text {
+            max-width: 200px;
+        }
+    }
+
+    // Elemento collassato
+    &__ellipsis {
+        color: var(--bs-secondary-color);
+        opacity: 0.85;
+        display: inline-flex;
+        align-items: center;
+        padding: 0 0.2rem;
+    }
+
+    // Elemento intermedio senza path (finto percorso, es. "Policy")
+    &__fake-path {
+        color: var(--bs-secondary-color);
+        opacity: 0.85;
+        display: inline-flex;
+        align-items: center;
+        cursor: default;
+    }
+
+    &__sep {
+        color: var(--bs-body-color);
+        opacity: 0.4;
+        margin: 0 0.5em;
+        font-weight: 300;
+        user-select: none;
+    }
+}

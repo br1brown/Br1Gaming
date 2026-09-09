@@ -61,6 +61,10 @@ const serverConfig: ApplicationConfig = {
             },
         }, provideAppInitializer(() => {
             const doc = inject(DOCUMENT);
+            // Stesso nonce del provider CSP_NONCE sopra: qui serve esplicito perché il tag è
+            // creato via DOM nativo (doc.createElement), non via Renderer2 — Angular applica il
+            // nonce in automatico solo agli elementi che crea lui (es. gli <style> di encapsulation).
+            const cspNonce = inject(CSP_NONCE, { optional: true });
             const { colorTema, colorSecondary, colorBackground, colorText, colorInfo } = ContestoSito.config;
             const overrides = { secondary: colorSecondary, background: colorBackground, text: colorText, info: colorInfo };
             const palette = ThemeService.computePalette(colorTema, overrides);
@@ -86,6 +90,7 @@ const serverConfig: ApplicationConfig = {
             // di qualsiasi render component così Bootstrap legge le variabili correttamente.
             const style = doc.createElement('style');
             style.setAttribute('id', 'theme-init');
+            if (cspNonce) style.setAttribute('nonce', cspNonce);
             const styleHtml = ThemeService.buildThemeStyleTag(colorTema, overrides);
             const openTag = '<style id="theme-init">';
             style.textContent = styleHtml.substring(openTag.length, styleHtml.length - '</style>'.length);

@@ -31,7 +31,7 @@ Il template include una pipeline di sicurezza pre-cablata. I progetti che deriva
 
 ### Frontend
 
-- **Security headers** applicati dal Node SSR su ogni risposta (è il layer rivolto al browser), letti da `security-headers.json`: `X-Frame-Options`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy` restrittiva e **CSP con nonce per-request** sull'HTML in produzione (il placeholder `{SCRIPT_NONCE_PLACEHOLDER}` viene sostituito a ogni richiesta)
+- **Security headers** applicati dal Node SSR su ogni risposta (è il layer rivolto al browser), letti da `security-headers.json`: `X-Frame-Options`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy` restrittiva e **CSP con nonce per-request** sull'HTML in produzione (il placeholder `{NONCE_PLACEHOLDER}` viene sostituito a ogni richiesta in `script-src` e `style-src-elem`; `style-src-attr` resta su `'unsafe-inline'`, richiesto dai binding `[style.x]` di Angular)
 - **XSS nel Markdown**: qualsiasi HTML raw nel sorgente viene ignorato dal renderer
 - **Path traversal** bloccato nel serving dei file (`/api/blob/{slug}`)
 - **JSON-LD**: i dati strutturati sono generati lato server da campi controllati — nessun input utente raggiunge il blocco `<script>`

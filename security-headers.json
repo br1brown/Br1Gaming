@@ -1,5 +1,5 @@
 {
-  "_nota": "Header di sicurezza del template: identici per ogni progetto e non gestiti dal progetto figlio (si aggiornano col git pull). Letti sia dal backend (.NET) sia dal frontend Node SSR. Per un override eccezionale (es. estendere la CSP con un dominio CDN) modifica direttamente questo file.",
+  "_nota": "Header di sicurezza del template: identici per ogni progetto e non gestiti dal progetto figlio (si aggiornano col git pull). Letti sia dal backend (.NET) sia dal frontend Node SSR. NON modificare questo file a mano: il frontend Node SSR verifica il suo sha256 all'avvio e si rifiuta di partire se non combacia con quello atteso dal template. Per estendere la CSP con un dominio in più (CDN, embed, API esterna) usa security-headers.override.json nella root del progetto, che il template non tocca mai.",
   "Security": {
     "Headers": {
       "X-Frame-Options": "SAMEORIGIN",
@@ -8,7 +8,7 @@
       "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
       "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
       "Permissions-Policy": "camera=(), microphone=(), geolocation=(), browsing-topics=()",
-      "Content-Security-Policy": "default-src 'self'; script-src 'self' {SCRIPT_NONCE_PLACEHOLDER}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+      "Content-Security-Policy": "default-src 'self'; script-src 'self' {NONCE_PLACEHOLDER}; style-src 'self'; style-src-elem 'self' {NONCE_PLACEHOLDER}; style-src-attr 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
     }
   }
 }

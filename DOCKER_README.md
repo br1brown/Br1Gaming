@@ -8,11 +8,12 @@ Il template Docker e' progettato per essere riusabile su piu' progetti sulla ste
 
 ### Inizializzazione (una sola volta, alla nascita del progetto)
 
-La configurazione è divisa in tre file per proprietario (tutti validati da `global-settings.schema.json` per l'autocomplete):
+La configurazione è divisa in quattro file per proprietario (i primi tre validati da `global-settings.schema.json` per l'autocomplete):
 
 - **`global-settings.json`** — del **progetto**, committabile: identità e aspetto (`project`, `Localization`, `site`, `Custom`).
 - **`global-settings.local.json`** — **gitignored**: pubblicazione e segreti del singolo ambiente (`frontend`, `backend`, `Security`, `Mail`).
-- **`security-headers.json`** — del **template**, non si tocca: header di sicurezza fissi.
+- **`security-headers.json`** — del **template**, non si tocca: header di sicurezza fissi. Il Node SSR ne verifica lo sha256 all'avvio e si rifiuta di partire se è stato modificato a mano.
+- **`security-headers.override.json`** — del **progetto**, committabile: estensioni dichiarative alla CSP (nuovi domini in `connect-src`/`img-src`/`frame-src`/...), senza toccare il file del template. Vedi [frontend/README.md](frontend/README.md) §"Estendere la CSP".
 
 `scripts/deploy.sh` fonde i primi due e monta il risultato; backend e Node SSR lo leggono. La scorciatoia `node setup.mjs "Nome Progetto"` imposta il nome nel file di progetto e crea il `.local` coi segreti generati.
 
@@ -135,6 +136,14 @@ Variabili lette al boot dal container Node frontend (`frontend/src/app/core/engi
 | `FONTS_DIR` | `/app/fonts` | Cartella in cui il server cerca il file dichiarato in `siteFonts.custom` (`frontend/src/styles/font-config.ts`) — vedi sotto. Il default coincide già col mount point Docker; da impostare solo per uno sviluppo locale con un percorso diverso |
 | `SITEMAP_CACHE_TTL_MS` | `604800000` (7 giorni) | TTL della cache in-process di `/sitemap.xml` per le pagine con `dynamicParams`. Alto perché non è il meccanismo primario di aggiornamento: l'invalidazione vera arriva on-demand dal backend (`SitemapNotifier`, `POST /internal/revalidate-sitemap`) dopo una scrittura su un catalogo dinamico — questo TTL è solo il fallback se quella notifica si perde. Dettaglio in [frontend/README.md](frontend/README.md) |
 
+### Variabili d'ambiente del backend (opzionali)
+
+Stessa logica del frontend sopra: non stanno in `global-settings.json`, si impostano nell'ambiente del container solo quando serve, altrimenti valgono i default.
+
+| Chiave | Default | Descrizione |
+|---|---|---|
+| `BLOB_WEBOPT_CACHE_MAX_MB` | `500` | Cap della `MemoryCache` in-process che tiene i blob ridimensionati/riconvertiti al volo (`GET /blob/{slug}?webopt=true`) — dedicata, separata dalla `IMemoryCache` condivisa usata per i JSON di config. Superato il tetto, l'eviction è automatica (nativa di `MemoryCache`, non uno sweep a orario come `IMAGE_CACHE_MAX_MB`). Dettaglio in [backend/README.md](backend/README.md) § `BlobController` |
+
 ### Font custom (opzionale)
 
 Metti il file font in `./fonts` (host, accanto a `global-settings.json`), poi dichiaralo in `siteFonts.custom` (`family`/`file`) in `frontend/src/styles/font-config.ts` — `docker-compose.yml` monta quella cartella in sola lettura su `/app/fonts`. `custom` assente o file mancante dalla cartella: nessun cambiamento, resta lo stack di font di sistema di oggi. Il font sostituisce sia quello del sito sia quello delle immagini Open Graph (`/cdn-cgi/preview`) — non solo il web. Per un percorso host diverso da `./fonts`: `export BR1_FONTS_DIR=/percorso/font; ./scripts/deploy.sh`.
@@ -219,10 +228,12 @@ curl -i http://localhost:8088/
 curl -i http://localhost:8088/api/health
 ```
 
-Script pronto (alza lo stack dietro il proxy e ci fa girare a11y/Lighthouse):
+Script pronto (alza lo stack dietro il proxy e lo lascia su):
 
 ```bash
-bash scripts/test/public-test.sh --down-after
+bash scripts/test/public-test.sh
+# poi, con lo stack ancora su:
+bash scripts/test/live-test.sh http://localhost:8088
 ```
 
 Per cambiare dominio/porta simulati senza toccare i file:

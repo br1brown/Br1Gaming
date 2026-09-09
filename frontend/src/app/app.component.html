@@ -22,6 +22,9 @@
         <router-outlet />
     } @else {
         <div class="row">
+            <div class="col-12 col-lg-10 offset-lg-1 mb-3">
+                <app-breadcrumb [forceShow]="breadcrumbOverride()" />
+            </div>
             @if (showPanel()) {
                 <div class="col-12 col-lg-10 offset-lg-1 shadow rounded content-panel"
                      [class.panel-light]="theme.panelForcedLight"

@@ -10,6 +10,7 @@ import { TranslateService } from './translate.service';
 import { IdentityService } from './identity.service';
 import { type Identity, type Address, type DayName, DAY_ORDER } from '../dto/identity.dto';
 import { type StructuredDataInput, buildStructuredDataGraph } from './structured-data';
+import { BreadcrumbService, toJsonLdTrail } from './breadcrumb';
 
 /** Orario "HH:mm" (24h): difesa contro valori sporchi prima di mapparli su JSON-LD. */
 const HM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -31,49 +32,27 @@ export interface PageMetaInput {
     updatedTime?: string | null;
     /** Dati strutturati ricchi tipizzati: un item o una lista (vedi `structured-data.ts`). Tradotti in JSON-LD. */
     structuredData?: StructuredDataInput | null;
-    /** `true` = questa istanza di pagina non va indicizzata (vedi `PageInfo.noindex`): emette
-     *  `<meta name="robots" content="noindex, nofollow">`. Complementare all'`X-Robots-Tag`
-     *  statico via header (pagine protette): quello resta autoritativo per le pagine senza body
-     *  SSR, questo copre il caso — nuovo — di un'istanza noindex dentro una pagina normalmente
-     *  indicizzata (es. `?g=`/uno slug "recuperato" di un contenuto altrimenti generico). */
+    /** Se true, emette `<meta name="robots" content="noindex, nofollow">`. */
     noindex?: boolean | null;
 }
 
-/**
- * Funzione sincrona di cifratura del payload preview.
- * Fornita in SSR via `app.config.server.ts` con `useFactory` (Node.js `crypto` sincrono).
- * Nel browser il token non è fornito → inject restituisce null → og:image non viene
- * aggiornato durante la navigazione SPA (i crawler vedono sempre l'HTML SSR).
- *
- * NOTA: usare `useFactory` anziché `useValue` — Angular SSR non propaga correttamente
- * funzioni passate con `useValue` agli injection token.
- */
+/** Funzione sincrona di cifratura del payload preview (disponibile solo in SSR). */
 export const SSR_PREVIEW_ENCRYPT_FN =
     new InjectionToken<(payload: Record<string, string>) => string>('SSR_PREVIEW_ENCRYPT_FN');
 
-/**
- * Origin canonico del frontend (es. "https://yourdomain.com"), letto da FRONTEND_BASE_URL.
- * Fornito in SSR via app.config.server.ts con useValue — sorgente di verità per og:image,
- * indipendente dagli header proxy e dal valore che Angular ricostruisce per document.URL.
- * Nel browser non è fornito → fallback a document.location.origin.
- */
+/** Origin canonico del frontend letto da FRONTEND_BASE_URL (SSR). */
 export const SSR_FRONTEND_ORIGIN =
     new InjectionToken<string>('SSR_FRONTEND_ORIGIN');
 
-
-/**
- * PAGE META SERVICE
- * Gestisce l'aggiornamento dinamico del titolo della pagina e dei meta tag.
- * Essenziale per l'indicizzazione (Google) e il social sharing (Facebook, LinkedIn, ecc.).
- */
+/** Gestisce l'aggiornamento dinamico del titolo della pagina e dei meta tag. */
 @Injectable({ providedIn: 'root' })
 export class PageMetaService {
-    // Servizi Angular per manipolare i tag nel <head>
     private readonly title = inject(Title);
     private readonly meta = inject(Meta);
     private readonly document = inject(DOCUMENT);
     private readonly translate = inject(TranslateService);
     private readonly identity = inject(IdentityService);
+    private readonly breadcrumb = inject(BreadcrumbService);
     private readonly router = inject(Router);
     private readonly cspNonce = inject(CSP_NONCE, { optional: true });
 
@@ -82,33 +61,20 @@ export class PageMetaService {
     /** Origin del frontend: fornito in SSR, null nel browser. */
     private readonly frontendOrigin = inject(SSR_FRONTEND_ORIGIN, { optional: true });
 
-    /** Titolo browser dell'ultima `setPageMeta`: la shell lo annuncia (regione `aria-live`) agli
-     *  screen reader dopo ogni navigazione SPA, dove il cambio pagina non ricarica il documento e
-     *  quindi non genera di per sé alcun annuncio automatico. Stesso testo del tag `<title>`. */
+    /** Titolo browser dell'ultima navigazione per annunci aria-live. */
     readonly announcedTitle = signal('');
 
-    /**
-     * Utility statica per navigare l'albero delle rotte di Angular.
-     * Trova l'ultima rotta figlia attiva (quella che effettivamente definisce il contenuto della pagina).
-     */
+    /** Titolo risolto dell'ultima pagina senza il suffisso dell'app. */
+    readonly resolvedTitle = signal('');
+
+    /** Trova l'ultima rotta figlia attiva nell'albero delle rotte. */
     static getLeaf(route: ActivatedRouteSnapshot | RouterStateSnapshot): ActivatedRouteSnapshot {
         let leaf = route instanceof RouterStateSnapshot ? route.root : route;
         while (leaf.firstChild) leaf = leaf.firstChild;
         return leaf;
     }
 
-    /**
-     * Applica i metadati alla pagina corrente.
-     *
-     * Tutti i tag (title, og:title, description, canonical, ecc.) vengono scritti
-     * in modo sincrono. L'aggiornamento di `og:image` / `twitter:image` avviene
-     * solo in SSR, dove la funzione di cifratura è fornita via InjectionToken
-     * (`SSR_PREVIEW_ENCRYPT_FN`). Nel browser il token è assente: i tag og:image
-     * restano quelli iniettati dall'SSR — i crawler non eseguono JavaScript,
-     * quindi vedono sempre la versione server-rendered.
-     *
-     * @param input - Vedi {@link PageMetaInput}. `title` è il titolo grezzo (es. "Home", non "Home | Template").
-     */
+    /** Applica metadati, Open Graph, Twitter card e structured data alla pagina corrente. */
     setPageMeta(input: PageMetaInput): void {
         const { title: pageTitle, description, imgId, ogType, updatedTime, structuredData, noindex } = input;
 
@@ -119,6 +85,7 @@ export class PageMetaService {
         // Aggiorna il tag <title> del browser
         this.title.setTitle(browserTitle);
         this.announcedTitle.set(browserTitle);
+        this.resolvedTitle.set(pageTitle || appName);
 
         // noindex di istanza: assente/false → nessun tag (la pagina segue l'indicizzazione di
         // default, eventualmente già coperta dall'header statico). true → meta esplicito, letto
@@ -170,15 +137,12 @@ export class PageMetaService {
         // hreflang: per le pagine con più varianti lingua (URL distinti per lingua).
         this.updateHreflangTags(origin);
 
-        // og:image: in SSR cifra il payload e scrive l'URL; nel browser salta
-        // (i crawler vedono sempre l'HTML server-rendered).
-        // imgId === false → pagina senza anteprima: i tag vengono rimossi.
+        // Anteprima social: in SSR cifra il payload e genera l'URL
         let imageUrl: string | null = null;
         if (imgId === false) {
             this.meta.removeTag('property="og:image"');
             this.meta.removeTag('name="twitter:image"');
             this.removeImageDimensionTags();
-            // Senza immagine la card grande non ha senso: si declassa a 'summary' (testo).
             this.meta.updateTag({ name: 'twitter:card', content: 'summary' });
         } else if (this.encryptFn) {
             const payload: Record<string, string> = { title: pageTitle };
@@ -190,20 +154,14 @@ export class PageMetaService {
             this.meta.updateTag({ property: 'og:image', content: imageUrl });
             this.meta.updateTag({ name: 'twitter:image', content: imageUrl });
 
-            // Dimensioni/tipo dichiarati: i crawler renderizzano la card senza dover prima
-            // scaricare l'immagine (niente prima-condivisione "vuota"). Il canvas è 1200x630
-            // per entrambe le varianti; il MIME segue il formato realmente generato in
-            // og-preview.ts (variante con immagine → JPEG, variante testuale → PNG).
             this.meta.updateTag({ property: 'og:image:width', content: '1200' });
             this.meta.updateTag({ property: 'og:image:height', content: '630' });
             this.meta.updateTag({ property: 'og:image:type', content: imgId ? 'image/jpeg' : 'image/png' });
             this.meta.updateTag({ property: 'og:image:alt', content: browserTitle });
             this.meta.updateTag({ name: 'twitter:image:alt', content: browserTitle });
-            // secure_url: ridondante ma richiesto da alcuni scraper datati (solo se già https).
             if (imageUrl.startsWith('https:')) {
                 this.meta.updateTag({ property: 'og:image:secure_url', content: imageUrl });
             }
-            // C'è un'immagine 1200x630: card grande.
             this.meta.updateTag({ name: 'twitter:card', content: 'summary_large_image' });
         }
 
@@ -211,9 +169,7 @@ export class PageMetaService {
         this.updateStructuredData(pageTitle || appName, metaDescription, imageUrl, canonicalUrl, structuredData, updatedTime);
     }
 
-    /** Emette i meta Open Graph `article:*` dell'entità principale (da `structuredData` di tipo
-     *  article). Rimuove prima tutti gli `article:*` esistenti — così in navigazione SPA non
-     *  restano stantii passando a una pagina non-articolo — e li riemette (`article:tag` ripetibile). */
+    /** Aggiorna i meta tag Open Graph `article:*`. */
     private updateArticleMeta(ogMeta: { property: string; content: string }[]): void {
         this.document.querySelectorAll('meta[property^="article:"]').forEach(tag => tag.remove());
         for (const { property, content } of ogMeta) {
@@ -221,16 +177,12 @@ export class PageMetaService {
         }
     }
 
-    /** Estrae l'handle Twitter/X (`@nome`) dai profili social del brand (identità), per
-     *  `twitter:site`. Ritorna il primo trovato, o `null` se nessun profilo Twitter/X è configurato. */
+    /** Estrae l'handle Twitter/X dai profili social per `twitter:site`. */
     private twitterSiteHandle(): string | null {
         const social = this.identity.identity()?.social;
         if (!Array.isArray(social)) return null;
         for (const entry of social) {
             if (typeof entry?.url !== 'string') continue;
-            // Parsing con la primitiva `URL` (non regex): valida l'URL ed estrae host/handle in modo
-            // robusto (host esatto, niente match casuali in query/path). Gli URL non validi sono già
-            // scartati a monte dal backend, ma il try/catch tiene comunque sicuro il render SSR.
             let parsed: URL;
             try { parsed = new URL(entry.url); } catch { continue; }
             const host = parsed.hostname.replace(/^www\./, '');
@@ -250,37 +202,31 @@ export class PageMetaService {
         if (a.cap?.trim()) addr['postalCode'] = a.cap.trim();
         if (a.citta?.trim()) addr['addressLocality'] = a.citta.trim();
         if (a.provincia?.trim()) addr['addressRegion'] = a.provincia.trim();
-        // addressCountry = codice ISO 3166-1 alpha-2 (la forma che schema.org/Google preferiscono).
+        // Codice ISO 3166-1 alpha-2
         if (a.nazione?.trim()) addr['addressCountry'] = a.nazione.trim();
-        return Object.keys(addr).length > 1 ? addr : null;   // solo @type → nessun dato
+        return Object.keys(addr).length > 1 ? addr : null;
     }
 
-    /** `ContactPoint` con telefono/email, `hoursAvailable` dagli orari e `availableLanguage` dalle
-     *  lingue configurate del sito. `includeHours=false` per un'attività, dove gli orari vivono come
-     *  `openingHoursSpecification` sul nodo (qui sarebbero un doppione). Null se non c'è canale né orari. */
+    /** Costruisce il nodo schema.org `ContactPoint` con contatti, orari e lingue. */
     private buildContactPoint(identity: Identity | null, includeHours = true): Record<string, unknown> | null {
         const c = identity?.contatti;
         const hours = includeHours ? this.buildOpeningHours(identity) : [];
         const cp: Record<string, unknown> = { '@type': 'ContactPoint', contactType: 'customer service' };
-        if (c?.telefono?.trim()) cp['telephone'] = c.telefono.trim();
-        if (c?.email?.trim()) cp['email'] = c.email.trim();
+        const { jsonld } = ContestoSito.config;
+        if (jsonld.telefono && c?.telefono?.trim()) cp['telephone'] = c.telefono.trim();
+        if (jsonld.email && c?.email?.trim()) cp['email'] = c.email.trim();
         if (hours.length) cp['hoursAvailable'] = hours;
-        // Serve almeno un canale (telefono/email) o gli orari, altrimenti niente ContactPoint.
         if (!cp['telephone'] && !cp['email'] && !hours.length) return null;
-        // availableLanguage: derivato dalle lingue del sito (config), arricchisce un ContactPoint esistente.
         const langs = this.translate.availableLangs();
         if (Array.isArray(langs) && langs.length) cp['availableLanguage'] = langs;
         return cp;
     }
 
-    /** Orari (lista di intervalli) → `OpeningHoursSpecification[]`: una spec per fascia, coi giorni che
-     *  la condividono. `dayOfWeek` = `schema.org/{nome giorno}` diretto (il nome `DayOfWeek` È il nome
-     *  schema.org), niente mappa a mano. Type-safe contro valori sporchi (JSON/compose/CMS). */
+    /** Converte gli orari di apertura in `OpeningHoursSpecification[]`. */
     private buildOpeningHours(identity: Identity | null): Record<string, unknown>[] {
         const list = identity?.openingHours;
         if (!Array.isArray(list)) return [];
 
-        // Raggruppa per fascia (opens-closes) → giorni.
         const byRange = new Map<string, { opens: string; closes: string; days: DayName[] }>();
         for (const it of list) {
             if (!it || !DAY_ORDER.includes(it.day) || !isHm(it.opens) || !isHm(it.closes)) continue;
@@ -296,8 +242,7 @@ export class PageMetaService {
         return out;
     }
 
-    /** Rimuove i tag accessori dell'immagine (dimensioni/tipo/alt) quando la pagina non
-     *  ha anteprima: evita che restino orfani dopo aver rimosso og:image/twitter:image. */
+    /** Rimuove i tag accessori dell'immagine di anteprima. */
     private removeImageDimensionTags(): void {
         this.meta.removeTag('property="og:image:width"');
         this.meta.removeTag('property="og:image:height"');
@@ -307,10 +252,7 @@ export class PageMetaService {
         this.meta.removeTag('name="twitter:image:alt"');
     }
 
-    /**
-     * Aggiorna og:locale e og:locale:alternate basandosi sulla lingua corrente.
-     * Formato: "it_IT", "en_US", ecc.
-     */
+    /** Aggiorna og:locale e og:locale:alternate per la lingua corrente e le alternative. */
     private updateLocaleMetaTags(): void {
         const currentLang = this.translate.currentLang();
         const allLangs = this.translate.availableLangs();
@@ -327,8 +269,7 @@ export class PageMetaService {
 
         this.meta.updateTag({ property: 'og:locale', content: localeFormat(currentLang) });
 
-        // Alternate locales per le altre lingue disponibili. remove+add evita
-        // che Meta.updateTag sovrascriva un solo tag quando le lingue sono > 2.
+        // Alternate locales per le altre lingue disponibili
         this.document
             .querySelectorAll('meta[property="og:locale:alternate"]')
             .forEach(tag => tag.remove());
@@ -339,14 +280,7 @@ export class PageMetaService {
             });
     }
 
-    /**
-     * Aggiorna i tag `<link rel="alternate" hreflang="...">` (+ `x-default`) di questa pagina,
-     * uno per lingua disponibile — richiede URL distinti per lingua, quindi possibile solo ora
-     * che il path li porta (prima dell'introduzione degli URL localizzati l'Engine non li emetteva
-     * affatto, vedi frontend/README.md). Con una sola lingua configurata non emette nulla (nemmeno
-     * `x-default`): con una sola versione del sito il solo canonical è corretto e sufficiente per
-     * le linee guida Google — niente DOM sporcato sui siti mono-lingua.
-     */
+    /** Aggiorna i tag `<link rel="alternate" hreflang="...">` e `x-default`. */
     private updateHreflangTags(origin: string): void {
         this.document
             .querySelectorAll('link[rel="alternate"][hreflang]')
@@ -358,9 +292,6 @@ export class PageMetaService {
         const pageType = this.currentPageType();
         if (pageType == null) return;
 
-        // Su un PageType parametrico (es. `/social-feed/:slug`) `getPath` torna il template
-        // letterale: senza risolvere i param della rotta attiva, l'hreflang punterebbe a un
-        // `:slug` non sostituito invece che alla pagina gemella reale nell'altra lingua.
         const params = mergeRouteParams(this.router.routerState.snapshot);
 
         const addHreflang = (hreflang: string, path: string): void => {
@@ -379,16 +310,7 @@ export class PageMetaService {
         if (defaultPath) addHreflang('x-default', applyPathParams(defaultPath, params, 'PageMetaService.updateHreflangTags'));
     }
 
-    /**
-     * Aggiorna gli script JSON-LD con structured data coerenti con il canonical.
-     *
-     * Vengono emessi blocchi separati per WebPage, l'entità brand (Organization o Person,
-     * dall'identità `personal`), WebSite e, quando utile, BreadcrumbList: separarli rende il grafo piu' leggibile ai
-     * validator e permette di aggiornare ogni entita' senza sovrascrivere le altre.
-     * @param structuredData Dati strutturati: stringa (solo @type), oggetto tipizzato o lista.
-     *        L'adapter li traduce in JSON-LD, arricchendo il nodo pagina (@type + proprietà) ed
-     *        eventualmente aggiungendo nodi al grafo. Se assente il nodo pagina resta `WebPage`.
-     */
+    /** Aggiorna gli script JSON-LD con structured data coerenti con il canonical. */
     private updateStructuredData(
         title: string,
         description?: string | null,
@@ -400,56 +322,37 @@ export class PageMetaService {
         const { appName } = ContestoSito.config;
         const siteUrl = this.getSiteUrl(canonicalUrl);
         const currentLang = this.translate.currentLang();
-        // Identità del sito (runtime, condivisa): dà natura del brand, social e nome legale.
-        // Assente (sito che non la configura, o backend giù) → default Organization senza sameAs.
         const identity = this.identity.identity();
-        // Tipo entità brand: se l'identità dichiara un'attività fisica (businessType, es. "Restaurant")
-        // l'entità è quel sottotipo di LocalBusiness; altrimenti Person per un sito personale
-        // (personal=true) o Organization (default). È il publisher di WebSite/WebPage.
         const businessType = typeof identity?.businessType === 'string' && identity.businessType.trim()
             ? identity.businessType.trim() : null;
-        // Un'attività locale è sempre Organization-like, mai Person: così i gate legali sotto restano validi.
         const isPerson = (identity?.personal ?? false) && !businessType;
         const publisherId = `${siteUrl}#${isPerson ? 'person' : 'organization'}`;
         const websiteId = `${siteUrl}#website`;
         const pageId = `${canonicalUrl}#webpage`;
 
-        // sameAs dai profili social ufficiali del brand (solo gli URL; il `name` è footer). Vuoto → omesso.
         const social = Array.isArray(identity?.social)
             ? identity.social.map(s => s?.url).filter((u): u is string => typeof u === 'string' && u.trim().length > 0)
             : [];
         const brandImage = `${siteUrl}icons/icon-512x512.png`;
-        // Indirizzo del nodo: per un'attività la sede operativa fisica (fallback alla legale), altrimenti
-        // la sede legale. Gli orari di un'attività vanno come openingHoursSpecification SUL NODO (segnale
-        // locale di Google); su Organization/Person restano in contactPoint.hoursAvailable.
-        const address = this.buildPostalAddress(
-            (businessType && identity?.sedeOperativa) ? identity.sedeOperativa : identity?.sedeLegale);
+        const address = ContestoSito.config.jsonld.indirizzo
+            ? this.buildPostalAddress(
+                (businessType && identity?.sedeOperativa) ? identity.sedeOperativa : identity?.sedeLegale)
+            : null;
         const openingHours = businessType ? this.buildOpeningHours(identity) : [];
         const contactPoint = this.buildContactPoint(identity, !businessType);
         const publisher = {
-            // Default dell'Engine: tipo, nome, identificativi legali, social, indirizzo, contatti.
             '@type': businessType ?? (isPerson ? 'Person' : 'Organization'),
-            // Nome dell'entità brand: ragione sociale legale se presente, altrimenti il nome del sito.
             name: identity?.ragioneSociale || appName,
             url: siteUrl,
-            // L'icona del brand (stessa sorgente via mapping asset): Organization la espone come
-            // `logo` (Knowledge Panel), Person come `image` (foto profilo) — `logo` non è valido su Person.
             ...(isPerson ? { image: brandImage } : { logo: brandImage }),
-            // Identificativi legali (solo Organization): fatti dichiarati nell'identità, non dedotti.
             ...(!isPerson && identity?.ragioneSociale && { legalName: identity.ragioneSociale }),
-            ...(!isPerson && identity?.partitaIva && { vatID: identity.partitaIva }),
-            ...(!isPerson && identity?.codiceFiscale && { taxID: identity.codiceFiscale }),
-            // sameAs: profili ufficiali del brand → segnale per il Knowledge Panel di Google.
+            ...(!isPerson && ContestoSito.config.jsonld.partitaIva && identity?.partitaIva && { vatID: identity.partitaIva }),
+            ...(!isPerson && ContestoSito.config.jsonld.codiceFiscale && identity?.codiceFiscale && { taxID: identity.codiceFiscale }),
             ...(social.length > 0 && { sameAs: social }),
             ...(address && { address }),
-            // openingHoursSpecification sul nodo: solo per un'attività (Organization non ha questo campo).
             ...(openingHours.length > 0 && { openingHoursSpecification: openingHours }),
             ...(contactPoint && { contactPoint }),
-            // Via di fuga: le proprietà extra del figlio fuse PER ULTIME → SOVRASCRIVONO i default,
-            // non solo aggiungono (es. `@type` → `LocalBusiness`/sottotipi, `geo`, `priceRange`).
             ...(identity?.extra && typeof identity.extra === 'object' ? identity.extra : {}),
-            // Perni del grafo: `@context` e `@id` restano sempre dell'Engine — `website`/`webpage`
-            // referenziano il publisher via `@id`, l'extra non deve poterli spezzare.
             '@context': 'https://schema.org',
             '@id': publisherId,
         };
@@ -466,11 +369,8 @@ export class PageMetaService {
             publisher: { '@id': publisherId },
         };
 
-        // Structured data tipizzati → JSON-LD (unico punto di traduzione, in structured-data.ts).
-        // Compone uno o più item: il primo arricchisce il WebPage, gli altri sono nodi a sé.
         const sd = buildStructuredDataGraph(structuredData, { pageName: title, imageUrl, dateModified: dateModified ?? undefined, publisherId });
 
-        // Meta Open Graph dell'entità principale (es. article:*), gemelli dei dati JSON-LD.
         this.updateArticleMeta(sd.ogMeta);
 
         const webPage = {
@@ -484,20 +384,17 @@ export class PageMetaService {
             ...(dateModified && { dateModified }),
             isPartOf: { '@id': websiteId },
             publisher: { '@id': publisherId },
-            // Se imageUrl è null, undefined o stringa vuota, l'oggetto image non viene aggiunto
             ...(imageUrl && {
                 image: {
                     '@type': 'ImageObject',
                     url: imageUrl
                 }
             }),
-            // Arricchimento dall'adapter (headline/author/offers/…). Va per ultimo: ha la precedenza.
             ...sd.pageProps,
         };
 
-        // Nodi standalone dall'adapter (item successivi al primo + tutti i 'raw'), accanto al WebPage.
         const graph: object[] = [publisher, website, webPage, ...sd.nodes];
-        const breadcrumb = this.buildBreadcrumbData(title, canonicalUrl, siteUrl);
+        const breadcrumb = this.buildBreadcrumbData(title, siteUrl);
         if (breadcrumb) graph.push(breadcrumb);
 
         this.document
@@ -509,20 +406,14 @@ export class PageMetaService {
             script.type = 'application/ld+json';
             script.setAttribute('data-br1-jsonld', String(index));
             if (this.cspNonce) script.nonce = this.cspNonce;
-            // Hardening anti-XSS: escape di <, >, & in \uXXXX così un valore tipo "</script>"
-            // non può chiudere il tag e iniettare markup (breakout). I parser JSON-LD decodificano
-            // gli escape: il dato resta identico e valido. Vale per qualunque sorgente del grafo
-            // (identità, structured data di pagina, raw), anche quando i dati vengono da DB/CMS.
+            // Escape caratteri speciali per prevenzione XSS
             script.textContent = JSON.stringify(data)
                 .replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
             this.document.head.appendChild(script);
         });
     }
 
-    /**
-     * Costruisce un canonical stabile: niente query/hash e, in SSR, origin forzato
-     * a FRONTEND_BASE_URL. Evita canonical divergenti tra HTML iniziale e idratazione.
-     */
+    /** Costruisce il canonical URL rimuovendo query e hash (con origin forzato in SSR). */
     public getCanonicalUrl(): string {
         try {
             const parsed = new URL(this.document.URL);
@@ -556,37 +447,33 @@ export class PageMetaService {
         return origin ? `${origin}/` : '/';
     }
 
-    private buildBreadcrumbData(title: string, canonicalUrl: string, siteUrl: string): object | null {
-        const path = (() => {
-            try { return new URL(canonicalUrl).pathname; } catch { return '/'; }
-        })();
+    /** Costruisce il nodo schema.org `BreadcrumbList` per la pagina corrente. */
+    private buildBreadcrumbData(title: string, siteUrl: string): object | null {
+        const pageType = this.currentPageType();
+        if (pageType == null) return null;
 
-        if (path === '/') return null;
+        const trail = this.breadcrumb.trailFor(pageType, {
+            lang: this.translate.currentLang(),
+            params: mergeRouteParams(this.router.routerState.snapshot),
+            currentTitle: title,
+        });
+        const collapsed = toJsonLdTrail(trail);
+        if (!collapsed) return null;
 
+        const origin = siteUrl.endsWith('/') ? siteUrl.slice(0, -1) : siteUrl;
         return {
             '@context': 'https://schema.org',
             '@type': 'BreadcrumbList',
-            itemListElement: [
-                {
-                    '@type': 'ListItem',
-                    position: 1,
-                    name: ContestoSito.config.appName,
-                    item: siteUrl,
-                },
-                {
-                    '@type': 'ListItem',
-                    position: 2,
-                    name: title,
-                    item: canonicalUrl,
-                },
-            ],
+            itemListElement: collapsed.map((item, index) => ({
+                '@type': 'ListItem',
+                position: index + 1,
+                name: item.label,
+                ...(item.path && { item: `${origin}${item.path}` }),
+            })),
         };
     }
 
-    /**
-     * Gestisce il tag canonical per evitare problemi di contenuti duplicati.
-     * Se il tag esiste lo aggiorna, altrimenti lo crea e lo appende al <head>.
-     */
+    /** Aggiorna o inserisce il tag `<link rel="canonical">` nel `<head>`. */
     private updateCanonical(url: string): void {
         const existing = this.document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
         if (existing) {
