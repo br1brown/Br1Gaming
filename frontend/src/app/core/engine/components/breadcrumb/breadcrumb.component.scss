@@ -22,11 +22,11 @@
         align-items: center;
     }
 
-    // --bs-secondary-color è già calibrato da ThemeService per il contrasto AA target
-    // (theme.service.ts, colorMutedText): il colore da solo basta a restare conforme — pa11y
-    // verifica questo elemento quando il crumb intermedio è un link vero (trail a 3+ livelli).
+    // --bs-secondary-color è calibrato da ThemeService contro colorMutedBg (~4.8:1), non contro
+    // questa pillola: diluito dal 12% di rgba() sopra sfondo chiaro scende a ~4.1:1, sotto AA.
+    // --bs-body-color ha margine enorme (quasi nero/bianco) e resta conforme anche diluito.
     &__link {
-        color: var(--bs-secondary-color);
+        color: var(--bs-body-color);
         text-decoration: none;
         transition: all 0.2s ease-in-out;
         display: inline-flex;
@@ -67,17 +67,16 @@
 
     // Elemento collassato
     &__ellipsis {
-        color: var(--bs-secondary-color);
+        color: var(--bs-body-color);
         opacity: 0.85;
         display: inline-flex;
         align-items: center;
         padding: 0 0.2rem;
     }
 
-    // Elemento intermedio senza path (finto percorso, es. "Policy"): testo vero, stesso principio
-    // di __link — --bs-secondary-color da solo è già AA-compliant.
+    // Elemento intermedio senza path (finto percorso, es. "Policy")
     &__fake-path {
-        color: var(--bs-secondary-color);
+        color: var(--bs-body-color);
         display: inline-flex;
         align-items: center;
         cursor: default;
