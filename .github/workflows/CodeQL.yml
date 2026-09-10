@@ -54,3 +54,14 @@ jobs:
         uses: github/codeql-action/analyze@v3
         with:
           category: "/language:${{ matrix.language }}"
+          upload: false
+          output: sarif-results
+
+      # Fallisce solo l'upload (non abilitato su repo privati senza Advanced
+      # Security), non l'analisi: qui va un warning, non un errore rosso.
+      - name: Carica risultati su GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
+        with:
+          sarif_file: sarif-results
+          category: "/language:${{ matrix.language }}"
