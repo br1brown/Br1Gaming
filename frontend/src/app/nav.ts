@@ -2,10 +2,8 @@ import type { ShellNavResolver } from './core/engine/shell-nav';
 import { PageType } from './site';
 
 // Navigazione di header/footer: dato, non struttura del sito (per questo vive qui e non in
-// site.ts — vedi ShellNavResolver in core/engine/shell-nav.ts). Provider di default, sincrono
-// (nessuna API), con lo stesso builder addPage/addLink/addGroup che userebbe un resolver `async`:
-// un menu dipendente da un'API sostituisce questo resolver (provide: SHELL_NAV_RESOLVER in
-// app.config.ts) con una callback che aspetta prima di popolarlo.
+// Provider di default, sincrono (nessuna API), con lo stesso builder addPage/addLink/addGroup che userebbe un resolver `async`:
+// un menu dipendente da un'API la richiami con api = inject(ApiService);
 export const navResolver: ShellNavResolver = {
     // Limiti di profondità e resa per dispositivo: frontend/README.md §"Navigazione Multilivello".
     header: (h) => {

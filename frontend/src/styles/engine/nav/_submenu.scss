@@ -40,7 +40,21 @@
         left: 100%;
         margin: 0 0 0 0.15rem;
         min-width: 11rem;
-        max-width: min(16rem, 90vw);
+        max-width: min(20rem, 90vw);
+        /* Tetto d'altezza calcolato in updateFlip() (nav-submenu.component.ts) in base allo
+           spazio reale sotto l'ancora: senza questo, un gruppo con tanti figli (es. i generatori,
+           dinamici dal backend) sfora sotto il viewport invece di scrollare al proprio interno. */
+        max-height: var(--submenu-max-height, 80vh);
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    /* .dropdown-item eredita white-space: nowrap da Bootstrap — va bene per voci brevi statiche,
+       ma qui i figli sono spesso etichette dinamiche dal backend (nome del generatore/storia) di
+       lunghezza arbitraria: senza wrap sforano oltre il bordo del pannello invece di andare a capo. */
+    .submenu-panel .dropdown-item {
+        white-space: normal;
+        overflow-wrap: break-word;
     }
 
     /* Ribalta a sinistra quando non c'è spazio a destra (classe decisa in TS). */

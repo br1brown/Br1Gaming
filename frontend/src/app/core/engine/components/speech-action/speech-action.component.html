@@ -2,11 +2,12 @@
         type="button"
         [class.w-100]="fullWidth()"
         [class.active]="isSpeaking()"
+        [class.pulse-live]="isSpeaking()"
         [attr.aria-pressed]="isSpeaking()"
         [attr.title]="showLabel() ? null : displayLabel()"
         [attr.aria-label]="showLabel() ? null : displayLabel()"
         (click)="onClick()">
-    <i class="fa-solid fs-5"
+    <i class="fa-solid fs-5 icon-fixed"
        [class.fa-volume-high]="!isSpeaking()"
        [class.fa-stop]="isSpeaking()"
        aria-hidden="true"></i>
