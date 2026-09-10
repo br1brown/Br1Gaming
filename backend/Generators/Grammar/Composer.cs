@@ -17,14 +17,16 @@ public static class Composer
     /// punteggio. <paramref name="seed"/> pre-appunta alcune variabili condivise (segnaposto
     /// <c>[$chiave]</c>) a valori fissi: è il modo con cui una VARIANTE del generatore (es. il segno
     /// scelto per l'oroscopo) fissa parti del testo invece di lasciarle al caso. Assente = comportamento
-    /// normale (tutto pescato a caso).
+    /// normale (tutto pescato a caso). <paramref name="soloOpzione"/> è la chiave dell'opzione di
+    /// variante risolta per questa generazione (vedi <see cref="Frase.SoloOpzione"/>): le frasi del Core
+    /// riservate a un'ALTRA opzione restano fuori dalla selezione.
     /// </summary>
-    public static (string Text, double Score) Generate(Runtime rt, Random rng, IReadOnlyDictionary<string, string>? seed = null)
+    public static (string Text, double Score) Generate(Runtime rt, Random rng, IReadOnlyDictionary<string, string>? seed = null, string? soloOpzione = null)
     {
-        var best = ComposeOnce(rt, rng, seed);
+        var best = ComposeOnce(rt, rng, seed, soloOpzione);
         for (int attempt = 1; attempt < MaxComposeAttempts && !IsGoodEnough(best, rt); attempt++)
         {
-            var candidate = ComposeOnce(rt, rng, seed);
+            var candidate = ComposeOnce(rt, rng, seed, soloOpzione);
             if (IsBetter(candidate, best, rt)) best = candidate;
         }
         return best;
@@ -65,9 +67,10 @@ public static class Composer
 
     /// <summary>
     /// Seleziona le frasi per una singola composizione: prima soddisfa le quote Required, poi riempie
-    /// dal Core globale, scartando i candidati in conflitto di gruppo/label. Esposto per la verifica.
+    /// dal Core globale, scartando i candidati in conflitto di gruppo/label (e quelli riservati a
+    /// un'opzione di variante diversa da <paramref name="soloOpzione"/>). Esposto per la verifica.
     /// </summary>
-    public static List<Phrase> Select(Runtime rt, Random rng)
+    public static List<Phrase> Select(Runtime rt, Random rng, string? soloOpzione = null)
     {
         int n = rt.MinPhrases >= rt.MaxPhrases ? rt.MinPhrases : rng.Next(rt.MinPhrases, rt.MaxPhrases + 1);
         int requiredTotal = rt.Requirements.Sum(r => r.Min);
@@ -85,6 +88,7 @@ public static class Composer
         // seconda professione o un'altra fascia d'età restano fuori come sempre.
         bool Accept(Phrase p)
         {
+            if (p.SoloOpzione is not null && !string.Equals(p.SoloOpzione, soloOpzione, StringComparison.OrdinalIgnoreCase)) return false;
             if (texts.Contains(p.Raw) || p.Labels.Overlaps(usedLabels)) return false;
             foreach (var slot in p.Parts.OfType<Slot>())
                 foreach (var gruppo in slot.Groups)
@@ -127,14 +131,14 @@ public static class Composer
         return chosen;
     }
 
-    private static (string Text, double Score) ComposeOnce(Runtime rt, Random rng, IReadOnlyDictionary<string, string>? seed = null)
+    private static (string Text, double Score) ComposeOnce(Runtime rt, Random rng, IReadOnlyDictionary<string, string>? seed = null, string? soloOpzione = null)
     {
         var ctx = new EvalContext(rt, rng, seed);
         // Apertura/chiusura: risolte (condividono lo stato di unicità) ma NON contribuiscono al punteggio.
         var apertura = rt.Apertura is null ? null : EvalPhrase(rt.Apertura, ctx).Text;
         var chiusura = rt.Chiusura is null ? null : EvalPhrase(rt.Chiusura, ctx).Text;
 
-        var chosen = Select(rt, rng);
+        var chosen = Select(rt, rng, soloOpzione);
         var sb = new StringBuilder();
         double total = 0;
         for (int i = 0; i < chosen.Count; i++)

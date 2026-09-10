@@ -75,8 +75,8 @@ public class GeneratorService
     {
         var generator = Get(slug);
         var runtime = _runtimes[generator.Slug];
-        var seed = ResolveVariantSeed(generator, inputs);
-        var (rawText, score) = Composer.Generate(runtime, Random.Shared, seed);
+        var (seed, opzione) = ResolveVariantSeed(generator, inputs);
+        var (rawText, score) = Composer.Generate(runtime, Random.Shared, seed, opzione);
         var markdown = ArmonizzaTesto(rawText);
         return new GenerationResult(MarkdownToPlain(markdown), markdown, score);
     }
@@ -85,11 +85,14 @@ public class GeneratorService
     /// Dal dizionario d'ingresso ricava i binding (segnaposto → valore) da pre-appuntare alla
     /// generazione: i seed CONDIVISI calcolati al momento (<see cref="SharedContent.Dinamici.Seed"/>, es.
     /// la data di oggi, disponibili a ogni generatore) più i seed della <see cref="IGenerator.Variant"/>
-    /// (l'opzione scelta). L'opzione si sceglie leggendo dal dizionario la dimensione della variante (es.
-    /// <c>inputs["segno"]</c>); opzione assente o sconosciuta → una a caso, così l'oroscopo di un segno è
-    /// sempre coerente, mai un mix di attributi di segni diversi. Nessun seed → <c>null</c> (comportamento normale).
+    /// (l'opzione scelta), e la CHIAVE dell'opzione risolta (per <see cref="Frase.SoloOpzione"/>: alcuni
+    /// generatori usano la variante non solo per fissare segnaposto, ma anche per restringere quali
+    /// frasi del Core sono in gioco). L'opzione si sceglie leggendo dal dizionario la dimensione della
+    /// variante (es. <c>inputs["segno"]</c>); opzione assente o sconosciuta → una a caso, così l'oroscopo
+    /// di un segno è sempre coerente, mai un mix di attributi di segni diversi. Nessun seed → <c>null</c>
+    /// (comportamento normale).
     /// </summary>
-    private static IReadOnlyDictionary<string, string>? ResolveVariantSeed(IGenerator generator, IReadOnlyDictionary<string, string>? inputs)
+    private static (IReadOnlyDictionary<string, string>? Seed, string? Opzione) ResolveVariantSeed(IGenerator generator, IReadOnlyDictionary<string, string>? inputs)
     {
         var seed = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
@@ -102,6 +105,7 @@ public class GeneratorService
         // (elemento, pianeta…) hanno pool di un elemento, sempre quello; i tratti hanno pool più ampi,
         // così variano a ogni oroscopo pur restando "del segno".
         var declared = generator.Variant;
+        string? opzione = null;
         if (declared is { Options.Count: > 0 })
         {
             string? chosen = null;
@@ -110,11 +114,12 @@ public class GeneratorService
                 ? null
                 : declared.Options.FirstOrDefault(o => string.Equals(o.Key, chosen, StringComparison.OrdinalIgnoreCase));
             option ??= declared.Options[Random.Shared.Next(declared.Options.Count)];
+            opzione = option.Key;
             foreach (var (key, pool) in option.Seeds)
                 if (pool.Count > 0) seed[key] = pool[Random.Shared.Next(pool.Count)];
         }
 
-        return seed.Count > 0 ? seed : null;
+        return (seed.Count > 0 ? seed : null, opzione);
     }
 
     /// <summary>

@@ -277,7 +277,7 @@ internal sealed class PhraseParser(
         // SHALLOW (come sempre): contano solo i tag DIRETTI del template.
         var groups = parts.OfType<Slot>().SelectMany(s => s.Groups).ToHashSet();
         var labels = uniqueLabels.Where(frase.Raw.Contains).ToHashSet();
-        return new Phrase(frase.Score, parts, groups, labels, origin, frase.Raw);
+        return new Phrase(frase.Score, parts, groups, labels, origin, frase.Raw, frase.SoloOpzione);
     }
 
     private Slot MapSlot(ProtoSlot proto, string template, string origin)

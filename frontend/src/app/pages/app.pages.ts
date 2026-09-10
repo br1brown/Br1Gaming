@@ -150,7 +150,7 @@ export const appPagesDecl: SitePageInput[] = [
             {
                 path: '',
                 title: 'generatori',
-                description: 'Tutti i generatori di testo demenziali di Br1: incel, startup, kebabbari e altri.',
+                description: 'Tutti i generatori di testo demenziali di Br1: incel, startup, locali e altri.',
                 pageType: AppPages.Generatori,
                 component: () => import('./generatori/generatori.component')
                     .then(m => m.GeneratoriComponent),

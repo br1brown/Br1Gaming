@@ -15,6 +15,7 @@ import { LikeActionComponent } from '../../core/engine/components/like-action/li
 import { ShareActionComponent } from '../../core/engine/components/share-action/share-action.component';
 import { SpeechActionComponent } from '../../core/engine/components/speech-action/speech-action.component';
 import { VariantWheelComponent } from '../../components/shared/variant-wheel/variant-wheel.component';
+import { VariantToggleComponent } from '../../components/shared/variant-toggle/variant-toggle.component';
 
 
 @Component({
@@ -29,6 +30,7 @@ import { VariantWheelComponent } from '../../components/shared/variant-wheel/var
         ShareActionComponent,
         SpeechActionComponent,
         VariantWheelComponent,
+        VariantToggleComponent,
     ],
     templateUrl: './generator-detail.component.html',
     // Il risultato viene ricreato a ogni generazione (@if su result()): l'animazione
@@ -189,15 +191,22 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
 
     /**
      * Canvas immagine da condividere. Non registra più nulla tra i piaciuti (quello lo fa il
-     * bottone "mi piace" a parte): condivisione e "mi piace" sono azioni indipendenti.
+     * bottone "mi piace" a parte): condivisione e "mi piace" sono azioni indipendenti. Sfondo diretto
+     * (non sfocato) con l'immagine OG del generatore, frase come titolo e "Dal {generatore}" come
+     * sottotitolo della caption (posizione/shrink di default: fascia in basso, testo ridotto se serve).
      */
     readonly buildShareCanvas = async (): Promise<HTMLCanvasElement> => {
         const res = this.result();
-        if (!res) throw new Error('Nessun risultato da condividere');
-        const footer = `\n\nDal ${this.generator()?.name ?? ''}`;
-        const canvas = await this.imgBuilder.buildCanvas(`${res.text}\n${footer}`, { maxWidth: 1200 });
+        const gen = this.generator();
+        if (!res || !gen) throw new Error('Nessun risultato da condividere');
+        const imageSrc = this.asset.getUrl(`generator.${gen.slug}.og`);
+        const canvas = await this.imgBuilder.buildCanvasWithCaption(
+            imageSrc,
+            { text: res.text, subtitle: `Dal ${gen.name} | ${ContestoSito.config.appName}` },
+            { width: 1200 },
+        );
         if (!canvas) throw new Error('Errore nella generazione dell\'immagine');
-        return canvas as HTMLCanvasElement;
+        return canvas;
     };
 
     /**

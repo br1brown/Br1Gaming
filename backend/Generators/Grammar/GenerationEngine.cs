@@ -66,9 +66,13 @@ public sealed record Slot(string Key, SlotKind Kind, int Lo, int Hi, IReadOnlySe
 /// <param name="Labels">Label uniche contenute nel template (per l'unicità).</param>
 /// <param name="Origin">Slug del generatore d'origine (per verificare l'iniezione Required).</param>
 /// <param name="Raw">Template originale (per la dedup in selezione).</param>
+/// <param name="SoloOpzione">Se non <c>null</c>, l'opzione di <see cref="IGenerator.Variant"/> a cui
+/// questa frase è riservata (vedi <see cref="Frase.SoloOpzione"/>): il <c>Composer</c> la scarta se la
+/// generazione corrente ha scelto un'opzione diversa.</param>
 public sealed record Phrase(
     double Score, IReadOnlyList<Part> Parts,
-    IReadOnlySet<string> Groups, IReadOnlySet<string> Labels, string Origin, string Raw);
+    IReadOnlySet<string> Groups, IReadOnlySet<string> Labels, string Origin, string Raw,
+    string? SoloOpzione = null);
 
 /// <summary>Quota di frasi identitarie da iniettare per un generatore ospite.</summary>
 public sealed record Requirement(int Min, int Max, IReadOnlyList<Phrase> Phrases);

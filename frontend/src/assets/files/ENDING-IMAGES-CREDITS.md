@@ -17,7 +17,6 @@ Sorgente opaca usata sia per l'anteprima social (`-og.jpg`) sia, scontornata, pe
 
 - **generator/mbeb** — giovane "maschio basic", braccia conserte — https://www.pexels.com/photo/28446958/
 - **generator/locali** — Aperol Spritz — https://www.pexels.com/photo/34621095/
-- **generator/kebab** — kebab in mano — https://www.pexels.com/photo/24550876/
 - **generator/antiveg** — uomo che sbraita (nessuna carne) — https://www.pexels.com/photo/33715992/
 - **story/poveri-maschi** — uomo triste, maglietta rossa — https://www.pexels.com/photo/3769746/
 - **story/poveri-maschi-buco-nero.jpg** (finale) — persona seduta alla finestra al buio — https://www.pexels.com/photo/18540099/

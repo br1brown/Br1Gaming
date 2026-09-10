@@ -121,7 +121,7 @@ public sealed class IncelGenerator : GeneratorBase
     public override IReadOnlyList<string> ComposeWith => ["mbeb"];
 
     /// <inheritdoc />
-    public override GeneratorInfo Info { get; } = new() { Order = 1, Name = "Generatore Incel", Description = "Genera il tuo incel di fiducia" };
+    public override GeneratorInfo Info { get; } = new() { Order = 1, Name = "Incel di fiducia", Description = "Che incel incontrerai nel tuo viaggio digitale?" };
 
     /// <inheritdoc />
     public override GenerationSettings? PhraseSettings { get; } = new() { MinPhrases = 3, MaxPhrases = 4, MinScore = 36, Separators = [". ", "; ", ".\n"] };

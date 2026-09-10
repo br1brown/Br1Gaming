@@ -1,0 +1,16 @@
+<div class="variant-toggle" role="radiogroup" [attr.aria-label]="ariaLabel()">
+    <span class="variant-toggle-thumb"
+          [style.width.%]="segmentPct()"
+          [style.left.%]="thumbLeftPct()"></span>
+    @for (opt of options(); track opt.key) {
+    <button type="button"
+            class="variant-toggle-btn"
+            [class.active]="active() === opt.key"
+            role="radio"
+            [attr.aria-checked]="active() === opt.key"
+            [disabled]="loading()"
+            (click)="onPick()(opt.key)">
+        {{ opt.label }}
+    </button>
+    }
+</div>

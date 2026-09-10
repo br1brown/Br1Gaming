@@ -33,15 +33,27 @@ public sealed class Frase
     internal IReadOnlyList<ProtoPart> Parti { get; }
 
     /// <summary>
+    /// Riserva questa frase del Core a UNA sola opzione della <see cref="GeneratorVariant"/> del
+    /// generatore (la chiave dell'opzione, es. <c>"italiano"</c>): il <c>Composer</c> la scarta dalla
+    /// selezione quando la generazione corrente ha scelto un'altra opzione. <c>null</c> (il default) =
+    /// frase valida per qualunque opzione (o per generatori senza variante). Serve a far convivere in
+    /// UN generatore due "anime" con pattern di frase incompatibili tra loro (es. i due stili di nome
+    /// locale), senza sdoppiare il generatore: la variante non si limita più a fissare un segnaposto
+    /// (come il segno dell'oroscopo), ma può anche restringere QUALI frasi del Core sono in gioco.
+    /// </summary>
+    public string? SoloOpzione { get; }
+
+    /// <summary>
     /// Forma con segnaposto. <paramref name="testo"/> arriva già riempito: davanti a
     /// <c>new($"ha {Eta.Giovane} anni", 3)</c> il compilatore genera lui le chiamate
     /// <c>AppendLiteral("ha ")</c>, <c>AppendFormatted(Eta.Giovane)</c>, <c>AppendLiteral(" anni")</c>.
     /// </summary>
-    public Frase(FraseBuilder testo, double punteggio = 1)
+    public Frase(FraseBuilder testo, double punteggio = 1, string? soloOpzione = null)
     {
         Raw = testo.Raw;
         Parti = testo.Parti;
         Score = punteggio;
+        SoloOpzione = soloOpzione;
     }
 
     private Frase(string testo, double punteggio)

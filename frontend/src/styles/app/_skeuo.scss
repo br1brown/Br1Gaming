@@ -98,12 +98,11 @@
 // fuori, con selettori globali scoperti dalla classe "gen-actions" (Dominio, messa sul contenitore
 // in generator-detail.component.html) — zero file Engine toccati.
 //
-// Bug di layout risolto qui: `.btn-touch` (Engine, styles/engine/base/_a11y.scss) ha solo un
-// min-width/min-height, non una dimensione fissa. Il bottone ascolta cambia icona (altoparlante in
-// pausa, stop mentre parla: ingombro minimo leggermente diverso) e quel pixel di differenza bastava
-// a far andare o no a capo l'intera riga di bottoni insieme al bottone "Ancora!" accanto — da qui il
-// layout che "saltava" tra i due stati. Sovrascriviamo con una dimensione VERAMENTE fissa (più
-// specifica del solo min- di Engine, quindi vince senza !important).
+// Forza una dimensione perfettamente quadrata e azzera il padding per garantire
+// che il bottone sia un cerchio perfetto (essendo border-radius: 50%).
+// Nota: il bug del "salto" di layout (dovuto alla differenza di larghezza delle icone)
+// è gestito nativamente dal template tramite la classe `.icon-fixed`, quindi qui
+// ci preoccupiamo solo della resa estetica circolare.
 .gen-actions .btn-touch {
     width: 2.75rem;
     height: 2.75rem;
@@ -113,8 +112,6 @@
 // Skin: lo stesso tasto tondo fisico del mobiletto in home, al posto del cerchio outline generico
 // di Bootstrap. A riposo è neutro (i toni della superficie); "attivo" (in ascolto, già piaciuto) si
 // accende con l'accento primario, come la spia di un tasto premuto sul jukebox (.hub-chip.active).
-// Ogni regola ripete `.btn-outline-secondary` di Bootstrap con un livello di specificità in più
-// (il prefisso "gen-actions"), così vince sempre, indipendentemente dall'ordine dei fogli di stile.
 .gen-actions .btn-outline-secondary {
     border: none;
     border-radius: 50%;
@@ -155,8 +152,6 @@
         inset 0 1px 3px color-mix(in srgb, black 20%, transparent);
 }
 
-// Stato "acceso": in ascolto (speech-action) o già registrato (like-action) — il componente Engine
-// aggiunge già da sé la classe `.active`, invariata, la leggiamo soltanto.
 .gen-actions .btn-outline-secondary.active {
     color: var(--colorPrimaryText);
     border-color: transparent;
@@ -180,13 +175,11 @@
     outline-offset: var(--focusRingOffset);
 }
 
-// Mentre il generatore sta effettivamente parlando (non solo "piaciuto", che resta uno stato
-// stabile): l'alone respira, per dare un feedback vivo che sta succedendo qualcosa in questo
-// preciso momento — mai toccando le dimensioni del bottone (solo box-shadow). Scoperto sul tag
-// del componente (app-speech-action, il selettore Engine, stabile) e sull'attributo
-// `aria-pressed="true"` che il bottone già espone da sé mentre parla: nessun hook nuovo da
-// aggiungere lato Engine, solo lettura di quello che c'è già.
-@keyframes skeuo-icon-live {
+// L'animazione "pulseLive" globale del template è disegnata per bottoni piatti:
+// andrebbe a sovrascrivere la box-shadow perdendo lo spessore 3D del bottone locale.
+// Dobbiamo re-dichiarare un'animazione custom che preserva il 3D (il bordo sotto e il riflesso sopra)
+// e applicarla intercettando la classe `.pulse-live` aggiunta dal template.
+@keyframes skeuo-pulse-live {
     0%, 100% {
         box-shadow:
             0 3px 0 color-mix(in srgb, black 35%, var(--colorPrimary)),
@@ -201,12 +194,12 @@
     }
 }
 
-.gen-actions app-speech-action .btn-outline-secondary[aria-pressed="true"] {
-    animation: skeuo-icon-live 1.5s ease-in-out infinite;
+.gen-actions .btn-outline-secondary.pulse-live {
+    animation: skeuo-pulse-live 1.5s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
     .btn-skeuo { transition: none; }
     .gen-actions .btn-outline-secondary { transition: none; }
-    .gen-actions app-speech-action .btn-outline-secondary[aria-pressed="true"] { animation: none; }
+    .gen-actions .btn-outline-secondary.pulse-live { animation: none; }
 }

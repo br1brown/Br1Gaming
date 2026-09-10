@@ -9,8 +9,6 @@
   "generator.antiveg.og": "generator/antiveg-og.jpg",
   "generator.locali": "generator/locali.png",
   "generator.locali.og": "generator/locali-og.jpg",
-  "generator.kebab": "generator/kebab.png",
-  "generator.kebab.og": "generator/kebab-og.jpg",
   "generator.mbeb": "generator/mbeb.png",
   "generator.mbeb.og": "generator/mbeb-og.jpg",
   "generator.startup": "generator/startup.png",

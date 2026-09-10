@@ -1,6 +1,6 @@
 
 // Alias tipizzati sui contenuti CONDIVISI: la stessa scorciatoia usata dagli altri generatori
-// (es. Kebab). Servono a "inquinare" le previsioni coi contenuti condivisi, come gli altri.
+// (es. Locali). Servono a "inquinare" le previsioni coi contenuti condivisi, come gli altri.
 using Nome = Backend.Generators.SharedContent.Nome;
 using City = Backend.Generators.SharedContent.City;
 using Professioni = Backend.Generators.SharedContent.Professioni;
@@ -278,9 +278,9 @@ public sealed class OroscopoGenerator : GeneratorBase
     /// <inheritdoc />
     public override GeneratorInfo Info { get; } = new()
     {
-        Order = 4,
+        Order = 6,
         Name = "Oroscopo del Giorno",
-        Description = "Scegli il segno e ricevi previsioni totalmente vere, altro che scienza",
+        Description = "Scopri che giornata meravigliosa sarà oggi!",
     };
 
     /// <inheritdoc />
