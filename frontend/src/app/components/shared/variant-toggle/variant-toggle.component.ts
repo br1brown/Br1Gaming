@@ -55,7 +55,14 @@ import { GeneratorVariantOption } from '../../../core/dto/generator.dto';
             white-space: nowrap;
             transition: color .2s ease;
         }
-        .variant-toggle-btn.active { color: var(--colorPrimaryText); }
+        .variant-toggle-btn.active {
+            color: var(--colorPrimaryText);
+            background-color: var(--colorPrimary);
+            background-image: linear-gradient(180deg,
+                color-mix(in srgb, white 22%, var(--colorPrimary)) 0%,
+                var(--colorPrimary) 55%,
+                color-mix(in srgb, black 18%, var(--colorPrimary)) 100%);
+        }
         .variant-toggle-btn:disabled { cursor: default; opacity: .7; }
         .variant-toggle-btn:focus-visible {
             outline: var(--focusRingWidth) solid var(--focusRingColor);
