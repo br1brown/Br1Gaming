@@ -14,8 +14,10 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { createHash } from 'node:crypto';
 import type { GlobalSettings } from '../global-settings.types';
 import { deepMergeSettings } from '../scripts/config/settings-merge';
+import type { CspOverride } from './csp';
 
 // ── Lettura global-settings.json (+ override global-settings.local.json) ──────────────
 // GLOBAL_SETTINGS_PATH (env var) → path esplicito (Docker: /app/global-settings.json,
@@ -60,7 +62,18 @@ type Br1Json = GlobalSettings;
 // File del template (uguale per ogni progetto): contiene gli header di sicurezza fissi.
 // Stessa logica di ricerca di global-settings.json (env var → cwd → ../cwd). Se manca,
 // security-headers.ts ricade su FALLBACK_SECURITY_HEADERS, così il server parte protetto.
-function loadSecurityHeaders(): Record<string, string> {
+//
+// Il contenuto grezzo viene anche hashato (templateHash): security-headers.ts confronta
+// l'hash con quello shipped dall'engine e si rifiuta di avviarsi se non combacia, per evitare
+// che una modifica a mano di questo file (invece di security-headers.override.json) diverga
+// silenziosamente dai futuri aggiornamenti del template. Vedi security-headers.ts.
+interface LoadedSecurityHeaders {
+    readonly headers: Record<string, string>;
+    /** sha256 esadecimale del file letto, null se il file non è stato trovato/leggibile. */
+    readonly templateHash: string | null;
+}
+
+function loadSecurityHeaders(): LoadedSecurityHeaders {
     const candidates = [
         process.env['SECURITY_HEADERS_PATH'],
         resolve(process.cwd(), 'security-headers.json'),
@@ -70,15 +83,51 @@ function loadSecurityHeaders(): Record<string, string> {
     for (const p of candidates) {
         try {
             if (existsSync(p)) {
-                const parsed = JSON.parse(readFileSync(p, 'utf-8')) as { Security?: { Headers?: Record<string, string> } };
-                return parsed.Security?.Headers ?? {};
+                const raw = readFileSync(p, 'utf-8');
+                const parsed = JSON.parse(raw) as { Security?: { Headers?: Record<string, string> } };
+                return {
+                    headers: parsed.Security?.Headers ?? {},
+                    templateHash: createHash('sha256').update(raw).digest('hex'),
+                };
             }
         } catch { /* prova il prossimo */ }
     }
-    return {};
+    return { headers: {}, templateHash: null };
 }
 
-let _securityHeaders: Record<string, string> | undefined;
+// ── Lettura security-headers.override.json ────────────────────────────────────
+// File del PROGETTO FIGLIO (committabile, non un segreto): estensioni dichiarative alla CSP
+// del template (es. aggiungere un dominio embed a connect-src/frame-src/img-src), senza dover
+// toccare security-headers.json. Stessa logica di ricerca degli altri file di config. Assente
+// di default: nessuna estensione, la CSP resta quella del template.
+function loadCspOverride(): CspOverride | null {
+    const candidates = [
+        process.env['SECURITY_HEADERS_OVERRIDE_PATH'],
+        resolve(process.cwd(), 'security-headers.override.json'),
+        resolve(process.cwd(), '../security-headers.override.json'),
+    ].filter((p): p is string => Boolean(p));
+
+    for (const p of candidates) {
+        try {
+            if (existsSync(p)) {
+                const parsed = JSON.parse(readFileSync(p, 'utf-8')) as { csp?: Record<string, unknown> };
+                const csp = parsed.csp;
+                if (!csp || typeof csp !== 'object') return null;
+                const result: Record<string, string[]> = {};
+                for (const [directive, sources] of Object.entries(csp)) {
+                    if (Array.isArray(sources)) {
+                        result[directive] = sources.filter((s): s is string => typeof s === 'string');
+                    }
+                }
+                return result;
+            }
+        } catch { /* prova il prossimo */ }
+    }
+    return null;
+}
+
+let _securityHeaders: LoadedSecurityHeaders | undefined;
+let _cspOverride: CspOverride | null | undefined;
 
 let _br1: Record<string, unknown> | undefined;
 function br1(): Br1Json {
@@ -138,8 +187,15 @@ export interface SiteEnv {
 
 /** Header di sicurezza condivisi col backend, letti da security-headers.json (file del template). */
 export interface SecurityEnv {
-    /** Mappa header→valore. La CSP contiene {SCRIPT_NONCE_PLACEHOLDER}, sostituito per-request. */
+    /** Mappa header→valore. La CSP contiene {NONCE_PLACEHOLDER} (in script-src e style-src-elem),
+     *  sostituito per-request con lo stesso nonce. */
     readonly headers: Readonly<Record<string, string>>;
+    /** sha256 di security-headers.json così com'è su disco; null se il file manca. Usato da
+     *  security-headers.ts per il controllo di integrità (fail-fast se modificato a mano). */
+    readonly templateHash: string | null;
+    /** Estensioni CSP dichiarate in security-headers.override.json (progetto figlio); null se
+     *  il file manca o non definisce una sezione "csp". */
+    readonly cspOverride: CspOverride | null;
 }
 
 /** Configurazione completa dell'ambiente server Node, tipizzata e raggruppata per area. */
@@ -221,8 +277,11 @@ export const serverEnv: ServerEnv = {
         };
     },
     get security(): SecurityEnv {
+        const loaded = (_securityHeaders ??= loadSecurityHeaders());
         return _security ??= {
-            headers: (_securityHeaders ??= loadSecurityHeaders()),
+            headers: loaded.headers,
+            templateHash: loaded.templateHash,
+            cspOverride: (_cspOverride ??= loadCspOverride()),
         };
     },
 };

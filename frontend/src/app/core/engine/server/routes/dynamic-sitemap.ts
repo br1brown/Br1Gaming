@@ -30,6 +30,24 @@ interface SitemapCacheEntry {
 let cached: SitemapCacheEntry | null = null;
 let inFlight: Promise<string> | null = null;
 
+// Stessa cache/dedup della XML sopra, ma sulle SitemapEntry[] grezze (pre-serializzazione):
+// condivisa fra computeSitemapXml() sotto e dynamicAuditPathsHandler (in fondo al file), così
+// un backend con un catalogo dynamicParams costoso viene interrogato una sola volta ogni
+// CACHE_TTL_MS invece che una volta per /sitemap.xml e una per /internal/dynamic-audit-paths.
+let entriesCache: { entries: SitemapEntry[]; expiresAt: number } | null = null;
+let entriesInFlight: Promise<SitemapEntry[]> | null = null;
+
+async function getDynamicEntries(): Promise<SitemapEntry[]> {
+    const cacheEnabled = ContestoSito.config.dynamicSitemapCache;
+    const now = Date.now();
+    if (cacheEnabled && entriesCache && entriesCache.expiresAt > now) return entriesCache.entries;
+
+    entriesInFlight ??= computeDynamicEntries().finally(() => { entriesInFlight = null; });
+    const entries = await entriesInFlight;
+    if (cacheEnabled) entriesCache = { entries, expiresAt: now + CACHE_TTL_MS };
+    return entries;
+}
+
 /** Implementazione di `DynamicParamsContext.fetchBackendJson`: stesso backend/API key del
  *  proxy `/api/*`, ma chiamato direttamente (gira già lato server). */
 async function fetchBackendJson<T>(path: string): Promise<T> {
@@ -83,7 +101,7 @@ async function computeDynamicEntries(): Promise<SitemapEntry[]> {
 }
 
 async function computeSitemapXml(): Promise<string> {
-    const [staticEntries, dynamicEntries] = [ContestoSito.getSitemapEntries(), await computeDynamicEntries()];
+    const [staticEntries, dynamicEntries] = [ContestoSito.getSitemapEntries(), await getDynamicEntries()];
     const baseUrl = serverEnv.site.baseUrl || 'https://example.com';
     if (baseUrl === 'https://example.com') {
         console.warn('[dynamic-sitemap] FRONTEND_BASE_URL non configurato — sitemap generata con URL placeholder.');
@@ -138,9 +156,41 @@ export function revalidateSitemapHandler(req: Request, res: Response): void {
         res.status(401).json({ status: 401, title: 'Unauthorized', detail: 'x-api-key mancante o non valida.' });
         return;
     }
-    // A cache disattivata `cached` è sempre già null: qui diventa un no-op innocuo.
+    // A cache disattivata sono sempre già null: qui diventa un no-op innocuo.
     cached = null;
+    entriesCache = null;
     res.status(204).end();
+}
+
+/**
+ * `/internal/dynamic-audit-paths`: path pubblici (SOLO lingua di default) delle pagine
+ * `dynamicParams`, raggruppati per `pageType` — un gruppo = una famiglia di pagine che condivide
+ * lo stesso componente/template (stesso comportamento, cambiano solo i dati: es. tutte le
+ * varianti di "social-feed/:slug"). Consumato da scripts/test/discover-audit-paths.cjs per
+ * campionare N istanze PER COMPONENTE negli audit live (Pa11y/Lighthouse), invece che un
+ * campione unico su tutte le pagine dinamiche mescolate insieme: senza il raggruppamento, un
+ * domani un template con mille entità (es. un blog) "ruberebbe" campione a un template con
+ * cinque entità solo perché ne genera di più — pur essendo due componenti indipendenti con
+ * un profilo di accessibilità/performance proprio.
+ *
+ * Nessuna autenticazione, a differenza di /internal/revalidate-sitemap: qui non si muta nulla,
+ * e l'informazione esposta non è più sensibile di /sitemap.xml (stessi dati via
+ * getDynamicEntries(), solo raggruppati per pageType invece che appiattiti in <loc>).
+ */
+export async function dynamicAuditPathsHandler(_req: Request, res: Response): Promise<void> {
+    res.set('Cache-Control', 'no-cache');
+    try {
+        const entries = await getDynamicEntries();
+        const groups: Record<string, string[]> = {};
+        for (const entry of entries) {
+            if (entry.lang !== environment.defaultLang) continue;
+            (groups[entry.pageType] ??= []).push(entry.path);
+        }
+        res.json(groups);
+    } catch (err) {
+        console.error('[dynamic-sitemap] dynamic-audit-paths generazione fallita:', err);
+        res.status(500).type('text/plain').send('Errore nel recupero dei path dinamici per audit.');
+    }
 }
 
 /** Confronto a tempo costante, stesso principio del check `x-api-key` lato backend

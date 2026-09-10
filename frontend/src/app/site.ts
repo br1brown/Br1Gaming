@@ -39,6 +39,4 @@ export const ContestoSito = buildSite({
     // Le dichiarazioni pagina vivono nel file di area (pages/app.pages.ts): qui solo lo spread.
     pages: () => [...appPagesDecl],
 
-    // Menu di header/footer: dato risolto a runtime in `nav.ts`, vedi `ShellNavResolver`
-    // in `core/engine/shell-nav.ts`.
 });

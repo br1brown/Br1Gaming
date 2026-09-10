@@ -6,6 +6,7 @@ import { cacheDir } from '../server-paths';
 import { resolveAssetPath } from '../asset-mapping';
 import { AssetHandler } from '../asset-handler';
 import { inProgress, runImageJob } from '../image-cache';
+import { recordCacheHit, recordCacheMiss } from '../image-cache-metrics';
 import { fileExists } from '../fs-utils';
 
 /** Tetto al tempo di decode/resize per singola richiesta: blinda contro file patologici/decode lenti
@@ -61,7 +62,8 @@ export async function cdnAssetHandler(req: Request, res: Response): Promise<void
         const cacheFile = join(cacheDir, cacheKey);
 
         /** Se la miniatura esiste già in cache, la serve istantaneamente */
-        if (await fileExists(cacheFile)) { AssetHandler.serveImage(res, cacheFile); return; }
+        if (await fileExists(cacheFile)) { recordCacheHit(); AssetHandler.serveImage(res, cacheFile); return; }
+        recordCacheMiss();
 
         /**
          * Lookup singolo nella mappa: se la generazione è già in corso si riusa

@@ -2,8 +2,18 @@ import type { Response } from 'express';
 import { utimes } from 'node:fs';
 import { lookup as mimeLookup } from 'mime-types';
 
-/** Pattern per identificare asset con hash (es. main.v123.js) per abilitare la cache immutabile. */
-export const immutableAssetPattern = /\.[0-9a-f]{16,}\.(?:js|css|woff2?|ttf|eot|svg|png|jpe?g|gif|webp|avif|ico)$/i;
+/**
+ * Pattern per identificare asset con hash nel nome (gestiti da Angular, `outputHashing: "all"`
+ * in angular.json) per abilitare la cache immutabile. Il builder Angular/esbuild non produce
+ * `nome.HASH.ext` (notazione webpack) ma `nome-HASH.ext`, con un hash di 8 caratteri
+ * nell'alfabeto [0-9A-Z] (es. `chunk-3FVXKXES.js`, `main-K5W646K5.js`, `styles-4B7UGN6G.css`,
+ * `fa-solid-900-5ZUYHGA7.woff2`) — MAI lowercase e MAI la notazione a punto assunta prima, che
+ * non ha mai combaciato con l'output reale (bug: ogni asset con hash finiva servito `no-cache`
+ * invece che con cache eterna). L'hash SOLO maiuscolo è anche ciò che esclude gli asset statici
+ * non hashati con nomi trattino-separati (es. `ngsw-worker.js`, `theme-init.js`): sono minuscoli,
+ * un case-sensitive match su [0-9A-Z] non li tocca.
+ */
+export const immutableAssetPattern = /-[0-9A-Z]{6,10}\.(?:js|css|woff2?|ttf|eot|svg|png|jpe?g|gif|webp|avif|ico)$/;
 
 /** Raggruppa le utility per gestire l'invio dei file e il controllo dei formati. */
 export class AssetHandler {

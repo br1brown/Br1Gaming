@@ -6,50 +6,55 @@ on:
   pull_request:
     branches: ["**"]
 
-# Annulla i run superati sullo stesso ref (es. push rapidi o push+PR dello stesso
-# branch): evita doppioni e libera i runner.
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
   backend:
-    name: Compila backend
+    name: Backend — build e audit pacchetti
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Configura .NET 9
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "9.0.x"
 
-      - name: Compila
-        # Niente -warnaserror: questa CI è ereditata tale e quale dai figli, e i warning del
-        # loro dominio (XML-doc mancanti, nullability) non devono bloccargli la build.
-        # Lo zero-warning resta la disciplina del template, non un gate per i figli.
+      - name: Build (Release)
         run: dotnet build backend/backend.csproj --configuration Release
 
       - name: Controlla pacchetti vulnerabili
         run: |
+          source scripts/lib/gh-summary.sh
           OUTPUT=$(dotnet list backend/backend.csproj package --vulnerable --include-transitive 2>&1)
           echo "$OUTPUT"
-          # Gate ereditato tale e quale dai figli: blocca solo sul davvero urgente
-          # (severità Critical). High/Moderate/Low restano visibili nell'output qui sopra
-          # ma non bloccano, per non imporre a parente e figli di rincorrere ogni advisory.
           if echo "$OUTPUT" | grep -qw "Critical"; then
+            gh_summary_append "### 📦 Pacchetti NuGet vulnerabili
+          ❌ Trovata almeno una vulnerabilità CRITICAL
+
+          <details><summary>Dettaglio</summary>
+
+          \`\`\`
+          $OUTPUT
+          \`\`\`
+
+          </details>"
             echo "::error::Trovati pacchetti NuGet con vulnerabilità CRITICAL. Esegui 'dotnet list package --vulnerable' per i dettagli."
             exit 1
           fi
+          gh_summary_append "### 📦 Pacchetti NuGet vulnerabili
+          ✅ Nessuna vulnerabilità CRITICAL (High/Moderate/Low non bloccano, vedi log per il dettaglio)"
 
   frontend:
-    name: Compila frontend
+    name: Frontend — qualità e build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Configura Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: ".nvmrc"
           cache: "npm"
@@ -60,11 +65,16 @@ jobs:
         run: npm ci
 
       - name: Audit di sicurezza
-        working-directory: frontend
-        # Gate ereditato tale e quale dai figli: blocca solo su vulnerabilità "critical".
-        # npm stampa comunque l'intero report (anche high/moderate), ma esce non-zero solo
-        # sul critical, per non imporre a parente e figli di rincorrere ogni advisory di framework.
-        run: npm audit --audit-level=critical --omit=dev
+        run: |
+          source scripts/lib/gh-summary.sh
+          if npm --prefix frontend audit --audit-level=critical --omit=dev; then
+            gh_summary_append "### 📦 Pacchetti npm vulnerabili
+          ✅ Nessuna vulnerabilità CRITICAL (High/Moderate/Low non bloccano, vedi log per il dettaglio)"
+          else
+            gh_summary_append "### 📦 Pacchetti npm vulnerabili
+          ❌ Trovata almeno una vulnerabilità CRITICAL — dettaglio nel log dello step"
+            exit 1
+          fi
 
       - name: Analisi Lint
         run: bash scripts/test/lint-check.sh
@@ -80,17 +90,15 @@ jobs:
         run: npm run generate:statics
 
       - name: Verifica seed allineato a global-settings.json
-        # environment.ts è un seed generato MA versionato (vedi generate-statics.ts): è funzione
-        # pura di global-settings.json (project / Localization / site), senza URL né date, quindi
-        # deterministico ovunque. Se dopo la rigenerazione differisce dal committato, qualcuno l'ha
-        # editato a mano o ha scordato di rigenerare dopo un cambio di config. Versione e identità
-        # si toccano SOLO in global-settings.json, mai nel file generato.
         run: |
           if ! git diff --quiet -- frontend/src/environments/environment.ts; then
             echo "::error file=frontend/src/environments/environment.ts::Seed non allineato a global-settings.json: cambia versione/identità lì, poi 'npm run generate:statics' (cartella frontend) e committa il risultato."
             git --no-pager diff -- frontend/src/environments/environment.ts
             exit 1
           fi
+
+      - name: Invarianti SiteBuilder
+        run: bash scripts/test/site-builder-check.sh
 
       - name: Genera icone
         working-directory: frontend
@@ -101,10 +109,6 @@ jobs:
         run: npm run generate:types
 
       - name: Verifica tipi allineati a global-settings.schema.json
-        # global-settings.types.ts è generato da json2ts a partire dallo schema MA versionato: è
-        # funzione pura di global-settings.schema.json. Se dopo la rigenerazione differisce dal
-        # committato, qualcuno ha toccato lo schema senza rigenerare i tipi (o li ha editati a mano).
-        # Stesso gate del seed environment.ts, applicato all'altro file generato-e-versionato.
         run: |
           if ! git diff --quiet -- frontend/src/app/core/engine/global-settings.types.ts; then
             echo "::error file=frontend/src/app/core/engine/global-settings.types.ts::Tipi non allineati allo schema: cambia global-settings.schema.json, poi 'npm run generate:types' (cartella frontend) e committa il risultato."
@@ -112,18 +116,18 @@ jobs:
             exit 1
           fi
 
-      - name: Compila frontend
+      - name: Build produzione (ng build)
         working-directory: frontend
         run: npx ng build --configuration production
 
   i18n:
-    name: Completezza i18n
+    name: i18n — completezza traduzioni
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Configura Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: ".nvmrc"
 
@@ -131,28 +135,44 @@ jobs:
         run: bash scripts/test/i18n-check.sh
 
   security-scan:
-    name: Sicurezza (gitleaks)
+    name: Sicurezza — secret scanning (gitleaks)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      # Secret scanning: intercetta segreti committati per sbaglio (rinforza l'architettura
-      # "segreti fuori da git"). Via immagine Docker: nessuna licenza/token, portabile su ogni
-      # fork. L'allowlist dei segnaposto del template è in .gitleaks.toml.
       - name: Secret scanning (gitleaks)
         run: |
-          docker run --rm -v "${{ github.workspace }}:/repo" zricethezav/gitleaks:latest \
-            detect --source=/repo --no-git --redact --verbose --config=/repo/.gitleaks.toml
+          source scripts/lib/gh-summary.sh
+          GITLEAKS_LOG="$(mktemp)"
+          if docker run --rm -v "${{ github.workspace }}:/repo" zricethezav/gitleaks:latest \
+            detect --source=/repo --no-git --redact --verbose --config=/repo/.gitleaks.toml 2>&1 | tee "$GITLEAKS_LOG"; then
+            gh_summary_append "### 🔐 Secret scanning (gitleaks)
+          ✅ Nessun segreto trovato"
+          else
+            gh_summary_append "### 🔐 Secret scanning (gitleaks)
+          ❌ Trovato almeno un segreto — dettaglio redatto nel log dello step
+
+          <details><summary>Dettaglio (redatto)</summary>
+
+          \`\`\`
+          $(cat "$GITLEAKS_LOG")
+          \`\`\`
+
+          </details>"
+            rm -f "$GITLEAKS_LOG"
+            exit 1
+          fi
+          rm -f "$GITLEAKS_LOG"
 
   live-tests:
-    name: Test live
+    name: Audit live — Pa11y + Lighthouse
     runs-on: ubuntu-latest
     needs: [backend, frontend]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Configura Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: ".nvmrc"
           cache: "npm"
@@ -162,44 +182,39 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Avvia stack
-        run: bash scripts/test/public-test.sh
+      - name: Configura Buildx (driver con supporto cache GitHub Actions)
+        uses: docker/setup-buildx-action@v4
 
-      # I due audit sono indipendenti (uno non ha bisogno che l'altro sia passato): con
-      # continue-on-error entrambi girano SEMPRE fino in fondo, invece che il secondo
-      # non partire mai se il primo fallisce — così un push con UN problema di accessibilità
-      # E uno di performance li segnala tutti e due nello stesso run, non uno alla volta a
-      # colpi di push-e-riattendi. continue-on-error a livello di step, però, fa risultare lo
-      # STEP (e quindi di riflesso il job, se non controllato) sempre "verde" anche se lo
-      # script è davvero fallito — va riletto esplicitamente via `outcome` nello step
-      # "Esito test live" sotto, che è quello che decide se il job fallisce davvero.
-      - name: Audit di accessibilità
-        id: a11y
-        continue-on-error: true
-        run: bash scripts/test/a11y-test.sh http://localhost:8088
-
-      - name: Audit Lighthouse
-        id: lighthouse
-        continue-on-error: true
-        run: bash scripts/test/lighthouse-test.sh http://localhost:8088
-
-      - name: Esito test live
-        if: always()
+      - name: Pre-scalda la cache Docker di frontend/backend
         run: |
-          a11y="${{ steps.a11y.outcome }}"
-          lighthouse="${{ steps.lighthouse.outcome }}"
-          echo "Accessibilità: ${a11y}"
-          echo "Lighthouse:    ${lighthouse}"
-          if [[ "$a11y" != "success" || "$lighthouse" != "success" ]]; then
-            echo "::error::Test live falliti — accessibilità: ${a11y}, lighthouse: ${lighthouse}"
+          # Build parallela con cache BuildKit
+          docker buildx build --file backend/Dockerfile \
+            --cache-from "type=gha,scope=backend-live-test" \
+            --cache-to   "type=gha,scope=backend-live-test,mode=max" \
+            backend &
+          backend_pid=$!
+          docker buildx build --file frontend/Dockerfile \
+            --cache-from "type=gha,scope=frontend-live-test" \
+            --cache-to   "type=gha,scope=frontend-live-test,mode=max" \
+            frontend &
+          frontend_pid=$!
+
+          backend_exit=0; frontend_exit=0
+          wait "$backend_pid" || backend_exit=$?
+          wait "$frontend_pid" || frontend_exit=$?
+          if [[ $backend_exit -ne 0 || $frontend_exit -ne 0 ]]; then
+            echo "::error::Pre-scaldamento cache fallito — backend: exit ${backend_exit}, frontend: exit ${frontend_exit}"
             exit 1
           fi
+
+      - name: Build e avvio stack Docker (dietro reverse proxy pubblico)
+        run: bash scripts/test/public-test.sh
+
+      - name: Audit live (Pa11y + Lighthouse)
+        run: bash scripts/test/live-test.sh http://localhost:8088
 
       - name: Butta giù
         if: always()
         run: |
-          # Stesso project name che public-test.sh deriva da global-settings.json (slug di
-          # project.name): derivato e non hardcoded, così il teardown resta corretto anche
-          # nei progetti figli che rinominano il progetto.
           COMPOSE_PROJECT_NAME="$(node --input-type=module --eval "import{readFileSync}from'fs';const s=JSON.parse(readFileSync('global-settings.json','utf-8'));process.stdout.write(String(s.project?.name||'app').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+\$/g,''))")" \
           docker compose -f docker-compose.yml -f docker-compose.public-test.yml down

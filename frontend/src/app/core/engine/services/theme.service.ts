@@ -262,6 +262,15 @@ export class ThemeService {
      */
     readonly colorPrimaryRgb: Signal<string>;
     /**
+     * Signal della variante muted del brand (chroma ridotta al 75%, o hue indipendente se
+     * `colorSecondary` è overridden in global-settings.json). Come `colorPrimary`, non è
+     * tone-adaptive: stesso valore a prescindere dal tema OS — coerente con l'uso in canvas/immagini
+     * generate, che restano un artefatto statico una volta prodotte. CSS: `--colorSecondaryLt`
+     */
+    readonly colorSecondary: Signal<string>;
+    /** Signal `#000000` o `#ffffff` — testo leggibile su `--colorSecondary`. CSS: `--colorSecondaryTextLt` */
+    readonly colorSecondaryText: Signal<'#000000' | '#ffffff'>;
+    /**
      * `true` se `shell.panelForcedLight` è `true` in site.ts.
      * Il pannello contenuti centrale resta in tono chiaro indipendentemente dalla preferenza OS.
      */
@@ -316,6 +325,8 @@ export class ThemeService {
         this.colorPrimary       = computed(() => this._palette().colorPrimary);
         this.colorPrimaryText   = computed(() => this._palette().colorPrimaryText);
         this.colorPrimaryRgb    = computed(() => this._palette().colorPrimaryRgb);
+        this.colorSecondary     = computed(() => this._palette().colorSecondaryLt);
+        this.colorSecondaryText = computed(() => this._palette().colorSecondaryTextLt);
         this.panelForcedLight   = ContestoSito.config.panelForcedLight;
         this.panelBootstrapTheme = this.panelForcedLight ? 'light' : null;
 
@@ -383,6 +394,10 @@ export class ThemeService {
         el.setAttribute('data-theme-tone', tone);
 
         const link = lt ? p.colorLinkLt : p.colorLinkDk;
+        // Fissi Lt/Dk (non tone-adaptive sull'OS): servono al ponte CSS dei subtheme [data-bs-theme]
+        // nidificati, stesso motivo di --colorLinkLt/Dk sotto — vedi commento su "Varianti Lt/Dk separate".
+        const linkHoverLt = ThemeService.mixHexColors(p.colorLinkLt, '#000000', 0.15);
+        const linkHoverDk = ThemeService.mixHexColors(p.colorLinkDk, '#ffffff', 0.15);
         const fontFamily = resolvedFonts.webStack;
         const vars: [string, string][] = [
             // Font
@@ -417,10 +432,23 @@ export class ThemeService {
             // Link + focus ring — tone-adaptive: contrasto leggibile del link sul pannello
             ['--colorLinkLt', p.colorLinkLt],
             ['--colorLinkDk', p.colorLinkDk],
+            // Triple RGB fisse Lt/Dk di link e link-hover: senza queste, un subtheme [data-bs-theme]
+            // nidificato (es. pannello forced-light dentro pagina dark, vedi app.component.html) fa
+            // ricadere Bootstrap sul SUO --bs-link-color-rgb di stock (#0d6efd) — la mixin
+            // theme-bridge in _lib.scss sovrascrive --bs-link-color (hex) ma non la variante -rgb,
+            // che è quella che il CSS compilato di Bootstrap usa davvero per il colore del testo dei
+            // link (`a { color: rgba(var(--bs-link-color-rgb), ...) }`) e per il suo hover
+            // (`a:hover { --bs-link-color-rgb: var(--bs-link-hover-color-rgb) }`). Definite per
+            // garantire la propagazione del colore brand (e la conformità WCAG AA) anche dentro un
+            // subtheme [data-bs-theme] nidificato, evitando il fallback ai blu default di Bootstrap.
+            ['--colorLinkRgbLt', ThemeService.hexToRgbTriplet(p.colorLinkLt)],
+            ['--colorLinkRgbDk', ThemeService.hexToRgbTriplet(p.colorLinkDk)],
+            ['--colorLinkHoverRgbLt', ThemeService.hexToRgbTriplet(linkHoverLt)],
+            ['--colorLinkHoverRgbDk', ThemeService.hexToRgbTriplet(linkHoverDk)],
             ['--colorLink', link],
             ['--focusRingColor', link],
             ['--bs-link-color', link],
-            ['--bs-link-hover-color', ThemeService.mixHexColors(link, lt ? '#000000' : '#ffffff', 0.15)],
+            ['--bs-link-hover-color', lt ? linkHoverLt : linkHoverDk],
             // Surfaces (tone-adaptive)
             ['--colorBase', lt ? p.colorBaseLt : p.colorBaseDk],
             ['--colorSurface', lt ? p.colorSurfaceLt : p.colorSurfaceDk],

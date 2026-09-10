@@ -1,4 +1,4 @@
-<article class="container row justify-content-center">
+<article class="container-fluid  row justify-content-center">
     <div class="col-12 col-md-11 col-lg-10">
         @if (pageContent()) {
             @for (seg of segments(); track $index) {
@@ -10,10 +10,10 @@
                     <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 my-3">
                         @for (cat of cookieCategories(); track cat.key) {
                             <div class="col">
-                                <div class="card h-100 shadow-sm border-light">
+                                <div class="card h-100 shadow-sm">
                                     <div class="card-body p-4">
                                         <div class="d-flex align-items-center mb-3">
-                                            <div class="bg-light rounded p-3 me-3 d-flex align-items-center justify-content-center">
+                                            <div class="bg-body-tertiary rounded p-3 me-3 d-flex align-items-center justify-content-center">
                                                 @switch (cat.key) {
                                                     @case (ConsentCategory.Technical) { <i class="fa-solid fa-shield-halved text-success fs-4" aria-hidden="true"></i> }
                                                     @case (ConsentCategory.TechnicalOptional) { <i class="fa-solid fa-puzzle-piece text-secondary fs-4" aria-hidden="true"></i> }
@@ -35,9 +35,9 @@
                          nel DOM (trasparenza/SEO), solo nascoste visivamente finché non si espande. -->
                     <div class="d-flex flex-column gap-3 my-4">
                         @for (group of cookieGroups(); track group.category) {
-                            <details class="cookie-group card shadow-sm border-light overflow-hidden">
+                            <details class="cookie-group card shadow-sm overflow-hidden">
                                 <summary class="card-body d-flex align-items-center gap-3 p-4 user-select-none">
-                                    <div class="bg-light rounded p-3 d-flex align-items-center justify-content-center flex-shrink-0">
+                                    <div class="bg-body-tertiary rounded p-3 d-flex align-items-center justify-content-center flex-shrink-0">
                                         @switch (group.category) {
                                             @case (ConsentCategory.Technical) { <i class="fa-solid fa-shield-halved text-success fs-5" aria-hidden="true"></i> }
                                             @case (ConsentCategory.TechnicalOptional) { <i class="fa-solid fa-puzzle-piece text-secondary fs-5" aria-hidden="true"></i> }
@@ -56,7 +56,7 @@
                                 </summary>
                                 <div class="list-group list-group-flush border-top">
                                     @for (cookie of group.cookies; track cookie.name) {
-                                        <div class="list-group-item bg-white px-4 py-3">
+                                        <div class="list-group-item px-4 py-3">
                                             <div class="d-flex align-items-center gap-2 flex-wrap">
                                                 <code>{{ cookie.name }}</code>
                                                 <span class="badge px-3 py-1 rounded-pill text-uppercase bg-secondary-subtle text-secondary-emphasis" style="letter-spacing: 0.5px; font-size: 0.75rem;">
@@ -114,12 +114,12 @@
                 <!-- Solo sulla Cookie Policy: guida alla gestione dei cookie dal browser dell'utente. -->
                 <section class="mt-5">
                     <h2 class="fw-bold mb-3 h5">{{ manageCookiesTitle() }}</h2>
-                    <div class="text-muted" [innerHTML]="manageCookiesIntro() | markdown"></div>
-                    <p class="text-muted mb-2 mt-3">{{ manageCookiesBrowsers() }}</p>
+                    <div [innerHTML]="manageCookiesIntro() | markdown"></div>
+                    <p class="mb-2 mt-3">{{ manageCookiesBrowsers() }}</p>
                     <ul class="list-unstyled d-flex flex-column gap-2 mb-0">
                         @for (b of browserLinks(); track b.name) {
                             <li>
-                                <a class="link-primary text-decoration-none d-inline-flex align-items-center gap-2"
+                                <a class="text-decoration-none d-inline-flex align-items-center gap-2"
                                    [href]="b.url" target="_blank" rel="noopener noreferrer">
                                     <i class="fa-solid fa-arrow-up-right-from-square small" aria-hidden="true"></i>{{ b.name }}
                                 </a>

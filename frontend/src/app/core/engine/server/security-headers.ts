@@ -2,63 +2,49 @@ import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { serverEnv } from './server-env';
+import { extendCsp } from './csp';
 
-/**
- * Header di sicurezza letti da security-headers.json (file del template, unica sorgente
- * condivisa col backend). Fallback usato solo se il file manca, così il server parte
- * comunque protetto.
- *
- * CSP base (con {SCRIPT_NONCE_PLACEHOLDER}): il catch-all Angular genera un nonce
- * per-request e lo sostituisce prima di inviare l'HTML. script-src non contiene
- * 'unsafe-inline'; style-src lo mantiene perché Angular usa [style.x] bindings ovunque
- * e i nonce non coprono gli attributi inline (solo i blocchi <style>).
- */
+/** Header di sicurezza di fallback se security-headers.json non è presente. */
 export const FALLBACK_SECURITY_HEADERS: Record<string, string> = {
     'X-Frame-Options': 'SAMEORIGIN',
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
-    // COOP: isola il browsing context da altre origini (anti tab-nabbing / cross-window).
-    // 'same-origin-allow-popups' tiene i benefici ma non rompe i popup che la pagina apre
-    // (es. eventuali flussi OAuth aggiunti da un figlio). Allineato a security-headers.json.
     'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
-    // HSTS: i browser lo applicano solo su HTTPS e lo ignorano su HTTP (RFC 6797),
-    // quindi è sicuro anche in locale. È il layer SSR a parlare col browser, non il backend.
-    // includeSubDomains: estende la policy a tutti i sottodomini (assume deploy all-HTTPS).
     'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), browsing-topics=()',
     'Content-Security-Policy':
-        "default-src 'self'; script-src 'self' {SCRIPT_NONCE_PLACEHOLDER}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
+        "default-src 'self'; script-src 'self' {NONCE_PLACEHOLDER}; style-src 'self'; style-src-elem 'self' {NONCE_PLACEHOLDER}; style-src-attr 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
 };
+
+/** Hash atteso di security-headers.json per la verifica di integrità del template. */
+const EXPECTED_TEMPLATE_SHA256 = '56d6081c516c60227d58d659936a3c7842a08ebfa95ab4062e44d2ee50242091';
+
+if (serverEnv.security.templateHash !== null && serverEnv.security.templateHash !== EXPECTED_TEMPLATE_SHA256) {
+    throw new Error(
+        '[security-headers] security-headers.json risulta modificato rispetto al file del template ' +
+        `(atteso sha256 ${EXPECTED_TEMPLATE_SHA256}, trovato ${serverEnv.security.templateHash}). ` +
+        'Questo file è condiviso tra progetti e si aggiorna SOLO dal merge del template: non va editato ' +
+        'a mano. Per estendere la Content-Security-Policy (nuovi domini in script-src/img-src/connect-src/' +
+        'frame-src/...) crea o modifica security-headers.override.json nella root del progetto.'
+    );
+}
 
 const configuredHeaders = Object.keys(serverEnv.security.headers).length > 0
     ? serverEnv.security.headers
     : FALLBACK_SECURITY_HEADERS;
 
-/** CSP completa con placeholder del nonce, usata dal catch-all SSR per-request. */
-export const defaultCsp = configuredHeaders['Content-Security-Policy']
-    ?? FALLBACK_SECURITY_HEADERS['Content-Security-Policy'];
+/** CSP completa con placeholder del nonce, estesa con security-headers.override.json (se
+ *  presente) e usata dal catch-all SSR per-request. */
+export const defaultCsp = extendCsp(
+    configuredHeaders['Content-Security-Policy'] ?? FALLBACK_SECURITY_HEADERS['Content-Security-Policy'],
+    serverEnv.security.cspOverride
+);
 
-/** CSP per file statici (assets, index.csr.html): placeholder sostituito con 'unsafe-inline'. */
-export const staticCsp = defaultCsp.replace('{SCRIPT_NONCE_PLACEHOLDER}', "'unsafe-inline'");
+/** CSP per file statici (assets, index.csr.html): placeholder sostituiti con 'unsafe-inline'
+ *  (compare due volte, in script-src e style-src-elem — stesso nonce riusato tra le direttive). */
+export const staticCsp = defaultCsp.replaceAll('{NONCE_PLACEHOLDER}', "'unsafe-inline'");
 
-/**
- * Hash sha256 dello script event-dispatch di Angular, da aggiungere allo script-src
- * SOLO nella variante con nonce (SSR).
- *
- * Perché serve: con provideClientHydration(withEventReplay()), il build inietta in
- * <body> uno <script id="ng-event-dispatch-contract"> (definisce __jsaction_bootstrap)
- * a build-time, quindi SENZA nonce per-request. A render-time Angular nonce-a solo lo
- * script che lo CHIAMA, non quello che lo definisce (bug noto angular/angular#59886,
- * #66540). Sotto CSP con nonce e senza 'unsafe-inline' viene bloccato → __jsaction_bootstrap
- * non esiste → event replay e idratazione si rompono, ma SOLO in prod (in dev lo script-src
- * usa 'unsafe-inline'). Lo script è statico → lo si autorizza col suo hash.
- *
- * Calcolato dal file reale a runtime → si auto-aggiorna a ogni upgrade di Angular, nessuna
- * costante da mantenere a mano. NB: l'hash va SOLO nella variante nonce: se presente un hash,
- * la CSP ignora 'unsafe-inline', quindi metterlo in staticCsp romperebbe gli inline statici.
- * Copre l'unico script inline build-time esistente oggi; se un futuro Angular ne aggiungesse
- * altri, andrebbero inclusi qui.
- */
+/** Hash sha256 dello script event-dispatch di Angular per abilitarlo in CSP con nonce (SSR). */
 function computeEventDispatchScriptHash(): string | null {
     try {
         const path = createRequire(import.meta.url).resolve('@angular/core/event-dispatch-contract.min.js');
@@ -77,9 +63,7 @@ export const eventReplayScriptSrc = ((): string => {
     return hash ? ` ${hash}` : '';
 })();
 
-/** Header di sicurezza standard applicati a tutte le risposte non-API.
- *  La CSP usa la variante static (placeholder→'unsafe-inline'); le risposte SSR
- *  la sovrascrivono col nonce per-request. */
+/** Header di sicurezza standard applicati a tutte le risposte non-API. */
 export const htmlSecurityHeaders: [string, string][] = [
     ...Object.entries(configuredHeaders)
         .filter(([name]) => name.toLowerCase() !== 'content-security-policy'),

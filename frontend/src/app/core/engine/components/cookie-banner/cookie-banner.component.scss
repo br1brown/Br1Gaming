@@ -10,6 +10,11 @@ app-cookie-banner .cookie-reopen-btn {
     border: none;
     padding: 0;
     opacity: 0.55;
+    /* Più piccolo del .fab standard (back-to-top): resta fisso su ogni pagina di dominio, che
+       non può sapere che l'angolo è occupato — dimezza in area la probabilità di finire sopra
+       un controllo. Sopra il minimo WCAG 2.5.8 (24×24px). */
+    width: 2.5rem;
+    height: 2.5rem;
 }
 
 @media (max-width: #{lib.$bp-md - 0.02px}) {

@@ -34,8 +34,9 @@ const API = {
 export class ApiService extends BaseApiService {
 
     /**
-     * Recupera un file dal volume uploads come Blob (immagini, documenti, ecc.).
-     * Delega a api_get_blob della base: stessa risoluzione URL (SSR-aware), header e gestione errori.
+     * Recupera un file dal volume uploads come oggetto `Blob` (immagini, documenti, ecc.).
+     * Utile quando il file deve essere elaborato in memoria (es. anteprima locale, download forzato).
+     * Per visualizzare un'immagine direttamente in un `<img>`, preferisci `getBlobUrl()`.
      */
     getBlob(slug: string): Promise<Blob> {
         return this.api_get_blob(API.blob(slug));
@@ -59,6 +60,23 @@ export class ApiService extends BaseApiService {
         const formData = new FormData();
         formData.append('file', file);
         return this.api_post_form<{ slug: string }>(API.blobUpload, formData);
+    }
+
+    /**
+     * Carica più file e restituisce i rispettivi slug, nello stesso ordine di `files`. In
+     * sequenza (l'endpoint accetta un `IFormFile` alla volta, non esiste una POST multipla):
+     * se una richiesta fallisce si ferma lì e propaga l'errore — gli slug dei file già caricati
+     * con successo prima del fallimento non sono nella risposta né vengono ripuliti dal server
+     * (rollback esplicito a carico del chiamante, se serve, via `api_delete` su `blob/{slug}` —
+     * oggi non esposto: il backend non ha ancora una DELETE su questo endpoint).
+     */
+    async uploadBlobs(files: File[]): Promise<string[]> {
+        const slugs: string[] = [];
+        for (const file of files) {
+            const { slug } = await this.uploadBlob(file);
+            slugs.push(slug);
+        }
+        return slugs;
     }
 
     /**

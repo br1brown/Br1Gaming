@@ -207,8 +207,11 @@ public static class SecurityExtensions
         //
         // I controller lanciano ApiException, ApiExceptionHandler le converte
         // in risposte ProblemDetails (RFC 9457) con status, title e detail.
-        //
-        services.AddProblemDetails();
+        services.AddProblemDetails(options =>
+        {
+            options.CustomizeProblemDetails = context =>
+                context.ProblemDetails.Extensions["requestId"] = context.HttpContext.TraceIdentifier;
+        });
         services.AddExceptionHandler<ApiExceptionHandler>();
 
         return services;
@@ -224,6 +227,18 @@ public static class SecurityExtensions
         this WebApplication app,
         SecurityOptions security)
     {
+        // ── REQUEST ID ──────────────────────────────────────────────────
+        // Correlazione end-to-end con l'SSR Node.
+        app.Use(async (context, next) =>
+        {
+            var incoming = context.Request.Headers["X-Request-Id"].ToString();
+            if (!string.IsNullOrEmpty(incoming) && IsValidRequestId(incoming))
+                context.TraceIdentifier = incoming;
+
+            context.Response.Headers["X-Request-Id"] = context.TraceIdentifier;
+            await next();
+        });
+
         // BehindProxy: legge X-Forwarded-For e sovrascrive RemoteIpAddress con l'IP reale.
         // Necessario perché il rate limiter partiziona per RemoteIpAddress.
         // Se false, il middleware non viene registrato: nessuno può spoofarlo con X-Forwarded-For.
@@ -297,4 +312,10 @@ public static class SecurityExtensions
 
         return app;
     }
+
+    /// <summary>
+    /// Un X-Request-Id in ingresso è accettato solo se alfanumerico (oltre a '.', '-', '_') e non più lungo di 128 caratteri.
+    /// </summary>
+    private static bool IsValidRequestId(string value) =>
+        value.Length <= 128 && value.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '-' or '_');
 }

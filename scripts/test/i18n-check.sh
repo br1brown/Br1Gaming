@@ -43,6 +43,15 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 I18N_DIR="${SCRIPT_DIR}/../../frontend/src/assets/i18n"
+# shellcheck source=scripts/lib/gh-summary.sh
+source "${SCRIPT_DIR}/../lib/gh-summary.sh"
+
+# Duplica tutto l'output (stdout+stderr) anche su file: il Job Summary in fondo ne
+# riusa il contenuto (solo le righe "chiave mancante") senza dover restrutturare
+# check_catalog() per accumulare i dettagli oltre a stamparli.
+I18N_LOG="$(mktemp)"
+trap 'rm -f "$I18N_LOG"' EXIT
+exec > >(tee "$I18N_LOG") 2>&1
 
 # Su Git Bash/Windows, Node.js è il binario nativo Win32 e non capisce i path
 # Unix-style /c/Users/... — li converte in C:/Users/... con cygpath -m.
@@ -62,8 +71,8 @@ if node -e "process.exit(process.platform==='win32'?0:1)" 2>/dev/null && command
 fi
 
 mapfile -t LANGS < <(
-    node -e "
-const s = JSON.parse(require('fs').readFileSync('${SETTINGS_JSON}', 'utf-8'));
+    SETTINGS_JSON="$SETTINGS_JSON" node -e "
+const s = JSON.parse(require('fs').readFileSync(process.env.SETTINGS_JSON, 'utf-8'));
 const rawLangs = s.Localization?.SupportedLanguages;
 const langs = (Array.isArray(rawLangs) && rawLangs.length > 0)
     ? rawLangs
@@ -79,6 +88,8 @@ fi
 
 if [[ ${#LANGS[@]} -eq 1 ]]; then
     ok "Una sola lingua configurata (${LANGS[0]}), test superato"
+    gh_summary_append "### 🌍 Completezza i18n
+✅ Una sola lingua configurata (${LANGS[0]}) — niente da confrontare"
     exit 0
 fi
 
@@ -103,11 +114,11 @@ check_catalog() {
     [[ $missing_files -gt 0 ]] && return 1
 
     # Calcola l'unione di tutte le chiavi e segnala quelle mancanti per lingua
-    node -e "
+    LANGS_JSON="$langs_json" I18N_DIR="$I18N_DIR" CATALOG="$catalog" node -e "
 const fs   = require('fs');
-const langs = ${langs_json};
-const dir   = '${I18N_DIR}';
-const cat   = '${catalog}';
+const langs = JSON.parse(process.env.LANGS_JSON);
+const dir   = process.env.I18N_DIR;
+const cat   = process.env.CATALOG;
 
 const keysets = new Map(langs.map(l => [
     l,
@@ -146,8 +157,20 @@ done
 
 if [[ $FAILURES -gt 0 ]]; then
     fail "${FAILURES} catalogo/i con chiavi non sincronizzate"
+    gh_summary_append "### 🌍 Completezza i18n (${LANGS[*]})
+❌ ${FAILURES} catalogo/i non sincronizzato/i
+
+<details><summary>Dettaglio</summary>
+
+\`\`\`
+$(grep -E 'chiave mancante|File mancante' "$I18N_LOG" || true)
+\`\`\`
+
+</details>"
     exit 1
 fi
 
 ok "Controllo completezza i18n superato"
+gh_summary_append "### 🌍 Completezza i18n (${LANGS[*]})
+✅ Tutti i cataloghi allineati"
 exit 0

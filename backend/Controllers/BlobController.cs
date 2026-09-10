@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Backend.Engine;
 using Backend.Models;
 using Backend.Security;
 using Backend.Store;
@@ -15,12 +16,14 @@ namespace Backend.Controllers;
 public class BlobController : EngineBlobController
 {
     private readonly BlobStore _blobs;
+    private readonly BoundedByteCache _weboptCache;
 
     /// <summary>Inizializza una nuova istanza di <see cref="BlobController"/>.</summary>
-    public BlobController(BlobStore blobs, ILogger<BlobController> logger)
+    public BlobController(BlobStore blobs, BoundedByteCache weboptCache, ILogger<BlobController> logger)
         : base(logger)
     {
         _blobs = blobs;
+        _weboptCache = weboptCache;
     }
 
     /// <summary>
@@ -28,7 +31,7 @@ public class BlobController : EngineBlobController
     /// web-ottimizzata (di default = resize immagini max 1920px→WebP; altri tipi invariati).
     /// </summary>
     [HttpGet("{slug}")]
-    public IActionResult Get(string slug, [FromQuery] bool webopt = false)
+    public async Task<IActionResult> Get(string slug, [FromQuery] bool webopt = false)
     {
         var info = _blobs.GetInfo(slug);
         if (info is null)
@@ -50,11 +53,17 @@ public class BlobController : EngineBlobController
         if (RequestMatchesETag(etag))
             return StatusCode(StatusCodes.Status304NotModified);
 
-        // webopt + immagine raster gestita: resize al volo (lato lungo max 1920 px → WebP).
+        // webopt + immagine raster gestita: resize al volo (lato lungo max 1920 px → WebP), con cache
+        // in-memory sullo slug univoco. GetOrCreateAsync fa anche da coalescing: richieste concorrenti
+        // sullo stesso slug non ancora in cache condividono un solo resize invece di rifarlo ciascuna.
         if (webopt && blob.IsImage)
         {
-            using var imageStream = _blobs.OpenRead(slug) ?? throw new NotFoundException("blob");
-            return ResizeImageForWeb(imageStream);
+            var content = await _weboptCache.GetOrCreateAsync(slug, () =>
+            {
+                using var imageStream = _blobs.OpenRead(slug) ?? throw new NotFoundException("blob");
+                return Task.FromResult(ResizeImageForWeb(imageStream).FileContents);
+            });
+            return File(content, "image/webp");
         }
 
         var stream = _blobs.OpenRead(slug) ?? throw new NotFoundException("blob");

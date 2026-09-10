@@ -2,7 +2,128 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
-## [Non rilasciato]
+### Ripristinato (di nuovo) il fail-closed sulle credenziali demo in Production
+
+Revisione a più angoli (correttezza, comportamento rimosso, tracciamento cross-file) sul diff pendente prima del merge: il blocco che rifiuta in Production il login con le credenziali demo del template (`admin`/`Password1!`) era di nuovo assente da `AccountService.ValidateCredentialsAsync` — stessa regressione già trovata e corretta in una review precedente (vedi voce più sotto), con lo stesso segnale a tradirla: `_env` tornato un campo scritto e mai più letto.
+
+- Ripristinato il blocco `if (_env.IsProduction() && validUsername == "admin" && validPassword == "Password1!") throw new UnauthorizedException();`, identico alla correzione precedente.
+- A differenza della volta scorsa, presa in review prima del merge: nessuna finestra di esposizione reale in questo giro, ma la stessa classe di errore ripresentatasi due volte in poco tempo.
+- **Causa radice della rimozione, trovata a posteriori**: `backend/Properties/launchSettings.json` non impostava mai `ASPNETCORE_ENVIRONMENT` — senza quella variabile .NET ricade su `Production` di default (non su `Development`), quindi sia `dotnet run` sia il debug da Visual Studio avviavano il backend già "in produzione", e il fail-closed rifiutava il login demo anche con la password corretta. Non un problema del controllo, ma dell'ambiente locale: chi lo aveva tolto stava probabilmente solo cercando di far funzionare il login in sviluppo. Aggiunto `"ASPNETCORE_ENVIRONMENT": "Development"` al profilo `backend` di `launchSettings.json`: ora il login demo funziona in locale (`dotnet run`/Visual Studio) e resta bloccato nella vera Production (Docker, `ASPNETCORE_ENVIRONMENT=Production` fissato nel `Dockerfile`).
+- Verificato: `dotnet build` backend (0 warning, 0 errori).
+
+### CSP: `security-headers.json` intoccabile — hash-check all'avvio, `security-headers.override.json` per le estensioni
+
+L'unica modifica di progetto attesa in `security-headers.json` era, per esplicita `_nota` del file, l'estensione della CSP (es. whitelistare Mapbox o Google Consent Mode) — ma editare a mano un file "del template, si aggiorna col merge" è esattamente il tipo di divergenza silenziosa che quella nota avrebbe dovuto prevenire: al primo merge dall'upstream l'edit locale va perso o in conflitto, senza che nessuno se ne accorga finché la CSP in produzione non si comporta in modo inatteso. In parallelo, `style-src` porta `'unsafe-inline'` (Angular usa `[style.x]` bindings ovunque, i nonce non lo coprono) senza modo di sapere, prima di provare a toglierlo, cosa si romperebbe davvero.
+
+- Il Node SSR verifica ora lo sha256 di `security-headers.json` all'avvio (`EXPECTED_TEMPLATE_SHA256` in `security-headers.ts`) e si rifiuta di partire se il contenuto su disco non combacia — il file diventa così davvero intoccabile, non solo per convenzione documentata.
+- Le estensioni CSP di progetto vanno ora in un nuovo `security-headers.override.json` alla radice (committabile, non un segreto, mai toccato dal template): un oggetto `{ csp: { direttiva: [sorgenti...] } }`, le cui sorgenti vengono **aggiunte** — mai sostituite — a quelle già presenti nel template (`extendCsp`, nuovo `server/csp.ts`). Stessa logica di ricerca (env var → cwd → `../cwd`) degli altri file di config; assente di default, nessuna estensione.
+- `docker-compose.yml`/`App.sln` aggiornati per montare/listare il nuovo file; `AGENTS.md` §"Google Consent Mode v2" e `frontend/README.md` §"Estendere la CSP" riscritti per la nuova procedura.
+- **Breaking per ogni figlio che aveva già esteso `security-headers.json` a mano** (es. Mapbox, Google Consent Mode): al merge, il Node SSR si rifiuta di avviarsi (hash non combaciante). Migrazione: sposta le direttive aggiunte in `security-headers.override.json` nella nuova forma a oggetto, poi ripristina `security-headers.json` alla versione del template.
+- Verificato: `dotnet build` backend pulito; build di produzione frontend (type-check incluso), lint, i18n-check e dipendenze circolari puliti; nuovo `site-builder-check.sh` verde (hash incluso).
+
+### `X-Request-Id`: correlazione SSR ↔ backend
+
+Un bug che attraversa SSR e backend (es. un 500 dal proxy `/api`) non aveva un modo di collegare la riga di log Node con quella .NET della stessa richiesta, se non incrociando i timestamp a mano.
+
+- Ogni richiesta SSR riceve ora un `X-Request-Id` (riusato dal reverse proxy a monte se presente e ben formato — alfanumerico + `.-_`, max 128 caratteri — altrimenti generato con `randomUUID()`), riflesso in risposta e propagato al backend dal proxy `/api/*`.
+- Il backend lo promuove a `TraceIdentifier` (nuovo middleware, per primo nella pipeline — tabella aggiornata in `backend/README.md` §"Ordine della pipeline HTTP") e lo aggiunge a ogni `ProblemDetails` via `CustomizeProblemDetails`. Un log SSR e un log .NET della stessa richiesta condividono così lo stesso id.
+- Verificato: `dotnet build` backend pulito; build di produzione frontend pulita.
+
+### `security.txt`: da file generato al build a endpoint runtime (RFC 9116)
+
+Stesso limite architetturale già risolto per `sitemap.xml`: `security.txt` era generato una volta al build da `generate-statics.ts`, con `Contact` fisso sull'URL del sito — un dato di identità (email/telefono), non di build, che restava disallineato finché non si rifaceva un build.
+
+- `public/security.txt` non è più generato: `/.well-known/security.txt` è ora un endpoint (`routes/dynamic-security-txt.ts`), che legge `Contact` da `GET /identity` a ogni richiesta — nessuna cache, traffico atteso basso (crawler di sicurezza, non utenti).
+- Nessun contatto configurato in identità (email/telefono assenti) → 404: un security.txt senza un modo reale di raggiungere qualcuno sarebbe peggio che non pubblicarlo.
+- Verificato: build di produzione frontend pulita.
+
+### Breadcrumb: nuovo componente UI + `BreadcrumbList` JSON-LD condiviso
+
+Il JSON-LD emetteva già un `BreadcrumbList` per ogni pagina non-root, ma non esisteva alcun breadcrumb visibile nella UI — due gerarchie che avrebbero rischiato di divergere se implementate separatamente.
+
+- Nuovo `BreadcrumbService` (`services/breadcrumb.ts`): risale l'albero di `ContestoSito.pages` dal `PageType` corrente, con un fallback per rotte piatte con slash nel path (avvisa in dev se un prefisso resta senza pagina dichiarata corrispondente). `resolveBreadcrumb` (opzionale, `site.ts`) permette di sovrascrivere il trail per un `PageType` specifico.
+- Nuovo `app-breadcrumb` (`components/breadcrumb/`), montato nello shell (`app.component.html`): visibilità di default "intelligente" (compare da solo solo oltre due livelli reali), gate su un nuovo `showBreadcrumb` — stesso pattern di `showNav`/`showFooter`: **globale** (`site.ts`) prima, **per-pagina** (`layout.showBreadcrumb`) poi, mai il contrario.
+- Adapter condiviso `toJsonLdTrail` (`services/breadcrumb-jsonld.ts`): stesso trail alla base sia della UI sia del `BreadcrumbList` JSON-LD in `PageMetaService`, le due gerarchie non possono più divergere.
+- Nuove chiavi i18n `breadcrumbNav`/`breadcrumbHome` (`basic.*.json`, Engine).
+- Verificato: build di produzione frontend (type-check incluso), lint, i18n-check e dipendenze circolari puliti.
+
+### Upload multiplo di file (`[multiple]`, `ApiService.uploadBlobs`)
+
+`UploadFormComponent` accettava un solo file per selezione; un progetto che vuole caricare una galleria doveva reimplementare da zero drag-and-drop e validazione per il caso multiplo.
+
+- `UploadFormComponent`: nuovo input `[multiple]` (default `false`, comportamento singolo invariato); emette ora sempre `filesConfirmed`/`filesSelected` (`File[]`, anche con un solo file) al posto di `fileConfirmed`/`fileSelected` (`File`).
+- Nuovo `labels` (`UploadFormLabels`, opzionale): override dei testi del form campo per campo, senza toccare i cataloghi i18n.
+- Nuovo `ApiService.uploadBlobs(files)`: carica in sequenza (l'endpoint `/blob/up` accetta un `IFormFile` alla volta) e restituisce gli slug nello stesso ordine di `files`; un fallimento a metà propaga l'errore senza rollback dei file già caricati (nessuna DELETE esposta oggi su `/blob`).
+- **Breaking per ogni consumer di `app-upload-form`:** `(fileConfirmed)`/`(fileSelected)` non esistono più, vanno rinominati in `(filesConfirmed)`/`(filesSelected)` e il gestore adattato a un array (`[file] = files` per il caso singolo).
+- Verificato: build di produzione frontend (type-check incluso), lint, i18n-check puliti.
+
+### Cache server-side per il resize on-demand dei blob (`BoundedByteCache`)
+
+`GET /blob/{slug}?webopt=true` rifaceva decode+resize+encode SkiaSharp a ogni richiesta non già coperta dall'ETag/304 del client — cioè per il primo visitatore di ogni slug, e per ogni client dietro una cache condivisa che non rispetta `Cache-Control`.
+
+- Nuovo `BoundedByteCache` (`Engine/BoundedByteCache.cs`): `MemoryCache` in-process dedicata, chiave = `slug`, popolata al primo miss e servita as-is sui successivi. Separata dalla `IMemoryCache` condivisa (JSON di config): un `byte[]` di immagine è ordini di grandezza più pesante, con un proprio `SizeLimit` (`BLOB_WEBOPT_CACHE_MAX_MB`, default 500 MB — nuova variabile d'ambiente, vedi `DOCKER_README.md`); superato il limite, eviction automatica.
+- Coalescing sulle richieste concorrenti allo stesso slug non ancora in cache: `GetOrCreateAsync` tiene un `Lazy<Task<byte[]>>` per chiave, non il `Task` nudo — trovato in review che `ConcurrentDictionary.GetOrAdd` da solo non garantisce l'esecuzione singola del proprio value-factory sotto contesa: con un `Task` nudo, due richieste arrivate nella stessa finestra di miss avrebbero potuto avviare due resize in parallelo invece di condividerne uno, contraddicendo la garanzia di coalescing documentata a fianco.
+- `BlobController.Get` ora `async`, legge/scrive la cache attorno a `ResizeImageForWeb`.
+- Verificato: `dotnet build` backend pulito (0 warning, 0 errori).
+
+### `og:image`: layout ridisegnato secondo le linee guida social 2026
+
+- Card testuale e variante con immagine condividono ora una disciplina comune: favicon piccola in alto a sinistra come marchio d'identità **senza** il nome app ripetuto accanto (i crawler social lo mostrano già nel proprio chrome UI — ripeterlo nell'immagine è ridondante), safe-zone di 80px, headline pesante nei due terzi superiori, subline opzionale troncata a una riga.
+- Sfondo della card testuale rinforzato a contrasto WCAG AAA contro il testo overlay (`ImgBuilderService.strongFillColor`), non più il colore brand nudo.
+- `sitePalette`/`strongBgColor` (`og-preview.ts`) calcolati una volta al load del modulo invece che a ogni richiesta, incluse quelle servite dalla cache su disco.
+- Verificato: build di produzione frontend (type-check incluso) pulita.
+
+### JSON-LD: campi opzionali dell'identità dietro un flag esplicito per campo
+
+Il nodo brand (`Organization`/`Person`) del JSON-LD includeva sempre `address`/`contactPoint` (email, telefono) se presenti in `identity.json` — dati potenzialmente personali, esposti in un formato pensato apposta per essere estratto in automatico da bot di scraping, non solo dai crawler dei motori di ricerca.
+
+- Nuovo `jsonld` (`site.ts`, `{ email, telefono, indirizzo, partitaIva, codiceFiscale }`): un flag per campo, default `false` — eccetto `partitaIva` (`true`): identificativo puramente numerico, verificabile pubblicamente su VIES a prescindere, l'unico che Google raccomanda esplicitamente. `codiceFiscale` resta `false` di default: per una ditta individuale codifica data e luogo di nascita della persona fisica dietro l'attività, e l'Engine non sa distinguere quel caso da una vera società.
+- `legalName`/`sameAs` non sono in questa lista: escono comunque identici da `name` (sempre presente) o sono URL già pubblicati altrove (footer) — un flag lì non nasconderebbe nulla.
+- Footer e pagine legali (`identity-render`) restano sempre visibili se i campi di `identity` sono valorizzati, **indipendentemente** da questi flag: riguardano solo l'esposizione nel JSON-LD pubblico.
+- Verificato: `dotnet build` backend pulito; build di produzione frontend pulita.
+
+### Audit live (Pa11y + Lighthouse) consolidati in un solo script, campionati per componente dinamico
+
+`a11y-test.sh` e `lighthouse-test.sh` giravano come due script separati con `continue-on-error` in CI (per farli girare entrambi anche se uno falliva) e un campione unico su tutte le pagine dinamiche mescolate insieme — un `pageType` con molte entità avrebbe "rubato" campione a uno con poche.
+
+- I due script sono sostituiti da un solo `live-test.sh` + `live-audit.mjs`: un browser Puppeteer condiviso, fail-closed nativo (niente più `continue-on-error` a livello di step CI per farli girare entrambi comunque).
+- Nuovo `GET /internal/dynamic-audit-paths` (`dynamic-sitemap.ts`): le pagine `dynamicParams` raggruppate per `pageType`, sola lingua di default. `live-audit.mjs`/`discover-audit-paths.cjs` campionano **ogni gruppo indipendentemente** (Pa11y fino a 100 istanze per gruppo, Lighthouse fino a 5 — seriale e costoso per pagina, un campione più piccolo basta perché le istanze di uno stesso `pageType` condividono template).
+- Gli audit live restano alla sola lingua di default (nuova invariante verificata in CI, sotto): le varianti-lingua di una stessa pagina condividono template e markup, un audit strutturale/di performance darebbe lo stesso esito in ogni lingua.
+- Nuovo `site-builder-check.sh` (`scripts/checks/site-builder-invariants.ts`): verifica in CI, senza alzare un server, che `auditPaths` non includa varianti non-default né duplicati, che la sitemap copra ogni lingua configurata, e l'hash di `security-headers.json` — un fallimento qui è un difetto dell'Engine da scoprire prima del deploy, non durante.
+- `pa11y.json`: aggiunti i runner `axe`+`htmlcs` (prima solo il default); `lighthouse.json` non porta più la propria categoria `accessibility` (80), ridondante con la copertura WCAG di pa11y.
+- `/health` rinomina `a11yPaths` → `auditPaths` (alimenta anche Lighthouse, non solo l'accessibilità) e aggiunge `imageCache` (contatori hit/miss della cache disco di `/cdn-cgi/asset`/`/cdn-cgi/preview`).
+- **Breaking per ogni script/tool esterno che chiamava `a11y-test.sh`/`lighthouse-test.sh` o leggeva `a11yPaths` da `/health`:** rinominati rispettivamente in `live-test.sh` e `auditPaths`.
+- Verificato: `site-builder-check.sh` verde in locale (9 auditPaths, sitemap su 2 lingue, hash security-headers corretto); build di produzione frontend pulita.
+
+### CI: Job Summary su GitHub Actions, CodeQL, cache Docker per i test live
+
+- Nuovo `scripts/lib/gh-summary.sh` (`gh_summary_append`): scrive nel Job Summary di GitHub Actions invece di lasciare l'esito (pacchetti vulnerabili, secret scanning) sepolto nel log dello step — no-op fuori da GitHub Actions.
+- Nuovo workflow separato `CodeQL.yml`: analisi statica di sicurezza (SAST) su frontend e backend, a ogni push/PR e settimanalmente. A sé (non nel workflow di test principale) apposta: nessun file di test coinvolto, zero rischio di rompersi quando un figlio sostituisce la demo.
+- Il job `live-tests` pre-scalda la cache Docker (buildx, cache GitHub Actions) di backend e frontend in parallelo prima di alzare lo stack — gli step successivi partono da immagini già pronte invece di ricostruirle.
+- Azioni GitHub bumpate (`checkout`/`setup-dotnet` v4→v5, `setup-node` v4→v6).
+- Verificato: sintassi YAML validata.
+
+### Fix: colore dei link in un subtheme Bootstrap nidificato ricadeva sul blu di stock
+
+`--bs-link-color`/`--bs-link-hover-color` (hex) erano ponte-ate nel subtheme bridge, ma Bootstrap usa davvero le varianti `-rgb` per il colore effettivo dei link (`a { color: rgba(var(--bs-link-color-rgb), ...) }`) e per il loro hover — senza quelle, un subtheme `[data-bs-theme]` nidificato (es. pannello forzato in chiaro dentro una pagina scura) ricadeva silenziosamente sul blu di default di Bootstrap (`#0d6efd`) invece del colore brand.
+
+- Nuove `--colorLinkRgbLt`/`Dk` e `--colorLinkHoverRgbLt`/`Dk` (triplette RGB, `ThemeService`), ponte-ate anche loro nella mixin `theme-bridge` (`_lib.scss`) come `--bs-link-color-rgb`/`--bs-link-hover-color-rgb`.
+- Nuovi `ThemeService.colorSecondary`/`.colorSecondaryText` (signal): variante muted del brand, esposti come le altre variabili di palette.
+- Verificato: build di produzione frontend pulita.
+
+### Fix: bootstrap dell'app fallito → schermata di errore minimale, non pagina bianca
+
+Se `bootstrapApplication` fallisce (es. un `appInitializer` che lancia), l'albero dei componenti Angular non esiste mai — quindi nemmeno `ErrorComponent`/il router: `<app-root>` restava vuoto, senza alcun feedback per l'utente.
+
+- `main.ts`: il `.catch` di `bootstrapApplication` ora renderizza un messaggio minimale via `document.body.innerHTML` — markup puro, senza dipendere da `TranslateService` (che può essere proprio la causa del fallimento) né da Angular, che qui non è mai partito. Stile via classi Bootstrap (già nel bundle CSS) per restare coerente col tema chiaro/scuro impostato da `theme-init.js` prima di questo script. Bilingue (IT/EN) su `navigator.language`, non su `TranslateService`.
+- Verificato: build di produzione frontend pulita.
+
+### `setup.mjs` (eject): rimozione della demo via marcatori, non più pattern-matching testuale
+
+`ejectDemo()` rimuoveva i blocchi demo di `Program.cs`/`api.service.ts` cercando la stringa esatta di codice/commenti da cancellare: un refactoring successivo di quel codice (rinominare una variabile, riformattare un commento) rompeva silenziosamente l'eject senza che nessun test se ne accorgesse finché qualcuno non lo eseguiva davvero.
+
+- Nuovi marcatori `// <DEMO_BLOCK_START>`/`// <DEMO_BLOCK_END>` attorno al codice demo in `Program.cs` e `api.service.ts`: `ejectDemo()` rimuove tutto ciò che sta fra i due marcatori con una singola regex, indipendente dal contenuto esatto. Un avviso esplicito (non un errore fatale) se i marcatori non si trovano più, invece di un eject silenziosamente incompleto.
+- Verificato: `dotnet build` backend pulito; build di produzione frontend pulita.
 
 ### Menu header/footer: da `site.ts` (build-time) a `nav.ts` (dato, risolto a runtime)
 

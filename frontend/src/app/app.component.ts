@@ -13,6 +13,7 @@ import { NavbarComponent } from './core/engine/components/navbar/navbar.componen
 import { SmokeEffectComponent } from './core/engine/components/smoke-effect/smoke-effect.component';
 import { BackToTopComponent } from './core/engine/components/back-to-top/back-to-top.component';
 import { CookieBannerComponent } from './core/engine/components/cookie-banner/cookie-banner.component';
+import { BreadcrumbComponent } from './core/engine/components/breadcrumb/breadcrumb.component';
 import { PageMetaService } from './core/engine/services/page-meta.service';
 import { VersionCheckService } from './core/engine/services/version-check.service';
 import { TranslatePipe } from './core/engine/pipes/translate.pipe';
@@ -31,7 +32,7 @@ const SHELL_FLAGS_STATE_KEY = makeStateKey<ShellFlags>(SHELL_DATA_KEY);
  */
 @Component({
     selector: 'app-root',
-    imports: [RouterOutlet, NavbarComponent, FooterComponent, SmokeEffectComponent, BackToTopComponent, CookieBannerComponent, TranslatePipe],
+    imports: [RouterOutlet, NavbarComponent, FooterComponent, SmokeEffectComponent, BackToTopComponent, CookieBannerComponent, BreadcrumbComponent, TranslatePipe],
     templateUrl: './app.component.html',
     // L'altezza minima a tutto schermo è gestita nativamente su `app-root` in base.scss con
     // `min-height: 100dvh` (altezza dinamica reale su mobile, evita i problemi del 100vh fisso).
@@ -70,6 +71,13 @@ export class AppComponent {
     readonly showNavbar = computed(() => ContestoSito.config.showNav && (this.shellFlags().showNav ?? true));
 
     readonly showFooter = computed(() => ContestoSito.config.showFooter && (this.shellFlags().showFooter ?? true));
+
+    // Subordinato al globale (come showNav/showFooter): se site.ts spegne shell.showBreadcrumb,
+    // nessuna pagina può riaccenderlo col proprio layout.showBreadcrumb. Se acceso, la pagina può
+    // forzarlo esplicitamente in entrambe le direzioni; in sua assenza (`null`) il breadcrumb
+    // applica da solo il proprio default intelligente (vedi BreadcrumbComponent).
+    readonly breadcrumbOverride = computed(() =>
+        ContestoSito.config.showBreadcrumb && (this.shellFlags().showBreadcrumb ?? null));
 
     // `smoke.enable` (globale) fa da gate primario.
     // Il flag di pagina `showSmoke` vince sul default (pannello sì, full-bleed no), 

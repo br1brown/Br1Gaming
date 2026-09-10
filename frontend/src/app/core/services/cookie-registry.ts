@@ -1,4 +1,4 @@
-import { ConsentCategory, type CookieConfig } from "../engine/services/cookie/cookie-type";
+import type { CookieConfig } from "../engine/services/cookie/cookie-type";
 
 /**
  * Registro UNICO dell'archiviazione client (cookie + Web Storage): una riga qui attiva toggle nel

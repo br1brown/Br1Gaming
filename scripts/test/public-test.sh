@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # =============================================================================
 # public-test.sh — Alza lo stack dietro un reverse proxy nginx, come lo vedrebbe
-#                  un visitatore esterno, e lo lascia acceso per i test live
-#                  (a11y / Lighthouse). NON fa deploy in produzione.
+#                  un visitatore esterno, e lo lascia acceso per l'audit live
+#                  (Pa11y + Lighthouse, live-test.sh). NON fa deploy in produzione.
 #
 # scripts/deploy.sh resta dedicato alla sola pubblicazione; questo harness di test vive qui.
 # Lo usa la CI (job live-tests).
@@ -14,8 +14,7 @@
 #   bash scripts/test/public-test.sh --no-cache
 #
 # Poi:
-#   bash scripts/test/a11y-test.sh       http://localhost:8088
-#   bash scripts/test/lighthouse-test.sh http://localhost:8088
+#   bash scripts/test/live-test.sh http://localhost:8088
 #
 # Teardown manuale:
 #   COMPOSE_PROJECT_NAME=<slug> docker compose -f docker-compose.yml -f docker-compose.public-test.yml down

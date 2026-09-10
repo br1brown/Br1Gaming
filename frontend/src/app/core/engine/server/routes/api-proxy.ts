@@ -34,12 +34,18 @@ function buildProxy(): RequestHandler {
         // x-forwarded-for del client. La catena XFF la controlliamo noi in on.proxyReq.
         xfwd: false,
         on: {
-            proxyReq: (proxyReq, req) => {
+            proxyReq: (proxyReq, req, res) => {
                 // req è l'IncomingMessage arricchito da Express: lo trattiamo come Request.
                 const r = req as unknown as Request;
 
                 // BFF: la chiave API è un segreto server-side, iniettata qui e mai esposta al browser.
                 proxyReq.setHeader('x-api-key', serverEnv.backend.apiKey);
+
+                // Request-id di correlazione (assegnato dal middleware in server.ts, res.locals):
+                // il backend .NET lo riusa come TraceIdentifier, così un log SSR e un log .NET
+                // per la stessa richiesta condividono lo stesso id senza incrociare timestamp.
+                const requestId = (res as unknown as Response).locals?.['requestId'];
+                if (typeof requestId === 'string') proxyReq.setHeader('x-request-id', requestId);
 
                 // X-Forwarded-For: SEMPRE req.ip (risolto da Express via `trust proxy`, fidandosi
                 // dell'header solo dagli hop fidati). http-proxy copia di default gli header in ingresso,
@@ -61,8 +67,8 @@ function buildProxy(): RequestHandler {
                 else proxyReq.removeHeader('x-forwarded-host');
             },
             error: (err, _req, res) => {
-                console.error('[proxy /api]', err);
                 const response = res as Response;
+                console.error('[proxy /api]', `requestId=${response.locals?.['requestId']}`, err);
                 if (!response.headersSent) {
                     // ECONNRESET/ETIMEDOUT = timeout reale → 504. ECONNREFUSED/ENOTFOUND/EHOSTUNREACH
                     // = backend non raggiungibile → 502 Bad Gateway (non un timeout).

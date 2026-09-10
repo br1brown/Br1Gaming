@@ -4,48 +4,18 @@ import { ThemeService } from './theme.service';
 import { WEB_FONTS } from '../font-system';
 import { resolvedFonts } from '../../../../styles/font-config';
 
-/**
- * IMG BUILDER SERVICE
- *
- * Genera immagini PNG a partire da testo:
- *   - nel browser produce un HTMLCanvasElement (async, perché SVG→canvas richiede Image.onload)
- *   - lato server (Node/SSR) si usa solo la parte statica `buildSvg`, che non tocca DOM
- *
- * Architettura a due livelli:
- *   1. Metodi ISTANZA  (buildCanvas, buildBlob, buildFile)
- *      → accettano opzioni parziali, completano i default dai Signal del tema Angular
- *   2. Metodo STATICO  (buildSvg)
- *      → riceve tutti i parametri obbligatori; zero Angular, zero DOM, chiamabile da Node
- *
- * Questo disegno garantisce che browser e server usino esattamente la stessa logica
- * di layout e rendering — un solo posto dove cambiare se si vuole modificare l'aspetto.
- */
+/** Servizio di generazione immagini PNG/SVG a partire da testo (supporto browser e SSR). */
 
 // ─── Tipi pubblici ────────────────────────────────────────────────────────────
 
-/**
- * Controlla come vengono calcolate le dimensioni dell'immagine in relazione al testo.
- *
- *  'exactInLine' → nessun wrap automatico: si rispettano solo i \n espliciti e il canvas
- *                  si ridimensiona attorno al testo. Utile per titoli brevi e tag.
- *  'wrap'        → (default) larghezza fissa a maxWidth, wrap automatico, altezza segue il
- *                  contenuto. Il ratio aggiunge solo spazio verticale minimo.
- *  'fixedRatio'  → il ratio comanda: la larghezza si espande se necessario, i margini
- *                  diventano dinamici (5% della larghezza) e il testo viene ri-wrappato.
- *                  Utile quando il formato dell'immagine è più importante della lunghezza.
- *  'fit'         → box FISSO (maxWidth × maxWidth/ratio): il testo NON allarga il canvas ma
- *                  viene rimpicciolito (shrink-to-fit) finché entra; oltre la scala minima si
- *                  tronca con ellissi. Utile per card di dimensione fissa (es. anteprime OG).
- */
+/** Modalità di calcolo delle dimensioni rispetto al testo. */
 export type ImgRenderMode = 'exactInLine' | 'wrap' | 'fixedRatio' | 'fit';
 
-/**
- * Opzioni per i metodi istanza: tutti i campi sono facoltativi perché i default
- * vengono letti in autonomia dai Signal del tema (colore, font, ecc.).
- * Da usare nei componenti Angular, non nel layer server.
- */
+/** Opzioni per i metodi istanza (default letti dal tema). */
 export interface ImgBuildOptions {
-    /** Colore di sfondo esadecimale (es. '#3a86ff'). Default: colorTema del sito. */
+    /** Ruolo colore semantico ('primary' | 'secondary') da cui derivare bgColor/textColor. */
+    colorRole?: 'primary' | 'secondary';
+    /** Colore di sfondo esadecimale (es. '#3a86ff'). Default: colorPrimary/colorSecondary del sito, secondo `colorRole`. */
     bgColor?: string;
     /** Colore del testo esadecimale. Default: calcolato per massimo contrasto WCAG sul bgColor. */
     textColor?: string;
@@ -67,11 +37,7 @@ export interface ImgBuildOptions {
     maxLines?: number;
 }
 
-/**
- * Versione con tutti i campi obbligatori: prodotta da resolveOptions() e
- * consumata da buildSvg(). Garantisce che nessun parametro sia undefined
- * quando si entra nella logica di layout.
- */
+/** Opzioni risolte con tutti i campi obbligatori per buildSvg. */
 export interface ImgBuildResolved {
     bgColor: string;
     textColor: string;
@@ -138,6 +104,136 @@ export interface FitResult {
     truncated: boolean;
 }
 
+// ─── Tipi pill/badge ────────────────────────────────────────────────────────────
+
+/** Opzioni per buildPill (chip/badge arrotondato con testo e sfondo). */
+export interface PillOptions {
+    /** Testo principale del pill, in grassetto. */
+    text: string;
+    /** Subline opzionale su riga singola (troncata con ellissi se eccede). */
+    subtitle?: string;
+    /** Colore di sfondo del pill. */
+    bgColor: string;
+    /** Larghezza massima totale del pill (padding compreso). */
+    maxWidth: number;
+    /** Coordinata X del bordo sinistro. */
+    x: number;
+    /** Coordinata Y del bordo superiore. */
+    y?: number;
+    /** Coordinata Y del centro verticale a cui ancorare il pill. */
+    anchorCenterY?: number;
+    /** Font-size del testo principale. Default: 40. */
+    fontSize?: number;
+    /** Font-size della subline. Default: ~55% di fontSize. */
+    subtitleFontSize?: number;
+    /** Font-family. Default: webStack risolto. */
+    fontFamily?: string;
+    /** Moltiplicatore line-height del testo principale. Default: 1.3. */
+    lineHeight?: number;
+    /** Max righe del testo principale prima del troncamento. Default: 3. */
+    maxLines?: number;
+    /** Padding orizzontale sinistro. Default: fontSize * 0.85. */
+    hPadL?: number;
+    /** Padding orizzontale destro. Default: fontSize * 0.85. */
+    hPadR?: number;
+    /** Padding verticale sopra/sotto il testo. Default: fontSize * 0.45. */
+    vPad?: number;
+    /** Opacità di riempimento del pill. Default: 1. */
+    fillOpacity?: number;
+    /** Funzione di misura della larghezza del testo. */
+    measureFn?: (text: string, fontSizePx: number, bold: boolean) => number;
+}
+
+/** Esito di buildPill (frammento SVG e dimensioni). */
+export interface PillResult {
+    /** Frammento SVG del pill. */
+    svg: string;
+    /** Larghezza finale del pill. */
+    width: number;
+    /** Altezza finale del pill. */
+    height: number;
+    /** Coordinata Y del bordo superiore effettivamente usata. */
+    y: number;
+}
+
+/** Opzioni per overlay pill con posizionamento automatico via corner/margin. */
+export interface PillOverlayOptions extends Omit<PillOptions, 'x' | 'y' | 'anchorCenterY' | 'maxWidth' | 'bgColor' | 'measureFn'> {
+    /** Colore di sfondo del pill (default da colorRole o tema). */
+    bgColor?: string;
+    /** Ruolo colore semantico se bgColor è omesso. Default: 'primary'. */
+    colorRole?: 'primary' | 'secondary';
+    /** Angolo del canvas su cui ancorare il pill. Default: 'bottom-left'. */
+    corner?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+    /** Distanza dai bordi del canvas in px. Default: 24. */
+    margin?: number;
+    /** Larghezza massima del pill. Default: larghezza canvas - margin * 2. */
+    maxWidth?: number;
+}
+
+/** Opzioni di adattamento dell'immagine di base al canvas finale. */
+export interface ImageCanvasOptions {
+    /** Larghezza finale del canvas. */
+    width?: number;
+    /** Altezza finale del canvas. */
+    height?: number;
+    /** Modalità di adattamento proporzioni ('cover' | 'contain'). Default: 'cover'. */
+    fit?: 'cover' | 'contain';
+    /** Modalità di disegno dello sfondo ('direct' | 'blurred'). Default: 'direct'. */
+    background?: 'direct' | 'blurred';
+    /** Disegno dell'immagine nitida sopra lo sfondo sfocato ('contain' | 'inset' | 'none'). */
+    foreground?: 'contain' | 'inset' | 'none';
+    /** Solo con foreground: 'inset'. Altezza massima del riquadro nitido (frazione di height). Default: 0.5. */
+    insetHeightRatio?: number;
+    /** Colore di riempimento iniziale del canvas (previene trasparenze indesiderate). */
+    backdropColor?: string;
+}
+
+/** Opzioni per buildCaption (fascia scrim con testo e subline). */
+export interface CaptionOptions {
+    /** Larghezza del canvas. */
+    canvasW: number;
+    /** Altezza del canvas. */
+    canvasH: number;
+    /** Testo principale della caption. */
+    text: string;
+    /** Sottotitolo opzionale a riga singola. */
+    subtitle?: string;
+    /** Posizione della fascia ('top' | 'bottom' | 'center'). Default: 'bottom'. */
+    position?: 'top' | 'bottom' | 'center';
+    /** Colore pieno dello scrim. Default: '#000000'. */
+    scrimColor?: string;
+    /** Opacità della zona piena dello scrim. Default: 1. */
+    scrimOpacity?: number;
+    /** Altezza della sfumatura come frazione di canvasH. Default: 0.12. */
+    fadeRatio?: number;
+    /** Font-size del testo principale. Default: proporzionale a canvasH (~9%). */
+    fontSize?: number;
+    /** Font-size della subline. Default: ~55% di fontSize. */
+    subtitleFontSize?: number;
+    /** Font-family. Default: webStack risolto. */
+    fontFamily?: string;
+    /** Moltiplicatore line-height del testo principale. Default: 1.3. */
+    lineHeight?: number;
+    /** Righe massime del testo principale. Default: 4. */
+    maxLines?: number;
+    /** Scala minima del font prima di troncare con ellissi. Default: 0.5. */
+    minFontScale?: number;
+    /** Padding orizzontale dello scrim. Default: fontSize. */
+    paddingH?: number;
+    /** Padding verticale del blocco testo. Default: fontSize * 0.6. */
+    paddingV?: number;
+    /** Funzione di misura del testo. */
+    measureFn?: (text: string, fontSizePx: number, bold: boolean) => number;
+}
+
+/** Opzioni per overlay caption con scrimColor opzionale da tema. */
+export interface CaptionOverlayOptions extends Omit<CaptionOptions, 'canvasW' | 'canvasH' | 'measureFn' | 'scrimColor'> {
+    /** Colore pieno dello scrim. Default dal tema secondo colorRole. */
+    scrimColor?: string;
+    /** Ruolo colore semantico se scrimColor è omesso. Default: 'primary'. */
+    colorRole?: 'primary' | 'secondary';
+}
+
 // ─── Servizio ──────────────────────────────────────────────────────────────────
 
 @Injectable({ providedIn: 'root' })
@@ -155,19 +251,7 @@ export class ImgBuilderService {
     // ─── Metodi istanza (leggono i Signal del tema come default) ─
     // ============================================================
 
-    /**
-     * Genera il canvas PNG con il testo richiesto.
-     * Restituisce null se chiamata fuori dal browser (SSR/prerender), cosi' il chiamante
-     * puo' gestire l'assenza di canvas come normale ramo di codice senza guard di piattaforma.
-     *
-     * Flusso interno (solo browser):
-     *   1. resolveOptions() completa i default dai Signal
-     *   2. buildSvg() produce la stringa SVG con il layout calcolato
-     *   3. L'SVG viene trasformato in Blob → ObjectURL → Image.onload → ctx.drawImage
-     *
-     * È asincrona perché il browser carica l'immagine SVG in modo non bloccante
-     * tramite Image.onload; non è possibile farlo in modo sincrono.
-     */
+    /** Genera il canvas PNG con il testo richiesto (solo browser, null in SSR). */
     async buildCanvas(text: string, opts: ImgBuildOptions = {}): Promise<HTMLCanvasElement | null> {
         if (!this.isBrowser) return null;
 
@@ -187,7 +271,7 @@ export class ImgBuilderService {
 
             img.onload = () => {
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                URL.revokeObjectURL(objectUrl); // libera la memoria del Blob
+                URL.revokeObjectURL(objectUrl);
                 resolve(canvas);
             };
             img.onerror = () => {
@@ -211,15 +295,119 @@ export class ImgBuilderService {
         return blob ? new File([blob], filename, { type: 'image/png' }) : null;
     }
 
-    /**
-     * Unico punto dove vengono letti i Signal Angular.
-     * Converte ImgBuildOptions (tutto opzionale) in ImgBuildResolved (tutto obbligatorio)
-     * riempiendo i buchi con i valori correnti del tema.
-     */
+    /** Sovrappone un badge/pill di testo a un'immagine esistente (solo browser, null in SSR). */
+    async buildCanvasWithPill(
+        imageSrc: string | Blob,
+        pillOpts: PillOverlayOptions,
+        imgOpts: ImageCanvasOptions = {},
+    ): Promise<HTMLCanvasElement | null> {
+        if (!this.isBrowser) return null;
+
+        const { baseImg, width, height, canvas, ctx } = await this.prepareBaseCanvas(imageSrc, imgOpts);
+
+        const bgColor = pillOpts.bgColor ?? this.roleColors(pillOpts.colorRole)[0];
+        ImgBuilderService.drawImageBackground(ctx, baseImg, width, height, imgOpts, imgOpts.backdropColor ?? bgColor);
+
+        const fontFamily = pillOpts.fontFamily ?? resolvedFonts.webStack;
+        const measureFn = ImgBuilderService.canvasMeasureFn(ctx, fontFamily);
+
+        const margin = pillOpts.margin ?? 24;
+        const corner = pillOpts.corner ?? 'bottom-left';
+        const maxWidth = pillOpts.maxWidth ?? (width - margin * 2);
+        const basePill = { ...pillOpts, bgColor, fontFamily, maxWidth, measureFn };
+
+        // Probe per calcolare le dimensioni del pill, poi calcolo coordinate effettive
+        const probe = ImgBuilderService.buildPill({ ...basePill, x: 0, y: 0 });
+        const x = corner.endsWith('right') ? width - margin - probe.width : margin;
+        const y = corner.startsWith('bottom') ? height - margin - probe.height : margin;
+
+        const pill = ImgBuilderService.buildPill({ ...basePill, x, y });
+        const pillSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">${pill.svg}</svg>`;
+        const pillImg = await ImgBuilderService.loadImage(new Blob([pillSvg], { type: 'image/svg+xml;charset=utf-8' }));
+        ctx.drawImage(pillImg, 0, 0, width, height);
+
+        return canvas;
+    }
+
+    /** Come `buildCanvasWithPill`, ma restituisce direttamente un Blob PNG. */
+    async buildBlobWithPill(imageSrc: string | Blob, pillOpts: PillOverlayOptions, imgOpts?: ImageCanvasOptions): Promise<Blob | null> {
+        const canvas = await this.buildCanvasWithPill(imageSrc, pillOpts, imgOpts);
+        if (!canvas) return null;
+        return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    }
+
+    /** Come `buildCanvasWithPill`, ma restituisce direttamente un File PNG. */
+    async buildFileWithPill(imageSrc: string | Blob, pillOpts: PillOverlayOptions, filename = 'immagine.png', imgOpts?: ImageCanvasOptions): Promise<File | null> {
+        const blob = await this.buildBlobWithPill(imageSrc, pillOpts, imgOpts);
+        return blob ? new File([blob], filename, { type: 'image/png' }) : null;
+    }
+
+    /** Sovrappone una caption (scrim + testo) a un'immagine esistente (solo browser, null in SSR). */
+    async buildCanvasWithCaption(
+        imageSrc: string | Blob,
+        captionOpts: CaptionOverlayOptions,
+        imgOpts: ImageCanvasOptions = {},
+    ): Promise<HTMLCanvasElement | null> {
+        if (!this.isBrowser) return null;
+
+        const { baseImg, width, height, canvas, ctx } = await this.prepareBaseCanvas(imageSrc, imgOpts);
+
+        const scrimColor = captionOpts.scrimColor ?? this.roleColors(captionOpts.colorRole)[0];
+        ImgBuilderService.drawImageBackground(ctx, baseImg, width, height, imgOpts, imgOpts.backdropColor ?? scrimColor);
+
+        const fontFamily = captionOpts.fontFamily ?? resolvedFonts.webStack;
+        const measureFn = ImgBuilderService.canvasMeasureFn(ctx, fontFamily);
+
+        const { svg } = ImgBuilderService.buildCaption({ ...captionOpts, canvasW: width, canvasH: height, scrimColor, fontFamily, measureFn });
+        const captionSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">${svg}</svg>`;
+        const captionImg = await ImgBuilderService.loadImage(new Blob([captionSvg], { type: 'image/svg+xml;charset=utf-8' }));
+        ctx.drawImage(captionImg, 0, 0, width, height);
+
+        return canvas;
+    }
+
+    /** Come `buildCanvasWithCaption`, ma restituisce direttamente un Blob PNG. */
+    async buildBlobWithCaption(imageSrc: string | Blob, captionOpts: CaptionOverlayOptions, imgOpts?: ImageCanvasOptions): Promise<Blob | null> {
+        const canvas = await this.buildCanvasWithCaption(imageSrc, captionOpts, imgOpts);
+        if (!canvas) return null;
+        return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    }
+
+    /** Come `buildCanvasWithCaption`, ma restituisce direttamente un File PNG. */
+    async buildFileWithCaption(imageSrc: string | Blob, captionOpts: CaptionOverlayOptions, filename = 'immagine.png', imgOpts?: ImageCanvasOptions): Promise<File | null> {
+        const blob = await this.buildBlobWithCaption(imageSrc, captionOpts, imgOpts);
+        return blob ? new File([blob], filename, { type: 'image/png' }) : null;
+    }
+
+    /** Coppia (sfondo, testo) del tema per il colorRole richiesto ('secondary' o default 'primary'). */
+    private roleColors(colorRole?: 'primary' | 'secondary'): [string, string] {
+        return colorRole === 'secondary'
+            ? [this.theme.colorSecondary(), this.theme.colorSecondaryText()]
+            : [this.theme.colorPrimary(), this.theme.colorPrimaryText()];
+    }
+
+    private async prepareBaseCanvas(imageSrc: string | Blob, imgOpts: ImageCanvasOptions) {
+        const baseImg = await ImgBuilderService.loadImage(imageSrc);
+        const naturalRatio = baseImg.naturalWidth / baseImg.naturalHeight;
+        let width = imgOpts.width;
+        let height = imgOpts.height;
+        if (width && !height) height = Math.round(width / naturalRatio);
+        else if (height && !width) width = Math.round(height * naturalRatio);
+        else if (!width || !height) { width = baseImg.naturalWidth; height = baseImg.naturalHeight; }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d')!;
+        return { baseImg, width, height, canvas, ctx };
+    }
+
+    /** Risolve le opzioni con i valori correnti del tema. */
     private resolveOptions(opts: ImgBuildOptions): ImgBuildResolved {
+        const [roleBg, roleText] = this.roleColors(opts.colorRole);
         return {
-            bgColor: opts.bgColor ?? this.theme.colorPrimary(),
-            textColor: opts.textColor ?? this.theme.colorPrimaryText(),
+            bgColor: opts.bgColor ?? roleBg,
+            textColor: opts.textColor ?? roleText,
             fontSize: opts.fontSize ?? 40,
             // opts.fontFamily è una CHIAVE di WEB_FONTS: va risolta nello stack CSS reale,
             // altrimenti il canvas riceve la chiave (es. "Times") invece del font stack.
@@ -233,6 +421,15 @@ export class ImgBuilderService {
         };
     }
 
+    /** `measureFn` (testo, fontSize, bold) → larghezza, per pill/caption che misurano su un
+     *  canvas 2D già aperto (`ctx`) invece di approssimare la larghezza del testo. */
+    private static canvasMeasureFn(ctx: CanvasRenderingContext2D, fontFamily: string): (t: string, fontSizePx: number, bold: boolean) => number {
+        return (t, fontSizePx, bold) => {
+            ctx.font = `${bold ? 700 : 400} ${fontSizePx}px ${fontFamily}`;
+            return ctx.measureText(t).width;
+        };
+    }
+
     // ============================================================
     // ─── API STATICA — pura, SSR-safe, zero Signal/this/DOM ─────
     //
@@ -240,23 +437,7 @@ export class ImgBuilderService {
     // devono essere passati esplicitamente dal chiamante.
     // ============================================================
 
-    /**
-     * Shrink-to-fit puro: dati uno o più blocchi di testo e l'altezza disponibile, calcola i
-     * font-size e le righe che li fanno entrare, e ritorna SOLO i dati di layout (nessuna immagine).
-     * Il chiamante (SVG server, canvas front, badge) decide poi come renderizzarli.
-     *
-     * Strategia: riduce in proporzione i font di tutti i blocchi finché il testo entra in altezza;
-     * solo se nemmeno alla scala minima entra, tiene il font pieno e tronca con ellissi a `maxLines`.
-     *
-     * La misura della larghezza è iniettabile (`opts.measureFn`): nel browser si passa
-     * `ctx.measureText` (metriche reali), sul server la tabella `FontMetrics` (Liberation/Arial);
-     * in assenza si usa una stima a larghezza costante. Il fit VERTICALE è comunque esatto perché le
-     * righe diventano `<tspan>`/righe esplicite: il loro numero — e quindi l'altezza — è quello qui.
-     *
-     * @param availableHeight Altezza che il SOLO testo può occupare (il chiamante ha già sottratto
-     *                        eventuali elementi fissi come favicon/nome app e i loro margini).
-     * @param gap Spazio verticale tra un blocco e il successivo.
-     */
+    /** Calcola font-size e wrapping per adattare blocchi di testo all'altezza disponibile. */
     static fitTextBlocks(
         blocks: TextBlockSpec[],
         maxWidthPx: number,
@@ -285,16 +466,180 @@ export class ImgBuilderService {
             return { blocks: fitted, textHeight };
         };
 
-        // 1) Shrink-to-fit senza troncare: riduce i font finché TUTTO il testo entra.
+        // Shrink-to-fit: riduce la scala finché il testo entra in altezza
         for (let scale = 1; scale >= minScale - 1e-9; scale -= step) {
             const c = compute(scale, false);
             if (c.textHeight <= availableHeight) {
                 return { scale, blocks: c.blocks, textHeight: c.textHeight, truncated: false };
             }
         }
-        // 2) Non basta: font pieno (più leggibile) + troncamento con ellissi a maxLines.
+        // Fallback: scala piena e troncamento a maxLines
         const c = compute(1, true);
         return { scale: 1, blocks: c.blocks, textHeight: c.textHeight, truncated: true };
+    }
+
+    /** Padding orizzontale del pill come frazione di fontSize. */
+    static readonly PILL_PAD_H_RATIO = 0.85;
+    /** Padding verticale del pill come frazione di fontSize. */
+    static readonly PILL_PAD_V_RATIO = 0.45;
+    /** Gap tra testo principale e subline come frazione di paddingV. */
+    static readonly PILL_SUBTITLE_GAP_RATIO = 0.4;
+    /** Offset dalla cima del font-box alla baseline tipografica. */
+    static readonly PILL_BASELINE_OFFSET_RATIO = 0.8;
+
+    /** Costruisce il frammento SVG di un pill/badge arrotondato. */
+    static buildPill(opts: PillOptions): PillResult {
+        const esc = ImgBuilderService.escapeXml;
+        const fontSize = opts.fontSize ?? 40;
+        const subtitleFontSize = opts.subtitleFontSize ?? Math.round(fontSize * 0.55);
+        const fontFamily = opts.fontFamily ?? resolvedFonts.webStack;
+        const lineHeight = opts.lineHeight ?? 1.3;
+        const maxLines = opts.maxLines ?? 3;
+        const hPadL = opts.hPadL ?? Math.round(fontSize * this.PILL_PAD_H_RATIO);
+        const hPadR = opts.hPadR ?? Math.round(fontSize * this.PILL_PAD_H_RATIO);
+        const vPad = opts.vPad ?? Math.round(fontSize * this.PILL_PAD_V_RATIO);
+        const fillOpacity = opts.fillOpacity ?? 1;
+        const measure = opts.measureFn ?? ((t: string, fs: number) => t.length * fs * 0.55);
+
+        const textColor = ImgBuilderService.getReadableTextColor(opts.bgColor);
+        const mutedTextColor = ImgBuilderService.mutedTextColor(textColor, opts.bgColor);
+        const lineStep = fontSize * lineHeight;
+        const maxTextW = opts.maxWidth - hPadL - hPadR;
+
+        const maxTextHeight = fontSize + (maxLines - 1) * lineStep;
+        const lines = ImgBuilderService.fitTextBlocks(
+            [{ text: opts.text, baseFontSize: fontSize, lineHeight, maxLines, bold: true }],
+            maxTextW, maxTextHeight, 0, { minScale: 1, measureFn: measure },
+        ).blocks[0].lines;
+
+        const longestLineW = Math.max(...lines.map(l => measure(l, fontSize, true)));
+        const blockHeight = fontSize + (lines.length - 1) * lineStep;
+
+        const hasSubtitle = !!opts.subtitle;
+        const subtitleLine = hasSubtitle
+            ? ImgBuilderService.wrapText(opts.subtitle!, maxTextW, subtitleFontSize, (t: string) => measure(t, subtitleFontSize, false), 1)[0]
+            : '';
+        const subtitleLineW = hasSubtitle ? measure(subtitleLine, subtitleFontSize, false) : 0;
+        const subtitleGap = Math.round(vPad * this.PILL_SUBTITLE_GAP_RATIO);
+
+        const contentHeight = blockHeight + (hasSubtitle ? subtitleGap + subtitleFontSize : 0);
+        const height = Math.round(contentHeight + vPad * 2);
+        const width = Math.max(0, Math.round(Math.min(Math.max(longestLineW, subtitleLineW) + hPadL + hPadR, opts.maxWidth)));
+
+        const y = opts.anchorCenterY !== undefined ? Math.round(opts.anchorCenterY - height / 2) : Math.round(opts.y ?? 0);
+        const radius = Math.round(Math.min(height / 2, fontSize / 2 + vPad));
+
+        const textX = opts.x + hPadL;
+        const contentTop = y + (height - contentHeight) / 2;
+        const firstBaselineY = contentTop + fontSize * this.PILL_BASELINE_OFFSET_RATIO;
+
+        const tspans = lines
+            .map((line, i) => `<tspan x="${textX}" dy="${i === 0 ? 0 : lineStep}">${esc(line)}</tspan>`)
+            .join('');
+
+        const subtitleEl = hasSubtitle
+            ? (() => {
+                const subtitleBaselineY = contentTop + blockHeight + subtitleGap + subtitleFontSize * this.PILL_BASELINE_OFFSET_RATIO;
+                return `<text x="${textX}" y="${subtitleBaselineY}" font-family="${esc(fontFamily)}" font-size="${subtitleFontSize}" font-weight="400" fill="${esc(mutedTextColor)}" text-anchor="start">${esc(subtitleLine)}</text>`;
+            })()
+            : '';
+
+        const svg =
+            `<rect x="${opts.x}" y="${y}" width="${width}" height="${height}" rx="${radius}" fill="${esc(opts.bgColor)}" fill-opacity="${fillOpacity}"/>` +
+            `<text x="${textX}" y="${firstBaselineY}" font-family="${esc(fontFamily)}" font-size="${fontSize}" font-weight="700" fill="${esc(textColor)}" text-anchor="start">${tspans}</text>` +
+            subtitleEl;
+
+        return { svg, width, height, y };
+    }
+
+    /** Righe massime di default per la caption. */
+    static readonly MAX_CAPTION_LINES = 4;
+
+    /** Costruisce il frammento SVG di una caption con fascia scrim. */
+    static buildCaption(opts: CaptionOptions): { svg: string } {
+        const esc = ImgBuilderService.escapeXml;
+        const { canvasW, canvasH } = opts;
+        const position = opts.position ?? 'bottom';
+        const scrimColor = opts.scrimColor ?? '#000000';
+        const scrimOpacity = opts.scrimOpacity ?? 1;
+        const fadeRatio = opts.fadeRatio ?? 0.12;
+        const fontSize = opts.fontSize ?? Math.round(canvasH * 0.09);
+        const subtitleFontSize = opts.subtitleFontSize ?? Math.round(fontSize * 0.55);
+        const fontFamily = opts.fontFamily ?? resolvedFonts.webStack;
+        const lineHeight = opts.lineHeight ?? 1.3;
+        const maxLines = opts.maxLines ?? this.MAX_CAPTION_LINES;
+        const paddingH = opts.paddingH ?? fontSize;
+        const paddingV = opts.paddingV ?? Math.round(fontSize * 0.6);
+        const measure = opts.measureFn ?? ((t: string, fs: number) => t.length * fs * 0.55);
+
+        const textColor = ImgBuilderService.getReadableTextColor(scrimColor);
+        const mutedTextColor = ImgBuilderService.mutedTextColor(textColor, scrimColor);
+        const lineStep = fontSize * lineHeight;
+
+        const maxTextW = canvasW - paddingH * 2;
+        const maxTextHeight = Math.min(canvasH * 0.6, fontSize + (maxLines - 1) * lineStep);
+        const titleFit = ImgBuilderService.fitTextBlocks(
+            [{ text: opts.text, baseFontSize: fontSize, lineHeight, maxLines, bold: true }],
+            maxTextW, maxTextHeight, 0, { minScale: opts.minFontScale ?? 0.5, measureFn: measure },
+        ).blocks[0];
+        const { lines, fontSize: titleFontSize, lineStep: titleLineStep, blockHeight } = titleFit;
+
+        const hasSubtitle = !!opts.subtitle;
+        const subtitleLine = hasSubtitle
+            ? ImgBuilderService.wrapText(opts.subtitle!, maxTextW, subtitleFontSize, (t: string) => measure(t, subtitleFontSize, false), 1)[0]
+            : '';
+        const subtitleGap = Math.round(paddingV * ImgBuilderService.PILL_SUBTITLE_GAP_RATIO);
+        const contentHeight = blockHeight + (hasSubtitle ? subtitleGap + subtitleFontSize : 0);
+
+        const flatH = Math.min(Math.round(contentHeight + paddingV * 2), canvasH);
+        const fadeH = Math.round(canvasH * fadeRatio);
+
+        const gradId = `capFade${Math.random().toString(36).slice(2, 9)}`;
+        const fadeGradient = (id: string, opacity0: number, opacity1: number) =>
+            `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">` +
+            `<stop offset="0%" stop-color="${esc(scrimColor)}" stop-opacity="${opacity0}"/>` +
+            `<stop offset="100%" stop-color="${esc(scrimColor)}" stop-opacity="${opacity1}"/>` +
+            `</linearGradient>`;
+
+        let flatY: number;
+        let defs: string;
+        let fadeRects: string;
+
+        if (position === 'top') {
+            flatY = 0;
+            defs = `<defs>${fadeGradient(gradId, scrimOpacity, 0)}</defs>`;
+            fadeRects = `<rect x="0" y="${flatH}" width="${canvasW}" height="${fadeH}" fill="url(#${gradId})"/>`;
+        } else if (position === 'center') {
+            flatY = Math.round((canvasH - flatH) / 2);
+            const gradTopId = `${gradId}t`, gradBotId = `${gradId}b`;
+            defs = `<defs>${fadeGradient(gradTopId, 0, scrimOpacity)}${fadeGradient(gradBotId, scrimOpacity, 0)}</defs>`;
+            fadeRects =
+                `<rect x="0" y="${flatY - fadeH}" width="${canvasW}" height="${fadeH}" fill="url(#${gradTopId})"/>` +
+                `<rect x="0" y="${flatY + flatH}" width="${canvasW}" height="${fadeH}" fill="url(#${gradBotId})"/>`;
+        } else { // 'bottom'
+            flatY = canvasH - flatH;
+            defs = `<defs>${fadeGradient(gradId, 0, scrimOpacity)}</defs>`;
+            fadeRects = `<rect x="0" y="${flatY - fadeH}" width="${canvasW}" height="${fadeH}" fill="url(#${gradId})"/>`;
+        }
+
+        const flatRect = `<rect x="0" y="${flatY}" width="${canvasW}" height="${flatH}" fill="${esc(scrimColor)}" fill-opacity="${scrimOpacity}"/>`;
+
+        const centerX = canvasW / 2;
+        const contentTop = flatY + (flatH - contentHeight) / 2;
+        const firstBaselineY = contentTop + titleFontSize * this.PILL_BASELINE_OFFSET_RATIO;
+        const tspans = lines
+            .map((line, i) => `<tspan x="${centerX}" dy="${i === 0 ? 0 : titleLineStep}">${esc(line)}</tspan>`)
+            .join('');
+        const titleEl = `<text x="${centerX}" y="${firstBaselineY}" font-family="${esc(fontFamily)}" font-size="${titleFontSize}" font-weight="700" fill="${esc(textColor)}" text-anchor="middle">${tspans}</text>`;
+
+        const subtitleEl = hasSubtitle
+            ? (() => {
+                const subtitleBaselineY = contentTop + blockHeight + subtitleGap + subtitleFontSize * this.PILL_BASELINE_OFFSET_RATIO;
+                return `<text x="${centerX}" y="${subtitleBaselineY}" font-family="${esc(fontFamily)}" font-size="${subtitleFontSize}" font-weight="400" fill="${esc(mutedTextColor)}" text-anchor="middle">${esc(subtitleLine)}</text>`;
+            })()
+            : '';
+
+        return { svg: defs + fadeRects + flatRect + titleEl + subtitleEl };
     }
 
     static buildSvg(text: string, r: ImgBuildResolved): { svg: string; width: number; height: number } {
@@ -392,24 +737,12 @@ export class ImgBuilderService {
         finalWidth = Math.min(Math.max(Math.ceil(finalWidth), ImgBuilderService.DIMENSIONE_MIN_PX), ImgBuilderService.DIMENSIONE_MAX_PX);
         finalHeight = Math.min(Math.max(Math.ceil(finalHeight), ImgBuilderService.DIMENSIONE_MIN_PX), ImgBuilderService.DIMENSIONE_MAX_PX);
 
-        // ── Posizionamento verticale del blocco testo ─────────────────────────────
-        // Il blocco testo deve risultare centrato verticalmente nel canvas.
-        // SVG posiziona il testo con l'attributo `y` = baseline della prima riga,
-        // poi ogni <tspan> aggiunge `dy` (delta-y) rispetto alla riga precedente.
-        //
-        //  startY = margine superiore disponibile + metà interlinea
-        //         = (altezzaCanvas - altezzaBloccoTesto) / 2  +  altezzaRiga / 2
-        //
-        // Il "+ altezzaRiga / 2" compensa `dominant-baseline="middle"` applicato al <text>:
-        // con quel valore il punto di ancoraggio è al centro del carattere, non alla baseline.
+        // Posizionamento verticale del blocco testo al centro del canvas
         const altezzaRigaPx = fontSize * lineHeight;
         const altezzaBloccoTestoPx = lines.length * altezzaRigaPx;
         const centraleX = finalWidth / 2;
         const primaRigaY = (finalHeight - altezzaBloccoTestoPx) / 2 + altezzaRigaPx / 2;
 
-        // ── Assemblaggio SVG ──────────────────────────────────────────────────────
-        // Ogni riga diventa un <tspan>: la prima ha dy=0 (parte da primaRigaY),
-        // le successive hanno dy=altezzaRigaPx (spostamento relativo rispetto al tspan precedente).
         const esc = ImgBuilderService.escapeXml;
         const tspans = lines
             .map((riga, i) => `<tspan x="${centraleX}" dy="${i === 0 ? 0 : altezzaRigaPx}">${esc(riga)}</tspan>`)
@@ -427,14 +760,8 @@ export class ImgBuilderService {
         return { svg, width: finalWidth, height: finalHeight };
     }
 
-    /**
-     * Sostituisce i caratteri riservati XML/SVG con le entità corrispondenti.
-     * Necessario sia per i valori degli attributi (fill, font-family) sia per
-     * il contenuto testuale dei <tspan>, dove '<' e '&' romperebbero il markup.
-     */
+    /** Sostituisce i caratteri riservati XML/SVG con le entità corrispondenti. */
     static escapeXml(value: string): string {
-        // Rimuove i caratteri di controllo non validi in XML 1.0 (tutti i C0 tranne tab/LF/CR):
-        // se finissero nell'SVG romperebbero il parsing di Sharp/librsvg (PCDATA invalid Char).
         return value.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
@@ -443,21 +770,105 @@ export class ImgBuilderService {
             .replace(/'/g, '&apos;');
     }
 
-    /**
-     * Espone getReadableTextColor di ThemeService tramite questo servizio.
-     * Comodo per chi importa già ImgBuilderService e vuole calcolare il contrasto
-     * senza aggiungere una seconda dipendenza.
-     */
+    /** Calcola il contrasto ottimale per il colore del testo (ThemeService). */
     static getReadableTextColor(bgHex: string): '#000000' | '#ffffff' {
         return ThemeService.getReadableTextColor(bgHex);
     }
 
+    /** Rinforza il colore primario in OKLCH per garantire il contrasto target con il testo. */
+    static strongFillColor(colorPrimary: string, targetContrast = 7): string {
+        const [L0, C, H] = ThemeService.hexToOklch(colorPrimary);
+        for (let L = L0; L >= 0.02; L -= 0.005) {
+            const candidate = ThemeService.oklchToHex(L, C, H);
+            const contrast = Math.max(
+                ThemeService.calcContrastRatio(candidate, '#000000'),
+                ThemeService.calcContrastRatio(candidate, '#ffffff'),
+            );
+            if (contrast >= targetContrast) return candidate;
+        }
+        return '#000000';
+    }
+
+    /** Calcola un colore di testo attenuato preservando il contrasto minimo garantito. */
+    static mutedTextColor(fgHex: string, bgHex: string, targetOpacity = 0.75, minContrast = 5.5): string {
+        for (let opacity = targetOpacity; opacity <= 1; opacity += 0.05) {
+            const candidate = ThemeService.mixHexColors(fgHex, bgHex, 1 - opacity);
+            if (ThemeService.calcContrastRatio(candidate, bgHex) >= minContrast) return candidate;
+        }
+        return fgHex;
+    }
+
     // ── Helper privati statici ─────────────────────────────────────────────────
 
-    /**
-     * Converte la stringa ratio (es. '16:9') nel numero decimale corrispondente (es. 1.777...).
-     * Fallback a 4/3 se il formato non è riconosciuto o se il denominatore è 0.
-     */
+    /** Carica un'immagine da URL o Blob in un elemento Image. */
+    private static loadImage(src: string | Blob): Promise<HTMLImageElement> {
+        return new Promise((resolve, reject) => {
+            const objectUrl = typeof src !== 'string' ? URL.createObjectURL(src) : null;
+            const finalSrc = objectUrl ?? (src as string);
+            const img = new Image();
+            if (typeof src === 'string' && /^https?:\/\//.test(src)) img.crossOrigin = 'anonymous';
+            img.onload = () => { if (objectUrl) URL.revokeObjectURL(objectUrl); resolve(img); };
+            img.onerror = () => { if (objectUrl) URL.revokeObjectURL(objectUrl); reject(new Error('Caricamento immagine fallito')); };
+            img.src = finalSrc;
+        });
+    }
+
+    /** Disegna l'immagine nel riquadro target adattando le proporzioni ('cover' | 'contain'). */
+    private static drawImageFit(ctx: CanvasRenderingContext2D, img: HTMLImageElement, targetW: number, targetH: number, fit: 'cover' | 'contain'): void {
+        const srcRatio = img.naturalWidth / img.naturalHeight;
+        const targetRatio = targetW / targetH;
+        if (fit === 'cover') {
+            let sw = img.naturalWidth, sh = img.naturalHeight;
+            if (srcRatio > targetRatio) { sw = sh * targetRatio; } else { sh = sw / targetRatio; }
+            const sx = (img.naturalWidth - sw) / 2;
+            const sy = (img.naturalHeight - sh) / 2;
+            ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
+        } else {
+            let dw = targetW, dh = targetW / srcRatio;
+            if (dh > targetH) { dh = targetH; dw = targetH * srcRatio; }
+            const dx = (targetW - dw) / 2;
+            const dy = (targetH - dh) / 2;
+            ctx.drawImage(img, dx, dy, dw, dh);
+        }
+    }
+
+    /** Raggio di blur proporzionale per lo sfondo sfocato. */
+    private static readonly BLURRED_BG_RATIO = 0.025;
+
+    /** Disegna lo sfondo dell'immagine secondo le opzioni specificate. */
+    private static drawImageBackground(ctx: CanvasRenderingContext2D, img: HTMLImageElement, targetW: number, targetH: number, opts: ImageCanvasOptions, backdropColor: string): void {
+        ctx.fillStyle = backdropColor;
+        ctx.fillRect(0, 0, targetW, targetH);
+
+        if ((opts.background ?? 'direct') === 'direct') {
+            ImgBuilderService.drawImageFit(ctx, img, targetW, targetH, opts.fit ?? 'cover');
+            return;
+        }
+
+        const blurPx = Math.max(1, Math.round(Math.min(targetW, targetH) * ImgBuilderService.BLURRED_BG_RATIO));
+        ctx.save();
+        ctx.filter = `blur(${blurPx}px)`;
+        ImgBuilderService.drawImageFit(ctx, img, targetW, targetH, 'cover');
+        ctx.restore();
+
+        const foreground = opts.foreground ?? 'contain';
+        if (foreground === 'none') return;
+
+        if (foreground === 'contain') {
+            ImgBuilderService.drawImageFit(ctx, img, targetW, targetH, 'contain');
+            return;
+        }
+
+        const maxInsetH = Math.round(targetH * (opts.insetHeightRatio ?? 0.5));
+        const srcRatio = img.naturalWidth / img.naturalHeight;
+        let insetW = maxInsetH * srcRatio;
+        let insetH = maxInsetH;
+        if (insetW > targetW) { insetW = targetW; insetH = insetW / srcRatio; }
+        const dx = Math.round((targetW - insetW) / 2);
+        ctx.drawImage(img, dx, 0, insetW, insetH);
+    }
+
+    /** Converte la stringa ratio (es. '16:9') in valore decimale (fallback 4/3). */
     private static parseRatio(ratio: string): number {
         const match = /^(\d+):(\d+)$/.exec(ratio);
         if (!match) return 4 / 3;
@@ -465,15 +876,7 @@ export class ImgBuilderService {
         return denominatore === 0 ? 4 / 3 : Number(match[1]) / denominatore;
     }
 
-    /**
-     * Spezza il testo in righe che stanno entro maxWidthPx.
-     *
-     * Se measureFn è fornita (es. ctx.measureText nel browser) misura la larghezza
-     * reale di ogni stringa. Altrimenti usa la stima fontSize * 0.55 (SSR/server).
-     *
-     * Gestisce anche il caso in cui una singola parola sia più lunga della riga:
-     * in quel caso la parola viene spezzata carattere per carattere.
-     */
+    /** Spezza il testo in righe entro maxWidthPx. */
     static wrapText(text: string, maxWidthPx: number, fontSizePx: number, measureFn?: (t: string) => number, maxLines?: number): string[] {
         const measure = measureFn ?? ((t: string) => t.length * fontSizePx * 0.55);
 
@@ -517,9 +920,7 @@ export class ImgBuilderService {
             return righe;
         });
 
-        // Cap sul numero di righe: garantisce che il blocco di testo non sfori il canvas
-        // (il limite sui caratteri non basta, dipende da quanti vanno a capo). L'ultima riga
-        // tenuta viene accorciata quel tanto che basta perché ci stia il carattere finale '…'.
+        // Troncamento con ellissi se supera maxLines
         if (maxLines && righe.length > maxLines) {
             const tenute = righe.slice(0, maxLines);
             let ultima = tenute[maxLines - 1].trimEnd();
@@ -530,19 +931,12 @@ export class ImgBuilderService {
         return righe;
     }
 
-    /**
-     * Stima la larghezza in pixel di una stringa senza canvas.
-     * Usa lo stesso fattore 0.55 di wrapText per coerenza nel calcolo del layout.
-     */
+    /** Stima la larghezza in pixel di una stringa senza canvas. */
     private static approxTextWidth(text: string, fontSize: number): number {
         return text.length * fontSize * 0.55;
     }
 
-    /**
-     * Normalizza i ritorni a capo (CRLF → LF) e comprime gli spazi multipli
-     * all'interno di ogni riga in uno spazio singolo.
-     * Preserva le righe vuote (usate come separatori di paragrafo).
-     */
+    /** Normalizza i ritorni a capo e comprime gli spazi multipli. */
     static normalizeWhitespace(text: string): string {
         return text
             .replace(/\r\n/g, '\n')

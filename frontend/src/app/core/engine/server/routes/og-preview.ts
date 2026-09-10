@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import sharp, { type OverlayOptions } from 'sharp';
 import { ContestoSito } from '../../../../site';
-import { ThemeService } from '../../services/theme.service';
+import { ThemeService, type PaletteTokens } from '../../services/theme.service';
 import { ImgBuilderService } from '../../services/img-builder.service';
 import { PreviewCrypto } from '../preview-crypto.server';
 import { PreviewBuilder } from '../preview-builder';
@@ -12,12 +12,22 @@ import { cacheDir } from '../server-paths';
 import { resolveAssetPath } from '../asset-mapping';
 import { AssetHandler } from '../asset-handler';
 import { inProgress, runImageJob } from '../image-cache';
+import { recordCacheHit, recordCacheMiss } from '../image-cache-metrics';
 import { fileExists } from '../fs-utils';
 
-/** Normalizza gli spazi del testo e lo tronca entro `max` caratteri, aggiungendo `…` come
- *  carattere finale se eccede, così si capisce che il contenuto continua oltre il limite.
- *  Il `…` occupa un carattere, quindi si tronca a `max - 1` per restare entro il limite totale.
- *  Se `max <= 1` non c'è spazio per testo + puntini (sostituirebbero tutto): si tronca e basta. */
+/** Palette multi-colore del sito: deterministica da config statica, calcolata una sola volta al
+ *  load del modulo invece che ad ogni richiesta (anche sui cache-hit). */
+const sitePalette: PaletteTokens = ThemeService.computePalette(ContestoSito.config.colorTema, {
+    secondary: ContestoSito.config.colorSecondary,
+    background: ContestoSito.config.colorBackground,
+    text: ContestoSito.config.colorText,
+    info: ContestoSito.config.colorInfo,
+});
+
+/** Sfondo card con contrasto rinforzato, derivato dalla palette una sola volta. */
+const strongBgColor = ImgBuilderService.strongFillColor(sitePalette.colorPrimary);
+
+/** Normalizza gli spazi e tronca il testo entro `max` caratteri. */
 function normalizeAndTruncate(text: string, max: number): string {
     const normalized = ImgBuilderService.normalizeWhitespace(text).trim();
     if (normalized.length <= max) return normalized;
@@ -25,16 +35,7 @@ function normalizeAndTruncate(text: string, max: number): string {
     return normalized.slice(0, max - 1).trim() + '…';
 }
 
-/**
- * Endpoint Social Preview unico: genera al volo l'immagine Open Graph / Twitter Card.
- *
- * Parametri:
- *   - p: blob AES-GCM (base64url) prodotto da `PreviewCrypto.encrypt()` in
- *        preview-crypto.server.ts. Decifra a `{ title, subtitle?, id? }`.
- *        Manomissione → decifrazione fallisce → 403.
- *
- * Dispatch variante: `id` presente nel payload → sovrapposizione asset; assente → SVG testo.
- */
+/** Endpoint Social Preview: genera al volo l'immagine Open Graph / Twitter Card. */
 export async function ogPreviewHandler(req: Request, res: Response): Promise<void> {
     try {
         const blob = String(req.query['p'] ?? '').trim();
@@ -53,19 +54,15 @@ export async function ogPreviewHandler(req: Request, res: Response): Promise<voi
         const id = String(payload['id'] ?? '').trim();
         const onlyImage = payload['onlyImage'] === 'true';
 
-        // Titolo assente NON è un errore: la home lascia il <title> = solo AppName, quindi cifra un
-        // payload col titolo vuoto. In quel caso il nome app fa da titolo grande; nella variante
-        // testuale l'etichetta in alto (anch'essa il nome app) si svuota per non ripeterlo.
+        // Fallback al nome app se il titolo è vuoto
         const { appName } = ContestoSito.config;
         const effectiveTitle = title || appName;
 
-        if (id) { await renderPreviewWithImage(res, id, effectiveTitle, onlyImage); return; }
-        await renderPreviewText(res, effectiveTitle, subtitle, title ? appName : '');
+        if (id) { await renderPreviewWithImage(res, id, effectiveTitle, subtitle, onlyImage); return; }
+        await renderPreviewText(res, effectiveTitle, subtitle);
     } catch (err) {
         console.error('[Preview Error]:', err);
-        // Ultima risorsa: invece di un 500 (che lascerebbe l'anteprima social rotta) si serve la
-        // favicon statica. L'URL og:image punta sempre qui, quindi un'immagine valida è meglio di
-        // un errore. Se manca pure la favicon, allora 500.
+        // Fallback alla favicon statica in caso di errore
         if (!res.headersSent) {
             try {
                 const faviconPath = await resolveAssetPath('favIcon');
@@ -76,20 +73,19 @@ export async function ogPreviewHandler(req: Request, res: Response): Promise<voi
     }
 }
 
-/** Variante testuale: SVG con app name + favicon + titolo + sottotitolo. `appNameLabel` può essere
- *  vuoto (es. home, dove il nome app fa già da titolo): in tal caso l'etichetta in alto è omessa. */
-async function renderPreviewText(res: Response, title: string, subtitle: string, appNameLabel: string): Promise<void> {
-    const { colorTema, version } = ContestoSito.config;
-    const r = PreviewBuilder.resolvePreviewBuilder({ appName: appNameLabel, title, subtitle, bgColor: colorTema });
+/** Variante testuale: genera l'anteprima in SVG. */
+async function renderPreviewText(res: Response, title: string, subtitle: string): Promise<void> {
+    const { version } = ContestoSito.config;
+    const r = PreviewBuilder.resolvePreviewBuilder({ title, subtitle, bgColor: strongBgColor });
 
     const keyData = JSON.stringify({ version, ...r });
     const hash = createHash('sha1').update(keyData).digest('hex').slice(0, 16);
-    // PNG (non WebP): testo su sfondo pieno → bordi netti senza artefatti di compressione,
-    // e formato universalmente supportato dai crawler social (a differenza di WebP).
+    // PNG per bordi netti e compatibilità crawler social
     const cacheKey = `preview_${hash}.png`;
     const cacheFile = join(cacheDir, cacheKey);
 
-    if (await fileExists(cacheFile)) { AssetHandler.serveImage(res, cacheFile); return; }
+    if (await fileExists(cacheFile)) { recordCacheHit(); AssetHandler.serveImage(res, cacheFile); return; }
+    recordCacheMiss();
 
     let job = inProgress.get(cacheKey);
     if (!job) {
@@ -108,28 +104,26 @@ async function renderPreviewText(res: Response, title: string, subtitle: string,
     AssetHandler.serveImage(res, cacheFile);
 }
 
-/** Variante con immagine: sfondo + immagine + favicon + badge titolo. */
-async function renderPreviewWithImage(res: Response, ogImageId: string, title: string, onlyImage?: boolean): Promise<void> {
+/** Variante con immagine: sfondo, favicon e badge titolo. */
+async function renderPreviewWithImage(res: Response, ogImageId: string, title: string, subtitle: string, onlyImage?: boolean): Promise<void> {
     const absolutePath = await resolveAssetPath(ogImageId);
     if (!absolutePath) { res.status(404).send('Asset not found'); return; }
 
-    // SVG incluso: sharp lo rasterizza, così entra nella pipeline 1200x630 come gli altri
-    // asset (e i meta og:image:width/height/type restano coerenti). Solo gli asset non-immagine
-    // vengono serviti tal quali (ripiego).
+    // Se l'asset non è rasterizzabile da sharp, viene servito tal quale
     const filename = absolutePath.split(/[\\/]/).pop()!;
     const isSvg = /\.svg$/i.test(filename);
     if (!isSvg && !AssetHandler.isSharpCompatible(filename)) { AssetHandler.serveFile(res, absolutePath); return; }
 
     const normalizedTitle = normalizeAndTruncate(title, 100);
+    const normalizedSubtitle = normalizeAndTruncate(subtitle, 150);
     const { version } = ContestoSito.config;
-    const hash = createHash('sha1').update(JSON.stringify({ version, id: ogImageId, title: normalizedTitle, onlyImage: !!onlyImage })).digest('hex').slice(0, 16);
-    // JPEG (non WebP): formato universale per le anteprime social. WebP non è renderizzato
-    // in modo affidabile da Slack/Signal e da vari client WhatsApp/LinkedIn. La foto + blur
-    // comprime ottimamente in JPEG, restando ben sotto il peso consigliato.
+    const hash = createHash('sha1').update(JSON.stringify({ version, id: ogImageId, title: normalizedTitle, subtitle: normalizedSubtitle, onlyImage: !!onlyImage })).digest('hex').slice(0, 16);
+    // JPEG per massima compatibilità con le piattaforme social
     const cacheKey = `preview_img_${hash}.jpg`;
     const cacheFile = join(cacheDir, cacheKey);
 
-    if (await fileExists(cacheFile)) { AssetHandler.serveImage(res, cacheFile); return; }
+    if (await fileExists(cacheFile)) { recordCacheHit(); AssetHandler.serveImage(res, cacheFile); return; }
+    recordCacheMiss();
 
     let job = inProgress.get(cacheKey);
     if (!job) {
@@ -152,19 +146,22 @@ async function renderPreviewWithImage(res: Response, ogImageId: string, title: s
             const composites: OverlayOptions[] = [{ input: fgBuffer, left: 0, top: 0 }];
 
             if (!onlyImage) {
+                // Posizionamento del chip nell'angolo in alto a sinistra con safe-margin
+                const palette = sitePalette;
+                const SAFE_MARGIN = PreviewBuilder.SPACING_LG;
                 const iconSize = Math.round(OG_H * 0.26);
-                const padding = Math.round(iconSize * 0.30);
-                const iconLeft = padding;
-                const iconTop = OG_H - iconSize - padding;
+                const chipPad = Math.round(iconSize * 0.12);
+                const chipSize = iconSize + chipPad * 2;
+                const chipLeft = SAFE_MARGIN;
+                const chipTop = SAFE_MARGIN;
+                const iconLeft = chipLeft + chipPad;
+                const iconTop = chipTop + chipPad;
                 const faviconPath = await resolveAssetPath('favIcon');
                 if (faviconPath) {
-                    // Chip bianco arrotondato dietro la favicon: su foto chiare/caotiche garantisce
-                    // sempre leggibilità e dà l'aspetto "app icon" (le favicon sono pensate per il bianco).
-                    const chipPad = Math.round(iconSize * 0.12);
-                    const chipSize = iconSize + chipPad * 2;
+                    // Chip arrotondato dietro la favicon per garantire contrasto
                     const chipRadius = Math.round(chipSize * 0.18);
-                    const chipSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${chipSize}" height="${chipSize}"><rect width="${chipSize}" height="${chipSize}" rx="${chipRadius}" ry="${chipRadius}" fill="#ffffff" fill-opacity="0.95"/></svg>`;
-                    composites.push({ input: Buffer.from(chipSvg, 'utf-8'), left: iconLeft - chipPad, top: iconTop - chipPad });
+                    const chipSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${chipSize}" height="${chipSize}"><rect width="${chipSize}" height="${chipSize}" rx="${chipRadius}" ry="${chipRadius}" fill="${palette.colorBaseLt}" fill-opacity="0.95"/></svg>`;
+                    composites.push({ input: Buffer.from(chipSvg, 'utf-8'), left: chipLeft, top: chipTop });
 
                     const iconBuffer = await sharp(faviconPath)
                         .resize(iconSize, iconSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
@@ -178,15 +175,11 @@ async function renderPreviewWithImage(res: Response, ogImageId: string, title: s
                         canvasH: OG_H,
                         anchorLeft: iconLeft + iconSize + Math.round(iconSize * 0.20),
                         anchorCenterY: iconTop + iconSize / 2,
-                        maxRight: OG_W - padding,
+                        maxRight: OG_W - SAFE_MARGIN,
                         title: normalizedTitle,
-                        bgColor: ThemeService.computePalette(ContestoSito.config.colorTema, {
-                            secondary: ContestoSito.config.colorSecondary,
-                            background: ContestoSito.config.colorBackground,
-                            text: ContestoSito.config.colorText,
-                            info: ContestoSito.config.colorInfo,
-                        }).colorPrimary,
-                        fontSize: 40,
+                        subtitle: normalizedSubtitle || undefined,
+                        bgColor: strongBgColor,
+                        fontSize: 48,
                     });
                     composites.push({ input: Buffer.from(badgeSvg, 'utf-8'), left: 0, top: 0 });
                 }
@@ -202,8 +195,7 @@ async function renderPreviewWithImage(res: Response, ogImageId: string, title: s
     try {
         await job;
     } catch (err) {
-        // Se la rasterizzazione dell'SVG non è supportata da sharp, ripiega servendo
-        // il file originale invece di propagare un errore (opzione A).
+        // Fallback al file originale se la rasterizzazione SVG non è supportata
         if (isSvg) { console.warn('[Preview] SVG non rasterizzabile, servo l\'originale:', err); AssetHandler.serveFile(res, absolutePath); return; }
         throw err;
     }
