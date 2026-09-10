@@ -124,14 +124,6 @@ export const AppPages = {
     UtilityTranslator: 'app.utility.translator',
 } as const;
 
-// Ordine di comparsa in nav/home. La home segue invece l'ordine del backend (Info.Order); qui lo si
-// rispecchia per coerenza, raggruppati per tema: personaggi (incel, startupparo, mbeb, oroscopo),
-// nomi di attività (nomi bar, kebabbari), invettive (automobilistiche, anti-vegani). Sola lista di
-// slug: il catalogo VERO (nome/descrizione) arriva dal backend, questo serve solo a chi (nav.ts)
-// deve elencare le voci senza già avere il catalogo sottomano.
-export const GENERATOR_SLUGS = ['incel', 'startup', 'mbeb', 'oroscopo', 'locali', 'kebab', 'auto', 'antiveg'] as const;
-export const STORY_SLUGS = ['poveri-maschi', 'magrogamer09', 'sopravvivi-agli-usa'] as const;
-
 /** Dichiarazioni pagina di quest'area, assemblate in site.ts → pages(). */
 export const appPagesDecl: SitePageInput[] = [
     {

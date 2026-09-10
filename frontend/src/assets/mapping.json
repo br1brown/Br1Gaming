@@ -17,6 +17,8 @@
   "generator.startup.og": "generator/startup-og.jpg",
   "generator.oroscopo": "generator/oroscopo.png",
   "generator.oroscopo.og": "generator/oroscopo-og.jpg",
+  "generator.complotto": "generator/complotto.png",
+  "generator.complotto.og": "generator/complotto-og.jpg",
   "game.ducenonduce": "game/ducenonduce.png",
   "game.radar": "game/radar.png",
   "game.radar.og": "game/radar-og.jpg",
