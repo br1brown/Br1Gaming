@@ -2,6 +2,15 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Permissions-Policy: estensione dichiarativa via `security-headers.override.json`
+
+Il fix precedente (hash-check su `security-headers.json` + `security-headers.override.json` per la CSP) copriva solo metà del problema: la stessa `_nota` che sanciva l'override manuale della CSP sanciva anche quello della `Permissions-Policy` (es. `geolocation=(self)` per una pagina con mappa/GPS), ma il meccanismo nuovo non aveva un equivalente per quella — un figlio che ne avesse bisogno restava senza alternativa se non tornare a editare il file a mano, vanificando l'hash-check.
+
+- `security-headers.override.json` supporta ora anche una sezione `permissionsPolicy` (accanto a `csp`): ogni chiave è una feature (es. `geolocation`, `camera`, `microphone`), i valori vengono **aggiunti** — mai sostituiti — a quelli già presenti nel template (`extendPermissionsPolicy`, nuovo `server/permissions-policy.ts`, stesso design di `csp.ts`).
+- `security-headers.json`: `_nota` aggiornata per menzionare anche questo percorso; il contenuto cambia (solo testo) quindi `EXPECTED_TEMPLATE_SHA256` in `security-headers.ts` è stato ricalcolato — un figlio già allineato al template precedente vedrà un conflitto sha256 al prossimo merge finché non aggiorna anche questo file dal merge stesso.
+- `frontend/README.md` nuova sezione §"Estendere la Permissions-Policy" accanto a §"Estendere la CSP".
+- Verificato: build di produzione frontend pulita, type-check incluso.
+
 ### Ripristinato (di nuovo) il fail-closed sulle credenziali demo in Production
 
 Revisione a più angoli (correttezza, comportamento rimosso, tracciamento cross-file) sul diff pendente prima del merge: il blocco che rifiuta in Production il login con le credenziali demo del template (`admin`/`Password1!`) era di nuovo assente da `AccountService.ValidateCredentialsAsync` — stessa regressione già trovata e corretta in una review precedente (vedi voce più sotto), con lo stesso segnale a tradirla: `_env` tornato un campo scritto e mai più letto.
