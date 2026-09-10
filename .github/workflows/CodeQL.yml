@@ -41,7 +41,7 @@ jobs:
           dotnet-version: "9.0.x"
 
       - name: Inizializza CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
@@ -51,7 +51,7 @@ jobs:
         run: dotnet build backend/backend.csproj --configuration Release
 
       - name: Analisi CodeQL
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{ matrix.language }}"
           upload: false
@@ -60,7 +60,7 @@ jobs:
       # Fallisce solo l'upload (non abilitato su repo privati senza Advanced
       # Security), non l'analisi: qui va un warning, non un errore rosso.
       - name: Carica risultati su GitHub Code Scanning
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         continue-on-error: true
         with:
           sarif_file: sarif-results
