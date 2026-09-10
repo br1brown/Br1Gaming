@@ -1,5 +1,5 @@
 {
-  "_nota": "Header di sicurezza del template: identici per ogni progetto e non gestiti dal progetto figlio (si aggiornano col git pull). Letti sia dal backend (.NET) sia dal frontend Node SSR. NON modificare questo file a mano: il frontend Node SSR verifica il suo sha256 all'avvio e si rifiuta di partire se non combacia con quello atteso dal template. Per estendere la CSP con un dominio in più (CDN, embed, API esterna) usa security-headers.override.json nella root del progetto, che il template non tocca mai.",
+  "_nota": "Header di sicurezza del template: identici per ogni progetto e non gestiti dal progetto figlio (si aggiornano col git pull). Letti sia dal backend (.NET) sia dal frontend Node SSR. NON modificare questo file a mano: il frontend Node SSR verifica il suo sha256 all'avvio e si rifiuta di partire se non combacia con quello atteso dal template. Per estendere la CSP con un dominio in più (CDN, embed, API esterna) o la Permissions-Policy con una feature (es. geolocation per una pagina che usa il GPS) usa security-headers.override.json nella root del progetto, che il template non tocca mai.",
   "Security": {
     "Headers": {
       "X-Frame-Options": "SAMEORIGIN",

@@ -1,5 +1,5 @@
 {
-  "_nota": "Estensioni dichiarative alla Content-Security-Policy del template, di competenza del progetto figlio: committabile (non contiene segreti). NON editare security-headers.json per aggiungere un dominio — quel file è del template, condiviso e protetto da un controllo di integrità: il server si rifiuta di avviarsi se viene modificato a mano. Qui invece ogni chiave sotto 'csp' è una direttiva CSP e i valori vengono AGGIUNTI a quelli già presenti nel template (mai in sostituzione, mai rimozione). Esempio: per un embed player Spreaker/Spotify/YouTube o una chiamata all'API GitHub, aggiungi il dominio alla direttiva giusta (connect-src per fetch/XHR, frame-src per iframe embed, img-src per immagini/cover remote, media-src per audio/video diretti). Le direttive assenti da questo file restano quelle del template, invariate.",
+  "_nota": "Estensioni dichiarative alla Content-Security-Policy e alla Permissions-Policy del template, di competenza del progetto figlio: committabile (non contiene segreti). NON editare security-headers.json per aggiungere un dominio o una feature — quel file è del template, condiviso e protetto da un controllo di integrità: il server si rifiuta di avviarsi se viene modificato a mano. Qui invece ogni chiave sotto 'csp' è una direttiva CSP e ogni chiave sotto 'permissionsPolicy' è una feature (es. 'geolocation', 'camera', 'microphone'): in entrambi i casi i valori vengono AGGIUNTI a quelli già presenti nel template (mai in sostituzione, mai rimozione). Esempio CSP: per un embed player Spreaker/Spotify/YouTube o una chiamata all'API GitHub, aggiungi il dominio alla direttiva giusta (connect-src per fetch/XHR, frame-src per iframe embed, img-src per immagini/cover remote, media-src per audio/video diretti). Esempio Permissions-Policy: per una pagina che usa navigator.geolocation, aggiungi 'self' a 'geolocation'. Le direttive/feature assenti da questo file restano quelle del template, invariate.",
   "csp": {
     "script-src": [],
     "style-src-elem": [],
@@ -9,5 +9,10 @@
     "frame-src": [],
     "media-src": [],
     "worker-src": ["'self'", "blob:"]
+  },
+  "permissionsPolicy": {
+    "geolocation": ["self"],
+    "camera": [],
+    "microphone": []
   }
 }

@@ -2212,6 +2212,23 @@ Esempio: abilitare Mapbox:
 
 Il nonce per-request (`'nonce-...'`) resta sempre presente in `script-src` a prescindere da questo file: lo aggiunge il server, non serve dichiararlo nell'override. Una direttiva assente da `security-headers.override.json` (o l'intero file assente) lascia la CSP del template invariata.
 
+### Estendere la Permissions-Policy (fotocamera, microfono, geolocalizzazione)
+
+Stesso principio della CSP, stesso file: `security-headers.json` fissa anche la `Permissions-Policy` (default restrittivo: `camera=(), microphone=(), geolocation=(), browsing-topics=()`, nessuna feature autorizzata) ed è protetto dallo stesso controllo di integrità — non va editato a mano nemmeno per questo.
+
+Una pagina che usa `navigator.geolocation`, la fotocamera o il microfono va autorizzata in [`security-headers.override.json`](../security-headers.override.json), sezione `permissionsPolicy`: ogni chiave è una feature, i valori (`self`, o un'origine tra virgolette) vengono **aggiunti** a quelli già presenti nel template, mai in sostituzione. Il gate è a livello di sito (l'header vale per l'intero documento, non per singola rotta): se una sola pagina usa il GPS, autorizzare `geolocation` qui lo rende disponibile ovunque nel sito, non solo su quella pagina.
+
+Esempio: autorizzare la geolocalizzazione per il proprio dominio (una pagina con una mappa/radar che usa la posizione dell'utente):
+```json
+{
+  "permissionsPolicy": {
+    "geolocation": ["self"]
+  }
+}
+```
+
+Una feature assente da `security-headers.override.json` (o l'intero file assente) lascia la Permissions-Policy del template invariata (quindi negata).
+
 ### X-Request-Id: Correlazione SSR ↔ Backend
 
 Ogni richiesta riceve un `X-Request-Id` (riusato dal reverse proxy a monte se presente e ben formato — alfanumerico + `.-_`, max 128 caratteri — altrimenti generato qui con `randomUUID()`), riflesso nella risposta e propagato al backend .NET dal proxy `/api/*` (`api-proxy.ts`). Il backend lo promuove a `TraceIdentifier` (vedi `SecurityExtensions.cs` → "Ordine della pipeline HTTP" in [backend/README.md](../backend/README.md)) e lo aggiunge a ogni `ProblemDetails`. Un log SSR e un log .NET per la stessa richiesta condividono così lo stesso id, senza dover incrociare i timestamp.

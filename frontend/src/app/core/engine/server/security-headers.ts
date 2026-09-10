@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { serverEnv } from './server-env';
 import { extendCsp } from './csp';
+import { extendPermissionsPolicy } from './permissions-policy';
 
 /** Header di sicurezza di fallback se security-headers.json non è presente. */
 export const FALLBACK_SECURITY_HEADERS: Record<string, string> = {
@@ -17,7 +18,7 @@ export const FALLBACK_SECURITY_HEADERS: Record<string, string> = {
 };
 
 /** Hash atteso di security-headers.json per la verifica di integrità del template. */
-const EXPECTED_TEMPLATE_SHA256 = '56d6081c516c60227d58d659936a3c7842a08ebfa95ab4062e44d2ee50242091';
+const EXPECTED_TEMPLATE_SHA256 = 'c35c18dce1e53856ec103cf46b06194ae9562d116db60741aba8ccd4ef8f0266';
 
 if (serverEnv.security.templateHash !== null && serverEnv.security.templateHash !== EXPECTED_TEMPLATE_SHA256) {
     throw new Error(
@@ -25,7 +26,8 @@ if (serverEnv.security.templateHash !== null && serverEnv.security.templateHash 
         `(atteso sha256 ${EXPECTED_TEMPLATE_SHA256}, trovato ${serverEnv.security.templateHash}). ` +
         'Questo file è condiviso tra progetti e si aggiorna SOLO dal merge del template: non va editato ' +
         'a mano. Per estendere la Content-Security-Policy (nuovi domini in script-src/img-src/connect-src/' +
-        'frame-src/...) crea o modifica security-headers.override.json nella root del progetto.'
+        'frame-src/...) o la Permissions-Policy (es. geolocation per una pagina che usa il GPS) crea o ' +
+        'modifica security-headers.override.json nella root del progetto.'
     );
 }
 
@@ -43,6 +45,13 @@ export const defaultCsp = extendCsp(
 /** CSP per file statici (assets, index.csr.html): placeholder sostituiti con 'unsafe-inline'
  *  (compare due volte, in script-src e style-src-elem — stesso nonce riusato tra le direttive). */
 export const staticCsp = defaultCsp.replaceAll('{NONCE_PLACEHOLDER}', "'unsafe-inline'");
+
+/** Permissions-Policy completa, estesa con security-headers.override.json (se presente) e usata
+ *  su tutte le risposte non-API. */
+export const defaultPermissionsPolicy = extendPermissionsPolicy(
+    configuredHeaders['Permissions-Policy'] ?? FALLBACK_SECURITY_HEADERS['Permissions-Policy'],
+    serverEnv.security.permissionsPolicyOverride
+);
 
 /** Hash sha256 dello script event-dispatch di Angular per abilitarlo in CSP con nonce (SSR). */
 function computeEventDispatchScriptHash(): string | null {
@@ -66,6 +75,7 @@ export const eventReplayScriptSrc = ((): string => {
 /** Header di sicurezza standard applicati a tutte le risposte non-API. */
 export const htmlSecurityHeaders: [string, string][] = [
     ...Object.entries(configuredHeaders)
-        .filter(([name]) => name.toLowerCase() !== 'content-security-policy'),
+        .filter(([name]) => !['content-security-policy', 'permissions-policy'].includes(name.toLowerCase())),
+    ['Permissions-Policy', defaultPermissionsPolicy],
     ['Content-Security-Policy', staticCsp],
 ];

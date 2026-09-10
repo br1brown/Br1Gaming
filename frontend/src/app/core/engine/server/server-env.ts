@@ -18,6 +18,7 @@ import { createHash } from 'node:crypto';
 import type { GlobalSettings } from '../global-settings.types';
 import { deepMergeSettings } from '../scripts/config/settings-merge';
 import type { CspOverride } from './csp';
+import type { PermissionsPolicyOverride } from './permissions-policy';
 
 // ── Lettura global-settings.json (+ override global-settings.local.json) ──────────────
 // GLOBAL_SETTINGS_PATH (env var) → path esplicito (Docker: /app/global-settings.json,
@@ -126,8 +127,39 @@ function loadCspOverride(): CspOverride | null {
     return null;
 }
 
+// ── Lettura security-headers.override.json (sezione permissionsPolicy) ────────────
+// Stesso file dell'override CSP (progetto figlio, committabile): estensioni dichiarative alla
+// Permissions-Policy del template (es. autorizzare la geolocalizzazione per il proprio dominio),
+// senza dover toccare security-headers.json. Stessa logica di ricerca degli altri file di config.
+function loadPermissionsPolicyOverride(): PermissionsPolicyOverride | null {
+    const candidates = [
+        process.env['SECURITY_HEADERS_OVERRIDE_PATH'],
+        resolve(process.cwd(), 'security-headers.override.json'),
+        resolve(process.cwd(), '../security-headers.override.json'),
+    ].filter((p): p is string => Boolean(p));
+
+    for (const p of candidates) {
+        try {
+            if (existsSync(p)) {
+                const parsed = JSON.parse(readFileSync(p, 'utf-8')) as { permissionsPolicy?: Record<string, unknown> };
+                const policy = parsed.permissionsPolicy;
+                if (!policy || typeof policy !== 'object') return null;
+                const result: Record<string, string[]> = {};
+                for (const [feature, origins] of Object.entries(policy)) {
+                    if (Array.isArray(origins)) {
+                        result[feature] = origins.filter((s): s is string => typeof s === 'string');
+                    }
+                }
+                return result;
+            }
+        } catch { /* prova il prossimo */ }
+    }
+    return null;
+}
+
 let _securityHeaders: LoadedSecurityHeaders | undefined;
 let _cspOverride: CspOverride | null | undefined;
+let _permissionsPolicyOverride: PermissionsPolicyOverride | null | undefined;
 
 let _br1: Record<string, unknown> | undefined;
 function br1(): Br1Json {
@@ -196,6 +228,9 @@ export interface SecurityEnv {
     /** Estensioni CSP dichiarate in security-headers.override.json (progetto figlio); null se
      *  il file manca o non definisce una sezione "csp". */
     readonly cspOverride: CspOverride | null;
+    /** Estensioni Permissions-Policy dichiarate in security-headers.override.json (progetto
+     *  figlio); null se il file manca o non definisce una sezione "permissionsPolicy". */
+    readonly permissionsPolicyOverride: PermissionsPolicyOverride | null;
 }
 
 /** Configurazione completa dell'ambiente server Node, tipizzata e raggruppata per area. */
@@ -282,6 +317,7 @@ export const serverEnv: ServerEnv = {
             headers: loaded.headers,
             templateHash: loaded.templateHash,
             cspOverride: (_cspOverride ??= loadCspOverride()),
+            permissionsPolicyOverride: (_permissionsPolicyOverride ??= loadPermissionsPolicyOverride()),
         };
     },
 };
