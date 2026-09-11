@@ -191,20 +191,20 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
 
     /**
      * Canvas immagine da condividere. Non registra più nulla tra i piaciuti (quello lo fa il
-     * bottone "mi piace" a parte): condivisione e "mi piace" sono azioni indipendenti. `autoFit`
-     * (Engine) calcola da sé altezza canvas e maxLines in base alla lunghezza di `res.text`, così
-     * il testo generato entra sempre per intero, mai troncato con ellissi.
+     * bottone "mi piace" a parte): condivisione e "mi piace" sono azioni indipendenti. Stile
+     * `'fittedCaption'` (Engine): calcola da sé altezza canvas e maxLines in base alla lunghezza
+     * di `res.text`, così il testo generato entra sempre per intero, mai troncato con ellissi.
      */
     readonly buildShareCanvas = async (): Promise<HTMLCanvasElement> => {
         const res = this.result();
         const gen = this.generator();
         if (!res || !gen) throw new Error('Nessun risultato da condividere');
-        const imageSrc = this.asset.getUrl(`generator.${gen.slug}.og`);
-        const canvas = await this.imgBuilder.buildCanvasWithCaption(
-            imageSrc,
-            { text: res.text, subtitle: `Dal ${gen.name} | ${ContestoSito.config.appName}`, autoFit: true },
-            { width: 1200 },
-        );
+        const canvas = await this.imgBuilder.buildCanvas({
+            style: 'fittedCaption',
+            imageSrc: this.asset.getUrl(`generator.${gen.slug}.og`),
+            captionOpts: { text: res.text, subtitle: `Dal ${gen.name} | ${ContestoSito.config.appName}` },
+            imgOpts: { width: 1200 },
+        });
         if (!canvas) throw new Error('Errore nella generazione dell\'immagine');
         return canvas;
     };
