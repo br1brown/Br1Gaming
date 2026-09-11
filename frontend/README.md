@@ -1216,7 +1216,9 @@ Varianti utili: `toSVG(config)` restituisce il QR come stringa SVG (vettoriale, 
 
 ## 🖼️ ImgBuilderService: Generazione Immagini da Testo
 
-`ImgBuilderService` genera PNG da testo usando SVG come formato intermedio. Tre modalità di layout:
+`ImgBuilderService` genera PNG da testo (o da testo sovrapposto a un'immagine) usando SVG come formato intermedio. Un solo punto d'ingresso per ogni combinazione — `buildCanvas`/`buildBlob`/`buildFile` — che prendono uno `spec` con `style` a scegliere l'implementazione: niente `buildCanvasWithPill`/`buildCanvasWithCaption`/eccetera, un metodo per stile × formato di output sarebbe stata la stessa cosa ripetuta dodici volte.
+
+**`style: 'plain'`** — testo su sfondo pieno, senza immagine di base. Tre modalità di layout:
 
 ```typescript
 // exactInLine: nessun wrap, dimensioni guidate dal contenuto
@@ -1231,22 +1233,33 @@ Varianti utili: `toSVG(config)` restituisce il QR come stringa SVG (vettoriale, 
 
 ```typescript
 // Canvas per uso diretto (es. disegno, compositing)
-const canvas = await this.img.buildCanvas('Titolo Articolo', {
-    bgColor: '#1f40ff',
-    textColor: '#ffffff',
-    fontSize: 60,
-    ratio: '16:9',
-    maxWidth: 1920,
+const canvas = await this.img.buildCanvas({
+    style: 'plain',
+    text: 'Titolo Articolo',
+    opts: { bgColor: '#1f40ff', textColor: '#ffffff', fontSize: 60, ratio: '16:9', maxWidth: 1920 },
 });
 
 // Blob PNG per download o condivisione
-const blob = await this.img.buildBlob('Titolo', opts);
+const blob = await this.img.buildBlob({ style: 'plain', text: 'Titolo', opts });
 await this.share.downloadBlob(blob, 'social.png');
 ```
 
-Se non fornisci `bgColor`/`textColor`, vengono letti dai Signal del tema corrente (colori WCAG-conformi automatici).
+Se non fornisci `bgColor`/`textColor`, vengono letti dai Signal del tema corrente (colori WCAG-conformi automatici). Oltre alle opzioni di layout, puoi passare `fontFamily` (una chiave di `WEB_FONTS`, risolta nello stack CSS reale) e `lineHeight` (moltiplicatore d'interlinea, default `1.4`).
 
-Oltre alle opzioni di layout, puoi passare `fontFamily` (una chiave di `WEB_FONTS`, risolta nello stack CSS reale) e `lineHeight` (moltiplicatore d'interlinea, default `1.4`). Per allegare l'immagine a un `FormData`/upload c'è `buildFile(text, filename?, opts?)`, che restituisce un `File` PNG già pronto (è `buildBlob` avvolto in un `new File([...])`).
+**`style: 'pill'`** — badge/chip di testo ancorato a un angolo sopra un'immagine esistente (`imageSrc`, URL o `Blob`): `pillOpts.text`/`subtitle`, `corner`, `margin`. **`style: 'caption'`** — fascia scrim (in alto/al centro/in basso) con titolo e sottotitolo sopra un'immagine: `captionOpts.text`/`subtitle`/`position`. Entrambe troncano con ellissi oltre `maxLines` (rispettivamente 3 e 4 di default).
+
+**`style: 'fittedCaption'`** — come `'caption'`, ma quando il testo non è noto a priori (es. generato) e l'ellissi non è accettabile: calcola da sé l'altezza del canvas (`imgOpts.height`, se presente, viene ignorato) perché `text`/`subtitle` entrino SEMPRE per intero. Il canvas può quindi divergere dal rapporto naturale dell'immagine: `background`/`foreground` diventano `'blurred'`/`'contain'` di default (sovrascrivibili in `imgOpts`) perché l'immagine di base non venga mai ritagliata.
+
+```typescript
+const canvas = await this.img.buildCanvas({
+    style: 'fittedCaption',
+    imageSrc: this.asset.getUrl('generator.mio-generatore.og'),
+    captionOpts: { text: risultatoGenerato, subtitle: `Dal ${nomeGeneratore} | ${ContestoSito.config.appName}` },
+    imgOpts: { width: 1200 },
+});
+```
+
+Per allegare l'immagine a un `FormData`/upload c'è `buildFile(spec, filename?)`, che restituisce un `File` PNG già pronto (è `buildBlob` avvolto in un `new File([...])`).
 
 SSR-safe: il metodo statico `ImgBuilderService.buildSvg()` non tocca DOM né Angular, usabile in Node.js per generare preview server-side.
 

@@ -53,7 +53,7 @@ export class ImgRenderDirective {
     private async render(cfg: ImgRenderConfig): Promise<void> {
         const token = ++this.renderToken;
         const { text, ...opts } = cfg;
-        const canvas = await this.imgBuilder.buildCanvas(text, opts);
+        const canvas = await this.imgBuilder.buildCanvas({ style: 'plain', text, opts });
         if (token !== this.renderToken) return;
         if (!canvas) {
             this.reset();
