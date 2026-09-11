@@ -191,9 +191,9 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
 
     /**
      * Canvas immagine da condividere. Non registra più nulla tra i piaciuti (quello lo fa il
-     * bottone "mi piace" a parte): condivisione e "mi piace" sono azioni indipendenti. Sfondo diretto
-     * (non sfocato) con l'immagine OG del generatore, frase come titolo e "Dal {generatore}" come
-     * sottotitolo della caption (posizione/shrink di default: fascia in basso, testo ridotto se serve).
+     * bottone "mi piace" a parte): condivisione e "mi piace" sono azioni indipendenti. `autoFit`
+     * (Engine) calcola da sé altezza canvas e maxLines in base alla lunghezza di `res.text`, così
+     * il testo generato entra sempre per intero, mai troncato con ellissi.
      */
     readonly buildShareCanvas = async (): Promise<HTMLCanvasElement> => {
         const res = this.result();
@@ -202,7 +202,7 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
         const imageSrc = this.asset.getUrl(`generator.${gen.slug}.og`);
         const canvas = await this.imgBuilder.buildCanvasWithCaption(
             imageSrc,
-            { text: res.text, subtitle: `Dal ${gen.name} | ${ContestoSito.config.appName}` },
+            { text: res.text, subtitle: `Dal ${gen.name} | ${ContestoSito.config.appName}`, autoFit: true },
             { width: 1200 },
         );
         if (!canvas) throw new Error('Errore nella generazione dell\'immagine');

@@ -20,7 +20,7 @@
         </div>
         }
 
-        <h1 class="h2 fw-bold mb-2">{{ facade.title() }}</h1>
+        <h1 class="h2 fw-bold mb-2">{{ facade.title() || storyInfo()?.title }}</h1>
 
         @if (choicesMade() > 0) {
         <div class="mb-0">
