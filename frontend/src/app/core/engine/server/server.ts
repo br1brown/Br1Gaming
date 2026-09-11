@@ -19,6 +19,7 @@ import { getImageCacheStats } from './image-cache-metrics';
 import { loadAssetMapping } from './asset-mapping';
 import { immutableAssetPattern } from './asset-handler';
 import { htmlSecurityHeaders, defaultCsp, eventReplayScriptSrc } from './security-headers';
+import { injectCspNonceIntoAppRoot } from './csp';
 import { fileExists } from './fs-utils';
 import { apiProxyHandler } from './routes/api-proxy';
 import { cdnAssetHandler } from './routes/cdn-asset';
@@ -341,7 +342,24 @@ app.use(async (request: Request, response: Response, next) => {
                 console.error('[SSR stream]', `requestId=${response.locals['requestId']}`, err);
                 response.destroy(err);
             });
-            stream.pipe(response);
+            // Propaga il nonce anche al bootstrap che avviene per intero nel browser (vedi
+            // injectCspNonceIntoAppRoot): senza, le rotte RenderMode.Client (jolly /error/**,
+            // pagine requiresAuth) e ogni navigazione client-side successiva perderebbero gli
+            // <style> di encapsulation, bloccati in silenzio da style-src-elem.
+            if (nonce) {
+                const nonceStream = injectCspNonceIntoAppRoot(nonce);
+                // Stesso motivo dell'handler su `stream` sopra: senza, un errore qui (per quanto
+                // improbabile, sono solo operazioni sincrone su Buffer) è un 'error' non ascoltato
+                // su questo stream intermedio e fa crashare l'intero processo Node, non solo la
+                // richiesta corrente.
+                nonceStream.on('error', (err) => {
+                    console.error('[SSR stream]', `requestId=${response.locals['requestId']}`, err);
+                    response.destroy(err);
+                });
+                stream.pipe(nonceStream).pipe(response);
+            } else {
+                stream.pipe(response);
+            }
         } else {
             response.end();
         }

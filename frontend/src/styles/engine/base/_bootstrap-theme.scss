@@ -185,7 +185,15 @@
     color: var(--colorNavText);
 }
 
+/* --bs-navbar-brand-color/hover: Bootstrap li deriva da --bs-emphasis-color (pensata per il testo
+   dei contenuti, non per la navbar), che sullo sfondo --colorNavBg risulta spesso a contrasto
+   insufficiente (WCAG). Vanno sovrascritti qui — nel CSS globale, non in un component style
+   scoped — perché le pagine renderizzate solo client-side (es. la rotta jolly /error/**, senza
+   markup SSR da idratare) applicano il proprio <style> scoped iniettato via JS senza il nonce CSP
+   della risposta: il browser lo scarta silenziosamente, lasciando attivo solo questo CSS globale. */
 .navbar.theme-bg {
+    --bs-navbar-brand-color: var(--colorNavText);
+    --bs-navbar-brand-hover-color: var(--colorNavText);
     border-bottom: 2.5px solid var(--colorTema);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }

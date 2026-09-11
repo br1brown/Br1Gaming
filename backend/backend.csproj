@@ -9,7 +9,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- data/*.json (es. identity.json) è già un item Content di default (Sdk.Web), l'Update sopra
+         gli basta. Un eventuale data/*.md aggiunto da un progetto figlio (es. per contenuti di
+         pagina) non lo è: l'SDK li classifica come None di default, quindi un <Content Update> su
+         di loro non trova nulla da aggiornare e resta un no-op silenzioso — CopyToOutputDirectory
+         va impostato sull'item type che hanno davvero. Verificato con `dotnet msbuild -getItem:None`:
+         senza questa riga i .md restavano fuori da /publish (assenti solo nell'immagine Docker,
+         non in `dotnet run` locale dove ContentRootPath coincide con l'albero sorgente). -->
     <Content Update="data\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="data\**\*" CopyToOutputDirectory="PreserveNewest" />
     <!-- uploads/ è una cartella dati runtime: escludiamo tutto per evitare
          che file .cs caricati dagli utenti vengano erroneamente compilati. -->
     <Compile Remove="uploads\**\*" />

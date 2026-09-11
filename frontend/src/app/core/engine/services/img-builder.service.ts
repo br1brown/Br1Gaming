@@ -232,6 +232,18 @@ export interface CaptionOverlayOptions extends Omit<CaptionOptions, 'canvasW' | 
     scrimColor?: string;
     /** Ruolo colore semantico se scrimColor è omesso. Default: 'primary'. */
     colorRole?: 'primary' | 'secondary';
+    /** Se true, calcola da sé l'altezza del canvas (`imgOpts.height` viene ignorato) e i `maxLines`
+     *  perché `text`/`subtitle` entrino SEMPRE per intero, mai troncati con ellissi — a differenza
+     *  del comportamento di base, legato al rapporto dell'immagine con un tetto fisso di righe.
+     *  Il canvas risultante può divergere dal rapporto naturale dell'immagine: `imgOpts.background`/
+     *  `foreground` diventano quindi `'blurred'`/`'contain'` di default (sovrascrivibili) perché
+     *  l'immagine resti sempre intera invece di essere ritagliata dal `'cover'` di base. Utile
+     *  quando il testo non è noto a priori (es. generato). Default: false. */
+    autoFit?: boolean;
+    /** Solo con `autoFit`: quota minima di canvas riservata all'immagine di sfondo sopra la fascia
+     *  di testo (0-1), perché la fascia non arrivi a coprire l'intera immagine con testi lunghi.
+     *  Default: 0.15 (15%). */
+    minImageRatio?: number;
 }
 
 // ─── Servizio ──────────────────────────────────────────────────────────────────
@@ -350,15 +362,52 @@ export class ImgBuilderService {
     ): Promise<HTMLCanvasElement | null> {
         if (!this.isBrowser) return null;
 
-        const { baseImg, width, height, canvas, ctx } = await this.prepareBaseCanvas(imageSrc, imgOpts);
+        let resolvedImgOpts = imgOpts;
+        let resolvedCaptionOpts = captionOpts;
+        if (captionOpts.autoFit) {
+            const width = imgOpts.width ?? 1200;
+            const fontSize = captionOpts.fontSize ?? Math.round(width * 0.04);
+            const fontFamily = captionOpts.fontFamily ?? resolvedFonts.webStack;
+            // ctx di sola misura: measureText dipende solo dal font impostato su ctx, non dalle
+            // dimensioni del canvas — stessa identica misura che darebbe il ctx (canvas diverso,
+            // stesso font) che disegna il risultato più sotto, quindi nessuno scarto da coprire.
+            const measureCtx = document.createElement('canvas').getContext('2d')!;
+            const measureFn = ImgBuilderService.canvasMeasureFn(measureCtx, fontFamily);
+            const { canvasH, maxLines } = ImgBuilderService.fitCaptionHeight(width, captionOpts.text, captionOpts.subtitle, fontSize, {
+                lineHeight: captionOpts.lineHeight,
+                subtitleFontSize: captionOpts.subtitleFontSize,
+                paddingH: captionOpts.paddingH,
+                paddingV: captionOpts.paddingV,
+                measureFn,
+                minImageRatio: captionOpts.minImageRatio,
+            });
+            // Senza autoFit, canvasH = height naturale dell'immagine (nessun crop, 'cover' è un
+            // no-op). Qui invece canvasH lo decide il testo: può divergere parecchio dal rapporto
+            // naturale, e il default 'direct'+'cover' ritaglierebbe l'immagine per riempire il
+            // nuovo canvas. Default a 'blurred'+'contain' (solo se il chiamante non ha scelto
+            // esplicitamente altro): l'immagine resta SEMPRE intera, mai tagliata, riempita da
+            // uno sfondo sfocato invece che dal crop — degrada bene anche quando il rapporto non
+            // diverge (contain ≈ cover se i rapporti già combaciano).
+            resolvedImgOpts = {
+                background: 'blurred',
+                foreground: 'contain',
+                ...imgOpts,
+                width,
+                height: canvasH,
+            };
+            // minFontScale: 1 = nessuno shrink: canvasH è già dimensionato per la scala piena.
+            resolvedCaptionOpts = { ...captionOpts, fontSize, maxLines, minFontScale: 1 };
+        }
 
-        const scrimColor = captionOpts.scrimColor ?? this.roleColors(captionOpts.colorRole)[0];
-        ImgBuilderService.drawImageBackground(ctx, baseImg, width, height, imgOpts, imgOpts.backdropColor ?? scrimColor);
+        const { baseImg, width, height, canvas, ctx } = await this.prepareBaseCanvas(imageSrc, resolvedImgOpts);
 
-        const fontFamily = captionOpts.fontFamily ?? resolvedFonts.webStack;
+        const scrimColor = resolvedCaptionOpts.scrimColor ?? this.roleColors(resolvedCaptionOpts.colorRole)[0];
+        ImgBuilderService.drawImageBackground(ctx, baseImg, width, height, resolvedImgOpts, resolvedImgOpts.backdropColor ?? scrimColor);
+
+        const fontFamily = resolvedCaptionOpts.fontFamily ?? resolvedFonts.webStack;
         const measureFn = ImgBuilderService.canvasMeasureFn(ctx, fontFamily);
 
-        const { svg } = ImgBuilderService.buildCaption({ ...captionOpts, canvasW: width, canvasH: height, scrimColor, fontFamily, measureFn });
+        const { svg } = ImgBuilderService.buildCaption({ ...resolvedCaptionOpts, canvasW: width, canvasH: height, scrimColor, fontFamily, measureFn });
         const captionSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">${svg}</svg>`;
         const captionImg = await ImgBuilderService.loadImage(new Blob([captionSvg], { type: 'image/svg+xml;charset=utf-8' }));
         ctx.drawImage(captionImg, 0, 0, width, height);
@@ -555,6 +604,61 @@ export class ImgBuilderService {
     /** Righe massime di default per la caption. */
     static readonly MAX_CAPTION_LINES = 4;
 
+    /** Frazione massima di canvasH che buildCaption riserva al testo del titolo prima di
+     *  ricorrere allo shrink-to-fit (poi, sotto `minFontScale`, al troncamento con ellissi).
+     *  Condivisa con `fitCaptionHeight`, che la usa al contrario per calcolare l'altezza minima
+     *  di canvas che garantisce scala 1 (nessuno shrink, nessun troncamento). */
+    static readonly CAPTION_MAX_TEXT_HEIGHT_RATIO = 0.6;
+
+    /**
+     * Calcola l'altezza minima di canvas che fa entrare per intero `text`/`subtitle` in una
+     * {@link buildCaption} a scala 1 — nessuno shrink-to-fit, nessun troncamento con ellissi —
+     * più i `maxLines` esatti da passarle perché il suo shrink-to-fit interno non tronchi mai.
+     * Usata da `buildCanvasWithCaption` quando `captionOpts.autoFit` è true.
+     *
+     * Stessa matematica di `buildCaption` (stesso `PILL_SUBTITLE_GAP_RATIO`,
+     * `CAPTION_MAX_TEXT_HEIGHT_RATIO`), non una ricostruzione approssimata: nessun margine di
+     * sicurezza applicato al risultato, perché il chiamante userà lo stesso `measureFn` (stesso
+     * font, `ctx.measureText` non dipende dalle dimensioni del canvas) sia qui che nel render
+     * finale — la misura è già esatta, non una stima da poi correggere.
+     */
+    static fitCaptionHeight(canvasW: number, text: string, subtitle: string | undefined, fontSize: number, opts: {
+        lineHeight?: number;
+        subtitleFontSize?: number;
+        paddingH?: number;
+        paddingV?: number;
+        measureFn?: (text: string, fontSizePx: number, bold: boolean) => number;
+        minImageRatio?: number;
+    } = {}): { canvasH: number; maxLines: number } {
+        const lineHeight = opts.lineHeight ?? 1.3;
+        const paddingH = opts.paddingH ?? fontSize;
+        const paddingV = opts.paddingV ?? Math.round(fontSize * 0.6);
+        const measure = opts.measureFn ?? ((t: string, fs: number) => t.length * fs * 0.55);
+        const minImageRatio = opts.minImageRatio ?? 0.15;
+
+        const maxTextW = canvasW - paddingH * 2;
+        const lineStep = fontSize * lineHeight;
+        // maxLines omesso: wrapText non tronca mai, righe è il conteggio reale a scala 1.
+        const lines = ImgBuilderService.wrapText(
+            ImgBuilderService.normalizeWhitespace(text), maxTextW, fontSize,
+            (t: string) => measure(t, fontSize, true),
+        );
+        const blockHeight = fontSize + (lines.length - 1) * lineStep;
+
+        const subtitleFontSize = opts.subtitleFontSize ?? Math.round(fontSize * 0.55);
+        const subtitleGap = Math.round(paddingV * this.PILL_SUBTITLE_GAP_RATIO);
+        const contentHeight = blockHeight + (subtitle ? subtitleGap + subtitleFontSize : 0);
+        const flatH = contentHeight + paddingV * 2;
+
+        // Altezza minima perché il testo entri a scala 1 dentro il tetto di buildCaption, più
+        // quella che lascia visibile almeno `minImageRatio` di immagine sopra la fascia.
+        const heightForTextCap = blockHeight / this.CAPTION_MAX_TEXT_HEIGHT_RATIO;
+        const heightForImageMargin = flatH / (1 - minImageRatio);
+        const canvasH = Math.ceil(Math.max(heightForTextCap, heightForImageMargin));
+
+        return { canvasH, maxLines: lines.length };
+    }
+
     /** Costruisce il frammento SVG di una caption con fascia scrim. */
     static buildCaption(opts: CaptionOptions): { svg: string } {
         const esc = ImgBuilderService.escapeXml;
@@ -577,7 +681,7 @@ export class ImgBuilderService {
         const lineStep = fontSize * lineHeight;
 
         const maxTextW = canvasW - paddingH * 2;
-        const maxTextHeight = Math.min(canvasH * 0.6, fontSize + (maxLines - 1) * lineStep);
+        const maxTextHeight = Math.min(canvasH * this.CAPTION_MAX_TEXT_HEIGHT_RATIO, fontSize + (maxLines - 1) * lineStep);
         const titleFit = ImgBuilderService.fitTextBlocks(
             [{ text: opts.text, baseFontSize: fontSize, lineHeight, maxLines, bold: true }],
             maxTextW, maxTextHeight, 0, { minScale: opts.minFontScale ?? 0.5, measureFn: measure },
