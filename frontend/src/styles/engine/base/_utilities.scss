@@ -101,3 +101,22 @@ code {
 .cursor-context-menu {
     cursor: context-menu;
 }
+
+/* Alone che pulsa, per bottoni toggle mentre l'azione è in corso (es. lettura vocale attiva):
+   un'onda che si propaga verso l'esterno finché resta attivo, poi si ferma. Colore brand fisso
+   (come il badge delle notifiche) perché qui serve richiamare l'attenzione, non solo eleganza —
+   currentColor sarebbe passato inosservato su un bottone outline-secondary grigio. Va applicata
+   via classe esplicita sul componente (es. [class.pulse-live]="isSpeaking()"), non sull'attributo
+   aria-pressed: più bottoni toggle nell'app (like-action) lo usano senza voler pulsare. */
+.pulse-live {
+    animation: pulseLive 1.5s ease-in-out infinite;
+}
+
+@keyframes pulseLive {
+    0%, 100% {
+        box-shadow: 0 0 0 4px color-mix(in srgb, transparent 78%, var(--colorPrimary));
+    }
+    50% {
+        box-shadow: 0 0 0 8px color-mix(in srgb, transparent 55%, var(--colorPrimary));
+    }
+}

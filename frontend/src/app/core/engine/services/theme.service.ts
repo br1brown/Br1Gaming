@@ -1,5 +1,5 @@
 import { isPlatformBrowser } from '@angular/common';
-import { Injectable, PLATFORM_ID, Signal, WritableSignal, afterNextRender, computed, inject, isDevMode, signal, DOCUMENT } from '@angular/core';
+import { CSP_NONCE, Injectable, PLATFORM_ID, Signal, WritableSignal, afterNextRender, computed, inject, isDevMode, signal, DOCUMENT } from '@angular/core';
 import { ContestoSito } from '../../../site';
 import { resolvedFonts } from '../../../../styles/font-config';
 
@@ -240,6 +240,11 @@ export class ThemeService {
 
     private readonly document = inject(DOCUMENT);
     private readonly platformId = inject(PLATFORM_ID);
+    // Stesso nonce del provider CSP_NONCE server-side (o, sul bootstrap client-only, dell'attributo
+    // ngCspNonce che server.ts inietta su <app-root> — vedi CSP_NONCE in @angular/core): serve
+    // esplicito perché _ensureCustomFontFace crea il tag via DOM nativo (createElement), non via
+    // Renderer2 — Angular applica il nonce in automatico solo agli elementi che crea lui.
+    private readonly cspNonce = inject(CSP_NONCE, { optional: true });
 
     // ── Plain readonly from palette ───────────────────────────────────────
 
@@ -588,6 +593,7 @@ export class ThemeService {
         if (this.document.getElementById('custom-font-face')) return;
         const style = this.document.createElement('style');
         style.setAttribute('id', 'custom-font-face');
+        if (this.cspNonce) style.setAttribute('nonce', this.cspNonce);
         style.textContent = ThemeService._buildFontFaceRule();
         this.document.head.appendChild(style);
     }

@@ -68,7 +68,14 @@ export class NotificationService {
 
     private loadSwal(): Promise<SwalType> | null {
         if (!isPlatformBrowser(this.platformId)) return null;
-        return this.swalPromise ??= import('sweetalert2').then(module => module.default);
+        // Import della build "senza stile": la variante bare 'sweetalert2' (dist/sweetalert2.all.js)
+        // inietta il proprio CSS di base al volo con un <style> creato via JS, SENZA nonce — sotto la
+        // CSP di questo template (style-src-elem con nonce, niente 'unsafe-inline': vedi
+        // security-headers.json) il browser lo scarta in silenzio, quindi .swal2-container non riceve
+        // mai `position:fixed` e la modale appare in fondo alla pagina invece che in overlay. Il CSS
+        // di base va quindi caricato staticamente via <link> (angular.json → "styles", stesso pattern
+        // di Bootstrap/FontAwesome/Mapbox) e qui si importa solo il JS puro, senza auto-injection.
+        return this.swalPromise ??= import('sweetalert2/dist/sweetalert2.esm.js').then(module => module.default);
     }
 
     /**

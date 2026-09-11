@@ -18,6 +18,7 @@
     .shake-on-hover:hover { animation: none; }
     .zoom-on-hover { transition: none; }
     .zoom-on-hover:hover { transform: none; }
+    .pulse-live { animation: none; }
 
     /* View Transitions API (transizioni di pagina del router): niente animazione.
        Senza questo il cross-fade del browser ignorerebbe la preferenza di movimento ridotto. */
@@ -63,6 +64,17 @@
 .btn-touch {
     min-width: 2.75rem;
     min-height: 2.75rem;
+}
+
+/* Icona che cambia glifo in base allo stato (es. speech: altoparlante/stop, senza etichetta
+   visibile): i glifi Font Awesome hanno larghezze diverse (verificato: fa-volume-high 25px,
+   fa-stop 15px a fs-5), quindi senza un box fisso il bottone-icona cambia dimensione al cambio
+   di stato. Scoped all'icona, non alla label: la label può arrivare da fuori il componente e
+   troncarla rischierebbe di nascondere informazione vera, quindi lì il bottone può crescere. */
+.icon-fixed {
+    display: inline-flex;
+    justify-content: center;
+    width: 1.3em;
 }
 
 /* Aumentiamo leggermente il padding delle badge (rispetto ai default di Bootstrap)
