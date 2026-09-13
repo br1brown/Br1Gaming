@@ -386,12 +386,18 @@ Senza una sezione `Mail` valida in config (`Host` + `FromAddress`) `IsEnabled` �
 Il payload porta anche `project` (da `project.name`): più progetti sulla stessa VPS possono puntare allo **stesso** webhook restando distinguibili. Dettagli in [backend/README.md](backend/README.md) §10.
 
 #### Caricare/servire un file
-`BlobController` (Dominio, `Controllers/BlobController.cs`) è già pronto: `POST /blob/up` (richiede login) restituisce uno slug, `GET /blob/{slug}` lo riserve (con resize on-demand per immagini via `?webopt=true`). Per cambiare solo il limite di dimensione (default 10 MB), tocca l'attributo sulla stessa azione:
+`EngineBlobController` (Engine, `sealed`) è già pronto, nessun controller di progetto da scrivere né da estendere: `POST /blob/up` (richiede login) restituisce uno slug, `GET /blob/{slug}` lo riserve (con resize on-demand per immagini via `?webopt=true`), `DELETE /blob/{slug}` lo cancella (richiede login). L'unico punto di contatto col dominio è `FileBlobStore` (classe concreta, non interfaccia — un'interfaccia sarebbe cerimonia senza un secondo storage reale all'orizzonte): la ricetta sotto ("Sostituire un servizio dell'Engine") usa `IIdentityStore` come esempio ma vale identica qui, salvo che si estende/override invece di implementare da zero un'interfaccia.
 ```csharp
-// Controllers/BlobController.cs — invariato tutto il resto del metodo Upload
-[RequestSizeLimit(50 * 1024 * 1024)] // 50 MB
+// Store/AppBlobStore.cs — override mirati, il resto resta il default Engine
+public override long MaxUploadSizeBytes => 50 * 1024 * 1024; // 50 MB invece del default 10 MB — o calcolalo (ruolo utente, piano...)
+public override Task<string> SaveAsync(Stream content, string extension, CancellationToken ct = default)
+    => base.SaveAsync(content, extension, ct); // antivirus/quota prima della base
+public override Task<bool> DeleteAsync(string slug, CancellationToken ct = default)
+    => base.DeleteAsync(slug, ct); // qui c'è già il controllo di proprietà (BlobOwnershipRegistry, EF Core/SQLite): solo chi ha caricato lo slug, o un admin
+public override Task<string> ReplaceAsync(string oldSlug, Stream content, string extension, CancellationToken ct = default)
+    => base.ReplaceAsync(oldSlug, content, extension, ct); // "modifica" = salva il nuovo poi cancella il vecchio, mai overwrite in-place
 ```
-Dal codice (non da un endpoint HTTP) usa direttamente `BlobStore.SaveAsync(IFormFile, CancellationToken)`. Dettagli (cache/ETag, difesa XSS sui content-type) in [backend/README.md](backend/README.md) §"BlobController".
+Dettagli (cache/ETag, difesa XSS sui content-type) in [backend/README.md](backend/README.md) §"EngineBlobController".
 
 ## Documentazione
 

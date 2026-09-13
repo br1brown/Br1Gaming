@@ -3,7 +3,9 @@ using System.Text.Json.Serialization;
 using DnsClient;
 using FluentValidation;
 using Microsoft.AspNetCore.Localization;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Backend.Blob;
 using Backend.Delivery;
 using Backend.Diagnostics;
 using Backend.Engine;
@@ -112,9 +114,27 @@ builder.Services.AddSingleton<IContentStore, FileContentStore>();
 builder.Services.AddScoped<SiteService>();
 // <DEMO_BLOCK_END>
 
-// BlobStore: storage dei file caricati (upload).
-// L'identità del sito è servita dall'Engine (GET /identity): riempi data/identity.json.
-builder.Services.AddSingleton<BlobStore>();
+// Storage dei file caricati: sorgente di PROGETTO (AppBlobStore) sopra il default file-based
+// dell'Engine. Vince sul default registrato da AddTemplateBlob (TryAdd) — stesso schema di
+// IIdentityStore/AppIdentityStore sotto.
+builder.Services.AddTemplateBlob();
+// AppBlobStore legge la sessione corrente (per il controllo di proprietà su DELETE) fuori da un
+// controller: le sostiene solo IHttpContextAccessor.
+builder.Services.AddHttpContextAccessor();
+// Il DbContext EF Core del progetto (SQLite, db/app.db — cartella SEPARATA da uploads/: lo sweep
+// degli orfani in AppBlobStore enumera solo uploads/, tenerceli insieme rischierebbe di trattare
+// app.db come un blob non censito) — oggi solo BlobOwnership, ma è il punto dove un progetto
+// aggiunge le proprie entità se gli serve un vero database, invece di introdurre un secondo
+// ORM/connessione. Factory (non AddDbContext diretto): BlobOwnershipRegistry è singleton (deve
+// vivere quanto AppBlobStore), un DbContext no — la factory ne crea uno nuovo, breve, per ogni operazione.
+var dbDirectory = Path.Combine(builder.Environment.ContentRootPath, "db");
+Directory.CreateDirectory(dbDirectory); // SQLite apre il file ma non crea la cartella che lo contiene
+builder.Services.AddDbContextFactory<AppDbContext>(options =>
+    options.UseSqlite($"Data Source={Path.Combine(dbDirectory, "app.db")}"));
+// Chi ha caricato/cancellato ogni slug — un progetto con più admin concorrenti ha già EF Core a
+// gestire lock/transazioni, non un JSON letto-modificato-riscritto a mano.
+builder.Services.AddSingleton<BlobOwnershipRegistry>();
+builder.Services.AddSingleton<FileBlobStore, AppBlobStore>();
 // Cache dei blob ridimensionati/riconvertiti al volo (GET /blob/{slug}?webopt=true): dedicata,
 // con SizeLimit proprio — vedi BoundedByteCache per il perchè non riusa la IMemoryCache condivisa.
 builder.Services.AddSingleton(_ => new BoundedByteCache("BLOB_WEBOPT_CACHE_MAX_MB"));
@@ -240,6 +260,22 @@ builder.Services.AddTemplateSecurity(security);
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+
+// ── DATABASE ────────────────────────────────────────────────────────
+// Applica le migration pending all'avvio: db/app.db esiste/è aggiornato prima che arrivi la
+// prima richiesta, invece di scoprire uno schema mancante al primo upload.
+using (var dbContext = app.Services.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext())
+    dbContext.Database.Migrate();
+
+// Sweep dei blob che il database dice già cancellati ma sono ancora fisicamente su disco (un
+// crash fra il commit del database e la cancellazione del file in AppBlobStore.DeleteAsync) —
+// all'avvio, non schedulato: se il progetto ne ha bisogno più spesso, lo richiama da dove preferisce.
+if (app.Services.GetRequiredService<FileBlobStore>() is AppBlobStore appBlobStore)
+{
+    var removedOrphans = await appBlobStore.CleanupOrphanedFilesAsync();
+    if (removedOrphans > 0)
+        app.Logger.LogInformation("Sweep blob orfani: {Count} file rimossi.", removedOrphans);
+}
 
 // ── MAILER ──────────────────────────────────────────────────────────
 // Il mailer è un singleton in DI (IEngineMailer). Come il login si attiva solo se configurato:

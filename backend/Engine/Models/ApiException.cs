@@ -225,6 +225,21 @@ public class UnprocessableEntityException : ApiException
     }
 }
 
+// ── 413 Payload Too Large ─────────────────────────────────────────────────────
+
+/// <summary>
+/// Rappresenta un errore 413 per un payload che supera un limite di dimensione applicativo
+/// (es. upload blob oltre <c>FileBlobStore.MaxUploadSizeBytes</c>).
+/// </summary>
+public class PayloadTooLargeException : ApiException
+{
+    /// <summary>Crea l'eccezione con chiave <c>error_payload_too_large</c> e status 413.</summary>
+    public PayloadTooLargeException()
+        : base("error_payload_too_large", 413)
+    {
+    }
+}
+
 // ── 429 Too Many Requests ────────────────────────────────────────────────────
 
 /// <summary>

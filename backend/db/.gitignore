@@ -1,4 +1,6 @@
-# Volume di dati a runtime: ignora tutto il contenuto della cartella,
-# versiona solo la cartella stessa (tramite questo file).
+# Volume di dati a runtime (SQLite di AppDbContext): ignora tutto il contenuto della cartella,
+# versiona solo la cartella stessa (tramite questo file). Separata da uploads/ apposta: lo sweep
+# degli orfani in AppBlobStore enumera SOLO uploads/, così non rischia mai di cancellare app.db
+# (o i suoi sidecar -wal/-shm) scambiandolo per un blob non censito.
 *
 !.gitignore

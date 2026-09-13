@@ -100,6 +100,9 @@
   <data name="error_unprocessable_entity" xml:space="preserve">
     <value>La richiesta è sintatticamente corretta ma non può essere elaborata per un errore semantico.</value>
   </data>
+  <data name="error_payload_too_large" xml:space="preserve">
+    <value>Il contenuto supera la dimensione massima consentita.</value>
+  </data>
   <data name="error_too_many_requests" xml:space="preserve">
     <value>Troppe richieste. Attendi qualche secondo e riprova.</value>
   </data>
