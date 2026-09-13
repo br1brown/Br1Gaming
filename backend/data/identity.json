@@ -35,15 +35,6 @@
     "https://wa.me/390000000000",
     "https://www.facebook.com/nonsolounatruffa"
   ],
-  "openingHours": [
-    { "day": "Monday", "opens": "03:14", "closes": "03:16" },
-    { "day": "Tuesday", "opens": "03:14", "closes": "03:16" },
-    { "day": "Wednesday", "opens": "03:14", "closes": "03:16" },
-    { "day": "Thursday", "opens": "03:14", "closes": "03:16" },
-    { "day": "Friday", "opens": "09:00", "closes": "13:00" },
-    { "day": "Friday", "opens": "15:00", "closes": "03:16" },
-    { "day": "Saturday", "opens": "03:14", "closes": "03:16" }
-  ],
   "currency": "EUR",
   "rappresentanteLegale": {
     "it": "Amministratore unico e solo coglione: Mario 'il Furbetto' Rossi",

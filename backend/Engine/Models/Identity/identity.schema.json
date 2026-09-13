@@ -96,23 +96,6 @@
         ]
       }
     },
-    "openingHours": {
-      "type": "array",
-      "description": "Orari di apertura come lista di intervalli: ogni voce è { day, opens, closes }. Il giorno è un nome DayOfWeek (Monday…Sunday), gli orari 'HH:mm' (24h). Più voci sullo stesso giorno = più fasce (pausa pranzo); un giorno senza voci = chiuso. Il modello lo tipizza (DayOfWeek + TimeOnly); il frontend deriva la resa leggibile e le OpeningHoursSpecification del JSON-LD.",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["day", "opens", "closes"],
-        "properties": {
-          "day": {
-            "type": "string",
-            "enum": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-          },
-          "opens": { "type": "string", "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$" },
-          "closes": { "type": "string", "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$" }
-        }
-      }
-    },
     "currency": {
       "type": "string",
       "description": "Valuta dei valori monetari (es. capitale sociale) in ISO 4217. Omessa → EUR.",

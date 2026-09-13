@@ -196,6 +196,8 @@ Per un flag/variante che un CRO/SEM specialist deve poter cambiare senza toccare
 
 #### Comporre l'identità da una fonte diversa dal file
 Il caso base si riempie in `data/identity.json` (campi nello schema engine `Engine/Models/Identity/identity.schema.json`). Per prendere un pezzo da un DB/API si fa l'override del solo metodo dedicato: stesso tipo in ingresso e in uscita, arricchisci e ritorna. Dichiari col framework (`DayOfWeek`, `TimeOnly`, codici ISO), non stringhe magiche né nozioni di schema.org: l'Engine deriva resa e JSON-LD.
+
+`OpeningHours` (a differenza degli altri campi di `SiteIdentity`) **non è nello schema di `identity.json`**: cambia per motivi operativi (stagione, festività) più spesso di quanto sia ragionevole legarlo a un deploy, quindi va sempre valorizzato qui via codice, mai a mano nel file.
 ```csharp
 // backend/Store/AppIdentityStore.cs (di proprietà del progetto)
 protected override async Task<SiteIdentity?> ComposeIdentityAsync(
