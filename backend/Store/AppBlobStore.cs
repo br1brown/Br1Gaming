@@ -51,40 +51,36 @@ public class AppBlobStore : FileBlobStore
     /// admin — uno slug senza proprietario noto (caricato prima che il registro esistesse) non
     /// blocca nessuno, per non orfanizzare i file già presenti.
     /// </summary>
-    /// <remarks>
-    /// Ordine deliberato: prima il commit nel database (<see cref="BlobOwnershipRegistry.MarkDeletedAsync"/>
-    /// — il vero punto di non ritorno, l'unico dei due che può essere una transazione), POI la
-    /// cancellazione fisica del file, che non può esserlo. Se il processo muore fra i due passi,
-    /// resta al più un file orfano (che <see cref="CleanupOrphanedFilesAsync"/> ripulisce), mai un
-    /// database che dice "presente" per un file già sparito.
-    /// </remarks>
     public override async Task<bool> DeleteAsync(string slug, CancellationToken cancellationToken = default)
     {
-        await EnsureCanDeleteAsync(slug, cancellationToken);
-        return await base.DeleteAsync(slug, cancellationToken);
+        await EnsureAuthorizedAsync(slug, cancellationToken);
+        return await MarkDeletedAndDeleteAsync(slug, cancellationToken);
     }
 
     /// <summary>
     /// Sostituisce un blob esistente (salva il nuovo, poi cancella il vecchio). A differenza degli
-    /// altri override, NON delega subito alla base: <see cref="FileBlobStore.ReplaceAsync"/> salva
-    /// il nuovo blob PRIMA di cancellare il vecchio, quindi se il controllo di proprietà vivesse
-    /// solo dentro <see cref="DeleteAsync"/> un tentativo non autorizzato lascerebbe comunque un
-    /// nuovo blob salvato e censito sul disco prima del 403 — mai ripulito, perché nessuno ne
-    /// conosce lo slug. Il controllo va quindi anticipato qui, sul vecchio slug, prima di salvare
-    /// alcunché.
+    /// altri override, NON delega a <see cref="FileBlobStore.ReplaceAsync"/>: quella salva il nuovo
+    /// blob PRIMA di cancellare il vecchio, quindi se il controllo di proprietà vivesse solo dentro
+    /// <see cref="DeleteAsync"/> un tentativo non autorizzato lascerebbe comunque un nuovo blob
+    /// salvato e censito sul disco prima del 403 — mai ripulito, perché nessuno ne conosce lo slug.
+    /// Il controllo va anticipato qui, sul vecchio slug, prima di salvare alcunché; la sequenza
+    /// save-poi-cancella va quindi scritta esplicitamente invece di riusare la base.
     /// </summary>
     public override async Task<string> ReplaceAsync(string oldSlug, Stream content, string extension, CancellationToken cancellationToken = default)
     {
-        await EnsureCanDeleteAsync(oldSlug, cancellationToken);
-        return await base.ReplaceAsync(oldSlug, content, extension, cancellationToken);
+        await EnsureAuthorizedAsync(oldSlug, cancellationToken);
+        var newSlug = await SaveAsync(content, extension, cancellationToken);
+        await MarkDeletedAndDeleteAsync(oldSlug, cancellationToken);
+        return newSlug;
     }
 
     /// <summary>
-    /// Verifica che chi chiama possa cancellare <paramref name="slug"/> (proprietario o admin) e, se
-    /// sì, registra subito la cancellazione sul database — condiviso da <see cref="DeleteAsync"/> e
-    /// <see cref="ReplaceAsync"/>, che cancellano entrambi (direttamente o via base) lo stesso slug.
+    /// Verifica che chi chiama possa cancellare/sostituire <paramref name="slug"/> (proprietario o
+    /// admin) — nessun effetto collaterale, solo il 403. Condiviso da <see cref="DeleteAsync"/> e
+    /// <see cref="ReplaceAsync"/>, che lo eseguono una sola volta ciascuno prima di toccare
+    /// qualunque file o riga di database.
     /// </summary>
-    private async Task EnsureCanDeleteAsync(string slug, CancellationToken cancellationToken)
+    private async Task EnsureAuthorizedAsync(string slug, CancellationToken cancellationToken)
     {
         var session = CurrentSession();
         var ownerId = await _ownership.GetOwnerAsync(slug, cancellationToken);
@@ -92,9 +88,34 @@ public class AppBlobStore : FileBlobStore
         var isAdmin = session?.Roles.Contains("admin") ?? false;
         if (!isOwner && !isAdmin)
             throw new ForbiddenException();
+    }
 
+    /// <summary>
+    /// Marca la cancellazione sul database e cancella il file fisico — assume che l'autorizzazione
+    /// sia già stata verificata dal chiamante (<see cref="EnsureAuthorizedAsync"/>), così non deve
+    /// distinguere "non autorizzato" da "slug inesistente" per chi la chiama.
+    /// </summary>
+    /// <remarks>
+    /// Controlla prima che il file esista davvero: uno slug già cancellato (o mai esistito) non
+    /// deve produrre una nuova riga "cancellato da X alle ore Y" nel registro — sarebbe un'entrata
+    /// di audit fuorviante per un'operazione che di fatto non ha fatto nulla. Poi, solo se c'è
+    /// davvero qualcosa da cancellare: prima il commit nel database
+    /// (<see cref="BlobOwnershipRegistry.MarkDeletedAsync"/> — il vero punto di non ritorno,
+    /// l'unico dei due passi che può essere una transazione), POI la cancellazione fisica del file,
+    /// che non può esserlo. Se il processo muore fra i due passi, resta al più un file orfano (che
+    /// <see cref="CleanupOrphanedFilesAsync"/> ripulisce), mai un database che dice "presente" per
+    /// un file già sparito.
+    /// </remarks>
+    private async Task<bool> MarkDeletedAndDeleteAsync(string slug, CancellationToken cancellationToken)
+    {
+        if (!TryResolve(slug, out var path) || !File.Exists(path))
+            return false;
+
+        var session = CurrentSession();
         if (session is not null)
             await _ownership.MarkDeletedAsync(slug, session.UserId, cancellationToken);
+
+        return await base.DeleteAsync(slug, cancellationToken);
     }
 
     /// <summary>
