@@ -142,7 +142,7 @@ Stessa logica del frontend sopra: non stanno in `global-settings.json`, si impos
 
 | Chiave | Default | Descrizione |
 |---|---|---|
-| `BLOB_WEBOPT_CACHE_MAX_MB` | `500` | Cap della `MemoryCache` in-process che tiene i blob ridimensionati/riconvertiti al volo (`GET /blob/{slug}?webopt=true`) — dedicata, separata dalla `IMemoryCache` condivisa usata per i JSON di config. Superato il tetto, l'eviction è automatica (nativa di `MemoryCache`, non uno sweep a orario come `IMAGE_CACHE_MAX_MB`). Dettaglio in [backend/README.md](backend/README.md) § `BlobController` |
+| `BLOB_WEBOPT_CACHE_MAX_MB` | `500` | Cap della `MemoryCache` in-process che tiene i blob ridimensionati/riconvertiti al volo (`GET /blob/{slug}?webopt=true`) — dedicata, separata dalla `IMemoryCache` condivisa usata per i JSON di config. Superato il tetto, l'eviction è automatica (nativa di `MemoryCache`, non uno sweep a orario come `IMAGE_CACHE_MAX_MB`). Dettaglio in [backend/README.md](backend/README.md) § `EngineBlobController` |
 
 ### Font custom (opzionale)
 

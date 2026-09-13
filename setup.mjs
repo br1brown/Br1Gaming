@@ -282,7 +282,6 @@ const MINIMAL_IDENTITY_JSON = `{
     "contatti": { "telefono": "", "email": "", "pec": "" },
     "datiSocietari": { "registroImprese": "", "numeroRea": "", "codiceSdi": "" },
     "social": [],
-    "openingHours": [],
     "currency": "EUR",
     "metadatiAggiuntivi": {}
 }

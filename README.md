@@ -119,10 +119,10 @@ backend/                Web API ASP.NET Core (.NET 9)
 ├── Engine/             ⚙️  Engine: sicurezza, errori, base controller, JWT — INTOCCABILE
 ├── Controllers/        thin controller: niente logica, delega ai Services
 ├── Services/           logica di business
-├── Store/              IContentStore e implementazioni: il confine verso la persistenza
+├── Store/              IContentStore/FileBlobStore e implementazioni: il confine verso la persistenza
 ├── data/               "database" JSON localizzato (letto dal FileContentStore)
-├── db/                 mount point del volume db-data (riservato al DB futuro)
-└── uploads/            file caricati via BlobController (volume uploads-data)
+├── db/                 volume db-data: SQLite (EF Core) per la proprietà dei file caricati
+└── uploads/            file caricati via EngineBlobController (volume uploads-data)
 
 frontend/src/app/       Angular 21 (standalone, zoneless)
 ├── core/engine/        ⚙️  Engine: DSL, SSR, servizi infrastrutturali — INTOCCABILE
@@ -232,7 +232,7 @@ Due dettagli da non perdere:
 | *(Engine)* `EngineIdentityController` | `GET /identity` | **Non è demo:** l'Engine serve l'identità del sito (legale + social brand + tipo entità) da `data/identity.json`, sorgente unica di footer, pagine legali e SEO. Il figlio riempie solo il file (o sostituisce `IIdentityStore` via DI); file assente → risposta `null` |
 | `AuthController` | `POST /auth/login` | Login demo a credenziali fisse → emissione JWT con payload di sessione |
 | `ProtectedController` | `GET /ping` | Endpoint riservato: API key + JWT obbligatori |
-| `BlobController` | `GET /blob/{slug}`, `POST /blob/up` | Upload/download di file sul volume persistente (è anche uno strumento di fabbrica: il contratto sta in [backend/README.md](backend/README.md)) |
+| *(Engine)* `EngineBlobController` | `GET /blob/{slug}`, `POST /blob/up`, `DELETE /blob/{slug}` | **Non è demo:** upload/download/cancellazione di file sul volume persistente, con proprietà tracciata su SQLite (`AppBlobStore`, EF Core) — contratto in [backend/README.md](backend/README.md) |
 
 Sono segnaposto i dati demo (`backend/data/social.json`, galleria social), i testi legali di esempio (`frontend/src/assets/legal/`) e le credenziali del login: i file restano dove sono e con lo stesso nome, il figlio ci scrive dentro i propri dati. L'identità del sito (`backend/data/identity.json`) è invece la parte non-demo: legale, social del brand e tipo entità in un solo file, servito dall'Engine su `GET /identity`. I pezzi facoltativi si lasciano non valorizzati e l'Engine fa il resto: senza social il footer nasconde da sé la sezione, senza identità (`identity.json` assente → `null`) footer e blocco legale spariscono del tutto. Il blocco identità del footer è la parte legale del sito: nei figli si adatta l'estetica e si tolgono i pezzi facoltativi, cioè i social, non le informazioni legali.
 
