@@ -170,10 +170,22 @@ public class FileBlobStore
 /// inefficace qualunque override di <c>MaxUploadSizeBytes</c> oltre quella soglia. Un
 /// <c>[RequestSizeLimit]</c> non basterebbe: è fisso a compile-time, mentre il limite qui è
 /// <see langword="virtual"/> (dipende dallo store risolto da DI, che <c>AppBlobStore</c> può
-/// calcolare anche a runtime).
+/// calcolare anche a runtime). Controlla anche <c>Content-Length</c> in anticipo (se il client lo
+/// dichiara) per restituire subito un 413 nostro invece dell'errore generico del server su un
+/// upload chiaramente troppo grande.
 /// </summary>
 public sealed class DynamicUploadSizeLimitFilter : IResourceFilter
 {
+    /// <summary>
+    /// Margine oltre <see cref="FileBlobStore.MaxUploadSizeBytes"/> per il tetto del server: il
+    /// body multipart porta anche boundary/header/altri campi form, quindi è sempre un po' più
+    /// grande del solo file. Senza margine, un file esattamente al limite verrebbe rifiutato da
+    /// Kestrel/IIS (errore generico) invece di arrivare al controllo puntuale in
+    /// <see cref="Backend.Controllers.EngineBlobController.Upload"/>, che è quello che deve
+    /// davvero decidere ed eventualmente restituire un 413 strutturato/localizzato.
+    /// </summary>
+    private const long MultipartOverheadMargin = 64 * 1024;
+
     private readonly FileBlobStore _blobs;
 
     /// <summary>Inizializza il filtro con lo store da cui leggere il limite corrente.</summary>
@@ -182,9 +194,18 @@ public sealed class DynamicUploadSizeLimitFilter : IResourceFilter
     /// <summary>Applicato prima del model binding: qui il body non è ancora stato letto/bufferizzato.</summary>
     public void OnResourceExecuting(ResourceExecutingContext context)
     {
+        var limit = _blobs.MaxUploadSizeBytes;
+
+        // Il client dichiara quasi sempre Content-Length su un upload multipart "normale" (non
+        // chunked): se supera già abbondantemente il limite, meglio il nostro 413 strutturato/
+        // localizzato SUBITO — senza nemmeno iniziare a leggere il body — che aspettare che Kestrel
+        // lo tagli a metà con un errore generico dopo aver comunque trasferito parte dei byte.
+        if (context.HttpContext.Request.ContentLength is { } declaredLength && declaredLength > limit + MultipartOverheadMargin)
+            throw new PayloadTooLargeException();
+
         var feature = context.HttpContext.Features.Get<IHttpMaxRequestBodySizeFeature>();
         if (feature is not null && !feature.IsReadOnly)
-            feature.MaxRequestBodySize = _blobs.MaxUploadSizeBytes;
+            feature.MaxRequestBodySize = limit + MultipartOverheadMargin;
     }
 
     /// <inheritdoc />
