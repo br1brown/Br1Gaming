@@ -1,10 +1,12 @@
 import type { Request, Response } from 'express';
 import { join } from 'node:path';
 import sharp from 'sharp';
+import { ContestoSito } from '../../../../site';
 import { ALLOWED_WIDTHS } from '../../asset-config';
 import { cacheDir } from '../server-paths';
 import { resolveAssetPath } from '../asset-mapping';
 import { AssetHandler } from '../asset-handler';
+import { defaultBlobUrl, defaultBlobUrlRaw, fetchBackendImage } from '../backend-blob';
 import { inProgress, runImageJob } from '../image-cache';
 import { recordCacheHit, recordCacheMiss } from '../image-cache-metrics';
 import { fileExists } from '../fs-utils';
@@ -30,11 +32,25 @@ export async function cdnAssetHandler(req: Request, res: Response): Promise<void
         if (!id) { res.status(400).send('Missing id'); return; }
 
         const absolutePath = await resolveAssetPath(id);
-        if (!absolutePath) { res.status(404).send('Asset not found'); return; }
+        let sharpSource: string | Buffer | null = absolutePath;
 
-        // File non-immagine: serve diretto senza elaborazione
-        const filename = absolutePath.split(/[\\/]/).pop()!;
-        if (!AssetHandler.isSharpCompatible(filename)) { AssetHandler.serveFile(res, absolutePath); return; }
+        if (!sharpSource) {
+            // Non è una chiave di mapping.json: prova come GUID di un blob del backend (es. icona
+            // di brand dinamica). Mapping prima (fonte reale), blob come fallback.
+            const override = ContestoSito.config.resolveBlobImageUrl;
+            const path = override?.(id) ?? defaultBlobUrl(id);
+            sharpSource = await fetchBackendImage(path);
+            if (!sharpSource && !override) sharpSource = await fetchBackendImage(defaultBlobUrlRaw(id));
+        }
+        if (!sharpSource) { res.status(404).send('Asset not found'); return; }
+        const source: string | Buffer = sharpSource; // stabile da qui in poi, evita di ri-allargare a `| null` sotto
+
+        // File locale non-immagine: serve diretto senza elaborazione. Un blob del backend non ha
+        // un path fisico da servire tal quale — si tenta sempre la rasterizzazione sharp.
+        if (typeof source === 'string') {
+            const filename = source.split(/[\\/]/).pop()!;
+            if (!AssetHandler.isSharpCompatible(filename)) { AssetHandler.serveFile(res, source); return; }
+        }
 
         // Formato: AVIF se il browser lo supporta (Accept), altrimenti WebP. La risposta
         // varia in base ad Accept, quindi le cache intermedie devono distinguerla.
@@ -53,7 +69,7 @@ export async function cdnAssetHandler(req: Request, res: Response): Promise<void
         }
 
         /** Analizza i metadati dell'originale per evitare di ingrandire immagini piccole (pixel sgranati) */
-        const metadata = await sharp(absolutePath).timeout(SHARP_TIMEOUT).metadata();
+        const metadata = await sharp(source).timeout(SHARP_TIMEOUT).metadata();
         const originalWidth = metadata.width || 0;
         const finalWidth = originalWidth < requestedWidth ? originalWidth : requestedWidth;
 
@@ -75,7 +91,7 @@ export async function cdnAssetHandler(req: Request, res: Response): Promise<void
         if (!job) {
             // AVIF rende qualità equivalente a WebP con quality più bassa (file più piccoli).
             // runImageJob limita la concorrenza globale dei job sharp (CPU/RAM).
-            job = runImageJob(() => sharp(absolutePath)
+            job = runImageJob(() => sharp(source)
                 .timeout(SHARP_TIMEOUT)
                 .resize(finalWidth, null, { withoutEnlargement: true, fastShrinkOnLoad: true })
                 .toFormat(format, { quality: format === 'avif' ? 55 : 80 })

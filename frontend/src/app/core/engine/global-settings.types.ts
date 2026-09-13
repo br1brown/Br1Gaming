@@ -163,7 +163,7 @@ export interface GlobalSettings {
     WebhookUrl?: string;
   };
   /**
-   * Identità ed estetica del sito (committabile, del progetto). Iniettata nel frontend al build via environment.ts. I flag di comportamento (showNav, showFooter, showPanel, fixedTopHeader, showBrandIconInHeader, showLoginInHeader, showNotifications, panelForcedLight, isWebApp, onlyPlainImage) sono struttura e vivono in site.ts (`shell` / `isWebApp` / `onlyPlainImage`), insieme a pagine e loginPage; il menu di header/footer è dato risolto a runtime in nav.ts.
+   * Identità ed estetica del sito (committabile, del progetto). Iniettata nel frontend al build via environment.ts. I flag di comportamento (showNav, showFooter, showPanel, fixedTopHeader, showLoginInHeader, showNotifications, panelForcedLight, isWebApp, onlyPlainImage) sono struttura e vivono in site.ts (`shell` / `isWebApp` / `onlyPlainImage`), insieme a pagine e loginPage; il menu di header/footer e l'icona di brand sono dato risolto a runtime in nav.ts.
    */
   site?: {
     /**

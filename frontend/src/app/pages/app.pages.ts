@@ -29,7 +29,7 @@ export const appPagesDecl: SitePageInput[] = [
         title: '',
         pageType: AppPages.Home,
         description: 'homeHeroDesc',
-        otherSEO: { ogImage: 'img4k' },
+        otherSEO: { ogImage: { id: 'img4k' } },
         component: () => import('./home/home.component').then(m => m.HomeComponent),
     },
     {
@@ -40,7 +40,7 @@ export const appPagesDecl: SitePageInput[] = [
         title: 'cheFaccioNav',
         pageType: AppPages.CheFaccio,
         description: 'homeDesc',
-        otherSEO: { ogImage: 'img4k' },
+        otherSEO: { ogImage: { id: 'img4k' } },
         component: () => import('./che-faccio/che-faccio.component').then(m => m.CheFaccioComponent),
     },
     {

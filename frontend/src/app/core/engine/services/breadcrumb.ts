@@ -60,7 +60,7 @@ export class BreadcrumbService {
         if (ancestors.length === 0 && info.path) {
             const targetStr = resolvePagePath(info.path, ctx.lang, this.translate.defaultLang);
             if (targetStr && targetStr.includes('/')) {
-                const segments = targetStr.split('/');
+                const segments = targetStr.split('/').filter(Boolean);
                 let currentPrefix = '';
                 for (let i = 0; i < segments.length - 1; i++) {
                     currentPrefix = currentPrefix ? `${currentPrefix}/${segments[i]}` : segments[i];

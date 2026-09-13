@@ -100,8 +100,6 @@ export interface SiteConfig {
     showBreadcrumb: boolean;
     /** Fissa la navbar in alto allo scroll. */
     fixedTopHeader?: boolean;
-    /** Mostra l'icona (favIcon) accanto al nome dell'app nella navbar. */
-    showBrandIconInHeader: boolean;
     /** Mostra il pulsante di login nella navbar. */
     showLoginInHeader: boolean;
     /** Mostra il campanellino delle notifiche realtime. Default: false. */
@@ -126,6 +124,10 @@ export interface SiteConfig {
     dynamicSitemapCache: boolean;
     /** Override del calcolo breadcrumb per-PageType. */
     resolveBreadcrumb?: (pageType: PageType, ctx: BreadcrumbContext) => BreadcrumbItem[] | null;
+    /** Percorso backend per un'immagine blob dinamica dato il GUID (og:image, icona di brand...).
+     *  Default: convenzione `BlobController` (`blob/{guid}?webopt=true`) — un endpoint blob
+     *  diverso nel progetto figlio sovrascrive solo questo hook. */
+    resolveBlobImageUrl?: (guid: string) => string;
 }
 
 // ======================================================
@@ -164,6 +166,10 @@ export type ParentPageInput = BasePageInput & {
     renderMode?: never;
 };
 
+/** Immagine di anteprima social: `id` = asset statico (mapping.json); `blobGuid` = immagine
+ *  caricata nel backend, risolta a runtime. Entrambi valorizzati → vince `blobGuid`. */
+export type OgImageRef = { id?: string; blobGuid?: string };
+
 /** Pagina interna con componente lazy e rotta Angular. */
 export type LeafPageInput = BasePageInput & {
     kind?: 'leaf';
@@ -196,8 +202,9 @@ export type LeafPageInput = BasePageInput & {
     description?: string;
     /** Metadati SEO/social per la pagina. */
     otherSEO?: {
-        /** Immagine di anteprima (asset ID, false per disabilitare, o undefined per preview dinamica). */
-        ogImage?: string | false;
+        /** Immagine di anteprima (vedi {@link OgImageRef}). `false` disabilita l'immagine,
+         *  `undefined` genera una preview solo testuale. */
+        ogImage?: OgImageRef | false;
         /** Tipo Open Graph (default 'website'). */
         ogType?: string;
         /** Dati strutturati (JSON-LD) per la pagina. */
@@ -260,7 +267,7 @@ export type LeafPage = Omit<LeafPageInput, 'kind' | 'layout' | 'otherSEO'> & {
     /** Levette di shell raggruppate, lette dal root via `route.data[SHELL_DATA_KEY]`. */
     shell: ShellFlags;
     pageFade?: boolean;
-    ogImage?: string | false;
+    ogImage?: OgImageRef | false;
     ogType?: string;
     structuredData?: StructuredDataInput;
     noindex?: boolean;
@@ -460,7 +467,10 @@ export type SitePageContext = {
     readonly showLoginInHeader: boolean;
 };
 
-/** Comportamento della shell (navbar/footer/header/pannello contenuti). */
+/** Comportamento della shell (navbar/footer/header/pannello contenuti).
+ *  L'icona di brand in navbar non è più qui: è dato risolvibile a runtime (può dipendere da
+ *  un'API, cambiare per pagina...), non struttura fissa del sito — vedi
+ *  `ShellNavResolver.brandIcon` in `shell-nav.ts`, risolto insieme a header/footer. */
 export interface SiteShellConfig {
     /** Mostra la navbar. Default: true. */
     showNav?: boolean;
@@ -472,8 +482,6 @@ export interface SiteShellConfig {
     showBreadcrumb?: boolean;
     /** Fissa la navbar in alto allo scroll. Default: false. */
     fixedTopHeader?: boolean;
-    /** Mostra la favicon accanto al nome nella navbar. Default: true. */
-    showBrandIconInHeader?: boolean;
     /** Mostra il campanellino delle notifiche realtime. Default: false. */
     showNotifications?: boolean;
     /** Pannello contenuti sempre chiaro. Default: true. */
@@ -510,6 +518,8 @@ export interface SiteDefinition {
     resolveBreadcrumb?: (pageType: PageType, ctx: BreadcrumbContext) => BreadcrumbItem[] | null;
     /** Anteprime social con sola immagine senza scritte/favicon sovrapposte. */
     onlyPlainImage?: boolean;
+    /** Override del percorso backend per un'immagine blob dinamica (og:image). Vedi {@link SiteConfig.resolveBlobImageUrl}. */
+    resolveBlobImageUrl?: (guid: string) => string;
     /** Esposizione dati di `identity` nel JSON-LD del brand. */
     jsonld?: JsonLdContactExposure;
     /** Factory dell'albero pagine. */
@@ -537,8 +547,8 @@ export type PageInfo = {
     isExternal: boolean;
     /** Descrizione SEO (chiave i18n o testo statico). */
     description?: string;
-    /** ID asset immagine di anteprima, o false. */
-    ogImage?: string | false;
+    /** Immagine di anteprima (vedi {@link OgImageRef}), o false per disabilitarla. */
+    ogImage?: OgImageRef | false;
     /** Tipo Open Graph della pagina. */
     ogType?: string;
     /** Dati strutturati statici (JSON-LD). */
@@ -686,7 +696,6 @@ function buildFinalConfig(definition: SiteDefinition): SiteConfig {
         showPanel: shell.showPanel ?? true,
         showBreadcrumb: shell.showBreadcrumb ?? false,
         fixedTopHeader: shell.fixedTopHeader ?? false,
-        showBrandIconInHeader: shell.showBrandIconInHeader ?? true,
         showLoginInHeader: login.showInHeader,
         showNotifications: shell.showNotifications ?? false,
         isWebApp: definition.isWebApp ?? false,
@@ -700,6 +709,7 @@ function buildFinalConfig(definition: SiteDefinition): SiteConfig {
         },
         dynamicSitemapCache: definition.dynamicSitemapCache ?? true,
         resolveBreadcrumb: definition.resolveBreadcrumb,
+        resolveBlobImageUrl: definition.resolveBlobImageUrl,
         panelForcedLight: shell.panelForcedLight ?? true,
         pageFade: shell.pageFade ?? true,
         smoke: { ...DEFAULT_SMOKE, ...(cfg.smoke ?? {}) },

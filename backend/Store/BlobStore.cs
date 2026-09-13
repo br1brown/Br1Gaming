@@ -37,7 +37,21 @@ public class BlobStore
         "image/jpeg", "image/png", "image/webp", "image/bmp", "image/avif"
     };
 
-    private static readonly FileExtensionContentTypeProvider _contentTypeProvider = new();
+    private static readonly FileExtensionContentTypeProvider _contentTypeProvider = CreateContentTypeProvider();
+
+    /// <summary>
+    /// <see cref="FileExtensionContentTypeProvider"/> non conosce ".avif" di default (a differenza
+    /// di ".webp"): senza questa mappatura <see cref="GetInfo"/> lo classificherebbe
+    /// "application/octet-stream" e <c>IsImage</c> risulterebbe <c>false</c>, anche se
+    /// <see cref="_imageContentTypes"/> lo include esplicitamente — il file finirebbe sempre
+    /// forzato al download (e mai idoneo al resize <c>webopt</c>) invece che servito inline.
+    /// </summary>
+    private static FileExtensionContentTypeProvider CreateContentTypeProvider()
+    {
+        var provider = new FileExtensionContentTypeProvider();
+        provider.Mappings[".avif"] = "image/avif";
+        return provider;
+    }
 
     // Trailing separator: senza, "/app/uploads-public/x" supererebbe il check StartsWith("/app/uploads").
     private readonly string _uploadsPath;

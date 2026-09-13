@@ -270,4 +270,8 @@ export interface ShellNavContext {
 export interface ShellNavResolver {
     header?: (nav: NavSectionBuilder, ctx: ShellNavContext) => void | Promise<void>;
     footer?: (nav: NavSectionBuilder, ctx: ShellNavContext) => void | Promise<void>;
+    /** Icona del brand in navbar, risolvibile a runtime come `header`/`footer`: `false` la
+     *  nasconde, assente/`true` usa `favIcon` di default, una stringa è una chiave di
+     *  `mapping.json` o il GUID di un blob (stessa risoluzione "mapping poi blob" di `cdn-asset.ts`). */
+    brandIcon?: (ctx: ShellNavContext) => boolean | string | Promise<boolean | string>;
 }

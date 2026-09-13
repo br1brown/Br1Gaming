@@ -1433,7 +1433,6 @@ shell: {                           // comportamento di navbar / footer / header 
     showFooter: true,              // mostra il footer
     showPanel: true,               // mostra il pannello contenuti (gate: col globale off nessuna pagina può riattivarlo)
     fixedTopHeader: false,         // navbar fissa in alto allo scroll
-    showBrandIconInHeader: true,   // favicon accanto al nome nel brand
     showNotifications: false,      // campanellino notifiche realtime con storico (default false, opt-in)
     panelForcedLight: true,        // pannello contenuti sempre chiaro, a prescindere dal tema OS
     pageFade: true,                // fade-in d'ingresso pagina (gate: col globale off nessuna pagina può riattivarlo)
@@ -1557,6 +1556,16 @@ header: (h) => {
 
 Volutamente binario (loggato/sloggato, via `TokenService.isLoggedIn()`), non un sistema di ruoli: la navbar è pensata per restare generica, un progetto che ha bisogno di granularità per-ruolo filtra a monte (nel proprio resolver di `nav.ts`, prima che la voce venga costruita, oppure componendo il menu in base a `session<T>()`), non nell'Engine.
 
+Icona di brand nella navbar (`brandIcon`): terzo campo opzionale di `ShellNavResolver`, sincrono o `async` come `header`/`footer`, risolto una volta sola insieme a loro. Restituisce `true`/omesso (il `favIcon` di sempre), `false` (nessuna icona), o una stringa — stesso valore che passeresti ad `[appAsset]` (chiave di `mapping.json` o slug di un blob) per un'icona diversa dal favicon nel solo header. Sostituisce il vecchio flag statico `showBrandIconInHeader`: essendo dato risolto a runtime può dipendere da una API, non solo da un booleano fisso in `site.ts`.
+
+```typescript
+// nav.ts
+export const navResolver: ShellNavResolver = {
+    header: (nav) => { /* … */ },
+    brandIcon: () => 'a1b2c3d4.png', // slug di un blob caricato, o (ctx) => …, se dipende dal contesto
+};
+```
+
 ### Pagine legali (`legalPages`)
 
 `legalPages` è un array: un elemento per pagina legale, tutti con lo stesso trattamento (rotta sotto `/policy/`, `PolicyComponent`, Markdown localizzato, riga nella fascia legale del footer). Non c'è distinzione fra "pagine di sistema" e pagine di progetto — nemmeno la Cookie Policy è un caso a parte qui: lo è solo `cookiePolicy`, un riferimento separato (vedi sotto).
@@ -1664,7 +1673,7 @@ site.homePage;    // PageType del brand (o null)
 site.loginPage;   // PageType di redirect non-auth (o null)
 
 // Flag di shell appiattiti al top-level di SiteConfig (boolean; significato di ciascuno nel
-// blocco `shell` sopra): showNav, showFooter, showPanel, fixedTopHeader, showBrandIconInHeader,
+// blocco `shell` sopra): showNav, showFooter, showPanel, fixedTopHeader,
 // showLoginInHeader, showNotifications, panelForcedLight, pageFade
 site.showNav;     // es. lettura di un singolo flag
 ```

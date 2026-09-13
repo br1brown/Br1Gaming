@@ -106,9 +106,10 @@ const CONFIG_FINGERPRINT = fingerprintIdentitySections(_settings);
 const _fileLoc = _settings.Localization ?? {};
 const _fileProject = _settings.project ?? {};
 // Config di sito: solo identità/estetica finisce in environment.ts. I flag di
-// COMPORTAMENTO (showNav/showFooter/showPanel/fixedTopHeader/showBrandIconInHeader/
+// COMPORTAMENTO (showNav/showFooter/showPanel/fixedTopHeader/
 // showLoginInHeader/showNotifications/panelForcedLight/isWebApp/onlyPlainImage) sono migrati in site.ts,
-// quindi vengono filtrati via qui anche se un vecchio JSON li contiene ancora.
+// quindi vengono filtrati via qui anche se un vecchio JSON li contiene ancora. L'icona di brand non
+// è più tra questi: è dato runtime risolto da ShellNavResolver.brandIcon in nav.ts (shell-nav.ts).
 const SITE_CONFIG = _settings.site ?? {};
 const SITE_AESTHETIC_KEYS = ['description', 'colorTema', 'colorSecondary', 'colorBackground', 'colorText', 'colorInfo', 'smoke'];
 
