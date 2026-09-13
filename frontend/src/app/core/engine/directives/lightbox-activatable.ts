@@ -36,6 +36,15 @@ export abstract class LightboxActivatable {
         return this.lightboxEnabled() ? 'button' : null;
     }
 
+    /** `role="button"` fa calcolare il nome accessibile con l'algoritmo generico (contenuto/
+     *  aria-label/aria-labelledby), non più quello specifico di `<img>` — `alt` da solo smette di
+     *  contare, anche se il DOM lo porta ancora. Specchiarlo qui è l'unico modo per non perdere il
+     *  nome accessibile quando l'affordance è attiva (rilevato da pa11y, WCAG2AA.4_1_2/H91.Img.Name). */
+    @HostBinding('attr.aria-label')
+    protected get lightboxAriaLabel(): string | null {
+        return this.lightboxEnabled() ? this.hostEl.getAttribute('alt') : null;
+    }
+
     @HostListener('click', ['$event'])
     @HostListener('keydown.enter', ['$event'])
     @HostListener('keydown.space', ['$event'])
