@@ -102,6 +102,11 @@ code {
     cursor: context-menu;
 }
 
+/* Indica che l'immagine è ingrandibile (AssetDirective con [appAssetLightbox]). */
+.cursor-zoom-in {
+    cursor: zoom-in;
+}
+
 /* Alone che pulsa, per bottoni toggle mentre l'azione è in corso (es. lettura vocale attiva):
    un'onda che si propaga verso l'esterno finché resta attivo, poi si ferma. Colore brand fisso
    (come il badge delle notifiche) perché qui serve richiamare l'attenzione, non solo eleganza —

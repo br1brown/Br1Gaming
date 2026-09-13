@@ -18,6 +18,7 @@ import { ContextMenuDirective } from '../../core/engine/directives/context-menu.
 import { QrRenderDirective } from '../../core/engine/directives/qr-render.directive';
 import { ImgRenderDirective, ImgRenderConfig } from '../../core/engine/directives/img-render.directive';
 import { AssetDirective } from '../../core/engine/directives/asset.directive';
+import { LightboxDirective } from '../../core/engine/directives/lightbox.directive';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { ContestoSito } from '../../site';
 import { ALLOWED_WIDTHS, type AssetWidth } from '../../core/engine/asset-config';
@@ -48,6 +49,7 @@ import { UploadFormComponent } from '../../core/engine/components/upload-form/up
         QrRenderDirective,
         ImgRenderDirective,
         AssetDirective,
+        LightboxDirective,
         CopyActionComponent,
         SpeechActionComponent,
         DownloadActionComponent,
@@ -71,6 +73,8 @@ export class CheFaccioComponent extends PageBaseComponent<void> {
 
     /** Canvas raw emesso dalla [appImgRender] directive: serve a download/share. */
     readonly imgCanvas = signal<HTMLCanvasElement | null>(null);
+    /** Stesso canvas, come Blob: [appLightbox] vuole un Blob, non un canvas. */
+    readonly imgBlob = signal<Blob | null>(null);
 
     constructor() {
         super();
@@ -78,6 +82,11 @@ export class CheFaccioComponent extends PageBaseComponent<void> {
             // Reagisce al cambio lingua
             this.translate.currentLang();
             this.demoActionText.set(this.translate.translate('actionDemoText'));
+        });
+        effect(() => {
+            const canvas = this.imgCanvas();
+            if (!canvas) { this.imgBlob.set(null); return; }
+            canvas.toBlob(blob => this.imgBlob.set(blob), 'image/png');
         });
     }
 
@@ -336,6 +345,10 @@ await this.loadData(
 <!-- URL da TypeScript -->
 asset.getUrl('nomeAsset', 480)
 // → /assets/.../nomeAsset_480.webp
+
+<!-- Lightbox: click/Invio apre l'immagine a
+     tutto schermo (CDK Overlay), solo su <img> -->
+<img [appAsset]="'nomeAsset'" [appAssetLightbox]="true">
 
 <!-- Href per link/download -->
 <a [appAssetHref]="'documento'">

@@ -253,6 +253,9 @@ otherSEO: { structuredData: { kind: 'faq', questions: [{ question: 'Come?', answ
 // inject(Router) e leggi router.getCurrentNavigation()?.finalUrl ?? router.parseUrl(router.url).
 ```
 
+#### Overlay/modali custom (mai `position: fixed` a mano)
+Un pannello fixed con z-index alto dentro un componente finisce comunque dentro lo stacking context di `main#main-content` (z-index: 1 apposta per stare sopra sfondo/effetti) e può ritrovarsi sotto la navbar o i suoi dropdown. Passa sempre da CDK Overlay (già importato, monta in `.cdk-overlay-container`, `z-index: var(--z-cdk-overlay)` in `_a11y.scss`) — vedi `ContextMenuDirective`/`ImageLightboxService` come riferimento.
+
 ## Ricette — backend
 
 #### Aggiungere un endpoint

@@ -169,6 +169,7 @@
                                          [appContextMenu]="imgContextMenuOptions()">
                                         <img [appImgRender]="imgConfig()"
                                              (canvasChange)="imgCanvas.set($event)"
+                                             [appLightbox]="imgBlob()"
                                              class="img-fluid rounded border d-block h-auto cursor-context-menu"
                                              [attr.alt]="translate.translate('imgBuilderTitle') + ': ' + (imgText || 'Hello World')">
                                     </div>
@@ -593,6 +594,7 @@
                                 </p>
                                 <img [appAsset]="id"
                                      [appAssetWidth]="assetResizeWidth() ?? undefined"
+                                     [appAssetLightbox]="true"
                                      [alt]="translate.translate('assetPreviewAlt')"
                                      class="img-fluid rounded border"
                                      style="max-height: 90px;">

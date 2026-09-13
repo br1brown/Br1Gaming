@@ -826,6 +826,18 @@ Non solo `<img>` e `<a>`: `appAsset` accetta tutti i tag con `src` (`img`, `vide
 
 > Sorgente: `appAsset` / `appAssetHref` lavorano con gli asset gestiti da `AssetService` (id in `mapping.json`). Per un file caricato a runtime usa il binding diretto sullo slug: `[src]="api.getBlobUrl(slug)"` / `[href]="api.getBlobUrl(slug)"`.
 
+Lightbox su `<img appAsset>`: `[appAssetLightbox]="true"` apre l'immagine ingrandita in un overlay (CDK Overlay, dialog ARIA-compliant, chiusura su Escape/backdrop/focus-trap) invece di navigarci sopra o aprirla in un'altra tab.
+
+```html
+<img appAsset="galleria-1" appAssetWidth="640" [appAssetLightbox]="true" alt="...">
+```
+
+Per un'immagine non gestita da `AssetService` (es. un `Blob` locale, canvas/anteprima) usa `LightboxDirective` (`[appLightbox]`) direttamente: l'opt-in è la presenza stessa del `Blob`, niente flag booleano separato.
+
+```html
+<img [src]="anteprimaUrl()" [appLightbox]="anteprimaBlob()" alt="Anteprima">
+```
+
 ### Vista a tutto schermo: `layout.fitViewport`
 
 Per pagine/viste a tutto schermo (mappe, giochi, dashboard) dove lo scroll spezzerebbe l'esperienza. È un flag dichiarativo per-pagina in `site.ts` (non una direttiva sul template). Tu lo dichiari, lo gestisce l'Engine: il builder (`normalizeSitePage`) risolve la coerenza dei flag di layout, lo shell rende il `<main>` full-bleed (senza container/padding/pannello) e una regola CSS (`.fit-viewport`) fa riempire al contenuto lo spazio che resta sotto la navbar, senza scroll di pagina se il contenuto ci sta.

@@ -1,6 +1,8 @@
-import { computed, Directive, ElementRef, inject, input } from '@angular/core';
+import { computed, Directive, inject, input } from '@angular/core';
 import { AssetService } from '../services/asset.service';
 import { ALLOWED_WIDTHS, type AssetWidth } from '../asset-config';
+import { LightboxActivatable } from './lightbox-activatable';
+import type { LightboxSource } from '../components/image-lightbox/image-lightbox-overlay.component';
 
 /**
  * ASSET DIRECTIVE
@@ -11,6 +13,8 @@ import { ALLOWED_WIDTHS, type AssetWidth } from '../asset-config';
  * - Fissa: `<img appAsset="thumb" [appAssetWidth]="320">`
  * - Responsive: `<img appAsset="hero" appAssetSizes="100vw">` (genera `srcset` automatico)
  * - LCP Priority: Aggiungere `[appAssetPriority]="true"` per fetchpriority=high e loading=eager.
+ * - Lightbox: `<img appAsset="foto" [appAssetLightbox]="true">` apre l'immagine a tutto schermo
+ *   (CDK Overlay) al click/Invio/Spazio. Solo su <img>, opt-in esplicito (default disattivato).
  *
  * Ottimizzazioni automatiche (solo su `<img>`):
  * - `decoding="async"`
@@ -31,10 +35,10 @@ import { ALLOWED_WIDTHS, type AssetWidth } from '../asset-config';
         '[attr.fetchpriority]': 'fetchPriority()',
     },
 })
-export class AssetDirective {
+export class AssetDirective extends LightboxActivatable {
     private readonly asset = inject(AssetService);
-    /** L'host è un <img>? Solo lì hanno senso srcset/sizes/decoding/loading/fetchpriority. */
-    private readonly isImg = (inject(ElementRef).nativeElement as HTMLElement).tagName === 'IMG';
+    /** L'host è un <img>? Solo lì hanno senso srcset/sizes/decoding/loading/fetchpriority/lightbox. */
+    private readonly isImg = this.hostEl.tagName === 'IMG';
 
     readonly appAsset = input.required<string>();
     readonly appAssetWidth = input<AssetWidth>();
@@ -43,6 +47,17 @@ export class AssetDirective {
     readonly appAssetSizes = input<string>();
     /** `true` per l'immagine LCP above-the-fold: `loading=eager` + `fetchpriority=high`. Default: pigra. */
     readonly appAssetPriority = input(false);
+    /** `true` apre un lightbox fullscreen (CDK Overlay) al click/Invio/Spazio. Solo su <img>,
+     *  default disattivato: opt-in esplicito, non un comportamento implicito di ogni immagine. */
+    readonly appAssetLightbox = input(false);
+
+    protected lightboxEnabled(): boolean {
+        return this.isImg && this.appAssetLightbox();
+    }
+
+    protected lightboxSource(): LightboxSource | null {
+        return { assetId: this.appAsset() };
+    }
 
     protected readonly src = computed(() => this.asset.getUrl(this.appAsset(), this.appAssetWidth()));
 
