@@ -1,6 +1,49 @@
 # Changelog
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
+
+### Storage blob: da implementazione di Dominio a `FileBlobStore`/`EngineBlobController` dell'Engine, con proprietà tracciata (EF Core/SQLite)
+
+Il vecchio `BlobStore`/`BlobController` viveva nel Dominio (`Store/`, `Controllers/`), un file di progetto che ogni figlio possedeva e modificava direttamente — ma lo storage binario è I/O generico con un'unica implementazione plausibile, non una forma specifica di progetto come `IContentStore`: teneva il figlio a carico di un pezzo che non doveva scegliere, e senza nessun controllo su CHI potesse cancellare cosa.
+
+- Nuovo `FileBlobStore` (Engine, `Engine/Blob/Blob.cs`): classe concreta (non interfaccia, YAGNI — un'interfaccia sarebbe cerimonia senza un secondo storage reale all'orizzonte), metodi `virtual`: `SaveAsync`/`GetInfoAsync`/`OpenReadAsync`/`DeleteAsync`/`ReplaceAsync`, più `MaxUploadSizeBytes` (proprietà, non config: un progetto può cambiare il numero o l'intera logica di calcolo — per ruolo utente, piano dell'account...). `EngineBlobController` (Engine, `sealed`) espone `GET`/`POST up`/`DELETE {slug}` su `/blob`: nessun controller di dominio da scrivere, nessuna sottoclasse per servire altri binari.
+- `Store/AppBlobStore.cs` (di progetto, come `AppIdentityStore.cs`) estende `FileBlobStore`: passthrough di base su tutto, override mirati dove serve. Aggiunge il controllo di proprietà sulla `DELETE`/sostituzione: solo chi ha caricato lo slug (o un utente con ruolo `admin`) può cancellarlo, tracciato da nuovo `BlobOwnershipRegistry` su nuovo `AppDbContext` — EF Core, SQLite (`db/app.db`, cartella separata da `uploads/` apposta). Uno slug senza proprietario registrato (caricato prima che il registro esistesse) non blocca nessuno, permissivo di default.
+- "Modifica" = `ReplaceAsync` (salva il nuovo, poi cancella il vecchio): lo slug resta immutabile per non rompere `Cache-Control: immutable` sulla `GET`. Cancellazione in due passi separati (autorizzazione senza effetti collaterali, poi commit database e SOLO SE il file esiste davvero cancellazione fisica) — mai una riga "cancellato" per un'operazione che di fatto non ha fatto nulla, mai il file sparito prima che il database lo sappia. Un file orfano dopo un crash fra i due passi viene ripulito da `AppBlobStore.CleanupOrphanedFilesAsync()`, uno sweep all'avvio.
+- `MaxUploadSizeBytes` essendo ora runtime (non più un `[RequestSizeLimit]` fisso a compile-time) da solo non basta: il tetto di default del server (Kestrel/IIS, ~28-30 MB) rifiuterebbe comunque la request con un errore generico prima che il controllo puntuale scatti. Nuovo `DynamicUploadSizeLimitFilter` alza il tetto del server al valore corrente prima del model binding (con un margine per l'overhead multipart) e, se il client dichiara già un `Content-Length` chiaramente eccessivo, risponde subito con un 413 strutturato/localizzato senza nemmeno iniziare a leggere il body.
+- **Breaking per ogni figlio che aveva esteso `Store/BlobStore.cs`/`Controllers/BlobController.cs`:** entrambi i file sono rimossi. Migrazione: sposta le tue validazioni/override in `Store/AppBlobStore.cs` (già presente, stesso pattern di `AppIdentityStore.cs`); se sovrascrivevi solo il limite di dimensione via `[RequestSizeLimit]`, sovrascrivi ora `MaxUploadSizeBytes`.
+- Verificato: `dotnet build` backend pulito (0 warning, 0 errori). Dal vivo con curl contro un'istanza reale: upload/get/delete/replace nel percorso normale; ownership negata per un non-proprietario (JWT forgiato per un utente inesistente, nessun secondo account demo disponibile) e concessa per un admin; upload a 35/50/60 MB per verificare il margine sul tetto del server e il 413 anticipato; sweep degli orfani su un caso simulato, un file davvero non tracciato (sopravvive) e una cancellazione normale (non lascia nulla).
+
+### Lightbox per immagini (CDK Overlay, WAI-ARIA)
+
+Un'immagine a piena risoluzione non aveva modo di aprirsi ingrandita se non navigandoci sopra o aprendola in un'altra scheda.
+
+- `ImageLightboxService` (Engine, CDK Overlay: backdrop, scroll block, chiusura su Escape/backdrop-click, focus trap e ripristino) apribile da due punti: `[appAssetLightbox]="true"` su `AssetDirective` (per un `[appAsset]` risolto da `AssetService`) e `[appLightbox]="miaBlob()"` su nuova `LightboxDirective` (per un `Blob` locale, es. un canvas — l'opt-in è la presenza stessa del `Blob`, niente flag separato). Entrambe condividono l'attivazione (cursore/tabindex/role/tastiera) via nuova `LightboxActivatable`, così un fix di accessibilità su una vale anche per l'altra.
+- `role="button"` sull'`<img>` (necessario per l'attivazione da tastiera) fa calcolare il nome accessibile con l'algoritmo generico invece di quello specifico di `<img>`: `alt` da solo smette di contare. `LightboxActivatable` specchia `alt` su `aria-label` quando l'affordance è attiva — trovato da un fallimento CI reale (pa11y, WCAG2AA.4_1_2/H91.Img.Name) dopo il merge iniziale, non in review.
+- Verificato: build di produzione frontend (type-check incluso); dal vivo in browser su entrambi i punti di attivazione (apre, Escape chiude, focus torna); pa11y in locale sulla stessa pagina che aveva fallito in CI — riprodotto l'errore rimuovendo temporaneamente l'`aria-label` (stesso identico messaggio), confermato sparito col fix.
+
+### Icona di brand in navbar e `og:image`/`twitter:image` da un blob dinamico
+
+Il flag statico `showBrandIconInHeader` (booleano fisso in `site.ts`, build-time) non lasciava spazio per un'icona diversa dal favicon calcolata a runtime, né per un'immagine di anteprima social diversa da un asset compilato nel bundle — utile per un contenuto dinamico (un articolo, un progetto) che porta la propria immagine senza che nulla vada registrato a build time.
+
+- `showBrandIconInHeader` **rimosso**, sostituito da `ShellNavResolver.brandIcon` (nuovo campo opzionale, risolto a runtime insieme a `header`/`footer`): `true`/assente → `favIcon` di sempre, `false` → nessuna icona, una stringa → chiave `mapping.json` o GUID di un blob, stessa risoluzione "mapping poi blob" già usata da `cdn-asset.ts`.
+- Nuovo `OgImageRef` (`{ id?, blobGuid? }`) per `og:image`/`twitter:image`: `id` resta un asset statico, `blobGuid` risolve a runtime da `og-preview.ts` via `GET blob/{guid}`. Nuovo hook `SiteConfig.resolveBlobImageUrl` (default: convenzione `blob/{guid}?webopt=true`) — un figlio con un endpoint blob diverso sovrascrive solo questo, l'Engine non assume mai la forma dell'URL.
+- **Breaking per ogni figlio con `showBrandIconInHeader` in `site.ts`:** al merge, la proprietà non esiste più. Migrazione: se serve un'icona diversa dal favicon, dichiara `brandIcon` in `nav.ts`; se bastava il comportamento di sempre, basta rimuovere la riga.
+- Verificato: build di produzione frontend (type-check incluso).
+
+### `OpeningHours`: sempre da codice, mai nello schema di `identity.json`
+
+Orari operativi cambiano per motivi stagionali/di festività più spesso di quanto sia ragionevole legarli a un deploy — restava comunque un campo dello schema, valorizzabile a mano nel file.
+
+- `openingHours` rimosso da `identity.schema.json` (e dal file demo `identity.json`, che lo aveva ancora popolato — violava lo schema aggiornato). Resta un campo di `SiteIdentity` in C#: si valorizza sempre via `AppIdentityStore.ComposeIdentityAsync` (già il punto documentato per comporre l'identità da fonti diverse dal file).
+- Verificato: `dotnet build` backend pulito; JSON di schema e dati validati.
+
+### `ExternalPageInput.requiresAuth` tipizzato a `never`
+
+Il campo compilava su una pagina esterna ma non aveva alcun effetto: un link esterno non passa da `routing.ts` (nessun `canActivate` da applicare).
+
+- `requiresAuth?: never` su `ExternalPageInput`: errore a compile-time invece di un flag silenziosamente ignorato. Per nascondere la voce a chi non è loggato resta `authOnly` su `addLink`.
+- Verificato: `tsc --noEmit` pulito.
+
 ### `llms.txt`: da file generato al build a endpoint runtime, con pagine dinamiche (`dynamicParams`)
 
 Come `sitemap.xml`, `llms.txt` generato a build time perdeva del tutto le pagine parametriche (i cataloghi dinamici) perché non enumerabili al build. È stato quindi promosso da asset statico a rotta dinamica.
