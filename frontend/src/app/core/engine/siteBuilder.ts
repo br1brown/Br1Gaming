@@ -231,6 +231,9 @@ export type ExternalPageInput = Omit<BasePageInput, 'path'> & {
     children?: never;
     layout?: never;
     renderMode?: never;
+    /** Un link esterno non passa da `routing.ts` (nessun `canActivate`): "richiedi login" non ha
+     *  un effetto da applicare. Per nasconderlo a chi non è loggato usa `authOnly` su `addLink`. */
+    requiresAuth?: never;
 };
 
 /**
