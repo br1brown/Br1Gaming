@@ -1568,7 +1568,7 @@ header: (h) => {
 
 Volutamente binario (loggato/sloggato, via `TokenService.isLoggedIn()`), non un sistema di ruoli: la navbar è pensata per restare generica, un progetto che ha bisogno di granularità per-ruolo filtra a monte (nel proprio resolver di `nav.ts`, prima che la voce venga costruita, oppure componendo il menu in base a `session<T>()`), non nell'Engine.
 
-Icona di brand nella navbar (`brandIcon`): terzo campo opzionale di `ShellNavResolver`, sincrono o `async` come `header`/`footer`, risolto una volta sola insieme a loro. Restituisce `true`/omesso (il `favIcon` di sempre), `false` (nessuna icona), o una stringa — stesso valore che passeresti ad `[appAsset]` (chiave di `mapping.json` o slug di un blob) per un'icona diversa dal favicon nel solo header. Sostituisce il vecchio flag statico `showBrandIconInHeader`: essendo dato risolto a runtime può dipendere da una API, non solo da un booleano fisso in `site.ts`.
+Icona di brand nella navbar (`brandIcon`): terzo campo opzionale di `ShellNavResolver`, sincrono o `async` come `header`/`footer`, risolto una volta sola insieme a loro. Restituisce `true`/omesso (il `favIcon` di sempre), `false` (nessuna icona), o una stringa — stesso valore che passeresti ad `[appAsset]` (chiave di `mapping.json` o slug di un blob) per un'icona diversa dal favicon nel solo header. Dato risolto a runtime, può quindi dipendere da una API invece che da un booleano fisso in `site.ts`.
 
 ```typescript
 // nav.ts

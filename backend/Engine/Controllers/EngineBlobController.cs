@@ -9,7 +9,7 @@ using Backend.Security;
 namespace Backend.Controllers;
 
 /// <summary>
-/// Espone i file caricati (<see cref="FileBlobStore"/>): <c>GET/POST up/DELETE blob/{slug}</c>.
+/// Espone i file caricati (<see cref="FileBlobStore"/>): <c>GET/POST up/PUT/DELETE blob/{slug}</c>.
 /// Qui vive tutto ciò che è HTTP/generico (verbo, ETag, resize on-demand, difesa XSS, limite di
 /// dimensione) — nessun controller di dominio, nessuna sottoclasse: l'unico punto di contatto
 /// col dominio è <see cref="FileBlobStore"/>, sostituibile senza toccare questa classe.
@@ -138,6 +138,30 @@ public sealed class EngineBlobController : EngineApiController
 
         Logger.LogInformation("Blob caricato: {Slug}", slug);
         return Ok(new { slug });
+    }
+
+    /// <summary>
+    /// Sostituisce il contenuto dello <c>slug</c> e restituisce il NUOVO slug univoco. Lo slug
+    /// originale resta immutabile (invariato il presupposto dietro <c>Cache-Control: immutable</c>
+    /// sulla <c>GET</c>): questo non sovrascrive il file, salva il rimpiazzo come blob a sé e
+    /// cancella il vecchio — <see cref="FileBlobStore.ReplaceAsync"/>. Richiede API key + JWT.
+    /// </summary>
+    [HttpPut("{slug}")]
+    [Authorize(Policy = SecurityDefaults.RequireLoginPolicy)]
+    [ServiceFilter(typeof(DynamicUploadSizeLimitFilter))]
+    public async Task<IActionResult> Replace(string slug, IFormFile file, CancellationToken ct)
+    {
+        if (file is null || file.Length == 0)
+            throw new InvalidParametersException();
+        if (file.Length > _blobs.MaxUploadSizeBytes)
+            throw new PayloadTooLargeException();
+
+        var extension = Path.GetExtension(file.FileName);
+        await using var source = file.OpenReadStream();
+        var newSlug = await _blobs.ReplaceAsync(slug, source, extension, ct);
+
+        Logger.LogInformation("Blob sostituito: {OldSlug} → {NewSlug}", slug, newSlug);
+        return Ok(new { slug = newSlug });
     }
 
     /// <summary>Cancella il blob dello <c>slug</c>. Richiede API key + JWT.</summary>

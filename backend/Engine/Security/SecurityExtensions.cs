@@ -103,6 +103,12 @@ public static class SecurityExtensions
             options.AddPolicy(SecurityDefaults.RequireLoginPolicy, policyBuilder.Build());
         });
 
+        // RequireLoginPolicy combina due schemi (sopra): senza questo, una richiesta con API key
+        // valida ma senza Bearer risulterebbe comunque "autenticata" per ASP.NET Core (basta che
+        // UNO schema richiesto abbia successo) e il fallimento di RequireRole diventerebbe un 403
+        // invece di un 401 — vedi la remark su LoginChallengeResultHandler.
+        services.AddSingleton<IAuthorizationMiddlewareResultHandler, LoginChallengeResultHandler>();
+
         // ── CORS ────────────────────────────────────────────────────────
         // CorsOrigins vuoto = AllowAnyOrigin deliberato: la protezione reale è l'API key.
         // Valorizzare Security.CorsOrigins solo per domini admin separati o multi-tenant.
