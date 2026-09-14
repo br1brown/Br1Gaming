@@ -28,7 +28,7 @@ L'Engine si estende ereditando o registrando servizi in DI, mai modificando `Eng
 ### 1. Sicurezza e Protezione Preconfigurate
 
 - **`X-Api-Key` obbligatoria**: richiesta da ogni controller derivato per l'accesso base.
-- **Rate Limiter automatico**: 100 req/min globali, 5 req/min per i login (default, configurabili in `Security.ApiConfig.RateLimiting`). Risponde con HTTP 429 e `ProblemDetails` JSON.
+- **Rate Limiter automatico**: 500 req/min globali, 5 req/min per i login (default, configurabili in `Security.ApiConfig.RateLimiting`). Risponde con HTTP 429 e `ProblemDetails` JSON.
 - **CORS e Header di Sicurezza**: `WithExposedHeaders("Retry-After")` attivato; `security-headers.json` caricato se esposto al web (`backend.public`).
 - **Ordine Middleware**: `UseExceptionHandler` agisce prima di `UseRateLimiter` per non perdere i 429 né eventuali errori interni.
 
@@ -461,7 +461,7 @@ Per segnalare un errore, lancia l'eccezione appropriata: `ApiExceptionHandler` l
 >
 > **503 vs 502**: `ServiceUnavailableException` (503) = servizio non raggiungibile. `BadGatewayException` (502) = servizio raggiungibile ma ha restituito una risposta non valida.
 >
-> **429 applicativo vs rate limiter infrastrutturale**: il middleware blocca di default 100 req/min globali e 5/min sul login (§"Rate Limiter" più sopra per come cambiare le soglie). Quando scatta, produce anch'esso un `ProblemDetails` JSON con `Retry-After` (via callback `OnRejected`), quindi il formato è coerente con `ApiExceptionHandler`. `TooManyRequestsException` serve per limiti di dominio più granulari (es. max 3 tentativi OTP per sessione); usa `TooManyRequestsException(60)` per includere i secondi di attesa nel messaggio e nell'header.
+> **429 applicativo vs rate limiter infrastrutturale**: il middleware blocca di default 500 req/min globali e 5/min sul login (§"Rate Limiter" più sopra per come cambiare le soglie). Quando scatta, produce anch'esso un `ProblemDetails` JSON con `Retry-After` (via callback `OnRejected`), quindi il formato è coerente con `ApiExceptionHandler`. `TooManyRequestsException` serve per limiti di dominio più granulari (es. max 3 tentativi OTP per sessione); usa `TooManyRequestsException(60)` per includere i secondi di attesa nel messaggio e nell'header.
 
 **Formato della risposta al client:**
 ```json

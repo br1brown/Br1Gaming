@@ -123,7 +123,7 @@
                   "description": "Limite globale, partizionato per IP client.",
                   "additionalProperties": false,
                   "properties": {
-                    "PermitLimit": { "type": "integer", "description": "Richieste ammesse per finestra.", "default": 100, "minimum": 1 },
+                    "PermitLimit": { "type": "integer", "description": "Richieste ammesse per finestra.", "default": 500, "minimum": 1 },
                     "WindowSeconds": { "type": "integer", "description": "Durata della finestra, in secondi.", "default": 60, "minimum": 1 }
                   }
                 },

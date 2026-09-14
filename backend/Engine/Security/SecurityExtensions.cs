@@ -308,7 +308,7 @@ public static class SecurityExtensions
         app.UseStatusCodePages();
 
         // Rate limiting per IP del client.
-        // 100 req/min globali, 5 req/min su login.
+        // 500 req/min globali, 5 req/min su login (default — configurabili in Security.ApiConfig.RateLimiting).
         // Sta subito dopo l'exception handler (fail fast): se un client sta abusando,
         // viene bloccato subito senza sprecare risorse sui middleware successivi.
         app.UseRateLimiter();

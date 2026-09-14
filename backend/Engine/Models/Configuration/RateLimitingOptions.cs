@@ -15,7 +15,7 @@ public class RateLimitingOptions
     public bool Enabled { get; set; } = true;
 
     /// <summary>Limite globale, partizionato per IP client.</summary>
-    public FixedWindowLimitOptions Global { get; set; } = new() { PermitLimit = 100, WindowSeconds = 60 };
+    public FixedWindowLimitOptions Global { get; set; } = new() { PermitLimit = 500, WindowSeconds = 60 };
 
     /// <summary>Limite su <c>POST /auth/login</c>, partizionato per IP client.</summary>
     public FixedWindowLimitOptions Login { get; set; } = new() { PermitLimit = 5, WindowSeconds = 60 };

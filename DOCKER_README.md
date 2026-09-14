@@ -187,7 +187,7 @@ Frontend e backend sono disaccoppiati: puoi pubblicarli insieme o uno alla volta
 
 > Guard pubblicazione (automatico): due errori silenziosi tipici dietro reverse proxy, intercettati prima della build:
 > - **`frontend.hostname` mancante** → il deploy si ferma. Senza hostname l'SSR è fail-closed e risponderebbe 421 al dominio reale (e sitemap/canonical/og userebbero `example.com`); insidioso perché l'healthcheck del preflight gira su `localhost` e passerebbe: il deploy sembrerebbe riuscito mentre il sito è irraggiungibile dal dominio vero.
-> - **`Security.BehindProxy` non `true`** → avviso non bloccante: dietro nginx il rate limiter conterebbe tutti gli utenti come un solo IP (l'IP del proxy), condividendo lo stesso budget di 100 req/min. Impostalo a `true` se usi un proxy; ignora l'avviso se esponi il sito senza proxy.
+> - **`Security.BehindProxy` non `true`** → avviso non bloccante: dietro nginx il rate limiter conterebbe tutti gli utenti come un solo IP (l'IP del proxy), condividendo lo stesso budget di 500 req/min. Impostalo a `true` se usi un proxy; ignora l'avviso se esponi il sito senza proxy.
 
 > Checklist di pre-lancio (automatico, non bloccante): promemoria incorporati nello script invece che in un documento a parte — un file che nessuno riapre non serve a niente il giorno del deploy vero. Avvisa (senza fermarsi) se `project.name` è ancora il default `"App"`, e se `backend/data/identity.json` è ancora lo scheletro vuoto lasciato da `setup.mjs` → eject (footer, pagine legali e JSON-LD restano vuoti finché non lo compili — o è una scelta consapevole, in tal caso ignoralo). `deploy-release.sh` verifica solo `project.name`: nel modello artifact-based non c'è sorgente sulla VPS, `identity.json` non è lì da controllare.
 
