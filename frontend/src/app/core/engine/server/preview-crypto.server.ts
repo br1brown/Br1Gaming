@@ -6,7 +6,7 @@
  * Il browser bundle non importa mai questo file.
  *
  * Schema:
- * - Chiave (priorità): `PREVIEW_CRYPTO_SECRET` → `Security.ApiKeys[0]` → `${appName}:${version}` (fallback pubblico, insicuro).
+ * - Chiave (priorità): `PREVIEW_CRYPTO_SECRET` → `Security.ApiConfig.Keys[0]` → `${appName}:${version}` (fallback pubblico, insicuro).
  * - Algoritmo: AES-GCM 256 con IV deterministico (primi 12 byte di SHA-256 del payload) per URL stabili e cacheable.
  * - Output: base64url di `IV ‖ ciphertext ‖ auth_tag` (senza padding).
  */

@@ -12,7 +12,7 @@ Le regole trasversali e le ricette pratiche del progetto, per chi ci sviluppa, u
 
 ## Build, run, test
 
-- **Frontend:** `cd frontend && npm install && npm run start` — **Backend:** `cd backend && dotnet run` (`/health` anonimo; senza `Security.ApiKeys` nel `.local`, ogni richiesta è `401`).
+- **Frontend:** `cd frontend && npm install && npm run start` — **Backend:** `cd backend && dotnet run` (`/health` anonimo; senza `Security.ApiConfig.Keys` nel `.local`, ogni richiesta è `401`).
 - **Nuovo progetto figlio:** `node setup.mjs "Nome Progetto"`.
 - **Qualità (gate = CI, GitHub Actions):** lint, i18n, tsc, dipendenze circolari, invarianti SiteBuilder, audit live Pa11y+Lighthouse, `npm audit`, vulnerabilità NuGet, gitleaks, CodeQL. In locale on-demand: `./scripts/test/run-all.sh`. Niente hook pre-push: non re-introdurlo. I test unitari sono privati di ogni progetto.
 
@@ -295,6 +295,18 @@ Fuori da un controller (es. un servizio) resta `user.GetSession<SessionInfo>()` 
 
 #### Ruoli di dominio e `[Authorize]`
 `AuthController.Login` emette già un `ClaimTypes.Role` per ogni voce di `session.Roles`, quindi `[Authorize(Roles = "admin")]` funziona nativamente: i ruoli li governi da `SessionInfo.Roles` (in `AccountService`), non toccando il controller. `session.Roles` resta anche leggibile via `User.GetSession<SessionInfo>()` per un enforce puntuale (`session.Roles.Contains("admin")` → `ForbiddenException`). Le due nozioni di "ruolo" sono spiegate in [backend/README.md](backend/README.md) §"Sistema di Login e Sessioni JWT".
+
+#### Personalizzare il rate limiting
+Soglie in `Security.ApiConfig.RateLimiting` (`global-settings.json`): `Global.PermitLimit`/`WindowSeconds` per il limite generale per IP, `Login.PermitLimit`/`WindowSeconds` per `POST /auth/login`, `Enabled: false` per disattivarlo del tutto (le policy restano registrate, solo senza effetto — utile dietro un WAF/reverse proxy che applica già le proprie soglie). Per andare oltre i numeri (partizionare per utente invece che per IP, un algoritmo diverso, policy proprie per un endpoint di dominio), `AddTemplateSecurity` accetta un `Action<RateLimiterOptions>` opzionale invocato per ultimo — vince lui:
+```csharp
+// Program.cs
+builder.Services.AddTemplateSecurity(security, options =>
+{
+    options.AddPolicy("mio-endpoint", ctx => RateLimitPartition.GetSlidingWindowLimiter(
+        ctx.User.Identity?.Name ?? "anon", _ => new SlidingWindowRateLimiterOptions { /* ... */ }));
+});
+```
+Dettagli in [backend/README.md](backend/README.md) §1.
 
 #### Pubblicare una notifica realtime
 Proprietà ambient, niente inject:

@@ -110,18 +110,18 @@ source "${ROOT}/scripts/lib/br1-config.sh"
 # lasciandolo vuoto il guard sotto ferma il deploy finché non lo imposti (niente 421 al dominio reale).
 if [[ ! -f global-settings.local.json ]]; then
     if br1_ensure_local_secrets; then
-        warn "global-settings.local.json non c'era: creato con SecretKey/ApiKeys/CryptoSecret generati e frontend.hostname VUOTO. Imposta il tuo dominio (e la porta se hai altri progetti sulla stessa VPS): il deploy si ferma finché il dominio è vuoto — di proposito."
+        warn "global-settings.local.json non c'era: creato con SecretKey/ApiConfig.Keys/CryptoSecret generati e frontend.hostname VUOTO. Imposta il tuo dominio (e la porta se hai altri progetti sulla stessa VPS): il deploy si ferma finché il dominio è vuoto — di proposito."
     else
         fail "Creazione automatica di global-settings.local.json fallita"
     fi
 fi
 
-# Legge Security.ApiKeys[0] da un file JSON (vuoto se il file non c'è o è illeggibile).
+# Legge Security.ApiConfig.Keys[0] da un file JSON (vuoto se il file non c'è o è illeggibile).
 _read_api_key() {
     [[ -f "$1" ]] || { printf ''; return 0; }
     BR1_KEYFILE="$1" node --input-type=module --eval "
 import { readFileSync } from 'fs';
-try { const s = JSON.parse(readFileSync(process.env.BR1_KEYFILE, 'utf-8')); process.stdout.write(String(s.Security?.ApiKeys?.[0] ?? '')); }
+try { const s = JSON.parse(readFileSync(process.env.BR1_KEYFILE, 'utf-8')); process.stdout.write(String(s.Security?.ApiConfig?.Keys?.[0] ?? '')); }
 catch { process.stdout.write(''); }
 " 2>/dev/null || true
 }
@@ -197,17 +197,17 @@ import { readFileSync } from 'fs';
 const s = JSON.parse(readFileSync('${BR1_SETTINGS_FILE}','utf-8'));
 const DEV = 'dev-only-change-me-chiave-di-sviluppo-min-32-byte';
 const sk = String(s.Security?.Token?.SecretKey ?? '').trim();
-const keys = Array.isArray(s.Security?.ApiKeys) ? s.Security.ApiKeys : [];
+const keys = Array.isArray(s.Security?.ApiConfig?.Keys) ? s.Security.ApiConfig.Keys : [];
 const cryptoSecret = String(s.Security?.CryptoSecret ?? '').trim();
 const errs = [];
 if (sk) {
   if (sk === DEV) errs.push('Security.Token.SecretKey e ancora il segreto di sviluppo. Generane uno: openssl rand -base64 48');
   else if (sk.length < 32) errs.push('Security.Token.SecretKey e troppo corta (<32 caratteri). Generane una robusta: openssl rand -base64 48');
 }
-if (keys.length === 0) errs.push('Security.ApiKeys e vuoto: il frontend non puo autenticarsi col backend.');
+if (keys.length === 0) errs.push('Security.ApiConfig.Keys e vuoto: il frontend non puo autenticarsi col backend.');
 for (const k of keys) {
-  if (k === 'frontend') errs.push('Security.ApiKeys contiene la chiave segnaposto \"frontend\". Sostituiscila: openssl rand -base64 32');
-  else if (String(k).length < 32) errs.push('Security.ApiKeys contiene una chiave troppo corta (<32 caratteri): ' + k);
+  if (k === 'frontend') errs.push('Security.ApiConfig.Keys contiene la chiave segnaposto \"frontend\". Sostituiscila: openssl rand -base64 32');
+  else if (String(k).length < 32) errs.push('Security.ApiConfig.Keys contiene una chiave troppo corta (<32 caratteri): ' + k);
 }
 if (cryptoSecret === 'INCOLLA-QUI-openssl-rand-base64-32') errs.push('Security.CryptoSecret e ancora il segnaposto dell\'esempio. Generane uno: openssl rand -base64 32');
 else if (cryptoSecret && cryptoSecret.length < 32) errs.push('Security.CryptoSecret e troppo corta (<32 caratteri). Generane una robusta: openssl rand -base64 32');

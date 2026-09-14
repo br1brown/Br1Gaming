@@ -96,12 +96,49 @@
       "description": "Sicurezza specifica del progetto: chiavi API, origini CORS, reverse proxy e token JWT. Gli header di sicurezza fissi (uguali per ogni progetto) vivono in security-headers.json, file del template che il progetto figlio non gestisce.",
       "additionalProperties": false,
       "properties": {
-        "ApiKeys": {
-          "type": "array",
-          "description": "Chiavi API accettate dal backend per le chiamate interne (header X-Api-Key). Il frontend Node SSR usa Security.ApiKeys[0] per autenticarsi al backend. In produzione usare una stringa casuale di almeno 32 caratteri.",
-          "items": { "type": "string" },
-          "minItems": 1,
-          "examples": [["frontend"], ["supersecretkey32characters_minimum"]]
+        "ApiConfig": {
+          "type": "object",
+          "description": "Configurazione delle API: chiavi accettate e rate limiting.",
+          "additionalProperties": false,
+          "properties": {
+            "Keys": {
+              "type": "array",
+              "description": "Chiavi API accettate dal backend per le chiamate interne (header X-Api-Key). Il frontend Node SSR usa Security.ApiConfig.Keys[0] per autenticarsi al backend. In produzione usare una stringa casuale di almeno 32 caratteri.",
+              "items": { "type": "string" },
+              "minItems": 1,
+              "examples": [["frontend"], ["supersecretkey32characters_minimum"]]
+            },
+            "RateLimiting": {
+              "type": "object",
+              "description": "Rate limiting delle API: soglia globale (per IP) e soglia dedicata al login (POST /auth/login).",
+              "additionalProperties": false,
+              "properties": {
+                "Enabled": {
+                  "type": "boolean",
+                  "description": "Attiva/disattiva l'enforcement. Se false, le policy restano registrate ma non contano nulla — utile dietro un WAF/reverse proxy che applica già le proprie soglie.",
+                  "default": true
+                },
+                "Global": {
+                  "type": "object",
+                  "description": "Limite globale, partizionato per IP client.",
+                  "additionalProperties": false,
+                  "properties": {
+                    "PermitLimit": { "type": "integer", "description": "Richieste ammesse per finestra.", "default": 100, "minimum": 1 },
+                    "WindowSeconds": { "type": "integer", "description": "Durata della finestra, in secondi.", "default": 60, "minimum": 1 }
+                  }
+                },
+                "Login": {
+                  "type": "object",
+                  "description": "Limite su POST /auth/login, partizionato per IP client — pensato per rendere impraticabile il brute force sulle credenziali.",
+                  "additionalProperties": false,
+                  "properties": {
+                    "PermitLimit": { "type": "integer", "description": "Richieste ammesse per finestra.", "default": 5, "minimum": 1 },
+                    "WindowSeconds": { "type": "integer", "description": "Durata della finestra, in secondi.", "default": 60, "minimum": 1 }
+                  }
+                }
+              }
+            }
+          }
         },
         "CorsOrigins": {
           "type": "array",

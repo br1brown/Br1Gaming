@@ -77,11 +77,51 @@ export interface GlobalSettings {
    */
   Security?: {
     /**
-     * Chiavi API accettate dal backend per le chiamate interne (header X-Api-Key). Il frontend Node SSR usa Security.ApiKeys[0] per autenticarsi al backend. In produzione usare una stringa casuale di almeno 32 caratteri.
-     *
-     * @minItems 1
+     * Configurazione delle API: chiavi accettate e rate limiting.
      */
-    ApiKeys?: [string, ...string[]];
+    ApiConfig?: {
+      /**
+       * Chiavi API accettate dal backend per le chiamate interne (header X-Api-Key). Il frontend Node SSR usa Security.ApiConfig.Keys[0] per autenticarsi al backend. In produzione usare una stringa casuale di almeno 32 caratteri.
+       *
+       * @minItems 1
+       */
+      Keys?: [string, ...string[]];
+      /**
+       * Rate limiting delle API: soglia globale (per IP) e soglia dedicata al login (POST /auth/login).
+       */
+      RateLimiting?: {
+        /**
+         * Attiva/disattiva l'enforcement. Se false, le policy restano registrate ma non contano nulla — utile dietro un WAF/reverse proxy che applica già le proprie soglie.
+         */
+        Enabled?: boolean;
+        /**
+         * Limite globale, partizionato per IP client.
+         */
+        Global?: {
+          /**
+           * Richieste ammesse per finestra.
+           */
+          PermitLimit?: number;
+          /**
+           * Durata della finestra, in secondi.
+           */
+          WindowSeconds?: number;
+        };
+        /**
+         * Limite su POST /auth/login, partizionato per IP client — pensato per rendere impraticabile il brute force sulle credenziali.
+         */
+        Login?: {
+          /**
+           * Richieste ammesse per finestra.
+           */
+          PermitLimit?: number;
+          /**
+           * Durata della finestra, in secondi.
+           */
+          WindowSeconds?: number;
+        };
+      };
+    };
     /**
      * Origini CORS ammesse per il backend. In produzione impostare l'URL completo con schema (es. 'https://miodominio.it'). Lasciare vuoto in sviluppo locale (il backend è interno alla rete Docker).
      */

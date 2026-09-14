@@ -50,7 +50,7 @@ builder.Configuration.AddJsonFile(
     optional: true, reloadOnChange: false);
 builder.Configuration.AddJsonFile("global-settings.json", optional: true, reloadOnChange: false);
 
-// global-settings.local.json: override coi SEGRETI (ApiKeys, Token) — gitignored.
+// global-settings.local.json: override coi SEGRETI (ApiConfig.Keys, Token) — gitignored.
 // In dev è la sorgente di verità dei segreti. In prod/Docker questo file non esiste 
 // (i segreti sono iniettati o montati direttamente sul file base).
 builder.Configuration.AddJsonFile(
@@ -60,7 +60,7 @@ builder.Configuration.AddJsonFile("global-settings.local.json", optional: true, 
 
 // security-headers.json: header di sicurezza del template (uguali per ogni progetto, non
 // gestiti dal figlio). Si fonde nella sezione "Security": fornisce Security.Headers mentre
-// ApiKeys/CorsOrigins/BehindProxy/Token restano in global-settings.json.
+// ApiConfig/CorsOrigins/BehindProxy/Token restano in global-settings.json.
 builder.Configuration.AddJsonFile(
     Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "security-headers.json")),
     optional: true, reloadOnChange: false);

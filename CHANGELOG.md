@@ -2,6 +2,15 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### `Security.ApiConfig`: chiavi API e rate limiting raggruppati, soglie non più hardcoded nell'Engine
+
+Le chiavi API e le soglie del rate limiter erano due proprietà indipendenti direttamente sotto `Security` — le seconde, per giunta, costanti scritte in `Engine/Security/SecurityExtensions.cs`: per cambiarle un figlio doveva modificare un file dell'Engine, perdendo l'edit al primo merge dall'upstream. Concettualmente sono la stessa cosa (chi entra nell'API e quanto può chiamarla), ora raggruppate in un unico `Security.ApiConfig`.
+
+- **Breaking**: `Security.ApiKeys` è ora `Security.ApiConfig.Keys`. Migrazione: sposta l'array dentro un nuovo oggetto `ApiConfig` in `global-settings.local.json` (e nell'example) — `setup.mjs`, `scripts/deploy.sh`/`deploy-release.sh` e `scripts/lib/br1-config.sh` generano già la forma nuova.
+- Nuova `Security.ApiConfig.RateLimiting`: `Global.PermitLimit`/`WindowSeconds` per la soglia generale, `Login.PermitLimit`/`WindowSeconds` per `POST /auth/login`, `Enabled: false` per disattivare del tutto l'enforcement (le policy restano registrate — `[EnableRateLimiting("login")]` continua a risolvere — solo senza effetto pratico: pensato per chi ha già un WAF/reverse proxy che applica le proprie soglie a monte). Senza questa sezione in config, i valori restano quelli di sempre (100/60, 5/60, enforcement attivo).
+- `AddTemplateSecurity` (`Program.cs`) accetta ora un `Action<RateLimiterOptions>` opzionale, invocato per ultimo dentro `AddRateLimiter`: un progetto che vuole andare oltre i due numeri (partizionare per utente invece che per IP, un algoritmo diverso, policy aggiuntive per un proprio endpoint) riceve le stesse `RateLimiterOptions` e può aggiungervi o sovrascriverne membri, senza toccare l'Engine.
+- Verificato: `dotnet build` backend pulito, `tsc --noEmit` frontend pulito. Dal vivo con curl: API key letta dal nuovo percorso (200 con chiave valida, 401 senza); soglia globale abbassata a 2-3/min → 429 dalla richiesta successiva al limite; `Enabled: false` → nessun 429 né sulla soglia globale né su quella di login, anche molto oltre i default; nessuna sezione `ApiConfig.RateLimiting` in config → comportamento di sempre invariato.
+
 ### Storage blob: da implementazione di Dominio a `FileBlobStore`/`EngineBlobController` dell'Engine, con proprietà tracciata (EF Core/SQLite)
 
 Il vecchio `BlobStore`/`BlobController` viveva nel Dominio (`Store/`, `Controllers/`), un file di progetto che ogni figlio possedeva e modificava direttamente — ma lo storage binario è I/O generico con un'unica implementazione plausibile, non una forma specifica di progetto come `IContentStore`: teneva il figlio a carico di un pezzo che non doveva scegliere, e senza nessun controllo su CHI potesse cancellare cosa.

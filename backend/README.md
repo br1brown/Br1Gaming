@@ -28,7 +28,7 @@ L'Engine si estende ereditando o registrando servizi in DI, mai modificando `Eng
 ### 1. Sicurezza e Protezione Preconfigurate
 
 - **`X-Api-Key` obbligatoria**: richiesta da ogni controller derivato per l'accesso base.
-- **Rate Limiter automatico**: 100 req/min globali, 5 req/min per i login. Risponde con HTTP 429 e `ProblemDetails` JSON.
+- **Rate Limiter automatico**: 100 req/min globali, 5 req/min per i login (default, configurabili in `Security.ApiConfig.RateLimiting`). Risponde con HTTP 429 e `ProblemDetails` JSON.
 - **CORS e Header di Sicurezza**: `WithExposedHeaders("Retry-After")` attivato; `security-headers.json` caricato se esposto al web (`backend.public`).
 - **Ordine Middleware**: `UseExceptionHandler` agisce prima di `UseRateLimiter` per non perdere i 429 né eventuali errori interni.
 
@@ -37,7 +37,7 @@ L'Engine si estende ereditando o registrando servizi in DI, mai modificando `Eng
 L'API key identifica l'applicativo client (es. Node SSR), non l'utente finale.
 
 Meccanismo in `Security/ApiKeyAuthentication.cs`:
-- **Match sicuro**: la chiave inviata viene controllata contro l'array `Security.ApiKeys` (`global-settings.local.json`) tramite `CryptographicOperations.FixedTimeEquals`.
+- **Match sicuro**: la chiave inviata viene controllata contro l'array `Security.ApiConfig.Keys` (`global-settings.local.json`) tramite `CryptographicOperations.FixedTimeEquals`.
 - **Preflight CORS**: ignorano l'autenticazione.
 - **Fallimento**: JSON `ProblemDetails` 401 immediato.
 
@@ -45,7 +45,9 @@ Aggiungere o ruotare una chiave:
 ```json
 // global-settings.json
 "Security": {
-    "ApiKeys": ["frontend", "mobile-app", "nuova-chiave-32-char-minimo"],
+    "ApiConfig": {
+        "Keys": ["frontend", "mobile-app", "nuova-chiave-32-char-minimo"]
+    },
     ...
 }
 ```
@@ -55,7 +57,8 @@ Più chiavi coesistono; elimina quella vecchia quando tutti i client hanno aggio
 
 | Campo | Tipo | Default | Comportamento |
 | :--- | :--- | :--- | :--- |
-| `ApiKeys` | `string[]` | obbligatorio | Chiavi accettate nell'header `X-Api-Key`. Case-sensitive. |
+| `ApiConfig.Keys` | `string[]` | obbligatorio | Chiavi accettate nell'header `X-Api-Key`. Case-sensitive. |
+| `ApiConfig.RateLimiting.*` | — | vedi sotto | Soglie del rate limiter (globale, login) e interruttore `Enabled` — dettaglio nella nota sotto la tabella. |
 | `CorsOrigins` | `string[]` | `[]` | Origins CORS consentite. **Vuoto = `AllowAnyOrigin`** — la protezione è la API key. Valorizzare per multi-tenant o API admin separata. |
 | `Headers` | `Dictionary<string,string>` | vedi `security-headers.json` | Header di sicurezza browser (dal file del template `security-headers.json`, non da `global-settings.json`). Applicati dal backend solo se esposto pubblicamente (`backend.public`). `Content-Security-Policy` è ignorata (irrilevante su JSON) e `Strict-Transport-Security` è esclusa dal loop perché già emessa da `UseHsts()`. |
 | `BehindProxy` | `bool` | `false` | Se `true`, abilita `ForwardedHeaders` che legge l'IP reale da `X-Forwarded-For`. **Impostare `true` in produzione se c'è un reverse proxy** — altrimenti il rate limiter vede l'IP del proxy, non del client, e il limite per-IP diventa inutile. Trusted solo per reti RFC 1918 (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16). |
@@ -66,7 +69,9 @@ Più chiavi coesistono; elimina quella vecchia quando tutti i client hanno aggio
 
 > Ruotare `Token.SecretKey` invalida istantaneamente tutti i token già emessi (la firma non corrisponde più): ogni utente loggato viene sloggato al prossimo giro, senza preavviso lato client oltre il normale 401. Ruotala solo quando serve davvero (sospetto di compromissione), non come pratica di igiene periodica senza motivo: non c'è un periodo di grazia con doppia chiave valida.
 
-> Limiti del rate limiter: non configurabili, non condivisi tra istanze. Le soglie (100 req/min globali, 5 req/min sul login) sono costanti hardcoded in `Engine/Security/SecurityExtensions.cs`, non esposte via `SecurityOptions`/`global-settings.json`: per cambiarle si modifica quel file. Sono anche in-memory per-istanza (`RateLimitPartition.GetFixedWindowLimiter`, stato nel processo): con più repliche del backend dietro un bilanciatore, ogni istanza conta le richieste per conto proprio, quindi il limite effettivo per IP si moltiplica per il numero di repliche. Stesso limite già segnalato per `IContentStore` (§ cache) e `INotificationStream`: qui non c'è ancora un backplane condiviso pronto, è responsabilità del progetto se serve scalare orizzontalmente.
+> Configurazione del rate limiter: soglie in `Security.ApiConfig.RateLimiting` (`global-settings.json`) — `Global.PermitLimit`/`WindowSeconds` per il limite generale, `Login.PermitLimit`/`WindowSeconds` per `POST /auth/login`, `Enabled: false` per disattivare del tutto l'enforcement (le policy restano registrate, `[EnableRateLimiting("login")]` continua a risolvere, solo senza effetto — utile dietro un WAF/reverse proxy che applica già le proprie soglie). Per andare oltre le soglie (partizionare per utente invece che per IP, un algoritmo diverso, policy aggiuntive) `AddTemplateSecurity` accetta un `Action<RateLimiterOptions>` opzionale, invocato per ultimo: da `Program.cs`, `AddTemplateSecurity(security, options => { /* ... */ })`.
+>
+> Sono in-memory per-istanza (`RateLimitPartition.GetFixedWindowLimiter`, stato nel processo): con più repliche del backend dietro un bilanciatore, ogni istanza conta le richieste per conto proprio, quindi il limite effettivo per IP si moltiplica per il numero di repliche. Stesso limite già segnalato per `IContentStore` (§ cache) e `INotificationStream`: qui non c'è ancora un backplane condiviso pronto, è responsabilità del progetto se serve scalare orizzontalmente.
 
 ### 2. Errori Standardizzati (RFC 9457)
 Si lancia un'eccezione (`throw new NotFoundException("utente")`) e l'`ApiExceptionHandler` globale emette un `ProblemDetails` JSON omogeneo, senza stampare stack trace al client.
@@ -456,7 +461,7 @@ Per segnalare un errore, lancia l'eccezione appropriata: `ApiExceptionHandler` l
 >
 > **503 vs 502**: `ServiceUnavailableException` (503) = servizio non raggiungibile. `BadGatewayException` (502) = servizio raggiungibile ma ha restituito una risposta non valida.
 >
-> **429 applicativo vs rate limiter infrastrutturale**: il middleware blocca già 100 req/min globali e 5/min sul login. Quando scatta, produce anch'esso un `ProblemDetails` JSON con `Retry-After` (via callback `OnRejected`), quindi il formato è coerente con `ApiExceptionHandler`. `TooManyRequestsException` serve per limiti di dominio più granulari (es. max 3 tentativi OTP per sessione); usa `TooManyRequestsException(60)` per includere i secondi di attesa nel messaggio e nell'header.
+> **429 applicativo vs rate limiter infrastrutturale**: il middleware blocca di default 100 req/min globali e 5/min sul login (§"Rate Limiter" più sopra per come cambiare le soglie). Quando scatta, produce anch'esso un `ProblemDetails` JSON con `Retry-After` (via callback `OnRejected`), quindi il formato è coerente con `ApiExceptionHandler`. `TooManyRequestsException` serve per limiti di dominio più granulari (es. max 3 tentativi OTP per sessione); usa `TooManyRequestsException(60)` per includere i secondi di attesa nel messaggio e nell'header.
 
 **Formato della risposta al client:**
 ```json
@@ -628,14 +633,14 @@ foreach (var source in defaultJsonSources)
     builder.Configuration.Sources.Remove(source);
 ```
 
-Conseguenza pratica: `appsettings.Development.json` non viene letto. L'identità/config di progetto vive in `global-settings.json`; i segreti e la pubblicazione (ApiKeys, SecretKey, porte) in `global-settings.local.json`.
+Conseguenza pratica: `appsettings.Development.json` non viene letto. L'identità/config di progetto vive in `global-settings.json`; i segreti e la pubblicazione (ApiConfig.Keys, SecretKey, porte) in `global-settings.local.json`.
 
 I file vengono cercati e fusi in quest'ordine (gli ultimi vincono, lo stesso deep-merge che `scripts/lib/br1-config.sh` fa in prod producendo il file effettivo):
 1. `../global-settings.json` poi `global-settings.json` — base committata (dev `cwd=backend/` → `../`; Docker `cwd=/app`)
 2. `../global-settings.local.json` poi `global-settings.local.json` — override coi segreti (gitignored)
 3. `../security-headers.json` poi `security-headers.json` — header del template (sezione `Security.Headers`)
 
-Tutte `optional: true` (se un file manca si usano i default dei modelli `*Options`). In dev locale è il punto 2 che fa arrivare `Security.ApiKeys` (da `global-settings.local.json`) al backend senza env var né deploy: prima del template 2.0.1 il backend leggeva solo `global-settings.json` (privo di `Security`) → `ApiKeys` vuoto → 401 su ogni richiesta. In Docker/prod il `.local` non esiste (i segreti sono già fusi nel file effettivo montato) → no-op.
+Tutte `optional: true` (se un file manca si usano i default dei modelli `*Options`). In dev locale è il punto 2 che fa arrivare `Security.ApiConfig.Keys` (da `global-settings.local.json`) al backend senza env var né deploy: prima del template 2.0.1 il backend leggeva solo `global-settings.json` (privo di `Security`) → chiavi vuote → 401 su ogni richiesta. In Docker/prod il `.local` non esiste (i segreti sono già fusi nel file effettivo montato) → no-op.
 
 #### Lo schema (`global-settings.schema.json`) e chi legge cosa
 
@@ -1202,10 +1207,10 @@ L'applicazione esporrà di default un health-check su `/health` (anonimo, rispon
   HTTP, interno: il TLS lo termina il reverse proxy in produzione, in locale non serve.
 - **La trappola del 401 senza `.local`.** Ogni controller esige `X-Api-Key`, e le chiavi arrivano da
   `global-settings.local.json` (i segreti, fuori da git). Se quel file manca o non ha
-  `Security.ApiKeys`, l'array è vuoto e ogni richiesta torna 401: il backend è partito
+  `Security.ApiConfig.Keys`, l'array è vuoto e ogni richiesta torna 401: il backend è partito
   correttamente, ma rifiuta tutto. Verifica il `/health` (anonimo, bypassa la API key) per confermare
   che il processo è su, poi copia `global-settings.local.example.json` in `global-settings.local.json`
-  e valorizza `Security.ApiKeys` prima di chiamare gli altri endpoint. (Dettaglio del layering in
+  e valorizza `Security.ApiConfig.Keys` prima di chiamare gli altri endpoint. (Dettaglio del layering in
   Sorgenti di Configurazione.)
 - **Resize immagini in Docker Linux.** Il `backend.csproj` referenzia
   `SkiaSharp.NativeAssets.Linux.NoDependencies`: è il binario nativo che permette a `EngineBlobController`
