@@ -74,3 +74,21 @@ Tiene il `connectionId` corrente in un signal separato da `NotificationStreamSer
 Per le 5 pagine standard, `STANDARD_LEGAL_PAGES` (dati, in `legal-pages.ts`, riesportati da `siteBuilder.ts`) fornisce `path`/`titleKey`/`descriptionKey`/`markdownSlug` pronti: il figlio li abbina al proprio `PageType` con lo spread (`pages/policy/legal.pages.ts` nella demo). Una policy in più (es. diritto di recesso) è una voce scritta per esteso nello stesso array, senza `STANDARD_LEGAL_PAGES` a fare da scorciatoia — non c'è altro da toccare in questo file per il progetto figlio.
 
 L'unica voce con un ruolo a runtime resta la Cookie Policy (link dal banner, obbligatoria se il sito usa cookie): non si riconosce guardando `legalPages` — è il campo separato `cookiePolicy: PageType | null` (`SiteConfig`) a dirlo. È l'unico caso speciale rimasto nel modello: ogni altra voce di `legalPages` è testo generico.
+
+---
+
+## Limiti e comportamenti impliciti
+
+Feature già documentate per come si attivano, con un dettaglio di comportamento (costo, tetto, fallback) che vive solo nel codice sorgente — indice rapido, il dettaglio pieno sta nel README linkato:
+
+| Comportamento | Impatto pratico | Dettaglio |
+| :--- | :--- | :--- |
+| Lightbox (`[appAssetLightbox]`/`[appLightbox]`) apre sempre alla risoluzione massima della whitelist (1920px), mai quella della miniatura | Ogni apertura su un asset (non un `Blob` locale) è una richiesta di rete aggiuntiva, mai un riuso della miniatura già scaricata | [frontend/README.md](frontend/README.md) § "Lightbox su `<img appAsset>`" |
+| `GET /blob/{slug}?webopt=true` rifiuta con 422 oltre 40 megapixel decodificati | Tetto indipendente da `MaxUploadSizeBytes`: un upload può riuscire e restare comunque non ottimizzabile dopo | [backend/README.md](backend/README.md) § `EngineBlobController` |
+| Buffer SSE per-connessione (100 messaggi, `DropOldest`) | `Publish()` ritorna `true` anche quando un messaggio più vecchio non letto è appena stato scartato — perdita silenziosa per un client connesso ma lento, diversa da una riconnessione vera | [backend/README.md](backend/README.md) §6 "Notifiche Realtime" |
+| Error reporting (server e client) senza throttling/deduplica; `BackgroundQueue.TryEnqueue` non controllato nei due punti in cui l'Engine stesso accoda una segnalazione | Un errore ripetuto genera una POST al webhook per occorrenza; se la coda condivisa è satura (oltre 1000 task) la segnalazione sparisce senza segnale | [backend/README.md](backend/README.md) §10 "Error Reporting" |
+| `OgImageRef.blobGuid` (contenuto dinamico) | Sempre un fetch HTTP del Node SSR verso il backend, con un secondo fetch di fallback sul raw non ottimizzato se il primo fallisce (es. per il tetto dei 40 MP sopra) — in quel caso `sharp` decodifica l'originale a piena risoluzione due volte nello stesso processo | [frontend/README.md](frontend/README.md) § "`OgImageRef`: asset statico o blob dinamico" |
+| Concorrenza dei job immagine (`IMAGE_JOBS_MAX`), indipendente dal cap di dimensione della cache | Le richieste eccedenti accodano in una coda FIFO non bounded senza timeout: su cache fredda con molte immagini nella stessa pagina, ritardo silenzioso invece di un errore | [frontend/README.md](frontend/README.md) § "Cache Immagini su Disco" |
+| `ImgBuilderService`: clamp dimensionale silenzioso (125–8000px) e canvas "tainted" su `imageSrc` remoto senza CORS | Nessun errore/warning dedicato in nessuno dei due casi: un layout inatteso o un `null` da `buildBlob()`/`buildFile()` indistinguibile da un fallimento SSR generico | [frontend/README.md](frontend/README.md) § "ImgBuilderService: Generazione Immagini da Testo" |
+
+`ImageLightboxService` (dietro `AssetDirective`/`LightboxDirective`) è iniettabile e apribile direttamente (`open(source, alt, returnFocusTo)`), utile per un trigger che non è l'`<img>` stesso — es. un bottone separato su un'immagine puramente decorativa (`alt="" aria-hidden`) che non deve restare l'unica affordance per aprire l'ingrandimento. Già documentato in [frontend/README.md](frontend/README.md), citato qui perché è un uso meno ovvio delle due direttive dichiarative.

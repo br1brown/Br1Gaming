@@ -2,6 +2,16 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Docs: limiti e comportamenti impliciti di feature già esistenti (lightbox, blob, notifiche, error reporting, og:image, cache immagini, ImgBuilderService), fix di un esempio `ogImage` obsoleto
+
+Diverse feature dell'Engine hanno un comportamento con un costo o un limite reale (richieste di rete aggiuntive, tetti impliciti, fallback silenziosi) che viveva solo come commento nel codice sorgente, mai risalito alla documentazione consumabile — trovato ripartendo da una domanda su un caso specifico (il lightbox immagini) e poi verificato più in ampiezza sull'intero Engine.
+
+- Nuova sezione `ENGINE.md` § "Limiti e comportamenti impliciti": indice rapido di sette comportamenti non ovvi, ciascuno con il link al README dove ora vive il dettaglio pieno.
+- `frontend/README.md`: risoluzione sempre massima (1920px) del lightbox indipendentemente dalla width della miniatura, apertura programmatica di `ImageLightboxService`; nuova sezione `OgImageRef: asset statico o blob dinamico` (feature `{ blobGuid }` esistente ma finora non documentata affatto, col relativo costo — doppio fetch di fallback, doppia decodifica `sharp` — se l'originale supera il tetto di decodifica del blob storage); tetto di concorrenza `IMAGE_JOBS_MAX` sui job `sharp` (mai citato, nemmeno in `DOCKER_README.md`); clamp dimensionale silenzioso e canvas "tainted" su CORS mancante in `ImgBuilderService`.
+- `backend/README.md`: tetto di 40 megapixel su `GET /blob/{slug}?webopt=true`, indipendente da `MaxUploadSizeBytes`; buffer per-connessione delle notifiche SSE (100 messaggi, `DropOldest`) e perché `Publish()` ritorna comunque `true` su uno scarto silenzioso; assenza di throttling/deduplica nell'error reporting (server e client) e `BackgroundQueue.TryEnqueue` non controllato nei due punti in cui l'Engine stesso accoda una segnalazione.
+- **Fix**: l'esempio di `otherSEO` in `frontend/README.md` usava ancora `ogImage: 'og-cover'` (stringa nuda) — non compila più da quando `OgImageRef` è diventato `{ id } | { blobGuid } | false`. Sostituito con `{ id: 'og-cover' }`, scoperto proprio scrivendo la nuova sezione su `blobGuid`.
+- Verificato: ogni comportamento aggiunto confrontato riga per riga col codice sorgente citato prima di scriverlo (non solo il finding di un agente di ricerca); grep mirato sui cinque file di documentazione per confermare l'assenza prima dell'aggiunta, evitando duplicati.
+
 ### Fix: pulsante di chiusura del lightbox tagliato fuori dal viewport su immagini alte
 
 Il pulsante era posizionato 2.75rem sopra l'immagine: con un'immagine verticale o una finestra bassa (poco spazio libero sopra il contenuto centrato), finiva quasi del tutto fuori dal viewport invece che solo più vicino al bordo.

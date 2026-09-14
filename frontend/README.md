@@ -838,6 +838,10 @@ Per un'immagine non gestita da `AssetService` (es. un `Blob` locale, canvas/ante
 <img [src]="anteprimaUrl()" [appLightbox]="anteprimaBlob()" alt="Anteprima">
 ```
 
+Risoluzione dell'immagine ingrandita: sempre `ALLOWED_WIDTHS[ALLOWED_WIDTHS.length - 1]` (1920px), indipendentemente dalla `appAssetWidth` usata dalla miniatura che ha attivato il lightbox — un `Blob` locale invece è già alla sua risoluzione, nessuna richiesta aggiuntiva. Per un asset (non un `Blob`) l'apertura è quindi sempre una seconda richiesta di rete, mai un riuso della miniatura già scaricata.
+
+Attivazione programmatica: `ImageLightboxService` (il servizio dietro entrambe le direttive) è iniettabile direttamente — `open(source: LightboxSource, alt: string, returnFocusTo: HTMLElement)` — per un trigger che non è l'`<img>` stesso (es. un bottone separato sovrapposto a un'immagine puramente decorativa, `alt="" aria-hidden`, che non deve essere l'unica affordance accessibile per aprire l'ingrandimento).
+
 ### Vista a tutto schermo: `layout.fitViewport`
 
 Per pagine/viste a tutto schermo (mappe, giochi, dashboard) dove lo scroll spezzerebbe l'esperienza. È un flag dichiarativo per-pagina in `site.ts` (non una direttiva sul template). Tu lo dichiari, lo gestisce l'Engine: il builder (`normalizeSitePage`) risolve la coerenza dei flag di layout, lo shell rende il `<main>` full-bleed (senza container/padding/pannello) e una regola CSS (`.fit-viewport`) fa riempire al contenuto lo spazio che resta sotto la navbar, senza scroll di pagina se il contenuto ci sta.
@@ -1275,6 +1279,10 @@ Per allegare l'immagine a un `FormData`/upload c'è `buildFile(spec, filename?)`
 
 SSR-safe: il metodo statico `ImgBuilderService.buildSvg()` non tocca DOM né Angular, usabile in Node.js per generare preview server-side.
 
+Due limiti impliciti, nessuno dei due segnalato al chiamante:
+- **Clamp dimensionale silenzioso**: canvas finale sempre fra 125 e 8000 px per lato (`DIMENSIONE_MIN_PX`/`DIMENSIONE_MAX_PX`). Un testo molto lungo o un `ratio` estremo che spingerebbe oltre il tetto viene troncato al valore massimo/minimo senza errore né warning — un layout inatteso, non un'eccezione.
+- **`crossOrigin` solo su URL assoluti http(s)**: `imageSrc` remoto senza header CORS rende il canvas "tainted" — `buildBlob()`/`buildFile()` (via `canvas.toBlob`) possono risolvere a `null` in modo indistinguibile da un fallimento SSR generico, senza un errore dedicato nella firma dei metodi. Un asset servito da `AssetService`/blob dell'Engine (stessa origin) non è soggetto a questo problema.
+
 ---
 
 ## 🔗 Meta Tag e Anteprima Sociale (PageMetaService)
@@ -1291,6 +1299,15 @@ In SSR viene generata automaticamente un'immagine personalizzata per la condivis
 Non chiami `PageMetaService` a mano (è privato all'Engine): dichiari i meta in `site.ts` (`description`, `otherSEO`) o, per i dati derivati dal contenuto, nel `contentLoader` della pagina. L'Engine li riapplica da solo a ogni cambio pagina e di lingua.
 
 Importante: `og:image` si aggiorna solo in SSR. I crawler non eseguono JavaScript, vedono la versione server-rendered. Le modifiche client-side all'og:image non hanno effetto sui preview di Facebook/LinkedIn/WhatsApp.
+
+### `OgImageRef`: asset statico o blob dinamico
+
+`otherSEO.ogImage` (e l'`ogImage` di `PageInfo` restituito da un `contentLoader`) accetta un `OgImageRef` — `{ id: string }` oppure `{ blobGuid: string }`, mai entrambi insieme — o `false`:
+
+- **`{ id }`**: asset statico risolto da `mapping.json`, come ogni altro `appAsset`. Sempre disponibile a build time.
+- **`{ blobGuid }`**: contenuto caricato a runtime (upload via `EngineBlobController`/`AppBlobStore`) che porta la propria immagine di anteprima senza che nulla vada registrato in `mapping.json`. Il Node SSR risolve l'URL con la convenzione di default `blob/{guid}?webopt=true`; un figlio con un endpoint blob diverso la sovrascrive con `SiteConfig.resolveBlobImageUrl: (guid: string) => string` — l'Engine non assume mai la forma dell'URL.
+
+Costo di `{ blobGuid }` rispetto a `{ id }`: `{ id }` risolve a un path su disco già presente nel bundle, nessuna rete. `{ blobGuid }` richiede sempre un fetch HTTP del Node SSR verso il backend per ottenere i byte dell'immagine (cache-miss compreso), con un secondo fetch di fallback verso la variante non ottimizzata (`webopt` raw) se il primo fallisce e non è stato dichiarato un `resolveBlobImageUrl` custom — tipicamente perché l'originale supera il tetto di decodifica di `?webopt=true` (40 megapixel, vedi [backend/README.md](../backend/README.md) §"EngineBlobController"). In quel caso `/cdn-cgi/preview` decodifica e ridimensiona con `sharp` l'immagine a piena risoluzione due volte nello stesso processo SSR (sfondo sfocato + primo piano nitido): per un'immagine molto grande è un costo di CPU/memoria per richiesta non trascurabile, da tenere presente prima di esporre `{ blobGuid }` su contenuto caricato dagli utenti senza un limite di risoluzione a monte.
 
 ### Generazione og:image: la rotta `/cdn-cgi/preview`
 
@@ -1402,6 +1419,8 @@ Copertura: sia gli errori che Angular già traccia (template, `effect`, `HttpCli
 
 Spento in sviluppo (`isDevMode()`): un errore mentre iteri in locale finisce comunque in console (mai silenziato) ma non parte alcuna chiamata di rete.
 
+Nessun throttling né deduplica: un errore che si ripete (loop, script di terze parti) genera una `POST` per occorrenza, ognuna inoltrata al webhook a sua volta senza limite di frequenza — vedi [backend/README.md](../backend/README.md) §10 per il dettaglio (comune col lato server) e la sua interazione con `BackgroundQueue`.
+
 ---
 
 ## ⚙️ Opzioni Avanzate di `site.ts`
@@ -1425,7 +1444,7 @@ Oltre a `path`, `title` e `description`, ogni dichiarazione di pagina (nei file 
 
     // Meta tag OpenGraph aggiuntivi
     otherSEO: {
-        ogImage: 'og-cover',  // ID asset (non un path). `false` = nessun og:image; omesso = preview dinamica auto-generata
+        ogImage: { id: 'og-cover' },  // OgImageRef: { id } asset statico o { blobGuid } contenuto dinamico (vedi sotto). `false` = nessun og:image; omesso = preview dinamica auto-generata
         ogType: 'article',
         structuredData: { kind: 'article' },  // JSON-LD: stringa (@type), oggetto {kind,…} o lista. Vedi sezione JSON-LD
         noindex: false,       // true = pagina pubblica/SSR ma esclusa dall'indice (X-Robots-Tag + fuori sitemap). Default false
@@ -2364,6 +2383,12 @@ IMAGE_CACHE_MAX_MB=500                   # default: 500 MB — oltre questa sogl
 Posizione (`IMAGE_CACHE_DIR`): senza override la cache vive in una cartella dedicata nella temp di sistema, isolata per progetto tramite un hash del percorso asset (così più siti, questo template e i suoi figli, sullo stesso host non si mischiano le immagini). Tenerla fuori da `src/assets` è ciò che evita che `ng serve` ricarichi la pagina a ogni miniatura generata in sviluppo, e che thumbnail effimeri finiscano copiati in `dist` al build. In produzione la temp è scrivibile anche col container non-root, ma è effimera: dopo un riavvio la cache parte fredda e si rigenera on-demand. Per una cache calda tra i deploy, monta un volume persistente e punta `IMAGE_CACHE_DIR` lì.
 
 Sweep (`IMAGE_CACHE_MAX_MB`): lo sweep LRU avviene ogni 6 ore e porta la cache al 90% del cap (non al 100%) per evitare di ri-sweepare a ogni singolo thumbnail aggiunto. L'`mtime` di ogni file viene aggiornato a ogni hit, così i thumbnail realmente richiesti sopravvivono e vengono scartati solo quelli inutilizzati.
+
+Concorrenza dei job (`IMAGE_JOBS_MAX`), indipendente dal cap di dimensione sopra: ogni decode/resize `sharp` allova il bitmap intero in memoria, quindi il numero di job eseguibili in parallelo è limitato — default `Math.max(2, availableParallelism())`, configurabile via `IMAGE_JOBS_MAX`. Le richieste eccedenti il tetto entrano in una coda FIFO interna (non bounded, nessun timeout): su cache fredda con molte immagini distinte in una stessa pagina — tipicamente il primo traffico dopo un deploy — i thumbnail oltre il tetto di concorrenza aspettano il proprio turno invece di fallire, con un ritardo di caricamento silenzioso (nessun log, nessuna metrica dedicata) fra le richieste, non un errore.
+
+```bash
+IMAGE_JOBS_MAX=4   # default: max(2, CPU disponibili)
+```
 
 ---
 
