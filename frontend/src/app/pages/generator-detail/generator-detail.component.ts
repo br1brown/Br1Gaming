@@ -202,7 +202,7 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
         const canvas = await this.imgBuilder.buildCanvas({
             style: 'fittedCaption',
             imageSrc: this.asset.getUrl(`generator.${gen.slug}.og`),
-            captionOpts: { text: res.text, subtitle: `Dal ${gen.name} | ${ContestoSito.config.appName}` },
+            captionOpts: { text: res.text, subtitle: `${gen.name} | ${ContestoSito.config.appName}` },
             imgOpts: { width: 1200 },
         });
         if (!canvas) throw new Error('Errore nella generazione dell\'immagine');
