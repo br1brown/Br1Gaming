@@ -21,10 +21,12 @@
     border-radius: 4px;
 }
 
+/* Sempre dentro il bordo dell'immagine, mai fluttuante sopra: con poco spazio verticale
+   (immagine verticale, finestra bassa) finirebbe tagliato fuori dal viewport. */
 .image-lightbox-close {
     position: absolute;
-    top: -2.75rem;
-    right: 0;
+    top: 0.5rem;
+    right: 0.5rem;
     width: 2.5rem;
     height: 2.5rem;
     display: flex;
@@ -32,7 +34,7 @@
     justify-content: center;
     border: none;
     border-radius: 50%;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.6);
     color: #fff;
     font-size: 1.1rem;
     cursor: pointer;
@@ -47,14 +49,4 @@
 
 .image-lightbox-close:focus-visible {
     box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.6);
-}
-
-/* Sullo schermo piccolo l'immagine arriva quasi al bordo: il bottone sopra uscirebbe
-   dal viewport, lo teniamo sovrapposto in alto a destra. */
-@media (max-width: 480px) {
-    .image-lightbox-close {
-        top: 0.5rem;
-        right: 0.5rem;
-        background: rgba(0, 0, 0, 0.6);
-    }
 }

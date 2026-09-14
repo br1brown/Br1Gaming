@@ -2,6 +2,13 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Fix: pulsante di chiusura del lightbox tagliato fuori dal viewport su immagini alte
+
+Il pulsante era posizionato 2.75rem sopra l'immagine: con un'immagine verticale o una finestra bassa (poco spazio libero sopra il contenuto centrato), finiva quasi del tutto fuori dal viewport invece che solo più vicino al bordo.
+
+- Il pulsante resta ora sempre sovrapposto dentro l'angolo in alto a destra dell'immagine, come già accadeva solo sotto i 480px — rimossa la media query, unico comportamento per ogni dimensione.
+- Verificato dal vivo: riprodotto il taglio con una finestra bassa (550px), confermato risolto dopo il fix; nessuna regressione a dimensione normale.
+
 ### `Security.ApiConfig`: chiavi API e rate limiting raggruppati, soglie non più hardcoded nell'Engine
 
 Le chiavi API e le soglie del rate limiter erano due proprietà indipendenti direttamente sotto `Security` — le seconde, per giunta, costanti scritte in `Engine/Security/SecurityExtensions.cs`: per cambiarle un figlio doveva modificare un file dell'Engine, perdendo l'edit al primo merge dall'upstream. Concettualmente sono la stessa cosa (chi entra nell'API e quanto può chiamarla), ora raggruppate in un unico `Security.ApiConfig`.
