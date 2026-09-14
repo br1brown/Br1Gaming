@@ -23,8 +23,8 @@ public sealed class SitemapNotifier
         _http = http;
         _options = options.Value;
         // Stessa chiave con cui il frontend si autentica verso il backend (fetchBackendJson),
-        // usata qui nella direzione opposta. Vuota solo se Security.ApiKeys non è configurato.
-        _apiKey = security.Value.ApiKeys.FirstOrDefault() ?? "";
+        // usata qui nella direzione opposta. Vuota solo se Security.ApiConfig.Keys non è configurato.
+        _apiKey = security.Value.ApiConfig.Keys.FirstOrDefault() ?? "";
         _logger = logger;
     }
 

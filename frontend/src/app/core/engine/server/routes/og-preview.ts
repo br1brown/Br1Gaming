@@ -11,6 +11,7 @@ import { PreviewBuilder } from '../preview-builder';
 import { cacheDir } from '../server-paths';
 import { resolveAssetPath } from '../asset-mapping';
 import { AssetHandler } from '../asset-handler';
+import { defaultBlobUrl, defaultBlobUrlRaw, fetchBackendImage } from '../backend-blob';
 import { inProgress, runImageJob } from '../image-cache';
 import { recordCacheHit, recordCacheMiss } from '../image-cache-metrics';
 import { fileExists } from '../fs-utils';
@@ -52,13 +53,16 @@ export async function ogPreviewHandler(req: Request, res: Response): Promise<voi
         const title = normalizeAndTruncate(String(payload['title'] ?? ''), 200);
         const subtitle = normalizeAndTruncate(String(payload['subtitle'] ?? ''), 300);
         const id = String(payload['id'] ?? '').trim();
+        const blobGuid = String(payload['blobGuid'] ?? '').trim();
         const onlyImage = payload['onlyImage'] === 'true';
 
         // Fallback al nome app se il titolo è vuoto
         const { appName } = ContestoSito.config;
         const effectiveTitle = title || appName;
 
-        if (id) { await renderPreviewWithImage(res, id, effectiveTitle, subtitle, onlyImage); return; }
+        // Campi distinti: quale dei due sistemi è in uso emerge da quale è valorizzato (blobGuid
+        // vince su entrambi) — stessa forma di OgImageRef in siteBuilder.ts.
+        if (id || blobGuid) { await renderPreviewWithImage(res, { id, blobGuid }, effectiveTitle, subtitle, onlyImage); return; }
         await renderPreviewText(res, effectiveTitle, subtitle);
     } catch (err) {
         console.error('[Preview Error]:', err);
@@ -104,20 +108,47 @@ async function renderPreviewText(res: Response, title: string, subtitle: string)
     AssetHandler.serveImage(res, cacheFile);
 }
 
-/** Variante con immagine: sfondo, favicon e badge titolo. */
-async function renderPreviewWithImage(res: Response, ogImageId: string, title: string, subtitle: string, onlyImage?: boolean): Promise<void> {
-    const absolutePath = await resolveAssetPath(ogImageId);
-    if (!absolutePath) { res.status(404).send('Asset not found'); return; }
+/** Sorgente immagine risolta: un file locale (path su disco) oppure i byte già scaricati dal
+ *  backend. `sharp()` accetta entrambi indifferentemente, quindi a valle il flusso è identico. */
+type ImageSource = { kind: 'path'; path: string } | { kind: 'buffer'; buffer: Buffer };
 
-    // Se l'asset non è rasterizzabile da sharp, viene servito tal quale
-    const filename = absolutePath.split(/[\\/]/).pop()!;
-    const isSvg = /\.svg$/i.test(filename);
-    if (!isSvg && !AssetHandler.isSharpCompatible(filename)) { AssetHandler.serveFile(res, absolutePath); return; }
+/** Stessa forma/precedenza di {@link OgImageRef} (siteBuilder.ts), duplicata qui per non
+ *  accoppiare il layer server al bundle Angular. */
+type PreviewImageRef = { id: string; blobGuid: string };
+
+/** Risolve il riferimento in una sorgente: `blobGuid` recupera i byte dal backend (un contenuto
+ *  dinamico porta così la propria immagine senza registrarla a build time), con fallback
+ *  all'originale solo sulla convenzione di default. `id` resta l'asset statico di sempre. */
+async function resolveImageSource(ref: PreviewImageRef): Promise<ImageSource | null> {
+    if (ref.blobGuid) {
+        const override = ContestoSito.config.resolveBlobImageUrl;
+        const path = override?.(ref.blobGuid) ?? defaultBlobUrl(ref.blobGuid);
+        let buffer = await fetchBackendImage(path);
+        if (!buffer && !override) buffer = await fetchBackendImage(defaultBlobUrlRaw(ref.blobGuid));
+        return buffer ? { kind: 'buffer', buffer } : null;
+    }
+    const path = await resolveAssetPath(ref.id);
+    return path ? { kind: 'path', path } : null;
+}
+
+/** Variante con immagine: sfondo, favicon e badge titolo. */
+async function renderPreviewWithImage(res: Response, ref: PreviewImageRef, title: string, subtitle: string, onlyImage?: boolean): Promise<void> {
+    const source = await resolveImageSource(ref);
+    if (!source) { res.status(404).send('Asset not found'); return; }
+
+    // Se l'asset locale non è rasterizzabile da sharp, viene servito tal quale. Un'immagine
+    // recuperata dal backend è sempre trattata come rasterizzabile (foto caricate via blob storage).
+    let isSvg = false;
+    if (source.kind === 'path') {
+        const filename = source.path.split(/[\\/]/).pop()!;
+        isSvg = /\.svg$/i.test(filename);
+        if (!isSvg && !AssetHandler.isSharpCompatible(filename)) { AssetHandler.serveFile(res, source.path); return; }
+    }
 
     const normalizedTitle = normalizeAndTruncate(title, 100);
     const normalizedSubtitle = normalizeAndTruncate(subtitle, 150);
     const { version } = ContestoSito.config;
-    const hash = createHash('sha1').update(JSON.stringify({ version, id: ogImageId, title: normalizedTitle, subtitle: normalizedSubtitle, onlyImage: !!onlyImage })).digest('hex').slice(0, 16);
+    const hash = createHash('sha1').update(JSON.stringify({ version, ref, title: normalizedTitle, subtitle: normalizedSubtitle, onlyImage: !!onlyImage })).digest('hex').slice(0, 16);
     // JPEG per massima compatibilità con le piattaforme social
     const cacheKey = `preview_img_${hash}.jpg`;
     const cacheFile = join(cacheDir, cacheKey);
@@ -131,14 +162,15 @@ async function renderPreviewWithImage(res: Response, ogImageId: string, title: s
             const OG_W = 1200, OG_H = 630;
             // SVG: densità alta in input così la rasterizzazione resta nitida a 1200x630.
             const inputOpts = isSvg ? { density: 384 } : undefined;
+            const sharpSource: string | Buffer = source.kind === 'path' ? source.path : source.buffer;
 
-            const bgBuffer = await sharp(absolutePath, inputOpts)
+            const bgBuffer = await sharp(sharpSource, inputOpts)
                 .resize(OG_W, OG_H, { fit: 'cover' })
                 .blur(28)
                 .webp({ quality: 50 })
                 .toBuffer();
 
-            const fgBuffer = await sharp(absolutePath, inputOpts)
+            const fgBuffer = await sharp(sharpSource, inputOpts)
                 .resize(OG_W, OG_H, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
                 .png()
                 .toBuffer();
@@ -195,9 +227,14 @@ async function renderPreviewWithImage(res: Response, ogImageId: string, title: s
     try {
         await job;
     } catch (err) {
-        // Fallback al file originale se la rasterizzazione SVG non è supportata
-        if (isSvg) { console.warn('[Preview] SVG non rasterizzabile, servo l\'originale:', err); AssetHandler.serveFile(res, absolutePath); return; }
-        throw err;
+        // Fallback al file originale se la rasterizzazione SVG non è supportata (solo asset locali:
+        // isSvg è true solo quando source.kind === 'path', vedi sopra)
+        if (isSvg && source.kind === 'path') { console.warn('[Preview] SVG non rasterizzabile, servo l\'originale:', err); AssetHandler.serveFile(res, source.path); return; }
+        // Formato che sharp non decodifica (es. BMP non passato per webopt, file corrotto): una
+        // card testuale con titolo/sottotitolo già noti comunica più di un'icona muta o di un 500.
+        console.warn('[Preview] Immagine non rasterizzabile, fallback a preview testuale:', err);
+        await renderPreviewText(res, title, subtitle);
+        return;
     }
     AssetHandler.serveImage(res, cacheFile);
 }

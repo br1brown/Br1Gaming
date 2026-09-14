@@ -31,7 +31,7 @@
 # =============================================================================
 
 # br1_ensure_local_secrets — se manca global-settings.local.json, lo crea da zero GENERANDO
-# i segreti (SecretKey/ApiKeys/CryptoSecret) ma lasciando VUOTI i valori che sono decisioni
+# i segreti (SecretKey/ApiConfig.Keys/CryptoSecret) ma lasciando VUOTI i valori che sono decisioni
 # dell'ambiente (frontend.hostname su tutti). Poi lascia proseguire il deploy.
 #
 # Da chiamare ESPLICITAMENTE dagli script di pubblicazione (scripts/deploy.sh/deploy-release.sh),
@@ -59,7 +59,7 @@ const cfg = {
   frontend: { hostname: '', port: 3000 },
   backend: { public: false, publicPort: null },
   Security: {
-    ApiKeys: [b64(32)],
+    ApiConfig: { Keys: [b64(32)] },
     CorsOrigins: [],
     BehindProxy: true,
     Token: { SecretKey: b64(48) },
@@ -77,7 +77,7 @@ br1_load_config() {
     # Config EFFETTIVA = global-settings.json + override opzionale global-settings.local.json,
     # con un ApiKey EFFIMERO generato se manca. Il file .local è gitignorato: ci metti i SEGRETI
     # REALI di produzione; senza .local (CI, primo avvio) lo stack parte comunque perché qui
-    # generiamo una Security.ApiKeys usa-e-getta — così git resta senza segreti ma il template
+    # generiamo una Security.ApiConfig.Keys usa-e-getta — così git resta senza segreti ma il template
     # parte subito. SecretKey NON viene toccata: lasciarla vuota disabilita il login (scelta del
     # progetto). Il merge è profondo (gli array si sostituiscono).
     node --input-type=module --eval "
@@ -89,11 +89,12 @@ let cfg = JSON.parse(readFileSync('global-settings.json', 'utf-8'));
 if (existsSync('global-settings.local.json'))
     cfg = merge(cfg, JSON.parse(readFileSync('global-settings.local.json', 'utf-8')));
 // ApiKey effimero se assente: backend e SSR devono averne uno coincidente (montano lo stesso
-// file), altrimenti il frontend va in crash all'avvio (assertRequiredEnv su Security.ApiKeys[0]).
+// file), altrimenti il frontend va in crash all'avvio (assertRequiredEnv su Security.ApiConfig.Keys[0]).
 cfg.Security = isObj(cfg.Security) ? cfg.Security : {};
-const keys = cfg.Security.ApiKeys;
+cfg.Security.ApiConfig = isObj(cfg.Security.ApiConfig) ? cfg.Security.ApiConfig : {};
+const keys = cfg.Security.ApiConfig.Keys;
 if (!Array.isArray(keys) || keys.length === 0 || !keys[0])
-    cfg.Security.ApiKeys = [randomBytes(32).toString('base64')];
+    cfg.Security.ApiConfig.Keys = [randomBytes(32).toString('base64')];
 writeFileSync('.br1-settings.effective.json', JSON.stringify(cfg, null, 2) + '\n');
 " || return 1
 

@@ -9,9 +9,9 @@ namespace Backend.Models.Configuration;
 public class SecurityOptions
 {
     /// <summary>
-    /// Elenco delle API key ammesse dal backend.
+    /// Configurazione delle API: chiavi ammesse e rate limiting.
     /// </summary>
-    public string[] ApiKeys { get; set; } = [];
+    public ApiConfigOptions ApiConfig { get; set; } = new();
 
     /// <summary>
     /// Elenco degli origin consentiti per CORS.
@@ -39,7 +39,7 @@ public class SecurityOptions
     /// <remarks>
     /// Volutamente separata da <see cref="TokenOptions.SecretKey"/>: riusare la stessa chiave per firmare
     /// JWT e per cifrare dati sarebbe riuso di materiale crittografico su due scopi diversi. Generata da
-    /// <c>setup.mjs</c> alla nascita del progetto (come <see cref="SecurityOptions.ApiKeys"/>), indipendente
+    /// <c>setup.mjs</c> alla nascita del progetto (come <see cref="ApiConfigOptions.Keys"/>), indipendente
     /// da <see cref="LoginEnabled"/>.
     /// </remarks>
     public string CryptoSecret { get; set; } = "";

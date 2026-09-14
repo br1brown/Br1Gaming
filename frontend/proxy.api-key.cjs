@@ -4,7 +4,7 @@
 const { readFileSync, existsSync } = require('node:fs');
 const { join, resolve } = require('node:path');
 
-// Primo Security.ApiKeys[0] trovato lungo la catena di candidati del file dato.
+// Primo Security.ApiConfig.Keys[0] trovato lungo la catena di candidati del file dato.
 // Catena: GLOBAL_SETTINGS_PATH (Docker, solo per il file base), cwd e cartella
 // del proxy (dev locale: cwd/__dirname = frontend/, il file è in ../).
 function apiKeyFrom(filename, withEnvPath) {
@@ -18,7 +18,7 @@ function apiKeyFrom(filename, withEnvPath) {
     for (const p of candidates) {
         try {
             if (existsSync(p)) {
-                const key = JSON.parse(readFileSync(p, 'utf-8'))?.Security?.ApiKeys?.[0];
+                const key = JSON.parse(readFileSync(p, 'utf-8'))?.Security?.ApiConfig?.Keys?.[0];
                 if (key) return key;
             }
         } catch { /* file illeggibile: prova il prossimo candidato */ }

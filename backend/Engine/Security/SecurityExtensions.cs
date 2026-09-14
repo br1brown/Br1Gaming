@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Localization;
 using Microsoft.IdentityModel.Tokens;
 using Backend;
@@ -23,10 +24,17 @@ public static class SecurityExtensions
     /// </summary>
     /// <param name="services">Collezione DI da configurare.</param>
     /// <param name="security">Opzioni tipizzate lette da <c>global-settings.json</c>.</param>
+    /// <param name="configureRateLimiting">
+    /// Callback opzionale eseguita dopo la configurazione di default del rate limiter: un progetto
+    /// che vuole andare oltre le soglie di <see cref="RateLimitingOptions"/> (partizionare per
+    /// utente invece che per IP, un algoritmo diverso, policy aggiuntive per un proprio endpoint)
+    /// riceve le stesse <see cref="RateLimiterOptions"/> e può aggiungervi o sovrascriverne membri.
+    /// </param>
     /// <returns>La stessa collezione servizi, per consentire il chaining della configurazione.</returns>
     public static IServiceCollection AddTemplateSecurity(
         this IServiceCollection services,
-        SecurityOptions security)
+        SecurityOptions security,
+        Action<RateLimiterOptions>? configureRateLimiting = null)
     {
         // ── AUTENTICAZIONE ──────────────────────────────────────────────
         //
@@ -44,10 +52,10 @@ public static class SecurityExtensions
                 SecurityDefaults.ApiKeyAuthenticationScheme,
                 options =>
                 {
-                    // Chiavi accettate, da Security.ApiKeys (configurate in global-settings.local.json).
+                    // Chiavi accettate, da Security.ApiConfig.Keys (configurate in global-settings.local.json).
                     // Confronto ORDINALE (case-sensitive): una API key è un segreto,
                     // ignorare il case ne dimezzerebbe l'entropia.
-                    options.ValidKeys = new HashSet<string>(security.ApiKeys, StringComparer.Ordinal);
+                    options.ValidKeys = new HashSet<string>(security.ApiConfig.Keys, StringComparer.Ordinal);
                 });
 
         // ── JWT BEARER (condizionale) ───────────────────────────────────
@@ -103,6 +111,12 @@ public static class SecurityExtensions
             options.AddPolicy(SecurityDefaults.RequireLoginPolicy, policyBuilder.Build());
         });
 
+        // RequireLoginPolicy combina due schemi (sopra): senza questo, una richiesta con API key
+        // valida ma senza Bearer risulterebbe comunque "autenticata" per ASP.NET Core (basta che
+        // UNO schema richiesto abbia successo) e il fallimento di RequireRole diventerebbe un 403
+        // invece di un 401 — vedi la remark su LoginChallengeResultHandler.
+        services.AddSingleton<IAuthorizationMiddlewareResultHandler, LoginChallengeResultHandler>();
+
         // ── CORS ────────────────────────────────────────────────────────
         // CorsOrigins vuoto = AllowAnyOrigin deliberato: la protezione reale è l'API key.
         // Valorizzare Security.CorsOrigins solo per domini admin separati o multi-tenant.
@@ -126,8 +140,10 @@ public static class SecurityExtensions
 
         // ── RATE LIMITING ───────────────────────────────────────────────
         //
-        // Protezione da abuso, partizionata per IP del client.
+        // Protezione da abuso, partizionata per IP del client. Soglie in Security.ApiConfig.RateLimiting
+        // (global-settings.json): un progetto le cambia lì, senza toccare questo file.
         //
+        var apiRateLimiting = security.ApiConfig.RateLimiting;
         services.AddRateLimiter(options =>
         {
             // OnRejected sostituisce RejectionStatusCode: scrive un ProblemDetails (RFC 9457)
@@ -164,31 +180,49 @@ public static class SecurityExtensions
                 });
             };
 
-            // Globale — 100 req/min per IP. Alto abbastanza per una SPA con prefetch,
-            // basso abbastanza per bloccare script automatici e crawler.
+            // Globale, partizionato per IP. Alto abbastanza per una SPA con prefetch, basso
+            // abbastanza per bloccare script automatici e crawler — soglia in ApiConfig.RateLimiting.Global.
             options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
-                RateLimitPartition.GetFixedWindowLimiter(
-                    // RemoteIpAddress e' gia' l'IP reale: se BehindProxy e' true,
-                    // UseForwardedHeaders lo ha sovrascritto con X-Forwarded-For.
-                    partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                    factory: _ => new FixedWindowRateLimiterOptions
-                    {
-                        PermitLimit = 100,
-                        Window = TimeSpan.FromMinutes(1),
-                        QueueLimit = 0  // Rifiuta subito, non accodare.
-                    }));
+            {
+                // RemoteIpAddress e' gia' l'IP reale: se BehindProxy e' true,
+                // UseForwardedHeaders lo ha sovrascritto con X-Forwarded-For.
+                var partitionKey = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
-            // Login — 5 req/min per IP. Applicata via [EnableRateLimiting("login")]
-            // su AuthController.Login. Rende il brute force impraticabile.
+                // ApiConfig.RateLimiting.Enabled = false: nessun conteggio, la richiesta passa sempre.
+                // Le policy restano registrate ([EnableRateLimiting("login")] risolve comunque),
+                // solo senza effetto pratico — un WAF/reverse proxy a monte può già occuparsene.
+                if (!apiRateLimiting.Enabled)
+                    return RateLimitPartition.GetNoLimiter(partitionKey);
+
+                return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = apiRateLimiting.Global.PermitLimit,
+                    Window = TimeSpan.FromSeconds(apiRateLimiting.Global.WindowSeconds),
+                    QueueLimit = 0  // Rifiuta subito, non accodare.
+                });
+            });
+
+            // Dedicata a POST /auth/login, applicata via [EnableRateLimiting("login")] su
+            // AuthController.Login: soglia più stretta (ApiConfig.RateLimiting.Login) per rendere
+            // impraticabile il brute force sulle credenziali.
             options.AddPolicy(SecurityDefaults.LoginRateLimitPolicy, context =>
-                RateLimitPartition.GetFixedWindowLimiter(
-                    partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                    factory: _ => new FixedWindowRateLimiterOptions
-                    {
-                        PermitLimit = 5,
-                        Window = TimeSpan.FromMinutes(1),
-                        QueueLimit = 0
-                    }));
+            {
+                var partitionKey = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                if (!apiRateLimiting.Enabled)
+                    return RateLimitPartition.GetNoLimiter(partitionKey);
+
+                return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = apiRateLimiting.Login.PermitLimit,
+                    Window = TimeSpan.FromSeconds(apiRateLimiting.Login.WindowSeconds),
+                    QueueLimit = 0
+                });
+            });
+
+            // Punto di estensione: un progetto che vuole andare oltre le soglie sopra (partizionare
+            // per utente, un algoritmo diverso, policy proprie) riceve le stesse options e può
+            // aggiungervi o sovrascriverne membri — invocata per ultima, quindi vince lei.
+            configureRateLimiting?.Invoke(options);
         });
 
         // ── CIFRATURA GENERICA ───────────────────────────────────────────
@@ -274,7 +308,7 @@ public static class SecurityExtensions
         app.UseStatusCodePages();
 
         // Rate limiting per IP del client.
-        // 100 req/min globali, 5 req/min su login.
+        // 500 req/min globali, 5 req/min su login (default — configurabili in Security.ApiConfig.RateLimiting).
         // Sta subito dopo l'exception handler (fail fast): se un client sta abusando,
         // viene bloccato subito senza sprecare risorse sui middleware successivi.
         app.UseRateLimiter();

@@ -23,13 +23,13 @@ export const SHELL_NAV_RESOLVER = new InjectionToken<ShellNavResolver>('SHELL_NA
     factory: () => ({}),
 });
 
-const SHELL_NAV_STATE_KEY = makeStateKey<{ header: NavLink[]; footer: NavLink[] }>('shellNav');
+const SHELL_NAV_STATE_KEY = makeStateKey<{ header: NavLink[]; footer: NavLink[]; brandIcon: boolean | string }>('shellNav');
 
 /**
- * Voci di navigazione di header/footer, condivise da `NavbarComponent`/`FooterComponent` (un solo
- * fetch, non uno a testa). Risolte da `SHELL_NAV_RESOLVER` — dato, non struttura del sito: a
- * differenza di `ContestoSito` (build-time), qui gira a ogni richiesta SSR e può dipendere da
- * un'API (es. menu diverso per utente loggato).
+ * Voci di navigazione di header/footer e icona di brand, condivise da `NavbarComponent`/
+ * `FooterComponent` (un solo fetch, non uno a testa). Risolte da `SHELL_NAV_RESOLVER` — dato, non
+ * struttura del sito: a differenza di `ContestoSito` (build-time), qui gira a ogni richiesta SSR e
+ * può dipendere da un'API (es. menu diverso per utente loggato, icona diversa per pagina).
  *
  * Il primo giro (lingua iniziale) è atteso da un `provideAppInitializer` in `app.config.ts`, PRIMA
  * che qualunque componente si costruisca: `NavbarComponent` legge `header()`/`footer()` anche in
@@ -56,8 +56,11 @@ export class ShellNavService {
 
     private readonly _header = signal<NavLink[]>([]);
     private readonly _footer = signal<NavLink[]>([]);
+    // Default true (favIcon di sempre) se non c'è resolver.brandIcon — stesso default di prima.
+    private readonly _brandIcon = signal<boolean | string>(true);
     readonly header = this._header.asReadonly();
     readonly footer = this._footer.asReadonly();
+    readonly brandIcon = this._brandIcon.asReadonly();
 
     /** Chiave (lingua + login) dell'ultimo `resolve()` completato: guardia contro il doppio giro
      *  fra la chiamata esplicita del `provideAppInitializer` e il primo scatto automatico
@@ -99,16 +102,18 @@ export class ShellNavService {
         const generation = ++this.generation;
 
         if (this.transferState.hasKey(SHELL_NAV_STATE_KEY)) {
-            const cached = this.transferState.get(SHELL_NAV_STATE_KEY, { header: [], footer: [] });
+            const cached = this.transferState.get(SHELL_NAV_STATE_KEY, { header: [], footer: [], brandIcon: true });
             this.transferState.remove(SHELL_NAV_STATE_KEY);
             this._header.set(cached.header);
             this._footer.set(cached.footer);
+            this._brandIcon.set(cached.brandIcon);
             return;
         }
 
         await Promise.all([
             this.resolveInto('header', this.resolver.header, lang, this._header, generation),
             this.resolveInto('footer', this.resolver.footer, lang, this._footer, generation),
+            this.resolveBrandIconInto(lang, generation),
         ]);
         // Un resolve() più recente è partito nel frattempo (cambio lingua/login a raffica): i suoi
         // risultati sono già nei signal, questo giro non ha più nulla di attendibile da trasferire.
@@ -116,7 +121,7 @@ export class ShellNavService {
         // In SSR: passa il risultato al client, che altrimenti rifarebbe subito lo stesso fetch
         // appena idratato. Anche a una sezione fallita (svuotata, vedi resolveInto): meglio
         // trasferire quello che c'è che rifare comunque entrambe le chiamate lato client.
-        this.transferState.set(SHELL_NAV_STATE_KEY, { header: this._header(), footer: this._footer() });
+        this.transferState.set(SHELL_NAV_STATE_KEY, { header: this._header(), footer: this._footer(), brandIcon: this._brandIcon() });
     }
 
     private async resolveInto(
@@ -142,6 +147,22 @@ export class ShellNavService {
             // Svuota, non lascia lo stato precedente: quello poteva appartenere a un login/lingua
             // diversi (vedi doc di resolve()) — mostrare voci sbagliate è peggio di non mostrarne.
             if (isCurrent()) target.set([]);
+        }
+    }
+
+    /** Risolve `resolver.brandIcon`, stessa guardia di generazione di `resolveInto` ma corpo
+     *  separato: il tipo di ritorno non è un `NavLink[]`. */
+    private async resolveBrandIconInto(lang: string, generation: number): Promise<void> {
+        const isCurrent = () => generation === this.generation;
+        const run = this.resolver.brandIcon;
+        if (!run) { if (isCurrent()) this._brandIcon.set(true); return; }
+        try {
+            const value = await runInInjectionContext(this.injector, () => run({ lang, getPath: this.getPath }));
+            if (isCurrent()) this._brandIcon.set(value);
+        } catch (err) {
+            console.error('[ShellNavService] Risoluzione brandIcon fallita:', err);
+            // A differenza di header/footer: il fallback sicuro è il default (favIcon), non "nascosta".
+            if (isCurrent()) this._brandIcon.set(true);
         }
     }
 }

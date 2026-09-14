@@ -10,7 +10,7 @@ import type { GlobalSettings } from '../../global-settings.types';
  *   gli statici dopo una modifica a global-settings.json (vedi commento in server.ts).
  *
  * Ristretta a queste tre sezioni apposta: un global-settings.local.json che tocca solo segreti
- * (la convenzione documentata, es. ApiKeys) non deve far scattare falsi positivi lato server
+ * (la convenzione documentata, es. ApiConfig.Keys) non deve far scattare falsi positivi lato server
  * (che legge il file fuso con .local, a differenza di generate-statics.ts).
  */
 export function fingerprintIdentitySections(settings: Pick<GlobalSettings, 'project' | 'Localization' | 'site'>): string {

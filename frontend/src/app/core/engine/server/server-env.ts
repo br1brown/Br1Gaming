@@ -25,7 +25,7 @@ import type { PermissionsPolicyOverride } from './permissions-policy';
 //   già file effettivo base+.local fuso da scripts/lib/br1-config.sh)
 // Fallback 1: global-settings.json nella cwd (Docker dev)
 // Fallback 2: ../global-settings.json rispetto alla cwd (dev locale: cwd=frontend/)
-// In DEV locale i segreti (ApiKeys, Token) stanno in global-settings.local.json: viene
+// In DEV locale i segreti (ApiConfig.Keys, Token) stanno in global-settings.local.json: viene
 // fuso sopra il base con lo stesso deep-merge di br1-config.sh (deepMergeSettings, condivisa
 // anche con generate-statics.ts — vedi ../scripts/config/settings-merge.ts), così l'SSR locale ha la API key
 // come backend e proxy. In Docker/prod il .local non esiste → merge no-op.
@@ -289,7 +289,7 @@ export const serverEnv: ServerEnv = {
         return _backend ??= {
             origin: (process.env['BACKEND_ORIGIN'] ?? '').replace(/\/$/, ''),
             // BACKEND_ORIGIN è sempre un env var (URL Docker-interno, non config utente)
-            apiKey: br1().Security?.ApiKeys?.[0] ?? process.env['BACKEND_API_KEY'] ?? '',
+            apiKey: br1().Security?.ApiConfig?.Keys?.[0] ?? process.env['BACKEND_API_KEY'] ?? '',
         };
     },
     get server(): NodeServerEnv {
@@ -331,7 +331,7 @@ export function assertRequiredEnv(): void {
     const missing = (
         [
             ['BACKEND_ORIGIN',    serverEnv.backend.origin],
-            ['Security.ApiKeys[0]', serverEnv.backend.apiKey],
+            ['Security.ApiConfig.Keys[0]', serverEnv.backend.apiKey],
         ] as const
     ).filter(([, v]) => !v).map(([name]) => name);
 

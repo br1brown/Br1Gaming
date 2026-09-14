@@ -2,6 +2,113 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Fix: pulsante di chiusura del lightbox tagliato fuori dal viewport su immagini alte
+
+Il pulsante era posizionato 2.75rem sopra l'immagine: con un'immagine verticale o una finestra bassa (poco spazio libero sopra il contenuto centrato), finiva quasi del tutto fuori dal viewport invece che solo più vicino al bordo.
+
+- Il pulsante resta ora sempre sovrapposto dentro l'angolo in alto a destra dell'immagine, come già accadeva solo sotto i 480px — rimossa la media query, unico comportamento per ogni dimensione.
+- Verificato dal vivo: riprodotto il taglio con una finestra bassa (550px), confermato risolto dopo il fix; nessuna regressione a dimensione normale.
+
+### `Security.ApiConfig`: chiavi API e rate limiting raggruppati, soglie non più hardcoded nell'Engine
+
+Le chiavi API e le soglie del rate limiter erano due proprietà indipendenti direttamente sotto `Security` — le seconde, per giunta, costanti scritte in `Engine/Security/SecurityExtensions.cs`: per cambiarle un figlio doveva modificare un file dell'Engine, perdendo l'edit al primo merge dall'upstream. Concettualmente sono la stessa cosa (chi entra nell'API e quanto può chiamarla), ora raggruppate in un unico `Security.ApiConfig`.
+
+- **Breaking**: `Security.ApiKeys` è ora `Security.ApiConfig.Keys`. Migrazione: sposta l'array dentro un nuovo oggetto `ApiConfig` in `global-settings.local.json` (e nell'example) — `setup.mjs`, `scripts/deploy.sh`/`deploy-release.sh` e `scripts/lib/br1-config.sh` generano già la forma nuova.
+- Nuova `Security.ApiConfig.RateLimiting`: `Global.PermitLimit`/`WindowSeconds` per la soglia generale, `Login.PermitLimit`/`WindowSeconds` per `POST /auth/login`, `Enabled: false` per disattivare del tutto l'enforcement (le policy restano registrate — `[EnableRateLimiting("login")]` continua a risolvere — solo senza effetto pratico: pensato per chi ha già un WAF/reverse proxy che applica le proprie soglie a monte). Senza questa sezione in config, i default sono 500 req/min globali e 5 req/min sul login, enforcement attivo — il tetto globale è più alto di quanto sembri necessario di primo acchito apposta: una singola pagina con una decina di immagini dinamiche (`GET /blob/{slug}`) più le chiamate API di corredo può avvicinarsi rapidamente a un tetto stretto anche per una sessione di navigazione normale, non solo per abuso.
+- `AddTemplateSecurity` (`Program.cs`) accetta ora un `Action<RateLimiterOptions>` opzionale, invocato per ultimo dentro `AddRateLimiter`: un progetto che vuole andare oltre i due numeri (partizionare per utente invece che per IP, un algoritmo diverso, policy aggiuntive per un proprio endpoint) riceve le stesse `RateLimiterOptions` e può aggiungervi o sovrascriverne membri, senza toccare l'Engine.
+- Verificato: `dotnet build` backend pulito, `tsc --noEmit` frontend pulito. Dal vivo con curl: API key letta dal nuovo percorso (200 con chiave valida, 401 senza); soglia globale abbassata a 2-3/min → 429 dalla richiesta successiva al limite; `Enabled: false` → nessun 429 né sulla soglia globale né su quella di login, anche molto oltre i default; nessuna sezione `ApiConfig.RateLimiting` in config → comportamento di sempre invariato.
+
+### Storage blob: da implementazione di Dominio a `FileBlobStore`/`EngineBlobController` dell'Engine, con proprietà tracciata (EF Core/SQLite)
+
+Il vecchio `BlobStore`/`BlobController` viveva nel Dominio (`Store/`, `Controllers/`), un file di progetto che ogni figlio possedeva e modificava direttamente — ma lo storage binario è I/O generico con un'unica implementazione plausibile, non una forma specifica di progetto come `IContentStore`: teneva il figlio a carico di un pezzo che non doveva scegliere, e senza nessun controllo su CHI potesse cancellare cosa.
+
+- Nuovo `FileBlobStore` (Engine, `Engine/Blob/Blob.cs`): classe concreta (non interfaccia, YAGNI — un'interfaccia sarebbe cerimonia senza un secondo storage reale all'orizzonte), metodi `virtual`: `SaveAsync`/`GetInfoAsync`/`OpenReadAsync`/`DeleteAsync`/`ReplaceAsync`, più `MaxUploadSizeBytes` (proprietà, non config: un progetto può cambiare il numero o l'intera logica di calcolo — per ruolo utente, piano dell'account...). `EngineBlobController` (Engine, `sealed`) espone `GET`/`POST up`/`PUT {slug}`/`DELETE {slug}` su `/blob`: nessun controller di dominio da scrivere, nessuna sottoclasse per servire altri binari.
+- `Store/AppBlobStore.cs` (di progetto, come `AppIdentityStore.cs`) estende `FileBlobStore`: passthrough di base su tutto, override mirati dove serve. Aggiunge il controllo di proprietà sulla `DELETE`/sostituzione: solo chi ha caricato lo slug (o un utente con ruolo `admin`) può cancellarlo, tracciato da nuovo `BlobOwnershipRegistry` su nuovo `AppDbContext` — EF Core, SQLite (`db/app.db`, cartella separata da `uploads/` apposta). Uno slug senza proprietario registrato (caricato prima che il registro esistesse) non blocca nessuno, permissivo di default.
+- "Modifica" = `ReplaceAsync` (salva il nuovo, poi cancella il vecchio): lo slug resta immutabile per non rompere `Cache-Control: immutable` sulla `GET`. Cancellazione in due passi separati (autorizzazione senza effetti collaterali, poi commit database e SOLO SE il file esiste davvero cancellazione fisica) — mai una riga "cancellato" per un'operazione che di fatto non ha fatto nulla, mai il file sparito prima che il database lo sappia. Un file orfano dopo un crash fra i due passi viene ripulito da `AppBlobStore.CleanupOrphanedFilesAsync()`, uno sweep all'avvio.
+- `MaxUploadSizeBytes` essendo ora runtime (non più un `[RequestSizeLimit]` fisso a compile-time) da solo non basta: il tetto di default del server (Kestrel/IIS, ~28-30 MB) rifiuterebbe comunque la request con un errore generico prima che il controllo puntuale scatti. Nuovo `DynamicUploadSizeLimitFilter` alza il tetto del server al valore corrente prima del model binding (con un margine per l'overhead multipart) e, se il client dichiara già un `Content-Length` chiaramente eccessivo, risponde subito con un 413 strutturato/localizzato senza nemmeno iniziare a leggere il body.
+- `RequireLogin` combina API Key + JWT Bearer sulla stessa policy: una richiesta senza alcun Bearer (ma con API key valida) risultava comunque "autenticata" per ASP.NET Core — basta che UNO dei due schemi abbia successo — quindi il fallimento del requisito sul ruolo diventava un 403 invece di un 401, anche senza aver presentato nessun token. Nuovo `LoginChallengeResultHandler` (Engine) forza 401 quando specificamente il JWT non ha superato l'autenticazione; un token valido ma senza il ruolo richiesto resta correttamente 403.
+- **Breaking per ogni figlio che aveva esteso `Store/BlobStore.cs`/`Controllers/BlobController.cs`:** entrambi i file sono rimossi. Migrazione: sposta le tue validazioni/override in `Store/AppBlobStore.cs` (già presente, stesso pattern di `AppIdentityStore.cs`); se sovrascrivevi solo il limite di dimensione via `[RequestSizeLimit]`, sovrascrivi ora `MaxUploadSizeBytes`.
+- Verificato: `dotnet build` backend pulito (0 warning, 0 errori). Dal vivo con curl contro un'istanza reale: upload/get/put(replace)/delete nel percorso normale; ownership negata per un non-proprietario su delete e su replace (JWT forgiato per un utente inesistente, nessun secondo account demo disponibile) e concessa per un admin, senza orfani lasciati sul tentativo negato; upload a 35/50/60 MB per verificare il margine sul tetto del server e il 413 anticipato; sweep degli orfani su un caso simulato, un file davvero non tracciato (sopravvive) e una cancellazione normale (non lascia nulla); 401 senza Bearer su upload/delete, 403 invariato su un JWT valido ma senza i permessi giusti.
+
+### Lightbox per immagini (CDK Overlay, WAI-ARIA)
+
+Un'immagine a piena risoluzione non aveva modo di aprirsi ingrandita se non navigandoci sopra o aprendola in un'altra scheda.
+
+- `ImageLightboxService` (Engine, CDK Overlay: backdrop, scroll block, chiusura su Escape/backdrop-click, focus trap e ripristino) apribile da due punti: `[appAssetLightbox]="true"` su `AssetDirective` (per un `[appAsset]` risolto da `AssetService`) e `[appLightbox]="miaBlob()"` su nuova `LightboxDirective` (per un `Blob` locale, es. un canvas — l'opt-in è la presenza stessa del `Blob`, niente flag separato). Entrambe condividono l'attivazione (cursore/tabindex/role/tastiera) via nuova `LightboxActivatable`, così un fix di accessibilità su una vale anche per l'altra.
+- `role="button"` sull'`<img>` (necessario per l'attivazione da tastiera) fa calcolare il nome accessibile con l'algoritmo generico invece di quello specifico di `<img>`: `alt` da solo smette di contare. `LightboxActivatable` specchia `alt` su `aria-label` quando l'affordance è attiva — trovato da un fallimento CI reale (pa11y, WCAG2AA.4_1_2/H91.Img.Name) dopo il merge iniziale, non in review.
+- Verificato: build di produzione frontend (type-check incluso); dal vivo in browser su entrambi i punti di attivazione (apre, Escape chiude, focus torna); pa11y in locale sulla stessa pagina che aveva fallito in CI — riprodotto l'errore rimuovendo temporaneamente l'`aria-label` (stesso identico messaggio), confermato sparito col fix.
+
+### Icona di brand in navbar e `og:image`/`twitter:image` da un blob dinamico
+
+Il flag statico `showBrandIconInHeader` (booleano fisso in `site.ts`, build-time) non lasciava spazio per un'icona diversa dal favicon calcolata a runtime, né per un'immagine di anteprima social diversa da un asset compilato nel bundle — utile per un contenuto dinamico (un articolo, un progetto) che porta la propria immagine senza che nulla vada registrato a build time.
+
+- `showBrandIconInHeader` **rimosso**, sostituito da `ShellNavResolver.brandIcon` (nuovo campo opzionale, risolto a runtime insieme a `header`/`footer`): `true`/assente → `favIcon` di sempre, `false` → nessuna icona, una stringa → chiave `mapping.json` o GUID di un blob, stessa risoluzione "mapping poi blob" già usata da `cdn-asset.ts`.
+- Nuovo `OgImageRef` (`{ id?, blobGuid? }`) per `og:image`/`twitter:image`: `id` resta un asset statico, `blobGuid` risolve a runtime da `og-preview.ts` via `GET blob/{guid}`. Nuovo hook `SiteConfig.resolveBlobImageUrl` (default: convenzione `blob/{guid}?webopt=true`) — un figlio con un endpoint blob diverso sovrascrive solo questo, l'Engine non assume mai la forma dell'URL.
+- **Breaking per ogni figlio con `showBrandIconInHeader` in `site.ts`:** al merge, la proprietà non esiste più. Migrazione: se serve un'icona diversa dal favicon, dichiara `brandIcon` in `nav.ts`; se bastava il comportamento di sempre, basta rimuovere la riga.
+- Verificato: build di produzione frontend (type-check incluso).
+
+### `OpeningHours`: sempre da codice, mai nello schema di `identity.json`
+
+Orari operativi cambiano per motivi stagionali/di festività più spesso di quanto sia ragionevole legarli a un deploy — restava comunque un campo dello schema, valorizzabile a mano nel file.
+
+- `openingHours` rimosso da `identity.schema.json` (e dal file demo `identity.json`, che lo aveva ancora popolato — violava lo schema aggiornato). Resta un campo di `SiteIdentity` in C#: si valorizza sempre via `AppIdentityStore.ComposeIdentityAsync` (già il punto documentato per comporre l'identità da fonti diverse dal file).
+- Verificato: `dotnet build` backend pulito; JSON di schema e dati validati.
+
+### `ExternalPageInput.requiresAuth` tipizzato a `never`
+
+Il campo compilava su una pagina esterna ma non aveva alcun effetto: un link esterno non passa da `routing.ts` (nessun `canActivate` da applicare).
+
+- `requiresAuth?: never` su `ExternalPageInput`: errore a compile-time invece di un flag silenziosamente ignorato. Per nascondere la voce a chi non è loggato resta `authOnly` su `addLink`.
+- Verificato: `tsc --noEmit` pulito.
+
+### `llms.txt`: da file generato al build a endpoint runtime, con pagine dinamiche (`dynamicParams`)
+
+Come `sitemap.xml`, `llms.txt` generato a build time perdeva del tutto le pagine parametriche (i cataloghi dinamici) perché non enumerabili al build. È stato quindi promosso da asset statico a rotta dinamica.
+
+- `public/llms.txt` **non è più generato da `generate-statics.ts`**: `llms.txt` è ora un endpoint (`GET /llms.txt`, `server/routes/dynamic-sitemap.ts`), montato nel Node SSR prima dello static handler. Ripete esattamente l'architettura collaudata per la sitemap: si unisce alle pagine statiche usando la stessa logica di `dynamicParams` interrogando il backend a runtime.
+- **Condivisione cache e logica**: Usa la stessa cache e logica di invalidamento via `POST /internal/revalidate-sitemap` introdotta per la sitemap.
+- **Breaking, solo se l'infrastruttura di deploy assume `llms.txt` come file statico**: stesso disclaimer di `sitemap.xml`. Un CDN che by-passa il Node SSR per file `.txt` potrebbe restituire 404 se non instradato correttamente.
+- Verificato: build di produzione frontend e type-check puliti.
+
+
+### Error tracking client-side: le eccezioni JS del browser arrivano allo stesso webhook di quelle server
+
+`IErrorReportingService` (backend) segnalava già i bug lato API (§ voce precedente in questo stesso ambito, § 10 di `backend/README.md`) — ma un'eccezione JavaScript nel browser di un visitatore non passa da nessuna richiesta HTTP fallita, quindi non ci arrivava mai. Completa il meccanismo esistente sul lato che mancava, invece di costruirne uno separato.
+
+- **Backend**: nuovo `EngineClientErrorController` (`POST diagnostics/ui-fault`, sola API Key — funziona anche per visitatori anonimi, stesso schema di `EngineNotificationStreamController`). Accoda a `IErrorReportingService.ReportAsync` esattamente come `ApiExceptionHandler` fa per i bug server. `ErrorReport` ha un nuovo campo opzionale `Source` (`"server"` default, `"client"` per questo endpoint) per distinguere le due fonti nello stesso canale — nessuna rottura per chi già consuma `ErrorReport`/`EngineErrorReporting`, è additivo.
+- **Frontend**: nuovo `ClientErrorReportingService`, `ErrorHandler` globale registrato in `app.config.ts`. Copre sia gli errori che Angular già traccia sia — punto rilevante per un'app **zoneless** come questa, verificato dal vivo: senza `zone.js` un `ErrorHandler` da solo non riceve un errore da un `setTimeout` nudo o un listener DOM aggiunto a mano — quelli fuori da un contesto Angular, tramite `window.addEventListener('error'/'unhandledrejection')`. Spento in sviluppo, nessuna destinazione se il webhook backend non è configurato.
+- Non breaking, additivo, zero-config per i figli.
+- **Verificato**: `tsc --noEmit` pulito, build di produzione completa (browser + server); test dal vivo in Chromium sulla build di produzione — un errore fuori da un contesto Angular (che senza i listener `window` sarebbe passato inosservato, confermato) genera correttamente una `POST diagnostics/ui-fault` con `message`/`exceptionType`/`path`/`stackTrace`. Lato backend, `dotnet build` pulito (0 warning, 0 errori) e test end-to-end dal vivo (`dotnet run` + un webhook fittizio locale): la richiesta del browser arriva a `EngineClientErrorController`, viene accodata e il webhook riceve il JSON atteso con `source: "client"`; verificati anche il 401 senza API key e i fallback (`"(nessun messaggio)"`/`"ClientError"`) su un payload vuoto.
+
+### Nuovo `WebVitalsService`: Core Web Vitals reali, raccolte ma senza destinazione di default
+
+Il template misurava tanto (Lighthouse/pa11y in CI, contrasto WCAG calcolato) ma nulla di com'è davvero l'esperienza per chi visita il sito — solo audit sintetici, mai un utente reale con la sua connessione. `WebVitalsService` chiude questo buco lato Engine, senza decidere nulla che non gli spetti.
+
+- Raccoglie LCP, INP, CLS, FCP, TTFB via la libreria `web-vitals` (zero dipendenze proprie). `init()` chiamato da `app.component.ts` accanto a `VersionCheckService.init()` — stesso punto, stesso pattern.
+- Deliberatamente **senza destinazione di rete di default**: dove mandare questi dati (endpoint proprio, GA4, altro RUM) è una scelta di progetto, non dell'Engine. Zero chiamate in uscita aggiunte: le metriche finiscono in un signal (`metrics()`) osservabile con un `effect()` per chi vuole spedirle altrove, e in console (`console.debug`) solo in sviluppo.
+- Non breaking, additivo: nessun figlio deve toccare nulla per riceverlo al merge — se nessuno legge `metrics()`, il servizio non fa altro che ascoltare eventi già emessi dal browser.
+- Verificato: `tsc --noEmit` pulito, build di produzione completa (bundle browser + server) senza errori.
+
+### `ImgBuilderService`: `drawImageCroppedTop` riassorbito in `drawImageFit` come terzo `fit: 'cropTop'`
+
+Nello stesso giro che ha tolto lo sfondo sfocato da `'fittedCaption'` (voce sotto), il ritaglio-dal-basso era finito in un metodo a sé (`drawImageCroppedTop`), chiamato da `buildFittedCaptionCanvas` con un proprio `fillRect` di sfondo scritto a mano — un secondo percorso di compositing immagine, parallelo a `drawImageBackground`/`drawImageFit` che già servono `'pill'`/`'caption'`. Nessun bug, ma due framework invece di uno per lo stesso servizio.
+
+- `drawImageFit` prende ora un terzo `fit: 'cropTop'` (stessa logica che aveva `drawImageCroppedTop`, spostata dentro senza modifiche). `drawImageCroppedTop` rimosso.
+- `buildFittedCaptionCanvas` disegna la zona immagine con lo stesso `drawImageBackground` di `'pill'`/`'caption'` (`{ fit: 'cropTop' }`), non più con un `fillRect` + chiamata a parte: un solo punto di compositing per tutto il servizio, `'fittedCaption'` sceglie solo un `fit` che gli altri stili non usano di default.
+- Non breaking (`drawImageCroppedTop` era privato, nessun consumer esterno) e non cambia il risultato: stessa identica matematica, solo spostata. Verificato: `tsc --noEmit` pulito; ri-eseguita la batteria di verifica automatica (6 rapporti immagine × 3 risoluzioni native × 2 lunghezze testo, 36 combinazioni con confronto atteso/ottenuto sulle dimensioni) — 36/36 identiche a prima del refactor, pixel per pixel per costruzione.
+
+### `ImgBuilderService`: `'fittedCaption'` non sfoca più l'immagine — due zone separate, immagine sempre nitida ed eventualmente ritagliata
+
+Con testo molto lungo su un'immagine di rapporto standard, `canvasH` cresce oltre l'altezza naturale dell'immagine per far entrare tutto il testo a scala 1. Il comportamento di base (`'blurred'`+`'contain'`, un solo canvas condiviso fra immagine e fascia testo) lasciava sempre una quota di sfondo sfocato visibile per riempire lo scarto fra il riquadro nitido e il resto del canvas — spostabile (un primo tentativo, `foregroundAlign: 'top'`, l'ha spinta tutta sotto invece che divisa sopra/sotto) ma non eliminabile: la sfocatura restava comunque una scelta di ripiego, non quello che l'utente aveva caricato.
+
+Ripensato da zero: **niente più sfondo sfocato in `'fittedCaption'`**, in nessun caso.
+
+- `buildFittedCaptionCanvas` non condivide più un canvas unico fra immagine e testo: compone due zone indipendenti, immagine sopra e fascia testo sotto, con la stessa dissolvenza (scrim + fade) che `buildCaption` usa già in `position: 'bottom'` — non più una riga netta fra le due.
+- L'immagine è sempre disegnata nitida e a piena larghezza. Se la sua altezza naturale supera il tetto (nuova opzione `FittedCaptionOptions.maxImageRatio`, frazione della larghezza canvas, default `0.6`) viene ritagliata dal basso — mai zoomata sui lati (a differenza di un `'cover'` su un canvas più alto, che dovrebbe sacrificare i lati di un'immagine larga), mai deformata. Se l'immagine è già più bassa del tetto, nessun ritaglio.
+- La fascia testo è dimensionata sul solo contenuto reale (`fitTextBlocks`), non più sul tetto "60% di canvasH" pensato per il vecchio canvas condiviso: niente più spazio vuoto sprecato intorno al testo.
+- **Breaking, ma senza consumer reali** (verificato su tutto l'albero + figli, `'fittedCaption'` non aveva ancora un caller reale): `ImageCanvasOptions.foregroundAlign` rimosso (introdotto e già superato nello stesso giro, l'approccio "contain centrato/ancorato" non esiste più). `FittedCaptionOptions.minImageRatio` sostituito da `maxImageRatio` (semantica opposta: non più una quota minima di immagine da lasciare visibile in un canvas condiviso, ma un tetto massimo alla zona immagine, ora indipendente). `imgOpts` per `'fittedCaption'` accetta solo `width`/`backdropColor` (`background`/`foreground`/`fit`/`insetHeightRatio` non si applicano più: l'unico modo in cui questo stile mostra un'immagine, ora, è questo). Rimosso anche `ImgBuilderService.fitCaptionHeight` (pubblico ma senza consumer esterni, mai documentato in questo README): la sua logica non serve più a `'fittedCaption'`, che misura la fascia testo per conto proprio.
+- Verificato: `tsc --noEmit` pulito sul frontend del template; batteria di rendering dal vivo in browser su 7 rapporti immagine (da 21:9 a 9:16) × 3 lunghezze di testo (corto/medio/lungo, con e senza sottotitolo) — 21 combinazioni, zero errori, testo mai troncato, nessuna immagine deformata o sfocata; sanity check su `style: 'plain'` (nessuna immagine coinvolta) per escludere regressioni sugli stili che non passano da questo percorso.
+
 ### `ImgBuilderService`: un solo `buildCanvas`/`buildBlob`/`buildFile` per stile — e `'fittedCaption'`, mai più ellissi sul testo generato
 
 Partito da un problema di Dominio (Br1Gaming: senza sapere a priori quanto testo arriverà da un generatore, l'ellissi di troncamento del comportamento di base è inaccettabile — meglio far crescere il canvas) risolto lì con un servizio di progetto a parte (`ShareCardService`) che duplicava a mano un dettaglio interno dell'Engine (il tetto "60% di canvasH" di `buildCaption`) e ri-misurava il testo su un canvas temporaneo indipendente con un margine di sicurezza per assorbire lo scarto tra le due misure.
@@ -22,7 +129,7 @@ Portati dal Dominio di due figli (Br1Gaming, agnese) dopo che ciascuno aveva tro
 - `_bootstrap-theme.scss`: `--bs-navbar-brand-color`/`--bs-navbar-brand-hover-color` sovrascritti in `.navbar.theme-bg` a livello di CSS globale (non scoped component-style) — rete di sicurezza per le pagine client-only dove lo scoped style di Bootstrap verrebbe comunque scartato: contrasto garantito anche lì.
 - `notification.service.ts`: l'import bare `sweetalert2` (`dist/sweetalert2.all.js`) inietta il proprio CSS base via `<style>` **senza nonce** — scartato in silenzio, la modale perdeva `position:fixed` e appariva in fondo alla pagina. Si importa ora `sweetalert2/dist/sweetalert2.esm.js` (stesso JS, niente auto-injection) e il CSS base va staticamente in `angular.json` → `styles` (nuovo `sweetalert2-esm.d.ts` per i tipi, assenti su quell'entry point).
 - Non breaking: nessun contratto di Dominio cambia. Un figlio con questa stessa classe di sintomi (stili scoped che spariscono solo su rotte client-only, o modali/dropdown di librerie terze fuori posto) la eredita gratis al merge.
-- **Non incluso qui, di proposito**: un workaround WebKit iOS distinto per elementi `position:fixed` comparsi dopo il primo paint (banner cookie, modale SweetAlert2), trovato nello stesso giro di debug di un figlio. Non escludibile che fosse solo un altro sintomo del bug CSP sopra (il sintomo osservato — "si vede nel punto dov'è nel flusso invece che ancorato" — è coerente anche con uno stile mai applicato del tutto) e non con un vero bug di compositing separato: senza un dispositivo iOS reale su cui isolarlo dal fix CSP, non ci fidiamo a tenerlo. Patch pronta in `patches/webkit-fixed-position-reflow.patch`, da riapplicare (`git apply patches/webkit-fixed-position-reflow.patch`) solo se il sintomo si ripresenta *dopo* questo fix su un device reale.
+- **Workaround WebKit iOS valutato e scartato**: un fix distinto per elementi `position:fixed` comparsi dopo il primo paint (banner cookie, modale SweetAlert2), trovato nello stesso giro di debug di un figlio, era stato tenuto fuori di proposito (`patches/webkit-fixed-position-reflow.patch`, mai applicato) perché non era chiaro se fosse un bug di compositing separato o solo un altro sintomo del bug CSP sopra. Verificato su device reale dopo questo fix: il sintomo non si ripresenta, era davvero solo quello — patch rimossa dal repo, nessun workaround aggiuntivo necessario.
 - Verificato: `tsc --noEmit` pulito sul frontend del template.
 
 ### `backend.csproj`: `data/*.md` ora copiati in `/publish` (non solo i `.json`)

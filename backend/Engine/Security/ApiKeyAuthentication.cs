@@ -72,8 +72,8 @@ public class ApiKeySchemeOptions : AuthenticationSchemeOptions
 /// <remarks>
 /// Flusso di validazione:
 /// 1. Ignora le richieste OPTIONS (necessarie per il preflight CORS).
-/// 2. Estrae l'header <c>X-Api-Key</c> e lo confronta in tempo costante con le chiavi 
-///    valide presenti in <c>Security.ApiKeys</c>.
+/// 2. Estrae l'header <c>X-Api-Key</c> e lo confronta in tempo costante con le chiavi
+///    valide presenti in <c>Security.ApiConfig.Keys</c>.
 /// 3. In caso di match, emette un'identità base con claim <c>ApiKeyValidated=true</c>.
 /// L'identità finale (con ruolo e payload utente) verrà aggiunta in seguito dal middleware JWT.
 /// </remarks>

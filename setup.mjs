@@ -282,7 +282,6 @@ const MINIMAL_IDENTITY_JSON = `{
     "contatti": { "telefono": "", "email": "", "pec": "" },
     "datiSocietari": { "registroImprese": "", "numeroRea": "", "codiceSdi": "" },
     "social": [],
-    "openingHours": [],
     "currency": "EUR",
     "metadatiAggiuntivi": {}
 }
@@ -429,7 +428,7 @@ async function main() {
     // Porte, dominio, CORS e le chiavi vivono SOLO qui, fuori dal repo.
     // SecretKey resta VUOTA: il login è spento finché non la si valorizza (≥32 char) —
     // attivarlo deve essere una scelta esplicita, non un effetto collaterale del setup.
-    // CryptoSecret invece si genera SEMPRE (come ApiKeys): è indipendente dal login, serve al
+    // CryptoSecret invece si genera SEMPRE (come ApiConfig.Keys): è indipendente dal login, serve al
     // servizio di cifratura generico dell'engine (EngineCrypto) fin da subito.
     const localPath = join(ROOT, 'global-settings.local.json');
     if (existsSync(localPath)) {
@@ -440,7 +439,9 @@ async function main() {
             frontend: { hostname: '', port: 3000 },
             backend: { public: false, publicPort: null },
             Security: {
-                ApiKeys: [randomBytes(32).toString('base64')],
+                ApiConfig: {
+                    Keys: [randomBytes(32).toString('base64')],
+                },
                 CorsOrigins: [],
                 BehindProxy: false,
                 Token: { SecretKey: '' },

@@ -63,7 +63,7 @@ sono documentati in `global-settings.schema.json`, quindi l'editor offre autocom
 > `openssl rand -base64 48` (SecretKey) e `openssl rand -base64 32` (ApiKey).
 
 Al deploy, `scripts/deploy.sh` fonde `global-settings.local.json` sopra `global-settings.json` (merge
-profondo; gli array come `ApiKeys`/`SupportedLanguages` vengono sostituiti), genera
+profondo; gli array come `ApiConfig.Keys`/`SupportedLanguages` vengono sostituiti), genera
 `.br1-settings.effective.json` (gitignorato) e monta quello nei container. L'intero
 `global-settings.json` del progetto (`project`/`Localization`/`site`/`Custom`, senza segreti) viene
 inoltre passato al build del frontend come ARG `BR1_PROJECT_JSON` e iniettato in `environment.ts`.
@@ -71,7 +71,7 @@ Da questo stesso JSON il generatore di file statici (`generate-statics.ts`) rica
 lingue supportate (sezione `Localization`) per SEO e `environment.ts`: non servono build-arg dedicati.
 
 > Manca `global-settings.local.json`? Gli script di pubblicazione (`scripts/deploy.sh`,
-> `scripts/deploy-release.sh`) lo creano da soli generando i segreti (`SecretKey`/`ApiKeys`/`CryptoSecret`)
+> `scripts/deploy-release.sh`) lo creano da soli generando i segreti (`SecretKey`/`ApiConfig.Keys`/`CryptoSecret`)
 > ma lasciando `frontend.hostname` vuoto di proposito: le chiavi sono boilerplate, il dominio è una
 > tua scelta consapevole. Il deploy quindi si ferma finché non imposti il dominio (fail-closed:
 > niente dominio ⇒ niente 421 al dominio reale), e la porta se hai altri progetti sulla stessa VPS.
@@ -93,7 +93,7 @@ lingue supportate (sezione `Localization`) per SEO e `environment.ts`: non servo
 | `site.smoke` | — | Effetto particellare di sfondo (ometti/`enable:false` per disattivarlo). Sottocampi: `enable`, `color`, `opacity`, `maximumVelocity`, `particleRadius`, `density` |
 | `Custom` | `{}` | Valori liberi leggibili da backend (`IConfiguration["Custom:..."]`) e Node SSR (`getBr1Settings().Custom`) |
 
-> I flag di comportamento (`showNav`, `showFooter`, `showPanel`, `fixedTopHeader`, `showBrandIconInHeader`, `showNotifications`, `panelForcedLight`, `isWebApp`, `onlyPlainImage`, il `showInHeader` di `loginPage`) sono struttura e vivono in `frontend/src/app/site.ts` (`shell` / `isWebApp` / `onlyPlainImage` / `loginPage`).
+> I flag di comportamento (`showNav`, `showFooter`, `showPanel`, `fixedTopHeader`, `showNotifications`, `panelForcedLight`, `isWebApp`, `onlyPlainImage`, il `showInHeader` di `loginPage`) sono struttura e vivono in `frontend/src/app/site.ts` (`shell` / `isWebApp` / `onlyPlainImage` / `loginPage`). L'icona di brand nella navbar è invece `ShellNavResolver.brandIcon` in `nav.ts`, dato risolto a runtime (vedi frontend/README.md).
 
 ### `global-settings.local.json` — pubblicazione + segreti (gitignored)
 
@@ -103,7 +103,8 @@ lingue supportate (sezione `Localization`) per SEO e `environment.ts`: non servo
 | `frontend.port` | `3000` | Porta host del frontend |
 | `backend.public` | `false` | `true` espone il backend sull'host (richiede `docker-compose.backend-exposed.yml`) |
 | `backend.publicPort` | `null` | Porta host del backend, solo se `public: true` |
-| `Security.ApiKeys` | — | Chiavi API del backend (header `X-Api-Key`); il frontend usa `[0]`. In prod ≥32 char |
+| `Security.ApiConfig.Keys` | — | Chiavi API del backend (header `X-Api-Key`); il frontend usa `[0]`. In prod ≥32 char |
+| `Security.ApiConfig.RateLimiting.*` | vedi [backend/README.md](backend/README.md) | Soglie del rate limiter (globale, login) ed `Enabled` per disattivarlo |
 | `Security.CorsOrigins` | `[]` | Origini CORS ammesse |
 | `Security.BehindProxy` | `false` | `true` quando si è dietro un reverse proxy (legge `X-Forwarded-For`) |
 | `Security.Token.SecretKey` | `""` | Segreto JWT (≥32 char): se valorizzato attiva il login. Vuoto = login disabilitato |
@@ -116,7 +117,7 @@ lingue supportate (sezione `Localization`) per SEO e `environment.ts`: non servo
 > uguali per ogni progetto: vivono in `security-headers.json` (file del template, montato in
 > entrambi i container e letto da backend e Node SSR). Appartiene al template, non al progetto figlio: lo riceve e lo aggiorna col merge dal template, l'unica
 > eccezione è l'override documentato nella `_nota` del file (vedi il README principale). In
-> `global-settings` resta solo la sicurezza del progetto: `ApiKeys`, `CorsOrigins`, `BehindProxy`, `Token`.
+> `global-settings` resta solo la sicurezza del progetto: `ApiConfig`, `CorsOrigins`, `BehindProxy`, `Token`.
 
 `BACKEND_ORIGIN` (`http://backend:8080`) resta una variabile d'ambiente del compose: è l'indirizzo Docker-interno del backend, non una scelta di configurazione utente. Stesso trattamento, direzione opposta, per `Frontend__Origin` (`http://frontend:3000`, sezione `Frontend` del backend, convenzione .NET `Frontend:Origin`): l'indirizzo Docker-interno del frontend, usato solo da `SitemapNotifier` per invalidare la cache di `/sitemap.xml` dopo una scrittura su un catalogo `dynamicParams` (dettaglio in [backend/README.md](backend/README.md)).
 
@@ -128,7 +129,7 @@ Variabili lette al boot dal container Node frontend (`frontend/src/app/core/engi
 |---|---|---|
 | `TRUST_PROXY` | `loopback, linklocal, uniquelocal` | Valore di Express `trust proxy`. Lista ristretta (subnet private) per evitare lo spoofing di `X-Forwarded-Host`/`X-Forwarded-For` e il bypass dell'allowlist |
 | `PROXY_TIMEOUT_MS` | `30000` | Timeout (ms) delle chiamate proxy `/api/*` verso il backend |
-| `PREVIEW_CRYPTO_SECRET` | `""` | Chiave AES-GCM per cifrare i payload og:image di `/cdn-cgi/preview`. Se vuota, la chiave ricade sull'**API key server-side** (`Security.ApiKeys[0]`, un segreto → i blob restano non falsificabili) e, solo in sua assenza, su `appName:version`. Impostala per disaccoppiare la firma delle anteprime dalla rotazione delle API key |
+| `PREVIEW_CRYPTO_SECRET` | `""` | Chiave AES-GCM per cifrare i payload og:image di `/cdn-cgi/preview`. Se vuota, la chiave ricade sull'**API key server-side** (`Security.ApiConfig.Keys[0]`, un segreto → i blob restano non falsificabili) e, solo in sua assenza, su `appName:version`. Impostala per disaccoppiare la firma delle anteprime dalla rotazione delle API key |
 | `NG_ALLOWED_HOSTS` | — | Allowlist host SSR, lista separata da virgole. **Ha precedenza su `frontend.hostname`** (utile per multi-dominio). Se né questa né l'hostname sono valorizzati, fallback fail-closed agli host locali → gli host reali ricevono `421` |
 | `IMAGE_CACHE_DIR` | `<temp di sistema>/…` | Cartella dei thumbnail di `/cdn-cgi/asset` e `/cdn-cgi/preview`. Default nella temp (isolata per progetto), quindi **effimera**: riparte fredda a ogni riavvio. Per una cache **calda tra i deploy**, monta un volume persistente e puntalo qui (dettaglio in [frontend/README.md](frontend/README.md)) |
 | `IMAGE_CACHE_MAX_MB` | `500` | Cap della cache immagini su disco; oltre la soglia uno sweep LRU ogni 6 ore la riporta al 90% del cap |
@@ -142,7 +143,7 @@ Stessa logica del frontend sopra: non stanno in `global-settings.json`, si impos
 
 | Chiave | Default | Descrizione |
 |---|---|---|
-| `BLOB_WEBOPT_CACHE_MAX_MB` | `500` | Cap della `MemoryCache` in-process che tiene i blob ridimensionati/riconvertiti al volo (`GET /blob/{slug}?webopt=true`) — dedicata, separata dalla `IMemoryCache` condivisa usata per i JSON di config. Superato il tetto, l'eviction è automatica (nativa di `MemoryCache`, non uno sweep a orario come `IMAGE_CACHE_MAX_MB`). Dettaglio in [backend/README.md](backend/README.md) § `BlobController` |
+| `BLOB_WEBOPT_CACHE_MAX_MB` | `500` | Cap della `MemoryCache` in-process che tiene i blob ridimensionati/riconvertiti al volo (`GET /blob/{slug}?webopt=true`) — dedicata, separata dalla `IMemoryCache` condivisa usata per i JSON di config. Superato il tetto, l'eviction è automatica (nativa di `MemoryCache`, non uno sweep a orario come `IMAGE_CACHE_MAX_MB`). Dettaglio in [backend/README.md](backend/README.md) § `EngineBlobController` |
 
 ### Font custom (opzionale)
 
@@ -182,11 +183,11 @@ In produzione:
 
 Frontend e backend sono disaccoppiati: puoi pubblicarli insieme o uno alla volta (anche su VPS diverse). Il backend è privato o pubblico secondo `backend.public`.
 
-> Guard segreti (automatico): al deploy `scripts/deploy.sh` verifica che non siano rimasti i segreti segnaposto/deboli di default. Se `Security.Token.SecretKey` è ancora la chiave di sviluppo o è < 32 caratteri, o se `Security.ApiKeys` contiene `frontend` / chiavi < 32 caratteri, il deploy si ferma con un messaggio esplicito (e il comando `openssl` per generarne uno sicuro). I segreti si generano con `openssl rand -base64 48` (JWT) e `openssl rand -base64 32` (API key).
+> Guard segreti (automatico): al deploy `scripts/deploy.sh` verifica che non siano rimasti i segreti segnaposto/deboli di default. Se `Security.Token.SecretKey` è ancora la chiave di sviluppo o è < 32 caratteri, o se `Security.ApiConfig.Keys` contiene `frontend` / chiavi < 32 caratteri, il deploy si ferma con un messaggio esplicito (e il comando `openssl` per generarne uno sicuro). I segreti si generano con `openssl rand -base64 48` (JWT) e `openssl rand -base64 32` (API key).
 
 > Guard pubblicazione (automatico): due errori silenziosi tipici dietro reverse proxy, intercettati prima della build:
 > - **`frontend.hostname` mancante** → il deploy si ferma. Senza hostname l'SSR è fail-closed e risponderebbe 421 al dominio reale (e sitemap/canonical/og userebbero `example.com`); insidioso perché l'healthcheck del preflight gira su `localhost` e passerebbe: il deploy sembrerebbe riuscito mentre il sito è irraggiungibile dal dominio vero.
-> - **`Security.BehindProxy` non `true`** → avviso non bloccante: dietro nginx il rate limiter conterebbe tutti gli utenti come un solo IP (l'IP del proxy), condividendo lo stesso budget di 100 req/min. Impostalo a `true` se usi un proxy; ignora l'avviso se esponi il sito senza proxy.
+> - **`Security.BehindProxy` non `true`** → avviso non bloccante: dietro nginx il rate limiter conterebbe tutti gli utenti come un solo IP (l'IP del proxy), condividendo lo stesso budget di 500 req/min. Impostalo a `true` se usi un proxy; ignora l'avviso se esponi il sito senza proxy.
 
 > Checklist di pre-lancio (automatico, non bloccante): promemoria incorporati nello script invece che in un documento a parte — un file che nessuno riapre non serve a niente il giorno del deploy vero. Avvisa (senza fermarsi) se `project.name` è ancora il default `"App"`, e se `backend/data/identity.json` è ancora lo scheletro vuoto lasciato da `setup.mjs` → eject (footer, pagine legali e JSON-LD restano vuoti finché non lo compili — o è una scelta consapevole, in tal caso ignoralo). `deploy-release.sh` verifica solo `project.name`: nel modello artifact-based non c'è sorgente sulla VPS, `identity.json` non è lì da controllare.
 

@@ -4,7 +4,7 @@ import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRouteSnapshot, RouterStateSnapshot, Router } from '@angular/router';
 import { ContestoSito, PageType } from '../../../site';
 import { onNavigationEnd, mergeRouteParams } from '../routing';
-import { applyPathParams, pickLocaleText } from '../siteBuilder';
+import { applyPathParams, pickLocaleText, type OgImageRef } from '../siteBuilder';
 import { CdnCgi } from './asset.service';
 import { TranslateService } from './translate.service';
 import { IdentityService } from './identity.service';
@@ -24,8 +24,8 @@ export interface PageMetaInput {
     title: string;
     /** Meta-description. Se assente/null si usa la `site.description` di default (localizzata). */
     description?: string | null;
-    /** ID asset anteprima: `string` = variante immagine; `false` = nessuna anteprima; assente = variante testuale. */
-    imgId?: string | null | false;
+    /** Immagine di anteprima (vedi {@link OgImageRef}); `false` = nessuna anteprima; assente = variante testuale. */
+    imgId?: OgImageRef | null | false;
     /** Tipo Open Graph (es. 'website', 'article'). Default: 'website'. */
     ogType?: string | null;
     /** Timestamp ISO 8601 ultima modifica (og:updated_time). Se assente resta il valore di build. */
@@ -147,7 +147,11 @@ export class PageMetaService {
         } else if (this.encryptFn) {
             const payload: Record<string, string> = { title: pageTitle };
             if (description) payload['subtitle'] = description;
-            if (imgId) payload['id'] = imgId;
+            // Campi distinti nel payload, non un unico valore da reinterpretare: blobGuid vince se
+            // sono valorizzati entrambi (stessa precedenza di OgImageRef, vedi siteBuilder.ts).
+            if (imgId?.blobGuid) payload['blobGuid'] = imgId.blobGuid;
+            else if (imgId?.id) payload['id'] = imgId.id;
+            const hasImage = !!(imgId?.blobGuid || imgId?.id);
             if (ContestoSito.config.onlyPlainImage) payload['onlyImage'] = 'true';
             const blob = this.encryptFn(payload);
             imageUrl = `${origin}${CdnCgi.preview}?p=${blob}`;
@@ -156,7 +160,7 @@ export class PageMetaService {
 
             this.meta.updateTag({ property: 'og:image:width', content: '1200' });
             this.meta.updateTag({ property: 'og:image:height', content: '630' });
-            this.meta.updateTag({ property: 'og:image:type', content: imgId ? 'image/jpeg' : 'image/png' });
+            this.meta.updateTag({ property: 'og:image:type', content: hasImage ? 'image/jpeg' : 'image/png' });
             this.meta.updateTag({ property: 'og:image:alt', content: browserTitle });
             this.meta.updateTag({ name: 'twitter:image:alt', content: browserTitle });
             if (imageUrl.startsWith('https:')) {

@@ -12,7 +12,7 @@ Le regole trasversali e le ricette pratiche del progetto, per chi ci sviluppa, u
 
 ## Build, run, test
 
-- **Frontend:** `cd frontend && npm install && npm run start` — **Backend:** `cd backend && dotnet run` (`/health` anonimo; senza `Security.ApiKeys` nel `.local`, ogni richiesta è `401`).
+- **Frontend:** `cd frontend && npm install && npm run start` — **Backend:** `cd backend && dotnet run` (`/health` anonimo; senza `Security.ApiConfig.Keys` nel `.local`, ogni richiesta è `401`).
 - **Nuovo progetto figlio:** `node setup.mjs "Nome Progetto"`.
 - **Qualità (gate = CI, GitHub Actions):** lint, i18n, tsc, dipendenze circolari, invarianti SiteBuilder, audit live Pa11y+Lighthouse, `npm audit`, vulnerabilità NuGet, gitleaks, CodeQL. In locale on-demand: `./scripts/test/run-all.sh`. Niente hook pre-push: non re-introdurlo. I test unitari sono privati di ogni progetto.
 
@@ -115,7 +115,7 @@ protected async onFilesConfirmed(files: File[]): Promise<void> {
 `labels` (input opzionale, `UploadFormLabels`) sovrascrive i testi campo per campo — non passato, ciascuno ricade sulla chiave i18n di default. Per servire/recuperare il file caricato, vedi la ricetta backend "Caricare/servire un file" più sotto (`getBlobUrl(slug)`/`getBlob(slug)` sul client).
 
 #### Persistere dati lato client (cookie, Web Storage, consenso)
-Un registro (`COOKIE_MAP` in `core/services/cookie-registry.ts`), un'API, gated dal consenso: registrare una voce basta per toggle nel banner, riga in policy (mezzo/provider/durata) e pulizia alla revoca. Ricetta completa (shape della voce, campi opzionali, la variante `match: 'prefix'` per famiglie di chiavi di SDK di terza parte) in [frontend/README.md](frontend/README.md#aggiungere-un-cookie-o-una-voce-di-web-storage). Qui solo la forma di chiamata, che è quella che serve scrivendo codice:
+Un registro (`COOKIE_MAP` in `core/services/cookie-registry.ts`), un'API, gated dal consenso: registrare una voce basta per toggle nel banner, riga in policy (mezzo/provider/durata) e pulizia alla revoca. Ricetta completa (shape della voce, campi opzionali, la variante `match: 'prefix'` per famiglie di chiavi di SDK di terza parte) in [frontend/README.md](frontend/README.md#aggiungere-voci-in-cookie_map). Qui solo la forma di chiamata, che è quella che serve scrivendo codice:
 ```typescript
 // nel componente/service — instrada sul mezzo (cookie o Web Storage) in base a come la voce è
 // registrata, tipizzato su valueType
@@ -196,6 +196,8 @@ Per un flag/variante che un CRO/SEM specialist deve poter cambiare senza toccare
 
 #### Comporre l'identità da una fonte diversa dal file
 Il caso base si riempie in `data/identity.json` (campi nello schema engine `Engine/Models/Identity/identity.schema.json`). Per prendere un pezzo da un DB/API si fa l'override del solo metodo dedicato: stesso tipo in ingresso e in uscita, arricchisci e ritorna. Dichiari col framework (`DayOfWeek`, `TimeOnly`, codici ISO), non stringhe magiche né nozioni di schema.org: l'Engine deriva resa e JSON-LD.
+
+`OpeningHours` (a differenza degli altri campi di `SiteIdentity`) **non è nello schema di `identity.json`**: cambia per motivi operativi (stagione, festività) più spesso di quanto sia ragionevole legarlo a un deploy, quindi va sempre valorizzato qui via codice, mai a mano nel file.
 ```csharp
 // backend/Store/AppIdentityStore.cs (di proprietà del progetto)
 protected override async Task<SiteIdentity?> ComposeIdentityAsync(
@@ -251,6 +253,9 @@ otherSEO: { structuredData: { kind: 'faq', questions: [{ question: 'Come?', answ
 // inject(Router) e leggi router.getCurrentNavigation()?.finalUrl ?? router.parseUrl(router.url).
 ```
 
+#### Overlay/modali custom (mai `position: fixed` a mano)
+Un pannello fixed con z-index alto dentro un componente finisce comunque dentro lo stacking context di `main#main-content` (z-index: 1 apposta per stare sopra sfondo/effetti) e può ritrovarsi sotto la navbar o i suoi dropdown. Passa sempre da CDK Overlay (già importato, monta in `.cdk-overlay-container`, `z-index: var(--z-cdk-overlay)` in `_a11y.scss`) — vedi `ContextMenuDirective`/`ImageLightboxService` come riferimento.
+
 ## Ricette — backend
 
 #### Aggiungere un endpoint
@@ -290,6 +295,18 @@ Fuori da un controller (es. un servizio) resta `user.GetSession<SessionInfo>()` 
 
 #### Ruoli di dominio e `[Authorize]`
 `AuthController.Login` emette già un `ClaimTypes.Role` per ogni voce di `session.Roles`, quindi `[Authorize(Roles = "admin")]` funziona nativamente: i ruoli li governi da `SessionInfo.Roles` (in `AccountService`), non toccando il controller. `session.Roles` resta anche leggibile via `User.GetSession<SessionInfo>()` per un enforce puntuale (`session.Roles.Contains("admin")` → `ForbiddenException`). Le due nozioni di "ruolo" sono spiegate in [backend/README.md](backend/README.md) §"Sistema di Login e Sessioni JWT".
+
+#### Personalizzare il rate limiting
+Soglie in `Security.ApiConfig.RateLimiting` (`global-settings.json`): `Global.PermitLimit`/`WindowSeconds` per il limite generale per IP, `Login.PermitLimit`/`WindowSeconds` per `POST /auth/login`, `Enabled: false` per disattivarlo del tutto (le policy restano registrate, solo senza effetto — utile dietro un WAF/reverse proxy che applica già le proprie soglie). Per andare oltre i numeri (partizionare per utente invece che per IP, un algoritmo diverso, policy proprie per un endpoint di dominio), `AddTemplateSecurity` accetta un `Action<RateLimiterOptions>` opzionale invocato per ultimo — vince lui:
+```csharp
+// Program.cs
+builder.Services.AddTemplateSecurity(security, options =>
+{
+    options.AddPolicy("mio-endpoint", ctx => RateLimitPartition.GetSlidingWindowLimiter(
+        ctx.User.Identity?.Name ?? "anon", _ => new SlidingWindowRateLimiterOptions { /* ... */ }));
+});
+```
+Dettagli in [backend/README.md](backend/README.md) §1.
 
 #### Pubblicare una notifica realtime
 Proprietà ambient, niente inject:
@@ -381,12 +398,18 @@ Senza una sezione `Mail` valida in config (`Host` + `FromAddress`) `IsEnabled` �
 Il payload porta anche `project` (da `project.name`): più progetti sulla stessa VPS possono puntare allo **stesso** webhook restando distinguibili. Dettagli in [backend/README.md](backend/README.md) §10.
 
 #### Caricare/servire un file
-`BlobController` (Dominio, `Controllers/BlobController.cs`) è già pronto: `POST /blob/up` (richiede login) restituisce uno slug, `GET /blob/{slug}` lo riserve (con resize on-demand per immagini via `?webopt=true`). Per cambiare solo il limite di dimensione (default 10 MB), tocca l'attributo sulla stessa azione:
+`EngineBlobController` (Engine, `sealed`) è già pronto, nessun controller di progetto da scrivere né da estendere: `POST /blob/up` (richiede login) restituisce uno slug, `GET /blob/{slug}` lo riserve (con resize on-demand per immagini via `?webopt=true`), `PUT /blob/{slug}` (richiede login) ne sostituisce il contenuto e restituisce il NUOVO slug (l'originale resta immutabile), `DELETE /blob/{slug}` lo cancella (richiede login). L'unico punto di contatto col dominio è `FileBlobStore` (classe concreta, non interfaccia — un'interfaccia sarebbe cerimonia senza un secondo storage reale all'orizzonte): la ricetta sotto ("Sostituire un servizio dell'Engine") usa `IIdentityStore` come esempio ma vale identica qui, salvo che si estende/override invece di implementare da zero un'interfaccia.
 ```csharp
-// Controllers/BlobController.cs — invariato tutto il resto del metodo Upload
-[RequestSizeLimit(50 * 1024 * 1024)] // 50 MB
+// Store/AppBlobStore.cs — override mirati, il resto resta il default Engine
+public override long MaxUploadSizeBytes => 50 * 1024 * 1024; // 50 MB invece del default 10 MB — o calcolalo (ruolo utente, piano...)
+public override Task<string> SaveAsync(Stream content, string extension, CancellationToken ct = default)
+    => base.SaveAsync(content, extension, ct); // antivirus/quota prima della base
+public override Task<bool> DeleteAsync(string slug, CancellationToken ct = default)
+    => base.DeleteAsync(slug, ct); // qui c'è già il controllo di proprietà (BlobOwnershipRegistry, EF Core/SQLite): solo chi ha caricato lo slug, o un admin
+public override Task<string> ReplaceAsync(string oldSlug, Stream content, string extension, CancellationToken ct = default)
+    => base.ReplaceAsync(oldSlug, content, extension, ct); // "modifica" = salva il nuovo poi cancella il vecchio, mai overwrite in-place
 ```
-Dal codice (non da un endpoint HTTP) usa direttamente `BlobStore.SaveAsync(IFormFile, CancellationToken)`. Dettagli (cache/ETag, difesa XSS sui content-type) in [backend/README.md](backend/README.md) §"BlobController".
+Dettagli (cache/ETag, difesa XSS sui content-type) in [backend/README.md](backend/README.md) §"EngineBlobController".
 
 ## Documentazione
 

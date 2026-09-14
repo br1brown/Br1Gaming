@@ -826,6 +826,18 @@ Non solo `<img>` e `<a>`: `appAsset` accetta tutti i tag con `src` (`img`, `vide
 
 > Sorgente: `appAsset` / `appAssetHref` lavorano con gli asset gestiti da `AssetService` (id in `mapping.json`). Per un file caricato a runtime usa il binding diretto sullo slug: `[src]="api.getBlobUrl(slug)"` / `[href]="api.getBlobUrl(slug)"`.
 
+Lightbox su `<img appAsset>`: `[appAssetLightbox]="true"` apre l'immagine ingrandita in un overlay (CDK Overlay, dialog ARIA-compliant, chiusura su Escape/backdrop/focus-trap) invece di navigarci sopra o aprirla in un'altra tab.
+
+```html
+<img appAsset="galleria-1" appAssetWidth="640" [appAssetLightbox]="true" alt="...">
+```
+
+Per un'immagine non gestita da `AssetService` (es. un `Blob` locale, canvas/anteprima) usa `LightboxDirective` (`[appLightbox]`) direttamente: l'opt-in è la presenza stessa del `Blob`, niente flag booleano separato.
+
+```html
+<img [src]="anteprimaUrl()" [appLightbox]="anteprimaBlob()" alt="Anteprima">
+```
+
 ### Vista a tutto schermo: `layout.fitViewport`
 
 Per pagine/viste a tutto schermo (mappe, giochi, dashboard) dove lo scroll spezzerebbe l'esperienza. È un flag dichiarativo per-pagina in `site.ts` (non una direttiva sul template). Tu lo dichiari, lo gestisce l'Engine: il builder (`normalizeSitePage`) risolve la coerenza dei flag di layout, lo shell rende il `<main>` full-bleed (senza container/padding/pannello) e una regola CSS (`.fit-viewport`) fa riempire al contenuto lo spazio che resta sotto la navbar, senza scroll di pagina se il contenuto ci sta.
@@ -1248,7 +1260,7 @@ Se non fornisci `bgColor`/`textColor`, vengono letti dai Signal del tema corrent
 
 **`style: 'pill'`** — badge/chip di testo ancorato a un angolo sopra un'immagine esistente (`imageSrc`, URL o `Blob`): `pillOpts.text`/`subtitle`, `corner`, `margin`. **`style: 'caption'`** — fascia scrim (in alto/al centro/in basso) con titolo e sottotitolo sopra un'immagine: `captionOpts.text`/`subtitle`/`position`. Entrambe troncano con ellissi oltre `maxLines` (rispettivamente 3 e 4 di default).
 
-**`style: 'fittedCaption'`** — come `'caption'`, ma quando il testo non è noto a priori (es. generato) e l'ellissi non è accettabile: calcola da sé l'altezza del canvas (`imgOpts.height`, se presente, viene ignorato) perché `text`/`subtitle` entrino SEMPRE per intero. Il canvas può quindi divergere dal rapporto naturale dell'immagine: `background`/`foreground` diventano `'blurred'`/`'contain'` di default (sovrascrivibili in `imgOpts`) perché l'immagine di base non venga mai ritagliata.
+**`style: 'fittedCaption'`** — come `'caption'`, ma quando il testo non è noto a priori (es. generato) e l'ellissi non è accettabile: calcola da sé l'altezza necessaria perché `text`/`subtitle` entrino SEMPRE per intero, mai troncati. A differenza di `'caption'`, non sovrappone il testo all'immagine: compone due zone indipendenti, immagine sopra e fascia testo sotto, con una dissolvenza fra le due (mai una riga netta). L'immagine è **sempre mostrata nitida e a piena larghezza, mai sfocata** — se la sua altezza naturale supera `captionOpts.maxImageRatio` (frazione della larghezza canvas, default `0.6`) viene ritagliata dal basso, mai zoomata sui lati né deformata: quello che carichi è quello che si vede, al più più basso. `imgOpts` qui accetta solo `width`/`backdropColor` (niente `background`/`foreground`/`fit`: quella scelta non esiste più per questo stile, è l'unico modo in cui `fittedCaption` mostra un'immagine).
 
 ```typescript
 const canvas = await this.img.buildCanvas({
@@ -1291,7 +1303,7 @@ Il risultato viene cachato su disco (WebP) come ogni thumbnail di `/cdn-cgi/asse
 
 Tu non costruisci l'URL a mano: lo controlli da `site.ts`. La pagina dichiara `otherSEO.ogImage` (l'id dell'asset di sfondo) e, a livello globale, `onlyPlainImage` decide se mostrare la sola immagine senza scritte/favicon. Per la semantica a tre stati di `ogImage` (id asset / `false` = nessuna / omesso = preview dinamica auto-generata) vedi Opzioni Avanzate di `site.ts`.
 
-Il payload è cifrato e non falsificabile: i parametri (`title`, `subtitle`, `id`, `onlyImage`) viaggiano nel query param `?p=` come blob AES-GCM prodotto da `PreviewCrypto` (`server/preview-crypto.server.ts`): una manomissione fa fallire la decifrazione → 403. La chiave è derivata, in ordine di precedenza, da `PREVIEW_CRYPTO_SECRET` → la API key server-side (`Security.ApiKeys[0]`, segreta) → `appName:version`. Il fallback sull'API key rende i blob non forgiabili anche senza configurare un secret dedicato: senza di esso un attaccante che conosce `appName` e `version` (entrambi pubblici) potrebbe forgiare og:image arbitrarie sul dominio. L'IV è deterministico (SHA-256 del payload), quindi lo stesso payload produce sempre lo stesso URL, stabile e cacheable da browser/CDN.
+Il payload è cifrato e non falsificabile: i parametri (`title`, `subtitle`, `id`, `onlyImage`) viaggiano nel query param `?p=` come blob AES-GCM prodotto da `PreviewCrypto` (`server/preview-crypto.server.ts`): una manomissione fa fallire la decifrazione → 403. La chiave è derivata, in ordine di precedenza, da `PREVIEW_CRYPTO_SECRET` → la API key server-side (`Security.ApiConfig.Keys[0]`, segreta) → `appName:version`. Il fallback sull'API key rende i blob non forgiabili anche senza configurare un secret dedicato: senza di esso un attaccante che conosce `appName` e `version` (entrambi pubblici) potrebbe forgiare og:image arbitrarie sul dominio. L'IV è deterministico (SHA-256 del payload), quindi lo stesso payload produce sempre lo stesso URL, stabile e cacheable da browser/CDN.
 
 ### JSON-LD Strutturato (grafo Schema.org)
 
@@ -1363,6 +1375,35 @@ Prerequisito (consenso TechnicalOptional): se sul sito serve un consenso Technic
 
 ---
 
+## 📊 Core Web Vitals (WebVitalsService)
+
+L'app misura automaticamente le Core Web Vitals reali (LCP, INP, CLS, più FCP/TTFB) di chi visita davvero il sito — non un audit sintetico come Lighthouse in CI, la user experience effettiva.
+
+Deliberatamente senza destinazione di default: l'Engine raccoglie, non decide dove mandare i dati (un endpoint proprio, GA4, un altro RUM) — quella è una scelta di progetto. Zero chiamate di rete aggiunte: `metrics()` è un signal che puoi osservare con un `effect()` (tipicamente in `app.component.ts`, accanto a `VersionCheckService`) e spedire dove preferisci:
+
+```typescript
+constructor() {
+    effect(() => {
+        const m = inject(WebVitalsService).metrics();
+        if (m.length) this.api.post('metrics/vitals', m.at(-1));
+    });
+}
+```
+
+In sviluppo (`isDevMode()`) le metriche finiscono anche in console (`[web-vitals] LCP 1240 good`) per un riscontro immediato senza collegare nulla.
+
+---
+
+## 🚨 Error Tracking (ClientErrorReportingService)
+
+Ogni eccezione JavaScript non gestita nel browser viene inoltrata al backend (`POST diagnostics/ui-fault`), che la accoda allo stesso `IErrorReportingService` (webhook generico, § `ErrorReporting` in `global-settings.local.json`) già usato per i bug lato API — un solo canale di allerta per l'intera applicazione, spento finché non configuri un `WebhookUrl`. Nessuna azione richiesta: `ClientErrorReportingService` è l'`ErrorHandler` globale dell'app, registrato in `app.config.ts`.
+
+Copertura: sia gli errori che Angular già traccia (template, `effect`, `HttpClient`) sia — importante per un'app **zoneless** come questa, dove senza `zone.js` un `ErrorHandler` da solo non li vedrebbe — quelli fuori da un contesto Angular (un `setTimeout` nudo, un listener DOM aggiunto a mano, uno script di terze parti): coperti tramite `window.addEventListener('error'/'unhandledrejection', ...)`.
+
+Spento in sviluppo (`isDevMode()`): un errore mentre iteri in locale finisce comunque in console (mai silenziato) ma non parte alcuna chiamata di rete.
+
+---
+
 ## ⚙️ Opzioni Avanzate di `site.ts`
 
 Oltre a `path`, `title` e `description`, ogni dichiarazione di pagina (nei file di area `pages/*.pages.ts`, assemblati nell'array `pages` di `site.ts`) accetta:
@@ -1404,7 +1445,6 @@ shell: {                           // comportamento di navbar / footer / header 
     showFooter: true,              // mostra il footer
     showPanel: true,               // mostra il pannello contenuti (gate: col globale off nessuna pagina può riattivarlo)
     fixedTopHeader: false,         // navbar fissa in alto allo scroll
-    showBrandIconInHeader: true,   // favicon accanto al nome nel brand
     showNotifications: false,      // campanellino notifiche realtime con storico (default false, opt-in)
     panelForcedLight: true,        // pannello contenuti sempre chiaro, a prescindere dal tema OS
     pageFade: true,                // fade-in d'ingresso pagina (gate: col globale off nessuna pagina può riattivarlo)
@@ -1528,6 +1568,16 @@ header: (h) => {
 
 Volutamente binario (loggato/sloggato, via `TokenService.isLoggedIn()`), non un sistema di ruoli: la navbar è pensata per restare generica, un progetto che ha bisogno di granularità per-ruolo filtra a monte (nel proprio resolver di `nav.ts`, prima che la voce venga costruita, oppure componendo il menu in base a `session<T>()`), non nell'Engine.
 
+Icona di brand nella navbar (`brandIcon`): terzo campo opzionale di `ShellNavResolver`, sincrono o `async` come `header`/`footer`, risolto una volta sola insieme a loro. Restituisce `true`/omesso (il `favIcon` di sempre), `false` (nessuna icona), o una stringa — stesso valore che passeresti ad `[appAsset]` (chiave di `mapping.json` o slug di un blob) per un'icona diversa dal favicon nel solo header. Dato risolto a runtime, può quindi dipendere da una API invece che da un booleano fisso in `site.ts`.
+
+```typescript
+// nav.ts
+export const navResolver: ShellNavResolver = {
+    header: (nav) => { /* … */ },
+    brandIcon: () => 'a1b2c3d4.png', // slug di un blob caricato, o (ctx) => …, se dipende dal contesto
+};
+```
+
 ### Pagine legali (`legalPages`)
 
 `legalPages` è un array: un elemento per pagina legale, tutti con lo stesso trattamento (rotta sotto `/policy/`, `PolicyComponent`, Markdown localizzato, riga nella fascia legale del footer). Non c'è distinzione fra "pagine di sistema" e pagine di progetto — nemmeno la Cookie Policy è un caso a parte qui: lo è solo `cookiePolicy`, un riferimento separato (vedi sotto).
@@ -1635,7 +1685,7 @@ site.homePage;    // PageType del brand (o null)
 site.loginPage;   // PageType di redirect non-auth (o null)
 
 // Flag di shell appiattiti al top-level di SiteConfig (boolean; significato di ciascuno nel
-// blocco `shell` sopra): showNav, showFooter, showPanel, fixedTopHeader, showBrandIconInHeader,
+// blocco `shell` sopra): showNav, showFooter, showPanel, fixedTopHeader,
 // showLoginInHeader, showNotifications, panelForcedLight, pageFade
 site.showNav;     // es. lettura di un singolo flag
 ```
@@ -2067,13 +2117,13 @@ npm run generate:statics
 
 > `sitemap.xml` NON è più generata da questo script: è un endpoint runtime (`GET /sitemap.xml`, sezione «sitemap.xml: endpoint runtime» più sotto), non un file in `public/`.
 
-> `configFingerprint`: guardia contro un `environment.ts` non rigenerato. Uno hash (12 caratteri) delle sole sezioni identity-critiche di `global-settings.json` (`project`/`Localization`/`site`). Il Node SSR lo ricalcola al boot dal config letto a runtime e lo confronta con quello scritto nel bundle: se non coincidono stampa un warning in log, capita tipicamente lanciando `ng serve` senza passare dai pre-hook (`predev`/`prestart`), o modificando `global-settings.json` senza rilanciare `npm run generate:statics`. Non blocca l'avvio: è un segnale di dev, non un gate.
+> `configFingerprint`: guardia contro un `environment.ts` non rigenerato. Uno hash (12 caratteri) delle sole sezioni identity-critiche di `global-settings.json` (`project`/`Localization`/`site`). Le Node SSR lo ricalcola al boot dal config letto a runtime e lo confronta con quello scritto nel bundle: se non coincidono stampa un warning in log, capita tipicamente lanciando `ng serve` senza passare dai pre-hook (`predev`/`prestart`), o modificando `global-settings.json` senza rilanciare `npm run generate:statics`. Non blocca l'avvio: è un segnale di dev, non un gate.
 
-> Versionati vs solo-build: solo due output generati sono versionati come seed, `src/index.html` e `src/environments/environment.ts`, perché servono al type-check e alla build prima della prima rigenerazione (`index.html` è il documento di build, `environment.ts` è importato dal TS): lo script li tiene aggiornati e la diff si committa insieme a `global-settings.json`. Tutto ciò che finisce in `public/` (`manifest.webmanifest`, `robots.txt`, `llms.txt`, `security.txt`, `theme-init.js`, `icons/`) è solo output di build, gitignored (`public/` è ignorata per intero): viene rigenerato dal pre-hook `prebuild` e non va mai committato.
+> Versionati vs solo-build: solo due output generati sono versionati come seed, `src/index.html` e `src/environments/environment.ts`, perché servono al type-check e alla build prima della prima rigenerazione (`index.html` è il documento di build, `environment.ts` è importato dal TS): lo script li tiene aggiornati e la diff si committa insieme a `global-settings.json`. Tutto ciò che finisce in `public/` (`manifest.webmanifest`, `robots.txt`, `theme-init.js`, `icons/`) è solo output di build, gitignored (`public/` è ignorata per intero): viene rigenerato dal pre-hook `prebuild` e non va mai committato.
 
 ### sitemap.xml: endpoint runtime, non file statico
 
-A differenza degli altri output di questa pagina, `sitemap.xml` non è un file generato al build: è un endpoint (`GET /sitemap.xml`, `server/routes/dynamic-sitemap.ts`), montato in `server.ts` prima dello static handler. Usa gli stessi calcoli dello script `generate-statics` (via `services/sitemap-xml.ts`, condiviso) più l'espansione delle pagine con `dynamicParams` dichiarato (campo opzionale di `LeafPageInput`, in `siteBuilder.ts`: una funzione che recupera dal backend l'albero `SlugNode[]` degli slug accettati per una rotta con `:segmenti`) — non enumerabili a build time perché il catalogo arriva da un'API. Cache in-process con TTL (default 7 giorni, env var `SITEMAP_CACHE_TTL_MS` in millisecondi): l'aggiornamento primario è la notifica on-demand dal backend (`POST /internal/revalidate-sitemap`, `SitemapNotifier`, vedi backend/README.md) dopo una scrittura su un catalogo `dynamicParams`, il TTL è solo un fallback per il caso in cui quella notifica si perda. Il consumer è quasi solo un crawler, non serve ricalcolare a ogni richiesta; richieste concorrenti durante un ricalcolo condividono la stessa promise, e se il ricalcolo fallisce ma esiste una cache scaduta si serve quella invece di un errore. `robots.txt` continua a puntare allo stesso URL (`Sitemap: <base>/sitemap.xml`), invariato.
+A differenza degli altri output di questa pagina, `sitemap.xml` non è un file generato al build: è un endpoint (`GET /sitemap.xml`, `server/routes/dynamic-sitemap.ts`), montato in `server.ts` prima dello static handler. Usa gli stessi calcoli dello script `generate-statics` (via `services/sitemap-xml.ts`, condiviso) plus l'espansione delle pagine con `dynamicParams` dichiarato (campo opzionale di `LeafPageInput`, in `siteBuilder.ts`: una funzione che recupera dal backend l'albero `SlugNode[]` degli slug accettati per una rotta con `:segmenti`) — non enumerabili a build time perché il catalogo arriva da un'API. Cache in-process con TTL (default 7 giorni, env var `SITEMAP_CACHE_TTL_MS` in millisecondi): l'aggiornamento primario è la notifica on-demand dal backend (`POST /internal/revalidate-sitemap`, `SitemapNotifier`, vedi backend/README.md) dopo una scrittura su un catalogo `dynamicParams`, il TTL è solo un fallback per il caso in cui quella notifica si perda. Il consumer è quasi solo un crawler, non serve ricalcolare a ogni richiesta; richieste concorrenti durante un ricalcolo condividono la stessa promise, e se il ricalcolo fallisce ma esiste una cache scaduta si serve quella invece di un errore. `robots.txt` continua a puntare allo stesso URL (`Sitemap: <base>/sitemap.xml`), invariato.
 
 ### Icone PWA automatiche (`generate-icons.ts`)
 

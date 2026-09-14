@@ -39,7 +39,7 @@ Senza scrivere una riga di codice infrastrutturale, dalla scatola esce già tutt
 - **SEO e social**: tag OpenGraph e JSON-LD per pagina (cinque tipi dichiarabili — articolo, FAQ, prodotto, evento, dato grezzo — statici da `site.ts` o presi dal contenuto), SSR granulare guidato da `site.ts`, più `sitemap.xml`, `robots.txt` e anteprime `og:image` dinamiche. Per un'attività fisica basta il sottotipo schema.org giusto (`LocalBusiness`, `Restaurant`, oltre 150 varianti): orari e indirizzo finiscono nel nodo corretto senza altro codice.
 - **Sicurezza by-design**: protezione attiva contro Stored XSS (file isolati, markdown sanificato, JSON-LD inline escapato contro il breakout dal `<script>`), rate limiting, CORS, API key, header di sicurezza (incluso HSTS subdomains), upload persistenti (Blob Store); prevenzione Host Header Injection e script di deploy fail-fast sui segreti. Errori API standardizzati in `ProblemDetails` (RFC 9457) senza leak di stack trace.
 - **Dati personali (GDPR)**: `GET`/`DELETE /me/data` già pronti e protetti da login per export e diritto all'oblio — l'Engine fornisce endpoint, autenticazione e cifratura della risposta (chiave dedicata, separata da quella JWT); il figlio implementa una sola `IPersonalDataStore` che aggrega dai propri store di dominio.
-- **Pronto all'uso**: routing, navigazione, i18n, PWA (manifest, meta-tag, robots/llms.txt generati al build), consenso cookie e pagine legali già funzionanti — si parte dritti dalla logica di dominio.
+- **Pronto all'uso**: routing, navigazione, i18n, PWA (manifest, meta-tag, robots.txt generato al build), consenso cookie e pagine legali già funzionanti — si parte dritti dalla logica di dominio.
 - **Menu Multilivello**: supporto nativo a navigazione ricorsiva sia nella Navbar (con flyout desktop che evita di uscire dallo schermo e accordion su mobile) sia nel Footer. Basta annidare i gruppi in `nav.ts`.
 - **Notifiche realtime**: canale server→client via SSE (`INotificationStream` / `NotificationStreamService`) per spingere notifiche ai client connessi — targeting per broadcast/connessione/gruppo, indipendente dal login, payload che non si ferma al testo. Dettagli in [backend](backend/README.md) e [frontend](frontend/README.md).
 - **Task in background e delivery**: coda generica in-memory (`IBackgroundTaskQueue` + hosted service, scope DI per task) per il pattern "POST risponde subito `202` → lavoro lungo → notifica a fine task", con un `IDeliveryService` che di **default consegna in realtime e stop** (niente email a sorpresa se l'utente è offline) e, su richiesta con `Auto`, aggiunge il **fallback email** quando il destinatario non è connesso.
@@ -140,10 +140,10 @@ backend/                Web API ASP.NET Core (.NET 9)
 ├── Engine/             ⚙️  Engine: sicurezza, errori, base controller, JWT — INTOCCABILE
 ├── Controllers/        thin controller: niente logica, delega ai Services
 ├── Services/           logica di business
-├── Store/              IContentStore e implementazioni: il confine verso la persistenza
+├── Store/              IContentStore/FileBlobStore e implementazioni: il confine verso la persistenza
 ├── data/               "database" JSON localizzato (letto dal FileContentStore)
-├── db/                 mount point del volume db-data (riservato al DB futuro)
-└── uploads/            file caricati via BlobController (volume uploads-data)
+├── db/                 volume db-data: SQLite (EF Core) per la proprietà dei file caricati
+└── uploads/            file caricati via EngineBlobController (volume uploads-data)
 
 frontend/src/app/       Angular 21 (standalone, zoneless)
 ├── core/engine/        ⚙️  Engine: DSL, SSR, servizi infrastrutturali — INTOCCABILE
@@ -214,7 +214,7 @@ Il Node SSR del frontend gestisce, oltre alle pagine Angular, anche alcune route
 | `/assets/files/*` | **Bloccata** (404): i file sorgente degli asset si servono soltanto via `/cdn-cgi/asset` |
 | `/.well-known/security.txt` | Contatto di sicurezza RFC 9116, generato a richiesta dall'identità del sito (`GET /identity`) |
 
-> Il Node SSR applica anche, in automatico, la compressione gzip sulle risposte testuali (escluso lo stream di notifiche SSE, che resta non compresso così gli eventi arrivano subito al browser invece di restare nel buffer) e un graceful shutdown su SIGTERM/SIGINT che drena le connessioni prima di uscire. I file statici SEO (`robots.txt`, `llms.txt`) sono generati al build; `sitemap.xml` e `security.txt` invece sono endpoint generati a richiesta — il primo include anche le pagine parametriche con `dynamicParams`, non enumerabili al build, il secondo legge il contatto dall'identità del sito, così resta aggiornato senza un redeploy.
+> Il Node SSR applica anche, in automatico, la compressione gzip sulle risposte testuali (escluso lo stream di notifiche SSE, che resta non compresso così gli eventi arrivano subito al browser invece di restare nel buffer) e un graceful shutdown su SIGTERM/SIGINT che drena le connessioni prima di uscire. I file statici SEO (`robots.txt`) sono generati al build; `sitemap.xml`, `llms.txt` e `security.txt` invece sono endpoint generati a richiesta — i primi includono anche le pagine parametriche con `dynamicParams`, non enumerabili al build, il secondo legge il contatto dall'identità del sito, così resta aggiornato senza un redeploy.
 
 ---
 
@@ -253,7 +253,7 @@ Due dettagli da non perdere:
 | *(Engine)* `EngineIdentityController` | `GET /identity` | **Non è demo:** l'Engine serve l'identità del sito (legale + social brand + tipo entità) da `data/identity.json`, sorgente unica di footer, pagine legali e SEO. Il figlio riempie solo il file (o sostituisce `IIdentityStore` via DI); file assente → risposta `null` |
 | `AuthController` | `POST /auth/login` | Login demo a credenziali fisse → emissione JWT con payload di sessione |
 | `ProtectedController` | `GET /ping` | Endpoint riservato: API key + JWT obbligatori |
-| `BlobController` | `GET /blob/{slug}`, `POST /blob/up` | Upload/download di file sul volume persistente (è anche uno strumento di fabbrica: il contratto sta in [backend/README.md](backend/README.md)) |
+| *(Engine)* `EngineBlobController` | `GET /blob/{slug}`, `POST /blob/up`, `PUT /blob/{slug}`, `DELETE /blob/{slug}` | **Non è demo:** upload/download/sostituzione/cancellazione di file sul volume persistente, con proprietà tracciata su SQLite (`AppBlobStore`, EF Core) — contratto in [backend/README.md](backend/README.md) |
 
 Sono segnaposto i dati demo (`backend/data/social.json`, galleria social), i testi legali di esempio (`frontend/src/assets/legal/`) e le credenziali del login: i file restano dove sono e con lo stesso nome, il figlio ci scrive dentro i propri dati. L'identità del sito (`backend/data/identity.json`) è invece la parte non-demo: legale, social del brand e tipo entità in un solo file, servito dall'Engine su `GET /identity`. I pezzi facoltativi si lasciano non valorizzati e l'Engine fa il resto: senza social il footer nasconde da sé la sezione, senza identità (`identity.json` assente → `null`) footer e blocco legale spariscono del tutto. Il blocco identità del footer è la parte legale del sito: nei figli si adatta l'estetica e si tolgono i pezzi facoltativi, cioè i social, non le informazioni legali.
 

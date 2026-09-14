@@ -1,0 +1,8 @@
+<div class="image-lightbox" role="dialog" aria-modal="true" [attr.aria-label]="dialogLabel()">
+    <button #closeBtn type="button" class="image-lightbox-close"
+            [attr.aria-label]="'chiudiAzione' | translate"
+            (click)="closeRequested.emit()">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+    </button>
+    <img [src]="src()" [alt]="alt()" class="image-lightbox-img">
+</div>

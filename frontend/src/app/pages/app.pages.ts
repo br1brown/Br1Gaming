@@ -24,7 +24,7 @@ function generatorContentLoader(): ContentLoader {
             if (!slug) return { content: null };
             const gen = await api.getGenerator(slug).catch(() => null);
             if (!gen) throw new ApiError(404, null);
-            const info: Partial<PageInfo> = { title: gen.name, description: gen.description, ogImage: `generator.${slug}.og` };
+            const info: Partial<PageInfo> = { title: gen.name, description: gen.description, ogImage: { id: `generator.${slug}.og` } };
             return { content: { generator: gen, result: null, recovered: false } satisfies GeneratorPageContent, info };
         })();
     };
@@ -52,7 +52,7 @@ function generatorSharedContentLoader(): ContentLoader {
             const result: GenerateResponse = { text: entry.text, markdown: entry.markdown, score: entry.score, sig: '' };
             const info: Partial<PageInfo> = {
                 title: titleFromGeneration(entry.text), description: gen.description,
-                ogImage: `generator.${slug}.og`, noindex: true,
+                ogImage: { id: `generator.${slug}.og` }, noindex: true,
             };
             return { content: { generator: gen, result, recovered: true } satisfies GeneratorPageContent, info };
         })();
@@ -69,7 +69,7 @@ function storyContentLoader(): ContentLoader {
             if (!slug) return { content: null };
             const story = await api.getStory(slug).catch(() => null);
             if (!story) throw new ApiError(404, null);
-            const info: Partial<PageInfo> = { title: story.title, description: story.description, ogImage: `story.${slug}.og` };
+            const info: Partial<PageInfo> = { title: story.title, description: story.description, ogImage: { id: `story.${slug}.og` } };
             return { content: story, info };
         })();
     };
@@ -227,7 +227,7 @@ export const appPagesDecl: SitePageInput[] = [
         layout: { fitViewport: true },
         // Eccezione: qui la card NON diventa trasparente (è normale sia con Valerio Lundini),
         // quindi niente OG separata — l'immagine della card fa già da anteprima social.
-        otherSEO: { ogImage: 'game.ducenonduce' },
+        otherSEO: { ogImage: { id: 'game.ducenonduce' } },
         component: () => import('./duce-non-duce/duce-non-duce.component')
             .then(m => m.DuceNonDuceComponent),
     },
@@ -239,7 +239,7 @@ export const appPagesDecl: SitePageInput[] = [
         pageType: AppPages.GameBurocrazia,
         layout: { fitViewport: true },
         // OG opaca dedicata (la card può diventare trasparente senza rovinare l'anteprima social).
-        otherSEO: { ogImage: 'game.burocrazia.og' },
+        otherSEO: { ogImage: { id: 'game.burocrazia.og' } },
         component: () => import('./burocrazia/burocrazia.component')
             .then(m => m.BurocraziaComponent),
     },
@@ -250,7 +250,7 @@ export const appPagesDecl: SitePageInput[] = [
         description: 'Contempla il cantiere con le mani dietro la schiena e intervieni al momento giusto.',
         pageType: AppPages.GameUmarell,
         layout: { fitViewport: true },
-        otherSEO: { ogImage: 'game.umarell.og' },
+        otherSEO: { ogImage: { id: 'game.umarell.og' } },
         component: () => import('./umarell/umarell.component')
             .then(m => m.UmarellComponent),
     },
@@ -268,7 +268,7 @@ export const appPagesDecl: SitePageInput[] = [
                 description: 'Il radar delle chiese intorno a te',
                 pageType: AppPages.UtilityRadar,
                 // OG opaca dedicata (la card può diventare trasparente senza rovinare l'anteprima social).
-                otherSEO: { ogImage: 'game.radar.og' },
+                otherSEO: { ogImage: { id: 'game.radar.og' } },
                 layout: { fitViewport: true },
                 component: () => import('./radar/radar.component')
                     .then(m => m.RadarComponent),

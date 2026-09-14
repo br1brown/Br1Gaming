@@ -81,7 +81,13 @@ export class NavbarComponent {
      *  `requiresAuth` che già forza quelle pagine fuori da sitemap/SSR. */
     readonly menuItems = computed(() => filterNavByAuth(this.rawMenuItems(), this.tokenService.isLoggedIn()));
     readonly fixTop = ContestoSito.config.fixedTopHeader;
-    readonly showBrandIconInHeader = ContestoSito.config.showBrandIconInHeader;
+    /** Valore per `[appAsset]`: `null` = icona nascosta, altrimenti chiave mapping.json o GUID
+     *  blob (`ShellNavResolver.brandIcon`); `true`/assente → `favIcon` di sempre. */
+    readonly brandIconAsset = computed<string | null>(() => {
+        const value = this.shellNav.brandIcon();
+        if (value === false) return null;
+        return value === true ? 'favIcon' : value;
+    });
     /** Mostra il campanellino delle notifiche realtime (shell.showNotifications, default false). */
     readonly showNotifications = ContestoSito.config.showNotifications;
     // Set di lingue dalla config (coerente coi cataloghi i18n presenti → setLanguage funziona

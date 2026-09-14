@@ -44,7 +44,7 @@ Il template include una pipeline di sicurezza pre-cablata. I progetti che deriva
 Prima di esporre un progetto derivato da questo template:
 
 - Usa HTTPS (reverse proxy: Nginx, Caddy, Traefik o il proxy del provider)
-- Imposta `Security.ApiKeys` con chiavi robuste — non usare quelle di esempio
+- Imposta `Security.ApiConfig.Keys` con chiavi robuste — non usare quelle di esempio
 - Imposta `Security.Token.SecretKey` con almeno 32 caratteri (altrimenti il server non si avvia); lascialo vuoto se non usi il login
 - Abilita `Security.BehindProxy: true` se stai usando un reverse proxy (necessario per il rate limiting per IP reale)
 - Configura `Security.CorsOrigins` con i domini del tuo frontend

@@ -100,6 +100,9 @@
   <data name="error_unprocessable_entity" xml:space="preserve">
     <value>The request is syntactically valid but cannot be processed due to a semantic error.</value>
   </data>
+  <data name="error_payload_too_large" xml:space="preserve">
+    <value>The payload exceeds the maximum allowed size.</value>
+  </data>
   <data name="error_too_many_requests" xml:space="preserve">
     <value>Too many requests. Please wait a moment and try again.</value>
   </data>

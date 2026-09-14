@@ -13,13 +13,13 @@ L'architettura è divisa in:
 ## 🧩 Punti di personalizzazione
 
 L'Engine si estende ereditando o registrando servizi in DI, mai modificando `Engine/`.
-- **Aggiungere endpoint**: Eredita da `EngineApiController` (API key), `EngineProtectedController` (JWT), `EngineAuthController` (login), o `EngineBlobController` (file binari). Include property pronte come code, notifiche e cifratura. (Ricetta: [AGENTS.md](../AGENTS.md#aggiungere-un-endpoint)).
-- **Sostituire un servizio**: Rimpiazza `IContentStore` (es. DB), `IEngineMailer`, `INotificationStream` (es. Redis), `IDeliveryService` registrandoli in DI in `Program.cs`. Lo store binario (`BlobStore`) si modifica direttamente. (Ricetta: [AGENTS.md](../AGENTS.md#sostituire-un-servizio-dellengine)).
+- **Aggiungere endpoint**: Eredita da `EngineApiController` (API key), `EngineProtectedController` (JWT), o `EngineAuthController` (login). Include property pronte come code, notifiche e cifratura. (Ricetta: [AGENTS.md](../AGENTS.md#aggiungere-un-endpoint)).
+- **Sostituire un servizio**: Rimpiazza `IContentStore` (es. DB), `IEngineMailer`, `INotificationStream` (es. Redis), `IDeliveryService` registrandoli in DI in `Program.cs`. Lo storage binario (`FileBlobStore`) è classe concreta: si estende/override in `Store/AppBlobStore.cs`, non si sostituisce via interfaccia. (Ricetta: [AGENTS.md](../AGENTS.md#sostituire-un-servizio-dellengine)).
 - **Validazione ed errori**: Usa `AbstractValidator<T>` (auto-registrato). Lancia eccezioni derivate da `ApiException` per restituire JSON strutturati. Usa `CurrentSession<T>()` per il payload JWT. (Ricette: [AGENTS.md](../AGENTS.md#errori), [AGENTS.md](../AGENTS.md#leggere-la-sessione)).
 - **Dati personali (Oblio/Export)**: Implementa `IPersonalDataStore`. Gli endpoint `GET/DELETE /me/data` sono già pronti e protetti. (Ricetta: [AGENTS.md](../AGENTS.md#esportare-e-cancellare-i-dati-personali)).
 - **Configurazione**: Usa le sezioni `Security.*`, `Mail.*`, `Localization.*`, e `Custom:` di `global-settings.json`. Header web in `security-headers.json`.
 - **Servizi esterni**: Registra un `HttpClient` tipizzato. Per i webhook, usa `EngineApiController` con `[AllowAnonymous]` e valida la firma sul body grezzo.
-- **Error reporting**: Imposta `ErrorReporting.WebhookUrl` in `global-settings.local.json` per ricevere POST automatici sugli errori ≥500.
+- **Error reporting**: Imposta `ErrorReporting.WebhookUrl` in `global-settings.local.json` per ricevere POST automatici sugli errori ≥500 (server) e sulle eccezioni JS non gestite nel browser (client, via `EngineClientErrorController`).
 
 ---
 
@@ -28,7 +28,7 @@ L'Engine si estende ereditando o registrando servizi in DI, mai modificando `Eng
 ### 1. Sicurezza e Protezione Preconfigurate
 
 - **`X-Api-Key` obbligatoria**: richiesta da ogni controller derivato per l'accesso base.
-- **Rate Limiter automatico**: 100 req/min globali, 5 req/min per i login. Risponde con HTTP 429 e `ProblemDetails` JSON.
+- **Rate Limiter automatico**: 500 req/min globali, 5 req/min per i login (default, configurabili in `Security.ApiConfig.RateLimiting`). Risponde con HTTP 429 e `ProblemDetails` JSON.
 - **CORS e Header di Sicurezza**: `WithExposedHeaders("Retry-After")` attivato; `security-headers.json` caricato se esposto al web (`backend.public`).
 - **Ordine Middleware**: `UseExceptionHandler` agisce prima di `UseRateLimiter` per non perdere i 429 né eventuali errori interni.
 
@@ -37,7 +37,7 @@ L'Engine si estende ereditando o registrando servizi in DI, mai modificando `Eng
 L'API key identifica l'applicativo client (es. Node SSR), non l'utente finale.
 
 Meccanismo in `Security/ApiKeyAuthentication.cs`:
-- **Match sicuro**: la chiave inviata viene controllata contro l'array `Security.ApiKeys` (`global-settings.local.json`) tramite `CryptographicOperations.FixedTimeEquals`.
+- **Match sicuro**: la chiave inviata viene controllata contro l'array `Security.ApiConfig.Keys` (`global-settings.local.json`) tramite `CryptographicOperations.FixedTimeEquals`.
 - **Preflight CORS**: ignorano l'autenticazione.
 - **Fallimento**: JSON `ProblemDetails` 401 immediato.
 
@@ -45,7 +45,9 @@ Aggiungere o ruotare una chiave:
 ```json
 // global-settings.json
 "Security": {
-    "ApiKeys": ["frontend", "mobile-app", "nuova-chiave-32-char-minimo"],
+    "ApiConfig": {
+        "Keys": ["frontend", "mobile-app", "nuova-chiave-32-char-minimo"]
+    },
     ...
 }
 ```
@@ -55,7 +57,8 @@ Più chiavi coesistono; elimina quella vecchia quando tutti i client hanno aggio
 
 | Campo | Tipo | Default | Comportamento |
 | :--- | :--- | :--- | :--- |
-| `ApiKeys` | `string[]` | obbligatorio | Chiavi accettate nell'header `X-Api-Key`. Case-sensitive. |
+| `ApiConfig.Keys` | `string[]` | obbligatorio | Chiavi accettate nell'header `X-Api-Key`. Case-sensitive. |
+| `ApiConfig.RateLimiting.*` | — | vedi sotto | Soglie del rate limiter (globale, login) e interruttore `Enabled` — dettaglio nella nota sotto la tabella. |
 | `CorsOrigins` | `string[]` | `[]` | Origins CORS consentite. **Vuoto = `AllowAnyOrigin`** — la protezione è la API key. Valorizzare per multi-tenant o API admin separata. |
 | `Headers` | `Dictionary<string,string>` | vedi `security-headers.json` | Header di sicurezza browser (dal file del template `security-headers.json`, non da `global-settings.json`). Applicati dal backend solo se esposto pubblicamente (`backend.public`). `Content-Security-Policy` è ignorata (irrilevante su JSON) e `Strict-Transport-Security` è esclusa dal loop perché già emessa da `UseHsts()`. |
 | `BehindProxy` | `bool` | `false` | Se `true`, abilita `ForwardedHeaders` che legge l'IP reale da `X-Forwarded-For`. **Impostare `true` in produzione se c'è un reverse proxy** — altrimenti il rate limiter vede l'IP del proxy, non del client, e il limite per-IP diventa inutile. Trusted solo per reti RFC 1918 (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16). |
@@ -66,7 +69,9 @@ Più chiavi coesistono; elimina quella vecchia quando tutti i client hanno aggio
 
 > Ruotare `Token.SecretKey` invalida istantaneamente tutti i token già emessi (la firma non corrisponde più): ogni utente loggato viene sloggato al prossimo giro, senza preavviso lato client oltre il normale 401. Ruotala solo quando serve davvero (sospetto di compromissione), non come pratica di igiene periodica senza motivo: non c'è un periodo di grazia con doppia chiave valida.
 
-> Limiti del rate limiter: non configurabili, non condivisi tra istanze. Le soglie (100 req/min globali, 5 req/min sul login) sono costanti hardcoded in `Engine/Security/SecurityExtensions.cs`, non esposte via `SecurityOptions`/`global-settings.json`: per cambiarle si modifica quel file. Sono anche in-memory per-istanza (`RateLimitPartition.GetFixedWindowLimiter`, stato nel processo): con più repliche del backend dietro un bilanciatore, ogni istanza conta le richieste per conto proprio, quindi il limite effettivo per IP si moltiplica per il numero di repliche. Stesso limite già segnalato per `IContentStore` (§ cache) e `INotificationStream`: qui non c'è ancora un backplane condiviso pronto, è responsabilità del progetto se serve scalare orizzontalmente.
+> Configurazione del rate limiter: soglie in `Security.ApiConfig.RateLimiting` (`global-settings.json`) — `Global.PermitLimit`/`WindowSeconds` per il limite generale, `Login.PermitLimit`/`WindowSeconds` per `POST /auth/login`, `Enabled: false` per disattivare del tutto l'enforcement (le policy restano registrate, `[EnableRateLimiting("login")]` continua a risolvere, solo senza effetto — utile dietro un WAF/reverse proxy che applica già le proprie soglie). Per andare oltre le soglie (partizionare per utente invece che per IP, un algoritmo diverso, policy aggiuntive) `AddTemplateSecurity` accetta un `Action<RateLimiterOptions>` opzionale, invocato per ultimo: da `Program.cs`, `AddTemplateSecurity(security, options => { /* ... */ })`.
+>
+> Sono in-memory per-istanza (`RateLimitPartition.GetFixedWindowLimiter`, stato nel processo): con più repliche del backend dietro un bilanciatore, ogni istanza conta le richieste per conto proprio, quindi il limite effettivo per IP si moltiplica per il numero di repliche. Stesso limite già segnalato per `IContentStore` (§ cache) e `INotificationStream`: qui non c'è ancora un backplane condiviso pronto, è responsabilità del progetto se serve scalare orizzontalmente.
 
 ### 2. Errori Standardizzati (RFC 9457)
 Si lancia un'eccezione (`throw new NotFoundException("utente")`) e l'`ApiExceptionHandler` globale emette un `ProblemDetails` JSON omogeneo, senza stampare stack trace al client.
@@ -343,11 +348,12 @@ builder.Services.AddSingleton<IPersonalDataStore, AppPersonalDataStore>();
 
 - Imposta `ErrorReporting.WebhookUrl` in `global-settings.local.json` per abilitare le notifiche proattive.
 - **Webhook POST**: un error handler invia in automatico un JSON struct con dettagli (stack trace, path, timestamp) in background per ogni eccezione applicativa (status ≥ 500) o non gestita.
+- **Anche lato client**: `EngineClientErrorController` (`POST diagnostics/ui-fault`, sola API Key — funziona pure per visitatori anonimi) riceve le eccezioni JavaScript non gestite nel browser (vedi frontend README § Error Tracking, `ClientErrorReportingService`) e le accoda allo stesso `IErrorReportingService` — `source: "client"` le distingue da quelle server nello stesso canale.
 - Utile per inoltrare ad allarmi Slack/Discord o a servizi centralizzati.
 
 ```json
 {
-  "project": "Nome Progetto",
+  "project": "Nome Progetto", "source": "server",
   "message": "...", "exceptionType": "System.NullReferenceException",
   "statusCode": 500, "path": "/api/v1/orders", "method": "POST",
   "stackTrace": "...", "timestamp": "2026-08-24T10:00:00Z"
@@ -455,7 +461,7 @@ Per segnalare un errore, lancia l'eccezione appropriata: `ApiExceptionHandler` l
 >
 > **503 vs 502**: `ServiceUnavailableException` (503) = servizio non raggiungibile. `BadGatewayException` (502) = servizio raggiungibile ma ha restituito una risposta non valida.
 >
-> **429 applicativo vs rate limiter infrastrutturale**: il middleware blocca già 100 req/min globali e 5/min sul login. Quando scatta, produce anch'esso un `ProblemDetails` JSON con `Retry-After` (via callback `OnRejected`), quindi il formato è coerente con `ApiExceptionHandler`. `TooManyRequestsException` serve per limiti di dominio più granulari (es. max 3 tentativi OTP per sessione); usa `TooManyRequestsException(60)` per includere i secondi di attesa nel messaggio e nell'header.
+> **429 applicativo vs rate limiter infrastrutturale**: il middleware blocca di default 500 req/min globali e 5/min sul login (§"Rate Limiter" più sopra per come cambiare le soglie). Quando scatta, produce anch'esso un `ProblemDetails` JSON con `Retry-After` (via callback `OnRejected`), quindi il formato è coerente con `ApiExceptionHandler`. `TooManyRequestsException` serve per limiti di dominio più granulari (es. max 3 tentativi OTP per sessione); usa `TooManyRequestsException(60)` per includere i secondi di attesa nel messaggio e nell'header.
 
 **Formato della risposta al client:**
 ```json
@@ -627,14 +633,14 @@ foreach (var source in defaultJsonSources)
     builder.Configuration.Sources.Remove(source);
 ```
 
-Conseguenza pratica: `appsettings.Development.json` non viene letto. L'identità/config di progetto vive in `global-settings.json`; i segreti e la pubblicazione (ApiKeys, SecretKey, porte) in `global-settings.local.json`.
+Conseguenza pratica: `appsettings.Development.json` non viene letto. L'identità/config di progetto vive in `global-settings.json`; i segreti e la pubblicazione (ApiConfig.Keys, SecretKey, porte) in `global-settings.local.json`.
 
 I file vengono cercati e fusi in quest'ordine (gli ultimi vincono, lo stesso deep-merge che `scripts/lib/br1-config.sh` fa in prod producendo il file effettivo):
 1. `../global-settings.json` poi `global-settings.json` — base committata (dev `cwd=backend/` → `../`; Docker `cwd=/app`)
 2. `../global-settings.local.json` poi `global-settings.local.json` — override coi segreti (gitignored)
 3. `../security-headers.json` poi `security-headers.json` — header del template (sezione `Security.Headers`)
 
-Tutte `optional: true` (se un file manca si usano i default dei modelli `*Options`). In dev locale è il punto 2 che fa arrivare `Security.ApiKeys` (da `global-settings.local.json`) al backend senza env var né deploy: prima del template 2.0.1 il backend leggeva solo `global-settings.json` (privo di `Security`) → `ApiKeys` vuoto → 401 su ogni richiesta. In Docker/prod il `.local` non esiste (i segreti sono già fusi nel file effettivo montato) → no-op.
+Tutte `optional: true` (se un file manca si usano i default dei modelli `*Options`). In dev locale è il punto 2 che fa arrivare `Security.ApiConfig.Keys` (da `global-settings.local.json`) al backend senza env var né deploy: prima del template 2.0.1 il backend leggeva solo `global-settings.json` (privo di `Security`) → chiavi vuote → 401 su ogni richiesta. In Docker/prod il `.local` non esiste (i segreti sono già fusi nel file effettivo montato) → no-op.
 
 #### Lo schema (`global-settings.schema.json`) e chi legge cosa
 
@@ -744,7 +750,7 @@ Concretamente, servizio per servizio:
 - **`IContentStore`** — default `FileContentStore`. Registri `AddSingleton<IContentStore, EfContentStore>()` per migrare a un database senza toccare controller né `SiteService`.
 - **`IIdentityStore`** — il template registra già **`Store/AppIdentityStore.cs`** (di **proprietà del progetto**, estende il default engine `FileIdentityStore` che legge `data/identity.json`). Due livelli di estensione: **(a) comporre da più fonti** — nel tuo `AppIdentityStore` fai l'override di `ComposeIdentityAsync(identity, language, ct)` (oggi passthrough) per fondere nel modello pezzi presi altrove (es. orari o capitale da un DB/API) senza riscrivere la lettura del file; gira anche con `identity == null` (caso "tutto da un'API"). **(b) sorgente completamente diversa** — registri una tua `IIdentityStore` da zero. Il default engine (`FileIdentityStore` via `AddTemplateIdentity`, `TryAdd`) resta come rete di sicurezza.
 
-> Nota: lo storage dei file caricati non è un'interfaccia ma la classe concreta `BlobStore` (`Store/BlobStore.cs`): file di progetto che modifichi direttamente o estendi via `override`. È deliberatamente tenuto separato da `IContentStore` (binari in volume runtime vs contenuti localizzati read-only). Diventerebbe un'interfaccia solo il giorno in cui servisse davvero lo swap a runtime (es. S3): estrarla è un attimo.
+> Nota: lo storage dei file caricati non è un'interfaccia ma la classe concreta `FileBlobStore` (Engine, `Engine/Blob/Blob.cs`): la estendi via `override` in `Store/AppBlobStore.cs` (di proprietà del progetto), non la sostituisci. È deliberatamente tenuto separato da `IContentStore` (binari in volume runtime vs contenuti localizzati read-only). Diventerebbe un'interfaccia solo il giorno in cui servisse davvero lo swap a runtime (es. S3): estrarla è un attimo.
 - **`IEngineMailer`** — default `EngineMailer` (SMTP). Lo sostituisci con una tua implementazione di `IsEnabled`/`IsValidAddress`/`SendAsync` (es. l'API HTTP di un provider); coda e worker restano invariati.
 - **`INotificationStream`** — default in-memory. Una tua implementazione (es. un backplane Redis) lo fa scalare oltre il singolo processo.
 - **`IDeliveryService`** e **`INotificationGroupResolver`** — registrati con `TryAddSingleton`: basta registrare la tua versione (`AddSingleton<IDeliveryService, MiaPolicy>()` per una policy di consegna propria, `AddSingleton<…, UserGroupResolver>()` per il targeting per utente/tenant).
@@ -903,7 +909,7 @@ Task<UserResponseDto> GetUserAsync(string id);
 >
 > Specularmente, `uploads/` è escluso dalla compilazione: il `.csproj` rimuove `uploads\**\*` da
 > `Compile`, `Content` e `None`. È una cartella di dati runtime (file caricati dagli utenti, vedi
-> `BlobController`), non sorgente: un `.cs` finito lì per errore (o caricato da un utente) non viene
+> `EngineBlobController`/`FileBlobStore`), non sorgente: un `.cs` finito lì per errore (o caricato da un utente) non viene
 > mai compilato nell'assembly. `data/` (asset di build, parte del codice) e `uploads/` (volume runtime,
 > dati dell'utente) hanno ruoli opposti e il `.csproj` li tratta in modo opposto.
 
@@ -1049,6 +1055,8 @@ public Task DeleteAccountAsync(SessionInfo session, CancellationToken ct = defau
 
 Il token è firmato con HMAC-SHA256. La scadenza assoluta è `Security.Token.ExpirationSeconds`. Il middleware JWT Bearer ha `ClockSkew = TimeSpan.Zero`: un token scaduto è immediatamente rifiutato, senza margine di grazia.
 
+`RequireLogin` combina due schemi (API Key + JWT Bearer, vedi "Ordine della pipeline HTTP" più sotto). `LoginChallengeResultHandler` (`Engine/Security/`) distingue i due fallimenti possibili: nessun JWT valido presentato (Bearer assente, malformato o scaduto) → 401, "non so chi sei"; JWT valido ma privo del ruolo `Authenticated` (riga sopra) → 403, "so chi sei, non puoi". Il primo caso da solo non basterebbe a garantire un 401: `RequireLogin` richiede anche l'API key, e ASP.NET Core considera "autenticata" una richiesta con almeno uno dei due schemi riusciti — `LoginChallengeResultHandler` guarda specificamente all'esito dello schema JWT per decidere quale dei due status restituire.
+
 `AuthService` è registrato come singleton (DI); viene registrato solo se `LoginEnabled` è `true`.
 
 > In test di integrazione: per raggiungere un endpoint `EngineProtectedController`, il token fake deve includere il ruolo `"Authenticated"` oltre alla firma corretta. Senza quel ruolo la risposta sarà 403, non 401.
@@ -1107,29 +1115,26 @@ Il JWT è stateless: il logout sul client (rimozione del token) non invalida il 
 > sempre, il figlio riempie solo `data/identity.json`. In entrambi i casi aggiungi accanto i
 > controller del tuo dominio. Qui sotto restano gli strumenti che il template fornisce di default.
 
-#### `BlobStore` — lo storage dei file caricati
+#### `FileBlobStore` — lo storage dei file caricati
 
-`BlobStore` (`Store/BlobStore.cs`, accanto a `FileContentStore`) è un `File`/`Directory` in stile nostro sistema: una utility concreta che possiede la cartella `uploads/` e centralizza in un punto solo tutte le casistiche del ciclo di vita di un file caricato, con le policy già cablate dentro (slug immutabile, guardia path-traversal, deduzione del content-type). Il codice di dominio che riceve file in altri form la usa direttamente, `_blobs.SaveAsync(...)`, invece di reimplementare slug e sicurezza.
+Classe concreta dell'Engine (`Backend.Blob.FileBlobStore`, `Engine/Blob/Blob.cs`), non un'interfaccia: a differenza di `IContentStore` (traiettoria reale verso un DB, forma specifica di progetto), lo storage dei file è I/O generico con un'unica implementazione plausibile — un'interfaccia sarebbe cerimonia senza un secondo storage reale all'orizzonte (YAGNI). Un solo compito, storage puro — salvare, leggere, cancellare byte dato uno slug — nessuna nozione HTTP (verbo, `webopt`, ETag). Tiene i file su filesystem in `uploads/`, con le policy già cablate dentro (slug immutabile, guardia path-traversal, deduzione del content-type).
 
 | Metodo | Analogo `System.IO` | Cosa fa in più |
 |---|---|---|
-| `SaveAsync(stream/IFormFile, ext)` | `File.Create` | conia lo slug `{GUID}.{ext}`, crea `uploads/` se manca |
-| `OpenRead(slug)` | `File.OpenRead` | risolve+valida lo slug, `null` se assente |
-| `GetInfo(slug)` | `FileInfo` | restituisce `mtime`/`size`/`content-type`/`IsImage` (per servire + ETag) |
-| `Exists(slug)` / `Delete(slug)` | `File.Exists` / `File.Delete` | passano sempre dalla guardia path-traversal |
-| `TryResolve(slug, out path)` | `Path.GetFullPath` | rifiuta gli slug che escono da `uploads/` |
+| `SaveAsync(stream, ext)` | `File.Create` | conia lo slug `{GUID}.{ext}`, crea `uploads/` se manca |
+| `OpenReadAsync(slug)` | `File.OpenRead` | risolve+valida lo slug, `null` se assente |
+| `GetInfoAsync(slug)` | `FileInfo` | restituisce `mtime`/`size`/`content-type` (per servire + ETag) |
+| `DeleteAsync(slug)` | `File.Delete` | passa sempre dalla guardia path-traversal |
+| `ReplaceAsync(oldSlug, stream, ext)` | — | "modifica": salva il nuovo (nuovo slug), poi cancella il vecchio — in quest'ordine |
+| `MaxUploadSizeBytes` | — | proprietà, non metodo: limite upload in byte, default 10 MB |
 
-È un file di progetto che possiedi: come `AuthController`/`BlobController`, lo apri e lo modifichi. Per aggiungere validazioni MIME, quote o antivirus tocchi `SaveAsync`, oppure, se preferisci non editare il default, ne ridefinisci un metodo `virtual` in una sottoclasse e registri quella. Non ci sono "implementazioni" separate da piazzare: ce n'è una, ed è tua. È registrato come singleton in DI solo per ricevere la content root (`AddSingleton<BlobStore>()`).
+Lo slug resta immutabile anche per `ReplaceAsync`: non sovrascrive il contenuto esistente (romperebbe il presupposto dietro `Cache-Control: immutable` nella GET), salva il rimpiazzo come blob a sé e cancella il vecchio DOPO — se il salvataggio fallisce il vecchio resta intatto, mai un buco senza nessuna delle due versioni. Se la cancellazione del vecchio fallisce, la sostituzione è comunque riuscita dal punto di vista del chiamante (resta solo un file orfano, non un dato perso): non solleva errore.
 
-> Perché una classe concreta e non un'interfaccia: a differenza di `IContentStore` (che ha una traiettoria reale verso il DB e una forma specifica del progetto), lo storage dei file è I/O generico con un'unica implementazione plausibile, per un'app su filesystem l'interfaccia sarebbe cerimonia (YAGNI). I metodi sono `virtual` e la classe non è `sealed`, quindi override per i test e per i comportamenti custom restano possibili: il vantaggio esclusivo di un'interfaccia (iniettare un backend completamente diverso, es. S3) si recupera con un extract interface di due minuti il giorno in cui servirà davvero.
+`Store/AppBlobStore.cs` è il file di progetto che possiedi (come `AppIdentityStore.cs`): estende `FileBlobStore`, di base passthrough su tutti i membri sopra — sovrascrivi solo quelli che ti servono cambiare (es. solo `SaveAsync`, o solo `MaxUploadSizeBytes`), gli altri restano il default Engine senza doverli nemmeno menzionare nel file. I metodi sono tutti `virtual` e la classe non è `sealed`: il vantaggio esclusivo di un'interfaccia (iniettare uno storage completamente diverso, es. S3) si recupera con un extract interface di due minuti il giorno in cui servirà davvero.
 
-> Perché separato da `IContentStore` e non fuso dentro: sono responsabilità diverse (ISP). I contenuti sono read-only, localizzati, in cache, parte del codice e deployati con l'immagine, con traiettoria di swap verso un DB; i blob sono binari mutevoli in un volume runtime (`uploads/`), con traiettoria verso un object storage (S3). Fonderli costringerebbe chi migra i contenuti su DB a reimplementare anche lo storage dei file nella stessa classe. Stessa cartella (`Store/`) e stesso stile per coerenza, contratti separati per coesione.
+#### `EngineBlobController` — Upload, Download, Cancellazione
 
-#### `BlobController` — Upload e Download File
-
-Espone download e upload dei file gestiti da `BlobStore` (vedi sopra). È un thin controller: tutto lo storage vive nello store; qui resta solo il wiring HTTP (resize on-demand, difesa XSS, cache). Eredita da `EngineBlobController` per il solo helper di resize immagini.
-
-> `EngineBlobController` come base riusabile: un controller figlio che serve altri binari (PDF firmati, export) eredita da `EngineBlobController` per riusarne l'helper `protected static ResizeImageForWeb` senza riscrivere il resize. La generazione slug e il riconoscimento immagine non sono più qui: sono responsabilità di `BlobStore`.
+`EngineBlobController` (`Engine/Controllers/EngineBlobController.cs`) è `sealed`, espone `GET`/`POST up`/`PUT {slug}`/`DELETE {slug}` su `/blob` direttamente e non è pensato per essere esteso. Nessun controller di dominio da scrivere, nessuna sottoclasse per servire altri binari: l'unico punto di contatto col dominio è `FileBlobStore`/`AppBlobStore` (vedi sopra) — tutto ciò che è HTTP/generico (verbo, resize on-demand, difesa XSS, ETag, limite di dimensione) resta qui, isolato.
 
 `GET /blob/{slug}[?webopt=true]` richiede API key, nessuna autenticazione utente. `webopt=true` richiede la versione ottimizzata per il web del file: oggi l'ottimizzazione implementata è il resize delle immagini (lato più lungo max 1920 px → WebP), mentre i tipi non ancora gestiti vengono restituiti invariati. È il punto di aggancio per estendere l'ottimizzazione lato API ad altri tipi di contenuto in futuro.
 
@@ -1137,26 +1142,29 @@ Cache HTTP: lo slug è immutabile (ogni upload conia un nuovo GUID, mai sovrascr
 
 Cache server-side del resize (`BoundedByteCache`, `Engine/BoundedByteCache.cs`): l'ETag/304 sopra evita il ri-resize solo per un client che ha *già* visto quel blob. Il primo visitatore di un dato slug — e ogni client dietro una cache condivisa che non rispetta `Cache-Control` — fa comunque scattare un decode+resize+encode SkiaSharp completo. `?webopt=true` tiene quindi anche una `MemoryCache` dedicata in-process, chiave = `slug` (una sola variante esiste, niente `w=` a query come in `/cdn-cgi/asset` del frontend — qui i file sono caricati dall'utente, non un catalogo di asset noto a build time, e più larghezze avrebbero moltiplicato la cache senza un motivo concreto), popolata al primo miss e servita as-is sui successivi. È una `MemoryCache` separata da quella condivisa (`AddMemoryCache()`, usata per JSON di config): ha un proprio `SizeLimit` (`BLOB_WEBOPT_CACHE_MAX_MB`, default 500 MB — vedi `DOCKER_README.md`) perché un byte[] di immagine è ordini di grandezza più pesante di un file di config, e il numero di slug caricati non ha un tetto noto a priori; superato il limite, `MemoryCache` fa eviction da sola. Dedup anche sulle richieste concorrenti per lo stesso slug (stesso principio della `inProgress` Map del frontend, adattato al multi-thread di Kestrel): la dictionary interna tiene un `Lazy<Task<byte[]>>` per chiave, non il `Task` nudo — così, se due richieste arrivano nella stessa finestra di miss, solo una delle due esegue davvero il resize e l'altra ne attende il risultato, invece di rifarlo in parallelo.
 
-Difesa XSS (Stored): il controller serve inline solo le immagini raster note (`BlobStore` le marca via `BlobInfo.IsImage`). Tutti gli altri formati, inclusi file HTML, SVG o XML caricati dagli utenti, sono forzati al download (`Content-Disposition: attachment`) con Content-Type `application/octet-stream`. Questo previene l'esecuzione di script malevoli sull'origin dell'API; `nosniff` resta attivo dagli header di sicurezza. Per recuperarli lato client, usare TypeScript/`fetch` per leggere i dati grezzi.
+Difesa XSS (Stored): il controller serve inline solo le immagini raster di una whitelist propria (jpeg/png/webp/bmp/avif, verificata sul `ContentType` restituito da `FileBlobStore`). Tutti gli altri formati, inclusi file HTML, SVG o XML caricati dagli utenti, sono forzati al download (`Content-Disposition: attachment`) con Content-Type `application/octet-stream`. Questo previene l'esecuzione di script malevoli sull'origin dell'API; `nosniff` resta attivo dagli header di sicurezza. Per recuperarli lato client, usare TypeScript/`fetch` per leggere i dati grezzi.
 
-`POST /blob/up` richiede API key e token JWT valido (`[Authorize(Policy = RequireLogin)]`). Riceve un `IFormFile`, delega a `BlobStore.SaveAsync` e restituisce lo slug univoco: `{ "slug": "abc123.jpg" }`. Limite di dimensione `10 MB` (`[RequestSizeLimit]`): l'azione `Upload` vive per intero in `Controllers/BlobController.cs` (Dominio, non nell'Engine), quindi "sovrascrivere il limite" non è un'ereditarietà da comporre, è cambiare il numero nell'attributo, direttamente lì:
-```csharp
-// Controllers/BlobController.cs
-[RequestSizeLimit(50 * 1024 * 1024)] // 50 MB, invece dei 10 MB di default
-public async Task<IActionResult> Upload(IFormFile file, CancellationToken ct) { /* invariato */ }
-```
+`POST /blob/up` richiede API key e token JWT valido (`[Authorize(Policy = RequireLogin)]`). Riceve un `IFormFile`, delega a `FileBlobStore.SaveAsync` e restituisce lo slug univoco: `{ "slug": "abc123.jpg" }`. Limite di dimensione: `FileBlobStore.MaxUploadSizeBytes`, `virtual`, default 10 MB — non è config (un valore statico non potrebbe esprimere "dipende dal ruolo utente" o simili): è una proprietà che `AppBlobStore` sovrascrive, numero o intera logica di calcolo. Un `[RequestSizeLimit]` fisso a compile-time non basterebbe da solo (il limite è runtime), ma senza alzare ANCHE il tetto del server il default di Kestrel/IIS (~28-30 MB) rifiuterebbe comunque la request prima del controllo: `DynamicUploadSizeLimitFilter` (`Engine/Blob/Blob.cs`) fa proprio questo, alzando il tetto al valore corrente di `MaxUploadSizeBytes` prima del model binding.
+
+`PUT /blob/{slug}` sostituisce il contenuto (stessa policy/limite di dimensione dell'upload, stesso `AppBlobStore.EnsureAuthorizedAsync` della `DELETE` sotto — controllato PRIMA di salvare il nuovo file, per non lasciare un blob orfano sul rifiuto) e restituisce il NUOVO slug: `{ "slug": "def456.jpg" }`. Lo slug della richiesta resta quello da sostituire, non quello restituito — l'immutabilità dello slug (sopra) non cambia: `FileBlobStore.ReplaceAsync` salva il rimpiazzo come blob a sé e cancella il vecchio dopo.
+
+`DELETE /blob/{slug}` richiede API key e token JWT valido, stessa policy dell'upload, **più** un controllo di proprietà in `AppBlobStore.DeleteAsync`: solo chi ha caricato lo slug (o un utente con ruolo `admin`) può cancellarlo, altrimenti 403. Chi ha caricato cosa (e dove vive, colonna `Location`) è tracciato da `BlobOwnershipRegistry` (`Store/BlobOwnershipRegistry.cs`) su `AppDbContext` (`Store/AppDbContext.cs`) — EF Core, SQLite (`db/app.db`, cartella separata da `uploads/` apposta: vedi sotto). Un progetto con più admin concorrenti ha già transazioni/lock gestiti da EF invece di un JSON letto-modificato-riscritto a mano; se serve un vero database per le PROPRIE entità, aggiunge un `DbSet` allo stesso `AppDbContext` invece di introdurre un secondo ORM. Le righe non vengono rimosse alla cancellazione (`DeletedBy`/`DeletedAt` valorizzati): la tabella resta anche uno storico di chi ha fatto cosa. Uno slug senza proprietario registrato (caricato prima che questo esistesse) non blocca nessuno — permissivo di default, per non orfanizzare i file già presenti.
+
+Ordine deliberato in `DeleteAsync` (e quindi anche in `ReplaceAsync`, che lo chiama sull'old slug): prima il commit su database (`MarkDeletedAsync` — l'unico dei due passi che può essere una transazione, quindi il vero punto di non ritorno), POI la cancellazione fisica del file, che non può esserlo. Se il processo muore fra i due passi resta un file orfano — mai una riga che dice "presente" per un file già sparito, il che sarebbe peggio. `AppBlobStore.CleanupOrphanedFilesAsync()` ripulisce quello che il database ha già segnato cancellato ma è ancora fisicamente lì; gira una volta all'avvio (non schedulato) e logga solo se trova qualcosa. Tocca **solo** le location con una riga `DeletedAt` valorizzata — un blob mai tracciato (caricato prima che questo registro esistesse) non ha riga affatto, quindi il suo file non viene mai toccato dallo sweep.
+
+> Migration EF Core: le migration vivono in `Migrations/` e si applicano da sole all'avvio (`Database.Migrate()` in `Program.cs`, prima della prima richiesta). Dopo aver aggiunto/cambiato un'entità in `AppDbContext`: `dotnet ef migrations add NomeMigrazione` (richiede il tool `dotnet-ef`: `dotnet tool install --global dotnet-ef` se non l'hai già).
 
 Slug: identificativo univoco del file inclusa l'estensione (es. `abc123.jpg`), assegnato dallo store al momento dell'upload (`{GUID}.{ext}`). L'estensione è necessaria alla GET per determinare il content-type; il GUID rende lo slug immutabile (→ la cache di cui sopra).
 
-Percorso fisico: `{ContentRootPath}/uploads/{slug}`. In Docker (`cwd=/app`) diventa `/app/uploads`. In dev locale è `backend/uploads/`. La directory viene creata automaticamente al primo `SaveAsync` (`Directory.CreateDirectory`), quindi non serve predisporla a mano.
+Percorso fisico (default `FileBlobStore`): `{ContentRootPath}/uploads/{slug}`. In Docker (`cwd=/app`) diventa `/app/uploads`. In dev locale è `backend/uploads/`. La directory viene creata automaticamente al primo `SaveAsync` (`Directory.CreateDirectory`), quindi non serve predisporla a mano.
 
-Protezione path traversal: è dentro `BlobStore.TryResolve`, risolve il percorso assoluto con `Path.GetFullPath` e verifica che resti sotto la cartella upload (con trailing separator). Uno slug tipo `../../etc/passwd` non risolve: `GetInfo` torna `null` → 404, senza esporre il filesystem.
+Protezione path traversal: risolve il percorso assoluto con `Path.GetFullPath` e verifica che resti sotto la cartella upload (con trailing separator). Uno slug tipo `../../etc/passwd` non risolve: `GetInfoAsync` torna `null` → 404, senza esporre il filesystem.
 
 Range requests: il file è servito con `enableRangeProcessing: true`, supporta l'header HTTP `Range` per lo streaming di video/audio e i download riprendibili.
 
-Content-Type: dedotto dallo store dall'estensione del file (`FileExtensionContentTypeProvider`). Se l'estensione non è riconosciuta, viene usato `application/octet-stream`.
+Content-Type: dedotto dall'estensione del file (`FileExtensionContentTypeProvider`). Se l'estensione non è riconosciuta, viene usato `application/octet-stream`.
 
-> Nota: l'upload (`POST /blob/up`) richiede un token JWT valido (utente autenticato). Per validazioni di dominio (tipi MIME consentiti, antivirus, quote) estendi il controller nel progetto figlio o avvolgi `BlobStore.SaveAsync`. In un progetto senza login (`SecretKey` vuota) l'upload è impossibile per design: il blob store resta in sola lettura e la `GET` serve i file già presenti nel volume.
+> Nota: in un progetto senza login (`SecretKey` vuota) l'upload e la cancellazione sono impossibili per design: lo storage resta in sola lettura e la `GET` serve i file già presenti nel volume.
 
 #### Health Check (`GET /health`)
 
@@ -1199,10 +1207,10 @@ L'applicazione esporrà di default un health-check su `/health` (anonimo, rispon
   HTTP, interno: il TLS lo termina il reverse proxy in produzione, in locale non serve.
 - **La trappola del 401 senza `.local`.** Ogni controller esige `X-Api-Key`, e le chiavi arrivano da
   `global-settings.local.json` (i segreti, fuori da git). Se quel file manca o non ha
-  `Security.ApiKeys`, l'array è vuoto e ogni richiesta torna 401: il backend è partito
+  `Security.ApiConfig.Keys`, l'array è vuoto e ogni richiesta torna 401: il backend è partito
   correttamente, ma rifiuta tutto. Verifica il `/health` (anonimo, bypassa la API key) per confermare
   che il processo è su, poi copia `global-settings.local.example.json` in `global-settings.local.json`
-  e valorizza `Security.ApiKeys` prima di chiamare gli altri endpoint. (Dettaglio del layering in
+  e valorizza `Security.ApiConfig.Keys` prima di chiamare gli altri endpoint. (Dettaglio del layering in
   Sorgenti di Configurazione.)
 - **Resize immagini in Docker Linux.** Il `backend.csproj` referenzia
   `SkiaSharp.NativeAssets.Linux.NoDependencies`: è il binario nativo che permette a `EngineBlobController`
