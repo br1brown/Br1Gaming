@@ -25,8 +25,12 @@
     <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
         <!-- Selettore della variante accanto alla generazione. Nascosto in modalità visualizzazione
              condivisa (recovered): lì si guarda una frase già fatta, non se ne genera una nuova.
-             Cambiarla rigenera subito. Poche opzioni (es. italiano/straniero dei locali) → il cursore
-             a pillola; tante opzioni (i 12 segni dell'oroscopo) → la ruota a spicchi. -->
+             Cambiarla rigenera subito. La forma segue il NUMERO di opzioni, non un genereico "poche
+             vs tante": 2 → cursore a pillola (uno scorrere da un lato all'altro ha senso solo in
+             binario); 12 → ruota a spicchi (i 12 segni dell'oroscopo, unico caso con un conteggio
+             fisso e "circolare" per natura); tutto il resto (3-11) → bottoni, come nel widget
+             generator-hub della home — evita che un domani una variante a, es., 5 opzioni si ritrovi
+             una ruota a caso che non rappresenta nulla di circolare. -->
         @if (!recovered() && variant(); as v) {
             @if (v.options.length <= 2) {
             <app-variant-toggle [options]="v.options"
@@ -34,8 +38,14 @@
                                [loading]="loading()"
                                [ariaLabel]="v.label"
                                [onPick]="pickVariant" />
-            } @else {
+            } @else if (v.options.length === 12) {
             <app-variant-wheel [options]="v.options"
+                               [active]="activeVariant()"
+                               [loading]="loading()"
+                               [ariaLabel]="v.label"
+                               [onPick]="pickVariant" />
+            } @else {
+            <app-variant-buttons [options]="v.options"
                                [active]="activeVariant()"
                                [loading]="loading()"
                                [ariaLabel]="v.label"

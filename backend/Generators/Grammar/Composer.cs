@@ -217,13 +217,33 @@ public static class Composer
         SlotKind.Range or SlotKind.Age => ctx.Rng.Next(s.Lo, s.Hi + 1).ToString(),
         // Innesto: esegue l'altro generatore per intero (contesto suo, unicità sua) e incolla il
         // testo. Come i numeri, non concorre al punteggio. Termina: grafo aciclico validato al boot.
-        SlotKind.Innesto => Generate(ctx.Rt.RisolviInnesto(s.Key), ctx.Rng).Text,
+        SlotKind.Innesto => GenerateInnesto(ctx.Rt.RisolviInnesto(s.Key), ctx.Rng),
         // Time (fascia oraria): genera "HH:mm di <locuzione>" (es. "06:30 di mattina"). La Key = locuzione.
         SlotKind.Time => FormatTimeSlot(s.Key, s.Lo, s.Hi, ctx.Rng),
         // DateRange: genera un intervallo di date formattato in italiano.
         SlotKind.DateRange => FormatDateRange(s.Key),
         _ => EvalFlat(s.Key, ctx),
     };
+
+    /// <summary>
+    /// Esegue l'innesto risolvendo prima la sua eventuale <see cref="GeneratorVariant"/>, come farebbe
+    /// una generazione top-level (vedi <c>GeneratorService.ResolveVariantSeed</c>): un'opzione a caso,
+    /// coi suoi Seeds appuntati e la sua chiave passata come <c>soloOpzione</c>. Senza questo, un
+    /// generatore innestato le cui frasi del Core usano <see cref="Frase.SoloOpzione"/> (es.
+    /// LocaliGenerator, dove OGNI frase è riservata a un'opzione) non avrebbe mai frasi selezionabili
+    /// e produrrebbe sempre testo vuoto.
+    /// </summary>
+    private static string GenerateInnesto(Runtime rt, Random rng)
+    {
+        if (rt.Variant is not { Options.Count: > 0 } variant) return Generate(rt, rng).Text;
+
+        var option = variant.Options[rng.Next(variant.Options.Count)];
+        Dictionary<string, string>? seed = null;
+        foreach (var (key, pool) in option.Seeds)
+            if (pool.Count > 0) (seed ??= new(StringComparer.OrdinalIgnoreCase))[key] = pool[rng.Next(pool.Count)];
+
+        return Generate(rt, rng, seed, option.Key).Text;
+    }
 
     /// <summary>Genera "HH:mm di &lt;locuzione&gt;" nella fascia (Lo=ora_min, Hi=ora_max). Il modulo 24
     /// gestisce il giro di boa della mezzanotte: la sera (19-24) può pescare 24 → reso come 00. Cultura

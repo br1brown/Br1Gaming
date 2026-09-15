@@ -16,6 +16,7 @@ import { ShareActionComponent } from '../../core/engine/components/share-action/
 import { SpeechActionComponent } from '../../core/engine/components/speech-action/speech-action.component';
 import { VariantWheelComponent } from '../../components/shared/variant-wheel/variant-wheel.component';
 import { VariantToggleComponent } from '../../components/shared/variant-toggle/variant-toggle.component';
+import { VariantButtonsComponent } from '../../components/shared/variant-buttons/variant-buttons.component';
 
 
 @Component({
@@ -31,6 +32,7 @@ import { VariantToggleComponent } from '../../components/shared/variant-toggle/v
         SpeechActionComponent,
         VariantWheelComponent,
         VariantToggleComponent,
+        VariantButtonsComponent,
     ],
     templateUrl: './generator-detail.component.html',
     // Il risultato viene ricreato a ogni generazione (@if su result()): l'animazione

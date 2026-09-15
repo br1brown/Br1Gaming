@@ -273,6 +273,11 @@ public sealed class IncelGenerator : GeneratorBase
         ("tutte le ragazze vogliono solo i chad", 3),
         ("le donne si offendono per niente, ormai", 3),
         ("tutte quelle che mi rifiutano finiranno sole", 3),
+        new($"sono diventato così per colpa di {HatingConcetti}", 4),
+        new($"essere un {Percezione} non lo scegli, ti capita e basta", 4),
+        new($"tutto quello che provo per {Hating} è solo colpa di quello che mi hanno fatto", 4),
+        new($"alle {TimeSlot.Notte} capisco il mondo meglio di chiunque altro", 4),
+        new($"nessuno mi ha mai davvero visto, a parte forse {Idoli}", 4),
     };
 
     internal static readonly Tag DifettiSocialiIncel = new(DifettiSociali)

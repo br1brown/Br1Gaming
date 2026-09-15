@@ -229,6 +229,11 @@ public sealed class MbebGenerator : GeneratorBase
         ("non è razzismo, è statistiche", 3),
         ("il problema è che oggi tutti si sentono vittime", 3),
         ("una volta si scherzava senza che nessuno si offendesse", 3),
+        new($"guardati un video di {Idoli} e poi ne riparliamo", 4),
+        new($"io non ho niente contro {HatingGruppi}, basta che restino al loro posto", 4),
+        new($"ai miei tempi bastava {Ossessioni}, altro che ste storie", 4),
+        new($"a {City.Any} certe cose non si potevano nemmeno pensare, altro che adesso", 4),
+        new($"altro che {HatingConcetti}, si stava meglio quando si stava peggio", 4),
     };
 
     // Solo commenti DAVVERO generici: appendibili a qualsiasi frase. I parentetici legati a un

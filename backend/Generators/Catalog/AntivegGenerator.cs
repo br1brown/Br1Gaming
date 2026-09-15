@@ -13,28 +13,45 @@ namespace Backend.Generators.Catalog;
 public sealed class AntivegGenerator : GeneratorBase
 {
     // Segnaposto LOCALI tipizzati: la chiave vive qui, liste e frasi referenziano il simbolo.
+    // Registro vario apposta (non solo "fanatico religioso" ripetuto in venti salse): epiteti diversi
+    // per angolazione — diretti, da meme reale, da sottocultura, da attivismo — tutti maschile plurale
+    // o invarianti, per concordare con "questi {Vegani}" nel Core.
     internal static readonly Tag Vegani = new("vegani")
     {
         ("mangiaerba", 2),
+        ("brucaerba", 2),
+        ("conigli con la partita IVA", 3),
         ("estremisti del tofu", 3),
-        ("fanatici dei semi", 3),
         ("nemici della bistecca", 3),
-        ("integralisti della verdura", 3),
-        ("adoratori del cavolo", 3),
-        ("fan del seitan", 3),
-        ("apostoli del broccolo", 3),
-        ("militanti della lattuga", 3),
-        ("crociati del cavolfiore", 3),
-        ("devoti della soia", 3),
-        ("sacerdoti del pisello", 3),
-        ("talebani del tofu", 3),
-        ("erbivori mancati", 2),
+        ("fanatici dei semi", 3),
         ("salutisti da tastiera", 3),
-        ("figli dei fiori", 3),
+        ("hipster col seitan", 3),
+        ("erbivori mancati", 2),
         ("mangiasemi", 2),
+        ("figli dei fiori", 3),
+        ("soyboy", 2),
+        ("professionisti dell'outrage", 4),
+        ("influencer del broccolo", 3),
+        ("taliban del seitan", 3),
         ("predicatori dell'insalata", 2),
-        ("integralisti della carota", 3),
-        ("veg-crociati", 2),
+        ("attivisti da bar", 3),
+        ("eternamente offesi", 3),
+        ("broccoli con le gambe", 3),
+        ("integralisti della quinoa", 3),
+        // Il doppio senso resta apposta: fa ridere di più proprio perché ci casca lui, il paladino
+        // della carne — un'ansia da caserma verso le verdure falliche, mai dichiarata (vedi Pregiudizi).
+        ("sacerdoti del pisello", 3),
+        ("adoratori del cetriolo", 3),
+        ("devoti della zucchina", 3),
+        ("fan della banana", 3),
+    };
+
+    // Mix di ortaggi "innocenti" e ortaggi dalla forma sospetta: usata dove il doppio senso deve
+    // restare un'eventualità (a volte becca la battuta, a volte no), non una certezza ogni volta.
+    internal static readonly Tag Ortaggi = new("ortaggi")
+    {
+        "cetrioli", "zucchine", "banane", "carote", "asparagi",
+        "broccoli", "legumi", "semi di lino", "verdure a foglia verde", "tuberi",
     };
 
     internal static readonly Tag Pregiudizi = new("pregiudizi")
@@ -57,6 +74,11 @@ public sealed class AntivegGenerator : GeneratorBase
         ("vogliono imporre a tutti il loro credo", 3),
         ("guardano lo spot ma non la filiera completa", 3),
         ("si bevono i numeri gonfiati dei documentari", 3),
+        // Il paladino della carne si tradisce da solo: un'insinuazione da spogliatoio sulle verdure
+        // falliche che lui trova ovvia e gli altri leggono per quello che è — mai dichiarata esplicitamente.
+        ("si accaniscono sul cetriolo in un modo che la dice lunga", 3),
+        ("mangiano la zucchina con un entusiasmo sospetto", 3),
+        ("col pisello in tavola diventano stranamente allegri, chissà perché", 3),
     };
 
     internal static readonly Tag Concetto = new("concetto")
@@ -256,7 +278,7 @@ public sealed class AntivegGenerator : GeneratorBase
         new($"il tuo latte di mandorla sta prosciugando la California, altro che ambientalista, {Rincaro}", 20),
         new($"se devi integrare la B12 con le pasticche, forse la natura ti sta dicendo qualcosa, {Rincaro}", 20),
         new($"troppa soia abbassa il testosterone, è risaputo, {Rincaro}", 20),
-        new($"una persona sola non cambia niente, mangiati della {Carne} e stai sereno", 5),
+        new($"una persona sola non cambia niente, mangiati di {Carne} e stai sereno", 5),
         new($"se non le allevassimo le mucche si estinguerebbero, siamo noi a salvarle, {Rincaro}", 20),
         new($"i nostri antenati cacciavano i mammut mentre voi {Vegani} piangete per un broccolo", 5),
         new($"vabbè ma il bacon però... non dirmi che non ti manca, {Rincaro}", 20),
@@ -300,5 +322,11 @@ public sealed class AntivegGenerator : GeneratorBase
         new($"non è ideologia, è guardare i dati reali invece dei documentari, {Rincaro}", 20),
         new($"la quinoa arriva in aereo dal Perù, altro che impatto zero, {Rincaro}", 20),
         new($"non sono complottista, ma chiediti chi ci guadagna a venderti il {Concetto}", 5),
+        // Appello all'autorità professionale, dentro il corpo del rant (non solo nella firma finale).
+        new($"lo dico da {Professioni.M}: la carne fa bene, punto", 5),
+        new($"lo dico da {Professioni.F}: la carne fa bene, punto", 5),
+        new($"conosco un {Professioni.M} che lo dice chiaro: senza carne ti si spegne il cervello", 5),
+        new($"conosco una {Professioni.F} che lo dice chiaro: senza carne ti si spegne il cervello", 5),
+        new($"non ho niente contro una dieta a base di {Ortaggi}, per carità, però certi entusiasmi a tavola restano un mistero per me", 6),
     ];
 }

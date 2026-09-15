@@ -11,6 +11,7 @@ using DataOggi = Backend.Generators.SharedContent.Dinamici.DataOggi;
 using Parente = Backend.Generators.SharedContent.Parente;
 using Eta = Backend.Generators.SharedContent.Eta;
 using Marketplace = Backend.Generators.SharedContent.Marketplace;
+using TimeSlot = Backend.Generators.SharedContent.TimeSlot;
 
 namespace Backend.Generators.Catalog;
 
@@ -21,7 +22,16 @@ namespace Backend.Generators.Catalog;
 /// caratteriali <b>del segno</b> (pregio/ombra/tema): tratti semanticamente in linea con la tradizione
 /// (impianto alla Lisa Morpurgo), con qualche "ombra" volutamente discutibile. Il resto delle
 /// previsioni è generico, pescato a caso e "inquinato" coi tag condivisi come gli altri generatori,
-/// così due oroscopi non sono mai uguali.
+/// così due oroscopi non sono mai uguali. Il bersaglio satirico vero (<see cref="PrecisioneAssurda"/>)
+/// è la pretesa dell'oroscopo stesso di sapere il futuro: l'astrologia finge vaghezza mistica, qui la
+/// spingiamo all'estremo opposto — dettagli assurdamente esatti (un messaggio di 6 parole non 7, un
+/// ritardo di 13 minuti non 14) detti con lo stesso tono dichiarativo e sicuro di sé di un vero
+/// oroscopo (vena da "scienza esatta" alla Lisa Morpurgo, portata all'assurdo, non caricaturata). NIENTE
+/// commento sulla propria precisione ("sospetta", "che nemmeno gli astri si aspettavano" ecc.): il
+/// narratore non deve MAI strizzare l'occhio, altrimenti la battuta la fa lui al posto del lettore. Solo
+/// su eventi VEROSIMILI — un incontro, un messaggio, una fila, un ritardo — mai su cifre disconnesse da
+/// un evento reale (niente resto in contanti eccetera). Il contrasto tra verve realistica e contenuto
+/// iper-specifico è tutta la battuta, e va lasciato muto.
 /// <para>
 /// Meccanismo: le opzioni della variante portano dei <c>Seeds</c> (segnaposto → pool). Il motore ne
 /// pesca uno per chiave e lo pre-appunta come variabile condivisa; così i <c>{X.Fissato}</c> (→
@@ -175,40 +185,25 @@ public sealed class OroscopoGenerator : GeneratorBase
     internal static readonly Tag TipoMolesto = new("tipo-molesto")
     {
         new($"un {Professioni.M} che ti spiega cose che sai già", 2),
-        new($"un certo {Nome.M} che risponde ‘a tutti’ alle mail aziendali", 3),
+        new($"{Nome.M}, quello che risponde ‘a tutti’ alle mail aziendali", 3),
         new($"una {Parente.F} che ti chiede di nuovo quando ti sposi", 2),
-        new($"un certo {Nome.M} che ti parla di criptovalute a cena", 2),
+        new($"{Nome.M}, che non perde occasione per parlarti di criptovalute a cena", 2),
         new($"il collega {Nome.M} che dice ‘buttiamo giù due righe’", 3),
         new($"la {Parente.Anziano.F} {Nome.F} che ti manda un vocale di {3..8} minuti per dire ‘ok’", 3),
         new($"{Nome.Any} che ti aggiunge a un gruppo senza chiedere", 2),
         new($"una {Professioni.F} che spiega il tuo lavoro a te", 3),
-        new($"un certo {Nome.M} che mette le quattro frecce e parcheggia dove gli pare", 3),
+        new($"{Nome.M}, che mette le quattro frecce e parcheggia dove gli pare", 3),
         new($"il vicino {Nome.M} che trapana la domenica alle otto di mattina", 2),
         new($"un tale conosciuto su {Social.Any} che scrive ‘ciao come va?’ e poi sparisce", 4),
         new($"{Nome.Any} che ti dice ‘te l'avevo detto’ senza avertelo mai detto", 3),
         new($"un {Professioni.M} che risponde alla domanda che non hai fatto", 2),
     };
 
-    // La fuffa astrologica, ma sgonfiata: frasi quasi complete, con iniziale minuscola (tranne i nomi
-    // propri dei pianeti) e senza punto finale — apertura e chiusura le sistema il motore.
-    internal static readonly Tag PseudoMistico = new("pseudo-mistico")
-    {
-        ("Mercurio retrogrado ti darà l'alibi perfetto per non combinare niente", 3),
-        ("l'allineamento dei pianeti coincide, guarda caso, con la tua pigrizia", 3),
-        ("Venere in dissonanza ti autorizza ufficialmente a ignorare i messaggi", 3),
-        ("Saturno ti impartisce una lezione che ignorerai come le precedenti", 3),
-        ("l'energia cosmica di oggi è quella di un martedì qualunque", 2),
-        ("le stelle sono allineate; tu un po' meno", 3),
-        ("Giove ti sorride, ma con l'aria di chi ha fretta", 2),
-        ("la Luna è nel tuo segno: non significa niente, ma suona bene", 3),
-        ("il tuo ascendente oggi rema contro, come del resto tutto il resto", 3),
-        // Surreali: fuffa cosmica portata all'assurdo, col nesso volutamente assente. Niente gergo da iniziati.
-        ("oggi entri in una dimensione parallela quasi identica a questa, ma con più code alle casse", 3),
-        ("gli astri hanno allineato tutto tranne te, come un'equazione a cui manca il risultato", 3),
-        ("Plutone ti manda un messaggio, ma nella lingua sbagliata: illeggibile, eppure profondamente sentito", 4),
-        ("la Luna oggi è storta: suggestiva, ma non farci troppo affidamento", 3),
-    };
-
+    // NB: qui viveva "PseudoMistico" — la fuffa astrologica ammessa come tale ("guarda caso", "non
+    // significa niente, ma suona bene"): un narratore che sgonfia l'astrologia ammiccando al lettore.
+    // Rimosso perché in contrasto diretto con {PrecisioneAssurda}, che funziona SOLO se il narratore
+    // non ammette mai che sta esagerando. {Surreale} sotto resta: è assurdo ma mai auto-ironico — non
+    // smaschera l'astrologia, la prende sul serio anche quando descrive un piccione o un frigorifero.
     internal static readonly Tag Surreale = new("surreale")
     {
         ("le stelle oggi non parlano: fissano il muro", 4),
@@ -272,6 +267,26 @@ public sealed class OroscopoGenerator : GeneratorBase
         "la realtà che si è distratta un attimo", "un reset della matrice quantica",
     };
 
+    // ── La finta precisione: il bersaglio VERO dell'oroscopo. L'astrologia finge vaghezza mistica
+    // ("le stelle ti guidano"); qui la spingiamo all'estremo opposto — dettagli assurdamente esatti
+    // su cose del tutto irrilevanti (il resto al centesimo, il messaggio contato parola per parola,
+    // l'incontro calcolato al minuto). La battuta è tutta nella specificità, mai dichiarata: nessuna
+    // riga dice "è ridicolo essere così precisi" — lo sente da solo chi legge. ──
+    internal static readonly Tag PrecisioneAssurda = new("precisione-assurda")
+    {
+        new($"{Giorni.Any} {Nome.M} ti scriverà esattamente {3..9} parole, non una di più", 5),
+        new($"{Nome.F}, {Eta.Cresciuto} anni, {Professioni.F}, ti dirà una frase di esattamente {4..11} parole che ricorderai per vent'anni", 6),
+        new($"a {TimeSlot.Notte} il telefono vibrerà per esattamente {2..5} notifiche, tutte inutili", 5),
+        new($"tra esattamente {3..21} giorni un {Professioni.M} di {Eta.Giovane} anni dirà una parola che ti farà pensare per {2..4} ore, non una di meno", 6),
+        new($"a {City.Any} farai la fila per esattamente {2..12} minuti", 5),
+        new($"a {City.Any} incrocerai {Nome.M} in una finestra di {5..15} minuti", 6),
+        new($"il tuo umore seguirà una curva esatta: su fino alle {TimeSlot.Mattina}, giù dalle {TimeSlot.Pomeriggio}, piatto per il resto della giornata", 5),
+        new($"un {Parente.M} arriverà con esattamente {5..20} minuti di ritardo", 5),
+        new($"oggi risparmierai esattamente {2..40} minuti evitando una conversazione che non sapevi di dover evitare", 5),
+        new($"su {Marketplace.Any} troverai un'offerta scontata del {5..40}%, valida per altri {2..6} minuti esatti, poi mai più", 5),
+        new($"un {Parente.M} ti chiamerà per parlare di una cosa che dura esattamente {2..7} minuti", 5),
+    };
+
     /// <inheritdoc />
     public override string Slug => "oroscopo";
 
@@ -299,15 +314,30 @@ public sealed class OroscopoGenerator : GeneratorBase
         MinScore = 14,
     };
 
+    // La cornice solare (elemento + pianeta, sempre gli stessi per lo stesso segno) era incollata a una
+    // SOLA frase fissa in apertura: generando lo stesso segno più volte usciva la riga identica ogni
+    // volta. Un pool di formulazioni la rende "generata" anche se i due fatti astrologici restano fissi.
+    internal static readonly Tag ColoreSegno = new("colore-segno")
+    {
+        new($"{Elemento.Fissato}, con {Pianeta.Fissato} a fare il bello e il cattivo tempo"),
+        new($"nel segno di {Elemento.Fissato}, oggi comanda {Pianeta.Fissato}"),
+        new($"{Elemento.Fissato} pura, con {Pianeta.Fissato} che tira le fila"),
+        new($"{Pianeta.Fissato} governa la giornata, in perfetto stile {Elemento.Fissato}"),
+        new($"oggi si respira {Elemento.Fissato}, e a comandare è {Pianeta.Fissato}"),
+    };
+
     /// <inheritdoc />
     // Intestazione con la data di oggi (seed dinamico condiviso) e la cornice solare AUTENTICA del segno
     // (fissata dai Seeds). Non concorre al punteggio (è apertura).
     public override Frase? Apertura { get; } =
-        new($"**Oroscopo del {DataOggi.Any.Fissato} per il segno {Segno.Fissato}**\n\n_{Elemento.Fissato}, con {Pianeta.Fissato} a fare il bello e il cattivo tempo. Allora, vediamo un po'…_\n\n");
+        new($"**Oroscopo del {DataOggi.Any.Fissato} per il segno {Segno.Fissato}**\n\n_{ColoreSegno}. Allora, vediamo un po'…_\n\n");
 
     /// <inheritdoc />
-    public override Frase? Chiusura { get; } =
-        new($".\n\n_**Qualità:** {Qualita.Fissato}_");
+    // Niente più "Qualità: cardinale/fisso/mobile" in chiusura: è un'etichetta tecnica (la modalità
+    // astrologica) che fuori dal giro non dice niente a nessuno, ed essendo fissa per segno non era
+    // nemmeno "generata" — si ripeteva identica ogni volta. La qualità resta viva dentro CoreRequired
+    // ("in fondo sei un {Qualita.Fissato}…"), dove almeno è incorniciata in una frase leggibile.
+    public override Frase? Chiusura { get; } = ".";
 
     /// <inheritdoc />
     // Frase "di carattere" del segno GARANTITA: una per oroscopo (Min=Max=1), iniettata prima del
@@ -316,10 +346,10 @@ public sealed class OroscopoGenerator : GeneratorBase
     // non nel Core apposta: nel Core (scelta uniforme) potrebbero non uscire mai, o uscirne due insieme.
     public override RequiredInjectData? CoreRequired { get; } = new(1, 1,
     [
-        new($"diciamocelo, da {Segno.Fissato} sei {Pregio.Fissato} — su questo non si discute — solo che oggi ti scappa fuori il lato {Ombra.Fissato}", 4),
-        new($"roba da {Elemento.Fissato}, la tua: il lato {Pregio.Fissato} oggi esce facile, ma quello {Ombra.Fissato} è sempre lì dietro l'angolo", 4),
-        new($"{Pianeta.Fissato} oggi ti rema un po' contro — e sai com'è quando si mette di traverso — così salta su il lato {Ombra.Fissato}", 4),
-        new($"{Pianeta.Fissato}, per una volta, gioca dalla tua parte: quel lato {Pregio.Fissato} oggi lavora per te", 3),
+        new($"diciamocelo, da {Segno.Fissato} sei {Pregio.Fissato}, su questo non si discute; il problema è quella vena {Ombra.Fissato} che oggi salta fuori", 4),
+        new($"roba da {Elemento.Fissato}, la tua: il tratto {Pregio.Fissato} oggi viene naturale, ma quello {Ombra.Fissato} resta lì, in agguato", 4),
+        new($"{Pianeta.Fissato} oggi ti rema contro, punto; e quando succede, si vede subito quanto sei {Ombra.Fissato}", 4),
+        new($"{Pianeta.Fissato}, per una volta, gioca dalla tua parte: la tua nota {Pregio.Fissato} oggi lavora per te", 3),
         new($"il nodo della giornata, per te {Segno.Fissato}, è tutto lì: {Tema.Fissato}", 3),
         new($"in fondo sei un {Qualita.Fissato}, e certe cose un {Qualita.Fissato} le sente arrivare: oggi ti tira dritto verso {Tema.Fissato}", 3),
         new($"da bravo {Segno.Fissato}, oggi sei {Pregio.Fissato} e {Ombra.Fissato} nel giro di mezz'ora — e va bene così", 4),
@@ -351,8 +381,6 @@ public sealed class OroscopoGenerator : GeneratorBase
         new($"e occhio, perché {Sventura} — e gli astri, in tutto questo, ti fanno pata pat", 4),
         new($"oggi incrocerai {TipoMolesto}: sorridi e sopravvivi", 4),
         new($"attenzione a {TipoMolesto}; gli astri, per la cronaca, tifano per te ma un po' distrattamente", 4),
-        new($"{PseudoMistico}", 3),
-        new($"{PseudoMistico}. {Consiglio}", 4),
         new($"{Surreale}", 3),
         new($"{Surreale}. {Consiglio}", 4),
         new($"da {Segno.Fissato} oggi la giornata prende una piega strana: {Surreale}", 4),
@@ -368,6 +396,10 @@ public sealed class OroscopoGenerator : GeneratorBase
         new($"se oggi {Fenomeno}, non è colpa tua: è {Meccanismo}", 3),
         new($"non allarmarti se {Fenomeno}: è soltanto {Meccanismo}", 3),
         new($"{Fenomeno}? Nessun mistero: è {Meccanismo}", 3),
+
+        // ── La finta precisione: {PrecisioneAssurda} è già una frase completa e autosufficiente ──
+        new($"{PrecisioneAssurda}", 5),
+        new($"per oggi, questo è certo: {PrecisioneAssurda}", 4),
 
         // ── Chiusure-consiglio ──
         new($"il consiglio degli astri: {Consiglio}", 2),

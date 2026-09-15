@@ -262,14 +262,8 @@ public sealed class ComplottoGenerator : GeneratorBase
     [Personalita, Istituzioni, Sostanze, Vettori, Aziende, Precedente];
 
     /// <inheritdoc />
-    public override IReadOnlyDictionary<string, IReadOnlyList<string>>? PolicyGroups { get; } = new Dictionary<string, IReadOnlyList<string>>
-    {
-        ["sostanze"] = [Sostanze.Key]
-    };
-
-    /// <inheritdoc />
     public override List<string>? ExclusiveGroups { get; } =
-        [Social.Any.Key];
+        [Social.Any.Key, Scopi.Key, Effetti.Key, Sostanze.Key, Vettori.Key];
 
     /// <inheritdoc />
     public override Frase? Chiusura => ".";
@@ -278,7 +272,6 @@ public sealed class ComplottoGenerator : GeneratorBase
     /// <inheritdoc />
     public override List<Frase> Core { get; } =
     [
-        // EX-ASSURDITÀ (Ora nel Core, potenziate con numeri e orari)
         new($"il continente australiano non esiste ed è una messa in scena logistica di {100..500} mila attori pagati da {Aziende}", 5),
         new($"l’Impero Romano non è mai esistito storicamente, è un'invenzione inserita nei testi {3..5} secoli fa da {Istituzioni}", 5),
         new($"{Luoghi} è spartito in segreto da {Cattivi} fin dal {1910..1945}", 5),
@@ -294,14 +287,10 @@ public sealed class ComplottoGenerator : GeneratorBase
         new($"{Luoghi} opera stabilmente un laboratorio di livello {4..6} per l'ibridazione tra DNA umano e {Sostanze}", 5),
         new($"un bunker con affreschi profetici sul nuovo ordine mondiale, grande {2..5} volte il Pentagono, si trova {Luoghi}", 5),
         new($"il codice sorgente della simulazione percettiva da {10..50} petabyte è custodito segretamente {Luoghi}", 5),
-
-        // RIVELAZIONI, SINTOMI ED EVENTI
         new($"i file estratti da {Prove} svelano come {Eventi} sia solo una facciata", 5),
         new($"la verità su {Precedente} è nascosta da {Cattivi} tramite l'uso costante di {Vettori}", 5),
         new($"i rilievi presenti in {Prove} confermano l'uso di {Vettori} per {Scopi}", 5),
         new($"gli eventi come {Eventi} sono causati intenzionalmente da {Cattivi}", 5),
-
-        // ATTACCO IN CORSO E LOGISTICA
         new($"nei cieli di {City.Any.Fissato} è in corso l'erogazione di {Sostanze} tramite {Vettori} fin dalle {TimeSlot.Mattina}", 5),
         new($"verso le {TimeSlot.Notte} viene incrementata l'intensità di {Vettori} rilasciando {Sostanze}", 5),
         new($"l'esposizione prolungata a {Vettori} per oltre {10..24} ore consecutive causa {Effetti}", 5),
@@ -311,8 +300,6 @@ public sealed class ComplottoGenerator : GeneratorBase
         new($"il coordinamento unisce gli interessi occulti di {Personalita} e {Personalita}", 4),
         new($"la logistica globale dell'operazione è appaltata a {Aziende}", 4),
         new($"i capitali operativi sono garantiti dalle fondazioni di {Personalita}", 4),
-
-        // FINALITÀ E CENSURA
         new($"la finalità primaria dell'infrastruttura di {Vettori} è {Scopi}", 6),
         new($"il complesso network controllato da {Cattivi} è programmato per {Scopi}", 5),
         new($"la dispersione di {Sostanze} serve unicamente per {Scopi}", 5),

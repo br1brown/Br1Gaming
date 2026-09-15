@@ -100,4 +100,10 @@ public sealed record Runtime(
     IReadOnlyDictionary<string, MarkovChain> Markov, double MarkovChaos,
     // Risolve lo slug di un innesto ({Genera("...")}) nel Runtime da eseguire. Il grafo degli
     // innesti è validato aciclico al boot: la ricorsione termina sempre.
-    Func<string, Runtime> RisolviInnesto);
+    Func<string, Runtime> RisolviInnesto,
+    // La Variant del generatore proprietario di questo Runtime (o null se non ne ha): un innesto
+    // ({Genera("...")}) verso un generatore CON variante deve risolverne una a caso, esattamente come fa
+    // GeneratorService per una generazione top-level — altrimenti nessuna frase con SoloOpzione (vedi
+    // Frase.SoloOpzione) risulta mai selezionabile e l'innesto produce testo vuoto (bug: LocaliGenerator,
+    // le cui frasi del Core sono TUTTE riservate a un'opzione, usciva sempre "" quando innestato).
+    GeneratorVariant? Variant = null);

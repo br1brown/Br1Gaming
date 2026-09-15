@@ -179,7 +179,8 @@ public static class RuntimeBuilder
             Chiusura: chiusura,
             UniqueLabels: uniqueLabels,
             Markov: markov, MarkovChaos: markovChaos,
-            RisolviInnesto: risolviInnesto);
+            RisolviInnesto: risolviInnesto,
+            Variant: target.Variant);
     }
 
     private static Requirement ParseRequirement(RequiredInjectData data, string origin, PhraseParser parser) =>
@@ -288,7 +289,14 @@ internal sealed class PhraseParser(
         if (proto.Kind == SlotKind.FlatList && !flatKeys.Contains(proto.Key))
             throw new GeneratorConfigException(
                 $"Generatore '{origin}': tag sconosciuto [{proto.Key}] nella frase \"{template}\"");
-        return new Slot(proto.Key, proto.Kind, proto.Lo, proto.Hi, GroupsFor(proto.Key), proto.Bound);
+        var groups = GroupsFor(proto.Key);
+        // Un tag che appartiene a un gruppo esclusivo attivo si fissa da solo alla prima pescata, come un
+        // `.Fissato` implicito: così anche i riferimenti NIDIFICATI dentro le voci di lista (es. una voce
+        // di {Scopi} che cita al suo interno {Sostanze}) restano coerenti con qualunque altra occorrenza
+        // diretta dello stesso tag nella stessa generazione — l'esclusività vale sul VALORE, non più solo
+        // sulla selezione "una sola frase per gruppo" (quella resta invariata per chiavi diverse dello
+        // stesso gruppo, es. età e professione in un'identità: si bloccano ancora a vicenda).
+        return new Slot(proto.Key, proto.Kind, proto.Lo, proto.Hi, groups, proto.Bound || groups.Count > 0);
     }
 
     private HashSet<string> GroupsFor(string key)

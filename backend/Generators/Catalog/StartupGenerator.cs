@@ -12,17 +12,21 @@ using TimeSlot = Backend.Generators.SharedContent.TimeSlot;
 namespace Backend.Generators.Catalog;
 
 /// <summary>
-/// Generatore di IDEE "da terza birra": NON un imprenditore, ma il tizio qualunque che ha ‘un'idea
-/// incredibile’ per un'app — una roba banale o che esiste già — e la racconta all'amico informatico,
-/// convinto di essere un genio. Niente pitch/round/business plan. Ordine dell'output:
+/// Generatore di IDEE "da terza birra": NON un imprenditore, ma il tizio qualunque a cui è capitata
+/// ‘un'idea incredibile’ per un'app — una roba banale o che esiste già, raccontata senza saperlo.
+/// Bersaglio: non la persona (nessun giudizio su di lei), ma la CONVINZIONE di innovare copiando
+/// innovazioni altrui senza accorgersene — quindi mai un nome di prodotto/concorrente reale, mai il
+/// narratore che dice "è inutile": la si riconosce da sola dalla specificità di <c>[funzione]</c>, non
+/// da un verdetto. Niente pitch/round/business plan, niente gergo da soli addetti ai lavori. Ordine:
 /// <list type="bullet">
-///   <item><b>l'IDEA</b> (<see cref="Apertura"/>): il titolo — <c>[piattaforma]</c> per una
-///         <c>[funzione]</c> banale, con un twist <c>[dettaglio_specifico]</c> opzionale;</item>
-///   <item><b>il TIPO</b> (sempre in <see cref="Apertura"/>): chi l'ha avuta — <c>[nome-m]</c>,
-///         <c>[professioni]</c>, un <c>[tratto]</c> da genio-illuso e la <c>[genesi]</c> (dove/quando);</item>
-///   <item><b>la DESCRIZIONE</b> (<see cref="Core"/>): il core annida molte questioni come mbeb/incel —
-///         sottovaluta la difficoltà (‘la fa il cugino’), è inutile/esiste già, è euforico, l'amico
-///         incassa, e a farla dovrebbe pensarci qualcun altro.</item>
+///   <item><b>l'IDEA</b> (<see cref="Apertura"/>, prima di tutto): il titolo — <c>[piattaforma]</c> per
+///         una <c>[funzione]</c> raccontata nei minimi dettagli, con un twist <c>[dettaglio_specifico]</c>
+///         opzionale;</item>
+///   <item><b>il TIPO</b> (sotto, in corsivo): chi l'ha avuta — <c>[nome-m]</c>, <c>[professioni]</c> — e
+///         la <c>[genesi]</c>: un momento passivo e qualunque (mai "ci ha lavorato sopra");</item>
+///   <item><b>la DESCRIZIONE</b> (<see cref="Core"/>): sottovaluta la difficoltà (‘la fa il cugino’), poi
+///         elabora solo l'idea — a chi servirebbe, come "funziona", come ci guadagna. Mai una scena sulla
+///         persona: il bersaglio è sempre l'idea.</item>
 /// </list>
 /// Gruppi esclusivi (anche locali multi-tag): un solo tema per testo, niente ripetizioni.
 /// </summary>
@@ -164,6 +168,9 @@ public sealed class StartupGenerator : GeneratorBase
         "calcolare se hai abbastanza batteria per arrivare a casa",
         "ricordarti dove hai lasciato l'ombrello l'ultima volta",
         "ricordarti dove hai salvato quel PDF importantissimo",
+        new($"trovare un kebab ancora aperto a {City.Any} alle {TimeSlot.Notte}"),
+        "sapere se conviene aspettare i saldi o comprarlo adesso",
+        new($"dirti se tuo {Parente.M} ti sta chiamando per soldi prima ancora di rispondere"),
     };
 
     // Il twist iper-specifico tra parentesi: qui ogni tanto spunta la città.
@@ -201,36 +208,6 @@ public sealed class StartupGenerator : GeneratorBase
     };
 
     // ══ CENTRO ══ (pesati: entrano nel punteggio)
-    // Quello che servirebbe DAVVERO (enorme). Voci singolari E plurali mescolate: i template le usano
-    // in APPOSIZIONE (dopo un trattino o i due punti), così nessun verbo deve accordarsi al numero.
-    internal static readonly Tag LavoroReale = new("lavoro_reale")
-    {
-        ("un algoritmo di matching geolocalizzato in tempo reale", 3),
-        ("un sistema di riconoscimento immagini che funzioni davvero", 3),
-        ("un modello di IA che nessuna multinazionale ha ancora fatto girare bene", 3),
-        ("un'infrastruttura che regge milioni di utenti in contemporanea", 3),
-        ("partnership con chi ha già milioni di utenti, non zero", 3),
-        ("una base dati che si aggiorna da sola, non a mano", 3),
-        ("un servizio clienti che risponda anche di notte", 3),
-        ("la moderazione di milioni di contenuti al giorno", 3),
-        ("un team di data scientist pagati a peso d'oro", 3),
-        ("l'integrazione coi sistemi di pagamento di mezzo mondo", 3),
-        ("una compliance GDPR che spaventa gli avvocati", 3),
-        ("un backend che non crolli il giorno del lancio", 3),
-        ("una moderazione umana 24 ore su 24", 3),
-        ("un'app che non si pianti ogni due schermate", 3),
-        ("un motore di raccomandazione che non faccia ridere", 3),
-        ("anni di dati puliti che nessuno ti regala", 3),
-        ("server che reggano più di quattro persone alla volta", 3),
-        ("mesi di lavoro solo per la schermata di login", 3),
-        ("decine di ingegneri che ci sbattano la testa per anni", 3),
-        ("milioni in server, prima ancora del primo utente", 3),
-        ("accordi legali con mezzo pianeta", 3),
-        ("test su migliaia di dispositivi diversi", 3),
-        ("permessi e certificazioni che ci mettono mesi", 3),
-        ("traduzioni e assistenza in venti lingue", 3),
-    };
-
     // Come lo liquida ("il sito del cugino"): pesca i parenti condivisi tipizzati.
     internal static readonly Tag Percepito = new("percepito")
     {
@@ -251,120 +228,68 @@ public sealed class StartupGenerator : GeneratorBase
         new($"la fa mio {Parente.Giovane.M} che ha tredici anni ma ci sa fare col computer", 2),
     };
 
-    // L'idea è INUTILE / esiste già / non la chiede nessuno — come la vede l'amico che ascolta (mai
-    // "l'ha costruita": il tizio ha SOLO l'idea). Frasi-clausola: scorrono dopo "…è che" / "…è che".
-    internal static readonly Tag Inutilita = new("inutilita")
+    // A CHI SERVIREBBE: iper-specifico apposta, ma abbastanza generico da valere per qualunque idea
+    // (mai legato al dominio della {Funzione} pescata in apertura). Voce del narratore, non sua.
+    internal static readonly Tag Pubblico = new("pubblico")
     {
-        ("esiste già, guarda caso, in dodici versioni", 3),
-        ("è il tipo di cosa che risolvi con una nota sul telefono", 2),
-        ("è roba utile a lui e forse a nessun altro sul pianeta", 3),
-        ("il telefono la fa già da solo, gratis, da anni", 3),
-        ("è l'ennesima app da scaricare una volta e dimenticare in una cartella", 3),
-        ("è la classica soluzione in cerca di un problema", 3),
-        ("non l'ha chiesta nessuno, mai", 2),
-        ("è esattamente ciò che il mondo non stava aspettando", 3),
-        ("risolve un problema che, a ben vedere, ha solo lui", 3),
-        ("dopo due giorni la disinstalli e non ci pensi più", 3),
-        ("fa esattamente quello che fa un foglio Excel, ma peggio", 3),
-        ("la useresti una volta, il giorno del download, e mai più", 3),
-        ("la fa già Google da dieci anni e pure meglio", 3),
-        ("è il genere di cosa che risolvi chiedendo a un amico", 3),
-        ("occupa spazio sul telefono e basta", 2),
+        ("pensata per chi si scorda sempre l'ombrello quando piove", 3),
+        ("fatta apposta per chi arriva sempre tardi agli appuntamenti", 3),
+        ("pensata per chi non trova mai le chiavi la mattina", 3),
+        ("fatta per chi rimanda la spesa fino all'ultimo momento", 3),
+        ("pensata per chi si addormenta con la TV accesa", 3),
+        ("fatta apposta per chi cambia idea sul da farsi ogni due minuti", 3),
+        ("pensata per chi ha sempre il telefono scarico al momento sbagliato", 3),
+        ("fatta per chi non ricorda mai le password", 3),
+        ("pensata per chi rimanda le cose importanti a domani", 3),
+        ("fatta apposta per chi controlla le notifiche in continuazione", 3),
+        ("pensata per chi non chiede mai indicazioni a nessuno", 3),
+        ("fatta per chi si lamenta sempre ma non cambia mai abitudini", 3),
+        ("pensata per chi perde sempre lo scontrino", 3),
+        ("fatta apposta per chi non legge mai le istruzioni", 3),
+        ("pensata per chi ha sempre da ridire ma non fa mai nulla per cambiarlo", 3),
     };
 
-    internal static readonly Tag Sicumera = new("sicumera")
+    // COME "FUNZIONA": spiegazione semplicistica e generica, mai gergo tecnico — deve restare chiara
+    // anche a chi non programma. Frasi complete (soggetto sottinteso: l'idea).
+    internal static readonly Tag Meccanismo = new("meccanismo")
     {
-        "la cosa più semplice del mondo", "una passeggiata", "roba da niente", "una cosa già mezzo fatta",
-        "una banalità", "un gioco da ragazzi", "due righe di codice", "una sciocchezza", "roba da un pomeriggio", "una passeggiata di salute",
-        "una cosa da fare in un weekend", "praticamente già fatta", "un copia-incolla", "una cavolata", "roba da mezz'ora",
+        ("funziona con un pulsante, tanto basta quello", 3),
+        ("basta una notifica e sai già tutto quello che ti serve", 3),
+        ("ci pensa un algoritmo, anche se lui non sa spiegare come funzioni", 3),
+        ("basta fare una domanda e la risposta arriva subito", 3),
+        ("funziona da sola una volta aperta, dice", 3),
+        ("funziona con un sistema di voti tra gli utenti", 3),
+        ("ci pensa una chat automatica, sempre sveglia", 3),
+        ("funziona semplicemente mettendo in contatto le persone", 3),
+        ("basta un abbonamento e si sblocca tutto", 3),
+        ("ci pensa una lista che si aggiorna da sola", 3),
+        ("funziona con la geolocalizzazione, anche se non se ne capisce il motivo", 3),
+        ("basta una foto e il resto lo fa l'app", 3),
+        ("funziona mandando un avviso al momento giusto", 3),
+        ("ci pensa una community di persone che si aiutano tra loro", 3),
+        ("funziona con un questionario di due minuti", 3),
     };
 
-    // L'EUFORIA da terza birra: è convintissimo di avere in mano una cosa enorme. Frasi-clausola (3ª pers.).
-    internal static readonly Tag Entusiasmo = new("entusiasmo")
+    // IL MODELLO DI GUADAGNO: ingenuo e sicuro di sé quanto il resto. Frasi complete.
+    internal static readonly Tag Modello = new("modello")
     {
-        ("ne parla come se avesse inventato il fuoco", 3),
-        ("è convintissimo che stavolta è la volta buona", 3),
-        ("già si vede ricco sfondato", 3),
-        ("giura che è ‘l'idea del secolo’, minimo", 3),
-        ("ti guarda con gli occhi che brillano, aspettando l'applauso", 3),
-        ("ha paura che gliela rubino, quindi la dice solo a te", 3),
-        ("è persuaso di essere l'unico al mondo ad averci pensato", 3),
-        ("la considera già un successo, manca solo il dettaglio di farla", 3),
-        ("parla di milioni con la serenità di chi non ne ha mai visti", 3),
-        ("ha già deciso il nome della società e il colore del logo", 3),
-        ("dice che Elon Musk ha iniziato così, dal garage", 3),
-        ("ha già in mente in che quartiere comprare l'attico", 3),
-        ("sostiene che tra un anno la vendono a Google", 3),
-        ("è pronto a mollare il lavoro appena parte tutto", 3),
-        ("dice che è come Uber, ma per una cosa che non serve", 3),
+        ("guadagna con la pubblicità di un'attività del quartiere", 3),
+        ("ci mette un abbonamento a due euro al mese, tanto lo pagano tutti", 3),
+        ("è gratis per sempre, poi si vedrà", 3),
+        ("ha già pensato al tasto per togliere la pubblicità, ovviamente a pagamento", 3),
+        ("guadagna con una piccola commissione che, dice, nessuno noterà", 3),
+        ("ha in mente un abbonamento premium per chi ha davvero fretta", 3),
+        ("è gratis, tanto poi si ripaga in altro modo", 3),
+        ("ha già pensato al tasto dona, per chi proprio ci tiene", 3),
+        ("ci mette una versione a pagamento con più opzioni", 3),
+        ("guadagna vendendo lo spazio pubblicitario, non i dati, giura", 3),
+        ("ha pensato a un abbonamento annuale scontato del 20%", 3),
+        ("è gratis, ma solo per i primi mille iscritti", 3),
     };
 
-    // La reazione dell'AMICO informatico che si becca il pistolotto (verbi in 2ª persona, dopo un "e"/virgola).
-    internal static readonly Tag AmicoReazione = new("amico_reazione")
-    {
-        ("annuisci fingendo un entusiasmo che non hai", 3),
-        ("non hai il cuore di dirgli come stanno le cose", 3),
-        ("aspetti solo che cambi argomento", 2),
-        ("gli spieghi che no, non è così semplice", 3),
-        ("fai finta di prendere appunti mentali", 3),
-        ("ti chiedi come reggere fino alla fine del discorso", 3),
-        ("ordini un'altra birra, che serve", 3),
-        ("per educazione dici ‘bella idea’ e muori un po' dentro", 3),
-        ("calcoli mentalmente quanti mesi di lavoro sta liquidando in una frase", 3),
-        ("annuisci e cambi discorso sul calcio prima che sia troppo tardi", 3),
-        ("provi a spiegargli cos'è un database e vedi lo sguardo spegnersi", 3),
-        ("gli chiedi ‘e chi la scrive?’ e cala il silenzio", 3),
-        ("controlli l'orologio sperando sia ora di andare", 3),
-        ("gli dici che ci penserai, sapendo già che non lo farai", 3),
-        ("sorridi e pensi a quanto era meglio restare a casa stasera", 3),
-        // Accattivanti: sotto l'ironia, l'affetto vero per il sognatore innocuo.
-        ("in fondo gli vuoi bene, anche se stavolta la spara davvero grossa", 3),
-        ("per un secondo, contro ogni logica, speri quasi che ce la faccia", 3),
-        ("gli offri tu la prossima birra, che almeno quella se la merita", 3),
-    };
-
-    // Il dettaglio trascurabile: a farla, ovviamente, dovrebbe pensarci qualcun altro (gratis).
-    internal static readonly Tag PretendeAltri = new("pretende_altri")
-    {
-        ("a scriverla, ovviamente, ci pensa qualcun altro", 3),
-        ("manca solo un amico ‘che smanetta’ disposto a farla per la gloria", 3),
-        ("conta su di te per la parte ‘facile’, cioè tutta", 3),
-        new($"tanto la fa suo {Parente.Pari.M}, no?", 2),
-        ("il codice, quisquilia trascurabile, lo scrive qualcun altro", 3),
-        ("conta sul fatto che ‘tu che sei del mestiere’ gliela fai gratis", 3),
-        ("basta uno bravo che ci lavori gratis un paio di weekend", 3),
-        ("l'idea è sua, il lavoro (cioè tutto) è degli altri", 3),
-        ("ti offre il 5% di società in cambio di sei mesi di lavoro gratis", 3),
-        new($"tanto la scrive mio {Parente.Giovane.M}, che ha la play e quindi ci sa fare", 2),
-        ("il difficile lo fa qualcun altro, lui ci mette ‘la visione’", 3),
-        ("cerca solo un socio tecnico che faccia il 100% del lavoro", 3),
-        ("‘tu la programmi e ci dividiamo i guadagni’, che ancora non esistono", 3),
-        new($"delega la parte tecnica a suo {Parente.Giovane.M} in cambio della merenda", 2),
-        ("basta che qualcuno la scriva, poi lui ‘ci mette la faccia’", 3),
-    };
-
-    // ══ IL TIPO ══ (nell'apertura, dopo il titolo). Non un imprenditore: il tizio qualunque convinto di
-    // essere un genio. Apposizione: scorre dopo la professione ("…{professione} {tratto}, {genesi}").
-    internal static readonly Tag Tratto = new("tratto")
-    {
-        "convinto di essere un genio incompreso",
-        "sicuro di tutto ed esperto di niente",
-        "che di informatica sa giusto accendere il computer",
-        "che chiama ‘svilupparla’ il girarla a qualcun altro",
-        "che ha già in mente come spenderli, i soldi",
-        new($"reduce da altre {2..5} idee ‘geniali’ morte lì"),
-        "che le idee ce le ha, è il farle che è un dettaglio",
-        "con lo sguardo di chi ha appena visto il futuro",
-        "che non ha ancora capito perché nessuno l'ha fatta prima",
-        "che una volta ha quasi finito un corso di programmazione",
-        "che ha guardato un video di Elon Musk e si è sentito imprenditore",
-        "che pronuncia ‘startup’ con l'accento sbagliato",
-        "che ha comprato il dominio ma non sa cosa metterci",
-        "che parla di ‘scalabilità’ senza sapere cosa significhi",
-        "con la partita IVA aperta da un mese e già in crisi",
-    };
-
-    // Il QUANDO/DOVE: frammenti (scorrono in "…{tratto}, {genesi}."). Il "dove" pesca il social condiviso.
+    // Il QUANDO/DOVE: frammenti (scorrono in "…{nome}, {professione}, {genesi}."). Il "dove" pesca il
+    // social condiviso. Momenti passivi/qualunque apposta: chi ha l'idea non ci ha "lavorato sopra",
+    // gli è capitata — non prendiamoci gioco della persona, solo dell'idea (vedi Funzione).
     internal static readonly Tag Genesi = new("genesi")
     {
         "al terzo spritz",
@@ -398,51 +323,39 @@ public sealed class StartupGenerator : GeneratorBase
     public override GenerationSettings? PhraseSettings { get; } = new() { MinPhrases = 3, MaxPhrases = 4, MinScore = 12, Separators = [". ", ".\n"], MarkovChaos = 0 };
 
     /// <summary>Apertura = l'IDEA (titolo) + IL TIPO che l'ha avuta. Poi il Core fa la DESCRIZIONE.</summary>
-    public override Frase? Apertura => new($"## {Piattaforma} per {Funzione}{Dettaglio}\n\n_L'ha avuta {Nome.M}, {Professioni.M} {Tratto}, {Genesi}._\n\n");
+    public override Frase? Apertura => new($"## {Piattaforma} per {Funzione}{Dettaglio}\n\n_L'ha avuta {Nome.M}, {Professioni.M}, {Genesi}._\n\n");
 
     // Oltre a "dettagli": parole di contenuto che ricorrono in gruppi Core/Tag diversi e che, se
     // duplicate nello stesso testo, si notano (brand, tecnicismi, il "weekend" onnipresente…). Scoperte
     // scansionando le liste per parole condivise tra bucket distinti — non le particelle generiche
     // ("cosa", "solo"…), che ricorrono ovunque e renderebbero la generazione quasi impossibile.
     public override List<Etichetta>? UniqueLabels { get; } =
-        [LblDettaglio, "weekend", "gratis", "Elon Musk", "Google", "database", "logo", "codice", "corso"];
+        [LblDettaglio, "weekend", "gratis", "abbonamento", "pubblicità"];
 
-
-    /// <inheritdoc />
-    // Un gruppo LOCALE multi-tag per "sottovaluta" (lavoro-reale ≡ sicumera: stesso tema); gli altri
-    // temi sono un tag solo, quindi bastano come gruppi-singoletto.
-    public override IReadOnlyDictionary<string, IReadOnlyList<string>>? PolicyGroups { get; } = new Dictionary<string, IReadOnlyList<string>>
-    {
-        ["sottovaluta"] = [LavoroReale.Key, Sicumera.Key],
-    };
 
     /// <inheritdoc />
     // Un tema per gruppo: mai due frasi che dicono la stessa cosa nello stesso testo.
     public override List<string>? ExclusiveGroups { get; } =
-        ["sottovaluta", Inutilita.Key, Entusiasmo.Key, AmicoReazione.Key, PretendeAltri.Key];
+        [Pubblico.Key, Meccanismo.Key, Modello.Key];
 
     /// <inheritdoc />
-    // LA DESCRIZIONE: il core annida molte questioni (come mbeb/incel) — sottovaluta la difficoltà, è
-    // inutile, è euforico, l'amico incassa, e a farla dovrebbe pensarci un altro.
+    // LA DESCRIZIONE: elabora solo l'IDEA — come pensa di realizzarla ({Percepito}, la sua voce), a chi
+    // servirebbe, come "funziona", come ci guadagna. Niente verdetto del narratore sull'inutilità
+    // dell'idea (quella la ricava da solo il lettore dalla specificità di {Funzione} in apertura), niente
+    // gergo da addetti ai lavori, e niente aggettivo del narratore sulla sua sicumera: quello giudica LUI,
+    // non l'idea — {Percepito} mostra il piano (concreto, suo), non lo etichetta.
     public override List<Frase> Core { get; } =
     [
-        // ── SOTTOVALUTA: per lui è facile, ‘la fa il cugino’ (gruppo "sottovaluta") ──
-        new($"La parte difficile — {LavoroReale} — per lui non esiste: _‘{Percepito}’_", 5),
-        new($"Gli fai notare cosa ci vorrebbe davvero — {LavoroReale} — e lui, serissimo: _‘{Percepito}’_", 5),
-        new($"Per lui tirarla su è {Sicumera}: _‘{Percepito}’_", 4),
-        new($"Ne parla come se fosse {Sicumera}, manco sapesse che ci vorrebbe {LavoroReale}", 4),
-        // ── INUTILE: esiste già / non serve a nessuno (gruppo "inutilita") ──
-        new($"Il dettaglio è che {Inutilita}", 5),
-        new($"Quello che non gli dici è che {Inutilita}", 4),
-        // ── EUFORIA: parla la terza birra (gruppo "entusiasmo") ──
-        new($"Intanto {Entusiasmo}", 5),
-        new($"E ovviamente {Entusiasmo}", 4),
-        // ── L'AMICO che ascolta (gruppo "amico_reazione") ──
-        new($"Tu lo lasci finire e {AmicoReazione}", 4),
-        new($"Mentre parla, {AmicoReazione}", 4),
-        // ── A FARLA CI PENSA UN ALTRO (gruppo "pretende_altri") ──
-        new($"Il piano è semplice: {PretendeAltri}", 5),
-        new($"C'è solo un dettaglio: {PretendeAltri}", 5),
-        new($"L'unica cosa: {PretendeAltri}", 5),
+        // ── COME PENSA DI REALIZZARLA: {Percepito} è la sua voce, non un giudizio. UN SOLO template:
+        // {Percepito} non è esclusivo (voluto: ogni voce è un dettaglio concreto, non un tema ripetibile),
+        // quindi un secondo template qui pescherebbe un'ALTRA citazione — stesso concetto ("ci pensa
+        // qualcun altro") ripetuto con parole diverse, ridondante quanto un vero stutter testuale ──
+        new($"Il piano è semplice: _‘{Percepito}’_", 4),
+        // ── A CHI SERVIREBBE (gruppo "pubblico") ──
+        new($"È {Pubblico}", 4),
+        // ── COME "FUNZIONA" (gruppo "meccanismo") ──
+        new($"{Meccanismo}", 5),
+        // ── COME CI GUADAGNA (gruppo "modello") ──
+        new($"{Modello}", 5),
     ];
 }
