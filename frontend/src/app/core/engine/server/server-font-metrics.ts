@@ -1,31 +1,24 @@
-import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { FontMetric, FONT_METRICS } from '../services/font-metrics';
-import { ServerFont } from '../font-system';
-import { resolvedFonts } from '../../../../styles/font-config';
-import { customFontFilePath } from './custom-font-detect';
+import { SystemFont, SYSTEM_FONTS, isSystemFont } from '../font-system';
+import { ContestoSito } from '../../../site';
+import { customFontFacePath } from './custom-font-detect';
 
 /**
  * SERVER FONT METRICS — loader runtime delle metriche font (lato server).
  *
  * Deriva le metriche dai font *realmente installati* nel container invece di fidarsi delle tabelle
- * baked-in: risolve il file con `fc-match` (fontconfig, installato nel Dockerfile) e ne legge gli
- * advance con un parser TTF minimale (solo `head`/`hhea`/`maxp`/`cmap` formato 4/`hmtx`). Così
- * cambiando i pacchetti font nel Dockerfile le misure restano allineate, senza rigenerare a mano.
+ * baked-in. Per il catalogo `SYSTEM_FONTS` il percorso è già noto e verificato (vedi font-system.ts):
+ * si legge il file direttamente, nessun `fc-match` — a differenza del font custom di progetto
+ * (`buildMetricFromFile`, sotto), che non ha un percorso certo a priori. Gli advance si leggono con
+ * un parser TTF minimale (solo `head`/`hhea`/`maxp`/`cmap` formato 4/`hmtx`). Così aggiornando i
+ * pacchetti font nel Dockerfile le misure restano allineate, senza rigenerare a mano.
  *
- * Robusto per costruzione: ogni font è isolato in try/catch + sanity-gate (`assertSane`); se
- * `fc-match` manca (es. dev su Windows), il file non si legge o i numeri sono implausibili, quel
- * font ripiega sul suo snapshot in `FONT_METRICS`. Niente dipendenze esterne (no fontkit): il
- * parser copre solo ciò che serve e su qualunque struttura inattesa lancia → fallback.
+ * Robusto per costruzione: ogni font è isolato in try/catch + sanity-gate (`assertSane`); se il
+ * file non esiste/non si legge o i numeri sono implausibili, quel font ripiega sul suo snapshot in
+ * `FONT_METRICS`. Niente dipendenze esterne (no fontkit): il parser copre solo ciò che serve e su
+ * qualunque struttura inattesa lancia → fallback.
  */
-
-/** Pattern fontconfig per ogni font server (ciò che `fc-match` sa risolvere al file reale). */
-const FAMILY: Record<ServerFont, string> = {
-    [ServerFont.Roboto]: 'Roboto',
-    [ServerFont.DejaVu]: 'DejaVu Sans',
-    [ServerFont.Noto]: 'Noto Sans',
-    [ServerFont.Liberation]: 'Liberation Sans',
-};
 
 /** Code point delle lettere ASCII (A–Z, a–z): base per il rapporto bold/regular. */
 const LETTERS: number[] = [
@@ -37,16 +30,6 @@ const LETTERS: number[] = [
 interface ParsedFont {
     unitsPerEm: number;
     advanceForCp(cp: number): number | null;
-}
-
-/** Risolve il file di un pattern fontconfig (es. `"Roboto"`, `"Roboto:bold"`). Lancia se vuoto/assente. */
-function resolveFontFile(pattern: string): string {
-    const file = execFileSync('fc-match', ['-f', '%{file}', pattern], {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
-    if (!file) throw new Error(`fc-match: nessun file per "${pattern}"`);
-    return file;
 }
 
 /** Apre un TTF e prepara il lookup advance per code point. Lancia su struttura non gestita. */
@@ -127,8 +110,8 @@ function parseCmapFormat4(b: Buffer, sub: number): (cp: number) => number {
     };
 }
 
-/** Calcola advance/fallbackAdvance da un font già aperto — nucleo condiviso da `buildMetric`
- *  (font di sistema via fc-match) e `buildMetricFromFile` (font custom, path già noto). */
+/** Calcola advance/fallbackAdvance da un font già aperto — nucleo condiviso da `buildSystemMetric`
+ *  (font di catalogo, percorso già noto) e `buildMetricFromFile` (font custom, path già noto). */
 function metricFromParsed(regular: ParsedFont, fallback: FontMetric, boldFactor: number): FontMetric {
     const toThousandEm = (units: number, font: ParsedFont): number => Math.round((units * 1000) / font.unitsPerEm);
     const advance: Record<number, number> = {};
@@ -142,14 +125,18 @@ function metricFromParsed(regular: ParsedFont, fallback: FontMetric, boldFactor:
     return metric;
 }
 
-/** Costruisce le metriche di un font di sistema dai file reali (regular + bold, via fc-match). */
-function buildMetric(family: string, fallback: FontMetric): FontMetric {
-    const regular = parseFont(resolveFontFile(family));
+/** Costruisce le metriche di un font di `SYSTEM_FONTS` dai file reali (regular + bold, percorso
+ *  già noto — `faces[0]`/`faces[1]`, vedi `SystemFontDef`, nessun `fc-match`). */
+function buildSystemMetric(key: SystemFont, fallback: FontMetric): FontMetric {
+    const [regularFace, boldFace] = SYSTEM_FONTS[key].faces;
+    if (!existsSync(regularFace.file)) throw new Error(`file assente: ${regularFace.file}`);
+    const regular = parseFont(regularFace.file);
 
     // boldFactor: rapporto medio bold/regular sulle lettere; se il bold non si legge tieni il fallback.
     let boldFactor = fallback.boldFactor;
     try {
-        const bold = parseFont(resolveFontFile(`${family}:bold`));
+        if (!existsSync(boldFace.file)) throw new Error(`file assente: ${boldFace.file}`);
+        const bold = parseFont(boldFace.file);
         let sumRegular = 0, sumBold = 0;
         for (const cp of LETTERS) {
             const r = regular.advanceForCp(cp);
@@ -165,8 +152,8 @@ function buildMetric(family: string, fallback: FontMetric): FontMetric {
     return metricFromParsed(regular, fallback, boldFactor);
 }
 
-/** Come `buildMetric`, ma da un path già noto (nessun fc-match) — un font custom non ha una
- *  variante ":bold" registrata, quindi boldFactor resta sempre quello di fallback. */
+/** Come `buildSystemMetric`, ma da un path arbitrario (font custom di progetto) — nessuna
+ *  variante ":bold" nota a priori, quindi boldFactor resta sempre quello di fallback. */
 function buildMetricFromFile(filePath: string, fallback: FontMetric): FontMetric {
     return metricFromParsed(parseFont(filePath), fallback, fallback.boldFactor);
 }
@@ -182,25 +169,32 @@ function assertSane(m: FontMetric): void {
 }
 
 /**
- * Metriche per ogni font server lette dai file reali, con fallback per-font sullo snapshot baked-in.
- * Se c'è un custom con file confermato (`customFontFilePath`), aggiunge anche la sua voce sotto
- * `resolvedFonts.serverKey` — assente, `measure()` ripiega da sola su Liberation. Da passare a
- * `FontMetrics.configure`; sincrono e una-tantum, all'avvio.
+ * Metriche per ogni font di `SYSTEM_FONTS` lette dai file reali, con fallback per-font sullo
+ * snapshot baked-in. Se il font ATTIVO come corpo (`ContestoSito.config.fonts.serverKey`) è un
+ * custom di progetto invece di un `SystemFont`, aggiunge anche la sua voce sotto quella stessa
+ * chiave — assente, `measure()` ripiega da sola su Liberation. Solo il font attivo: le eventuali
+ * voci "secondarie" di `addonFonts` non renderizzano mai un'immagine OG, non serve misurarle. Da
+ * passare a `FontMetrics.configure`; sincrono e una-tantum, all'avvio.
  */
 export function loadServerFontMetrics(): Record<string, FontMetric> {
     const result: Record<string, FontMetric> = {};
-    for (const key of Object.values(ServerFont) as ServerFont[]) {
+    for (const key of Object.values(SystemFont) as SystemFont[]) {
         try {
-            result[key] = buildMetric(FAMILY[key], FONT_METRICS[key]);
+            result[key] = buildSystemMetric(key, FONT_METRICS[key]);
         } catch {
             result[key] = FONT_METRICS[key];
         }
     }
-    if (resolvedFonts.custom && customFontFilePath) {
-        try {
-            result[resolvedFonts.custom.family] = buildMetricFromFile(customFontFilePath, FONT_METRICS[ServerFont.Liberation]);
-        } catch {
-            result[resolvedFonts.custom.family] = FONT_METRICS[ServerFont.Liberation];
+    const activeKey = ContestoSito.config.fonts.serverKey;
+    if (!isSystemFont(activeKey)) {
+        const activeCustom = ContestoSito.config.customFontsCatalog.find(c => c.key === activeKey);
+        const file = activeCustom?.faces[0]?.file;
+        if (file) {
+            try {
+                result[activeKey] = buildMetricFromFile(customFontFacePath(file), FONT_METRICS[SystemFont.Liberation]);
+            } catch {
+                result[activeKey] = FONT_METRICS[SystemFont.Liberation];
+            }
         }
     }
     return result;

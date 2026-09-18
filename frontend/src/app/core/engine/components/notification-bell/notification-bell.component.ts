@@ -2,6 +2,7 @@ import { Component, ElementRef, computed, inject, signal } from '@angular/core';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { TranslateService } from '../../services/translate.service';
 import { NotificationStreamService, type StreamNotification } from '../../services/notification-stream.service';
+import { ContestoSito } from '../../../../site';
 
 /**
  * Campanellino delle notifiche realtime nella navbar.
@@ -39,6 +40,11 @@ export class NotificationBellComponent {
     readonly liveMessage = this.stream.lastLive;
     /** Storico, dal più recente al meno recente (il servizio lo tiene in ordine di arrivo). */
     readonly items = computed(() => [...this.stream.notifications()].reverse());
+
+    /** `'numero'` (default, storico): badge con conteggio. `'puntino'`: solo un indicatore, senza
+     *  numero — `bellLabel()` sotto resta comunque accessibile in entrambi i casi (il conteggio
+     *  non sparisce per chi usa uno screen reader). `DesignSystemPreset.badgeNotifiche`. */
+    readonly badgeNumero = ContestoSito.config.badgeNotifiche === 'numero';
 
     /** Nome accessibile del pulsante: include il numero di non lette per gli screen reader. */
     readonly bellLabel = computed(() => {

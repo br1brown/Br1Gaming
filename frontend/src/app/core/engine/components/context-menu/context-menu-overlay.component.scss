@@ -4,16 +4,18 @@
 
 /* bg/color/box-shadow vengono dalla utility .surface-elevated nell'HTML.
    Posizionamento e z-index sono di CDK Overlay (pane + container): qui solo l'aspetto. */
+/* Raggio/durata decisi dal design system attivo (`DesignSystemPreset.elevazione`/`movimento`,
+   default 'sospesa'/'svelto' — i valori qui sotto restano il fallback, vedi AppearanceService). */
 .context-menu {
     --colorLink: currentColor;
-    border-radius: 8px;
+    border-radius: var(--elevazioneRaggio, 8px);
     min-width: 160px;
     max-width: min(22rem, calc(100vw - 1rem));
     max-height: min(24rem, calc(100vh - 1rem));
     padding: 4px 0;
     overflow: auto;
     /* Animazione apertura */
-    animation: ctx-fade-in 0.12s ease;
+    animation: ctx-fade-in var(--movimentoPannello, 0.12s) ease;
 }
 
 .context-menu a,
@@ -44,6 +46,11 @@
     white-space: nowrap;
     gap: 8px;
     transition: background-color 0.12s ease, color 0.12s ease;
+    // Target touch minimo (WCAG 2.5.5 / best practice mobile), sempre — non solo sotto md: si
+    // apre anche da long-press touch (equivalente del click destro), non solo da mouse. La
+    // media query sotto md alza ulteriormente lo standard mobile (2.9rem), questo resta il
+    // pavimento comune.
+    min-height: 2.75rem;
 }
 
 /* Hover/focus su sfondo theme-bg: usiamo currentColor (= testo body, in
@@ -78,12 +85,15 @@
 }
 
 /* Posizione (centrato in basso) gestita da CDK GlobalPositionStrategy: qui solo l'aspetto. */
+/* Raggio FISSO (non da `elevazione`): convenzione mobile del bottom-sheet, più arrotondato di
+   qualunque pannello desktop a prescindere dall'identità del design system. La durata resta
+   comunque legata a `movimento`, stesso gesto "un pannello compare" del popover sopra. */
 .context-menu.context-menu-sheet {
     width: min(22rem, calc(100vw - 1.5rem));
     min-width: 0;
     border-radius: 1.25rem;
     padding: 0.45rem 0;
-    animation: ctx-sheet-in 0.16s ease;
+    animation: ctx-sheet-in var(--movimentoPannello, 0.16s) ease;
 }
 
 @keyframes ctx-sheet-in {
@@ -101,5 +111,16 @@
         min-height: 2.9rem;
         padding: 0.75rem 1rem;
         font-size: 0.98rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .context-menu,
+    .context-menu.context-menu-sheet {
+        animation: none;
+    }
+
+    .context-menu-item {
+        transition: none;
     }
 }

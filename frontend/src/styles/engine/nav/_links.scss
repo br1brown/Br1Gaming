@@ -44,6 +44,11 @@ footer a {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
+    // Target touch minimo (WCAG 2.5.5 / best practice mobile), sempre — non solo sotto md: un
+    // touchscreen che riporta ≥md di larghezza CSS (tablet, laptop touch) è comunque a dito, non
+    // solo i viewport "mobile" in senso stretto. Copre language-toggle e notification-bell-toggle,
+    // entrambi icon-only, oltre ai trigger di nav-dropdown.component.
+    min-height: 2.75rem;
 }
 
 .nav-dropdown-toggle:focus-visible {

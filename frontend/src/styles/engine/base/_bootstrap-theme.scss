@@ -1,12 +1,12 @@
 @use 'lib';
 
 /* Mappatura token → variabili Bootstrap.
-   ThemeService imposta queste via inline style su <html> (priorità massima).
+   AppearanceService imposta queste via inline style su <html> (priorità massima).
    Questo blocco CSS è il fallback per i discendenti con data-bs-theme proprio
    (es. <div data-bs-theme="light"> dentro un tema globale dark) che Bootstrap
    reinizializza coi suoi default — senza questo override cadrebbero sui valori
    statici Bootstrap. I valori var(--color*) si risolvono sempre correttamente
-   perché ThemeService/theme-init li ha già impostati su :root. */
+   perché AppearanceService/theme-init li ha già impostati su :root. */
 :root,
 [data-bs-theme="light"],
 [data-bs-theme="dark"] {
@@ -34,7 +34,7 @@
    con il tone corrente dell'OS. Quando un elemento figlio ha [data-bs-theme="light"]
    (es. pannello forzato-chiaro dentro pagina dark), il ponte sopra mapperebbe
    --bs-heading-color → var(--colorHeading) = valore scuro = testo bianco su bianco.
-   I blocchi qui sotto usano le varianti Lt/Dk esposte da ThemeService, che sono fisse
+   I blocchi qui sotto usano le varianti Lt/Dk esposte da AppearanceService, che sono fisse
    e garantiscono il valore corretto indipendentemente dal tone globale. */
 :root,
 [data-bs-theme="light"] { @include lib.theme-bridge('Lt', 'black'); }
@@ -54,11 +54,11 @@
     --bs-btn-bg:               var(--bs-primary);
     --bs-btn-border-color:     var(--bs-primary);
     --bs-btn-color:            var(--colorPrimaryText, #fff);
-    --bs-btn-hover-bg:         #{lib.shade(var(--bs-primary), 12%)};
-    --bs-btn-hover-border-color: #{lib.shade(var(--bs-primary), 16%)};
+    --bs-btn-hover-bg:         #{lib.shade(var(--bs-primary), var(--hoverBg, 12%))};
+    --bs-btn-hover-border-color: #{lib.shade(var(--bs-primary), var(--hoverBorder, 16%))};
     --bs-btn-hover-color:      var(--colorPrimaryText, #fff);
-    --bs-btn-active-bg:        #{lib.shade(var(--bs-primary), 18%)};
-    --bs-btn-active-border-color: #{lib.shade(var(--bs-primary), 22%)};
+    --bs-btn-active-bg:        #{lib.shade(var(--bs-primary), var(--activeBg, 18%))};
+    --bs-btn-active-border-color: #{lib.shade(var(--bs-primary), var(--activeBorder, 22%))};
     --bs-btn-active-color:     var(--colorPrimaryText, #fff);
     --bs-btn-disabled-bg:      var(--bs-primary);
     --bs-btn-disabled-border-color: var(--bs-primary);
@@ -98,7 +98,7 @@
 /* .text-bg-primary / .text-bg-secondary (badge, alert): Bootstrap le compila con `color: #fff`
    fisso, contrastato a build-time contro il SUO grigio di default — non contro il brand runtime.
    Su un brand con secondary chiaro/medio il bianco fisso scende sotto AA. colorPrimaryText/
-   colorSecondaryText sono già il migliore fra nero e bianco per lo sfondo effettivo (ThemeService);
+   colorSecondaryText sono già il migliore fra nero e bianco per lo sfondo effettivo (AppearanceService);
    `!important` per vincere quello di Bootstrap. */
 .text-bg-primary {
     color: var(--colorPrimaryText, #fff) !important;
@@ -107,21 +107,85 @@
     color: var(--colorSecondaryText, #fff) !important;
 }
 /* --colorInfoText esiste SOLO se site.colorInfo è impostato (vedi PaletteOverrides.info in
-   theme.service.ts): var() senza secondo argomento risolto cade sul fallback #000, lo stesso
+   appearance.service.ts): var() senza secondo argomento risolto cade sul fallback #000, lo stesso
    valore che Bootstrap hardcoda di suo — zero cambiamento quando l'override è assente. */
 .text-bg-info {
     color: var(--colorInfoText, #000) !important;
 }
 
+/* .btn-secondary/.btn-info (SOLIDI, non outline): Bootstrap li compila con `button-variant()`,
+   che interpola $background/$color come LETTERALI SASS a build-time — a differenza di
+   .alert-* / .text-bg-* (già CSS-variable-driven nativamente, vedi sopra), un bottone solido non
+   legge MAI --bs-secondary/--bs-info a runtime. Risultato verificato dal vivo: con colorSecondary
+   auto-calcolato dal brand (non un override, il caso comune), .btn-secondary restava sul grigio
+   di stock di Bootstrap (#6c757d) — non un problema del refactor "override duro", preesisteva
+   per QUALUNQUE brand. Stesso schema già usato per .btn-primary sopra: */
+.btn-secondary {
+    --bs-btn-bg:               var(--bs-secondary);
+    --bs-btn-border-color:     var(--bs-secondary);
+    --bs-btn-color:            var(--colorSecondaryText, #fff);
+    --bs-btn-hover-bg:         #{lib.shade(var(--bs-secondary), var(--hoverBg, 12%))};
+    --bs-btn-hover-border-color: #{lib.shade(var(--bs-secondary), var(--hoverBorder, 16%))};
+    --bs-btn-hover-color:      var(--colorSecondaryText, #fff);
+    --bs-btn-active-bg:        #{lib.shade(var(--bs-secondary), var(--activeBg, 18%))};
+    --bs-btn-active-border-color: #{lib.shade(var(--bs-secondary), var(--activeBorder, 22%))};
+    --bs-btn-active-color:     var(--colorSecondaryText, #fff);
+    --bs-btn-disabled-bg:      var(--bs-secondary);
+    --bs-btn-disabled-border-color: var(--bs-secondary);
+    --bs-btn-disabled-color:   var(--colorSecondaryText, #fff);
+}
+
+/* .btn-info: stesso motivo di .btn-secondary sopra. --bs-info/--colorInfoText restano sicuri in
+   ENTRAMBI i casi: senza override sono i default nativi di Bootstrap (nessun cambiamento —
+   .btn-info resta quello di sempre); con un colorInfo overridden diventano il fill scelto dal
+   design system E il SUO testo leggibile calcolato (getReadableTextColor) — non il nero fisso che
+   Bootstrap avrebbe comunque compilato per il proprio colore di default, illeggibile su un colore
+   diverso (il caso "vomito" discusso in README §"Override opzionali"). */
+.btn-info {
+    --bs-btn-bg:               var(--bs-info);
+    --bs-btn-border-color:     var(--bs-info);
+    --bs-btn-color:            var(--colorInfoText, #000);
+    --bs-btn-hover-bg:         #{lib.shade(var(--bs-info), var(--hoverBg, 12%))};
+    --bs-btn-hover-border-color: #{lib.shade(var(--bs-info), var(--hoverBorder, 16%))};
+    --bs-btn-hover-color:      var(--colorInfoText, #000);
+    --bs-btn-active-bg:        #{lib.shade(var(--bs-info), var(--activeBg, 18%))};
+    --bs-btn-active-border-color: #{lib.shade(var(--bs-info), var(--activeBorder, 22%))};
+    --bs-btn-active-color:     var(--colorInfoText, #000);
+    --bs-btn-disabled-bg:      var(--bs-info);
+    --bs-btn-disabled-border-color: var(--bs-info);
+    --bs-btn-disabled-color:   var(--colorInfoText, #000);
+}
+
+/* .link-secondary/.link-info: lo stato base legge già var(--bs-secondary-rgb)/var(--bs-info-rgb)
+   nativamente (Bootstrap li scrive così), quindi segue l'override senza bisogno di ridirezione —
+   solo l'HOVER/FOCUS è un letterale SASS (shade-color/tint-color calcolato sul $secondary/$info
+   di DEFAULT di Bootstrap, mai sull'override). Stesso schema di lib.shade già in uso sopra. */
+.link-secondary:hover, .link-secondary:focus {
+    color: #{lib.shade(var(--bs-secondary), 20%)} !important;
+}
+.link-info:hover, .link-info:focus {
+    color: #{lib.shade(var(--bs-info), 20%)} !important;
+}
+
+/* NOTA per chi estende questo file: .table-secondary/.table-info hanno lo STESSO problema di
+   .btn-secondary/.btn-info prima del fix sopra — Bootstrap li compila con `table-variant()`,
+   letterali SASS su 7 proprietà (colore/sfondo/bordo/hover/striped/active), mai `var(--bs-secondary)`/
+   `var(--bs-info)`. Non ridiretti qui deliberatamente: nessuna pagina del template li usa oggi
+   (verificato), quindi non c'è un sintomo da correggere — se un progetto figlio inizia a usare
+   `.table-secondary`/`.table-info`, `appearance.service.spec.ts`/`design-system-presets.spec.ts` NON lo
+   scoprirebbero (testano la palette calcolata, non il CSS compilato di Bootstrap): serve un
+   controllo manuale la prima volta che li si usa, o estendere questo file con lo stesso schema di
+   .btn-secondary/.btn-info sopra. */
+
 /* ── Token colori semantici ──────────────────────────────────────────────────
-   --colorSecondary è calcolato da ThemeService.computePalette() in OKLCH
+   --colorSecondary è calcolato da AppearanceService.computePalette() in OKLCH
    (derivato dal brand, WCAG 4.5:1 garantito) e iniettato via inline style;
    il tag <style id="theme-init"> ne fa il bake per la fase pre-idratazione SSR.
    I valori qui sotto sono fallback last-resort per ambienti senza JS/theme-init.
 
-   I colori warning/info/success/danger NON sono gestiti da ThemeService:
+   I colori warning/info/success/danger NON sono gestiti da AppearanceService:
    Bootstrap 5.3 fornisce già varianti WCAG-safe tone-adaptive nei blocchi
-   [data-bs-theme="light/dark"] del suo CSS. ThemeService imposta data-bs-theme
+   [data-bs-theme="light/dark"] del suo CSS. AppearanceService imposta data-bs-theme
    su <html> in base a prefers-color-scheme, quindi --bs-warning-text-emphasis
    ecc. si risolvono correttamente senza alcun calcolo aggiuntivo. */
 :root {
@@ -146,7 +210,7 @@
 /* WCAG 1.4.3 — btn-outline-warning/info/success/danger: Bootstrap usa i colori
    vivaci (es. #ffc107, #0dcaf0) come testo degli outline button, che non superano
    4.5:1 su sfondi chiari. Bootstrap 5.3 fornisce già --bs-*-text-emphasis come
-   varianti WCAG-safe tone-adaptive nei blocchi [data-bs-theme]; ThemeService
+   varianti WCAG-safe tone-adaptive nei blocchi [data-bs-theme]; AppearanceService
    imposta data-bs-theme su <html>, quindi questi token si risolvono correttamente
    senza alcun calcolo aggiuntivo. */
 .btn-outline-warning,
@@ -194,12 +258,7 @@
 .navbar.theme-bg {
     --bs-navbar-brand-color: var(--colorNavText);
     --bs-navbar-brand-hover-color: var(--colorNavText);
-    border-bottom: 2.5px solid var(--colorTema);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-}
-
-.site-footer.theme-bg {
-    border-top: 2.5px solid var(--colorTema);
 }
 
 .dropdown-menu .dropdown-item.theme-bg:hover {

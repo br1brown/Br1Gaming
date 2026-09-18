@@ -7,7 +7,8 @@ import type { SiteRenderMode } from './core/engine/siteBuilder';
 import { SSR_BACKEND_ORIGIN, SSR_API_KEY } from './core/engine/services/base-api.service';
 import { LEGAL_FILE_READER } from './core/engine/pages/content.resolver';
 import { SSR_PREVIEW_ENCRYPT_FN, SSR_FRONTEND_ORIGIN } from './core/engine/services/page-meta.service';
-import { ThemeService } from './core/engine/services/theme.service';
+import { AppearanceService } from './core/engine/services/appearance.service';
+import { MUTEZZA_SECONDARIO_FATTORE, SEPARAZIONE_SUPERFICI_FATTORE } from './core/engine/design-system-presets';
 import { serverEnv, getBr1Settings } from './core/engine/server/server-env';
 import { PreviewCrypto } from './core/engine/server/preview-crypto.server';
 import { LOCALE_CONFIG, LOCALE_STATE_KEY, type LocaleConfig } from './core/engine/services/translate.service';
@@ -65,33 +66,42 @@ const serverConfig: ApplicationConfig = {
             // creato via DOM nativo (doc.createElement), non via Renderer2 — Angular applica il
             // nonce in automatico solo agli elementi che crea lui (es. gli <style> di encapsulation).
             const cspNonce = inject(CSP_NONCE, { optional: true });
-            const { colorTema, colorSecondary, colorBackground, colorText, colorInfo } = ContestoSito.config;
-            const overrides = { secondary: colorSecondary, background: colorBackground, text: colorText, info: colorInfo };
-            const palette = ThemeService.computePalette(colorTema, overrides);
-            const tone = palette.naturalTone;
+            const { colorTema, colorSecondary, colorBackground, colorText, colorInfo, customPalette, forceThemeTone, navSurface, backgroundVividness, mutezzaSecondario, separazioneSuperfici } = ContestoSito.config;
+            const overrides = {
+                secondary: colorSecondary, background: colorBackground, text: colorText, info: colorInfo, customPalette, backgroundVividness,
+                mutezzaSecondarioFattore: MUTEZZA_SECONDARIO_FATTORE[mutezzaSecondario],
+                separazioneSuperficiFattore: SEPARAZIONE_SUPERFICI_FATTORE[separazioneSuperfici],
+            };
+            const palette = AppearanceService.computePalette(colorTema, overrides);
+            const tone = forceThemeTone ?? palette.naturalTone;
 
             // Attributi Bootstrap dark/light su <html>
             doc.documentElement.setAttribute('data-bs-theme', tone);
             doc.documentElement.setAttribute('data-theme-tone', tone);
 
-            // <meta name="theme-color"> light + dark per la barra del browser / PWA
-            for (const [media, content] of [
-                ['(prefers-color-scheme:light)', palette.colorBaseLt],
-                ['(prefers-color-scheme:dark)', palette.colorBaseDk],
-            ] as const) {
+            // <meta name="theme-color">: un solo meta senza media se il tono è forzato (coerente
+            // col resto della pagina), altrimenti light + dark per la barra del browser / PWA.
+            const themeColorEntries: readonly [string | null, string][] = forceThemeTone
+                ? [[null, forceThemeTone === 'light' ? palette.colorBaseLt : palette.colorBaseDk]]
+                : [
+                    ['(prefers-color-scheme:light)', palette.colorBaseLt],
+                    ['(prefers-color-scheme:dark)', palette.colorBaseDk],
+                ];
+            for (const [media, content] of themeColorEntries) {
                 const meta = doc.createElement('meta');
                 meta.setAttribute('name', 'theme-color');
-                meta.setAttribute('media', media);
+                if (media) meta.setAttribute('media', media);
                 meta.setAttribute('content', content);
                 doc.head.appendChild(meta);
             }
 
-            // <style id="theme-init"> con CSS vars per entrambi i toni: iniettato prima
-            // di qualsiasi render component così Bootstrap legge le variabili correttamente.
+            // <style id="theme-init"> con CSS vars per entrambi i toni (o uno solo se forzato):
+            // iniettato prima di qualsiasi render component così Bootstrap legge le variabili
+            // correttamente.
             const style = doc.createElement('style');
             style.setAttribute('id', 'theme-init');
             if (cspNonce) style.setAttribute('nonce', cspNonce);
-            const styleHtml = ThemeService.buildThemeStyleTag(colorTema, overrides);
+            const styleHtml = AppearanceService.buildThemeStyleTag(colorTema, overrides, forceThemeTone, navSurface);
             const openTag = '<style id="theme-init">';
             style.textContent = styleHtml.substring(openTag.length, styleHtml.length - '</style>'.length);
             doc.head.appendChild(style);

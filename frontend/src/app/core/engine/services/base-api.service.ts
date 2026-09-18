@@ -226,7 +226,9 @@ export abstract class BaseApiService {
      * Ottimizzato per SSR: non blocca il rendering durante il recupero dati.
      */
     protected api_resource<T>(url: string, params?: HttpParams): HttpResourceRef<T | undefined> {
-        return httpResource<T>(() => ({
+        // `undefined` (invece di un url relativo rotto) dice a httpResource "nessuna richiesta":
+        // si assesta subito su idle, stesso fail-fast silenzioso degli altri api_* — vedi ssrBackendUnconfigured.
+        return httpResource<T>(() => this.ssrBackendUnconfigured ? undefined : ({
             url: this.resolveUrl(url),
             headers: this.build_api_Headers(),
             ...(params ? { params } : {}),

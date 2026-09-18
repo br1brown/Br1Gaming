@@ -1,6 +1,6 @@
 import { isPlatformBrowser } from '@angular/common';
 import { Injectable, PLATFORM_ID, inject } from '@angular/core';
-import { ThemeService } from './theme.service';
+import { AppearanceService } from './appearance.service';
 import { TranslateService } from './translate.service';
 import type { ProblemDetails } from './base-api.service';
 
@@ -18,23 +18,6 @@ export interface ValidationResult {
  *  - `cancel`  → annullato (bottone Annulla, ESC o clic fuori): l'utente non decide
  */
 export type ConfirmChoice = 'confirm' | 'deny' | 'cancel';
-
-
-export interface InteractContext {
-    popup: HTMLElement;
-    $: <T extends HTMLElement = HTMLElement>(selector: string) => T;
-    byId: <T extends HTMLElement = HTMLElement>(id: string) => T;
-}
-
-export interface InteractConfig<T> {
-    title: string;
-    html: string | HTMLElement;
-    confirmText?: string;
-    cancelText?: string;
-    showLoaderOnConfirm?: boolean;
-    validation?: (ctx: InteractContext) => ValidationResult;
-    mapResult?: (ctx: InteractContext) => T;
-}
 
 export interface ToastOptions {
     /** Durata ms prima dell'auto-dismiss. `null` = persistente (niente timer, mostra il pulsante di chiusura). Default 3000. */
@@ -55,13 +38,13 @@ export interface PromiseToastConfig<T> {
 
 /**
  * Notifiche utente via SweetAlert2.
- * Metodi: success(), error(), alert(), loading(), close(), promise(), confirm(), choose(), prompt(), interact(), toast(), toastOnce(), validationErrors(), handleApiError().
+ * Metodi: success(), error(), alert(), loading(), close(), promise(), confirm(), choose(), prompt(), toast(), toastOnce(), validationErrors(), handleApiError().
  * handleApiError() legge ProblemDetails (RFC 9457) dal backend o traduce il codice HTTP via i18n.
  */
 @Injectable({ providedIn: 'root' })
 export class NotificationService {
     private translate = inject(TranslateService);
-    private theme = inject(ThemeService);
+    private theme = inject(AppearanceService);
     private platformId = inject(PLATFORM_ID);
     private swalPromise?: Promise<SwalType>;
     private shownOnceKeys = new Set<string>();   // chiavi già mostrate da toastOnce() in questa sessione
@@ -293,69 +276,6 @@ export class NotificationService {
             }
         });
         return result.isConfirmed ? (result.value as string) : null;
-    }
-
-    async interact<T = unknown>(config: InteractConfig<T>): Promise<T | null> {
-        const swal = this.loadThemedSwal();
-        if (!swal) return null;
-
-        const Swal = await swal;
-
-        try {
-            const result = await Swal.fire({
-                title: config.title,
-                html: config.html,
-                showCancelButton: true,
-                confirmButtonText: config.confirmText ?? this.translate.translate('siAzione'),
-                cancelButtonText: config.cancelText ?? this.translate.translate('annullaAzione'),
-                showLoaderOnConfirm: config.showLoaderOnConfirm ?? false,
-                preConfirm: () => {
-                    const popup = Swal.getPopup();
-                    if (!popup) {
-                        Swal.showValidationMessage(this.translate.translate('fallbackErrore'));
-                        return false;
-                    }
-
-                    const ctx = this.createContext(popup);
-
-                    if (config.validation) {
-                        const res = config.validation(ctx);
-                        if (!res.isValid) {
-                            Swal.showValidationMessage(this.formatErrors(res.errors, true));
-                            return false;
-                        }
-                    }
-
-                    return config.mapResult ? config.mapResult(ctx) : true;
-                }
-            });
-
-            return result.isConfirmed ? (result.value as T) : null;
-        } catch (err) {
-            console.error('[NotificationService] Errore in interact:', err);
-            return null;
-        }
-    }
-
-    private createContext(popup: HTMLElement): InteractContext {
-        const cache = new Map<string, HTMLElement>();
-
-        const resolve = <T extends HTMLElement>(selector: string, errorMsg: string): T => {
-            if (!cache.has(selector)) {
-                const el = popup.querySelector<T>(selector);
-                if (!el) throw new Error(errorMsg);
-                cache.set(selector, el);
-            }
-            return cache.get(selector) as T;
-        };
-
-        return {
-            popup,
-            $: <T extends HTMLElement = HTMLElement>(selector: string): T =>
-                resolve<T>(selector, `Elemento non trovato: ${selector}`),
-            byId: <T extends HTMLElement = HTMLElement>(id: string): T =>
-                resolve<T>(`#${id}`, `Elemento con id "${id}" non trovato`),
-        };
     }
 
     private formatErrors(errors?: string[], html = false): string {

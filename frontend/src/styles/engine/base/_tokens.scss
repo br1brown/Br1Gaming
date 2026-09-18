@@ -1,8 +1,8 @@
 /* base/_tokens.scss — Design token del tema (--color*), scala z-index, ombre.
- * Le custom properties sono impostate da ThemeService.
+ * Le custom properties sono impostate da AppearanceService.
  *
  * ── Design Token Reference ───────────────────────────────────────────────────
- * Tutte le variabili --color* sono "design token" gestiti da ThemeService.
+ * Tutte le variabili --color* sono "design token" gestiti da AppearanceService.
  * Non usare valori di colore hardcoded nei componenti: usa sempre i token qui
  * sotto per garantire coerenza, dark-mode e accessibilità automatici.
  *
@@ -30,7 +30,7 @@
  * ─────────────────────────────────────────────────────────────────────────── */
 
 /* §5 — Variabili CSS tema. Convenzione: --colorXxx (Italian camelCase).
-   ThemeService imposta i valori a runtime tramite inline style su <html>
+   AppearanceService imposta i valori a runtime tramite inline style su <html>
    (priorità massima). I valori qui in :root sono i fallback pre-idratazione /
    no-JS, coperti anche da <style id="theme-init"> iniettato da server.ts per-request. */
 :root {
@@ -54,7 +54,7 @@
     --focusRingOffset: 2px;
     /* Bootstrap body-color-rgb — usato da utility rgba() di Bootstrap 5.3 */
     --bs-body-color-rgb: 233, 236, 239;
-    /* Link lt/dk fallback — ThemeService sovrascrive questi a runtime */
+    /* Link lt/dk fallback — AppearanceService sovrascrive questi a runtime */
     --colorLinkLt: #141619;
     --colorLinkDk: #a8b4c8;
     --colorNavBg: #212529;

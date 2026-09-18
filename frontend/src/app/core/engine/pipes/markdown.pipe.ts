@@ -1,23 +1,6 @@
 import { Pipe, PipeTransform } from '@angular/core';
 import { Renderer, marked, type Tokens } from 'marked';
-
-/** `marked` NON sanifica gli URL: senza questi check un `[x](javascript:alert(1))` o
- *  un'immagine con `src` malevolo produrrebbero attributi eseguibili. Consentiamo solo
- *  schemi sicuri (e i relativi/anchor); tutto il resto viene neutralizzato. */
-function isSafeLinkUrl(url: string): boolean {
-    const u = url.trim();
-    const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(u);
-    if (scheme) return ['http', 'https', 'mailto', 'tel'].includes(scheme[1].toLowerCase());
-    return !u.startsWith('//'); // relativi/anchor/assoluti ok; blocca i protocol-relative
-}
-
-function isSafeImageUrl(url: string): boolean {
-    const u = url.trim();
-    if (/^data:image\//i.test(u)) return true;
-    const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(u);
-    if (scheme) return ['http', 'https'].includes(scheme[1].toLowerCase());
-    return !u.startsWith('//');
-}
+import { isSafeLinkUrl, isSafeImageUrl } from './markdown-url-safety';
 
 /** Renderer sicuro: blocca l'HTML grezzo (renderer.html) e neutralizza gli URL non sicuri
  *  (javascript:, data:, vbscript:, protocol-relative…) nei link e nelle immagini. */

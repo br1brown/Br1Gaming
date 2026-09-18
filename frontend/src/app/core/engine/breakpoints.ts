@@ -23,3 +23,12 @@ function bpMdPx(): number {
 export function isDesktopViewport(): boolean {
     return window.matchMedia(`(min-width: ${bpMdPx()}px)`).matches;
 }
+
+/** True se il dispositivo ha un puntatore capace di hover reale (mouse/trackpad), false per un
+ *  touchscreen puro. `isDesktopViewport()` guarda solo la LARGHEZZA: un tablet o laptop touch
+ *  può riportare `>= md` px senza avere hover reale — chi apre un pannello su `:hover` via CSS
+ *  ha bisogno di questo per sapere quando serve un fallback al tap. Solo browser, stessa regola
+ *  di `isDesktopViewport()`. */
+export function supportsHover(): boolean {
+    return window.matchMedia('(hover: hover)').matches;
+}

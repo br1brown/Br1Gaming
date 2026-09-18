@@ -1,4 +1,4 @@
-<div class="image-lightbox" role="dialog" aria-modal="true" [attr.aria-label]="dialogLabel()">
+<div class="image-lightbox" role="dialog" aria-modal="true" [attr.aria-label]="dialogLabel()" cdkTrapFocus>
     <button #closeBtn type="button" class="image-lightbox-close"
             [attr.aria-label]="'chiudiAzione' | translate"
             (click)="closeRequested.emit()">

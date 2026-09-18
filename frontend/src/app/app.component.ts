@@ -5,9 +5,10 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter, skip } from 'rxjs';
 
 import { ContestoSito } from './site';
-import { ShellFlags, SHELL_DATA_KEY } from './core/engine/siteBuilder';
+import { RouteChrome, CHROME_DATA_KEY } from './core/engine/siteBuilder';
+import { CONTENT_WIDTH_CLASSES } from './core/engine/design-system-presets';
 import { onNavigationEnd } from './core/engine/routing';
-import { ThemeService } from './core/engine/services/theme.service';
+import { AppearanceService } from './core/engine/services/appearance.service';
 import { FooterComponent } from './core/engine/components/footer/footer.component';
 import { NavbarComponent } from './core/engine/components/navbar/navbar.component';
 import { SmokeEffectComponent } from './core/engine/components/smoke-effect/smoke-effect.component';
@@ -20,16 +21,18 @@ import { WebVitalsService } from './core/engine/services/web-vitals.service';
 import { TranslatePipe } from './core/engine/pipes/translate.pipe';
 
 /**
- * Chiave TransferState dei flag di shell. L'SSR serializza i flag della rotta RISOLTA; il client
- * li rilegge come valore iniziale del signal, così il primo render combacia con l'HTML SSR
+ * Chiave TransferState della chrome risolta. L'SSR serializza la chrome della rotta RISOLTA; il
+ * client la rilegge come valore iniziale del signal, così il primo render combacia con l'HTML SSR
  * (no flash navbar/pannello) SENZA dipendere dal timing della prima navigazione del router.
  * Riusa la stessa stringa della chiave in `route.data`: è la stessa cosa logica, due canali diversi.
  */
-const SHELL_FLAGS_STATE_KEY = makeStateKey<ShellFlags>(SHELL_DATA_KEY);
+const ROUTE_CHROME_STATE_KEY = makeStateKey<RouteChrome>(CHROME_DATA_KEY);
 
 /**
- * Shell principale dell'app: non decide quali pagine esistono, consuma le route già trasformate e
- * reagisce ai flag di shell della pagina attiva (showPanel, showNav, showFooter).
+ * Shell principale dell'app (nel senso architetturale di "app shell": il contenitore radice che
+ * avvolge `<router-outlet>`): non decide quali pagine esistono, consuma le route già trasformate e
+ * reagisce alla chrome risolta della pagina attiva (showPanel, showNav, showFooter) — al 100%
+ * decisa dal design system attivo, vedi `RouteChrome` in `siteBuilder.ts`.
  */
 @Component({
     selector: 'app-root',
@@ -42,51 +45,62 @@ const SHELL_FLAGS_STATE_KEY = makeStateKey<ShellFlags>(SHELL_DATA_KEY);
 export class AppComponent {
     private readonly platformId = inject(PLATFORM_ID);
     private readonly transferState = inject(TransferState);
-    readonly theme = inject(ThemeService);
+    readonly theme = inject(AppearanceService);
     readonly pageMeta = inject(PageMetaService);
 
     readonly smoke = ContestoSito.config.smoke;
 
+    /** Classi Bootstrap della colonna contenuti (breadcrumb-row/pannello), decise dal design
+     *  system attivo — `DesignSystemPreset.contentWidth` (default `'ampio'`, il comportamento
+     *  storico). Vedi `CONTENT_WIDTH_CLASSES` in `design-system-presets.ts`. */
+    readonly contentWidthClass = CONTENT_WIDTH_CLASSES[ContestoSito.config.contentWidth];
+
     /**
-     * Flag di shell della rotta attiva (`route.data[SHELL_DATA_KEY]`, scritto da routing.ts).
-     * `initialValue` = flag serializzati dall'SSR (TransferState): il primo render client usa gli
+     * Chrome risolta della rotta attiva (`route.data[CHROME_DATA_KEY]`, scritto da routing.ts).
+     * `initialValue` = chrome serializzata dall'SSR (TransferState): il primo render client usa gli
      * stessi flag dell'HTML SSR → niente sfarfallio prima del primo NavigationEnd. Poi si aggiorna a
      * ogni navigazione; senza SSR → `{}` → default.
      */
-    private readonly shellFlags = onNavigationEnd(
-        router => (PageMetaService.getLeaf(router.routerState.snapshot).data[SHELL_DATA_KEY] ?? {}) as ShellFlags,
-        this.transferState.get(SHELL_FLAGS_STATE_KEY, {} as ShellFlags)
+    private readonly routeChrome = onNavigationEnd(
+        router => (PageMetaService.getLeaf(router.routerState.snapshot).data[CHROME_DATA_KEY] ?? {}) as RouteChrome,
+        this.transferState.get(ROUTE_CHROME_STATE_KEY, {} as RouteChrome)
     );
 
-    // Subordinato al globale (come showNav/showFooter): se site.ts spegne shell.showPanel,
-    // nessuna pagina può riaccenderlo col proprio layout.showPanel.
-    readonly showPanel = computed(() => ContestoSito.config.showPanel && (this.shellFlags().showPanel ?? true));
+    // Il ruolo vince SEMPRE sul default globale del design system, in entrambe le direzioni — non
+    // solo per "spegnere". Un ruolo esplicito (`ruoloPagina.<ruolo>.showPanel`) sovrascrive anche un
+    // default globale opposto (implicito in `DesignSystemPreset.superfici`, mai un campo showPanel a
+    // parte — vedi `siteBuilder.ts`): sono lo stesso autore (il design system), non ha senso che il
+    // globale blocchi il ruolo. Ruolo non mappato → default globale.
+    readonly showPanel = computed(() => this.routeChrome().showPanel ?? ContestoSito.config.showPanel);
 
-    // Vista full-bleed della pagina attiva (flag layout.fitViewport): lo shell rende il
-    // <main> senza container/padding e senza pannello, e .fit-viewport (base.scss) fa
-    // riempire l'altezza al contenuto. Quando attivo prevale su showPanel.
-    readonly fitViewport = computed(() => this.shellFlags().fitViewport ?? false);
+    // Vista full-bleed del ruolo della pagina attiva (SpecRuoloPagina.fitViewport, deciso dal design
+    // system attivo): lo shell rende il <main> senza container/padding e senza pannello, e
+    // .fit-viewport (base.scss) fa riempire l'altezza al contenuto. Quando attivo prevale su
+    // showPanel.
+    readonly fitViewport = computed(() => this.routeChrome().fitViewport ?? false);
 
-    // I flag di pagina sono subordinati al globale (come showNav/footer in global-settings.json):
-    // se globalmente off, nessuna pagina può riattivarli.
-    readonly showNavbar = computed(() => ContestoSito.config.showNav && (this.shellFlags().showNav ?? true));
+    // Stesso principio di showPanel sopra: il ruolo vince sempre, in entrambe le direzioni.
+    readonly showNavbar = computed(() => this.routeChrome().showNav ?? ContestoSito.config.showNav);
 
-    readonly showFooter = computed(() => ContestoSito.config.showFooter && (this.shellFlags().showFooter ?? true));
+    readonly showFooter = computed(() => this.routeChrome().showFooter ?? ContestoSito.config.showFooter);
 
-    // Subordinato al globale (come showNav/showFooter): se site.ts spegne shell.showBreadcrumb,
-    // nessuna pagina può riaccenderlo col proprio layout.showBreadcrumb. Se acceso, la pagina può
-    // forzarlo esplicitamente in entrambe le direzioni; in sua assenza (`null`) il breadcrumb
-    // applica da solo il proprio default intelligente (vedi BreadcrumbComponent).
+    // Stesso principio di showPanel sopra: il ruolo vince sempre. Passato a NavbarComponent — QUALE
+    // icona resta ShellNavService.brandIcon (dato, non chrome), risolto da NavbarComponent stessa.
+    readonly showBrandIcon = computed(() => this.routeChrome().showBrandIcon ?? ContestoSito.config.showBrandIcon);
+
+    // Stesso principio: il ruolo vince sempre. In sua assenza, `null` (default globale acceso) fa
+    // scattare l'euristica intelligente del breadcrumb (vedi BreadcrumbComponent); `false` (default
+    // globale spento) lo nasconde senza euristica.
     readonly breadcrumbOverride = computed(() =>
-        ContestoSito.config.showBreadcrumb && (this.shellFlags().showBreadcrumb ?? null));
+        this.routeChrome().showBreadcrumb ?? (ContestoSito.config.showBreadcrumb ? null : false));
 
-    // `smoke.enable` (globale) fa da gate primario.
-    // Il flag di pagina `showSmoke` vince sul default (pannello sì, full-bleed no), 
-    // permettendo eccezioni (es. forzare lo smoke su una rotta full-bleed).
+    // `smoke.enable` (globale, design system) fa da gate primario, senza eccezioni per ruolo.
+    // Il `ruoloPagina.showSmoke` del ruolo attivo vince sul default intelligente (pannello sì,
+    // full-bleed no), permettendo eccezioni (es. forzare lo smoke su un ruolo full-bleed).
     // Nota: prefers-reduced-motion è delegata internamente allo SmokeEffectComponent per non rompere l'idratazione.
     readonly showSmoke = computed(() =>
         this.smoke.enable &&
-        (this.shellFlags().showSmoke ?? (this.showPanel() && !this.fitViewport()))
+        (this.routeChrome().showSmoke ?? (this.showPanel() && !this.fitViewport()))
     );
 
     constructor() {
@@ -94,7 +108,7 @@ export class AppComponent {
         // L'effect riscrive ad ogni cambio rotta; in SSR l'ultimo valore prima della serializzazione
         // è quello della pagina richiesta. Solo server: nel browser sarebbe inutile.
         if (isPlatformServer(this.platformId)) {
-            effect(() => this.transferState.set(SHELL_FLAGS_STATE_KEY, this.shellFlags()));
+            effect(() => this.transferState.set(ROUTE_CHROME_STATE_KEY, this.routeChrome()));
         }
 
         inject(VersionCheckService).init();

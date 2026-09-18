@@ -35,7 +35,8 @@ import '@angular/compiler';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'fs';
 import { join } from 'path';
 import { ContestoSito } from '../../../../site';
-import { ThemeService } from '../../services/theme.service';
+import { AppearanceService } from '../../services/appearance.service';
+import { MUTEZZA_SECONDARIO_FATTORE, SEPARAZIONE_SUPERFICI_FATTORE } from '../../design-system-presets';
 import { fingerprintIdentitySections } from '../config/config-fingerprint';
 import { deepMergeSettings } from '../config/settings-merge';
 import { getLastModifiedDate } from '../config/last-modified';
@@ -105,24 +106,42 @@ const _settings = readProjectSettings();
 const CONFIG_FINGERPRINT = fingerprintIdentitySections(_settings);
 const _fileLoc = _settings.Localization ?? {};
 const _fileProject = _settings.project ?? {};
-// Config di sito: solo identità/estetica finisce in environment.ts. I flag di
-// COMPORTAMENTO (showNav/showFooter/showPanel/fixedTopHeader/
-// showLoginInHeader/showNotifications/panelForcedLight/isWebApp/onlyPlainImage) sono migrati in site.ts,
-// quindi vengono filtrati via qui anche se un vecchio JSON li contiene ancora. L'icona di brand non
-// è più tra questi: è dato runtime risolto da ShellNavResolver.brandIcon in nav.ts (shell-nav.ts).
+// Config di sito: solo identità MINIMA finisce in environment.ts. Tutto ciò che è
+// aspetto/comportamento (showNav/showFooter/showPanel/fixedTopHeader/showLoginInHeader/
+// showNotifications/panelSurface/forceThemeTone/designSystem/isWebApp/ogImagePlain, i quattro
+// override colore, l'effetto smoke) è migrato in site.ts (struttura o `DesignSystemPreset`), quindi
+// viene filtrato via qui anche se un vecchio JSON lo contiene ancora. L'icona di brand non è più
+// tra questi: è dato runtime risolto da ShellNavResolver.brandIcon in nav.ts (shell-nav.ts).
 const SITE_CONFIG = _settings.site ?? {};
-const SITE_AESTHETIC_KEYS = ['description', 'colorTema', 'colorSecondary', 'colorBackground', 'colorText', 'colorInfo', 'smoke'];
+const SITE_AESTHETIC_KEYS = ['description', 'colorTema'];
 
 // Identità dell'app — fonte unica: project.name / project.version.
 const APP_NAME = _fileProject.name || 'App';
 const APP_VERSION = _fileProject.version || '1.0.0';
 const COLOR_TEMA = SITE_CONFIG.colorTema ?? '#888888';
+// Gli override colore non vivono più nel JSON: sono una proposta del design system attivo
+// (shell.designSystem in site.ts, DesignSystemPreset.colorSecondary/... nell'Engine o in
+// un'estensione di dominio). Leggerli da ContestoSito.config è corretto qui (a differenza di
+// COLOR_TEMA/SITE_CONFIG sopra, che vengono da global-settings.json e che QUESTO script stesso
+// rigenera in environment.ts più sotto): site.ts non passa da environment.ts, quindi non c'è alcun
+// problema di staleness — ContestoSito legge site.ts così com'è ora, non una versione precedente.
+// Stesso ragionamento di FORCE_THEME_TONE subito sotto. Stesso set di campi di
+// AppearanceService._overrides (client)/app.config.server.ts/og-preview.ts — le quattro fonti che
+// calcolano una palette devono leggere esattamente lo stesso design system, altrimenti
+// manifest/SSR/preview social/runtime potrebbero disegnare colori diversi per lo stesso sito.
 const COLOR_OVERRIDES = {
-    secondary: SITE_CONFIG.colorSecondary,
-    background: SITE_CONFIG.colorBackground,
-    text: SITE_CONFIG.colorText,
-    info: SITE_CONFIG.colorInfo,
+    secondary: ContestoSito.config.colorSecondary,
+    background: ContestoSito.config.colorBackground,
+    text: ContestoSito.config.colorText,
+    info: ContestoSito.config.colorInfo,
+    customPalette: ContestoSito.config.customPalette,
+    backgroundVividness: ContestoSito.config.backgroundVividness,
+    mutezzaSecondarioFattore: MUTEZZA_SECONDARIO_FATTORE[ContestoSito.config.mutezzaSecondario],
+    separazioneSuperficiFattore: SEPARAZIONE_SUPERFICI_FATTORE[ContestoSito.config.separazioneSuperfici],
 };
+// Tono forzato — GIÀ risolto da siteBuilder.ts (shell.forceThemeTone in site.ts, diretto o via un
+// shell.designSystem che lo preveda).
+const FORCE_THEME_TONE: 'light' | 'dark' | undefined = ContestoSito.config.forceThemeTone;
 
 // PWA on/off — fonte unica: ContestoSito.config.isWebApp (site.ts). Guida la generazione
 // dei TRIGGER di installabilità: il manifest e, in index.html, <link rel="manifest"> più i
@@ -207,6 +226,8 @@ function escapeRegex(value: string): string {
  *  script Node standalone, non un contesto Angular: importare il service trascinerebbe l'intero
  *  DI framework per una costante statica. */
 const RTL_LANGUAGES = new Set(['ar', 'he', 'fa', 'ur', 'ps', 'sd', 'yi', 'dv', 'ckb']);
+// Unica fonte per <html dir> e manifest.webmanifest["dir"]: stessa lingua, stesso verso.
+const DIR = RTL_LANGUAGES.has(DEFAULT_LANG) ? 'rtl' : 'ltr';
 
 function toOpenGraphLocale(lang: string): string {
     try {
@@ -250,7 +271,6 @@ function updateIndexHtml(): void {
     const appName = escapeHtml(APP_NAME);
     const description = escapeHtml(DESCRIPTION);
     const lang = escapeHtml(DEFAULT_LANG);
-    const dir = RTL_LANGUAGES.has(DEFAULT_LANG) ? 'rtl' : 'ltr';
     const ogLocale = escapeHtml(toOpenGraphLocale(DEFAULT_LANG));
     // 'default' è sicuro per qualsiasi tema: apple-mobile-web-app-status-bar-style
     // non supporta media queries e non può adattarsi all'OS preference a runtime.
@@ -259,7 +279,7 @@ function updateIndexHtml(): void {
     let html = readFileSync(INDEX, 'utf8');
 
     // Regex flessibile: matcha <html> con qualsiasi combinazione di attributi, riscrive solo lang.
-    html = replaceTag(html, /<html\b[^>]*>/, `<html lang="${lang}" dir="${dir}">`, '<html lang>');
+    html = replaceTag(html, /<html\b[^>]*>/, `<html lang="${lang}" dir="${DIR}">`, '<html lang>');
     html = replaceTag(html, /<title>[^<]*<\/title>/, `<title>${appName}</title>`, '<title>');
 
     const defaultImageUrl = `${BASE_URL}/icons/icon-512x512.png`;
@@ -297,18 +317,6 @@ function updateIndexHtml(): void {
 export interface AppSiteConfig {
     description?: Record<string, string>;
     colorTema?: string;
-    colorSecondary?: string;
-    colorBackground?: string;
-    colorText?: string;
-    colorInfo?: string;
-    smoke?: {
-        enable?: boolean;
-        color?: string;
-        opacity?: number;
-        maximumVelocity?: number;
-        particleRadius?: number;
-        density?: number;
-    };
 }
 
 export interface AppEnvironment {
@@ -347,6 +355,17 @@ export const environment: AppEnvironment = {
         '<link rel="icon">'
     );
 
+    // Apple Touch Icon: SEMPRE presente, indipendentemente da IS_WEBAPP. "Aggiungi a Home"
+    // su iOS/Safari funziona anche senza manifest/Service Worker — un sito non-PWA con questo
+    // link ottiene comunque un'icona vera in home invece del placeholder (screenshot della
+    // pagina) che Safari userebbe altrimenti.
+    html = replaceTag(
+        html,
+        /<link rel="apple-touch-icon"[^>]*>/,
+        '<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180x180.png">',
+        '<link rel="apple-touch-icon">'
+    );
+
     // theme-init.js DEVE essere referenziato con path ASSOLUTO: lo <script> sta prima
     // di <base href>, quindi un path relativo risolverebbe contro la rotta corrente
     // (es. /sezione/theme-init.js → 404) sulle pagine annidate. Forzato qui così è
@@ -370,7 +389,6 @@ export const environment: AppEnvironment = {
             '<meta name="mobile-web-app-capable" content="yes">',
             `<meta name="apple-mobile-web-app-status-bar-style" content="${iosStatusBar}">`,
             `<meta name="apple-mobile-web-app-title" content="${appName}">`,
-            '<link rel="apple-touch-icon" href="icons/icon-512x512.png">',
             '<link rel="manifest" href="manifest.webmanifest">',
         ].join('\n    ') + '\n    '
         : '';
@@ -403,18 +421,30 @@ function updateManifest(): void {
         return;
     }
 
-    const palette = ThemeService.computePalette(COLOR_TEMA, COLOR_OVERRIDES);
+    const palette = AppearanceService.computePalette(COLOR_TEMA, COLOR_OVERRIDES);
 
     const manifest: Record<string, unknown> = {
         name: APP_NAME,
         short_name: APP_NAME,
+        // Relativo come scope/start_url (mai un percorso assoluto hardcoded: questo è un
+        // template con N progetti figli, ognuno sul proprio dominio — un valore calcolato
+        // sulla stessa base di start_url resta corretto qualunque sia il deployment di quel
+        // figlio, un "/" fisso assumerebbe sempre "radice del dominio"). Risolve oggi allo
+        // stesso URL di start_url (spec: id assente ricade su start_url), ma dichiararlo
+        // esplicito fissa l'identità dell'app: un domani start_url guadagnasse un query
+        // param (es. tracking sorgente installazione) l'identità installata non cambierebbe.
+        id: "./",
         description: DESCRIPTION,
         lang: DEFAULT_LANG,
+        dir: DIR,
         theme_color: palette.colorPrimary,
-        background_color: palette.naturalTone === 'light' ? palette.colorBaseLt : palette.colorBaseDk,
+        background_color: (FORCE_THEME_TONE ?? palette.naturalTone) === 'light' ? palette.colorBaseLt : palette.colorBaseDk,
         display: "standalone",
         scope: "./",
         start_url: "./",
+        // `any` e `maskable` sono DUE file/entry separate (mai un solo "purpose": "any maskable"
+        // combinato): un'icona maskable ha già il suo padding di sicurezza, quindi usata anche
+        // come `any` apparirebbe più piccola del dovuto fuori da un contesto di masking adattivo.
         icons: [
             {
                 src: "icons/icon-192x192.png",
@@ -426,7 +456,13 @@ function updateManifest(): void {
                 src: "icons/icon-512x512.png",
                 sizes: "512x512",
                 type: "image/png",
-                purpose: "any maskable"
+                purpose: "any"
+            },
+            {
+                src: "icons/icon-512x512-maskable.png",
+                sizes: "512x512",
+                type: "image/png",
+                purpose: "maskable"
             }
         ],
         version: APP_VERSION
@@ -463,7 +499,16 @@ function updateThemeInit(): void {
     // script-src 'self' nella CSP, quindi non serve né hash né nonce. È un asset statico
     // servito da express.static: va materializzato qui perché public/ è gitignored,
     // altrimenti mancherebbe su un checkout/build pulito (404 + MIME error a ogni full load).
-    const script = `(function () {
+    // Tono forzato (shell.forceThemeTone in site.ts): valore baked-in, niente matchMedia — nessun ascolto di
+    // prefers-color-scheme da rimuovere in seguito, lo script è già deterministico dal boot.
+    const script = FORCE_THEME_TONE
+        ? `(function () {
+    var el = document.documentElement;
+    el.setAttribute('data-bs-theme', '${FORCE_THEME_TONE}');
+    el.setAttribute('data-theme-tone', '${FORCE_THEME_TONE}');
+}());
+`
+        : `(function () {
     var t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     var el = document.documentElement;
     el.setAttribute('data-bs-theme', t);

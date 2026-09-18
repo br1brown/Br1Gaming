@@ -1,6 +1,6 @@
 // lib — strumenti Sass condivisi dai partial dell'Engine. Nessun output CSS:
 // solo @function / @mixin / variabili. La palette resta in custom properties
-// CSS iniettate a runtime da ThemeService (vedi base/_tokens.scss): qui sotto
+// CSS iniettate a runtime da AppearanceService (vedi base/_tokens.scss): qui sotto
 // si compone soltanto il "cablaggio" build-time attorno a quei token.
 
 @use 'sass:string';
@@ -27,7 +27,7 @@ $bp-md: 768px;
     // (`a { color: rgba(var(--bs-link-color-rgb), ...) }`) e per il loro hover
     // (`a:hover { --bs-link-color-rgb: var(--bs-link-hover-color-rgb) }`), non le hex sopra —
     // senza questo ponte, un subtheme [data-bs-theme] nidificato (pannello forzato, navbar)
-    // ricadeva sul blu di stock di Bootstrap invece del brand. Vedi ThemeService._applyPalette.
+    // ricadeva sul blu di stock di Bootstrap invece del brand. Vedi AppearanceService._applyPalette.
     --bs-link-color-rgb:       var(--colorLinkRgb#{$s});
     --bs-link-hover-color-rgb: var(--colorLinkHoverRgb#{$s});
     --focusRingColor:         var(--colorLink#{$s});

@@ -78,6 +78,7 @@
   "socialDesc": "Pagina dedicata ai social",
   "settingsDesc": "Gestisci le tue preferenze e impostazioni",
   "githubDesc": "Guarda il codice sorgente su GitHub",
+  "footerProgettoAzienda": "Progetto",
   "usageCodeLabel": "Utilizzo",
   "resetAction": "Reset",
   "qrCodeTitle": "QR Code",
@@ -120,5 +121,6 @@
   "youtubeCta": "Guardaci su YouTube",
   "socialNav": "Social",
   "impostazioniNav": "Impostazioni",
-  "sorgentiProgettoNav": "Sorgenti progetto"
+  "sorgentiProgettoNav": "Sorgenti progetto",
+  "loginUsernameObbligatorio": "Il nome utente è obbligatorio."
 }

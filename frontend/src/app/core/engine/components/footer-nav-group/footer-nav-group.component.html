@@ -5,12 +5,49 @@
         <span class="small fw-semibold d-block mb-1 footer-subgroup-title">{{ group().label | translate }}</span>
     }
     <ul class="list-unstyled mb-0">
-        @for (child of group().children; track navLinkKey(child)) {
-            <li>
-                @if (isGroup(child)) {
-                    <app-footer-nav-group [group]="child" [level]="level() + 1" />
-                } @else {
-                    <app-nav-link [link]="child" cssClass="d-block small py-2" />
+        @for (child of group().children; track footerLeafKey(child)) {
+            <li class="my-1">
+                @switch (child.kind) {
+                    @case ('group') {
+                        <app-footer-nav-group [group]="child" [level]="level() + 1" [class]="child.itemClass" />
+                    }
+                    @case ('link') {
+                        <app-nav-link [link]="child" cssClass="d-block small py-2" [class]="child.itemClass" />
+                    }
+                    @case ('value') {
+                        <span [class]="child.itemClass">
+                            @if (child.label) { <span>{{ child.label | translate }}:</span>&nbsp; }
+                            @switch (child.itemKind) {
+                                @case ('code') {
+                                    <span class="badge rounded-pill border bg-body-secondary text-body font-monospace fw-normal">{{ child.value }}</span>
+                                }
+                                @case ('badge') {
+                                    <!-- Badge "surface" (bg-body): garantisce contrasto rispetto al footer scuro (Non-text Contrast).
+                                         Uso text-*-emphasis invece di text-* standard perché Bootstrap calcola
+                                         le varianti emphasis apposta per garantire 4.5:1 (WCAG AA) su sfondi body/subtle. -->
+                                    <span class="badge rounded-pill border bg-body"
+                                          [class.border-success]="child.tone === 'success'" [class.text-success-emphasis]="child.tone === 'success'"
+                                          [class.border-secondary]="child.tone === 'secondary'" [class.text-body-emphasis]="child.tone === 'secondary'"
+                                          [class.border-warning]="child.tone === 'warning'" [class.text-warning-emphasis]="child.tone === 'warning'"
+                                          [class.border-danger]="child.tone === 'danger'" [class.text-danger-emphasis]="child.tone === 'danger'"
+                                          [class.border-info]="child.tone === 'info'" [class.text-info-emphasis]="child.tone === 'info'"
+                                          [class.border-primary]="child.tone === 'primary'" [class.text-primary-emphasis]="child.tone === 'primary'">{{ child.value }}</span>
+                                }
+                                @default { <strong>{{ child.value }}</strong> }
+                            }
+                        </span>
+                    }
+                    @case ('hours') {
+                        <app-opening-hours [hours]="child.hours" [label]="child.label | translate" [accordion]="true" [class]="child.itemClass" />
+                    }
+                    @case ('social') {
+                        <app-social-link [value]="child.url" [label]="child.label ?? ''" [showLabel]="true" [class]="child.itemClass" />
+                    }
+                    @case ('custom') {
+                        <span [class]="child.itemClass">
+                            <ng-container *ngComponentOutlet="child.component; inputs: child.inputs ?? {}" />
+                        </span>
+                    }
                 }
             </li>
         }

@@ -6,7 +6,7 @@
         (click)="toggle()">
     <i class="fa-solid fa-bell" aria-hidden="true"></i>
     @if (unread() > 0) {
-    <span class="notification-bell-badge" aria-hidden="true">{{ unread() }}</span>
+    <span class="notification-bell-badge" [class.notification-bell-badge--dot]="!badgeNumero" aria-hidden="true">{{ badgeNumero ? unread() : '' }}</span>
     }
 </button>
 

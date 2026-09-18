@@ -10,7 +10,7 @@ import { provideServiceWorker } from '@angular/service-worker';
 import { provideRouter, withComponentInputBinding, withInMemoryScrolling, withViewTransitions } from '@angular/router';
 import { routes } from './core/engine/routing';
 import { AuthService } from './core/services/auth.service';
-import { ThemeService } from './core/engine/services/theme.service';
+import { AppearanceService } from './core/engine/services/appearance.service';
 import { TranslateService } from './core/engine/services/translate.service';
 import { SSR_API_PREFIX } from './core/engine/services/base-api.service';
 import { apiErrorInterceptor } from './core/engine/interceptors/api-error.interceptor';
@@ -62,9 +62,9 @@ export const appConfig: ApplicationConfig = {
             const authService = inject(AuthService);
             // inject() PRIMA di ogni await: dopo il primo, l'injection context non è più garantito.
             const shellNavService = inject(ShellNavService);
-            // Istanzia ThemeService subito così il listener prefersReducedMotion
+            // Istanzia AppearanceService subito così il listener prefersReducedMotion
             // è attivo prima che i componenti inizino a leggerne il signal.
-            inject(ThemeService);
+            inject(AppearanceService);
 
             // I titoli delle pagine nelle route sono chiavi di traduzione
             // La lingua iniziale va quindi caricata prima che l'app cominci a usarli

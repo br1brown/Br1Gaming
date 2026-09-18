@@ -8,7 +8,7 @@ import {
 import { FormsModule } from '@angular/forms';
 import { MarkdownPipe } from '../../core/engine/pipes/markdown.pipe';
 import { ShareResult, ShareService, shareResultNotice } from '../../core/engine/services/share.service';
-import { ThemeService } from '../../core/engine/services/theme.service';
+import { AppearanceService } from '../../core/engine/services/appearance.service';
 import { QrConfig } from '../../core/engine/services/qr-code.service';
 import { AuthService } from '../../core/services/auth.service';
 
@@ -66,7 +66,7 @@ import { UploadFormComponent } from '../../core/engine/components/upload-form/up
     templateUrl: './che-faccio.component.html',
 })
 export class CheFaccioComponent extends PageBaseComponent<void> {
-    readonly theme = inject(ThemeService);
+    readonly theme = inject(AppearanceService);
     readonly share = inject(ShareService);
     readonly appName = ContestoSito.config.appName;
     readonly auth = inject(AuthService);

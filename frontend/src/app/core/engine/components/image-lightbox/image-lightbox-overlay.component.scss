@@ -1,10 +1,12 @@
 /* Backdrop/posizionamento/z-index sono di CDK Overlay (vedi AssetDirective): qui solo l'aspetto. */
+/* Durata decisa dal design system attivo (`DesignSystemPreset.movimento`, default 'svelto' —
+   0.15s qui sotto resta il fallback, vedi AppearanceService). */
 .image-lightbox {
     position: relative;
     display: flex;
     max-width: 92vw;
     max-height: 92vh;
-    animation: lightbox-fade-in 0.15s ease;
+    animation: lightbox-fade-in var(--movimentoPannello, 0.15s) ease;
 }
 
 @keyframes lightbox-fade-in {
@@ -49,4 +51,14 @@
 
 .image-lightbox-close:focus-visible {
     box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .image-lightbox {
+        animation: none;
+    }
+
+    .image-lightbox-close {
+        transition: none;
+    }
 }

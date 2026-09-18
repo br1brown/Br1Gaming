@@ -2,7 +2,7 @@ import { Component, ElementRef, PLATFORM_ID, computed, inject, input, output, si
 import { isPlatformBrowser } from '@angular/common';
 import { Router } from '@angular/router';
 import { injectCurrentUrl } from '../../routing';
-import { isDesktopViewport } from '../../breakpoints';
+import { isDesktopViewport, supportsHover } from '../../breakpoints';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { NavLinkComponent } from '../nav-link/nav-link.component';
 import { NavLink, isNavGroup, navLinkKey } from '../../shell-nav';
@@ -63,11 +63,15 @@ export class NavSubmenuComponent {
                 }));
     }
 
-    /** Apertura/chiusura dell'accordion mobile; su desktop il pannello è guidato da hover/focus. */
+    /** Apertura/chiusura dell'accordion mobile. Su desktop con hover reale il pannello è già
+     *  guidato da :hover/:focus-within (CSS) — qui sarebbe un no-op visibile identico. Su un
+     *  touchscreen che riporta >= md di larghezza (tablet, laptop touch) non c'è hover reale:
+     *  senza questo fallback il tap non apriva nulla e il gruppo restava irraggiungibile. */
     toggle(): void {
-        if (this.isBrowser && !isDesktopViewport()) {
-            this.expanded.update(v => !v);
-        }
+        if (!this.isBrowser || (isDesktopViewport() && supportsHover())) return;
+        const nowOpen = !this.expanded();
+        this.expanded.set(nowOpen);
+        if (nowOpen && isDesktopViewport()) this.updateFlip();
     }
 
     onLinkClick(): void {

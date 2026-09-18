@@ -152,7 +152,7 @@ export class PageMetaService {
             if (imgId?.blobGuid) payload['blobGuid'] = imgId.blobGuid;
             else if (imgId?.id) payload['id'] = imgId.id;
             const hasImage = !!(imgId?.blobGuid || imgId?.id);
-            if (ContestoSito.config.onlyPlainImage) payload['onlyImage'] = 'true';
+            if (ContestoSito.config.ogImagePlain) payload['plain'] = 'true';
             const blob = this.encryptFn(payload);
             imageUrl = `${origin}${CdnCgi.preview}?p=${blob}`;
             this.meta.updateTag({ property: 'og:image', content: imageUrl });

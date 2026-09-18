@@ -1,8 +1,8 @@
 import { Injectable, inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { ThemeService } from './theme.service';
-import { WEB_FONTS } from '../font-system';
-import { resolvedFonts } from '../../../../styles/font-config';
+import { AppearanceService } from './appearance.service';
+import { SystemFont, systemFontWebStack } from '../font-system';
+import { ContestoSito } from '../../../site';
 
 /** Servizio di generazione immagini PNG/SVG a partire da testo (supporto browser e SSR). */
 
@@ -21,8 +21,8 @@ export interface ImgBuildOptions {
     textColor?: string;
     /** Dimensione del font in pixel. Default: 40. */
     fontSize?: number;
-    /** Chiave del font (es. 'Arial', 'Georgia'). Default: il font web risolto del sito. */
-    fontFamily?: keyof typeof WEB_FONTS;
+    /** Font di sistema (es. `SystemFont.Roboto`). Default: il font web risolto del sito (corpo). */
+    fontFamily?: SystemFont;
     /** Rapporto d'aspetto dell'immagine finale. Default: '4:3'. */
     ratio?: '4:3' | '16:9' | '1:1' | '9:16';
     /** Larghezza massima in pixel. Default: 1200. */
@@ -263,7 +263,7 @@ export type ImgBuildSpec =
 
 @Injectable({ providedIn: 'root' })
 export class ImgBuilderService {
-    private readonly theme = inject(ThemeService);
+    private readonly theme = inject(AppearanceService);
 
     /** Falso in SSR: buildCanvas lancia se chiamato fuori dal browser. */
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
@@ -289,18 +289,19 @@ export class ImgBuilderService {
         }
     }
 
-    /** Come `buildCanvas`, ma restituisce direttamente un Blob PNG (utile per download o
-     *  condivisione via Web Share API). */
+    /** Come `buildCanvas`, ma restituisce direttamente un Blob WebP (utile per download o
+     *  condivisione via Web Share API) — più leggero del PNG a parità di qualità visiva, supportato
+     *  da `canvas.toBlob` in tutti i browser rilevanti (incluso Safari/iOS dal 2020). */
     async buildBlob(spec: ImgBuildSpec): Promise<Blob | null> {
         const canvas = await this.buildCanvas(spec);
         if (!canvas) return null;
-        return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        return new Promise(resolve => canvas.toBlob(resolve, 'image/webp'));
     }
 
-    /** Come `buildCanvas`, ma restituisce direttamente un File PNG pronto per un FormData o upload. */
-    async buildFile(spec: ImgBuildSpec, filename = 'immagine.png'): Promise<File | null> {
+    /** Come `buildCanvas`, ma restituisce direttamente un File WebP pronto per un FormData o upload. */
+    async buildFile(spec: ImgBuildSpec, filename = 'immagine.webp'): Promise<File | null> {
         const blob = await this.buildBlob(spec);
-        return blob ? new File([blob], filename, { type: 'image/png' }) : null;
+        return blob ? new File([blob], filename, { type: 'image/webp' }) : null;
     }
 
     // ── Implementazioni per stile — private: sempre da buildCanvas/buildBlob/buildFile ─────────
@@ -344,7 +345,7 @@ export class ImgBuilderService {
         const bgColor = pillOpts.bgColor ?? this.roleColors(pillOpts.colorRole)[0];
         ImgBuilderService.drawImageBackground(ctx, baseImg, width, height, imgOpts, imgOpts.backdropColor ?? bgColor);
 
-        const fontFamily = pillOpts.fontFamily ?? resolvedFonts.webStack;
+        const fontFamily = pillOpts.fontFamily ?? ContestoSito.config.fonts.webStack;
         const measureFn = ImgBuilderService.canvasMeasureFn(ctx, fontFamily);
 
         const margin = pillOpts.margin ?? 24;
@@ -376,7 +377,7 @@ export class ImgBuilderService {
         const scrimColor = captionOpts.scrimColor ?? this.roleColors(captionOpts.colorRole)[0];
         ImgBuilderService.drawImageBackground(ctx, baseImg, width, height, imgOpts, imgOpts.backdropColor ?? scrimColor);
 
-        const fontFamily = captionOpts.fontFamily ?? resolvedFonts.webStack;
+        const fontFamily = captionOpts.fontFamily ?? ContestoSito.config.fonts.webStack;
         const measureFn = ImgBuilderService.canvasMeasureFn(ctx, fontFamily);
 
         const { svg } = ImgBuilderService.buildCaption({ ...captionOpts, canvasW: width, canvasH: height, scrimColor, fontFamily, measureFn });
@@ -402,7 +403,7 @@ export class ImgBuilderService {
     ): Promise<HTMLCanvasElement> {
         const width = imgOpts.width ?? 1200;
         const fontSize = captionOpts.fontSize ?? Math.round(width * 0.04);
-        const fontFamily = captionOpts.fontFamily ?? resolvedFonts.webStack;
+        const fontFamily = captionOpts.fontFamily ?? ContestoSito.config.fonts.webStack;
         const lineHeight = captionOpts.lineHeight ?? 1.3;
         const paddingH = captionOpts.paddingH ?? fontSize;
         const paddingV = captionOpts.paddingV ?? Math.round(fontSize * 0.6);
@@ -486,9 +487,9 @@ export class ImgBuilderService {
             bgColor: opts.bgColor ?? roleBg,
             textColor: opts.textColor ?? roleText,
             fontSize: opts.fontSize ?? 40,
-            // opts.fontFamily è una CHIAVE di WEB_FONTS: va risolta nello stack CSS reale,
-            // altrimenti il canvas riceve la chiave (es. "Times") invece del font stack.
-            fontFamily: opts.fontFamily ? WEB_FONTS[opts.fontFamily] : resolvedFonts.webStack,
+            // opts.fontFamily è una voce di SystemFont: va risolta nello stack CSS reale,
+            // altrimenti il canvas riceve la chiave (es. "Roboto") invece del font stack.
+            fontFamily: opts.fontFamily ? systemFontWebStack(opts.fontFamily) : ContestoSito.config.fonts.webStack,
             ratio: opts.ratio ?? '4:3',
             maxWidth: opts.maxWidth ?? 1000,
             lineHeight: opts.lineHeight ?? 1.4,
@@ -569,7 +570,7 @@ export class ImgBuilderService {
         const esc = ImgBuilderService.escapeXml;
         const fontSize = opts.fontSize ?? 40;
         const subtitleFontSize = opts.subtitleFontSize ?? Math.round(fontSize * 0.55);
-        const fontFamily = opts.fontFamily ?? resolvedFonts.webStack;
+        const fontFamily = opts.fontFamily ?? ContestoSito.config.fonts.webStack;
         const lineHeight = opts.lineHeight ?? 1.3;
         const maxLines = opts.maxLines ?? 3;
         const hPadL = opts.hPadL ?? Math.round(fontSize * this.PILL_PAD_H_RATIO);
@@ -646,7 +647,7 @@ export class ImgBuilderService {
         const fadeRatio = opts.fadeRatio ?? 0.12;
         const fontSize = opts.fontSize ?? Math.round(canvasH * 0.09);
         const subtitleFontSize = opts.subtitleFontSize ?? Math.round(fontSize * 0.55);
-        const fontFamily = opts.fontFamily ?? resolvedFonts.webStack;
+        const fontFamily = opts.fontFamily ?? ContestoSito.config.fonts.webStack;
         const lineHeight = opts.lineHeight ?? 1.3;
         const maxLines = opts.maxLines ?? this.MAX_CAPTION_LINES;
         const paddingH = opts.paddingH ?? fontSize;
@@ -851,19 +852,19 @@ export class ImgBuilderService {
             .replace(/'/g, '&apos;');
     }
 
-    /** Calcola il contrasto ottimale per il colore del testo (ThemeService). */
+    /** Calcola il contrasto ottimale per il colore del testo (AppearanceService). */
     static getReadableTextColor(bgHex: string): '#000000' | '#ffffff' {
-        return ThemeService.getReadableTextColor(bgHex);
+        return AppearanceService.getReadableTextColor(bgHex);
     }
 
     /** Rinforza il colore primario in OKLCH per garantire il contrasto target con il testo. */
     static strongFillColor(colorPrimary: string, targetContrast = 7): string {
-        const [L0, C, H] = ThemeService.hexToOklch(colorPrimary);
+        const [L0, C, H] = AppearanceService.hexToOklch(colorPrimary);
         for (let L = L0; L >= 0.02; L -= 0.005) {
-            const candidate = ThemeService.oklchToHex(L, C, H);
+            const candidate = AppearanceService.oklchToHex(L, C, H);
             const contrast = Math.max(
-                ThemeService.calcContrastRatio(candidate, '#000000'),
-                ThemeService.calcContrastRatio(candidate, '#ffffff'),
+                AppearanceService.calcContrastRatio(candidate, '#000000'),
+                AppearanceService.calcContrastRatio(candidate, '#ffffff'),
             );
             if (contrast >= targetContrast) return candidate;
         }
@@ -873,8 +874,8 @@ export class ImgBuilderService {
     /** Calcola un colore di testo attenuato preservando il contrasto minimo garantito. */
     static mutedTextColor(fgHex: string, bgHex: string, targetOpacity = 0.75, minContrast = 5.5): string {
         for (let opacity = targetOpacity; opacity <= 1; opacity += 0.05) {
-            const candidate = ThemeService.mixHexColors(fgHex, bgHex, 1 - opacity);
-            if (ThemeService.calcContrastRatio(candidate, bgHex) >= minContrast) return candidate;
+            const candidate = AppearanceService.mixHexColors(fgHex, bgHex, 1 - opacity);
+            if (AppearanceService.calcContrastRatio(candidate, bgHex) >= minContrast) return candidate;
         }
         return fgHex;
     }

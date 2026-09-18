@@ -1,7 +1,8 @@
-import { Injectable, OnDestroy, PLATFORM_ID, inject, DOCUMENT } from '@angular/core';
+import { Injectable, OnDestroy, PLATFORM_ID, inject, DOCUMENT, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { isPlatformBrowser } from '@angular/common';
 import { SwUpdate } from '@angular/service-worker';
-import { Subscription, filter } from 'rxjs';
+import { Subscription, filter, interval } from 'rxjs';
 import { NotificationService } from './notification.service';
 import { TranslateService } from './translate.service';
 import { CookieConsentService, isTechnicalOptionalConsentGiven } from './cookie-consent.service';
@@ -25,10 +26,10 @@ export class VersionCheckService implements OnDestroy {
     private readonly notify = inject(NotificationService);
     private readonly swUpdate = inject(SwUpdate);
     private readonly consent = inject(CookieConsentService);
+    private readonly destroyRef = inject(DestroyRef);
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
     private currentVersion: string | null = null;
-    private intervalId: ReturnType<typeof setInterval> | null = null;
     private swSub: Subscription | null = null;
     private updateShown = false;
 
@@ -39,7 +40,7 @@ export class VersionCheckService implements OnDestroy {
     init(): void {
         /**
          * SICUREZZA PER SSR (Server Side Rendering):
-         * setInterval crea una macrotask che impedirebbe ad Angular Universal di terminare
+         * un timer periodico crea una macrotask che impedirebbe ad Angular Universal di terminare
          * il rendering della pagina, causando il timeout del server.
          * Inoltre, il controllo versione ha senso solo nel client.
          */
@@ -57,9 +58,12 @@ export class VersionCheckService implements OnDestroy {
 
         if (!this.currentVersion) return;
 
-        // Zoneless: setInterval non innesca change detection (e check() aggiorna i signal,
-        // che la innescano da soli). Nessun wrapping NgZone necessario.
-        this.intervalId = setInterval(() => void this.check(), CHECK_INTERVAL_MS);
+        // Zoneless: l'observable non innesca change detection da solo (check() aggiorna i signal,
+        // che la innescano da soli). takeUntilDestroyed pulisce la sottoscrizione da sola, coerente
+        // con la subscription SwUpdate qui sotto — nessun timer/cleanup manuale da tracciare.
+        interval(CHECK_INTERVAL_MS)
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe(() => void this.check());
 
         // PWA: aggancia SwUpdate. Quando il SW finisce di scaricare una nuova
         // versione, emette VERSION_READY. Il polling sul manifest non funziona
@@ -141,11 +145,8 @@ export class VersionCheckService implements OnDestroy {
         }
     }
 
-    /** Pulizia del timer e della sottoscrizione SwUpdate alla distruzione. */
+    /** Pulizia della sottoscrizione SwUpdate alla distruzione (il polling si pulisce da solo via takeUntilDestroyed). */
     ngOnDestroy(): void {
-        if (this.intervalId !== null) {
-            clearInterval(this.intervalId);
-        }
         this.swSub?.unsubscribe();
     }
 }

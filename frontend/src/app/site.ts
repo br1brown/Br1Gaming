@@ -1,6 +1,7 @@
 import { buildSite } from './core/engine/siteBuilder';
 import { AppPages, appPagesDecl } from './pages/app.pages';
 import { LegalPages, legalPagesDecl } from './pages/policy/legal.pages';
+import { demoDesignSystem } from './components/shared/design-systems/demo.design-system';
 
 export type {
     SiteConfig,
@@ -17,8 +18,8 @@ export const PageType = {
 } as const;
 export type PageType = (typeof PageType)[keyof typeof PageType];
 
-// Struttura del sito: slot globali e pagine. Identita' ed estetica (nome, versione,
-// lingue, tema, smoke) vivono in global-settings.json.
+// Struttura del sito: slot globali e pagine. Identita' minima (nome, versione, lingue, colore
+// tema) vive in global-settings.json; tutta l'estetica (smoke incluso) è il design system attivo.
 // Riferimento completo dei campi: frontend/README.md §"Opzioni Avanzate di site.ts".
 export const ContestoSito = buildSite({
 
@@ -34,12 +35,12 @@ export const ContestoSito = buildSite({
     legalPages: legalPagesDecl,
     cookiePolicy: PageType.CookiePolicy,
 
-    // Comportamento di navbar/footer/header/pannello: solo gli scostamenti dal default (ogni
-    // flag omesso resta al proprio default, vedi SiteShellConfig in siteBuilder.ts).
+    // Comportamento di navbar/footer/header/pannello: il design system attivo decide tutto (navbar
+    // fissa/mostrata, breadcrumb, tono, pannello...) — vedi demo.design-system.ts (estende Carta).
+    // Il solo flag di sito vero e proprio rimasto in `shell` è showNotifications (qui al suo
+    // default, vedi SiteShellConfig in siteBuilder.ts).
     shell: {
-        fixedTopHeader: true, // default: false — qui la navbar resta fissa in alto allo scroll
-        showBreadcrumb: true, // default: false — demo: visibile ovunque per farlo esplorare subito
-        //showPanel: false
+        designSystem: demoDesignSystem,
     },
 
     isWebApp: true, // default: false — la demo mostra anche il lato PWA (Service Worker, install offline)

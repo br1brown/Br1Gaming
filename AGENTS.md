@@ -148,23 +148,74 @@ const s = JSON.parse(raw) as GlobalSettings;
 s.Localization?.SupportedLanguages   // tipizzato; `s.Localizaton` non compila
 ```
 
-#### Personalizzare tema (colori) e font
-Palette derivata in OKLCH da `site.colorTema` (contrasto WCAG garantito matematicamente): override opzionali `colorSecondary`/`colorBackground`/`colorText`/`colorInfo` per chi ha più di un colore da rispettare — un solo hex per campo copre light e dark. Font: catalogo/logica in `core/engine/font-system.ts` (Engine, non si tocca), scelta in `frontend/src/styles/font-config.ts` (Dominio, l'unico file da editare).
-```json
-// global-settings.json
-"site": { "colorTema": "#131e55", "colorSecondary": "#20c997", "colorBackground": "#f5f6fa" }
+#### Personalizzare il font
+Catalogo/logica in `core/engine/font-system.ts` (Engine, non si tocca), scelta nel design system attivo (Dominio) — è una decisione estetica come colore/pannello, non un file a parte. Un font del catalogo (`SystemFont`, già installato nel container — 11 voci) basta come valore diretto, nessun file da caricare:
+```typescript
+// components/shared/design-systems/mio-design-system.ts
+import { SystemFont } from '../../../core/engine/font-system';
+import { muroDesignSystem } from './engine/muro.design-system';
+
+export const mioDesignSystem = extendDesignSystem(muroDesignSystem, {
+    defaultFont: SystemFont.Roboto,   // sostituisce web E immagini OG, stesso file per entrambi
+});
 ```
+Un font caricato dal progetto è un `CustomFontDef` **pieno**, scritto qui direttamente — mai una `string` che rimanda altrove:
 ```bash
 mkdir -p fonts && cp MioFont.woff2 fonts/   # accanto a global-settings.json
 ```
 ```typescript
-// frontend/src/styles/font-config.ts — stesso nome file di sopra
-export const siteFonts: AppFontConfig = {
-    webDefault: 'System', serverDefault: ServerFont.Liberation,
-    custom: { family: 'MioFont', file: 'MioFont.woff2' },  // sostituisce web E immagini OG
-};
+export const mioDesignSystem = extendDesignSystem(muroDesignSystem, {
+    defaultFont: { key: 'brand', family: 'MioFont', faces: [{ file: 'MioFont.woff2', weight: 400, style: 'normal' }] },
+});
 ```
-Dettagli, comportamento di default e limiti (`colorText` senza override segue `colorBackground`, non il brand) in [frontend/README.md](frontend/README.md) §"Tema e Sistema di Colori" e §"Font", e [DOCKER_README.md](DOCKER_README.md) §"Font custom".
+Un secondo font raggiungibile da SCSS ma non attivo (es. per i soli titoli) va in `addonFonts`, mai in un campo a parte — e un design system può anche personalizzare testo/font della sola immagine OG (`ogTextTransform`, es. un font titolazione tutto maiuscolo). Dettagli in [frontend/README.md](frontend/README.md) §"Font: `SystemFont` + `addonFonts`" e §"`ogTextTransform`", e [DOCKER_README.md](DOCKER_README.md) §"Font custom".
+
+#### Creare o personalizzare un design system (tema, colori, chrome)
+Non serve capire COME funziona il motore colore (OKLCH, contrasto WCAG, ecc.) per scrivere un design system — solo QUALI valori impostare. `global-settings.json` porta un solo colore di identità, `site.colorTema` (il brand): tutto il resto — tono chiaro/scuro, se le pagine hanno un contenitore visivo distinto dal fondo (oggi implementato come un "pannello" chiaro o scuro — il concetto è "contenuto incorniciato vs a filo sfondo", l'implementazione può cambiare), lo sfondo di navbar/footer, quali pagine mostrano nav/footer/breadcrumb, ed eventuali colori aggiuntivi — è deciso da un **design system**, che scegli o scrivi in codice, mai nel JSON.
+
+**Il modo più rapido**: un preset condiviso della tabella in [frontend/README.md](frontend/README.md) §"Preset di Design System", importato da `components/shared/design-systems/engine/` (es. `muroDesignSystem` per un sito a superficie unica, `cartaDesignSystem` — il default — per un sito con contenuto incorniciato in una card).
+```typescript
+// site.ts
+import { muroDesignSystem } from './components/shared/design-systems/engine/muro.design-system';
+buildSite({ shell: { designSystem: muroDesignSystem } });
+```
+
+**Per personalizzarne uno** (es. la palette di un cliente specifico): `extendDesignSystem` su un preset condiviso — un oggetto piatto (patch) che tocca solo ciò che ti serve, il resto resta quello del preset scelto. Nessuna classe/`override` da scrivere, nessun registro per nome: stessa forma di ogni altro input del template (`addPage`/`addLink`/`addGroup` in `nav.ts`), e la STESSA con cui è scritto il preset condiviso stesso:
+```typescript
+// components/shared/design-systems/clienteX.design-system.ts
+import { extendDesignSystem, type DesignSystemFactory } from '.../core/engine/design-system-presets';
+import { muroDesignSystem } from './engine/muro.design-system';
+
+export const clienteX: DesignSystemFactory = extendDesignSystem(muroDesignSystem, {
+    customPalette: { bordeaux: '#5c1a2b' },
+});
+```
+```typescript
+// site.ts
+import { clienteX } from './components/shared/design-systems/clienteX.design-system';
+buildSite({ shell: { designSystem: clienteX } });
+```
+Esempio reale, stesso pattern: `components/shared/design-systems/example.design-system.ts`. Nessuna gerarchia a classi da conoscere: i preset condivisi dell'Engine sono file in `components/shared/design-systems/engine/` — una sottocartella solo per semantica, scritti con `extendDesignSystem` come qualunque altro (dettaglio in README).
+
+Nessuno spec da scrivere: `validateDesignSystemPreset` (chiamata da `extendDesignSystem` a ogni resolve) garantisce già a runtime che il preset sia strutturalmente valido. Testare il contrasto WCAG di una palette specifica non ha senso qui — è contenuto che cambi a piacere, incluso quello degli 8 preset condivisi.
+
+Dettagli, ogni campo disponibile, e la distinzione fra colori sempre garantiti (`colorBackground`/`colorText`) e colori "duri" che vincono anche sulla garanzia WCAG (`colorSecondary`/`colorInfo`/`customPalette`) in [frontend/README.md](frontend/README.md) §"Tema e Sistema di Colori" e §"Preset di Design System".
+
+#### Aggiungere contenuto al footer oltre i link (P.IVA, sede legale, testo libero, social)
+Dentro un `addGroup` del **footer** (`nav.ts`), oltre ad `addPage`/`addLink`/`addGroup` (condivisi con l'header) hai anche `addField`/`addText`/`addSocialLink`/`addCustom` — pensati per contenuto che non è un link a una pagina.
+```typescript
+// nav.ts
+import { FooterField } from './core/engine/footer-content';
+
+footer: (f, ctx) => {
+    f.addGroup('footerAzienda', g => {
+        g.addField(FooterField.PartitaIva);      // da Identity, auto-nascosto se non valorizzato
+        g.addText('footerNote', 'Iscritta al REA di Milano'); // testo libero, mai tradotto
+        g.addSocialLink(ctx.identity?.social[0] ?? '', 'LinkedIn'); // esplicito, mai dedotto in blocco
+    });
+},
+```
+`f.hideLegalStrip()` (a livello di `footer`, non di gruppo) spegne la fascia automatica delle pagine legali, per chi le inserisce a mano in un gruppo. Ogni voce (header e footer) accetta anche `{ itemClass: 'mia-classe' }` per uno stile puntuale. Dettaglio completo in [frontend/README.md](frontend/README.md) §"Navigazione Multilivello" → "Footer: oltre i link".
 
 #### Feature flag / varianti di progetto via `Custom`
 La sezione `Custom` di `global-settings.json` (committabile, `additionalProperties: true`, nessuno schema fisso: ci metti quello che vuoi) è il punto giusto per un flag o una variante letta da entrambi i lati senza inventare un meccanismo nuovo — utile per accendere/spegnere una sezione, testare due varianti (CRO/A-B) o passare un ID (analytics, SDK esterno). **Non è remote-config**: cambiare un valore è una modifica al file + un nuovo deploy, non un toggle a runtime.

@@ -49,6 +49,13 @@
         overflow-x: hidden;
     }
 
+    /* Stesso bug/fix di `.navbar .dropdown-menu` in _dropdown.scss: un flyout di 3° livello deve
+       sconfinare oltre QUESTO pannello (anch'esso capped in altezza sopra) — quando un suo
+       discendente è aperto, il tetto/scroll si sospende per lasciargli spazio. */
+    .dropdown-submenu > .submenu-panel:has(.dropdown-submenu:hover, .dropdown-submenu:focus-within, .dropdown-submenu.expanded) {
+        overflow: visible;
+    }
+
     /* .dropdown-item eredita white-space: nowrap da Bootstrap — va bene per voci brevi statiche,
        ma qui i figli sono spesso etichette dinamiche dal backend (nome del generatore/storia) di
        lunghezza arbitraria: senza wrap sforano oltre il bordo del pannello invece di andare a capo. */
@@ -69,7 +76,7 @@
     .dropdown-submenu:focus-within > .submenu-panel,
     .dropdown-submenu.expanded > .submenu-panel {
         display: block;
-        animation: navDropdownEnter 0.15s ease both;
+        animation: navDropdownEnter var(--movimentoPannello, 0.15s) ease both;
     }
 
     /* Caret rivolto a destra (o a sinistra se il pannello è ribaltato). */

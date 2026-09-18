@@ -92,6 +92,7 @@ run_test "Completezza i18n"     "${SCRIPT_DIR}/i18n-check.sh"
 run_test "TypeScript"           "${SCRIPT_DIR}/tsc-check.sh"
 run_test "Dipendenze cicliche"  "${SCRIPT_DIR}/circular-deps-check.sh"
 run_test "Invarianti SiteBuilder" "${SCRIPT_DIR}/site-builder-check.sh"
+run_test "Tema/design-system (Vitest)" "${SCRIPT_DIR}/theme-check.sh"
 run_test "Audit live (Pa11y + Lighthouse)" "${SCRIPT_DIR}/live-test.sh" "${BASE_URL}"
 
 echo

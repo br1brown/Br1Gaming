@@ -60,7 +60,9 @@ export class ImgRenderDirective {
             return;
         }
         this.canvasChange.emit(canvas);
-        this.src.set(canvas.toDataURL('image/png'));
+        // WebP: più leggero del PNG a parità di qualità visiva per questo tipo di composito
+        // (testo su sfondo), supportato da canvas.toDataURL in tutti i browser rilevanti.
+        this.src.set(canvas.toDataURL('image/webp'));
     }
 
     private reset(): void {

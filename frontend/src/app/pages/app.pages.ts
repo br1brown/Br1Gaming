@@ -42,6 +42,9 @@ export const appPagesDecl: SitePageInput[] = [
         description: 'homeDesc',
         otherSEO: { ogImage: { id: 'img4k' } },
         component: () => import('./che-faccio/che-faccio.component').then(m => m.CheFaccioComponent),
+        // Ruolo CUSTOM 'vetrina' (registrato in demo.design-system.ts con la sua chiave in ruoloPagina):
+        // niente breadcrumb solo qui, in contrasto col resto del sito (showBreadcrumb: true globale).
+        layout: { role: 'vetrina' },
     },
     {
         path: 'social-feed',
@@ -49,7 +52,6 @@ export const appPagesDecl: SitePageInput[] = [
         pageType: AppPages.Social,
         description: 'socialDesc',
         component: () => import('./social/social.component').then(m => m.SocialComponent),
-        layout: { showPanel: false },
         contentLoader: withApi(async (ctx, api) => ({ content: await api.getSocial() })),
     },
     {
@@ -63,7 +65,6 @@ export const appPagesDecl: SitePageInput[] = [
         pageType: AppPages.SocialDetail,
         description: 'socialDesc',
         component: () => import('./social/social.component').then(m => m.SocialComponent),
-        layout: { showPanel: false },
         dynamicParams: async (ctx) => {
             const all = await ctx.fetchBackendJson<Record<string, string>>('/social');
             return Object.keys(all).map(name => ({ slug: name }));

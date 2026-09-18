@@ -1,29 +1,36 @@
 import { Component, ViewEncapsulation, computed, effect, inject, input, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { CookieConsentService } from '../../services/cookie-consent.service';
-import { ThemeService } from '../../services/theme.service';
+import { AppearanceService } from '../../services/appearance.service';
 import { TranslateService } from '../../services/translate.service';
 import { PageMetaService } from '../../services/page-meta.service';
 import { ContestoSito } from '../../../../site';
-import { MarkdownPipe } from '../../pipes/markdown.pipe';
+import { MarkdownLitePipe } from '../../pipes/markdown-lite.pipe';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 
 @Component({
     selector: 'app-cookie-banner',
-    imports: [TranslatePipe, MarkdownPipe, NgTemplateOutlet],
+    imports: [TranslatePipe, MarkdownLitePipe, NgTemplateOutlet],
     templateUrl: './cookie-banner.component.html',
     styleUrl: './cookie-banner.component.scss',
     encapsulation: ViewEncapsulation.None
 })
 export class CookieBannerComponent {
     readonly cookieConsent = inject(CookieConsentService);
-    readonly theme = inject(ThemeService);
+    readonly theme = inject(AppearanceService);
     private readonly translate = inject(TranslateService);
     private readonly pagemeta = inject(PageMetaService);
     
     readonly isCookiePolicy = computed(() => {
         return ContestoSito.config.cookiePolicy != null && this.pagemeta.currentPageType() === ContestoSito.config.cookiePolicy;
     });
+
+    /** `'discreto'` (default, storico): FAB di riapertura più piccolo/trasparente del `.fab`
+     *  standard. `'standard'`: stessa dimensione/opacità di `.fab` (es. `back-to-top`) — il LATO
+     *  resta comunque opposto a `back-to-top` in entrambi i casi, apposta: stessa area di
+     *  `inset-inline-end` raddoppierebbe la probabilità di sovrapporsi a un controllo di pagina.
+     *  `DesignSystemPreset.cookieReopenStile`. */
+    readonly reopenStandard = ContestoSito.config.cookieReopenStile === 'standard';
 
     /**
      * Modalità pannello: invece del banner fisso in overlay, rende gli stessi controlli di consenso
