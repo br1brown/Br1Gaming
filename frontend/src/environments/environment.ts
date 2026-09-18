@@ -4,18 +4,6 @@
 export interface AppSiteConfig {
     description?: Record<string, string>;
     colorTema?: string;
-    colorSecondary?: string;
-    colorBackground?: string;
-    colorText?: string;
-    colorInfo?: string;
-    smoke?: {
-        enable?: boolean;
-        color?: string;
-        opacity?: number;
-        maximumVelocity?: number;
-        particleRadius?: number;
-        density?: number;
-    };
 }
 
 export interface AppEnvironment {
@@ -38,18 +26,10 @@ export const environment: AppEnvironment = {
     availableLanguages: ["it","en"],
     config: {
             "colorTema": "#131e55",
-            "smoke": {
-                    "enable": true,
-                    "color": "#b5d9ff",
-                    "opacity": 0.7,
-                    "maximumVelocity": 120,
-                    "particleRadius": 350,
-                    "density": 18
-            },
             "description": {
                     "it": "Template di base che serve per fare vedere le funzionalità base",
                     "en": "Base template showcasing the core building blocks"
             }
     },
-    configFingerprint: "cfd698ea0012"
+    configFingerprint: "1afaab59ce2f"
 };

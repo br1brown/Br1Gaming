@@ -17,11 +17,12 @@
         @for (child of item().children; track navLinkKey(child)) {
             <li>
                 @if (isGroup(child)) {
-                    <app-nav-submenu [item]="child" (linkClick)="onLinkClick()" />
+                    <app-nav-submenu [item]="child" [class]="child.itemClass" (linkClick)="onLinkClick()" />
                 } @else {
                     <app-nav-link [link]="child"
                                   cssClass="dropdown-item"
                                   activeCssClass="dropdown-item nav-current-link active"
+                                  [class]="child.itemClass"
                                   (linkClick)="onLinkClick()" />
                 }
             </li>

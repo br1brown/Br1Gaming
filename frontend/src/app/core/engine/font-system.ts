@@ -1,7 +1,8 @@
 /**
- * FONT SYSTEM (Engine) — catalogo, tipi, risoluzione. La scelta del progetto vive nel Dominio,
- * in `frontend/src/styles/font-config.ts` — separata apposta, per non generare conflitti di merge
- * quando il template aggiorna il catalogo.
+ * FONT SYSTEM (Engine) — catalogo, tipi, risoluzione. La scelta del progetto è una decisione
+ * estetica come colore/pannello/nav: vive nel design system attivo (`DesignSystemPreset.webFont`/
+ * `serverFont`/`customFont`, `design-system-presets.ts`), non in un file separato — cambiare design
+ * system cambia anche il font, di proposito.
  */
 
 /** Font server installati nel container. Enum, non stringhe magiche: `ServerFont.Liberation`. */
@@ -38,7 +39,8 @@ export const SERVER_FONTS: Record<ServerFont, string> = {
     [ServerFont.Liberation]: stack('"Liberation Sans"'),
 };
 
-/** Font da un file caricato dal progetto (cartella `fonts/`, vedi `styles/font-config.ts`). */
+/** Font da un file caricato dal progetto (cartella `fonts/`, accanto a `global-settings.json` —
+ *  vedi `DesignSystemPreset.customFont`). */
 export interface CustomFontDef {
     /** Nome CSS della font-family. */
     family: string;
@@ -46,16 +48,25 @@ export interface CustomFontDef {
     file: string;
 }
 
-/** Contratto compilato dal Dominio (`siteFonts` in `styles/font-config.ts`). `custom` non ha
- *  tipizzazione forte sul nome: è un puntatore libero a un file, non un catalogo chiuso. */
-export interface AppFontConfig {
-    /** Quale WEB_FONTS è il default. */
-    webDefault: keyof typeof WEB_FONTS;
-    /** Quale SERVER_FONTS è il default (font-metrics.ts indicizza le metriche su questo). */
-    serverDefault: ServerFont;
-    /** Se presente, sostituisce ENTRAMBI i default sopra. Assente = comportamento invariato. */
-    custom?: CustomFontDef;
-}
+/** Input di `resolveFonts` sotto — assemblato in `buildFinalConfig` (`siteBuilder.ts`) dai campi
+ *  `webFont`/`serverFont`/`customFont` del design system attivo. Union discriminata: o i default di
+ *  sistema (nessun custom), o SOLO il custom (nessun default, nessun font di fallback nominato —
+ *  resta solo l'emoji/generic-family finale, gratis in `stack()`). Un font custom sostituisce la
+ *  scelta, non si affianca a un default: non ha senso configurare entrambi. */
+export type AppFontConfig =
+    | {
+        /** Quale WEB_FONTS è il default. */
+        webDefault: keyof typeof WEB_FONTS;
+        /** Quale SERVER_FONTS è il default (font-metrics.ts indicizza le metriche su questo). */
+        serverDefault: ServerFont;
+        custom?: undefined;
+    }
+    | {
+        webDefault?: undefined;
+        serverDefault?: undefined;
+        /** Font da un file caricato dal progetto. Nessun default: è l'unico font del sito. */
+        custom: CustomFontDef;
+    };
 
 /** Output di `resolveFonts`: quello che i consumer (ThemeService, server.ts, PreviewBuilder)
  *  leggono davvero — mai il catalogo o `AppFontConfig` direttamente. */
@@ -70,15 +81,13 @@ export interface ResolvedFonts {
     custom?: CustomFontDef;
 }
 
-/** C'è un custom? Sostituisce entrambi i default, in testa allo stack (il fallback di sistema
- *  resta comunque presente per emoji/generic-family). Pura: nessun accesso al filesystem — che il
- *  file dichiarato esista davvero è compito del layer server (`custom-font-detect.ts`). */
+/** C'è un custom? È l'UNICO font (nessun default sotto, solo l'emoji/generic-family finale di
+ *  `stack()`) — altrimenti i default di sistema. Pura: nessun accesso al filesystem — che il file
+ *  dichiarato esista davvero è compito del layer server (`custom-font-detect.ts`). */
 export function resolveFonts(config: AppFontConfig): ResolvedFonts {
-    const { custom } = config;
-    return {
-        webStack: custom ? `"${custom.family}", ${WEB_FONTS[config.webDefault]}` : WEB_FONTS[config.webDefault],
-        serverStack: custom ? `"${custom.family}", ${SERVER_FONTS[config.serverDefault]}` : SERVER_FONTS[config.serverDefault],
-        serverKey: custom?.family ?? config.serverDefault,
-        custom,
-    };
+    if (config.custom) {
+        const familyStack = stack(`"${config.custom.family}"`);
+        return { webStack: familyStack, serverStack: familyStack, serverKey: config.custom.family, custom: config.custom };
+    }
+    return { webStack: WEB_FONTS[config.webDefault], serverStack: SERVER_FONTS[config.serverDefault], serverKey: config.serverDefault, custom: undefined };
 }

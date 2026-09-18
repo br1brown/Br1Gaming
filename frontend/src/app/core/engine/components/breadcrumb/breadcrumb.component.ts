@@ -14,8 +14,8 @@ import { BreadcrumbService, type BreadcrumbItem } from '../../services/breadcrum
  *
  * Visibilità di default "intelligente": compare da solo quando il percorso ha più di un
  * livello reale (Home + pagina corrente) — una pagina radice (la Home stessa) non
- * lo mostra mai, non serve spegnerlo a mano ovunque. `forceShow` (da `layout.showBreadcrumb` in
- * `site.ts`, via lo shell) sovrascrive esplicitamente in entrambe le direzioni.
+ * lo mostra mai, non serve spegnerlo a mano ovunque. `forceShow` (da `ruoloPagina.<ruolo>.showBreadcrumb`
+ * del design system attivo, via lo shell) sovrascrive esplicitamente in entrambe le direzioni.
  *
  * Reso volutamente minimale: testo in linea, separatore leggero, nessun badge/pillola per livello.
  * L'ultimo elemento non è mai un link, anche quando porta un `path` (usato invece dal JSON-LD).
@@ -34,8 +34,8 @@ export class BreadcrumbComponent {
     private readonly breadcrumb = inject(BreadcrumbService);
     private readonly pageMeta = inject(PageMetaService);
 
-    /** Override esplicito di visibilità da `layout.showBreadcrumb` (via lo shell). `null`/assente
-     *  → default intelligente (vedi sopra). */
+    /** Override esplicito di visibilità da `ruoloPagina.<ruolo>.showBreadcrumb` (via lo shell).
+     *  `null`/assente → default intelligente (vedi sopra). */
     readonly forceShow = input<boolean | null>(null);
 
     readonly items = computed<BreadcrumbItem[]>(() => {

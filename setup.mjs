@@ -105,6 +105,7 @@ function removeChunk(src, chunk, label) {
 
 const MINIMAL_SITE_TS = `import { inject } from '@angular/core';
 import { buildSite } from './core/engine/siteBuilder';
+import { extendDesignSystem, emptyDesignSystem } from './core/engine/design-system-presets';
 import { ApiService } from './core/services/api.service';
 
 export type {
@@ -151,14 +152,25 @@ export type PageType = (typeof PageType)[keyof typeof PageType];
 // legalPages (vedi STANDARD_LEGAL_PAGES in siteBuilder.ts per i default delle 5 standard) +
 // cookiePolicy: PageType.CookiePolicy, sul modello di pages/policy/ nel repo del template
 // (policy.component + legal.pages.ts) — ricetta completa in AGENTS.md § "Aggiungere una policy legale".
+// Comportamento di navbar/footer/header/pannello: decisione del design system attivo, non un flag
+// qui accanto — dichiara solo gli scostamenti dal default (riferimento completo in
+// frontend/README.md §"Preset di Design System"/§"Ruoli di Pagina"). \`emptyDesignSystem\` è il punto
+// di partenza più neutro: nessun campo forzato, estendilo con \`extendDesignSystem\` invece di
+// scriverne uno da zero.
+const designSystem = extendDesignSystem(emptyDesignSystem, {
+    fixedTopHeader: true, // default: false — qui la navbar resta fissa in alto allo scroll
+    // Ruolo custom \`senzaNavbar\`: si registra scrivendo la sua chiave qui, nessuna dichiarazione
+    // a parte — usalo su una pagina con \`layout: { role: 'senzaNavbar' }\`.
+    ruoloPagina: {
+        senzaNavbar: { showNav: false },
+    },
+});
+
 export const ContestoSito = buildSite({
     homePage: PageType.Home,
 
-    // Comportamento di navbar/footer/header/pannello: dichiara solo gli scostamenti dal default
-    // (ogni flag omesso resta al proprio default — riferimento completo in frontend/README.md
-    // §"Opzioni Avanzate di site.ts").
     shell: {
-        fixedTopHeader: true, // default: false — qui la navbar resta fissa in alto allo scroll
+        designSystem,
     },
 
     pages: () => [
@@ -167,9 +179,9 @@ export const ContestoSito = buildSite({
             title: '',
             pageType: PageType.Home,
             component: () => import('./pages/home/home.component').then(m => m.HomeComponent),
-            // Skeleton pulito: la home parte senza navbar. Togli questo layout
-            // (o metti showNav: true) quando vuoi la shell anche qui.
-            layout: { showNav: false },
+            // Skeleton pulito: la home parte senza navbar (ruolo 'senzaNavbar', sopra). Togli questo
+            // layout (o cambia ruolo) quando vuoi la shell anche qui.
+            layout: { role: 'senzaNavbar' },
         },
     ],
     // Menu di header/footer: dato risolto a runtime in nav.ts —
@@ -230,12 +242,12 @@ export function legalPageConfig(pageType: string): LegalPageConfig {
 
 const MINIMAL_HOME_TS = `import { Component } from '@angular/core';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
-import { DesignSystemGalleryComponent } from '../../core/engine/components/design-system-gallery/design-system-gallery.component';
+import { StyleGuideComponent } from '../../core/engine/components/style-guide/style-guide.component';
 
 /** Home del progetto — punto di partenza vuoto. Riempila col tuo contenuto. */
 @Component({
     selector: 'app-home',
-    imports: [DesignSystemGalleryComponent],
+    imports: [StyleGuideComponent],
     templateUrl: './home.component.html',
 })
 export class HomeComponent extends PageBaseComponent<void> {}
@@ -246,7 +258,7 @@ const MINIMAL_HOME_HTML = `<!-- La home del tuo progetto: parti da qui. -->
 <!-- Catalogo visivo dei componenti UI di base (colori, tipografia, bottoni, badge, alert, form):
      componente dell'Engine, non demo — resta qui apposta, anche dopo l'eject. Rimuovilo se non ti
      serve, si aggiorna comunque dal template finché non lo tocchi. -->
-<app-design-system-gallery />
+<app-style-guide />
 `;
 
 const MINIMAL_BASECONTROLLER_CS = `using Microsoft.AspNetCore.Mvc;

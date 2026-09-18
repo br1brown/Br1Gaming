@@ -78,6 +78,7 @@
   "socialDesc": "Social media feed and integration",
   "settingsDesc": "Manage your preferences and settings",
   "githubDesc": "View the source code on GitHub",
+  "footerProgettoAzienda": "Project",
   "usageCodeLabel": "Usage",
   "resetAction": "Reset",
   "qrCodeTitle": "QR Code",
@@ -120,5 +121,6 @@
   "youtubeCta": "Watch us on YouTube",
   "socialNav": "Social",
   "impostazioniNav": "Settings",
-  "sorgentiProgettoNav": "Project Sources"
+  "sorgentiProgettoNav": "Project Sources",
+  "loginUsernameObbligatorio": "Username is required."
 }

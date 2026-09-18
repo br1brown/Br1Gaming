@@ -21,7 +21,7 @@
             <div class="row row-cols-2 g-3">
                 @for (stat of heroStats; track stat.label) {
                     <div class="col">
-                        <div class="border rounded p-3 text-center bg-body-tertiary h-100 d-flex flex-column align-items-center justify-content-center gap-1">
+                        <div class="border border-primary-subtle rounded p-3 text-center bg-primary-subtle h-100 d-flex flex-column align-items-center justify-content-center gap-1">
                             <span class="fs-2 fw-bold text-primary-emphasis lh-1">{{ stat.value }}</span>
                             <span class="small text-uppercase text-muted">{{ stat.label | translate }}</span>
                         </div>
@@ -33,8 +33,8 @@
     </div>
 </section>
 
-<!-- ═════════════════════════════════ SEZIONE: DESIGN SYSTEM -->
-<!-- Componente Engine (core/engine/components/design-system-gallery/), non demo Dominio: resta
+<!-- ═════════════════════════════════ SEZIONE: STYLE GUIDE -->
+<!-- Componente Engine (core/engine/components/style-guide/), non demo Dominio: resta
      anche dopo un `setup.mjs` "parti pulito" (eject), a differenza di tutto il resto di questa
      pagina. Vedi la doc del componente per il perché. -->
-<app-design-system-gallery />
+<app-style-guide />

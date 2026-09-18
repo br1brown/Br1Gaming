@@ -11,8 +11,10 @@
  * (`any`, mai mascherata) resta un resize semplice.
  */
 
+import '@angular/compiler'; // richiesto per importare site.ts (ContestoSito) fuori da un bootstrap Angular — stesso pattern di generate-statics.ts
 import { existsSync, copyFileSync, mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { ContestoSito } from '../../../../site';
 
 const ROOT = join(__dirname, '../../../../../../');
 const ASSETS_DIR = join(ROOT, 'src', 'assets', 'files');
@@ -46,23 +48,16 @@ function parseHexColor(input: string | undefined): { r: number; g: number; b: nu
     return { r: Number.isNaN(r) ? 255 : r, g: Number.isNaN(g) ? 255 : g, b: Number.isNaN(b) ? 255 : b };
 }
 
-/** Colore brand per lo sfondo delle icone maskable — lettura diretta di global-settings.json,
- *  stesso pattern di generate-statics.ts: niente import di site.ts solo per un colore. */
+/** Colore brand per lo sfondo delle icone maskable — da `ContestoSito.config.colorTema`
+ *  (site.ts), non da una lettura indipendente di global-settings.json: è la stessa identica fonte
+ *  di verità usata da `generate-statics.ts`/`og-preview.ts` per ogni altro colore derivato,
+ *  qualunque design system sia attivo. `colorTema` resta l'unico colore di IDENTITÀ (non ha una
+ *  leva nel design system, a differenza di secondario/sfondo/testo/info — vedi
+ *  `design-system-presets.ts`), quindi il valore non cambia con il design system scelto, ma la
+ *  fonte da cui viene letto è la stessa per tutti, invece di una seconda lettura indipendente del
+ *  JSON che potrebbe divergere. */
 function resolveBrandColor(): { r: number; g: number; b: number } {
-    const candidates = [
-        process.env['GLOBAL_SETTINGS_PATH'],
-        join(ROOT, '../global-settings.json'),
-        join(ROOT, 'global-settings.json'),
-    ].filter((p): p is string => Boolean(p));
-    for (const p of candidates) {
-        try {
-            if (existsSync(p)) {
-                const parsed = JSON.parse(readFileSync(p, 'utf-8')) as { site?: { colorTema?: string } };
-                return parseHexColor(parsed.site?.colorTema);
-            }
-        } catch { /* file illeggibile o JSON invalido: prova il prossimo candidato */ }
-    }
-    return parseHexColor(undefined);
+    return parseHexColor(ContestoSito.config.colorTema);
 }
 
 async function main(): Promise<void> {

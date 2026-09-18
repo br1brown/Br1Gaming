@@ -9,7 +9,8 @@ main#main-content {
     z-index: 1;
 }
 
-/* Vista full-bleed (flag layout.fitViewport → route.data → shell mette .fit-viewport su <main>).
+/* Vista full-bleed (roleChrome.<ruolo>.fitViewport del design system attivo → route.data → shell
+   mette .fit-viewport su <main>).
    <main> è già flex-grow-1 nella colonna di app-root: qui diventa colonna flex e fa crescere
    l'host del componente instradato (il sibling subito dopo il router-outlet), così il root della
    pagina (es. con .flex-grow-1 o .h-100) eredita tutta l'altezza disponibile, senza scroll di

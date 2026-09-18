@@ -12,8 +12,9 @@ import { SmokeSettings } from '../../../../site';
 /**
  * SmokeEffectComponent — Effetto decorativo a particelle di fumo su <canvas>.
  *
- * Parametri (densità, colore, ecc.) letti da `site.smoke` in `global-settings.json`.
- * Ometti `site.smoke` o usa `enable: false` per disattivarlo alla radice.
+ * Parametri (densità, colore, ecc.) proposti dal design system attivo (`DesignSystemPreset.smoke`
+ * in `design-system-presets.ts`), non più da `global-settings.json`. Ometti `smoke` o usa
+ * `enable: false` per disattivarlo alla radice.
  * L'animazione gira via `requestAnimationFrame` ed è automaticamente disattivata 
  * (canvas vuoto) per gli utenti con `prefers-reduced-motion` abilitato.
  */

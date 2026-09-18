@@ -17,12 +17,15 @@ import { recordCacheHit, recordCacheMiss } from '../image-cache-metrics';
 import { fileExists } from '../fs-utils';
 
 /** Palette multi-colore del sito: deterministica da config statica, calcolata una sola volta al
- *  load del modulo invece che ad ogni richiesta (anche sui cache-hit). */
+ *  load del modulo invece che ad ogni richiesta (anche sui cache-hit). Rispecchia sempre gli
+ *  override colore del design system attivo, come il resto del sito — nessuna via neutra separata. */
 const sitePalette: PaletteTokens = ThemeService.computePalette(ContestoSito.config.colorTema, {
     secondary: ContestoSito.config.colorSecondary,
     background: ContestoSito.config.colorBackground,
     text: ContestoSito.config.colorText,
     info: ContestoSito.config.colorInfo,
+    customPalette: ContestoSito.config.customPalette,
+    backgroundVividness: ContestoSito.config.backgroundVividness,
 });
 
 /** Sfondo card con contrasto rinforzato, derivato dalla palette una sola volta. */
@@ -54,7 +57,7 @@ export async function ogPreviewHandler(req: Request, res: Response): Promise<voi
         const subtitle = normalizeAndTruncate(String(payload['subtitle'] ?? ''), 300);
         const id = String(payload['id'] ?? '').trim();
         const blobGuid = String(payload['blobGuid'] ?? '').trim();
-        const onlyImage = payload['onlyImage'] === 'true';
+        const plain = payload['plain'] === 'true';
 
         // Fallback al nome app se il titolo è vuoto
         const { appName } = ContestoSito.config;
@@ -62,7 +65,7 @@ export async function ogPreviewHandler(req: Request, res: Response): Promise<voi
 
         // Campi distinti: quale dei due sistemi è in uso emerge da quale è valorizzato (blobGuid
         // vince su entrambi) — stessa forma di OgImageRef in siteBuilder.ts.
-        if (id || blobGuid) { await renderPreviewWithImage(res, { id, blobGuid }, effectiveTitle, subtitle, onlyImage); return; }
+        if (id || blobGuid) { await renderPreviewWithImage(res, { id, blobGuid }, effectiveTitle, subtitle, plain); return; }
         await renderPreviewText(res, effectiveTitle, subtitle);
     } catch (err) {
         console.error('[Preview Error]:', err);
@@ -132,7 +135,7 @@ async function resolveImageSource(ref: PreviewImageRef): Promise<ImageSource | n
 }
 
 /** Variante con immagine: sfondo, favicon e badge titolo. */
-async function renderPreviewWithImage(res: Response, ref: PreviewImageRef, title: string, subtitle: string, onlyImage?: boolean): Promise<void> {
+async function renderPreviewWithImage(res: Response, ref: PreviewImageRef, title: string, subtitle: string, plain?: boolean): Promise<void> {
     const source = await resolveImageSource(ref);
     if (!source) { res.status(404).send('Asset not found'); return; }
 
@@ -148,7 +151,7 @@ async function renderPreviewWithImage(res: Response, ref: PreviewImageRef, title
     const normalizedTitle = normalizeAndTruncate(title, 100);
     const normalizedSubtitle = normalizeAndTruncate(subtitle, 150);
     const { version } = ContestoSito.config;
-    const hash = createHash('sha1').update(JSON.stringify({ version, ref, title: normalizedTitle, subtitle: normalizedSubtitle, onlyImage: !!onlyImage })).digest('hex').slice(0, 16);
+    const hash = createHash('sha1').update(JSON.stringify({ version, ref, title: normalizedTitle, subtitle: normalizedSubtitle, plain: !!plain })).digest('hex').slice(0, 16);
     // JPEG per massima compatibilità con le piattaforme social
     const cacheKey = `preview_img_${hash}.jpg`;
     const cacheFile = join(cacheDir, cacheKey);
@@ -177,7 +180,7 @@ async function renderPreviewWithImage(res: Response, ref: PreviewImageRef, title
 
             const composites: OverlayOptions[] = [{ input: fgBuffer, left: 0, top: 0 }];
 
-            if (!onlyImage) {
+            if (!plain) {
                 // Posizionamento del chip nell'angolo in alto a sinistra con safe-margin
                 const palette = sitePalette;
                 const SAFE_MARGIN = PreviewBuilder.SPACING_LG;

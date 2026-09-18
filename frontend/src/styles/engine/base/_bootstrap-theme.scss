@@ -113,6 +113,70 @@
     color: var(--colorInfoText, #000) !important;
 }
 
+/* .btn-secondary/.btn-info (SOLIDI, non outline): Bootstrap li compila con `button-variant()`,
+   che interpola $background/$color come LETTERALI SASS a build-time — a differenza di
+   .alert-* / .text-bg-* (già CSS-variable-driven nativamente, vedi sopra), un bottone solido non
+   legge MAI --bs-secondary/--bs-info a runtime. Risultato verificato dal vivo: con colorSecondary
+   auto-calcolato dal brand (non un override, il caso comune), .btn-secondary restava sul grigio
+   di stock di Bootstrap (#6c757d) — non un problema del refactor "override duro", preesisteva
+   per QUALUNQUE brand. Stesso schema già usato per .btn-primary sopra: */
+.btn-secondary {
+    --bs-btn-bg:               var(--bs-secondary);
+    --bs-btn-border-color:     var(--bs-secondary);
+    --bs-btn-color:            var(--colorSecondaryText, #fff);
+    --bs-btn-hover-bg:         #{lib.shade(var(--bs-secondary), 12%)};
+    --bs-btn-hover-border-color: #{lib.shade(var(--bs-secondary), 16%)};
+    --bs-btn-hover-color:      var(--colorSecondaryText, #fff);
+    --bs-btn-active-bg:        #{lib.shade(var(--bs-secondary), 18%)};
+    --bs-btn-active-border-color: #{lib.shade(var(--bs-secondary), 22%)};
+    --bs-btn-active-color:     var(--colorSecondaryText, #fff);
+    --bs-btn-disabled-bg:      var(--bs-secondary);
+    --bs-btn-disabled-border-color: var(--bs-secondary);
+    --bs-btn-disabled-color:   var(--colorSecondaryText, #fff);
+}
+
+/* .btn-info: stesso motivo di .btn-secondary sopra. --bs-info/--colorInfoText restano sicuri in
+   ENTRAMBI i casi: senza override sono i default nativi di Bootstrap (nessun cambiamento —
+   .btn-info resta quello di sempre); con un colorInfo overridden diventano il fill scelto dal
+   design system E il SUO testo leggibile calcolato (getReadableTextColor) — non il nero fisso che
+   Bootstrap avrebbe comunque compilato per il proprio colore di default, illeggibile su un colore
+   diverso (il caso "vomito" discusso in README §"Override opzionali"). */
+.btn-info {
+    --bs-btn-bg:               var(--bs-info);
+    --bs-btn-border-color:     var(--bs-info);
+    --bs-btn-color:            var(--colorInfoText, #000);
+    --bs-btn-hover-bg:         #{lib.shade(var(--bs-info), 12%)};
+    --bs-btn-hover-border-color: #{lib.shade(var(--bs-info), 16%)};
+    --bs-btn-hover-color:      var(--colorInfoText, #000);
+    --bs-btn-active-bg:        #{lib.shade(var(--bs-info), 18%)};
+    --bs-btn-active-border-color: #{lib.shade(var(--bs-info), 22%)};
+    --bs-btn-active-color:     var(--colorInfoText, #000);
+    --bs-btn-disabled-bg:      var(--bs-info);
+    --bs-btn-disabled-border-color: var(--bs-info);
+    --bs-btn-disabled-color:   var(--colorInfoText, #000);
+}
+
+/* .link-secondary/.link-info: lo stato base legge già var(--bs-secondary-rgb)/var(--bs-info-rgb)
+   nativamente (Bootstrap li scrive così), quindi segue l'override senza bisogno di ridirezione —
+   solo l'HOVER/FOCUS è un letterale SASS (shade-color/tint-color calcolato sul $secondary/$info
+   di DEFAULT di Bootstrap, mai sull'override). Stesso schema di lib.shade già in uso sopra. */
+.link-secondary:hover, .link-secondary:focus {
+    color: #{lib.shade(var(--bs-secondary), 20%)} !important;
+}
+.link-info:hover, .link-info:focus {
+    color: #{lib.shade(var(--bs-info), 20%)} !important;
+}
+
+/* NOTA per chi estende questo file: .table-secondary/.table-info hanno lo STESSO problema di
+   .btn-secondary/.btn-info prima del fix sopra — Bootstrap li compila con `table-variant()`,
+   letterali SASS su 7 proprietà (colore/sfondo/bordo/hover/striped/active), mai `var(--bs-secondary)`/
+   `var(--bs-info)`. Non ridiretti qui deliberatamente: nessuna pagina del template li usa oggi
+   (verificato), quindi non c'è un sintomo da correggere — se un progetto figlio inizia a usare
+   `.table-secondary`/`.table-info`, `theme.service.spec.ts`/`design-system-presets.spec.ts` NON lo
+   scoprirebbero (testano la palette calcolata, non il CSS compilato di Bootstrap): serve un
+   controllo manuale la prima volta che li si usa, o estendere questo file con lo stesso schema di
+   .btn-secondary/.btn-info sopra. */
+
 /* ── Token colori semantici ──────────────────────────────────────────────────
    --colorSecondary è calcolato da ThemeService.computePalette() in OKLCH
    (derivato dal brand, WCAG 4.5:1 garantito) e iniettato via inline style;
@@ -194,12 +258,7 @@
 .navbar.theme-bg {
     --bs-navbar-brand-color: var(--colorNavText);
     --bs-navbar-brand-hover-color: var(--colorNavText);
-    border-bottom: 2.5px solid var(--colorTema);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-}
-
-.site-footer.theme-bg {
-    border-top: 2.5px solid var(--colorTema);
 }
 
 .dropdown-menu .dropdown-item.theme-bg:hover {

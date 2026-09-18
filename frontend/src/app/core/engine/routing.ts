@@ -5,7 +5,7 @@ import { filter, map } from 'rxjs';
 import { ContestoSito } from '../../site';
 import { environment } from '../../../environments/environment';
 import { contentLoaderResolver } from './pages/content.resolver';
-import { InternalSitePage, isInternalPage, isParentPage, resolvePagePath, ShellFlags, SHELL_DATA_KEY } from './siteBuilder';
+import { InternalSitePage, isInternalPage, isParentPage, resolvePagePath, RouteChrome, CHROME_DATA_KEY } from './siteBuilder';
 import { authGuard, languageSyncGuard } from './route-guards';
 
 /**
@@ -105,12 +105,13 @@ function toAngularRoute(page: InternalSitePage, lang: string): Route {
             ...route.data,
             pageType: page.pageType,
             lang, // ripetuto: qui route.data viene RISCRITTO per intero, non è un duplicato accidentale.
-            // pageFade: gate globale (config.pageFade) + override per-pagina (page.pageFade) — off
-            // globale vince sempre, la pagina può solo spegnere, mai riaccendere da sola.
-            pageFade: ContestoSito.config.pageFade && (page.pageFade ?? true),
-            // SHELL_DATA_KEY: i flag di layout (showNav/showFooter/fitViewport...) letti SOLO dalla
+            // pageFade: valore per-ruolo (page.pageFade, già risolto in normalizeSitePage come
+            // ruoloPagina.<ruolo>.pageFade), col default globale (config.pageFade) SOLO quando il
+            // ruolo non lo mappa — il ruolo vince sempre, in entrambe le direzioni.
+            pageFade: page.pageFade ?? ContestoSito.config.pageFade,
+            // CHROME_DATA_KEY: i flag di layout (showNav/showFooter/fitViewport...) letti SOLO dalla
             // shell (app.component, fuori dal <router-outlet>) via snapshot — mai spacchettati qui.
-            [SHELL_DATA_KEY]: page.shell,
+            [CHROME_DATA_KEY]: page.chrome,
         };
 
         // lang passato ESPLICITAMENTE in chiusura, non letto da translate.currentLang(): il resolver
@@ -141,6 +142,11 @@ function buildErrorRoutes(): Routes {
         });
     }
 
+    // pageFade delle rotte di errore: stessa risoluzione per-ruolo di ogni altra pagina (vedi
+    // route.data.pageFade più sotto in toAngularRoute), qui applicato a errorChrome.pageFade
+    // (ruoloPagina.error) invece che a page.pageFade — nessuna pagina della DSL a leggere qui.
+    const errorPageFade = ContestoSito.config.errorChrome.pageFade ?? ContestoSito.config.pageFade;
+
     routes.push(
         {
             // :errorCode letto da ErrorComponent via route param → @Input(). Niente `title` nativa
@@ -148,7 +154,10 @@ function buildErrorRoutes(): Routes {
             // (tradotto) — una `title` statica finirebbe su schermo verbatim, mai tradotta.
             path: 'error/:errorCode',
             loadComponent: () => import('../../pages/error/error.component').then(m => m.ErrorComponent),
-            data: { [SHELL_DATA_KEY]: { showPanel: false } satisfies ShellFlags }
+            // Rotta di errore: resta nell'Engine (non passa dalla DSL delle pagine), ma la sua chrome
+            // è comunque il ruolo 'error' risolto dal design system attivo — non un valore hardcoded
+            // qui (vedi ERROR_CHROME_DEFAULT/ruoloPagina.error in design-system-presets.ts).
+            data: { pageFade: errorPageFade, [CHROME_DATA_KEY]: ContestoSito.config.errorChrome satisfies RouteChrome }
         },
         {
             path: 'error',
@@ -162,7 +171,7 @@ function buildErrorRoutes(): Routes {
             // il browser vedrebbe 404 invece di 3xx e ignorerebbe il Location, pagina bianca.
             path: '**',
             loadComponent: () => import('../../pages/error/error.component').then(m => m.ErrorComponent),
-            data: { [SHELL_DATA_KEY]: { showPanel: false } satisfies ShellFlags }
+            data: { pageFade: errorPageFade, [CHROME_DATA_KEY]: ContestoSito.config.errorChrome satisfies RouteChrome }
         }
     );
 

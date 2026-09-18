@@ -27,7 +27,6 @@ import { ogPreviewHandler } from './routes/og-preview';
 import { dynamicSitemapHandler, revalidateSitemapHandler, dynamicAuditPathsHandler, dynamicLlmsTxtHandler } from './routes/dynamic-sitemap';
 import { securityTxtHandler } from './routes/dynamic-security-txt';
 import { customFontFilePath } from './custom-font-detect';
-import { resolvedFonts } from '../../../../styles/font-config';
 import { extname } from 'node:path';
 
 /** Alias sulla sezione server senza requireEnv, valutata al caricamento del modulo */
@@ -240,9 +239,9 @@ const FONT_CONTENT_TYPE: Record<string, string> = {
 };
 
 /** Serve il font custom configurato. */
-if (customFontFilePath && resolvedFonts.custom) {
+if (customFontFilePath && ContestoSito.config.fonts.custom) {
     const filePath: string = customFontFilePath;
-    const url = `/assets/fonts/${encodeURIComponent(resolvedFonts.custom.file)}`;
+    const url = `/assets/fonts/${encodeURIComponent(ContestoSito.config.fonts.custom.file)}`;
     app.get(url, (_req, res) => {
         res.set('Content-Type', FONT_CONTENT_TYPE[extname(filePath).toLowerCase()] ?? 'application/octet-stream');
         res.set('Cache-Control', 'public, max-age=3600');

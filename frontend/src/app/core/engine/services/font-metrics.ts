@@ -1,5 +1,5 @@
 import { ServerFont } from '../font-system';
-import { resolvedFonts } from '../../../../styles/font-config';
+import { ContestoSito } from '../../../site';
 
 /**
  * FONT METRICS
@@ -7,7 +7,7 @@ import { resolvedFonts } from '../../../../styles/font-config';
  * Misura della larghezza del testo senza canvas/DOM, per il layer server (Sharp/SSR) dove non
  * esiste `ctx.measureText`. Le metriche vivono in un dizionario `FONT_METRICS` keyed sulle
  * **costanti dei font server** (`SERVER_FONTS` in `core/engine/font-system.ts`), così ogni font ha
- * i suoi valori e la misura resta corretta anche cambiando il default in `styles/font-config.ts`.
+ * i suoi valori e la misura resta corretta anche cambiando il font scelto dal design system attivo.
  *
  * Le metriche reali le deriva a runtime il loader server (`server/server-font-metrics`), che legge i
  * font installati via `fc-match` + parser TTF: così restano allineate ai file senza rigenerare a mano.
@@ -108,12 +108,12 @@ export const FONT_METRICS: Record<ServerFont, FontMetric> = {
     [ServerFont.Noto]: { advance: NOTO_ADVANCE, fallbackAdvance: 605, boldFactor: 1.060 },
 };
 
-/** Chiave di lookup nelle metriche: un `ServerFont` di sistema o `resolvedFonts.custom.family`.
- *  `resolvedFonts.serverKey` è di questo tipo. */
+/** Chiave di lookup nelle metriche: un `ServerFont` di sistema o `ContestoSito.config.fonts.custom.family`.
+ *  `ContestoSito.config.fonts.serverKey` è di questo tipo. */
 export type ServerFontKey = ServerFont | string;
 
 /** Loader (lato server) che deriva le metriche dai font realmente installati/montati, incluso
- *  l'eventuale custom (`resolvedFonts.custom`). Iniettato via `FontMetrics.configure`; assente
+ *  l'eventuale custom (`ContestoSito.config.fonts.custom`). Iniettato via `FontMetrics.configure`; assente
  *  fuori dal server → si usano le tabelle `FONT_METRICS` (solo i 4 di sistema). */
 export type ServerMetricsLoader = () => Record<string, FontMetric>;
 
@@ -146,18 +146,19 @@ export class FontMetrics {
 
     /**
      * Larghezza in pixel del testo al `fontSizePx` indicato, con le metriche del font server
-     * effettivo (`resolvedFonts.serverKey`: il custom se impostato, altrimenti il default di
+     * effettivo (`ContestoSito.config.fonts.serverKey`: il custom se impostato, altrimenti il default di
      * sistema). `bold` applica la maggiorazione del peso 700. Se la chiave effettiva non ha
      * metriche risolte (es. custom dichiarato ma file assente dalla cartella montata), ripiega su
      * Liberation — mai un lookup a vuoto.
      *
-     * Niente parametro `font`: la scelta vive solo in `styles/font-config.ts` (sorgente unica) ed è
-     * lo stesso font che genera l'SVG → misura e rendering coincidono sempre. La firma `(text, fontSizePx,
+     * Niente parametro `font`: la scelta vive solo nel design system attivo (`DesignSystemPreset.
+     * webFont`/`serverFont`/`customFont`, risolti in `ContestoSito.config.fonts` — sorgente unica) ed
+     * è lo stesso font che genera l'SVG → misura e rendering coincidono sempre. La firma `(text, fontSizePx,
      * bold)` combacia con `FitOptions.measureFn`, così `measure` si passa come callback nudo
      * (es. `measureFn: FontMetrics.measure`), senza dipendere da `this` alla chiamata.
      */
     static measure(text: string, fontSizePx: number, bold = false): number {
-        const m = FontMetrics.resolve()[resolvedFonts.serverKey] ?? FONT_METRICS[ServerFont.Liberation];
+        const m = FontMetrics.resolve()[ContestoSito.config.fonts.serverKey] ?? FONT_METRICS[ServerFont.Liberation];
         let units = 0;
         for (const ch of text) units += m.advance?.[ch.codePointAt(0)!] ?? m.fallbackAdvance;
         const px = (units * fontSizePx) / 1000;

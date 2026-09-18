@@ -2,7 +2,7 @@ import { Injectable, inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { ThemeService } from './theme.service';
 import { WEB_FONTS } from '../font-system';
-import { resolvedFonts } from '../../../../styles/font-config';
+import { ContestoSito } from '../../../site';
 
 /** Servizio di generazione immagini PNG/SVG a partire da testo (supporto browser e SSR). */
 
@@ -344,7 +344,7 @@ export class ImgBuilderService {
         const bgColor = pillOpts.bgColor ?? this.roleColors(pillOpts.colorRole)[0];
         ImgBuilderService.drawImageBackground(ctx, baseImg, width, height, imgOpts, imgOpts.backdropColor ?? bgColor);
 
-        const fontFamily = pillOpts.fontFamily ?? resolvedFonts.webStack;
+        const fontFamily = pillOpts.fontFamily ?? ContestoSito.config.fonts.webStack;
         const measureFn = ImgBuilderService.canvasMeasureFn(ctx, fontFamily);
 
         const margin = pillOpts.margin ?? 24;
@@ -376,7 +376,7 @@ export class ImgBuilderService {
         const scrimColor = captionOpts.scrimColor ?? this.roleColors(captionOpts.colorRole)[0];
         ImgBuilderService.drawImageBackground(ctx, baseImg, width, height, imgOpts, imgOpts.backdropColor ?? scrimColor);
 
-        const fontFamily = captionOpts.fontFamily ?? resolvedFonts.webStack;
+        const fontFamily = captionOpts.fontFamily ?? ContestoSito.config.fonts.webStack;
         const measureFn = ImgBuilderService.canvasMeasureFn(ctx, fontFamily);
 
         const { svg } = ImgBuilderService.buildCaption({ ...captionOpts, canvasW: width, canvasH: height, scrimColor, fontFamily, measureFn });
@@ -402,7 +402,7 @@ export class ImgBuilderService {
     ): Promise<HTMLCanvasElement> {
         const width = imgOpts.width ?? 1200;
         const fontSize = captionOpts.fontSize ?? Math.round(width * 0.04);
-        const fontFamily = captionOpts.fontFamily ?? resolvedFonts.webStack;
+        const fontFamily = captionOpts.fontFamily ?? ContestoSito.config.fonts.webStack;
         const lineHeight = captionOpts.lineHeight ?? 1.3;
         const paddingH = captionOpts.paddingH ?? fontSize;
         const paddingV = captionOpts.paddingV ?? Math.round(fontSize * 0.6);
@@ -488,7 +488,7 @@ export class ImgBuilderService {
             fontSize: opts.fontSize ?? 40,
             // opts.fontFamily è una CHIAVE di WEB_FONTS: va risolta nello stack CSS reale,
             // altrimenti il canvas riceve la chiave (es. "Times") invece del font stack.
-            fontFamily: opts.fontFamily ? WEB_FONTS[opts.fontFamily] : resolvedFonts.webStack,
+            fontFamily: opts.fontFamily ? WEB_FONTS[opts.fontFamily] : ContestoSito.config.fonts.webStack,
             ratio: opts.ratio ?? '4:3',
             maxWidth: opts.maxWidth ?? 1000,
             lineHeight: opts.lineHeight ?? 1.4,
@@ -569,7 +569,7 @@ export class ImgBuilderService {
         const esc = ImgBuilderService.escapeXml;
         const fontSize = opts.fontSize ?? 40;
         const subtitleFontSize = opts.subtitleFontSize ?? Math.round(fontSize * 0.55);
-        const fontFamily = opts.fontFamily ?? resolvedFonts.webStack;
+        const fontFamily = opts.fontFamily ?? ContestoSito.config.fonts.webStack;
         const lineHeight = opts.lineHeight ?? 1.3;
         const maxLines = opts.maxLines ?? 3;
         const hPadL = opts.hPadL ?? Math.round(fontSize * this.PILL_PAD_H_RATIO);
@@ -646,7 +646,7 @@ export class ImgBuilderService {
         const fadeRatio = opts.fadeRatio ?? 0.12;
         const fontSize = opts.fontSize ?? Math.round(canvasH * 0.09);
         const subtitleFontSize = opts.subtitleFontSize ?? Math.round(fontSize * 0.55);
-        const fontFamily = opts.fontFamily ?? resolvedFonts.webStack;
+        const fontFamily = opts.fontFamily ?? ContestoSito.config.fonts.webStack;
         const lineHeight = opts.lineHeight ?? 1.3;
         const maxLines = opts.maxLines ?? this.MAX_CAPTION_LINES;
         const paddingH = opts.paddingH ?? fontSize;

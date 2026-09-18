@@ -1,16 +1,16 @@
 import { Component } from '@angular/core';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
-import { DesignSystemGalleryComponent } from '../../core/engine/components/design-system-gallery/design-system-gallery.component';
+import { StyleGuideComponent } from '../../core/engine/components/style-guide/style-guide.component';
 import { ContestoSito } from '../../site';
 
-/** Home: solo hero + catalogo Design System. Il resto della demo vive in `CheFaccioComponent`
+/** Home: solo hero + catalogo stile (style guide). Il resto della demo vive in `CheFaccioComponent`
  *  (`/che-faccio`, `/en/what-i-do`). */
 @Component({
     selector: 'app-home',
     imports: [
         TranslatePipe,
-        DesignSystemGalleryComponent,
+        StyleGuideComponent,
     ],
     templateUrl: './home.component.html',
 })

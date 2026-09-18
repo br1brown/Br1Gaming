@@ -1,7 +1,7 @@
 import { ImgBuilderService, TextBlockSpec } from '../services/img-builder.service';
 import { FontMetrics } from '../services/font-metrics';
 import { loadServerFontMetrics } from './server-font-metrics';
-import { resolvedFonts } from '../../../../styles/font-config';
+import { customFontServerStack } from './custom-font-detect';
 
 // Lato server le metriche vengono dai font reali installati (fallback alle tabelle se non leggibili).
 FontMetrics.configure(loadServerFontMetrics);
@@ -123,7 +123,7 @@ export class PreviewBuilder {
             mutedTextColor: ImgBuilderService.mutedTextColor(textColor, opts.bgColor, this.OPACITY_TEXT_SECONDARY),
             width: Math.max(1, Math.ceil(opts.width ?? this.CANVAS_WIDTH)),
             height: Math.max(1, Math.ceil(opts.height ?? this.CANVAS_HEIGHT)),
-            fontFamily: opts.fontFamily ?? resolvedFonts.serverStack,
+            fontFamily: opts.fontFamily ?? customFontServerStack,
             titleFontSize: opts.titleFontSize ?? this.FONT_PRIMARY,
             subtitleFontSize: opts.subtitleFontSize ?? this.FONT_SECONDARY,
             faviconSize: opts.faviconSize ?? this.FAVICON_SIZE,
@@ -214,7 +214,7 @@ export class PreviewBuilder {
             anchorCenterY: opts.anchorCenterY,
             fontSize,
             subtitleFontSize: opts.subtitleFontSize,
-            fontFamily: resolvedFonts.serverStack,
+            fontFamily: customFontServerStack,
             lineHeight: this.LINE_HEIGHT,
             maxLines: this.MAX_BADGE_LINES,
             hPadL: opts.hPadL,

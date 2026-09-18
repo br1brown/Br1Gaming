@@ -8,9 +8,7 @@ import { MailContactComponent, MailContactConfig } from '../mail-contact/mail-co
 import { PecContactComponent } from '../pec-contact/pec-contact.component';
 import { SocialLinkComponent } from '../social-link/social-link.component';
 import { OpeningHoursComponent, hasOpeningHours } from '../opening-hours/opening-hours.component';
-
-/** Tono Bootstrap del badge (suffisso di `text-bg-*`). */
-type BadgeTone = 'success' | 'secondary' | 'warning' | 'danger' | 'info' | 'primary';
+import { BadgeTone, formatAddress, formatCurrency, hasText } from '../../identity-format';
 
 type IdentityItem =
     | { kind: 'text'; label: string; value: string; itemClass?: string }
@@ -79,7 +77,7 @@ export class IdentityRenderComponent {
         if (!identity || !this.showContacts()) return [];
         return this.compactItems([
             this.createTextItem(identity.ragioneSociale, this.label('ragioneSocialeAzienda')),
-            this.createTextItem(this.formatAddress(identity), this.label('sedeLegaleAzienda')),
+            this.createTextItem(formatAddress(identity.sedeLegale, this.localization), this.label('sedeLegaleAzienda')),
             this.createTextItem(identity.rappresentanteLegale, this.label('rappresentanteLegaleAzienda')),
             this.createTextItem(identity.titolareDelTrattamento?.nome, this.label('titolareDelTrattamentoAzienda')),
             this.createTextItem(identity.responsabileProtezioneDati?.nome, this.label('responsabileProtezioneDatiAzienda')),
@@ -114,7 +112,7 @@ export class IdentityRenderComponent {
         const cf = identity.codiceFiscale?.trim();
         const ds = identity.datiSocietari;
 
-        const idCodes: Array<IdentityItem | null> = this.hasText(piva) && piva === cf
+        const idCodes: Array<IdentityItem | null> = hasText(piva) && piva === cf
             ? [this.createCodeItem(`${this.label('codiceFiscaleAzienda')} / ${this.label('partitaIvaAzienda')}`, piva)]
             : [
                 this.createCodeItem(this.label('partitaIvaAzienda'), identity.partitaIva),
@@ -141,22 +139,22 @@ export class IdentityRenderComponent {
         const list: ContactChannel[] = [];
         const c = identity.contatti;
         if (c) {
-            if (this.hasText(c.telefono)) {
+            if (hasText(c.telefono)) {
                 list.push({ kind: 'phone', key: 'telefono', label: 'telefonoAzienda', number: c.telefono.trim() });
             }
-            if (this.hasText(c.email)) {
+            if (hasText(c.email)) {
                 list.push({ kind: 'mail', key: 'email', label: 'emailAzienda', config: { to: c.email.trim() } });
             }
-            if (this.hasText(c.pec)) {
+            if (hasText(c.pec)) {
                 list.push({ kind: 'pec', key: 'pec', label: 'pecAzienda', config: { to: c.pec.trim() } });
             }
         }
         const titolareEmail = identity.titolareDelTrattamento?.email;
-        if (this.hasText(titolareEmail)) {
+        if (hasText(titolareEmail)) {
             list.push({ kind: 'mail', key: 'titolareDelTrattamento', label: 'titolareDelTrattamentoAzienda', config: { to: titolareEmail.trim() } });
         }
         const dpoEmail = identity.responsabileProtezioneDati?.email;
-        if (this.hasText(dpoEmail)) {
+        if (hasText(dpoEmail)) {
             list.push({ kind: 'mail', key: 'responsabileProtezioneDati', label: 'responsabileProtezioneDatiAzienda', config: { to: dpoEmail.trim() } });
         }
         return list;
@@ -170,7 +168,7 @@ export class IdentityRenderComponent {
         const ds = identity.datiSocietari;
         if (!ds) return [];
         return this.compactItems([
-            this.createTextItem(this.formatCurrency(ds.capitaleSociale, identity.currency), this.label('capitaleSocialeAzienda')),
+            this.createTextItem(formatCurrency(ds.capitaleSociale, identity.currency, this.localization), this.label('capitaleSocialeAzienda')),
             this.createBoolItem(this.label('capitaleVersatoAzienda'), ds.capitaleInteramenteVersato),
             this.createBoolItem(this.label('socioUnicoAzienda'), ds.isSocioUnico),
             // Flag "negativo": essere in liquidazione è un campanello → Sì in warning.
@@ -187,12 +185,12 @@ export class IdentityRenderComponent {
     }
 
     private createTextItem(value: string | null | undefined, label = '', itemClass?: string): IdentityItem | null {
-        if (!this.hasText(value)) return null;
+        if (!hasText(value)) return null;
         return { kind: 'text', label, value: value.trim(), itemClass };
     }
 
     private createCodeItem(label: string, value: string | null | undefined, itemClass?: string): IdentityItem | null {
-        if (!this.hasText(value)) return null;
+        if (!hasText(value)) return null;
         return { kind: 'code', label, value: value.trim(), itemClass };
     }
 
@@ -220,54 +218,6 @@ export class IdentityRenderComponent {
             itemClass,
         };
     }
-
-    private formatCurrency(value: number | null | undefined, currency: string | null | undefined): string | null {
-        if (typeof value !== 'number' || !Number.isFinite(value)) return null;
-        // Valuta = fatto dichiarato dall'identità; il locale (lingua corrente) decide solo il formato.
-        // Il codice è già validato ISO 4217 dal backend (presente-ma-invalido → 500 al read), quindi qui
-        // si formatta fidandosi; assente → EUR (default dichiarato). Il catch è solo difensivo (come
-        // per regionName): la validazione a monte esclude già un codice sbagliato silenzioso.
-        const code = (currency ?? '').trim().toUpperCase() || 'EUR';
-        try {
-            return this.localization.formatter.currency(value, code);
-        } catch {
-            return this.localization.formatter.currency(value, 'EUR');
-        }
-    }
-
-    private hasText(value: string | null | undefined): value is string {
-        return typeof value === 'string' && value.trim().length > 0;
-    }
-
-    private formatAddress(identity: Identity): string | null {
-        const address = identity.sedeLegale;
-        if (!address) return null;
-
-        const streetLine = [address.via, address.civico]
-            .filter(this.isNonEmptyString)
-            .join(', ');
-
-        const cityLine = [address.cap, address.citta, address.provincia]
-            .filter(this.isNonEmptyString)
-            .join(' ');
-
-        const parts = [streetLine, cityLine, this.countryName(address.nazione)].filter(this.isNonEmptyString);
-        return parts.length > 0 ? parts.join(' - ') : null;
-    }
-
-    /**
-     * Nome del paese localizzato dal codice ISO 3166-1 alpha-2 (es. "IT"→"Italia") via
-     * `Intl.DisplayNames`. Il backend garantisce il codice ISO valido: qui si formatta e basta.
-     */
-    private countryName(code: string | null | undefined): string | null {
-        const c = code?.trim();
-        if (!c) return null;
-        return this.localization.formatter.regionName(c);
-    }
-
-    private isNonEmptyString(value: unknown): value is string {
-        return typeof value === 'string' && value.trim().length > 0;
-    }
 }
 
 /** Blocchi da considerare in {@link hasIdentityContent} — stessi 4 blocchi + social di `app-identity-render`. */
@@ -291,9 +241,6 @@ export function hasIdentityContent(identity: Identity | null | undefined, option
         includeOpeningHours = true,
         includeSocial = false,
     } = options;
-
-    const hasText = (value: string | null | undefined): value is string =>
-        typeof value === 'string' && value.trim().length > 0;
 
     const ds = identity.datiSocietari;
     const hasIdentifiers = includeCompanyDetails && (

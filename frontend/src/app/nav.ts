@@ -1,4 +1,5 @@
 import type { ShellNavResolver } from './core/engine/shell-nav';
+import { FooterField } from './core/engine/footer-content';
 import { PageType } from './site';
 
 // Navigazione di header/footer: dato, non struttura del sito (per questo vive qui e non in
@@ -24,8 +25,25 @@ export const navResolver: ShellNavResolver = {
 
     // Le pagine legali sono gestite automaticamente da `footer.component` in una fascia
     // dedicata ("small prints") derivata da `legalPages` di site.ts — vedi `FooterLinkRowComponent`.
-    // Usa questa sezione per configurare i link della navigazione libera del progetto.
-    footer: (f) => {
-        f.addLink('githubDesc', 'https://github.com/br1brown/Br1WebEngine');
+    // Ogni `addGroup` qui diventa una colonna: dentro puoi mescolare link (`addPage`/`addLink`),
+    // campi dell'identità mappati dall'engine (`addField`, auto-nascosti se il sito non li valorizza)
+    // e testo libero (`addText`) — vedi `FooterGroupBuilder` in shell-nav.ts. Il blocco automatico
+    // (`app-identity-render`, sopra queste colonne) resta com'è: questo è il canale "custom" in più,
+    // non lo sostituisce.
+    footer: (f, ctx) => {
+        f.addGroup('footerProgettoAzienda', g => {
+            g.addField(FooterField.RagioneSociale);
+            g.addField(FooterField.PartitaIva);
+            g.addLink('githubDesc', 'https://github.com/br1brown/Br1WebEngine');
+        });
+
+        f.addGroup('socialNav', g => {
+            g.addField(FooterField.Email);
+            // I social non sono un FooterField: sono una scelta del progetto, non un dato che
+            // l'engine può "indovinare" di voler mostrare per intero — qui filtriamo ctx.identity
+            // (già risolta dall'engine, nessun fetch in più) sul solo profilo LinkedIn.
+            const linkedin = ctx.identity?.social?.find(s => s.url.includes('linkedin.com'));
+            if (linkedin) g.addSocialLink(linkedin.url, linkedin.name);
+        });
     },
 };

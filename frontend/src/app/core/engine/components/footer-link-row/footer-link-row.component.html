@@ -2,7 +2,7 @@
     <ul class="list-inline small mb-0 d-flex flex-wrap justify-content-center column-gap-4 row-gap-1">
         @for (link of links(); track navLinkKey(link)) {
             <li class="list-inline-item mb-0">
-                <app-nav-link [link]="link" />
+                <app-nav-link [link]="link" [class]="link.itemClass" />
             </li>
         }
     </ul>

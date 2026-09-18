@@ -7,6 +7,10 @@ import { buildPolicySection, filterManagedLegalPages, legalSlugFor } from './leg
 import type { StructuredDataInput } from './services/structured-data';
 import type { BreadcrumbItem, BreadcrumbContext } from './services/breadcrumb';
 import type { NavLink } from './shell-nav';
+import { ERROR_CHROME_DEFAULT, LEGAL_CHROME_DEFAULT, NAKED_CHROME, VIVIDEZZA_NEUTRA, VIVIDEZZA_PIENA, validateDesignSystemPreset, type DesignSystemFactory, type DesignSystemPreset, type PageRole, type SpecRuoloPagina, type SmokeSettings } from './design-system-presets';
+import { resolveFonts, ServerFont, type ResolvedFonts } from './font-system';
+
+export type { PageRole, SmokeSettings } from './design-system-presets';
 
 /** Default per le 5 pagine legali standard. */
 export { STANDARD_LEGAL_PAGES } from './legal/legal-pages';
@@ -17,8 +21,12 @@ export { STANDARD_LEGAL_PAGES } from './legal/legal-pages';
 
 export const SITE_CONFIG = new InjectionToken<SiteConfig>('SITE_CONFIG');
 
-/** Flag di layout per la shell root dell'applicazione. */
-export interface ShellFlags {
+/**
+ * Chrome GIÀ RISOLTA (da `resolveRuoloPagina`) per il ruolo della pagina attiva — output del design
+ * system, mai scritta a mano. `AppComponent` la legge da `route.data[CHROME_DATA_KEY]`
+ * (`normalizeSitePage` → `routing.ts`) per decidere come renderizzarsi ad ogni navigazione.
+ */
+export interface RouteChrome {
     /** Mostra la navbar. */
     showNav?: boolean;
     /** Mostra il pannello contenuti. */
@@ -27,24 +35,16 @@ export interface ShellFlags {
     showFooter?: boolean;
     /** Vista full-bleed senza pannello/container. */
     fitViewport?: boolean;
-    /** Mostra l'effetto smoke su questa pagina. */
+    /** Mostra l'effetto smoke su questa rotta. */
     showSmoke?: boolean;
-    /** Mostra il breadcrumb su questa pagina. */
+    /** Mostra il breadcrumb su questa rotta. */
     showBreadcrumb?: boolean;
+    /** Mostra l'icona di brand nella navbar su questa rotta. */
+    showBrandIcon?: boolean;
 }
 
-/** Chiave in `route.data` riservata ai `ShellFlags`. */
-export const SHELL_DATA_KEY = 'engineShell';
-
-/** Configurazione dell'effetto smoke. */
-export interface SmokeSettings {
-    enable: boolean;
-    color: string;
-    opacity: number;
-    maximumVelocity: number;
-    particleRadius: number;
-    density: number;
-}
+/** Chiave in `route.data` riservata a `RouteChrome`. */
+export const CHROME_DATA_KEY = 'engineChrome';
 
 /** Definizione di una pagina legale (rotta `policy/*` e markdown associato). */
 export interface LegalPageSpec {
@@ -72,33 +72,57 @@ export interface JsonLdContactExposure {
 export interface SiteConfig {
     /** Nome applicativo del sito. */
     appName: string;
-    /** Forza l'uso esclusivo dell'immagine per le anteprime social (Open Graph) senza overlay. */
-    onlyPlainImage: boolean;
+    /** Se l'immagine di anteprima social (og:image auto-generata) mostra SOLO l'immagine di
+     *  sfondo, senza titolo/sottotitolo/favicon sovrapposti. SOLO da `DesignSystemPreset.
+     *  ogImagePlain`, default `false` (con scritte) se il design system attivo non lo propone —
+     *  decisione dell'intero sito, non della singola pagina: la stessa immagine di anteprima
+     *  serve OGNI pagina (un badge uguale per tutte). */
+    ogImagePlain?: boolean;
+    /** Font risolto (stack CSS web/server, chiave metriche, eco del custom) — SOLO da
+     *  `DesignSystemPreset.webFont`/`serverFont`/`customFont`, calcolato una volta con
+     *  `resolveFonts()` (`font-system.ts`). Font di sistema (`'System'`/`ServerFont.Liberation`) se
+     *  il design system attivo non propone nulla. Unica fonte per ogni consumer (`ThemeService`,
+     *  `server.ts`, `ImgBuilderService`, `PreviewBuilder`, metriche OG) — nessuno legge il preset
+     *  o il catalogo direttamente. */
+    fonts: ResolvedFonts;
     /** Dati facoltativi di `identity` esposti nel JSON-LD del brand. */
     jsonld: JsonLdContactExposure;
     /** Versione canonica dell'applicazione (es. "1.2.0"). */
     version: string;
     /** Descrizione generale del sito per-lingua (chiavi = tag lingua). */
     description: Record<string, string>;
-    /** Colore tema principale usato dalla UI. */
+    /** Colore tema principale usato dalla UI — l'unico colore di identità che vive in
+     *  `global-settings.json`. Tutto il resto della palette è una proposta del design system
+     *  attivo (vedi sotto). */
     colorTema: string;
-    /** Override opzionale del colore secondario. */
+    /** Override opzionale del colore secondario — SOLO da `DesignSystemPreset.colorSecondary`, `undefined` se il design system attivo non lo propone. */
     colorSecondary?: string;
-    /** Override opzionale del colore di sfondo. */
+    /** Override opzionale del colore di sfondo — SOLO da `DesignSystemPreset.colorBackground`, `undefined` se il design system attivo non lo propone. */
     colorBackground?: string;
-    /** Override opzionale del colore del testo. */
+    /** Override opzionale del colore del testo — SOLO da `DesignSystemPreset.colorText`, `undefined` se il design system attivo non lo propone. */
     colorText?: string;
-    /** Override opzionale del colore informativo. */
+    /** Override opzionale del colore informativo — SOLO da `DesignSystemPreset.colorInfo`, `undefined` se il design system attivo non lo propone. */
     colorInfo?: string;
-    /** Indica se il footer deve essere visibile. */
+    /** Colori con nome proprio proposti dal design system attivo (`DesignSystemPreset.customPalette`),
+     *  oltre ai quattro slot fissi sopra — `{}` se il design system attivo non ne definisce. */
+    customPalette: Record<string, string>;
+    /** Quanto le superfici derivate (pannello, navbar/footer, hover, bordi) somigliano al colore
+     *  che le governa invece di restare quasi neutre — SOLO da `DesignSystemPreset.backgroundVividness`
+     *  (vedi lì, e `ThemeService.PaletteOverrides`), `undefined` se il design system attivo non lo propone. */
+    backgroundVividness?: number;
+    /** Indica se il footer deve essere visibile. Default: `true`. SOLO dal design system attivo. */
     showFooter: boolean;
-    /** Indica se l'header deve essere visibile. */
+    /** Indica se l'header deve essere visibile. Default: `true`. SOLO dal design system attivo. */
     showNav: boolean;
-    /** Indica se il pannello contenuti (`.content-panel`) può essere visibile. Default: `true`. */
+    /** Indica se il pannello contenuti (`.content-panel`) può essere visibile. Default: `true`.
+     *  SOLO dal design system attivo. */
     showPanel: boolean;
-    /** Mostra il breadcrumb sulle pagine interne. Default: `false`. */
+    /** Mostra il breadcrumb sulle pagine interne. Default: `false`. SOLO dal design system attivo. */
     showBreadcrumb: boolean;
-    /** Fissa la navbar in alto allo scroll. */
+    /** Mostra l'icona di brand nella navbar. Default: `true`. SOLO dal design system attivo — quale
+     *  icona resta invece `ShellNavResolver.brandIcon` (shell-nav.ts), un dato di contenuto. */
+    showBrandIcon: boolean;
+    /** Fissa la navbar in alto allo scroll. SOLO dal design system attivo. */
     fixedTopHeader?: boolean;
     /** Mostra il pulsante di login nella navbar. */
     showLoginInHeader: boolean;
@@ -106,12 +130,48 @@ export interface SiteConfig {
     showNotifications: boolean;
     /** Abilita funzionalità PWA (Service Worker e installazione offline). Default: `false`. */
     isWebApp: boolean;
-    /** Configurazione dell'effetto smoke. */
+    /** Configurazione dell'effetto smoke. Puramente decorativo: SOLO dal design system attivo
+     *  (`DesignSystemPreset.smoke`), non vive più in `global-settings.json`. */
     smoke: SmokeSettings;
-    /** Forza il pannello contenuti chiaro indipendentemente dal tema OS. Default: `true`. */
-    panelForcedLight: boolean;
-    /** Fade-in d'ingresso pagina (`.page-fade` via `PageBaseComponent`). Default: `true`. */
+    /** `true` se `shell.designSystem` è impostato in site.ts. Esposto solo per debug/introspezione. */
+    designSystem: boolean;
+    /**
+     * Forza l'intero sito su un tono, ignorando `prefers-color-scheme`: utile per un design a
+     * palette fissa (es. sempre scuro) dove un tema derivato dall'OS romperebbe il contrasto
+     * studiato dal grafico. SOLO da `DesignSystemPreset.forceThemeTone` — nessuno scostamento a
+     * livello di sito. Default: assente — segue l'OS come sempre (`ThemeService.themeTone`, sia in
+     * SSR sia runtime).
+     * Diverso da `panelSurface` (sotto): quello forza SOLO il pannello contenuti su un tono
+     * indipendente dall'OS che governa il resto; questo fissa l'intero sito. Compongono, non si
+     * escludono — un pannello con tono diverso dal resto del sito, anche già fissato, è una
+     * composizione valida (Radix Themes/Chakra/Ant Design/Carbon la documentano tutte come pattern
+     * intenzionale, non un conflitto). Cambia solo il DEFAULT di `panelSurface`: `'auto'` (segue
+     * l'ambiente, già coerente) quando questo campo è impostato, `'light'` altrimenti — un valore
+     * esplicito del design system vince sempre su entrambi i default.
+     */
+    forceThemeTone?: 'light' | 'dark';
+    /**
+     * Tono del pannello contenuti, indipendente dall'OS che governa navbar/footer/sfondo.
+     * `'auto'` = segue l'ambiente come il resto del sito. Default: `'light'` (comportamento
+     * storico del template) — o `'auto'` se `forceThemeTone` è impostato, vedi sopra.
+     */
+    panelSurface: 'light' | 'dark' | 'auto';
+    /**
+     * Sfondo/testo di navbar e footer. `'brand'` (default) = superficie immersiva derivata dal
+     * brand, sempre diversa dallo sfondo pagina. `'body'` = navbar/footer condividono lo sfondo
+     * pagina, nessuna cesura visibile — vedi `DesignSystemPreset.navSurface` per il dettaglio.
+     * SOLO dal design system attivo (es. `muro`) — nessuno scostamento a livello di sito.
+     */
+    navSurface: 'brand' | 'body';
+    /** Fade-in d'ingresso pagina (`.page-fade` via `PageBaseComponent`). Default: `true`. SOLO dal design system attivo. */
     pageFade: boolean;
+    /**
+     * Chrome (nav/footer/pannello) del ruolo `'error'` (vedi `PageRole`/`ERROR_CHROME_DEFAULT` in
+     * `design-system-presets.ts`), già risolta dal design system attivo — `routing.ts` la applica
+     * di peso alle rotte di errore (404/401/ecc), che restano nell'Engine e non passano dalla DSL
+     * delle pagine (`LeafPageInput.layout.role`), quindi non hanno altro modo di riceverla.
+     */
+    errorChrome: SpecRuoloPagina;
     /** Pagina a cui reindirizzare l'utente se non autenticato (default /error/401). */
     loginPage?: PageType | null;
     /** Pagina home usata dal logo nella navbar. */
@@ -179,22 +239,12 @@ export type LeafPageInput = BasePageInput & {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     component: () => Promise<Type<PageBaseComponent<any>>>;
     children?: never;
-    /** Override per-pagina dei flag di layout/shell. */
+    /** Cosa È questa pagina — non come appare. */
     layout?: {
-        /** Mostra o nasconde il pannello contenuto. */
-        showPanel?: boolean;
-        /** Mostra o nasconde la navbar per questa pagina. */
-        showNav?: boolean;
-        /** Mostra o nasconde il footer per questa pagina. */
-        showFooter?: boolean;
-        /** Vista full-bleed senza pannello/container. */
-        fitViewport?: boolean;
-        /** Mostra o nasconde l'effetto smoke per questa pagina. */
-        showSmoke?: boolean;
-        /** Mostra o nasconde il breadcrumb per questa pagina. */
-        showBreadcrumb?: boolean;
-        /** Override per-pagina del fade-in d'ingresso. */
-        pageFade?: boolean;
+        /** Ruolo della pagina (vedi `PageRole` in `design-system-presets.ts`) — governa nav/footer/
+         *  pannello/fitViewport/smoke/breadcrumb/fade tramite il design system attivo, non la pagina
+         *  stessa. Default: `'default'`. */
+        role?: PageRole;
     };
     /** Strategia di rendering della pagina ('server' o 'client'). */
     renderMode?: SiteRenderMode;
@@ -260,15 +310,15 @@ export type ParentPage = Omit<ParentPageInput, 'children' | 'kind'> & {
 /**
  * Versione interna normalizzata della pagina foglia.
  *
- * `otherSEO` è appiattito al top-level; le levette di layout sono RAGGRUPPATE nell'oggetto
- * `shell` (ShellFlags), che viaggia coerente fino a `route.data[SHELL_DATA_KEY]` senza essere
+ * `otherSEO` è appiattito al top-level; le levette di chrome sono RAGGRUPPATE nell'oggetto
+ * `chrome` (RouteChrome), che viaggia coerente fino a `route.data[CHROME_DATA_KEY]` senza essere
  * appiattito e poi riraggruppato. `pageFade` resta a parte: passa flat in `route.data` e diventa
  * input di PageBaseComponent.
  */
 export type LeafPage = Omit<LeafPageInput, 'kind' | 'layout' | 'otherSEO'> & {
     kind: 'leaf';
-    /** Levette di shell raggruppate, lette dal root via `route.data[SHELL_DATA_KEY]`. */
-    shell: ShellFlags;
+    /** Levette di chrome raggruppate, lette dal root via `route.data[CHROME_DATA_KEY]`. */
+    chrome: RouteChrome;
     pageFade?: boolean;
     ogImage?: OgImageRef | false;
     ogType?: string;
@@ -389,7 +439,8 @@ const assertDeclaredKind = (
  */
 const normalizeSitePage = (
     page: SitePageInput,
-    context: string
+    context: string,
+    preset: DesignSystemPreset | undefined
 ): SitePage => {
     if (isParentPageInput(page)) {
         assertDeclaredKind(page, 'parent', context);
@@ -399,7 +450,7 @@ const normalizeSitePage = (
             enabled: page.enabled ?? true,
             kind: 'parent',
             children: page.children.map((child, index) =>
-                normalizeSitePage(child, `${context}.children[${index}]`)
+                normalizeSitePage(child, `${context}.children[${index}]`, preset)
             )
         };
     }
@@ -418,20 +469,26 @@ const normalizeSitePage = (
         assertDeclaredKind(page, 'leaf', context);
 
         const { layout, otherSEO, ...rest } = page;
+        const role: PageRole = layout?.role ?? 'default';
+        assertRuoloConosciuto(role, preset, context);
+        const ruoloPagina = resolveRuoloPagina(role, preset);
+        const naked = role === 'naked';
         return {
             ...rest,
             enabled: page.enabled ?? true,
             kind: 'leaf',
-            // Flag di layout per route.data.
-            shell: {
-                showNav: layout?.showNav,
-                showPanel: layout?.showPanel,
-                showFooter: layout?.showFooter ?? (layout?.fitViewport ? false : undefined),
-                fitViewport: layout?.fitViewport,
-                showSmoke: layout?.showSmoke,
-                showBreadcrumb: layout?.showBreadcrumb,
-            } satisfies ShellFlags,
-            pageFade: layout?.pageFade,
+            // Flag di layout per route.data, decisi solo dal ruolo: 'naked' (fisso) >
+            // fitViewport del ruolo (niente footer) > resto del ruolo (ruoloPagina).
+            chrome: {
+                showNav: naked ? false : ruoloPagina.showNav,
+                showPanel: naked ? false : ruoloPagina.showPanel,
+                showFooter: (naked || ruoloPagina.fitViewport) ? false : ruoloPagina.showFooter,
+                fitViewport: ruoloPagina.fitViewport,
+                showSmoke: ruoloPagina.showSmoke,
+                showBreadcrumb: ruoloPagina.showBreadcrumb,
+                showBrandIcon: ruoloPagina.showBrandIcon,
+            } satisfies RouteChrome,
+            pageFade: ruoloPagina.pageFade,
             ogImage: otherSEO?.ogImage,
             ogType: otherSEO?.ogType,
             structuredData: otherSEO?.structuredData,
@@ -444,9 +501,10 @@ const normalizeSitePage = (
     );
 };
 
-/** Normalizza l'intero albero pagine dichiarato. */
-const normalizeSitePages = (pages: SitePageInput[]): SitePage[] =>
-    pages.map((page, index) => normalizeSitePage(page, `sitePages[${index}]`));
+/** Normalizza l'intero albero pagine dichiarato, secondo come il design system attivo (`preset`,
+ *  `undefined` se nessuno) interpreta il ruolo di ciascuna pagina. */
+const normalizeSitePages = (pages: SitePageInput[], preset: DesignSystemPreset | undefined): SitePage[] =>
+    pages.map((page, index) => normalizeSitePage(page, `sitePages[${index}]`, preset));
 
 /** Raccoglie i `PageType` dichiarati dal figlio nell'albero `pages`. */
 const collectDeclaredPageTypes = (pages: SitePageInput[], acc: Set<PageType>): Set<PageType> => {
@@ -470,27 +528,23 @@ export type SitePageContext = {
     readonly showLoginInHeader: boolean;
 };
 
-/** Comportamento della shell (navbar/footer/header/pannello contenuti).
- *  L'icona di brand in navbar non è più qui: è dato risolvibile a runtime (può dipendere da
- *  un'API, cambiare per pagina...), non struttura fissa del sito — vedi
- *  `ShellNavResolver.brandIcon` in `shell-nav.ts`, risolto insieme a header/footer. */
+/** Comportamento della shell — oggi solo ciò che NON è estetico (design system attivo,
+ *  notifiche): navbar/footer/pannello/header sono decisioni del design system attivo, non più
+ *  scostabili qui. QUALE icona di brand in navbar non è nemmeno lei qui: è dato risolvibile a
+ *  runtime (può dipendere da un'API, cambiare per pagina...), non struttura fissa del sito — vedi
+ *  `ShellNavResolver.brandIcon` in `shell-nav.ts`, risolto insieme a header/footer. SE comparire è
+ *  invece la solita decisione del design system (`DesignSystemPreset.showBrandIcon`), come
+ *  nav/footer/pannello. */
 export interface SiteShellConfig {
-    /** Mostra la navbar. Default: true. */
-    showNav?: boolean;
-    /** Mostra il footer. Default: true. */
-    showFooter?: boolean;
-    /** Mostra il pannello contenuti (`.content-panel`). Default: true. */
-    showPanel?: boolean;
-    /** Mostra il breadcrumb sulle pagine interne. Default: `false`. */
-    showBreadcrumb?: boolean;
-    /** Fissa la navbar in alto allo scroll. Default: false. */
-    fixedTopHeader?: boolean;
-    /** Mostra il campanellino delle notifiche realtime. Default: false. */
+    /**
+     * Design system attivo — l'UNICA fonte di tono/superfici/`ruoloPagina`/palette (vedi
+     * `DesignSystemPreset`, `design-system-presets.ts`). Sempre una factory importata, preset
+     * condiviso (`components/shared/design-systems/engine/`) o scritto da zero. Assente: `adaptive`.
+     */
+    designSystem?: DesignSystemFactory;
+    /** Mostra il campanellino delle notifiche realtime. Default: false. Disponibilità di una
+     *  funzionalità, non estetica — resta una decisione di sito, non del design system. */
     showNotifications?: boolean;
-    /** Pannello contenuti sempre chiaro. Default: true. */
-    panelForcedLight?: boolean;
-    /** Fade-in d'ingresso pagina. Default: true. */
-    pageFade?: boolean;
 }
 
 /** Configurazione della pagina di login e della sua visibilità in navbar. */
@@ -519,8 +573,6 @@ export interface SiteDefinition {
     dynamicSitemapCache?: boolean;
     /** Override per-`PageType` del calcolo breadcrumb. */
     resolveBreadcrumb?: (pageType: PageType, ctx: BreadcrumbContext) => BreadcrumbItem[] | null;
-    /** Anteprime social con sola immagine senza scritte/favicon sovrapposte. */
-    onlyPlainImage?: boolean;
     /** Override del percorso backend per un'immagine blob dinamica (og:image). Vedi {@link SiteConfig.resolveBlobImageUrl}. */
     resolveBlobImageUrl?: (guid: string) => string;
     /** Esposizione dati di `identity` nel JSON-LD del brand. */
@@ -640,7 +692,7 @@ function pageMapKey(type: PageType, lang: string, defaultLang: string): string {
     return lang === defaultLang ? type : `${type}::${lang}`;
 }
 
-/** Default dell'effetto smoke, mergeati con quanto arriva da global-settings.json. */
+/** Default dell'effetto smoke, mergeati con quanto propone il design system attivo. */
 const DEFAULT_SMOKE: SmokeSettings = {
     enable: false, color: '#ffffff', opacity: 0.5,
     maximumVelocity: 0.5, particleRadius: 2, density: 10,
@@ -660,49 +712,109 @@ function normalizeLoginPage(input: SiteDefinition['loginPage']): { page: PageTyp
 
 const HEX_COLOR_PATTERN = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
-/** Valida che i campi colore opzionali siano codici esadecimali validi (#RGB o #RRGGBB). */
-function validateColorFields(cfg: { colorTema?: string; colorSecondary?: string; colorBackground?: string; colorText?: string; colorInfo?: string }): void {
-    const fields: readonly (readonly [string, string | undefined])[] = [
-        ['colorTema', cfg.colorTema],
-        ['colorSecondary', cfg.colorSecondary],
-        ['colorBackground', cfg.colorBackground],
-        ['colorText', cfg.colorText],
-        ['colorInfo', cfg.colorInfo],
-    ];
-    for (const [name, value] of fields) {
-        if (value != null && !HEX_COLOR_PATTERN.test(value)) {
-            throw new Error(
-                `[SiteBuilder] site.${name}="${value}" non è un colore hex valido (atteso #RGB o ` +
-                `#RRGGBB, es. "#131e55" — niente canale alpha) in global-settings.json.`
-            );
-        }
-    }
+/** Risolve `shell.designSystem` eseguendo la sua factory — `undefined` se non impostato. Un design
+ *  system è codice (`DesignSystemFactory`), non un dato: qui è dove viene chiamato. */
+function resolveDesignSystemPreset(designSystem: DesignSystemFactory | undefined): DesignSystemPreset | undefined {
+    return designSystem?.();
 }
 
-/** Assembla e normalizza la SiteConfig finale combinando environment e definition. */
-function buildFinalConfig(definition: SiteDefinition): SiteConfig {
+/** `showPanel` effettivo del design system attivo: `false` sia se dichiarato esplicitamente sia se
+ *  `superfici: 'fusione'` lo implica (un pannello di tono diverso vanificherebbe la fusione totale
+ *  delle superfici) — un'unica decisione invece di due campi da tenere sincronizzati a mano. */
+function effectiveShowPanel(preset: DesignSystemPreset | undefined): boolean | undefined {
+    if (preset?.superfici === 'fusione') return false;
+    return preset?.showPanel;
+}
+
+/** I 6 campi di `SpecRuoloPagina` con un interruttore MASTER sul campo omonimo di
+ *  `DesignSystemPreset` — vedi il commento di `SpecRuoloPagina` in `design-system-presets.ts` per
+ *  il perché e per il confronto con `smoke.enable`. */
+const MASTER_LOCKABLE_FIELDS = ['showNav', 'showFooter', 'showPanel', 'showBreadcrumb', 'pageFade', 'showBrandIcon'] as const;
+
+/** Se il design system dichiara ESPLICITAMENTE `false` (non assente) su un `MASTER_LOCKABLE_FIELDS`,
+ *  nessun ruolo può riportarlo a `true` — spegnerlo resta invece sempre permesso. */
+function lockToMasterOff(chrome: SpecRuoloPagina, preset: DesignSystemPreset | undefined): SpecRuoloPagina {
+    let result = chrome;
+    for (const field of MASTER_LOCKABLE_FIELDS) {
+        const masterValue = field === 'showPanel' ? effectiveShowPanel(preset) : preset?.[field];
+        if (masterValue === false && result[field] === true) {
+            if (result === chrome) result = { ...chrome };
+            result[field] = false;
+        }
+    }
+    return result;
+}
+
+/** I 4 ruoli di serie dell'Engine — sempre validi, a prescindere dal design system attivo. */
+const RUOLI_DI_SERIE = new Set<PageRole>(['default', 'legal', 'error', 'naked']);
+
+/** Un ruolo CUSTOM è valido solo se compare fra le chiavi di `preset.ruoloPagina` — l'unico punto
+ *  che lo scopre, al primo `buildSite()`, non a livello di tipo (vedi `PageRole`). */
+function assertRuoloConosciuto(role: PageRole, preset: DesignSystemPreset | undefined, context: string): void {
+    if (RUOLI_DI_SERIE.has(role)) return;
+    if (preset?.ruoloPagina && role in preset.ruoloPagina) return;
+    const noti = [...RUOLI_DI_SERIE, ...Object.keys(preset?.ruoloPagina ?? {})];
+    throw new Error(
+        `[SiteBuilder] ${context}: layout.role="${role}" non è un ruolo di serie né registrato con ` +
+        `ruoloPagina: { "${role}": {...} } dal design system attivo — probabile typo. Ruoli noti: ${noti.join(', ')}.`
+    );
+}
+
+/** Risolve il ruolo di una pagina nel bundle di comportamento dettato dal design system attivo.
+ *  `'naked'` è fisso (`NAKED_CHROME`); `'error'`/`'legal'` hanno un default di Engine sovrascrivibile. */
+function resolveRuoloPagina(role: PageRole, preset: DesignSystemPreset | undefined): SpecRuoloPagina {
+    if (role === 'naked') return NAKED_CHROME;
+    if (role === 'error') return lockToMasterOff({ ...ERROR_CHROME_DEFAULT, ...preset?.ruoloPagina?.error }, preset);
+    if (role === 'legal') return lockToMasterOff({ ...LEGAL_CHROME_DEFAULT, ...preset?.ruoloPagina?.legal }, preset);
+    return lockToMasterOff(preset?.ruoloPagina?.[role] ?? {}, preset);
+}
+
+/** Assembla e normalizza la SiteConfig finale combinando environment e definition. Espone anche il
+ *  preset risolto (`undefined` se nessuno): serve a `normalizeSitePages` per interpretare i ruoli
+ *  di pagina — evita di rifare due volte il lookup di `shell.designSystem`. */
+function buildFinalConfig(definition: SiteDefinition): { config: SiteConfig; preset: DesignSystemPreset | undefined } {
     const cfg = environment.config;
-    validateColorFields(cfg);
+    if (cfg.colorTema != null && !HEX_COLOR_PATTERN.test(cfg.colorTema)) {
+        throw new Error(
+            `[SiteBuilder] site.colorTema="${cfg.colorTema}" non è un colore hex valido (atteso ` +
+            `#RGB o #RRGGBB, es. "#131e55" — niente canale alpha) in global-settings.json.`
+        );
+    }
     const shell = definition.shell ?? {};
+    const preset = resolveDesignSystemPreset(shell.designSystem);
+    // Validato di nuovo: un DesignSystemFactory scritto a mano (non via extendDesignSystem) non è
+    // validato altrove finché qualcuno lo seleziona.
+    if (preset) validateDesignSystemPreset('shell.designSystem', preset);
+    const forceThemeTone = preset?.forceThemeTone;
     const login = normalizeLoginPage(definition.loginPage);
-    return {
+    const config: SiteConfig = {
         appName: environment.appName,
         version: normalizeVersion(environment.version) || '1.0.0',
         description: cfg.description ?? {},
         colorTema: cfg.colorTema ?? '#888888',
-        colorSecondary: cfg.colorSecondary,
-        colorBackground: cfg.colorBackground,
-        colorText: cfg.colorText,
-        colorInfo: cfg.colorInfo,
-        showFooter: shell.showFooter ?? true,
-        showNav: shell.showNav ?? true,
-        showPanel: shell.showPanel ?? true,
-        showBreadcrumb: shell.showBreadcrumb ?? false,
-        fixedTopHeader: shell.fixedTopHeader ?? false,
+        colorSecondary: preset?.colorSecondary,
+        colorBackground: preset?.colorBackground,
+        colorText: preset?.colorText,
+        colorInfo: preset?.colorInfo,
+        customPalette: preset?.customPalette ?? {},
+        backgroundVividness: preset?.superfici === 'fusione' ? VIVIDEZZA_PIENA : VIVIDEZZA_NEUTRA,
+        designSystem: shell.designSystem != null,
+        forceThemeTone,
+        showFooter: preset?.showFooter ?? true,
+        showNav: preset?.showNav ?? true,
+        showPanel: effectiveShowPanel(preset) ?? true,
+        showBreadcrumb: preset?.showBreadcrumb ?? false,
+        showBrandIcon: preset?.showBrandIcon ?? true,
+        fixedTopHeader: preset?.fixedTopHeader ?? false,
         showLoginInHeader: login.showInHeader,
         showNotifications: shell.showNotifications ?? false,
         isWebApp: definition.isWebApp ?? false,
-        onlyPlainImage: definition.onlyPlainImage ?? false,
+        ogImagePlain: preset?.ogImagePlain,
+        fonts: resolveFonts(
+            preset?.customFont
+                ? { custom: preset.customFont }
+                : { webDefault: preset?.webFont ?? 'System', serverDefault: preset?.serverFont ?? ServerFont.Liberation },
+        ),
         jsonld: {
             email: definition.jsonld?.email ?? false,
             telefono: definition.jsonld?.telefono ?? false,
@@ -713,14 +825,22 @@ function buildFinalConfig(definition: SiteDefinition): SiteConfig {
         dynamicSitemapCache: definition.dynamicSitemapCache ?? true,
         resolveBreadcrumb: definition.resolveBreadcrumb,
         resolveBlobImageUrl: definition.resolveBlobImageUrl,
-        panelForcedLight: shell.panelForcedLight ?? true,
-        pageFade: shell.pageFade ?? true,
-        smoke: { ...DEFAULT_SMOKE, ...(cfg.smoke ?? {}) },
+        // Default sensibile al contesto: 'light' (storico) quando il sito segue l'OS, 'auto' quando
+        // è già fissato su un tono (forceThemeTone) — un sito uniforme di default, non una card
+        // chiara che spunta senza che nessuno l'abbia chiesta. Un valore esplicito del design
+        // system vince sempre: un pannello con tono diverso dal resto del sito è una composizione
+        // valida (Radix/Chakra/Ant Design/Carbon la documentano tutti), non un conflitto.
+        panelSurface: preset?.panelSurface ?? (forceThemeTone ? 'auto' : 'light'),
+        navSurface: preset?.navSurface ?? 'brand',
+        pageFade: preset?.pageFade ?? true,
+        smoke: { ...DEFAULT_SMOKE, ...(preset?.smoke ?? {}) },
+        errorChrome: resolveRuoloPagina('error', preset),
         loginPage: login.page,
         homePage: definition.homePage ?? null,
         legalPages: definition.legalPages ?? [],
         cookiePolicy: definition.cookiePolicy ?? null,
     };
+    return { config, preset };
 }
 
 /**
@@ -956,7 +1076,7 @@ function resolveLegalFooterLinks(
  */
 export function buildSite(definition: SiteDefinition): BuiltSite {
 
-    const finalConfig = buildFinalConfig(definition);
+    const { config: finalConfig, preset } = buildFinalConfig(definition);
     const cookiesEnabled = hasCookiesConfigured(finalConfig.isWebApp);
 
     const ctx: SitePageContext = {
@@ -970,7 +1090,7 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
     const managedLegalPages = filterManagedLegalPages(allLegalPages, declaredPageTypes);
 
     const policySection = buildPolicySection(managedLegalPages);
-    const sitePages = normalizeSitePages(policySection ? [...declaredPages, policySection] : declaredPages);
+    const sitePages = normalizeSitePages(policySection ? [...declaredPages, policySection] : declaredPages, preset);
 
     const pageMap = new Map<string, PageInfo>();
     const serverRenderEntries: ServerRenderEntry[] = [];

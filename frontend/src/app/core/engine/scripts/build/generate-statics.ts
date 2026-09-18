@@ -105,24 +105,40 @@ const _settings = readProjectSettings();
 const CONFIG_FINGERPRINT = fingerprintIdentitySections(_settings);
 const _fileLoc = _settings.Localization ?? {};
 const _fileProject = _settings.project ?? {};
-// Config di sito: solo identità/estetica finisce in environment.ts. I flag di
-// COMPORTAMENTO (showNav/showFooter/showPanel/fixedTopHeader/
-// showLoginInHeader/showNotifications/panelForcedLight/isWebApp/onlyPlainImage) sono migrati in site.ts,
-// quindi vengono filtrati via qui anche se un vecchio JSON li contiene ancora. L'icona di brand non
-// è più tra questi: è dato runtime risolto da ShellNavResolver.brandIcon in nav.ts (shell-nav.ts).
+// Config di sito: solo identità MINIMA finisce in environment.ts. Tutto ciò che è
+// aspetto/comportamento (showNav/showFooter/showPanel/fixedTopHeader/showLoginInHeader/
+// showNotifications/panelSurface/forceThemeTone/designSystem/isWebApp/ogImagePlain, i quattro
+// override colore, l'effetto smoke) è migrato in site.ts (struttura o `DesignSystemPreset`), quindi
+// viene filtrato via qui anche se un vecchio JSON lo contiene ancora. L'icona di brand non è più
+// tra questi: è dato runtime risolto da ShellNavResolver.brandIcon in nav.ts (shell-nav.ts).
 const SITE_CONFIG = _settings.site ?? {};
-const SITE_AESTHETIC_KEYS = ['description', 'colorTema', 'colorSecondary', 'colorBackground', 'colorText', 'colorInfo', 'smoke'];
+const SITE_AESTHETIC_KEYS = ['description', 'colorTema'];
 
 // Identità dell'app — fonte unica: project.name / project.version.
 const APP_NAME = _fileProject.name || 'App';
 const APP_VERSION = _fileProject.version || '1.0.0';
 const COLOR_TEMA = SITE_CONFIG.colorTema ?? '#888888';
+// Gli override colore non vivono più nel JSON: sono una proposta del design system attivo
+// (shell.designSystem in site.ts, DesignSystemPreset.colorSecondary/... nell'Engine o in
+// un'estensione di dominio). Leggerli da ContestoSito.config è corretto qui (a differenza di
+// COLOR_TEMA/SITE_CONFIG sopra, che vengono da global-settings.json e che QUESTO script stesso
+// rigenera in environment.ts più sotto): site.ts non passa da environment.ts, quindi non c'è alcun
+// problema di staleness — ContestoSito legge site.ts così com'è ora, non una versione precedente.
+// Stesso ragionamento di FORCE_THEME_TONE subito sotto. Stesso set di campi di
+// ThemeService._overrides (client)/app.config.server.ts/og-preview.ts — le quattro fonti che
+// calcolano una palette devono leggere esattamente lo stesso design system, altrimenti
+// manifest/SSR/preview social/runtime potrebbero disegnare colori diversi per lo stesso sito.
 const COLOR_OVERRIDES = {
-    secondary: SITE_CONFIG.colorSecondary,
-    background: SITE_CONFIG.colorBackground,
-    text: SITE_CONFIG.colorText,
-    info: SITE_CONFIG.colorInfo,
+    secondary: ContestoSito.config.colorSecondary,
+    background: ContestoSito.config.colorBackground,
+    text: ContestoSito.config.colorText,
+    info: ContestoSito.config.colorInfo,
+    customPalette: ContestoSito.config.customPalette,
+    backgroundVividness: ContestoSito.config.backgroundVividness,
 };
+// Tono forzato — GIÀ risolto da siteBuilder.ts (shell.forceThemeTone in site.ts, diretto o via un
+// shell.designSystem che lo preveda).
+const FORCE_THEME_TONE: 'light' | 'dark' | undefined = ContestoSito.config.forceThemeTone;
 
 // PWA on/off — fonte unica: ContestoSito.config.isWebApp (site.ts). Guida la generazione
 // dei TRIGGER di installabilità: il manifest e, in index.html, <link rel="manifest"> più i
@@ -297,18 +313,6 @@ function updateIndexHtml(): void {
 export interface AppSiteConfig {
     description?: Record<string, string>;
     colorTema?: string;
-    colorSecondary?: string;
-    colorBackground?: string;
-    colorText?: string;
-    colorInfo?: string;
-    smoke?: {
-        enable?: boolean;
-        color?: string;
-        opacity?: number;
-        maximumVelocity?: number;
-        particleRadius?: number;
-        density?: number;
-    };
 }
 
 export interface AppEnvironment {
@@ -411,7 +415,7 @@ function updateManifest(): void {
         description: DESCRIPTION,
         lang: DEFAULT_LANG,
         theme_color: palette.colorPrimary,
-        background_color: palette.naturalTone === 'light' ? palette.colorBaseLt : palette.colorBaseDk,
+        background_color: (FORCE_THEME_TONE ?? palette.naturalTone) === 'light' ? palette.colorBaseLt : palette.colorBaseDk,
         display: "standalone",
         scope: "./",
         start_url: "./",
@@ -463,7 +467,16 @@ function updateThemeInit(): void {
     // script-src 'self' nella CSP, quindi non serve né hash né nonce. È un asset statico
     // servito da express.static: va materializzato qui perché public/ è gitignored,
     // altrimenti mancherebbe su un checkout/build pulito (404 + MIME error a ogni full load).
-    const script = `(function () {
+    // Tono forzato (shell.forceThemeTone in site.ts): valore baked-in, niente matchMedia — nessun ascolto di
+    // prefers-color-scheme da rimuovere in seguito, lo script è già deterministico dal boot.
+    const script = FORCE_THEME_TONE
+        ? `(function () {
+    var el = document.documentElement;
+    el.setAttribute('data-bs-theme', '${FORCE_THEME_TONE}');
+    el.setAttribute('data-theme-tone', '${FORCE_THEME_TONE}');
+}());
+`
+        : `(function () {
     var t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     var el = document.documentElement;
     el.setAttribute('data-bs-theme', t);

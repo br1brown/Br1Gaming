@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { FontMetric, FONT_METRICS } from '../services/font-metrics';
 import { ServerFont } from '../font-system';
-import { resolvedFonts } from '../../../../styles/font-config';
+import { ContestoSito } from '../../../site';
 import { customFontFilePath } from './custom-font-detect';
 
 /**
@@ -184,7 +184,7 @@ function assertSane(m: FontMetric): void {
 /**
  * Metriche per ogni font server lette dai file reali, con fallback per-font sullo snapshot baked-in.
  * Se c'è un custom con file confermato (`customFontFilePath`), aggiunge anche la sua voce sotto
- * `resolvedFonts.serverKey` — assente, `measure()` ripiega da sola su Liberation. Da passare a
+ * `ContestoSito.config.fonts.serverKey` — assente, `measure()` ripiega da sola su Liberation. Da passare a
  * `FontMetrics.configure`; sincrono e una-tantum, all'avvio.
  */
 export function loadServerFontMetrics(): Record<string, FontMetric> {
@@ -196,11 +196,11 @@ export function loadServerFontMetrics(): Record<string, FontMetric> {
             result[key] = FONT_METRICS[key];
         }
     }
-    if (resolvedFonts.custom && customFontFilePath) {
+    if (ContestoSito.config.fonts.custom && customFontFilePath) {
         try {
-            result[resolvedFonts.custom.family] = buildMetricFromFile(customFontFilePath, FONT_METRICS[ServerFont.Liberation]);
+            result[ContestoSito.config.fonts.custom.family] = buildMetricFromFile(customFontFilePath, FONT_METRICS[ServerFont.Liberation]);
         } catch {
-            result[resolvedFonts.custom.family] = FONT_METRICS[ServerFont.Liberation];
+            result[ContestoSito.config.fonts.custom.family] = FONT_METRICS[ServerFont.Liberation];
         }
     }
     return result;

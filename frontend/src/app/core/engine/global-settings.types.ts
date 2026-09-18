@@ -203,7 +203,7 @@ export interface GlobalSettings {
     WebhookUrl?: string;
   };
   /**
-   * Identità ed estetica del sito (committabile, del progetto). Iniettata nel frontend al build via environment.ts. I flag di comportamento (showNav, showFooter, showPanel, fixedTopHeader, showLoginInHeader, showNotifications, panelForcedLight, isWebApp, onlyPlainImage) sono struttura e vivono in site.ts (`shell` / `isWebApp` / `onlyPlainImage`), insieme a pagine e loginPage; il menu di header/footer e l'icona di brand sono dato risolto a runtime in nav.ts.
+   * Identità ed estetica MINIMA del sito (committabile, del progetto). Iniettata nel frontend al build via environment.ts. Tutto ciò che è aspetto/comportamento (showNav, showFooter, showPanel, fixedTopHeader, panelSurface, forceThemeTone, ogImagePlain, superfici, ruoloPagina, i quattro override colore, l'effetto smoke) non è un campo di questo file: è decisione del design system attivo (`DesignSystemPreset`, scelto o esteso in site.ts via `shell.designSystem`). `shell` stesso resta minimo (solo `designSystem`/`showNotifications`); `isWebApp` e il `showInHeader` di `loginPage` sono campi propri di site.ts, non di `shell` né del design system. Il menu di header/footer e l'icona di brand sono dato risolto a runtime in nav.ts.
    */
   site?: {
     /**
@@ -216,33 +216,6 @@ export interface GlobalSettings {
      * Colore tema principale (hex #RGB o #RRGGBB). Genera la palette OKLCH e il tono testo chiaro/scuro.
      */
     colorTema?: string;
-    /**
-     * Override opzionale del colore secondario (badge, `.btn-secondary`). Se assente resta la variante muted di `colorTema`. Se presente sostituisce hue e chroma della catena di derivazione: le varianti light/dark/subtle/emphasis restano comunque calcolate e garantite WCAG.
-     */
-    colorSecondary?: string;
-    /**
-     * Override opzionale del colore di sfondo (pagina, card, hover, superfici). Se assente resta derivato da `colorTema`. Un solo valore genera automaticamente sia la variante light sia quella dark, come per `colorTema`. Resta comunque una superficie chiara/scura tinta, non un blocco di colore pieno.
-     */
-    colorBackground?: string;
-    /**
-     * Override opzionale del colore del testo (corpo e headings). Se assente NON ricade su colorTema ma su colorBackground (che a sua volta è colorTema se nemmeno quello è impostato): testo e sfondo restano sempre intonati tra loro senza sceglierlo esplicitamente. Impostato: override pieno e indipendente. Un solo valore genera automaticamente sia la variante per sfondo chiaro sia quella per sfondo scuro.
-     */
-    colorText?: string;
-    /**
-     * Override opzionale del colore informativo (badge/alert '.text-bg-info', '.alert-info', '.btn-outline-info'). A differenza di colorSecondary/colorBackground/colorText NON ha un fallback derivato dal brand: se assente, Bootstrap 5.3 gestisce '--bs-info*' per intero coi suoi blocchi tono-adattivi nativi. warning/success/danger restano sempre fissi (significato universale, non personalizzabile).
-     */
-    colorInfo?: string;
-    /**
-     * Effetto particellare di sfondo. Ometti o enable:false per disattivarlo.
-     */
-    smoke?: {
-      enable?: boolean;
-      color?: string;
-      opacity?: number;
-      maximumVelocity?: number;
-      particleRadius?: number;
-      density?: number;
-    };
   };
   /**
    * Valori aggiuntivi liberi, leggibili da entrambi i progetti senza modificare script o codice infrastrutturale.
