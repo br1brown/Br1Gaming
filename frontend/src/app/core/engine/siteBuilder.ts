@@ -151,6 +151,9 @@ export interface SiteConfig {
     /** Mostra l'icona di brand nella navbar. Default: `true`. SOLO dal design system attivo — quale
      *  icona resta invece `ShellNavResolver.brandIcon` (shell-nav.ts), un dato di contenuto. */
     showBrandIcon: boolean;
+    /** Angoli arrotondati sull'immagine ingrandita nel lightbox. Default: `true`. SOLO dal design
+     *  system attivo — vedi `DesignSystemPreset.lightboxBordiArrotondati`. */
+    lightboxBordiArrotondati: boolean;
     /** Fissa la navbar in alto allo scroll. SOLO dal design system attivo. */
     fixedTopHeader?: boolean;
     /** Mostra il pulsante di login nella navbar. */
@@ -887,6 +890,7 @@ function buildFinalConfig(definition: SiteDefinition): { config: SiteConfig; pre
         showPanel: superficiShowsPanel(preset?.superfici),
         showBreadcrumb: preset?.showBreadcrumb ?? false,
         showBrandIcon: preset?.showBrandIcon ?? true,
+        lightboxBordiArrotondati: preset?.lightboxBordiArrotondati ?? true,
         fixedTopHeader: preset?.fixedTopHeader ?? false,
         showLoginInHeader: login.showInHeader,
         showNotifications: shell.showNotifications ?? false,
