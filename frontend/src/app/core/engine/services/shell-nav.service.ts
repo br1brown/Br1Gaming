@@ -5,6 +5,7 @@ import { ContestoSito } from '../../../site';
 import {
     createFooterSectionBuilder,
     createNavSectionBuilder,
+    defaultFooterResolver,
     resolveFooterItems,
     resolveNavItems,
     validateFooterBreadth,
@@ -201,11 +202,13 @@ export class ShellNavService {
     /** Pipeline dedicata al footer: builder e risoluzione diversi dall'header (`FooterSectionBuilder`
      *  invece di `NavSectionBuilder`, i gruppi accettano anche campi Identity/testo libero/social —
      *  vedi `shell-nav.ts`), quindi non condivide `resolveHeaderInto` oltre alla stessa guardia di
-     *  generazione e allo stesso schema try/catch. */
+     *  generazione e allo stesso schema try/catch. Un progetto senza `resolver.footer` non ottiene
+     *  un footer vuoto: `defaultFooterResolver` (societari/legali/contatti/orari/social, lo storico
+     *  `app-identity-render`) copre l'assenza — stesso meccanismo di un resolver di progetto, mai
+     *  attivo insieme a uno personalizzato, che lo rimpiazza per intero definendo `footer` in nav.ts. */
     private async resolveFooterInto(lang: string, generation: number): Promise<void> {
         const isCurrent = () => generation === this.generation;
-        const run = this.resolver.footer;
-        if (!run) { if (isCurrent()) { this._footer.set([]); this._hideLegalStrip.set(false); } return; }
+        const run = this.resolver.footer ?? defaultFooterResolver;
         try {
             const state: FooterBuildState = { entries: [], hideLegalStrip: false };
             const ctx = this.ctx(lang);

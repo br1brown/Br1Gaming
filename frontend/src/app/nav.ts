@@ -27,9 +27,10 @@ export const navResolver: ShellNavResolver = {
     // dedicata ("small prints") derivata da `legalPages` di site.ts — vedi `FooterLinkRowComponent`.
     // Ogni `addGroup` qui diventa una colonna: dentro puoi mescolare link (`addPage`/`addLink`),
     // campi dell'identità mappati dall'engine (`addField`, auto-nascosti se il sito non li valorizza)
-    // e testo libero (`addText`) — vedi `FooterGroupBuilder` in shell-nav.ts. Il blocco automatico
-    // (`app-identity-render`, sopra queste colonne) resta com'è: questo è il canale "custom" in più,
-    // non lo sostituisce.
+    // e testo libero (`addText`) — vedi `FooterGroupBuilder` in shell-nav.ts. Definirlo qui
+    // RIMPIAZZA per intero `defaultFooterResolver` (shell-nav.ts) — il footer "di serie" (societari/
+    // legali/contatti/orari/social), attivo automaticamente solo quando un progetto non scrive
+    // affatto questa proprietà. Non convivono: o l'uno o l'altro, mai entrambi.
     footer: (f, ctx) => {
         f.addGroup('footerProgettoAzienda', g => {
             g.addField(FooterField.RagioneSociale);
