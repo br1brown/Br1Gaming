@@ -24,7 +24,7 @@ const BUILDINGS_LIGHT = ['#d7deea', '#cdd6e6', '#e0e6ef', '#c4cfe0', '#d2dbe8', 
  * pannelli modali) come signal + template Bootstrap; la simulazione su canvas vive in
  * `burocrazia.engine.ts` (TS puro) e comunica lo stato qui tramite hook → signal.
  *
- * Mobile-friendly: la rotta è `layout: { fitViewport: true }` in site.ts (stessa scelta di
+ * Mobile-friendly: la rotta è `layout: { role: 'giochini' }` in app.pages.ts (stessa scelta di
  * duce-non-duce / radar) → riempie lo spazio sotto la navbar senza scroll di pagina; lo stage
  * prende l'altezza residua (root con `flex-grow-1` dentro l'host full-bleed) e il canvas la
  * insegue via ResizeObserver. NIENTE classi `d-*` sull'host: batterebbero il `display:flex`

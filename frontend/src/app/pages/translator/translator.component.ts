@@ -11,7 +11,7 @@ import { TranslatorSpeechService } from './translator-speech.service';
  * Translator ITA → ESP: il "traduttore" scherzoso verso il finto spagnolo. La logica vive nel
  * backend C# (fonte unica, come i generatori): qui si chiama l'API `translate` con un piccolo
  * debounce mentre si digita (come un traduttore vero). Interfaccia a due pannelli (stile DeepL),
- * tema/colori da Bootstrap + ThemeService, toolbar coi componenti-azione dell'Engine.
+ * tema/colori da Bootstrap + AppearanceService, toolbar coi componenti-azione dell'Engine.
  */
 @Component({
     selector: 'app-translator',

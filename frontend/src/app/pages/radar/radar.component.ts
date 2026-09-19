@@ -29,7 +29,7 @@ type RadarStatus = 'init' | 'locating' | 'searching' | 'ready' | 'error';
     // None come per cookie-banner: il CSS mira al popup Mapbox, DOM creato dalla
     // libreria fuori dal template → l'encapsulation emulated non lo raggiungerebbe.
     encapsulation: ViewEncapsulation.None,
-    // Vista a tutto schermo: la rotta è `layout: { fitViewport: true }` in site.ts. L'altezza
+    // Vista a tutto schermo: la rotta è `layout: { role: 'giochini' }` in app.pages.ts. L'altezza
     // piena la danno l'Engine (regola .fit-viewport in base.css sull'host instradato) e il
     // `flex-grow-1` sul root del template. Niente direttiva né classi display sull'host.
 })
