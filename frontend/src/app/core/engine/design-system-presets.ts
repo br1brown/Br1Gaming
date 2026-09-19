@@ -308,6 +308,8 @@ export interface DesignSystemPreset {
     showBreadcrumb?: boolean;
     /** Mostra l'icona di brand in navbar, default globale per ogni ruolo che non lo scosta. Default `true`. */
     showBrandIcon?: boolean;
+    /** Angoli arrotondati sull'immagine ingrandita nel lightbox. Default `true` (4px). */
+    lightboxBordiArrotondati?: boolean;
     /**
      * Override dei quattro colori derivati opzionali. `colorBackground`/`colorText` restano un
      * suggerimento (garanzia WCAG sempre attiva); `colorSecondary`/`colorInfo` sono override

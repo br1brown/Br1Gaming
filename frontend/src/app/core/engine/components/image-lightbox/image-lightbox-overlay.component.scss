@@ -20,7 +20,8 @@
     width: auto;
     height: auto;
     object-fit: contain;
-    border-radius: 4px;
+    /* DesignSystemPreset.lightboxBordiArrotondati, default 4px. */
+    border-radius: var(--lightboxRaggio, 4px);
 }
 
 /* Sempre dentro il bordo dell'immagine, mai fluttuante sopra: con poco spazio verticale

@@ -4,14 +4,14 @@ import { ContestoSito } from '../../../site';
 import { toPascalCaseLabel, MOVIMENTO_DURATA, ELEVAZIONE_TIERS, HOVER_INTENSITY_TIERS, PULSAZIONE_TIERS, MUTEZZA_SECONDARIO_FATTORE, SEPARAZIONE_SUPERFICI_FATTORE } from '../design-system-presets';
 
 /**
- * Coppie CSS custom property per i 4 assi "sensazione" del design system attivo (`movimento`/
- * `elevazione`/`hoverIntensity`/`pulsazioneAttiva`, `design-system-presets.ts`) — costante di
- * MODULO, non un metodo: a differenza della palette colore (tone-reattiva, ricalcolata ad ogni
- * cambio `prefers-color-scheme`), questi 4 assi dipendono SOLO da `ContestoSito.config`, fissa per
- * l'intero deployment — calcolarli una volta sola al load del modulo (server E client) invece che
- * ad ogni `_applyPalette`/render SSR evita lookup ripetuti su valori che non cambiano mai.
- * Condivisa fra `_applyPalette` (client) e `_buildThemeStyleTagFromPalette` (SSR) così le due
- * emissioni non possono divergere.
+ * Coppie CSS custom property per gli assi "sensazione" del design system attivo (`movimento`/
+ * `elevazione`/`hoverIntensity`/`pulsazioneAttiva`/`lightboxBordiArrotondati`, `design-system-
+ * presets.ts`) — costante di MODULO, non un metodo: a differenza della palette colore (tone-
+ * reattiva, ricalcolata ad ogni cambio `prefers-color-scheme`), questi assi dipendono SOLO da
+ * `ContestoSito.config`, fissa per l'intero deployment — calcolarli una volta sola al load del
+ * modulo (server E client) invece che ad ogni `_applyPalette`/render SSR evita lookup ripetuti su
+ * valori che non cambiano mai. Condivisa fra `_applyPalette` (client) e
+ * `_buildThemeStyleTagFromPalette` (SSR) così le due emissioni non possono divergere.
  */
 const STATIC_DESIGN_VARS: readonly [string, string][] = (() => {
     const cfg = ContestoSito.config;
@@ -34,6 +34,7 @@ const STATIC_DESIGN_VARS: readonly [string, string][] = (() => {
         ['--pulsazioneTrasparenza1', pulsazione.trasparenza1],
         ['--pulsazioneSpread2', pulsazione.spread2],
         ['--pulsazioneTrasparenza2', pulsazione.trasparenza2],
+        ['--lightboxRaggio', cfg.lightboxBordiArrotondati ? '4px' : '0px'],
     ];
 })();
 
