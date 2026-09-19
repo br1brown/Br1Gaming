@@ -1,11 +1,14 @@
 import { Component, DestroyRef, PLATFORM_ID, inject, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { TranslatePipe } from '../../pipes/translate.pipe';
+import { ContestoSito } from '../../../../site';
+import { BACK_TO_TOP_SOGLIA_PX } from '../../design-system-presets';
 
 /**
  * BackToTopComponent — Bottone "torna su" che appare durante lo scroll.
  *
- * Il bottone diventa visibile quando l'utente scorre la pagina oltre 300px.
+ * Il bottone diventa visibile quando l'utente scorre oltre la soglia decisa dal design system
+ * attivo (`DesignSystemPreset.backToTopSoglia`, default `'standard'` = 300px, il comportamento storico).
  * Al click, la pagina torna all'inizio con un'animazione fluida (smooth scroll).
  *
  * Aspetto: utility .fab + .surface-elevated dal layer globale — fondo neutro
@@ -24,6 +27,7 @@ export class BackToTopComponent {
 
   readonly isVisible = signal(false);
   private rafId: number | null = null;
+  private readonly soglia = BACK_TO_TOP_SOGLIA_PX[ContestoSito.config.backToTopSoglia];
 
   constructor() {
     // Annulla il frame in volo allo smontaggio: evita un set() su componente distrutto.
@@ -35,13 +39,16 @@ export class BackToTopComponent {
   onScroll(): void {
     if (!this.isBrowser || this.rafId !== null) return;
     this.rafId = requestAnimationFrame(() => {
-      this.isVisible.set(window.scrollY > 300);
+      this.isVisible.set(window.scrollY > this.soglia);
       this.rafId = null;
     });
   }
 
   scrollToTop(): void {
-    if (this.isBrowser)
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (!this.isBrowser) return;
+    // prefers-reduced-motion: lo scroll resta immediato invece che animato — stesso check già
+    // usato in smoke-effect.component.ts.
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
   }
 }

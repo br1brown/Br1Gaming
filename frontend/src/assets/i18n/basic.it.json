@@ -103,6 +103,7 @@
   "oggiChiusoOrariAzienda": "Oggi chiuso",
   "chiusoOrariAzienda": "Chiuso",
   "codiceFiscaleAzienda": "Codice Fiscale",
+  "codiceFiscalePartitaIvaAzienda": "Codice Fiscale / P.IVA",
   "registroImpreseAzienda": "Reg. Imprese",
   "numeroReaAzienda": "N. REA",
   "capitaleSocialeAzienda": "Capitale sociale",
@@ -228,19 +229,5 @@
   "uploadFileNonAmmesso": "Il tipo di file selezionato non è consentito.",
   "uploadFileMultipliScelti": "{0} file selezionati",
   "speechPlay": "Ascolta",
-  "speechStop": "Interrompi",
-  "sectionDesignSystem": "Design System",
-  "designSystemIntro": "Catalogo visivo dei componenti UI di base: colori, tipografia, bottoni, badge, alert e form.",
-  "designSystemColorsTitle": "Colori",
-  "designSystemColorsDesc": "Le variabili di tema del progetto, più i colori semantici di Bootstrap.",
-  "designSystemTypographyTitle": "Tipografia",
-  "designSystemSampleText": "Testo di esempio",
-  "designSystemButtonsTitle": "Bottoni",
-  "designSystemBadgesTitle": "Badge",
-  "designSystemAlertsTitle": "Alert",
-  "designSystemAlertText": "Questo è un messaggio di alert.",
-  "designSystemFormsTitle": "Form",
-  "designSystemFormLabel": "Etichetta campo",
-  "designSystemFormValidFeedback": "Campo valido.",
-  "designSystemFormInvalidFeedback": "Campo non valido."
+  "speechStop": "Interrompi"
 }

@@ -12,8 +12,9 @@ import { SmokeSettings } from '../../../../site';
 /**
  * SmokeEffectComponent — Effetto decorativo a particelle di fumo su <canvas>.
  *
- * Parametri (densità, colore, ecc.) letti da `site.smoke` in `global-settings.json`.
- * Ometti `site.smoke` o usa `enable: false` per disattivarlo alla radice.
+ * Parametri (densità, colore, ecc.) proposti dal design system attivo (`DesignSystemPreset.smoke`
+ * in `design-system-presets.ts`), non più da `global-settings.json`. Ometti `smoke` o usa
+ * `enable: false` per disattivarlo alla radice.
  * L'animazione gira via `requestAnimationFrame` ed è automaticamente disattivata 
  * (canvas vuoto) per gli utenti con `prefers-reduced-motion` abilitato.
  */
@@ -21,6 +22,10 @@ import { SmokeSettings } from '../../../../site';
     selector: 'app-smoke-effect',
     templateUrl: './smoke-effect.component.html',
     styleUrl: './smoke-effect.component.scss',
+    // `(window:resize)`: Angular attacca/stacca da solo il listener col ciclo di vita del
+    // componente (stesso pattern di back-to-top.component.ts) — niente addEventListener/
+    // removeEventListener manuali da abbinare a mano nel destroyRef.
+    host: { '(window:resize)': 'onResize()' },
 })
 export class SmokeEffectComponent {
     readonly config = input.required<SmokeSettings>();
@@ -31,6 +36,10 @@ export class SmokeEffectComponent {
     private animationId = 0;
     private particles: Particle[] = [];
     private rgb: { r: number; g: number; b: number } = { r: 0, g: 0, b: 0 };
+    // true solo dopo il setup in afterNextRender (canvas pronto, reduced-motion non attivo):
+    // onResize() può scattare (evento asincrono) prima che il setup sia completo, o non scattare
+    // mai se l'utente preferisce animazioni ridotte — in entrambi i casi non deve toccare il canvas.
+    private ready = false;
 
     constructor() {
         // afterNextRender gira solo nel browser, mai in SSR — isBrowser check non necessario
@@ -46,9 +55,7 @@ export class SmokeEffectComponent {
             if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
 
             this.resizeCanvas(canvas);
-
-            const onResize = () => this.resizeCanvas(canvas);
-            window.addEventListener('resize', onResize);
+            this.ready = true;
 
             // rgb calcolato una sola volta: animate() gira a 60fps,
             // non vogliamo riparsare la stringa hex ad ogni frame
@@ -59,11 +66,13 @@ export class SmokeEffectComponent {
             // di animazione non tiene mai l'app "instabile". Nessun wrapping NgZone necessario.
             this.animate(canvas, ctx);
 
-            this.destroyRef.onDestroy(() => {
-                cancelAnimationFrame(this.animationId);
-                window.removeEventListener('resize', onResize);
-            });
+            this.destroyRef.onDestroy(() => cancelAnimationFrame(this.animationId));
         });
+    }
+
+    onResize(): void {
+        if (!this.ready) return;
+        this.resizeCanvas(this.canvasRef().nativeElement);
     }
 
     private resizeCanvas(canvas: HTMLCanvasElement): void {

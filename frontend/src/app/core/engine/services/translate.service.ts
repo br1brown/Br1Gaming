@@ -80,11 +80,6 @@ export class TranslateService {
 
     // ─── Pubblico ─────────────────────────────────────────────────────────
 
-    async loadTranslations(lang: string): Promise<void> {
-        const resolved = this.resolveLanguage(lang);
-        this.translations.set(await this.fetchAndMergeCatalogs(resolved));
-    }
-
     async setLanguage(lang: string): Promise<void> {
         const resolved = this.resolveLanguage(lang);
         const token = ++this.setLanguageToken;

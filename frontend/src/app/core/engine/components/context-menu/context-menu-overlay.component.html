@@ -9,7 +9,8 @@
                 <li role="separator"><hr class="dropdown-divider my-1"></li>
             } @else {
                 <li role="presentation">
-                    <button class="context-menu-item"
+                    <button #itemEl
+                            class="context-menu-item"
                             role="menuitem"
                             [disabled]="option.disabled ?? false"
                             [class.disabled]="option.disabled"

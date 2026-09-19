@@ -85,6 +85,9 @@ jobs:
       - name: Dipendenze circolari
         run: bash scripts/test/circular-deps-check.sh
 
+      - name: Tema/design-system (Vitest)
+        run: bash scripts/test/theme-check.sh
+
       - name: Genera risorse statiche
         working-directory: frontend
         run: npm run generate:statics

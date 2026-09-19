@@ -60,8 +60,8 @@
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "950kB",
-                  "maximumError": "1.1MB"
+                  "maximumWarning": "930kB",
+                  "maximumError": "1000kB"
                 },
                 {
                   "type": "anyComponentStyle",
@@ -99,6 +99,12 @@
             }
           },
           "defaultConfiguration": "development"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "tsconfig.spec.json"
+          }
         }
       }
     }

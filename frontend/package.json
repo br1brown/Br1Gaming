@@ -24,6 +24,7 @@
     "dev:ssr": "npm run build && cross-env BACKEND_ORIGIN=http://localhost:5000 ASSETS_DIR=src/assets/files node dist/app/server/server.mjs",
     "watch": "ng build --watch --configuration development",
     "lint": "eslint src",
+    "test": "ng test",
     "audit": "npm audit --audit-level=moderate"
   },
   "dependencies": {
@@ -66,11 +67,13 @@
     "@types/qrcode": "^1.5.6",
     "cross-env": "^10.1.0",
     "eslint": "^10.1.0",
+    "jsdom": "^30.0.1",
     "json-schema-to-typescript": "^15.0.4",
     "lighthouse": "^13.4.0",
     "pa11y": "^10.0.0",
     "tsx": "^4.19.0",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.59.4"
+    "typescript-eslint": "^8.59.4",
+    "vitest": "^4.1.11"
   }
 }

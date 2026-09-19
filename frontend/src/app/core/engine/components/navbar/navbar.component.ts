@@ -1,11 +1,11 @@
-import { afterNextRender, Component, computed, DestroyRef, effect, ElementRef, inject, isDevMode, PLATFORM_ID, signal, viewChild, viewChildren } from '@angular/core';
+import { afterNextRender, Component, computed, DestroyRef, effect, ElementRef, inject, input, isDevMode, PLATFORM_ID, signal, viewChild, viewChildren } from '@angular/core';
 import { isPlatformBrowser, NgTemplateOutlet } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { injectCurrentUrl, mergeRouteParams } from '../../routing';
 import { isDesktopViewport } from '../../breakpoints';
-import { ThemeService } from '../../services/theme.service';
+import { AppearanceService } from '../../services/appearance.service';
 import { TranslateService } from '../../services/translate.service';
 import { LocalizationService } from '../../services/localization.service';
 import { PageMetaService } from '../../services/page-meta.service';
@@ -17,7 +17,7 @@ import { applyPathParams } from '../../siteBuilder';
 import { filterNavByAuth, isNavGroup, navLinkKey, NavLink } from '../../shell-nav';
 import { ShellNavService } from '../../services/shell-nav.service';
 import { AssetDirective } from '../../directives/asset.directive';
-import { UserNavComponent } from '../user-nav/user-nav.component';
+import { UserNavComponent } from '../../../../components/shared/user-nav/user-nav.component';
 import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
 import { TokenService } from '../../services/token.service';
 
@@ -34,6 +34,7 @@ const MAX_RECOMMENDED_TOP_LEVEL_ITEMS = 6;
     host: {
         class: 'd-block',
         '(document:click)': 'onDocumentClick($event)',
+        '(document:keydown.escape)': 'onEscape()',
     }
 })
 /**
@@ -47,10 +48,11 @@ const MAX_RECOMMENDED_TOP_LEVEL_ITEMS = 6;
  *   (`@HostListener document:click`).
  *
  * Configurazione: tutto viene letto da `ContestoSito` (alias di `site.ts`).
- * Non modificare questo file — personalizza `site.ts` e `user-nav.component.ts`.
+ * Non modificare questo file — personalizza `site.ts` e `components/shared/user-nav/user-nav.component.ts`
+ * (Dominio a contratto fisso: cambi il corpo, non path/nome-classe/selettore).
  */
 export class NavbarComponent {
-    readonly theme = inject(ThemeService);
+    readonly theme = inject(AppearanceService);
     readonly translate = inject(TranslateService);
     private readonly localization = inject(LocalizationService);
     private readonly pageMeta = inject(PageMetaService);
@@ -81,13 +83,13 @@ export class NavbarComponent {
      *  `requiresAuth` che già forza quelle pagine fuori da sitemap/SSR. */
     readonly menuItems = computed(() => filterNavByAuth(this.rawMenuItems(), this.tokenService.isLoggedIn()));
     readonly fixTop = ContestoSito.config.fixedTopHeader;
-    /** Valore per `[appAsset]`: `null` = icona nascosta, altrimenti chiave mapping.json o GUID
-     *  blob (`ShellNavResolver.brandIcon`); `true`/assente → `favIcon` di sempre. */
-    readonly brandIconAsset = computed<string | null>(() => {
-        const value = this.shellNav.brandIcon();
-        if (value === false) return null;
-        return value === true ? 'favIcon' : value;
-    });
+    /** Se comparire — decisione del design system per il ruolo della rotta attiva, passata da
+     *  `AppComponent` (`RouteChrome.showBrandIcon ?? ContestoSito.config.showBrandIcon`), stesso
+     *  schema di `BreadcrumbComponent.forceShow`. QUALE icona resta un'altra fonte (sotto). */
+    readonly showBrandIcon = input<boolean>(true);
+    /** Valore per `[appAsset]`, o `null` se `showBrandIcon()` è spento: chiave mapping.json o GUID
+     *  blob (`ShellNavResolver.brandIcon`, assente → `favIcon` di sempre). */
+    readonly brandIconAsset = computed<string | null>(() => this.showBrandIcon() ? this.shellNav.brandIcon() : null);
     /** Mostra il campanellino delle notifiche realtime (shell.showNotifications, default false). */
     readonly showNotifications = ContestoSito.config.showNotifications;
     // Set di lingue dalla config (coerente coi cataloghi i18n presenti → setLanguage funziona
@@ -304,6 +306,20 @@ export class NavbarComponent {
         if (!this.elRef.nativeElement.contains(event.target)) {
             this.closeAllDropdowns();
         }
+    }
+
+    /** Escape chiude il dropdown aperto (nav o lingua) e ridà il focus al suo toggle — pattern
+     *  ARIA standard del menu button: senza spostare il focus, chi naviga da tastiera lo perde
+     *  su un pannello appena nascosto (`display:none` via Bootstrap). Funziona anche per un
+     *  sottomenu annidato aperto via `:focus-within` (nav-submenu.component.ts, solo CSS su
+     *  desktop): richiudendo il dropdown di 1° livello che lo contiene, l'intero pannello sparisce
+     *  con lui, sottomenu incluso. Nessun `stopPropagation`: un Escape che non trova nulla di
+     *  aperto qui deve poter continuare a fare altro (es. chiudere un modale sopra la pagina). */
+    onEscape(): void {
+        if (this.openDropdownIndex() === -1 && !this.langOpen()) return;
+        const openToggle = this.elRef.nativeElement.querySelector('.dropdown.show > .nav-dropdown-toggle') as HTMLElement | null;
+        this.closeAllDropdowns();
+        openToggle?.focus();
     }
 
     setLanguage(lang: string): void {

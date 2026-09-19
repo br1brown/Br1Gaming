@@ -3,16 +3,22 @@
 app-cookie-banner .cookie-reopen-btn {
     position: fixed;
     bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
-    /* inset-inline-start, non left: resta al bordo "inizio riga" anche in RTL. */
+    /* inset-inline-start, non left: resta al bordo "inizio riga" anche in RTL — SEMPRE, in
+       entrambi gli stili (`cookieReopenStile`): il lato opposto a back-to-top (inset-inline-end)
+       dimezza la probabilità che il FAB finisca sopra un controllo di pagina, indipendentemente
+       da quanto è grande/visibile. */
     inset-inline-start: 0.75rem;
     /* Scala z-index del template: vedi base.scss §variabili */
     z-index: var(--z-cookie-banner);
     border: none;
     padding: 0;
+}
+
+/* `'discreto'` (default, storico) — più piccolo/trasparente del `.fab` standard (back-to-top):
+   sopra il minimo WCAG 2.5.8 (24×24px). `'standard'` (DesignSystemPreset.cookieReopenStile,
+   .cookie-reopen-btn--standard) non ha override qui sotto: eredita dimensione/opacità da `.fab`. */
+app-cookie-banner .cookie-reopen-btn:not(.cookie-reopen-btn--standard) {
     opacity: 0.55;
-    /* Più piccolo del .fab standard (back-to-top): resta fisso su ogni pagina di dominio, che
-       non può sapere che l'angolo è occupato — dimezza in area la probabilità di finire sopra
-       un controllo. Sopra il minimo WCAG 2.5.8 (24×24px). */
     width: 2.5rem;
     height: 2.5rem;
 }

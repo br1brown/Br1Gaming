@@ -1,6 +1,5 @@
-import { Directive, ElementRef, HostBinding, HostListener, inject, PLATFORM_ID } from '@angular/core';
+import { Directive, ElementRef, HostBinding, HostListener, inject, Injector, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { ImageLightboxService } from '../services/image-lightbox.service';
 import type { LightboxSource } from '../components/image-lightbox/image-lightbox-overlay.component';
 
 /**
@@ -9,10 +8,16 @@ import type { LightboxSource } from '../components/image-lightbox/image-lightbox
  * qui perché le due directive differiscono solo nella sorgente (`{assetId}` risolto da
  * `AssetService` vs `{blob}` locale) — un fix all'accessibilità di uno si applica automaticamente
  * anche all'altro, invece di dover essere ricopiato a mano.
+ *
+ * `ImageLightboxService` (CDK Overlay/Portal + il componente overlay) è importato SOLO dentro
+ * `onLightboxActivate()`, via `import()` dinamico — mai in cima al file. Questa directive è usata
+ * anche dove il lightbox è spento (es. l'icona brand in navbar, sempre montata, mai lazy): un
+ * `import` statico avrebbe trascinato tutto CDK Overlay nel bundle eager per chiunque, anche se
+ * nessuno apre mai un lightbox (~65KB raw/16KB gzip, misurato — vedi CHANGELOG).
  */
 @Directive()
 export abstract class LightboxActivatable {
-    private readonly lightboxService = inject(ImageLightboxService);
+    private readonly injector = inject(Injector);
     protected readonly hostEl = inject(ElementRef).nativeElement as HTMLElement;
     protected readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
@@ -48,11 +53,12 @@ export abstract class LightboxActivatable {
     @HostListener('click', ['$event'])
     @HostListener('keydown.enter', ['$event'])
     @HostListener('keydown.space', ['$event'])
-    protected onLightboxActivate(event?: Event): void {
+    protected async onLightboxActivate(event?: Event): Promise<void> {
         if (!this.lightboxEnabled() || !this.isBrowser) return;
         const source = this.lightboxSource();
         if (!source) return;
         event?.preventDefault();
-        this.lightboxService.open(source, this.hostEl.getAttribute('alt') ?? '', this.hostEl);
+        const { ImageLightboxService } = await import('../services/image-lightbox.service');
+        this.injector.get(ImageLightboxService).open(source, this.hostEl.getAttribute('alt') ?? '', this.hostEl);
     }
 }

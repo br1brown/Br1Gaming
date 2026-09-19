@@ -12,7 +12,7 @@ Il livello di complessità tipica (routing frammentato, meta tag SEO sparsi, laz
 
 ### 1. `site.ts` + `pages/*.pages.ts`: Il DSL di Configurazione
 Perché è utile: in Angular standard aggiungere una pagina richiede configurare il routing, aggiornare i menu e gestire manualmente la SEO.
-Cosa fa l'Engine: ogni pagina si dichiara come oggetto (path, title, component, meta) in un file di area sotto `src/app/pages/*.pages.ts`, non in `site.ts`, che si limita ad assemblarle insieme a `legalPages`, shell (comportamento navbar/footer/pannello) e slot login/home (è comunque il primo file che apri: da lì risali a tutto il resto). Da quelle dichiarazioni l'Engine crea a runtime le rotte, nasconde/mostra la navbar in base a `layout.showNav`, e se la pagina ha `requiresAuth: true`, l'SSR viene spento forzando il client-side rendering.
+Cosa fa l'Engine: ogni pagina si dichiara come oggetto (path, title, component, meta) in un file di area sotto `src/app/pages/*.pages.ts`, non in `site.ts`, che si limita ad assemblarle insieme a `legalPages`, shell (comportamento navbar/footer/pannello) e slot login/home (è comunque il primo file che apri: da lì risali a tutto il resto). Da quelle dichiarazioni l'Engine crea a runtime le rotte, mostra o nasconde navbar/footer/pannello in base al `layout.role` della pagina e al design system attivo (`shell.designSystem`), e se la pagina ha `requiresAuth: true`, l'SSR viene spento forzando il client-side rendering.
 
 ### 2. Auto-SEO Dinamica
 Basta aggiungere `description` o `ogImage` nell'oggetto pagina dentro `site.ts`. Un Resolver intercetta la navigazione e inietta prima del rendering i corretti tag Head, OpenGraph e i dati strutturati.
@@ -33,7 +33,7 @@ Le pagine legali (Privacy, Cookie, Termini, Note Legali) le costruisce l'Engine:
 
 ### 6. Catalogo Design System (sempre in home)
 Perché è utile: chi valuta l'aspetto di un sito — un designer, un Art Director — di norma dovrebbe leggere il codice o loggarsi con le credenziali demo per capire che faccia ha il sistema: un ostacolo inutile per chi non scrive codice.
-Cosa fa l'Engine: `app-design-system-gallery` (`core/engine/components/design-system-gallery/`) è un catalogo visivo dei componenti di base (colori, tipografia, bottoni, badge, alert, form) montato di serie nella home — sempre visibile, senza login. Vive nell'Engine e non in `components/shared/**` (che è Dominio, vedi «Mappa del territorio» sotto) apposta: sopravvive anche a un `setup.mjs` → "parti pulito" (eject), quando il resto della demo viene rimosso, ed è l'unica sezione della home pensata per un pubblico non-dev. Per lo stesso motivo le sue stringhe vivono in `basic.{lang}.json` (Engine, mai azzerato) invece che in `addon.{lang}.json` (Dominio, azzerato dall'eject).
+Cosa fa l'Engine: `app-style-guide` (`core/engine/components/style-guide/`) è un catalogo visivo dei componenti di base (colori, tipografia, bottoni, badge, alert, form) montato di serie nella home — sempre visibile, senza login. Si chiamava "Design System Gallery": rinominato per liberare quel nome per il concetto vero e proprio di design system (`DesignSystemPreset`, §"Preset di Design System" sotto) — non c'entra nulla con quello, è solo una pagina-catalogo dell'estetica corrente. Vive nell'Engine e non in `components/shared/**` (che è Dominio, vedi «Mappa del territorio» sotto) apposta: sopravvive anche a un `setup.mjs` → "parti pulito" (eject), quando il resto della demo viene rimosso, ed è l'unica sezione della home pensata per un pubblico non-dev. Per lo stesso motivo le sue stringhe vivono in `basic.{lang}.json` (Engine, mai azzerato) invece che in `addon.{lang}.json` (Dominio, azzerato dall'eject).
 
 ---
 
@@ -43,10 +43,11 @@ Prima di scrivere una riga, tieni a mente una sola linea di confine. Tutto ciò 
 
 | Area | Di chi è | Cosa ci fai |
 | :--- | :--- | :--- |
-| `core/engine/**` | **Engine** (intoccabile) | Servizi, direttive, componenti shell, builder, server SSR, script di build — inclusa la libreria di componenti riusabili (`core/engine/components/**`: azione, contatto, social, `app-identity-render`, `app-login-form`, `app-upload-form`, footer, `app-icon`, `app-user-nav`…). Lo consumi tramite token, signal e direttive — non lo modifichi |
+| `core/engine/**` | **Engine** (intoccabile) | Servizi, direttive, componenti shell, builder, server SSR, script di build — inclusa la libreria di componenti riusabili (`core/engine/components/**`: azione, contatto, social, `app-identity-render`, `app-login-form`, `app-upload-form`, footer, `app-icon`…). Lo consumi tramite token, signal e direttive — non lo modifichi. `app-user-nav` NON è qui: è Dominio a contratto fisso, vedi riga sotto |
 | `site.ts` | Tuo | Il DSL del sito: assembla `PageType` dai file di area (`pages/*.pages.ts`), pagine, menu, shell, tema. È il primo file che apri |
+| `nav.ts` | Tuo | Le voci di menu (navbar/footer), risolte a runtime da `ShellNavService` (Engine) tramite l'injection token `SHELL_NAV_RESOLVER` — lo implementi tu, l'Engine lo consuma |
 | `app.component.ts` / `.html` | Tuo (la **shell**) | Monta navbar, footer, cookie banner, back-to-top e smoke, e avvia `VersionCheckService.init()`. È il posto naturale dove iniettare un servizio sempre-attivo (es. `NotificationStreamService`) |
-| `components/shared/**` | Tuo (specifici del progetto) | Vuoto di serie: qui ci metti i TUOI componenti riusabili — quelli davvero legati al dominio del progetto (una card di prodotto, un widget specifico) — o un bottone/canale in più che estende una base dell'Engine (vedi sotto) |
+| `components/shared/**` | Tuo (specifici del progetto) | Qui ci metti i TUOI componenti riusabili — quelli davvero legati al dominio del progetto (una card di prodotto, un widget specifico) — o un bottone/canale in più che estende una base dell'Engine (vedi sotto). Tre esempi vivi: `login-form/` estende `BaseLoginFormComponent` (Engine) con uno username visibile invece che fisso e nascosto — vedi «Personalizzare il Login» più sotto; `user-nav/` è Dominio a contratto fisso (non un'estensione di base Engine): `navbar.component.ts` lo importa per path e nome, il corpo è libero — vedi «Componenti Pronti all'Uso»; `design-systems/example.design-system.ts` estende una classe dell'Engine (`Muro`) con una palette propria — vedi «Preset di Design System» |
 | `core/services/**` | Tuo | `api.service.ts` (il client API che estendi con i tuoi endpoint), `auth.service.ts`, `cookie-registry.ts` (`COOKIE_MAP`) |
 | `core/dto/**` | Tuo | I contratti dati (`session.dto.ts`, `auth.dto.ts`) allineati a mano ai record C# |
 | `pages/**` | Tuo | Le schermate, ognuna estende `PageBaseComponent` |
@@ -104,7 +105,7 @@ Comportamento:
 
 La home demo lo applica alle sezioni QR, Notifiche e Sistema, esempio vivo finché un progetto figlio non la riscrive.
 
-Transizioni di pagina: l'Engine registra `withViewTransitions()` nel router: i cambi pagina usano la View Transitions API del browser (cross-fade) come progressive enhancement, dove i browser senza supporto navigano senza animazione, e il movimento è disattivato sotto `prefers-reduced-motion` (regola in `engine/base/_a11y.scss`). Nessuna configurazione richiesta. In più, ogni pagina che estende `PageBaseComponent` riceve un fade-in d'ingresso del contenuto (classe `.page-fade` applicata via host binding, attiva di default da `shell.pageFade`), che si somma alla cross-fade. È un gate come gli altri flag shell (col globale a `false` nessuna pagina può riattivarlo) e rispetta anch'esso `prefers-reduced-motion`.
+Transizioni di pagina: l'Engine registra `withViewTransitions()` nel router: i cambi pagina usano la View Transitions API del browser (cross-fade) come progressive enhancement, dove i browser senza supporto navigano senza animazione, e il movimento è disattivato sotto `prefers-reduced-motion` (regola in `engine/base/_a11y.scss`). Nessuna configurazione richiesta. In più, ogni pagina che estende `PageBaseComponent` riceve un fade-in d'ingresso del contenuto (classe `.page-fade` applicata via host binding, attiva di default), che si somma alla cross-fade. Il gate globale è `DesignSystemPreset.pageFade` (col design system attivo a `false` nessuna pagina può riattivarlo) e rispetta anch'esso `prefers-reduced-motion`.
 
 ### 4. CSS: Bootstrap First, Custom Solo Se Necessario
 Il progetto usa Bootstrap 5 come sistema di design principale: per layout, tipografia, form e componenti parti sempre dalle classi Bootstrap, e tieni il CSS custom per ciò che Bootstrap non copre.
@@ -116,7 +117,7 @@ Cosa va nel template HTML (classi Bootstrap):
 - Componenti (`card`, `alert`, `btn`, `spinner-border`, `badge`, `list-group`)
 - Responsive (`col-md-6`, `d-none d-lg-block`)
 
-Gli stili sono in SCSS, e hai un solo punto di partenza: `src/styles.scss`. Le fondamenta dell'Engine (token del tema, ponte Bootstrap, layout, accessibilità: `styles/engine/base`) sono cablate dalla build (`angular.json → "styles"`) e caricate sempre: non le vedi e non puoi romperle per sbaglio. A te restano `src/styles.scss` (l'entry), `src/styles/app/` (i tuoi partial, importati con `@use 'app/...'`) e lo strato opzionale dell'Engine. (`styles/engine/` è dell'Engine e si aggiorna dal template; la scelta del font — `styles/font-config.ts` — resta tua, il catalogo dietro è in `core/engine/font-system.ts`, come già visto.)
+Gli stili sono in SCSS, e hai un solo punto di partenza: `src/styles.scss`. Le fondamenta dell'Engine (token del tema, ponte Bootstrap, layout, accessibilità: `styles/engine/base`) sono cablate dalla build (`angular.json → "styles"`) e caricate sempre: non le vedi e non puoi romperle per sbaglio. A te restano `src/styles.scss` (l'entry), `src/styles/app/` (i tuoi partial, importati con `@use 'app/...'`) e lo strato opzionale dell'Engine. (`styles/engine/` è dell'Engine e si aggiorna dal template; la scelta del font resta tua, decisa nel design system attivo — `DesignSystemPreset.defaultFont`/`addonFonts` — il catalogo dietro è in `core/engine/font-system.ts`, come già visto.)
 
 In `styles.scss`:
 - `@use 'engine/nav'`: strato opzionale dell'Engine per navbar/footer/dropdown. Vuoi una navigazione con un tuo stile grafico? Commenta questa riga e scrivi il tuo (es. in `styles/app/_nav.scss`): gli stili nav agiscono su classi globali (`.nav-link`, `.navbar .dropdown-menu`…) rese dal componente, quindi le ridipingi dai tuoi file. L'opt-out è a livello di CSS: il markup della navbar resta del componente Engine.
@@ -157,8 +158,8 @@ Le pagine vivono nei file di area `pages/*.pages.ts` (uno per gruppo tematico, e
 | :--- | :--- |
 | `path`, `pageType`, `title`, `component` (lazy) | `homePage` / `loginPage` (brand link, redirect auth) |
 | `requiresAuth` (guard + SSR off), `renderMode` | `legalPages` (slot Privacy/Cookie/TOS/Note legali) |
-| `layout` (`showNav`/`showFooter`/`showPanel`/`fitViewport`/`showSmoke`/`pageFade` per-pagina) | `shell` (default globali di navbar/footer/pannello) |
-| `description`, `otherSEO` (`ogImage`, `ogType`, `structuredData`, `noindex`) | `isWebApp`, `onlyPlainImage` |
+| `layout` (solo `role` — CHE COSA è la pagina) | `shell` (solo `showNotifications`, non estetico; tutto il resto — colore, tono, nav/footer/pannello, fitViewport/smoke/breadcrumb/fade PER RUOLO via `ruoloPagina` — è il `designSystem` attivo) |
+| `description`, `otherSEO` (`ogImage`, `ogType`, `structuredData`, `noindex`) | `isWebApp` (`ogImagePlain` è del `designSystem` attivo, non di `site.ts` — vedi §"Un design system è codice") |
 | `children` (gruppo di menu annidato, es. le `/policy/*` dell'Engine) o `externalUrl` (link esterno) | — |
 | `enabled: false` (spegne la pagina ovunque in un colpo solo: rotta, menu, sitemap, padre incluso) | `pages` — la sola riga che tocca le aree, ed è solo uno spread: `pages: () => [...appPagesDecl]` |
 
@@ -187,7 +188,7 @@ Per passare qualcosa a una pagina hai quattro canali, tutti letti come `@Input()
 
 ### Aspetto & i18n
 
-Il colore del brand è `colorTema`, modificabile a runtime con `ThemeService.setColorTema()`; per validare un contrasto c'è `ThemeService.calcContrastRatio()` (modello WCAG 2.1). Le stringhe del progetto e le sovrascritture vanno in `addon.{lang}.json`, che ha la precedenza su `basic` (l'engine, mai toccato); la lingua si cambia a runtime con `TranslateService.setLanguage()`. Vedi «Tema e Sistema di Colori», «Metodi Statici (SSR-Safe)», «Internazionalizzazione», «Lingua a Runtime».
+Il colore del brand è `colorTema`, fisso per la sessione (`site.colorTema`); per validare un contrasto c'è `AppearanceService.calcContrastRatio()` (modello WCAG 2.1). Le stringhe del progetto e le sovrascritture vanno in `addon.{lang}.json`, che ha la precedenza su `basic` (l'engine, mai toccato); la lingua si cambia a runtime con `TranslateService.setLanguage()`. Vedi «Tema e Sistema di Colori», «Metodi Statici (SSR-Safe)», «Internazionalizzazione», «Lingua a Runtime».
 
 ### Servizi & componenti
 
@@ -287,9 +288,32 @@ Aggiungere un campo al profilo di sessione (es. `brandColor`) è quindi un'unica
 
 | Componente | Selector | Ruolo |
 | :--- | :--- | :--- |
-| `LoginFormComponent` | `app-login-form` | Form username/password riusabile; emette `(loggedIn)` al successo. Non naviga da solo. |
-| `UserNavComponent` | `app-user-nav` | Area Login/Logout nella navbar. Il link di login appare solo con `loginPage: { page, showInHeader: true }`; il logout, da loggati, appare comunque. Gestisce il logout con modale di conferma. |
+| `LoginFormComponent` (Engine, `core/engine/components/login-form/`) | `app-login-form` | Form riusabile (username fisso e nascosto, solo password); emette `(loggedIn)` al successo. Non naviga da solo. |
+| `UserNavComponent` (**Dominio a contratto fisso**, `components/shared/user-nav/`) | `app-user-nav` | Area Login/Logout nella navbar. Il link di login appare solo con `loginPage: { page, showInHeader: true }`; il logout, da loggati, appare comunque. Gestisce il logout con modale di conferma. `navbar.component.ts` (Engine) lo importa per path e nome fisso: cambi liberamente template e comportamento, non path/classe/selector — vedi «Dominio a contratto fisso» nel README radice. |
 | `UploadFormComponent` | `app-upload-form` | Componente "dumb" per drag-and-drop e selezione file (anche multipla via `[multiple]`). Emette `File[]` nativi delegando la chiamata API al componente genitore. |
+
+### Personalizzare il Login: `BaseLoginFormComponent`
+
+`LoginFormComponent` (Engine) non è un blocco monolitico: la logica (form, validazione, chiamata a `AuthService.login`, mappatura dell'errore, output `loggedIn`) vive in `BaseLoginFormComponent` (`core/engine/components/base/`, un `@Directive()` astratto, stesso pattern di `BaseActionComponent`/`BaseContactComponent`). `LoginFormComponent` la estende e aggiunge solo il proprio template.
+
+Un figlio che vuole un markup diverso (campi in più, layout diverso, username visibile invece che fisso a `'admin'`) non tocca l'Engine: scrive un proprio componente in `components/shared/` che estende `BaseLoginFormComponent` e dichiara solo il suo template — submit, validazione ed errori restano centralizzati e continuano ad aggiornarsi dal template. La demo ne contiene un esempio funzionante: `components/shared/login-form/` mostra lo username digitabile invece che nascosto, e `pages/login/login.component.ts` lo consuma al posto della versione Engine — stesso selector `app-login-form`, quindi il passaggio dall'uno all'altro è solo un cambio di import, non di markup nella pagina:
+
+```typescript
+// components/shared/login-form/login-form.component.ts
+import { Component } from '@angular/core';
+import { ReactiveFormsModule } from '@angular/forms';
+import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
+import { BaseLoginFormComponent } from '../../../core/engine/components/base/base-login-form.component';
+
+@Component({
+    selector: 'app-login-form',
+    imports: [ReactiveFormsModule, TranslatePipe],
+    templateUrl: './login-form.component.html', // il tuo markup, i tuoi campi
+})
+export class LoginFormComponent extends BaseLoginFormComponent {}
+```
+
+Se invece ti serve cambiare anche la logica (un altro endpoint, un campo aggiuntivo nel form, una validazione diversa), non estendere: il `@Directive()` non è `sealed`, ma a quel punto ha più senso scrivere un componente Domain autonomo che non estende nulla — la base è pensata per chi vuole solo un markup diverso a parità di comportamento.
 
 ### Ciclo di Vita del Token
 
@@ -470,20 +494,91 @@ Da questo colore vengono generati automaticamente:
 - Semantic brand (primary/secondary): link, borders, emphasis text, subtle backgrounds per `.alert-*` e `.text-*-emphasis`
 - Navbar colors: adattiva al brand (full immersive se scuro, pastello se chiaro)
 
-I colori semantici fissi (warning, info, success, danger) non sono derivati dal brand: Bootstrap 5.3 fornisce già varianti WCAG-safe tone-adaptive nei suoi blocchi `[data-bs-theme]`. ThemeService imposta `data-bs-theme` su `<html>` in base a `prefers-color-scheme`, quindi `--bs-warning-text-emphasis` ecc. si risolvono automaticamente.
+I colori semantici fissi (warning, info, success, danger) non sono derivati dal brand: Bootstrap 5.3 fornisce già varianti WCAG-safe tone-adaptive nei suoi blocchi `[data-bs-theme]`. AppearanceService imposta `data-bs-theme` su `<html>` in base a `prefers-color-scheme`, quindi `--bs-warning-text-emphasis` ecc. si risolvono automaticamente.
 
 ### Override opzionali (secondario, sfondo, testo, info)
 
-`site.colorSecondary` / `site.colorBackground` / `site.colorText` / `site.colorInfo` in `global-settings.json` sostituiscono hue e chroma di una singola catena di derivazione — pipeline OKLCH/WCAG e varianti light/dark/subtle/emphasis restano quelle di sempre. Un solo hex per campo copre entrambi i toni, come `colorTema`.
+`colorSecondary`/`colorBackground`/`colorText`/`colorInfo` sono quattro leve, ma **non tutte della stessa natura** — due comportamenti diversi, non simmetrici:
 
-- **`colorSecondary`** — secondario (badge, `.btn-secondary`). Assente: muted del brand.
-- **`colorBackground`** — sfondo pagina/card/hover/superfici. Assente: derivato dal brand.
-- **`colorText`** — corpo e headings. Assente: segue `colorBackground` (non il brand) — testo e sfondo restano sempre intonati senza sceglierlo esplicitamente, perché un testo scollegato dallo sfondo supera comunque WCAG (che guarda solo il contrasto, non l'accostamento) ma può stonare. Impostato: override pieno e indipendente, stesso meccanismo degli altri tre.
-- **`colorInfo`** — `.text-bg-info`/`.alert-info`/`.btn-outline-info`. Unico senza fallback dal brand: assente, `--bs-info*` resta gestito per intero da Bootstrap.
+- **`colorBackground`/`colorText`** restano un *suggerimento* di hue/chroma dentro la stessa pipeline OKLCH/WCAG di sempre: producono una famiglia intera di superfici derivate (base/surface/hover/subtle/muted, in entrambi i toni), quindi non esiste un solo hex che possa "essere" tutte insieme — il contrasto resta sempre garantito.
+- **`colorSecondary`/`colorInfo`** sono invece override **"duri"**: se il design system li imposta, il fill finale è ESATTAMENTE quell'hex, in light e in dark, senza alcuna ricerca di contrasto. Solo il testo sopra resta calcolato per restare leggibile — quello non si può disattivare, senza sarebbe invisibile, non solo "fuori standard". Il design system vince quindi anche sulla garanzia WCAG dell'engine per questi due campi: se il colore scelto non è leggibile a sufficienza contro il suo sfondo reale, è una scelta visibile e reversibile di chi l'ha impostata (se ne accorge guardando il risultato, e torna al default calcolato togliendo l'override) — non una cosa che l'engine deve impedire in anticipo. Il design system è per definizione il posto dove il dominio comanda le regole del template; non avrebbe senso lasciargli il controllo su nav/panel/breadcrumb/fade e poi impedirgli di rovinarsi un colore.
 
-warning/success/danger restano sempre fissi: significato universale (allerta/successo/errore), non personalizzabile da qui.
+Un solo hex per campo copre entrambi i toni, come `colorTema`. **Non vivono in `global-settings.json`**: l'unico colore di identità che il JSON dichiara resta `colorTema` — questi quattro sono sempre e solo una proposta del design system attivo (`DesignSystemPreset.colorSecondary`/... in `design-system-presets.ts` o in un'estensione di dominio, vedi §"Preset di Design System" sotto). Un design system che non li imposta ottiene esattamente i default storici, calcolati come sempre dal brand con garanzia WCAG.
+
+- **`colorSecondary`** — secondario (badge, `.btn-secondary`). Override "duro" (vedi sopra). Assente: muted del brand, calcolato con garanzia WCAG.
+- **`colorBackground`** — sfondo pagina/card/hover/superfici. Suggerimento di hue/chroma (vedi sopra). Assente: derivato dal brand.
+- **`colorText`** — corpo e headings. Suggerimento di hue/chroma come `colorBackground`. Assente: segue `colorBackground` (non il brand) — testo e sfondo restano sempre intonati senza sceglierlo esplicitamente, perché un testo scollegato dallo sfondo supera comunque WCAG (che guarda solo il contrasto, non l'accostamento) ma può stonare.
+- **`colorInfo`** — `.text-bg-info`/`.alert-info`/`.btn-outline-info`. Override "duro" (vedi sopra). Unico senza fallback dal brand: assente, `--bs-info*` resta gestito per intero da Bootstrap.
+
+warning/success/danger restano sempre fissi: significato universale (allerta/successo/errore), non personalizzabile da qui — nemmeno da un design system.
 
 Un override esplicito su `colorBackground`/`colorText` produce anche una tinta più satura del caso derivato dal brand — i tetti di saturazione erano pensati per restare appena percettibili quando l'hue arrivava solo dal brand, e senza distinguere i due casi un colore scelto apposta finirebbe comunque quasi invisibile.
+
+### Colori con nome proprio (`customPalette`)
+
+I quattro override sopra restano quattro slot fissi con un significato semantico (secondario, sfondo, testo, info) — non bastano a un design system che vuole la SUA palette, con le SUE etichette (es. i colori di un brand cliente). `DesignSystemPreset.customPalette` (`Record<string, string>`, hex) copre questo caso: ogni voce è un override "duro" come `colorSecondary`/`colorInfo` (§ sopra) — il fill esce ESATTAMENTE come scritto, in entrambi i toni, nessuna ricerca di contrasto — ed esce come coppia di CSS custom properties tone-adaptive — `--color<Label>`/`--color<Label>Text` (quest'ultimo sì calcolato, per restare leggibile sopra), `<Label>` = la chiave in PascalCase:
+```typescript
+// un design system con customPalette: { bordeaux: '#5c1a2b', oro: '#a97d3f' }
+// espone, ovunque in CSS: --colorBordeaux / --colorBordeauxText / --colorOro / --colorOroText
+.cta-speciale {
+    background: var(--colorBordeaux);
+    color: var(--colorBordeauxText); /* calcolato, sempre leggibile */
+}
+```
+`customPalette` **aggiunge**, non sostituisce: i quattro slot semantici sopra restano quelli di sempre (con o senza override) — un design system con una palette molto personalizzata non deve ridefinire da zero anche `colorSecondary`/`colorInfo` per restare semanticamente corretto, quella è la "dose di personalizzazione anche semantica" che resta garantita di default.
+
+Etichette riservate: una voce che coincide con un token di sistema già esistente (`'primary'`, `'navBg'`, `'surfaceText'`, ecc. — case-insensitive) produrrebbe `--color<Label>` che sovrascrive silenziosamente quel token vero, in tutta l'app. `validateDesignSystemPreset` (`design-system-presets.ts`) lo rifiuta a bordo, con un errore che nomina l'etichetta incriminata — chiamata da `extendDesignSystem` ogni volta che un design system viene risolto, che sia uno degli 8 preset condivisi (`components/shared/design-systems/`) o uno scritto da zero: nessuno dei due è privilegiato, mai un preset rotto scoperto a runtime senza un errore leggibile.
+
+### Sfondo "a tinta piena" (`superfici`)
+
+Il default storico è deliberatamente un dark/light mode NEUTRO: near-black/near-white con solo una tinta di brand appena percettibile — stesso stile di GitHub/Discord/VS Code, `DesignSystemPreset.superfici` assente. Un design system che invece vuole un intero campo di colore come sfondo — non un dark mode sfumato di quel colore, ma quel colore stesso, riconoscibile — sceglie un valore di `superfici` più vivido. Il "come" (interpolazione OKLCH, garanzie di contrasto) è in [ENGINE.md](../ENGINE.md).
+
+`superfici` decide DUE cose insieme, non separabili: quanto le superfici si avvicinano al colore del brand (la vividezza), E se il pannello contenuti (`.content-panel`) è presente — 5 valori, ogni combinazione esprimibile è una scelta sensata, nessuna coppia vividezza/pannello senza senso rappresentabile:
+
+Nomi skeuomorfici come i preset condivisi sotto (Aria/Carta/Lavagna/.../Muro) — la sensazione fisica, non i due booleani sottostanti:
+
+| `superfici` | vividezza | pannello |
+| :--- | :--- | :--- |
+| `'foglio'` (= assente, stesso identico comportamento — mai divergono) | neutra | **acceso** — il contenuto su un foglio sopra una superficie neutra, il comportamento storico |
+| `'distinte'` | neutra | spento — il contenuto vive direttamente sulla superficie, senza un foglio a parte |
+| `'tenue'` | metà strada | spento |
+| `'tenue-flotting'` | metà strada | acceso — il foglio resta a galla sopra una superficie già colorata |
+| `'fusione'` | piena | **sempre** spento — nessuna variante "flotting" (vedi sotto) |
+
+Il pannello segue lo stesso pattern di `showSmoke`/`smoke.enable` già visto in §"Ruoli di Pagina": un interruttore MASTER, ma su un campo diverso da sé stesso (`SpecRuoloPagina.showPanel` è bloccato a `false` da `superfici: 'distinte'`/`'tenue'`/`'fusione'`, libero altrimenti — un ruolo può sempre SPEGNERLO, mai riaccenderlo contro il master).
+
+Uso pratico, quale scegliere:
+- Non tocchi questo campo → hai già `'foglio'`, il comportamento di sempre — non serve dichiararlo per "essere espliciti", è ridondante.
+- Sito "a tinta piena" senza pannello (il caso di `muro`) → `'fusione'`, punto: non c'è altro da combinare.
+- Tinta via di mezzo ma senza perdere il pannello → `'tenue-flotting'`.
+- Pannello spento ma senza la tinta piena di `'fusione'` (identità piatta, non satura) → `'distinte'`.
+
+**La via semplice — un preset già pronto.** Il caso reale che ha motivato questa leva (il brief di Agnese Subacchi: un intero campo rosso come sfondo, navbar/footer compresi, NESSUN pannello) è già il preset condiviso `muro` (`components/shared/design-systems/engine/muro.design-system.ts`) — `superfici: 'fusione'` è già impostato lì di default (§"Preset di Design System" sotto): tinta piena e pannello spento sono la STESSA scelta, non due campi da tenere sincronizzati a mano. Non c'è altro da capire o combinare:
+```typescript
+// site.ts
+import { muroDesignSystem } from './components/shared/design-systems/engine/muro.design-system';
+buildSite({ shell: { designSystem: muroDesignSystem } });
+```
+Basta questo (più `colorTema` nel proprio `global-settings.json`, come sempre). Se vuoi comporlo con altre scelte tue invece di partire da `muro`, `superfici: 'fusione'` è un campo come un altro nel patch di `extendDesignSystem`:
+```typescript
+export const unDesignSystemProprio = extendDesignSystem(emptyDesignSystem, {
+    forceThemeTone: 'dark',
+    navSurface: 'body',
+    superfici: 'fusione',   // le superfici usano la lucentezza REALE del brand, non near-black — e niente pannello
+});
+```
+Chi vuole invece la via di mezzo MA col pannello acceso (`'fusione'` non ha questa variante, vedi sotto perché) usa `'tenue-flotting'`:
+```typescript
+export const unAltroDesignSystem = extendDesignSystem(emptyDesignSystem, {
+    superfici: 'tenue-flotting',   // via di mezzo, pannello acceso
+});
+```
+
+`'fusione'` non ha una variante "flotting" mentre `'tenue'` sì (e `'distinte'` non ne ha bisogno: è già `'foglio'`): un foglio di un altro colore vanificherebbe la fusione TOTALE delle superfici, uno dello stesso colore sarebbe indistinguibile dal resto — l'unica combinazione senza senso della griglia, per questo irrappresentabile invece di lasciata a chi scrive il design system da evitare a memoria.
+
+> Un accento (`colorSecondary`/`colorInfo`/`customPalette`) troppo simile a uno sfondo molto vivido (`'tenue'`/`'tenue-flotting'`/`'fusione'`) può perdere distinguibilità — l'engine ripiega da solo su nero/bianco quando non è un override "duro", ma un override duro (`colorSecondary` ecc. esplicito) resta esattamente l'hex scelto: verifica tu il contrasto in quel caso (`AppearanceService.calcContrastRatio`). Dettaglio meccanico in [ENGINE.md](../ENGINE.md).
+
+> Nota per chi copia contenuti dal proprio sito nel template durante lo sviluppo: se dei box/badge del template dimostrativo usano un accoppiamento Bootstrap "subtle" (es. `bg-body-tertiary` + `text-primary-emphasis`), verifica che siano la coppia CORRETTA — Bootstrap 5.3 documenta `bg-*-subtle`/`border-*-subtle`/`text-*-emphasis` come una TERNA per colore semantico, non intercambiabili fra colori diversi: può violare WCAG con `superfici` vivido o un brand molto saturo — non è quella leva a introdurre l'errore, lo rende solo visibile.
 
 ### Garanzia WCAG 4.5:1
 
@@ -494,52 +589,6 @@ Tutti i colori di testo su sfondo sono calcolati per garantire contrasto WCAG AA
 
 Primary: fill vs foreground. `colorPrimary` è scurito in OKLCH (hue e chroma preservate) finché garantisce 4.5:1 sul fondo pagina chiaro reale (`baseLt`), e alimenta i fill (`--bs-primary`: bottoni, `.bg-primary`, badge) dove il testo sopra si contrasta su `colorPrimaryText`. Quando invece il primary è usato come foreground sulla pagina (`.text-primary`, `.border-primary`), un valore tarato sul chiaro risulterebbe scuro-su-scuro in dark mode: per questo esiste la gemella `colorPrimaryDk`, schiarita in OKLCH finché garantisce 4.5:1 sul fondo scuro reale (`baseDk`). Le utility risolvono alla variante giusta via `--colorPrimaryFg`, tone-adaptive come `--colorLink`. Entrambe preservano la chroma del brand: il contrasto WCAG dipende dalla luminanza, non dalla saturazione, quindi una tinta viva resta viva senza costare accessibilità.
 
-### Cambio Tema a Runtime
-
-`colorTema` è un `WritableSignal`: cambiarlo aggiorna immediatamente palette, CSS vars e tutti i componenti che leggono i signal del tema.
-
-Pattern 1: colore utente al login
-
-Il caso più comune: l'utente ha un colore brand nel suo profilo. Impostarlo subito dopo l'autenticazione lo fa persistere su tutte le navigazioni successive.
-
-```typescript
-// Nel service/componente che gestisce il login
-const theme = inject(ThemeService);
-
-async login(credentials: Credentials) {
-    const user = await this.auth.login(credentials);
-    if (user.brandColor) {
-        theme.setColorTema(user.brandColor);  // persiste per tutta la sessione
-    }
-}
-```
-
-Pattern 2: colore per singola pagina
-
-Se una pagina ha un colore dedicato, il componente lo imposta e lo ripristina quando viene distrutto tramite `DestroyRef`.
-
-```typescript
-// Nel componente di pagina
-export class CampagnaComponent {
-    constructor() {
-        const theme = inject(ThemeService);
-        const defaultColor = inject(SITE_CONFIG).colorTema; // token del colore default
-
-        theme.setColorTema('#e63946');
-
-        inject(DestroyRef).onDestroy(() => theme.setColorTema(defaultColor));
-    }
-}
-```
-
-Precedenza e conflitti
-
-Non esiste un meccanismo di priorità centralizzato, vince l'ultimo chiamante. La convenzione suggerita:
-
-- Il colore utente va impostato al login e non deve essere sovrascritto da logiche di navigazione
-- Il colore di pagina va sempre ripristinato in `onDestroy`
-- Se un albero di pagine condivide un colore, impostarlo nel componente radice dell'albero
-
 ### Dark Mode Automatico
 
 Reattivo a `prefers-color-scheme`: se l'utente cambia tema OS, il sito si adatta in tempo reale senza reload:
@@ -548,12 +597,192 @@ readonly themeTone: Signal<'light' | 'dark'>; // Reattivo a prefers-color-scheme
 readonly prefersReducedMotion: Signal<boolean>; // Per animazioni accessibili
 ```
 
-### Leggere il tema in un componente
+### Forzare un Tono Fisso (ignorare l'OS): auto vs strict
 
-Quando un componente disegna su `<canvas>`, genera un'immagine o sceglie un colore inline, non hardcodare i valori: leggi i signal di `ThemeService`. Sono già WCAG-safe (calcolati per garantire 4.5:1) e reattivi, cambiano da soli al cambio di brand (`setColorTema`) o di tono OS (`prefers-color-scheme`), quindi il tuo componente resta coerente senza una riga di sincronizzazione.
+`DesignSystemPreset.forceThemeTone` è l'asse "aderenza al tema del browser": **auto** (assente) segue `prefers-color-scheme` come sempre; **strict** (`'light'`/`'dark'`) fissa l'intero sito su quel tono. Un design a palette fissa (es. sempre scuro, con contrasto studiato dal grafico per quella sola combinazione) va in conflitto con l'adattamento automatico all'OS: un visitatore con l'OS in chiaro romperebbe il contrasto pensato dal grafico — lì serve strict. `forceThemeTone` ignora `prefers-color-scheme` in ogni fase — SSR, script anti-flash pre-idratazione e `AppearanceService` runtime (nessun listener `matchMedia` montato). È una decisione del design system attivo (§"Preset di Design System" sotto), non di `site.ts`: `colorTema` resta l'unico colore di identità nel JSON, `forceThemeTone` sta con le altre leve di comportamento del design system (`panelSurface`, `navSurface`, ecc.). Un solo campo per entrambi i fatti (se è strict, e quale tono) invece di due separati: non può rappresentare uno stato invalido ("strict ma senza dire quale tono"):
+```typescript
+// design-system-presets.ts, o un'estensione di dominio
+'palette-fissa-scura': (): DesignSystemPreset => ({
+    forceThemeTone: 'dark',   // 'light' | 'dark' — assente = segue l'OS come sempre
+}),
+```
+`themeTone` riflette il valore forzato invece della preferenza OS. Cambia anche il default di `panelSurface` (sotto): `'auto'` invece di `'light'`, per un sito uniforme senza doverlo dichiarare a mano — un pannello su un tono diverso resta comunque possibile impostandolo esplicitamente, è una composizione valida, non un conflitto.
+
+### Preset di Design System (`shell.designSystem`)
+
+`forceThemeTone`, `panelSurface`, `navSurface`, `ruoloPagina`, `fixedTopHeader`, `pageFade`, `showBreadcrumb` e gli override colore (`colorBackground`/`colorSecondary`/`colorText`/`colorInfo`/`customPalette`) sono le leve granulari, e il design system attivo è la loro UNICA fonte — non esiste un campo `shell.forceThemeTone`/`shell.panelSurface`/... a fianco che possa scostarsene: `site.ts` importa/costruisce QUALE design system, mai i singoli campi. Un sito che vuole un mix diverso da un preset esistente lo estende (`extendDesignSystem`, sotto) o ne scrive uno proprio — non riapre un flag in `shell`. Un design system non è (più) solo colore: è l'autorità unica su tutto ciò che è decisione di ESPERIENZA/IDENTITÀ del sito, non di singola pagina né di singolo progetto — la navbar fissa, il fade d'ingresso, la presenza del breadcrumb sono "cosa decide il design system attivo", esattamente come nav/footer/pannello per ruolo:
+```typescript
+// site.ts — il caso "palette fissa scura" copre lo stesso identico caso di sopra in una riga
+import { notteDesignSystem } from './components/shared/design-systems/engine/notte.design-system';
+buildSite({
+    shell: {
+        designSystem: notteDesignSystem,
+    },
+});
+```
+
+#### Un design system è codice, non un dato
+
+`shell.designSystem` è sempre un **`DesignSystemFactory` importato** — una funzione (`() => DesignSystemPreset`), nessun nome di registro da passare come stringa: sia un preset condiviso dell'Engine (tabella sotto) sia un design system scritto per un progetto specifico sono solo file che il sito importa.
+
+**`extendDesignSystem(base, patch)`** — LA grammatica di QUALUNQUE design system, condiviso o di progetto, nessuna differenza: un OGGETTO PIATTO (`patch`), non una classe. `base` è un altro design system già risolto — un preset condiviso (`components/shared/design-systems/engine/muro.design-system.ts`), `emptyDesignSystem` (nessun campo forzato, il punto di partenza più neutro) o un altro `extendDesignSystem` — `patch` tocca solo ciò che deve cambiare (`ruoloPagina`/`customPalette`/`smoke` si fondono chiave per chiave, il resto sovrascrive). Stessa forma di ogni altro input del template (`addPage`/`addLink`/`addGroup` in `nav.ts`): nessuna funzione/classe/`override` da scrivere o capire, e nessun livello privilegiato — un preset condiviso è scritto ESATTAMENTE così, vedi `components/shared/design-systems/engine/muro.design-system.ts` per il codice reale.
+```typescript
+// components/shared/design-systems/clienteX.design-system.ts
+import { extendDesignSystem, type DesignSystemFactory } from '.../core/engine/design-system-presets';
+import { muroDesignSystem } from './engine/muro.design-system';
+
+export const clienteX: DesignSystemFactory = extendDesignSystem(muroDesignSystem, {
+    // Muro ha superfici:'fusione' (il brand stesso diventa lo sfondo) — un accento troppo simile
+    // al brand ci sparisce sopra, verifica il contrasto a occhio.
+    customPalette: { bordeaux: '#d17a94', oro: '#a97d3f' },
+});
+```
+```typescript
+// site.ts
+import { clienteX } from './components/shared/design-systems/clienteX.design-system';
+buildSite({ shell: { designSystem: clienteX } });
+```
+Il resto (`forceThemeTone`/`navSurface`/`superfici`, e con esso il pannello spento, di `muro`) resta ereditato intatto: `clienteX` cambia solo la palette, non deve ridichiarare l'intera identità "a muro" per ottenerla. Esempio reale, con lo stesso pattern: `components/shared/design-systems/example.design-system.ts`.
+
+Nessuno spec dedicato da scrivere per un design system nuovo: `validateDesignSystemPreset` (chiamata da `extendDesignSystem` a ogni resolve, `design-system-presets.ts`) garantisce già a runtime che sia strutturalmente valido — hex validi, nessuna `customPalette` su un nome riservato. Testarne il contrasto WCAG di un override "duro" (`colorSecondary`/`colorInfo`/`customPalette`) specifico non avrebbe senso qui: è contenuto che ogni progetto cambia a piacere, incluso quello degli 8 preset condivisi.
+
+Gli 8 preset condivisi coprono TUTTA la griglia {forceThemeTone × panelSurface} — 7 combinazioni visivamente distinte (i due angoli dark/dark e light/light collassano su dark/auto e light/auto: stesso risultato quando il sito è già tutto su un tono) più `muro`, in ordine dal meno al più opinionato — ognuno un file in `components/shared/design-systems/engine/`, separata dai design system di progetto (`components/shared/design-systems/`) solo per semantica: stessa identica grammatica, un preset condiviso è importabile ed estendibile come qualunque altro. Nomi skeuomorfici, non tecnici: ognuno è la sensazione fisica di quel preset, non il valore dei suoi campi:
+
+| Preset | File | `forceThemeTone` | `panelSurface` | Font (`SystemFont`) | Quando |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `Aria` | `engine/aria.design-system.ts` | segue l'OS | segue il tema | nessuno (font puro di sistema, non self-hosted) | tutto adattivo, nessun campo forzato — la base più neutra, invisibile come l'aria, fino al font |
+| `Carta` | `engine/carta.design-system.ts` | segue l'OS | `'light'` | `NotoSerif` | **il default**: chrome adattiva, pannello sempre quasi-bianco — un foglio sempre leggibile, qualunque sia la luce intorno; un serif caldo/da lettura, pensato per la carta stampata |
+| `Lavagna` | `engine/lavagna.design-system.ts` | segue l'OS | `'dark'` | `LiberationMono` | come `Carta`, ma il pannello resta sempre scuro — mirror del precedente; l'unico monospace del catalogo, il gesso su una lavagna è scrittura tecnica, non prosa |
+| `Notte` | `engine/notte.design-system.ts` | `'dark'` | segue il tema (quindi scuro) | `Roboto` | sito fissato scuro, pannello intonato — è sempre notte, palette a contrasto fisso |
+| `Giorno` | `engine/giorno.design-system.ts` | `'light'` | segue il tema (quindi chiaro) | `Roboto` | sito fissato chiaro, pannello intonato — mirror del precedente, stesso font: stessa lingua visiva in due luci |
+| `Lanterna` | `engine/lanterna.design-system.ts` | `'dark'` | `'light'` | `DejaVu` | fisso scuro con un pannello chiaro in risalto — un bagliore isolato nel buio, identità da app/dashboard (pattern Radix `panelBackground`/Carbon "g100 panel in white page"); largo e marcato apposta, per reggere il risalto del pannello |
+| `Ombra` | `engine/ombra.design-system.ts` | `'light'` | `'dark'` | `DejaVu` | fisso chiaro con un pannello scuro in risalto — una macchia scura su una parete chiara, identità editoriale/istituzionale, mirror del precedente, stesso font |
+| `Muro` | `engine/muro.design-system.ts` | `'dark'` | `'auto'` | `LiberationSerif` | sito uniforme "a muro": il brand STESSO è lo sfondo, **nessun pannello** sulle pagine di contenuto — la STESSA scelta, `superfici: 'fusione'` (nessuna variante "flotting", vedi sotto), navbar/footer **sullo sfondo pagina** — vedi §"Ruoli di Pagina" sotto, `navSurface` qui sotto, e §"Sfondo a tinta piena"; il serif è la stessa autorità di un'iscrizione incisa nella pietra |
+
+Nomi negoziabili, non contratto: rinominare un file di questa cartella non è breaking per un figlio che non lo importa, lo è solo per chi ha scritto quell'import. `Muro` VUOLE sempre lo sfondo a tinta piena E nessun pannello (Agnese Subacchi, il caso reale che ha motivato `superfici`) — quella combinazione (tinta piena CON pannello) non esiste apposta, non è disponibile nemmeno estendendo `muro`; chi la vuole SENZA la tinta piena, solo con una via di mezzo, usa `superfici: 'tenue-flotting'` da un altro file da un rigo in questa stessa cartella se un domani serve davvero (`extendDesignSystem(emptyDesignSystem, { forceThemeTone: 'dark', navSurface: 'body', superfici: 'tenue-flotting' })`).
+
+#### Font: `SystemFont` + `addonFonts` — un solo meccanismo, di sistema o di progetto
+
+Il font è una scelta come le altre, non un extra: ogni preset condiviso lo imposta via `defaultFont` (`DesignSystemPreset`, `font-system.ts`), UN campo solo per l'intero sito, nessuna distinzione titoli/corpo — coerente col resto della griglia, un `extendDesignSystem` su uno di questi eredita anche il font a meno di sovrascriverlo esplicitamente. `defaultFont` accetta un `FontChoice`: una voce di `SystemFont` (il catalogo del template) O un `CustomFontDef` **pieno**, scritto qui direttamente (`{key, family, faces}` — cartella `fonts/` accanto a `global-settings.json`) — mai una `string` che rimanda a un'altra dichiarazione, il font custom è l'oggetto stesso.
+
+`SystemFont` è un catalogo di 11 font **già installati nel container** (`apk add font-roboto font-noto font-liberation font-dejavu font-opensans font-jetbrains-mono`, `frontend/Dockerfile`) — Roboto, Noto/NotoSerif, Liberation/LiberationSerif/LiberationMono, DejaVu/DejaVuSerif/DejaVuMono, Open Sans, JetBrains Mono. Una voce non è più un nome "di sistema" sperato sull'OS del visitatore (Times New Roman/Georgia/Verdana — spesso assenti su Linux/Android, con fallback silenzioso a un serif/sans generico diverso): è **self-hosted** — i file reali vengono serviti al browser via `@font-face` (endpoint `/cdn-cgi/font/:key/:index`, `server/routes/system-font.ts`) e sono LO STESSO font che il rendering server usa per le immagini OG (`PreviewBuilder`, che lo risolve per nome via fontconfig) — mai due font diversi "che capita" siano entrambi installati, sempre lo stesso file, ovunque appaia il testo del sito.
+
+Questa garanzia non è solo dichiarata, è verificata — mai un font "ci risulta installato" per assunzione:
+- **Che il file esista davvero**: lo stage di build del Dockerfile installa gli stessi pacchetti Alpine del runtime e ci esegue subito dopo `scripts/checks/system-fonts-installed.ts` (`tsx`), che controlla l'esistenza su disco di OGNI faccia di OGNI `SystemFont`. Un font aggiunto all'enum senza aggiornare `FONT_PACKAGES` (o un pacchetto Alpine che cambia percorso interno da una release all'altra) fa fallire l'intero build all'istante, mai un font muto scoperto in produzione — e protegge entrambi i percorsi di pubblicazione (`scripts/deploy.sh` locale, `scripts/deploy-release.sh`/CI da artefatti), che condividono lo stesso, unico Dockerfile.
+- **Che il nome combaci**: la `family` dichiarata in `SYSTEM_FONTS` (`font-system.ts`) è verificata contro il nome che fontconfig legge DAVVERO dal file, in entrambe le direzioni (`fc-scan` file→nome, `fc-match` nome→file) — non un nome indovinato: se non combaciasse, il rendering server (Sharp/librsvg) fallirebbe a trovare il font per quel nome pur avendo il file giusto sotto mano.
 
 ```typescript
-private readonly theme = inject(ThemeService);
+// site.ts o un design system di progetto — defaultFont custom: l'oggetto scritto qui, non una key
+const designSystem = extendDesignSystem(cartaDesignSystem, {
+    defaultFont: { key: 'brand', family: 'MiaFontBrand', faces: [{ file: 'MiaFontBrand.woff2', weight: 400, style: 'normal' }] },
+});
+```
+
+**`addonFonts`** è l'array di font "aggiuntivi" di questo sito — zero o più `FontChoice` (stesso tipo di `defaultFont`), servibili e raggiungibili da SCSS ma MAI attivi di per sé — `defaultFont` resta l'unico modo esplicito di scegliere il font del sito. Due forme possibili per ogni voce, stesso trattamento:
+- una voce di `SystemFont`: utile per esporre un secondo font di sistema oltre a quello scelto in `defaultFont` (es. `--fontFamily-Roboto` mentre il resto del sito resta `Carta`/NotoSerif) — l'engine colma da solo `family`/`faces` dal proprio catalogo, nessuna ridichiarazione;
+- un `CustomFontDef` pieno per un font caricato dal progetto (stessa forma di `defaultFont` custom: `key`, `family`, `faces` — una o più `{file, weight, style}`, di solito la sola regular, il browser sintetizza bold/italic mancanti) — raggiungibile dallo STESSO endpoint `/cdn-cgi/font/:key/:index`, mai il sistema di asset/mapping.
+
+Non c'è un campo dedicato per un font diverso sui titoli (niente `headingFont`/`--fontFamilyHeading`): un design system è UN font, punto. Chi vuole un font diverso su `h1`-`h6` lo registra come voce di `addonFonts` (di sistema o caricato) e scrive la regola CSS a mano nel proprio progetto — la stessa leva di qualunque altra personalizzazione puntuale, non un secondo campo nel bundle del design system:
+
+```typescript
+// site.ts o un design system di progetto
+const designSystem = extendDesignSystem(cartaDesignSystem, {
+    defaultFont: { key: 'brand', family: 'MiaFontBrand', faces: [{ file: 'MiaFontBrand.woff2', weight: 400, style: 'normal' }] },
+    addonFonts: [SystemFont.Roboto], // --fontFamily-Roboto raggiungibile da SCSS, pur restando 'brand' il font attivo
+});
+```
+
+```scss
+// styles/app/_brand.scss — un secondo font sui titoli, senza toccare defaultFont: --fontFamily-Roboto
+// è raggiungibile perché registrato in addonFonts (vedi sopra), scelto o no come defaultFont del sito
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
+    font-family: var(--fontFamily-Roboto);
+}
+```
+
+Ogni voce di `addonFonts` espone anche un `--fontFamily-<key>` (`ContestoSito.config.fonts.customFontVars`), sempre disponibile per una regola CSS di progetto — il `defaultFont` attivo invece NO, non ne ha bisogno: è già raggiungibile senza qualificazione via `var(--fontFamily)`. Se un font custom scelto come `defaultFont` ti serve ANCHE con un proprio nome (`--fontFamily-brand`), aggiungilo pure anche ad `addonFonts` con la stessa key: nessun errore, `validateDesignSystemPreset` non fa verifiche incrociate fra i due campi.
+
+Per un `CustomFontDef`, in `defaultFont` o in `addonFonts`, `key` deve essere `[a-zA-Z0-9_-]+` e non può coincidere con una voce di `SystemFont` (validato — `validateDesignSystemPreset` rifiuta una key non valida, o in collisione, in entrambi i campi indipendentemente); dentro `addonFonts` non può nemmeno ripetersi. Nessun uso del sistema di asset/mapping (`mapping.json`): i file restano nella cartella `fonts/`, un font in più è una voce nell'array, non un giro nel mapping.
+
+#### `navSurface`: sfondo di navbar/footer
+
+Quarta leva granulare, indipendente da `forceThemeTone`/`panelSurface`: governa lo sfondo/testo di navbar e footer, non il resto del sito.
+
+- `'brand'` (default): navbar/footer sono una superficie IMMERSIVA di brand — colore pieno o pastello derivato da `colorTema`, sempre diversa dallo sfondo pagina di proposito (chrome riconoscibile a colpo d'occhio, comportamento storico del template).
+- `'body'`: navbar/footer condividono esattamente lo sfondo/testo della pagina — nessuna cesura visibile fra chrome e contenuto. Serve ai design system a superficie unica (`muro`, che lo imposta di default): senza, la navbar/footer "brand" spiccherebbero come una barra a parte sopra/sotto il "muro" uniforme, vanificandolo.
+
+Stessa matematica di sempre — nessun nuovo calcolo: `'body'` fa semplicemente alimentare `--colorNavBg`/`--colorNavText`/`--colorNavBorder` con gli stessi token già calcolati per lo sfondo pagina (`colorBase`/`colorSurfaceText`/`colorSurfaceBorder`), invece dei token dedicati "immersivi":
+```typescript
+import { cartaDesignSystem } from './components/shared/design-systems/engine/carta.design-system';
+
+export const mioDesign = extendDesignSystem(cartaDesignSystem, {
+    navSurface: 'body', // navbar/footer indistinguibili dal fondo pagina
+});
+```
+
+#### Altre leve: `fixedTopHeader`, `pageFade`, `showBreadcrumb`, palette
+
+Un design system può proporre un default anche per:
+
+- `fixedTopHeader` (navbar fissa allo scroll) e `pageFade` (fade-in d'ingresso pagina) — parte dell'identità di un'esperienza (immersiva vs statica, netta vs morbida), non un dettaglio che ogni progetto figlio ridecide da zero.
+- `showBreadcrumb` (gate globale — la visibilità per-pagina resta un'euristica separata, vedi sotto).
+- `colorBackground`/`colorSecondary`/`colorText`/`colorInfo`/`customPalette`: l'intera palette del sito, vedi §"Colori con nome proprio" sopra.
+
+Nessun preset condiviso popola `fixedTopHeader`/`pageFade`/`showBreadcrumb` oggi (nessuna navbar fissa da forzare) — un design system che vuole davvero differenziarsi su questi assi lo fa nel patch di `extendDesignSystem`, come ogni altro campo:
+```typescript
+export const istituzionaleRigido = extendDesignSystem(cartaDesignSystem, {
+    fixedTopHeader: true,
+    pageFade: false,
+    showBreadcrumb: true,
+});
+```
+Per `customPalette` un esempio reale c'è già, in Dominio: `components/shared/design-systems/example.design-system.ts` estende `muro` con due colori con nome proprio (vedi §"Un design system è codice" sopra).
+
+Deliberatamente NON si chiama "tema": nessun design system guardato per calibrare questi nomi (Material 3, Radix Themes, Chakra, Ant Design, Carbon, Primer, Atlassian) chiama "tema" qualcosa che vada oltre colore/tono — è sempre un asse separato dalla struttura. `DesignSystemPreset` è un bundle **parziale** apposta: se un domani serve incorporarci anche un campo strutturale legato a un archetipo di sito (non prima che quel bisogno sia reale — non è un problema da anticipare oggi), è una proprietà in più sull'interfaccia, non un redesign.
+
+### Ruoli di Pagina (`layout.role`)
+
+`forceThemeTone`/`panelSurface` governano il COLORE; `layout.role` governa la STRUTTURA — se una pagina ha navbar, footer, pannello, fitViewport, smoke, breadcrumb, fade, icona di brand, non solo con quale tono. Una pagina dichiara CHE COSA è (`role`), non COME va renderizzata: quella scelta spetta per intero al design system attivo, tramite `DesignSystemPreset.ruoloPagina` (`SpecRuoloPagina`, tutti e 8 i campi — nessuno di questi si imposta più per-pagina). Contratto chiuso, uguale per qualunque design system, Engine o dominio — cresce quando emerge un bisogno reale (es. `'error'`, che ha risolto un caso concreto: le rotte di errore, in `routing.ts`), non per astrazione anticipata:
+
+`SpecRuoloPagina` ha DUE regole di risoluzione diverse, non una sola. `fitViewport` è l'unico senza alcun master: il ruolo vince sempre, in entrambe le direzioni. Tutti gli altri 6 (`showNav`/`showFooter`/`showPanel`/`showBreadcrumb`/`pageFade`/`showBrandIcon`) hanno un interruttore MASTER — su un campo globale, ma non sempre omonimo: `showNav`/`showFooter`/`showBreadcrumb`/`pageFade`/`showBrandIcon` sul proprio campo `DesignSystemPreset` omonimo; `showPanel` invece su `DesignSystemPreset.superfici` (derivato: `'distinte'`/`'tenue'`/`'fusione'` lo bloccano, `'foglio'`/`'tenue-flotting'`/l'assenza no — vedi §"Sfondo a tinta piena"); `showSmoke` allo stesso modo su `smoke.enable`, non su un campo omonimo. Quando il master è ESPLICITAMENTE `false` (`superfici` che implica pannello spento, o `override get showNav() { return false; }` — l'assenza/`undefined` non conta), nessun ruolo può riportarlo a `true`, in nessuna direzione — è un'identità visiva dell'intero sito, non un default che un ruolo più specifico possa contraddire. Un ruolo resta comunque libero di SPEGNERE un campo che il globale lascia acceso (es. `'naked'`/`'error'` sotto) — quella direzione non è mai stata in discussione. Ruolo non mappato = il default globale, come sempre.
+
+| Ruolo | Significato | Chi lo interpreta |
+| :--- | :--- | :--- |
+| `'default'` | pagina di contenuto normale (il default se `role` è omesso) | il design system attivo (`ruoloPagina.default`), o i suoi default globali se non mappa il ruolo |
+| `'legal'` | pagina di testo lungo (policy, note legali — l'Engine lo applica già alle pagine legali generate, `legal-pages.ts`) | il design system attivo (`ruoloPagina.legal`), con un default di Engine se non mappato: `LEGAL_CHROME_DEFAULT` (niente smoke decorativo su testo lungo) |
+| `'error'` | pagina di errore (404/401/ecc, `ErrorComponent` — l'Engine lo applica già alle rotte di errore in `routing.ts`, che restano lì e non passano dalla DSL delle pagine) | il design system attivo (`ruoloPagina.error`), con un default di Engine se non mappato: `ERROR_CHROME_DEFAULT` (niente pannello, il resto segue il default globale) |
+| `'naked'` | nessuna chrome — **l'unico ruolo forzato**: niente navbar, niente footer, niente pannello, qualunque cosa dica il design system attivo |
+
+Questi 4 sono quelli che l'Engine porta di serie — ma non è più un elenco davvero chiuso: se un domani serve REALMENTE un ruolo in più (non anticipato: la stessa disciplina con cui `'error'` è stato aggiunto quando è servito), un progetto lo registra scrivendo la sua chiave in `ruoloPagina`, nel patch di `extendDesignSystem` — esattamente come i ruoli di serie, nessuna dichiarazione TypeScript separata da scrivere, `design-system-presets.ts` resta INTOCCABILE:
+```typescript
+export const mioDesign = extendDesignSystem(cartaDesignSystem, {
+    ruoloPagina: { sidebar: { showNav: false } },
+});
+```
+Da quel momento `'sidebar'` è un ruolo valido — usabile in `layout.role: 'sidebar'` in qualunque pagina. Il controllo NON è del compilatore (a differenza dei 4 di serie: `PageRole` accetta comunque qualunque stringa, per dare comunque l'autocomplete sui 4 noti senza bloccare gli altri) ma di `buildSite()`, eseguito una volta al boot: un `layout.role` che non corrisponde a nessun ruolo di serie né a nessuna chiave di `ruoloPagina` nel design system attivo fa fallire il build con un errore leggibile (probabile typo), non un ripiego silenzioso sul default globale. Un ruolo nuovo non eredita per magia il default di `'error'`/`'legal'`: sui campi che non mappi esplicitamente, cade sulla stessa regola generica di `'default'` (il default globale del design system) — se vuoi un comportamento "come `'error'`" per il tuo ruolo, lo scrivi tu esplicitamente (`ruoloPagina: { sidebar: { ...ERROR_CHROME_DEFAULT, showBreadcrumb: true } }`, `ERROR_CHROME_DEFAULT` è già esportato).
+
+Un design system che non popola `ruoloPagina` (gli altri 7 preset condivisi: `Aria`, `Carta`, `Lavagna`, `Notte`, `Giorno`, `Lanterna`, `Ombra`) si comporta esattamente come prima dell'introduzione dei ruoli — zero cambiamenti per chi non li usa. `Muro` invece ha `showPanel` bloccato a `false` a livello GLOBALE, implicito in `superfici: 'fusione'` (vedi §"Sfondo a tinta piena"), non per ruolo: è il caso che ha motivato l'interruttore master — un sito a palette fissa dove il contenuto vive direttamente sullo sfondo, nessuna eccezione, nemmeno per le pagine legali (in una versione precedente il pannello tornava lì per leggibilità del testo lungo — tolto apposta: un'identità visiva dichiarata pubblicamente non ammette eccezioni nascoste in `ruoloPagina`):
+```typescript
+// components/shared/design-systems/engine/muro.design-system.ts
+export const muroDesignSystem = extendDesignSystem(emptyDesignSystem, {
+    forceThemeTone: 'dark',
+    navSurface: 'body',
+    superfici: 'fusione',   // implica anche showPanel bloccato a false — master: nessun ruolo lo riaccende
+});
+```
+```typescript
+// pages/*.pages.ts — una pagina dichiara solo cosa è, non come appare
+{ path: 'chi-siamo', pageType: PageType.About, component: () => import('./about.component')... },                       // role implicito 'default'
+{ path: 'landing', pageType: PageType.Landing, component: () => import('./landing.component')..., layout: { role: 'naked' } },  // niente chrome, a prescindere dal design system
+```
+`LeafPageInput.layout` non ha (più) altro che `role`: `showNav`/`showFooter`/`showPanel`/`fitViewport`/`showSmoke`/`showBreadcrumb`/`pageFade`/`showBrandIcon` non esistono come scostamento per-pagina, sono sempre e solo decisione del design system attivo tramite il ruolo. Una pagina che oggi avesse davvero bisogno di un layout diverso da quello che il ruolo/design system le assegna non lo esprime più a livello di singola pagina — la scelta corretta è cambiare ruolo, o far evolvere il `ruoloPagina` del design system attivo (o adottarne uno diverso), non riaprire un flag per-pagina.
+
+### Leggere il tema in un componente
+
+Quando un componente disegna su `<canvas>`, genera un'immagine o sceglie un colore inline, non hardcodare i valori: leggi i signal di `AppearanceService`. Sono già WCAG-safe (calcolati per garantire 4.5:1) e reattivi al tono OS (`prefers-color-scheme`), quindi il tuo componente resta coerente senza una riga di sincronizzazione.
+
+```typescript
+private readonly theme = inject(AppearanceService);
 
 // Brand e derivati (Signal<string>)
 this.theme.colorTema();         // colore brand esatto (--colorTema)
@@ -570,29 +799,31 @@ this.theme.prefersReducedMotion();  // true → disattiva animazioni/auto-play
 
 Sono signal di sola lettura usati dall'Engine stesso: `QrCodeService` e `ImgBuilderService`, ad esempio, leggono `colorPrimary()`/`colorPrimaryText()` per colorare QR e immagini in modo conforme quando non passi colori espliciti.
 
-Pannello forzato chiaro dentro una pagina scura: se hai un riquadro che deve restare in tono chiaro a prescindere dal tema OS (es. un pannello di anteprima), bind `panelBootstrapTheme` all'attributo Bootstrap, così tutto il sottoalbero usa il subtema corretto:
+Pannello forzato su un tono dentro una pagina che segue l'OS: se hai un riquadro che deve restare su un tono fisso a prescindere dal tema OS (es. il pannello contenuti centrale, o un riquadro di anteprima), bind `panelTone` all'attributo Bootstrap e alle classi CSS, così tutto il sottoalbero usa il subtema corretto:
 
 ```html
-<div [attr.data-bs-theme]="theme.panelBootstrapTheme">
-    <!-- contenuto sempre in tono chiaro se shell.panelForcedLight è true -->
+<div [attr.data-bs-theme]="theme.panelTone"
+     [class.panel-light]="theme.panelTone === 'light'"
+     [class.panel-dark]="theme.panelTone === 'dark'">
+    <!-- contenuto sul tono di panelSurface (design system attivo), a prescindere dal tema OS -->
 </div>
 ```
 
-`panelBootstrapTheme` vale `'light'` quando `shell.panelForcedLight` è attivo, altrimenti `null` (nessun forzamento).
+`panelTone` vale il `panelSurface` (`'light'|'dark'`) del design system attivo quando diverso da `'auto'`, altrimenti `null` (nessun forzamento, segue l'ambiente). Compone con `forceThemeTone`, non lo esclude: il default di `panelSurface` diventa `'auto'` quando `forceThemeTone` è impostato (sito uniforme senza configurare nulla), ma un valore esplicito nel design system — anche diverso dal tono forzato — vince sempre e resta un pannello reso su quel tono, indipendente dal resto. Stesso pattern documentato in Radix Themes (`panelBackground`), Chakra (`<LightMode>`/`<DarkMode>` su un sottoalbero), Ant Design (override dell'`algorithm` per componente) e Carbon (un pannello `g100` dentro una pagina `white`): una card con tono diverso dal resto della pagina è una scelta di design intenzionale, non un errore di configurazione.
 
 ### Metodi Statici (SSR-Safe)
 
-`ThemeService` espone due metodi statici puri (conversione colore) usabili in Node.js/SSR senza Angular:
+`AppearanceService` espone due metodi statici puri (conversione colore) usabili in Node.js/SSR senza Angular:
 ```typescript
-const [L, C, H] = ThemeService.hexToOklch('#1f40ff'); // hex → OKLCH
-const hex = ThemeService.oklchToHex(L, C, H);          // OKLCH → hex
+const [L, C, H] = AppearanceService.hexToOklch('#1f40ff'); // hex → OKLCH
+const hex = AppearanceService.oklchToHex(L, C, H);          // OKLCH → hex
 ```
 
 Pubblico è anche il calcolo del contrasto (modello WCAG 2.1), l'unico seam con cui validare un colore di progetto a 4.5:1:
 ```typescript
-ThemeService.calcContrastRatio(coloreA, coloreB); // → rapporto nel range [1, 21]
-ThemeService.calcLuminance('#1f40ff');             // → luminanza relativa [0, 1]
-ThemeService.hexToRgbTriplet('#1f40ff');           // → "31, 64, 255" per le rgba() di Bootstrap/CSS
+AppearanceService.calcContrastRatio(coloreA, coloreB); // → rapporto nel range [1, 21]
+AppearanceService.calcLuminance('#1f40ff');             // → luminanza relativa [0, 1]
+AppearanceService.hexToRgbTriplet('#1f40ff');           // → "31, 64, 255" per le rgba() di Bootstrap/CSS
 ```
 
 Distinto da questo è il derivare automaticamente un colore conforme (link, testo muted, ecc.): quella logica (`findCompliantColor`, che regola la luminanza finché non raggiunge 4.5:1) è interna al servizio e non è parte dell'API pubblica. In sintesi: la misura del contrasto è pubblica (`calcContrastRatio`), la derivazione del colore conforme è privata.
@@ -602,38 +833,21 @@ Distinto da questo è il derivare automaticamente un colore conforme (link, test
 Il tema corretto è in pagina prima che Angular si avvii: nessun lampo di tema sbagliato (FOUC) al primo caricamento. Funziona su due binari, entrambi gestiti dall'Engine senza configurazione:
 
 - **Asset statico `public/theme-init.js`** — uno script sincrono nel `<head>` (referenziato con path **assoluto** `/theme-init.js`, perché sta prima di `<base href>`) che legge `prefers-color-scheme` e imposta subito `data-bs-theme` / `data-theme-tone` su `<html>`. Lo emette `generate-statics.ts` al build: è gitignored, quindi va materializzato lì o mancherebbe su un checkout pulito.
-- **SSR per-richiesta** — `app.config.server.ts` inietta in ogni risposta i due `<meta name="theme-color">` (light/dark, dal `colorBase` della palette, per il chrome del browser e la PWA) e lo `<style id="theme-init">` con tutte le CSS vars del tema per entrambi i toni. Così la pagina server-rendered esce già coi colori giusti; `ThemeService` poi "conferma" la palette post-idratazione in `afterNextRender`.
+- **SSR per-richiesta** — `app.config.server.ts` inietta in ogni risposta i due `<meta name="theme-color">` (light/dark, dal `colorBase` della palette, per il chrome del browser e la PWA) e lo `<style id="theme-init">` con tutte le CSS vars del tema per entrambi i toni. Così la pagina server-rendered esce già coi colori giusti; `AppearanceService` poi "conferma" la palette post-idratazione in `afterNextRender`.
 
 Non c'è nulla da attivare: i due meccanismi sono parte della pipeline di build e dell'SSR.
 
-### Font
+### Font: dove vivono i file custom in produzione
 
-Il catalogo (font di sistema disponibili, tipi, calcolo dello stack finale) è Engine, in [`core/engine/font-system.ts`](src/app/core/engine/font-system.ts) — INTOCCABILE. La scelta del progetto è Dominio, un unico file: [`frontend/src/styles/font-config.ts`](src/styles/font-config.ts). Sono separati apposta: un aggiornamento del catalogo dal template (nuovo font di sistema) non deve generare un conflitto di merge in un figlio che ha solo scelto un font.
+Un `CustomFontDef` (in `defaultFont` o in `addonFonts`, sopra, §"Preset di Design System" → "Font: `SystemFont` + `addonFonts`") legge i file da `fonts/`, la cartella accanto a `global-settings.json` alla radice del progetto. `AppearanceService`, `server.ts`, `ImgBuilderService` e `PreviewBuilder` non leggono mai il preset o il catalogo direttamente: leggono `ContestoSito.config.fonts`, il risultato già calcolato da `resolveFonts()` (Engine, in `buildFinalConfig`) — stack CSS pronti e la chiave per le metriche server. Nessun valore di font è hardcoded altrove.
 
-```typescript
-// styles/font-config.ts — l'unico file da toccare
-export const siteFonts: AppFontConfig = {
-    webDefault: 'System',              // chiave di WEB_FONTS (autocomplete dall'Engine)
-    serverDefault: ServerFont.Liberation, // chiave di SERVER_FONTS, idem
-    // custom: { family: 'Marlboro', file: 'Marlboro.woff2' },  // vedi sotto
-};
-```
-
-`ThemeService`, `server.ts`, `ImgBuilderService` e `PreviewBuilder` non leggono mai `siteFonts` direttamente: leggono `resolvedFonts` (stesso file), il risultato già calcolato da `resolveFonts()` (Engine) — stack CSS pronti e la chiave per le metriche server. Nessun valore di font è hardcoded altrove.
-
-- **Cambiare il font di sistema:** modifica `webDefault`/`serverDefault` in `siteFonts` — sono tipizzati sulle chiavi note, l'IDE le suggerisce.
-- **Aggiungere un font di sistema al catalogo:** tocca `font-system.ts` (Engine) — web: una voce in `WEB_FONTS`; server: enum `ServerFont` + voce in `SERVER_FONTS` **e** installazione nel `Dockerfile`, altrimenti Sharp non lo trova e ripiega sul fallback.
-- **`webDefault`/`serverDefault` restano volutamente separati**: web e server vivono in ambienti diversi (lo stack di sistema del browser non esiste nel container, i font del container non servono al browser).
-
-### Font custom (opzionale)
-
-Un font caricato dal cliente: metti il file in `fonts/`, la cartella accanto a `global-settings.json` alla radice del progetto, poi valorizza `custom: { family, file }` in `siteFonts` con lo stesso nome file. Sostituisce **entrambi** i default insieme (web e OG) — un solo font per il sito, mai uno sulla pagina e un altro nelle anteprime social. Reversibile: togli/commenta `custom` senza toccare quella cartella. File dichiarato ma assente: fallback silenzioso sui default di sistema, mai un riferimento rotto.
-
-In Docker quella cartella diventa un volume (`BR1_FONTS_DIR`, dettagli in [DOCKER_README.md](../DOCKER_README.md)) — è lì, non nel codice, che il file fisico deve trovarsi in produzione.
+In Docker quella cartella diventa un volume (`BR1_FONTS_DIR`, dettagli in [DOCKER_README.md](../DOCKER_README.md)) — è lì, non nel codice, che i file fisici devono trovarsi in produzione.
 
 In sviluppo locale `start-frontend-dev.sh` punta già `FONTS_DIR` a quella cartella (il default risolverebbe relativo alla cwd di Node, cioè `frontend/`, non alla radice del progetto). Lanciando `ng serve` a mano vale lo stesso avviso: senza `FONTS_DIR` impostato a mano, un font custom presente in `fonts/` non verrebbe trovato.
 
 Nota tecnica sulle immagini OG: Sharp/librsvg risolvono i font tramite fontconfig, non tramite `@font-face` come il browser — un file presente nella cartella non è "visibile" a fontconfig da solo. Il Dockerfile e `docker-entrypoint.sh` se ne occupano già (registrano la cartella e rilanciano `fc-cache` a ogni avvio); non serve altro da parte tua.
+
+La `family` che scrivi in un `CustomFontDef` è solo un'etichetta per il browser — `@font-face` la lega esplicitamente all'URL del file, quindi lato web è corretta qualunque cosa tu scriva, per costruzione. Lato server è diverso: fontconfig indicizza i font per il loro nome INTERNO (quello nei metadati del file), non per l'etichetta che hai dichiarato — se i due non combaciano, l'engine se ne accorge da solo, non tocca a te farli combaciare a mano. `custom-font-detect.ts` legge il nome vero via `fc-scan` e lo usa al posto della `family` dichiarata per il rendering delle immagini OG, per qualunque font custom coinvolto — quello attivo del sito (`defaultFont`) o uno scelto al volo da `DesignSystemPreset.ogTextTransform` (§"Generazione og:image"). In pratica: basta che il file esista in `fonts/`, non serve indovinare la `family` esatta per avere comunque l'immagine OG corretta.
 
 ---
 
@@ -838,18 +1052,22 @@ Per un'immagine non gestita da `AssetService` (es. un `Blob` locale, canvas/ante
 <img [src]="anteprimaUrl()" [appLightbox]="anteprimaBlob()" alt="Anteprima">
 ```
 
-### Vista a tutto schermo: `layout.fitViewport`
+Risoluzione dell'immagine ingrandita: sempre `ALLOWED_WIDTHS[ALLOWED_WIDTHS.length - 1]` (1920px), indipendentemente dalla `appAssetWidth` usata dalla miniatura che ha attivato il lightbox — un `Blob` locale invece è già alla sua risoluzione, nessuna richiesta aggiuntiva. Per un asset (non un `Blob`) l'apertura è quindi sempre una seconda richiesta di rete, mai un riuso della miniatura già scaricata.
 
-Per pagine/viste a tutto schermo (mappe, giochi, dashboard) dove lo scroll spezzerebbe l'esperienza. È un flag dichiarativo per-pagina in `site.ts` (non una direttiva sul template). Tu lo dichiari, lo gestisce l'Engine: il builder (`normalizeSitePage`) risolve la coerenza dei flag di layout, lo shell rende il `<main>` full-bleed (senza container/padding/pannello) e una regola CSS (`.fit-viewport`) fa riempire al contenuto lo spazio che resta sotto la navbar, senza scroll di pagina se il contenuto ci sta.
+Attivazione programmatica: `ImageLightboxService` (il servizio dietro entrambe le direttive) è iniettabile direttamente — `open(source: LightboxSource, alt: string, returnFocusTo: HTMLElement)` — per un trigger che non è l'`<img>` stesso (es. un bottone separato sovrapposto a un'immagine puramente decorativa, `alt="" aria-hidden`, che non deve essere l'unica affordance accessibile per aprire l'ingrandimento).
+
+### Vista a tutto schermo: `SpecRuoloPagina.fitViewport`
+
+Per pagine/viste a tutto schermo (mappe, giochi, dashboard) dove lo scroll spezzerebbe l'esperienza. Non è (più) un flag dichiarativo per-pagina: è una leva del design system attivo, PER RUOLO (`DesignSystemPreset.ruoloPagina.<ruolo>.fitViewport` — vedi §"Ruoli di Pagina" sopra), non più per singola pagina. Se il ruolo è mappato `fitViewport: true`, lo shell rende il `<main>` full-bleed (senza container/padding/pannello) e una regola CSS (`.fit-viewport`) fa riempire al contenuto lo spazio che resta sotto la navbar, senza scroll di pagina se il contenuto ci sta.
 
 ```typescript
-// site.ts
-{ path: 'radar', title: 'radarTitolo', pageType: PageType.Radar,
-  component: () => import('./pages/radar/radar.component').then(m => m.RadarComponent),
-  layout: { fitViewport: true } }
+// design-system-presets.ts, o un'estensione di dominio — decide il design system, non la pagina
+ruoloPagina: { error: { fitViewport: true } }  // es. le pagine di errore, immersive
 ```
 
-Vista immersiva, per default: `fitViewport` concentra la pagina sul contenuto: l'Engine lascia in scena la sola navbar (la via d'uscita) e mette da parte pannello, smoke e footer, che in full-bleed ruberebbero spazio. Tutto resta a portata: per riavere il footer basta `layout: { fitViewport: true, showFooter: true }`. Col footer attivo il contenuto vive fra navbar e footer, quindi con footer alti regola lo spazio di conseguenza.
+Vista immersiva: `fitViewport` concentra la pagina sul contenuto. Lo shell lascia in scena la sola navbar (la via d'uscita, comunque governata dal ruolo/design system) e mette da parte pannello, smoke e footer — sempre, senza eccezioni: lo stesso spazio conteso di un full-bleed non si negozia più fine di quello, né a mano né tramite un design system che per quel ruolo vorrebbe il footer visibile.
+
+> Attenzione: `PageRole` è un contratto chiuso di 4 nomi (vedi sopra) — `fitViewport` si applica per TUTTE le pagine di un dato ruolo, non per una singola pagina isolata. Una pagina UNA TANTUM (una mappa/dashboard specifica, non "tutte le pagine legali" o "tutte le pagine di errore") non ha oggi un ruolo dedicato: o condivide un ruolo già esistente il cui `ruoloPagina` è già (o può diventare) `fitViewport: true` — accettando che TUTTE le pagine di quel ruolo lo diventino — oppure il caso è abbastanza ricorrente da giustificare un nuovo `PageRole` a livello di Engine (stesso percorso con cui è nato `'error'`: si aggiunge il nome in `design-system-presets.ts`, non lo si inventa per-pagina in un progetto figlio).
 
 Lato pagina serve una cosa sola: fai crescere il root del componente con `flex-grow-1` (o `h-100`) sul suo elemento radice, così riempie l'altezza. Il resto è territorio dell'Engine: dà già `display: block` all'host di ogni pagina e, in full-bleed, costruisce la catena flex fino al viewport adattandosi da sé a navbar/footer/orientamento, layout nativo del browser, anche in SSR. Tu pensi al contenuto.
 
@@ -1256,7 +1474,7 @@ const blob = await this.img.buildBlob({ style: 'plain', text: 'Titolo', opts });
 await this.share.downloadBlob(blob, 'social.png');
 ```
 
-Se non fornisci `bgColor`/`textColor`, vengono letti dai Signal del tema corrente (colori WCAG-conformi automatici). Oltre alle opzioni di layout, puoi passare `fontFamily` (una chiave di `WEB_FONTS`, risolta nello stack CSS reale) e `lineHeight` (moltiplicatore d'interlinea, default `1.4`).
+Se non fornisci `bgColor`/`textColor`, vengono letti dai Signal del tema corrente (colori WCAG-conformi automatici). Oltre alle opzioni di layout, puoi passare `fontFamily` (una voce di `SystemFont`, risolta nello stack CSS reale — default: il font web risolto del sito, `defaultFont`) e `lineHeight` (moltiplicatore d'interlinea, default `1.4`).
 
 **`style: 'pill'`** — badge/chip di testo ancorato a un angolo sopra un'immagine esistente (`imageSrc`, URL o `Blob`): `pillOpts.text`/`subtitle`, `corner`, `margin`. **`style: 'caption'`** — fascia scrim (in alto/al centro/in basso) con titolo e sottotitolo sopra un'immagine: `captionOpts.text`/`subtitle`/`position`. Entrambe troncano con ellissi oltre `maxLines` (rispettivamente 3 e 4 di default).
 
@@ -1275,6 +1493,10 @@ Per allegare l'immagine a un `FormData`/upload c'è `buildFile(spec, filename?)`
 
 SSR-safe: il metodo statico `ImgBuilderService.buildSvg()` non tocca DOM né Angular, usabile in Node.js per generare preview server-side.
 
+Due limiti impliciti, nessuno dei due segnalato al chiamante:
+- **Clamp dimensionale silenzioso**: canvas finale sempre fra 125 e 8000 px per lato (`DIMENSIONE_MIN_PX`/`DIMENSIONE_MAX_PX`). Un testo molto lungo o un `ratio` estremo che spingerebbe oltre il tetto viene troncato al valore massimo/minimo senza errore né warning — un layout inatteso, non un'eccezione.
+- **`crossOrigin` solo su URL assoluti http(s)**: `imageSrc` remoto senza header CORS rende il canvas "tainted" — `buildBlob()`/`buildFile()` (via `canvas.toBlob`) possono risolvere a `null` in modo indistinguibile da un fallimento SSR generico, senza un errore dedicato nella firma dei metodi. Un asset servito da `AssetService`/blob dell'Engine (stessa origin) non è soggetto a questo problema.
+
 ---
 
 ## 🔗 Meta Tag e Anteprima Sociale (PageMetaService)
@@ -1292,18 +1514,51 @@ Non chiami `PageMetaService` a mano (è privato all'Engine): dichiari i meta in 
 
 Importante: `og:image` si aggiorna solo in SSR. I crawler non eseguono JavaScript, vedono la versione server-rendered. Le modifiche client-side all'og:image non hanno effetto sui preview di Facebook/LinkedIn/WhatsApp.
 
+### `OgImageRef`: asset statico o blob dinamico
+
+`otherSEO.ogImage` (e l'`ogImage` di `PageInfo` restituito da un `contentLoader`) accetta un `OgImageRef` — `{ id: string }` oppure `{ blobGuid: string }`, mai entrambi insieme — o `false`:
+
+- **`{ id }`**: asset statico risolto da `mapping.json`, come ogni altro `appAsset`. Sempre disponibile a build time.
+- **`{ blobGuid }`**: contenuto caricato a runtime (upload via `EngineBlobController`/`AppBlobStore`) che porta la propria immagine di anteprima senza che nulla vada registrato in `mapping.json`. Il Node SSR risolve l'URL con la convenzione di default `blob/{guid}?webopt=true`; un figlio con un endpoint blob diverso la sovrascrive con `SiteConfig.resolveBlobImageUrl: (guid: string) => string` — l'Engine non assume mai la forma dell'URL.
+
+Costo di `{ blobGuid }` rispetto a `{ id }`: `{ id }` risolve a un path su disco già presente nel bundle, nessuna rete. `{ blobGuid }` richiede sempre un fetch HTTP del Node SSR verso il backend per ottenere i byte dell'immagine (cache-miss compreso), con un secondo fetch di fallback verso la variante non ottimizzata (`webopt` raw) se il primo fallisce e non è stato dichiarato un `resolveBlobImageUrl` custom — tipicamente perché l'originale supera il tetto di decodifica di `?webopt=true` (40 megapixel, vedi [backend/README.md](../backend/README.md) §"EngineBlobController"). In quel caso `/cdn-cgi/preview` decodifica e ridimensiona con `sharp` l'immagine a piena risoluzione due volte nello stesso processo SSR (sfondo sfocato + primo piano nitido): per un'immagine molto grande è un costo di CPU/memoria per richiesta non trascurabile, da tenere presente prima di esporre `{ blobGuid }` su contenuto caricato dagli utenti senza un limite di risoluzione a monte.
+
 ### Generazione og:image: la rotta `/cdn-cgi/preview`
 
 L'og:image non è un file statico: l'Engine la genera al volo. Il Node SSR espone `/cdn-cgi/preview` (`server/routes/og-preview.ts`), che produce un'immagine OpenGraph/Twitter Card 1200×630 in due varianti, scelte dal payload — layout allineato alle linee guida 2026 (safe-zone 80px, favicon/badge in alto a sinistra, testo primario nei due terzi superiori, headline pesante + subline max una riga):
 
-- **Card testuale** — quando non c'è un'immagine di sfondo: favicon in alto a sinistra (piccolo marchio d'identità, SENZA nome app accanto — i crawler social lo mostrano già nel proprio chrome UI, ripeterlo dentro l'immagine è ridondante) + titolo grande allineato a sinistra + subline opzionale (una riga, troncata con ellissi). Sfondo sul colore brand, rinforzato a contrasto WCAG AAA (`ImgBuilderService.strongFillColor`) contro il testo overlay.
-- **Variante con immagine** — quando il payload porta un `id` asset: sfondo sfocato + immagine in primo piano + (salvo `onlyImage`) favicon in alto a sinistra e badge col titolo + subline (stessa disciplina "una riga" della card testuale).
+- **Card testuale** — quando non c'è un'immagine di sfondo: favicon in alto a sinistra (piccolo marchio d'identità, SENZA nome app accanto — i crawler social lo mostrano già nel proprio chrome UI, ripeterlo dentro l'immagine è ridondante) + titolo grande allineato a sinistra + subline opzionale (una riga, troncata con ellissi). Sfondo sul colore brand, rinforzato a contrasto WCAG AAA (`ImgBuilderService.strongFillColor`) contro il testo overlay. Il colore usato è sempre quello calcolato con TUTTI gli override della palette attiva (secondario/sfondo/testo/info/customPalette/vividezza), come il resto del sito: nessuna via "neutra" separata — la stessa immagine di base serve ogni pagina, non ha senso differenziarla per ruolo.
+- **Variante con immagine** — quando il payload porta un `id` asset: sfondo sfocato + immagine in primo piano + (salvo `plain`) favicon in alto a sinistra e badge col titolo + subline (stessa disciplina "una riga" della card testuale).
 
 Il risultato viene cachato su disco (WebP) come ogni thumbnail di `/cdn-cgi/asset`.
 
-Tu non costruisci l'URL a mano: lo controlli da `site.ts`. La pagina dichiara `otherSEO.ogImage` (l'id dell'asset di sfondo) e, a livello globale, `onlyPlainImage` decide se mostrare la sola immagine senza scritte/favicon. Per la semantica a tre stati di `ogImage` (id asset / `false` = nessuna / omesso = preview dinamica auto-generata) vedi Opzioni Avanzate di `site.ts`.
+Tu non costruisci l'URL a mano: lo controlli da `site.ts`/dal design system attivo. La pagina dichiara `otherSEO.ogImage` (l'id dell'asset di sfondo); a livello di sito, `DesignSystemPreset.ogImagePlain` (default `false`, con scritte) decide se mostrare la sola immagine senza scritte/favicon — è una scelta del design system, non un flag di `site.ts`: chi vuole la propria immagine di sfondo intatta lo imposta lì. Per la semantica a tre stati di `ogImage` (id asset / `false` = nessuna / omesso = preview dinamica auto-generata) vedi Opzioni Avanzate di `site.ts`.
 
-Il payload è cifrato e non falsificabile: i parametri (`title`, `subtitle`, `id`, `onlyImage`) viaggiano nel query param `?p=` come blob AES-GCM prodotto da `PreviewCrypto` (`server/preview-crypto.server.ts`): una manomissione fa fallire la decifrazione → 403. La chiave è derivata, in ordine di precedenza, da `PREVIEW_CRYPTO_SECRET` → la API key server-side (`Security.ApiConfig.Keys[0]`, segreta) → `appName:version`. Il fallback sull'API key rende i blob non forgiabili anche senza configurare un secret dedicato: senza di esso un attaccante che conosce `appName` e `version` (entrambi pubblici) potrebbe forgiare og:image arbitrarie sul dominio. L'IV è deterministico (SHA-256 del payload), quindi lo stesso payload produce sempre lo stesso URL, stabile e cacheable da browser/CDN.
+#### `ogTextTransform`: personalizzare testo/font della sola immagine OG
+
+Un design system può intercettare titolo/sottotitolo PRIMA che l'immagine venga renderizzata, e opzionalmente cambiarne anche il font — utile per un font "titolazione" tutto maiuscolo o con un set di glifi ridotto, o qualunque altra trasformazione specifica di quell'immagine. Mai il resto del sito: `<title>`/SEO/screen reader restano sempre sul testo reale, il font resta `defaultFont` ovunque altro appaia. Assente (il caso comune): l'immagine mostra `title`/`subtitle` così come sono, nel `defaultFont` del sito — stessa bussola di ogni altro campo di questo bundle, un design system che non lo tocca si comporta esattamente come se non esistesse.
+
+```typescript
+// components/shared/design-systems/editoriale.design-system.ts — un font titolazione tutto
+// maiuscolo: solo l'OG image riceve il testo già in maiuscolo, il resto del sito resta invariato
+export const editoriale = extendDesignSystem(cartaDesignSystem, {
+    ogTextTransform: ({ title, subtitle }) => ({ title: title.toUpperCase(), subtitle }),
+});
+```
+
+Il `font` restituito, se presente, NON è libero quanto il testo: deve essere lo stesso `defaultFont` o una voce già dichiarata in `addonFonts` — mai un font nuovo scritto lì al volo. È il prezzo per restare dentro le stesse garanzie di reachability/correzione server (`fc-scan`, §"Font: dove vivono i file custom") di ogni altro font del catalogo, invece di riaprire la spaccatura web/server che l'unificazione in `defaultFont` ha chiuso una volta per tutte (§"Font: `SystemFont` + `addonFonts`"). Un valore non valido (una key mai registrata) si ignora silenziosamente, si ripiega sul `defaultFont` del sito — mai un errore:
+
+```typescript
+// font diverso SOLO per l'OG image — 'titolazione' deve essere già in addonFonts, stessa key
+const titolazione: CustomFontDef = { key: 'titolazione', family: 'MiaTitolazione', faces: [{ file: 'MiaTitolazione.woff2', weight: 400, style: 'normal' }] };
+
+export const editoriale = extendDesignSystem(cartaDesignSystem, {
+    addonFonts: [titolazione],
+    ogTextTransform: ({ title, subtitle }) => ({ title: title.toUpperCase(), subtitle, font: titolazione }),
+});
+```
+
+Il payload è cifrato e non falsificabile: i parametri (`title`, `subtitle`, `id`, `plain`) viaggiano nel query param `?p=` come blob AES-GCM prodotto da `PreviewCrypto` (`server/preview-crypto.server.ts`): una manomissione fa fallire la decifrazione → 403. La chiave è derivata, in ordine di precedenza, da `PREVIEW_CRYPTO_SECRET` → la API key server-side (`Security.ApiConfig.Keys[0]`, segreta) → `appName:version`. Il fallback sull'API key rende i blob non forgiabili anche senza configurare un secret dedicato: senza di esso un attaccante che conosce `appName` e `version` (entrambi pubblici) potrebbe forgiare og:image arbitrarie sul dominio. L'IV è deterministico (SHA-256 del payload), quindi lo stesso payload produce sempre lo stesso URL, stabile e cacheable da browser/CDN.
 
 ### JSON-LD Strutturato (grafo Schema.org)
 
@@ -1402,6 +1657,8 @@ Copertura: sia gli errori che Angular già traccia (template, `effect`, `HttpCli
 
 Spento in sviluppo (`isDevMode()`): un errore mentre iteri in locale finisce comunque in console (mai silenziato) ma non parte alcuna chiamata di rete.
 
+Nessun throttling né deduplica: un errore che si ripete (loop, script di terze parti) genera una `POST` per occorrenza, ognuna inoltrata al webhook a sua volta senza limite di frequenza — vedi [backend/README.md](../backend/README.md) §10 per il dettaglio (comune col lato server) e la sua interazione con `BackgroundQueue`.
+
 ---
 
 ## ⚙️ Opzioni Avanzate di `site.ts`
@@ -1413,19 +1670,16 @@ Oltre a `path`, `title` e `description`, ogni dichiarazione di pagina (nei file 
     // Forza il rendering client-side (es. per pagine protette da login)
     renderMode: 'client',  // default: 'server'
 
-    // Nasconde parti della shell per questa pagina
+    // Dichiara cosa è questa pagina (vedi §"Ruoli di Pagina" sotto): nav/footer/pannello/
+    // fitViewport/smoke/breadcrumb/fade non si impostano più qui, li decide il design system
+    // attivo in base al ruolo (`DesignSystemPreset.ruoloPagina.<ruolo>`).
     layout: {
-        showNav: false,       // nasconde la navbar
-        showFooter: false,    // nasconde il footer (default: mostrato, ma off se fitViewport)
-        showPanel: false,     // nasconde il pannello laterale
-        fitViewport: true,    // vista full-bleed immersiva: riempie il viewport; di default niente padding/pannello/smoke/footer (navbar sì)
-        pageFade: false,      // spegne il fade-in d'ingresso solo su questa pagina (il globale shell.pageFade fa da gate)
-        showBreadcrumb: true, // forza il breadcrumb in entrambe le direzioni su questa pagina (default: euristica, vedi sotto — gate: col globale off nessuna pagina può riattivarlo)
+        role: 'legal',        // 'default' | 'legal' | 'error' | 'naked' — che tipo di pagina è. Default: 'default'
     },
 
     // Meta tag OpenGraph aggiuntivi
     otherSEO: {
-        ogImage: 'og-cover',  // ID asset (non un path). `false` = nessun og:image; omesso = preview dinamica auto-generata
+        ogImage: { id: 'og-cover' },  // OgImageRef: { id } asset statico o { blobGuid } contenuto dinamico (vedi sotto). `false` = nessun og:image; omesso = preview dinamica auto-generata
         ogType: 'article',
         structuredData: { kind: 'article' },  // JSON-LD: stringa (@type), oggetto {kind,…} o lista. Vedi sezione JSON-LD
         noindex: false,       // true = pagina pubblica/SSR ma esclusa dall'indice (X-Robots-Tag + fuori sitemap). Default false
@@ -1440,57 +1694,77 @@ homePage: PageType.Home,           // pagina del brand/logo nel navbar (se omess
 loginPage: PageType.Login,         // dove mandare gli utenti non autenticati (se omessa → /error/401)
 // loginPage: { page: PageType.Login, showInHeader: true },  // forma estesa: espone anche il link Login in navbar
 
-shell: {                           // comportamento di navbar / footer / header / pannello contenuti
-    showNav: true,                 // mostra la navbar (false nasconde anche il language picker)
-    showFooter: true,              // mostra il footer
-    showPanel: true,               // mostra il pannello contenuti (gate: col globale off nessuna pagina può riattivarlo)
-    fixedTopHeader: false,         // navbar fissa in alto allo scroll
-    showNotifications: false,      // campanellino notifiche realtime con storico (default false, opt-in)
-    panelForcedLight: true,        // pannello contenuti sempre chiaro, a prescindere dal tema OS
-    pageFade: true,                // fade-in d'ingresso pagina (gate: col globale off nessuna pagina può riattivarlo)
-    showBreadcrumb: true,          // gate globale del breadcrumb (default true) — la visibilità per pagina resta un'euristica, vedi sotto
+shell: {                           // design system attivo + i pochi flag di sito rimasti (non estetici)
+    showNotifications: false,      // campanellino notifiche realtime con storico (default false, opt-in) — decisione di sito, non del design system
+    designSystem: undefined,       // un DesignSystemFactory importato — preset condiviso o scritto da zero (vedi design-system-presets.ts).
+                                    // L'UNICA fonte di forceThemeTone/panelSurface/navSurface/ruoloPagina/
+                                    // fixedTopHeader/pageFade/showBreadcrumb/showNav/showFooter/showPanel/
+                                    // override colore — non si impostano più qui
 },
 
 isWebApp: false,                   // funzionalità PWA (Service Worker, aggiornamenti, install offline) — default false, opt-in
-onlyPlainImage: false,             // anteprime social con sola immagine, senza scritte/favicon
+// ogImagePlain (anteprime social con sola immagine, senza scritte/favicon) non si imposta più
+// qui: è DesignSystemPreset.ogImagePlain, decisione del design system attivo (default false)
 
 legalPages: [ /* … */ ],           // pagine legali → vedi sotto
 ```
 
-> `description` (mappa per-lingua `{ it, en, … }`), `colorTema` e l'effetto `smoke` sono estetica e vivono in `global-settings.json → site`.
+> `description` (mappa per-lingua `{ it, en, … }`) e `colorTema` vivono in `global-settings.json → site` — l'unica identità/estetica minima del progetto. L'effetto `smoke` non è più tra questi: è puramente decorativo, quindi territorio del design system attivo (`DesignSystemPreset.smoke`, vedi sotto).
 
 I profili social del brand e la natura dell'entità sono dati d'identità: vivono in `backend/data/identity.json` (campi `social` e `personal`), serviti dall'Engine su `GET /identity` e letti dalla risorsa condivisa `IdentityService`. `social` è una lista di URL: l'Engine li emette come `sameAs` dell'entità brand nel JSON-LD, il segnale che Google usa per il Knowledge Panel, e l'icona nel footer è dedotta dall'URL (quindi più profili dello stesso social convivono). Lista vuota o identità assente → nessun `sameAs`. Se tra i profili c'è un URL Twitter/X, l'handle alimenta anche il meta `twitter:site`. (Esempio in [AGENTS.md](../AGENTS.md).)
 
 Per un sito personale/portfolio imposta `personal: true` in `identity.json`: l'entità brand diventa `Person` invece di `Organization` (default). Cambia solo il `@type` e l'icona passa da `logo` a `image`; il nome dell'entità è la `ragioneSociale` (fallback al nome del sito). Il default è `Organization` perché è il meno penalizzante per Google: dichiarare `Person` quando si è un'azienda è peggio del contrario. Identità assente → esce comunque un grafo valido (Organization, senza sameAs).
 
-> `isWebApp: false` rende il sito non installabile: oltre a non registrare il Service Worker (e a de-registrarlo a runtime, vedi "Service Worker e Consenso Tecnico"), `generate-statics.ts` non genera il `manifest.webmanifest` e rimuove da `index.html` i trigger di installabilità (`<link rel="manifest">`, `mobile-web-app-capable`, i meta `apple-mobile-web-app-*`); il server SSR risponde `404` al manifest. Così non compare il prompt "Aggiungi a schermata Home" (su Chrome Android il Service Worker non è più requisito di installabilità dal 2021). Con `isWebApp: true` la PWA è completa.
+> `isWebApp: false` rende il sito non installabile: oltre a non registrare il Service Worker (e a de-registrarlo a runtime, vedi "Service Worker e Consenso Tecnico"), `generate-statics.ts` non genera il `manifest.webmanifest` e rimuove da `index.html` i trigger di installabilità (`<link rel="manifest">`, `mobile-web-app-capable`, i meta `apple-mobile-web-app-*`); il server SSR risponde `404` al manifest. Così non compare il prompt "Aggiungi a schermata Home" (su Chrome Android il Service Worker non è più requisito di installabilità dal 2021). Con `isWebApp: true` la PWA è completa. Il favicon e l'`<link rel="apple-touch-icon">` restano invece SEMPRE presenti, a prescindere da `isWebApp`: "Aggiungi a Home" su iOS/Safari funziona anche senza manifest/Service Worker, quindi anche un sito non installabile ottiene un'icona vera in home invece del placeholder screenshot.
 
-### Effetto smoke: il contratto `SmokeSettings`
+### Effetto smoke: il contratto `SmokePreset`
 
-Lo **smoke** è l'animazione di particelle di sfondo del pannello contenuti. Vive in `global-settings.json → site.smoke` (estetica, non struttura) e l'Engine lo normalizza nel contratto `SmokeSettings` (`siteBuilder.ts`), applicando i default a ogni campo omesso:
+Lo **smoke** è l'animazione di particelle di sfondo del pannello contenuti — puramente decorativo, quindi territorio del design system attivo (`DesignSystemPreset.smoke` in `design-system-presets.ts`, che definisce il contratto `SmokePreset`), non più `global-settings.json`. Campo omesso = default storico del template (`siteBuilder.ts`, `DEFAULT_SMOKE`, effetto disattivato).
 
-| Campo | Tipo | Default | Significato |
-| :--- | :--- | :--- | :--- |
-| `enable` | `boolean` | `false` | Attiva o disattiva l'effetto |
-| `color` | `string` | `'#ffffff'` | Colore base delle particelle |
-| `opacity` | `number` | `0.5` | Opacità complessiva |
-| `maximumVelocity` | `number` | `0.5` | Velocità massima di movimento |
-| `particleRadius` | `number` | `2` | Raggio medio delle particelle |
-| `density` | `number` | `10` | Densità complessiva a schermo |
+`color`/`opacity` restano override diretti (già intuitivi: un hex, un alpha 0-1). Il "quanto è presente" l'effetto invece NON è più 3 numeri grezzi della simulazione (`maximumVelocity`/`particleRadius`/`density`) — il loro range utile dipendeva da un fattore di scala interno a `SmokeEffectComponent` che nessun design system dovrebbe dover conoscere (un `maximumVelocity: 120` produceva una deriva vivace, uno `0.5` era praticamente immobile — nessuna indicazione del perché). Al loro posto, `intensita` — nomi skeuomorfici come `superfici`, la sensazione fisica invece dei parametri:
 
-```jsonc
-// global-settings.json → site
-"smoke": {
-    "enable": true,
-    "color": "#1f40ff",
-    "opacity": 0.4,
-    "maximumVelocity": 0.6,
-    "particleRadius": 2,
-    "density": 12
-}
+| `intensita` | Sensazione |
+| :--- | :--- |
+| `'pulviscolo'` (default se `enable: true` e non specificata) | puntini piccoli, lenti, radi — pulviscolo in un raggio di luce |
+| `'bruma'` | macchie medie, deriva moderata — una via di mezzo |
+| `'nebbia'` | macchie grandi e dense, molto presente |
+
+```typescript
+// dentro extendDesignSystem — preset condiviso o design system scritto da zero, stessa forma
+smoke: {
+    enable: true,
+    color: '#1f40ff',
+    opacity: 0.4,
+    intensita: 'bruma',
+},
 ```
 
+`validateDesignSystemPreset` valida `color` (hex, 3/6/8 cifre) e `opacity` (0-1) — `intensita` è un'unione letterale, la validità la garantisce già il compilatore, nessun controllo runtime in più serve (stesso trattamento di `superfici`/`forceThemeTone`/`panelSurface`/`navSurface`).
+
 Spento da solo quando darebbe fastidio: anche con `enable: true`, lo shell (`app.component.ts`) calcola `showSmoke` e tiene l'effetto off automaticamente quando non avrebbe senso, in `fitViewport` (vista immersiva), quando il pannello contenuti non c'è (`showPanel: false`), e quando l'utente ha richiesto `prefers-reduced-motion`. Così lo smoke compare solo dove c'è un pannello che lo ospita e l'utente non ha chiesto meno animazioni, un default rispettoso dell'accessibilità, senza configurazione.
+
+### Altre leve delegate al design system
+
+Come `superfici`/`smoke.intensita`, questi 12 campi sostituiscono un comportamento un tempo fisso nell'engine (stesso numero/stile per ogni sito) con una scelta nominata — mai un numero grezzo, sempre 2-3 gradi con un carattere riconoscibile. Dettaglio completo di ciascuno nel JSDoc del campo su `DesignSystemPreset` (`design-system-presets.ts`); qui solo la mappa:
+
+| Campo | Valori | Default | Cosa governa |
+| :--- | :--- | :--- | :--- |
+| `movimento` | `'scatto'` / `'svelto'` / `'morbido'` | `'svelto'` | Velocità di fade di pagina e apertura dropdown/submenu/context-menu/lightbox — un solo asse invece di 4 durate scelte indipendentemente per lo stesso gesto |
+| `elevazione` | `'piatta'` / `'sospesa'` / `'flottante'` | `'sospesa'` | Ombra + raggio d'angolo dei pannelli elevati (dropdown/submenu/context-menu/`.fab`) |
+| `contentWidth` | `'colonna'` / `'ampio'` / `'pieno'` | `'ampio'` | Larghezza della colonna di breadcrumb/pannello contenuti |
+| `breadcrumbStile` | `'traccia'` / `'freccia'` / `'punto'` | `'traccia'` | Separatore fra le voci del breadcrumb (`/`/`›`/`·`) |
+| `mutezzaSecondario` | `'tenue'` / `'standard'` / `'satura'` | `'standard'` | Chroma OKLCH del `secondary` auto-calcolato dal brand (ignorato se `colorSecondary` è overridden) |
+| `hoverIntensity` | `'lieve'` / `'standard'` / `'decisa'` | `'standard'` | Scurimento hover/active dei bottoni pieni |
+| `separazioneSuperfici` | `'ravvicinate'` / `'classica'` / `'marcata'` | `'classica'` | Quanto base/subtle/muted/surface/hover si distinguono FRA loro (asse ortogonale a `superfici`, che decide quanto si avvicinano al BRAND) |
+| `footerIdentita` | `'essenziale'` / `'esteso'` | `'esteso'` | Social e formato orari nel blocco identità del footer |
+| `backToTopSoglia` | `'pronta'` / `'standard'` / `'tardiva'` | `'standard'` | Scroll (150/300/600px) oltre cui compare il FAB "torna su" |
+| `cookieReopenStile` | `'discreto'` / `'standard'` | `'discreto'` | Dimensione/opacità del FAB di riapertura cookie banner (il lato resta sempre opposto a `back-to-top`, in entrambi i casi) |
+| `badgeNotifiche` | `'numero'` / `'puntino'` | `'numero'` | Badge di notifiche non lette: conteggio o solo indicatore |
+| `pulsazioneAttiva` | `'assente'` / `'lieve'` / `'marcata'` | `'lieve'` | Alone pulsante di un toggle attivo (oggi solo `speech-action`) |
+
+Come `superfici`, ogni valore diventa un numero grezzo SOLO dentro l'engine, mai scritto a mano da un design system — meccanica di risoluzione/iniezione in [ENGINE.md](../ENGINE.md).
+
+> `hoverIntensity: 'decisa'` spinge un po' più in là un trade-off d'accessibilità già presente nell'engine in dark mode (dettaglio in [ENGINE.md](../ENGINE.md)) — non ne introduce uno nuovo, lo rende solo più marcato per chi lo sceglie esplicitamente.
 
 ### Pagina esterna (`externalUrl`) e on/off (`enabled`)
 
@@ -1516,7 +1790,7 @@ pages: (ctx) => [
 
 Il menu di header/footer vive in `frontend/src/app/nav.ts`, un `ShellNavResolver` (tipo esportato da `core/engine/shell-nav.ts`) fornito a `SHELL_NAV_RESOLVER` in `app.config.ts`: quali destinazioni mostrare, in che ordine, con che etichetta, è un **dato**, risolvibile a runtime — anche da un'API, anche diverso per utente loggato — mentre `ContestoSito`/`buildSite()` (`site.ts`) sono build-time (Angular vuole `routes` statico al bootstrap). `ShellNavService` (Engine) lo risolve una volta sola — condiviso da navbar e footer, non un fetch a testa — prima che qualunque componente si costruisca, e lo ri-risolve ad ogni cambio lingua.
 
-`header`/`footer` sono **callback** che ricevono un builder, non array — sincrone (`void`) per una dichiarazione statica, o `async` se dipendono da un'API (stesso builder in entrambi i casi, cambia solo se la callback aspetta qualcosa prima di chiamarlo). Il builder espone tre azioni: `addPage(PageType, { label? })` (voce singola, con etichetta custom opzionale al posto del titolo della pagina), `addLink('chiaveLabel', 'https://…')` (URL esterno — per una pagina interna usa sempre `addPage`), `addGroup('chiaveLabel', b => …)` (gruppo/dropdown), e i gruppi sono annidabili (dentro un `addGroup` ne richiami un altro):
+`header`/`footer` sono **callback** che ricevono un builder, non array — sincrone (`void`) per una dichiarazione statica, o `async` se dipendono da un'API (stesso builder in entrambi i casi, cambia solo se la callback aspetta qualcosa prima di chiamarlo). Il builder espone tre azioni: `addPage(PageType, { label? })` (voce singola, con etichetta custom opzionale al posto del titolo della pagina), `addLink('chiaveLabel', 'https://…')` (URL esterno — per una pagina interna usa sempre `addPage`), `addGroup('chiaveLabel', b => …)` (gruppo/dropdown), e i gruppi sono annidabili (dentro un `addGroup` ne richiami un altro). Ogni voce accetta anche un `itemClass?: string` opzionale nelle options: una classe in più sul contenitore di QUELLA voce, che si aggiunge allo stile di default senza sostituirlo (header e footer, stesso campo).
 
 ```typescript
 // nav.ts
@@ -1568,7 +1842,39 @@ header: (h) => {
 
 Volutamente binario (loggato/sloggato, via `TokenService.isLoggedIn()`), non un sistema di ruoli: la navbar è pensata per restare generica, un progetto che ha bisogno di granularità per-ruolo filtra a monte (nel proprio resolver di `nav.ts`, prima che la voce venga costruita, oppure componendo il menu in base a `session<T>()`), non nell'Engine.
 
-Icona di brand nella navbar (`brandIcon`): terzo campo opzionale di `ShellNavResolver`, sincrono o `async` come `header`/`footer`, risolto una volta sola insieme a loro. Restituisce `true`/omesso (il `favIcon` di sempre), `false` (nessuna icona), o una stringa — stesso valore che passeresti ad `[appAsset]` (chiave di `mapping.json` o slug di un blob) per un'icona diversa dal favicon nel solo header. Dato risolto a runtime, può quindi dipendere da una API invece che da un booleano fisso in `site.ts`.
+#### Footer: oltre i link (`addField`/`addText`/`addSocialLink`/`addCustom`)
+
+Un footer istituzionale porta spesso anche dati di identità (P.IVA, sede legale, orari...), testo libero, o contenuto arbitrario di progetto — non solo link. Dentro un `addGroup` del **footer** (non dell'header, che resta solo `addPage`/`addLink`/`addGroup`), il builder (`FooterGroupBuilder`) espone quattro azioni in più:
+
+```typescript
+// nav.ts
+import { FooterField } from './core/engine/footer-content';
+
+export const navResolver: ShellNavResolver = {
+    footer: (f, ctx) => {
+        f.addGroup('footerAzienda', g => {
+            g.addField(FooterField.RagioneSociale);
+            g.addField(FooterField.PartitaIva);
+            g.addField(FooterField.SedeLegale);
+            g.addText('footerNote', 'Iscritta al REA di Milano'); // testo libero, mai tradotto: è un dato
+            g.addSocialLink(
+                ctx.identity?.social.find(u => u.includes('linkedin.com')) ?? '',
+                'LinkedIn',
+            );
+        });
+    },
+};
+```
+
+- **`addField(FooterField.<Campo>, { itemClass? })`** — legge e formatta il campo direttamente da `Identity` (`GET /identity`), stessa formattazione di `app-identity-render` (indirizzo, valuta...). Si nasconde da solo se l'identità del sito non valorizza quel campo — nessuna chiave i18n né forma dei dati da conoscere lato Dominio. `FooterField` (`core/engine/footer-content.ts`) copre 19 campi: dati societari (`RagioneSociale`/`PartitaIva`/`CodiceFiscale`/`PartitaIvaCodiceFiscale`/`RegistroImprese`/`NumeroRea`/`CodiceSdi`/`CapitaleSociale`/`CapitaleVersato`/`SocioUnico`/`InLiquidazione`), contatti (`SedeLegale`/`Telefono`/`Email`/`Pec`), ruoli GDPR (`RappresentanteLegale`/`TitolareDelTrattamento`/`ResponsabileProtezioneDati`), orari (`OpeningHours`).
+- **`addText(label, value, { itemClass?, kind?, skipEmptyValue? })`** — coppia libera etichetta/valore: `value` non passa MAI da i18n (è un dato, non una stringa di interfaccia). `skipEmptyValue` (default `true`) nasconde la voce se `value` è vuoto — utile quando il valore viene da un'API.
+- **`addSocialLink(url, label?, { itemClass?, authOnly? })`** — deliberatamente NON un `FooterField`: quali profili social mostrare (e in che ordine) resta una scelta di progetto esplicita, mai dedotta in blocco da `identity.social` (che può contenere profili non destinati al footer).
+- **`addCustom(component, { inputs?, itemClass?, authOnly?, key? })`** — escape hatch per contenuto arbitrario, renderizzato via `NgComponentOutlet` — stesso ruolo di `kind: 'raw'` in `structured-data.ts`: quando le altre quattro forme non bastano.
+- **`FooterSectionBuilder.hideLegalStrip()`** (a livello di `footer`, non di gruppo) — spegne la striscia automatica delle pagine legali che il footer genera di norma, per chi preferisce inserirle a mano dentro un gruppo custom.
+
+`ctx` nel resolver del footer include ora anche `identity: Identity | null` (oltre a lingua/login), risolto una volta insieme al resto — per filtrare `identity.social` come nell'esempio sopra, senza una seconda chiamata API.
+
+Icona di brand nella navbar (`brandIcon`): terzo campo opzionale di `ShellNavResolver`, sincrono o `async` come `header`/`footer`, risolto una volta sola insieme a loro. Restituisce una stringa — assente/omesso → `favIcon` di sempre, altrimenti stesso valore che passeresti ad `[appAsset]` (chiave di `mapping.json` o slug di un blob) per un'icona diversa dal favicon nel solo header. Dato risolto a runtime, può quindi dipendere da una API invece che da un valore fisso in `site.ts`. Questo campo decide solo QUALE icona: SE comparire è invece `DesignSystemPreset.showBrandIcon`/`SpecRuoloPagina.showBrandIcon` (vedi §"Ruoli di Pagina") — stessa decisione estetica di nav/footer/pannello, non un dato di contenuto.
 
 ```typescript
 // nav.ts
@@ -1679,14 +1985,16 @@ import { SITE_CONFIG } from './core/engine/siteBuilder';
 const site = inject(SITE_CONFIG);
 site.appName;     // nome applicativo
 site.version;     // versione canonica
-site.colorTema;   // colore brand di default (usato anche da ThemeService, vedi sopra)
+site.colorTema;   // colore brand di default (usato anche da AppearanceService, vedi sopra)
 site.legalPages;  // LegalPageSpec[] risolte (array, una voce per pagina legale configurata)
 site.homePage;    // PageType del brand (o null)
 site.loginPage;   // PageType di redirect non-auth (o null)
 
-// Flag di shell appiattiti al top-level di SiteConfig (boolean; significato di ciascuno nel
-// blocco `shell` sopra): showNav, showFooter, showPanel, fixedTopHeader,
-// showLoginInHeader, showNotifications, panelForcedLight, pageFade
+// Flag appiattiti al top-level di SiteConfig (boolean salvo dove indicato). showNotifications e
+// showLoginInHeader sono decisioni di sito (blocco `shell` sopra); tutto il resto — showNav,
+// showFooter, showPanel, fixedTopHeader, panelSurface ('light'|'dark'|'auto'),
+// navSurface ('brand'|'body'), forceThemeTone ('light'|'dark'|assente), pageFade — è SOLO il
+// design system attivo (designSystem: nome preset|'custom'|assente).
 site.showNav;     // es. lettura di un singolo flag
 ```
 
@@ -1848,11 +2156,13 @@ A differenza degli altri componenti di questa sezione, non si monta a mano: lo s
 
 Il trail (Home → ... → pagina corrente) viene calcolato da `BreadcrumbService` risalendo l'albero di `ContestoSito.pages` dal `PageType` della rotta corrente — la stessa fonte che alimenta il `BreadcrumbList` JSON-LD (vedi §"JSON-LD Strutturato"), quindi le due gerarchie non possono divergere.
 
-Visibilità di default "intelligente": compare da solo quando il percorso ha più di un livello reale (Home + pagina corrente) — una pagina radice (la Home) non lo mostra mai, non serve spegnerlo a mano ovunque. Un genitore dichiarato in `site.ts` ma senza una propria pagina "indice" (es. `Policy`, un `ParentPage` fatto solo di figlie, senza un `/policy` a sé — vedi `buildPolicySection` in `legal-pages.ts`) non conta come livello intermedio: il suo titolo si fonde in quello della pagina figlia (`"Policy - Cookie Policy"` come un'unica label) invece di comparire come gradino cliccabile a vuoto. Gate a due stadi, stesso pattern di `showNav`/`showFooter`:
+Visibilità di default "intelligente": compare da solo quando il percorso ha più di un livello reale (Home + pagina corrente) — una pagina radice (la Home) non lo mostra mai, non serve spegnerlo a mano ovunque. Un genitore dichiarato in `site.ts` ma senza una propria pagina "indice" (es. `Policy`, un `ParentPage` fatto solo di figlie, senza un `/policy` a sé — vedi `buildPolicySection` in `legal-pages.ts`) non conta come livello intermedio: il suo titolo si fonde in quello della pagina figlia (`"Policy - Cookie Policy"` come un'unica label) invece di comparire come gradino cliccabile a vuoto. Decisione SOLO del design system attivo, per ruolo (non più un flag di `layout` — vedi §"Ruoli di Pagina"), il ruolo vince sempre quando lo mappa, in entrambe le direzioni:
 ```typescript
-shell: { showBreadcrumb: true },                    // site.ts — globale, di default true. Off qui: nessuna pagina può riaccenderlo
-// in pages/*.pages.ts, per una singola pagina:
-layout: { showBreadcrumb: false },                   // forza esplicitamente (entrambe le direzioni). Assente → euristica sopra
+// design-system-presets.ts, o un'estensione di dominio
+myDesignSystem: (): DesignSystemPreset => ({
+    showBreadcrumb: true,                             // default globale: acceso ovunque salvo scostamento per ruolo
+    ruoloPagina: { legal: { showBreadcrumb: false } },  // eccezione per un ruolo specifico, in entrambe le direzioni
+}),
 ```
 
 Per un trail non deducibile dall'albero (es. un'entità di una pagina `dynamicParams` che vuole un livello in più, prodotto da dati esterni), sovrascrivi il resolver invece del componente:
@@ -2097,7 +2407,7 @@ Nel template chiami `onClick()` sul bottone, leggi `displayLabel()` per il testo
 
 ## 🏗️ Script di Build: `generate-statics.ts`
 
-Lo script sincronizza i file statici e inietta nel frontend (via `src/environments/environment.ts`) identità ed estetica del progetto: `project.name`/`project.version`, i codici lingua (`Localization`) e la sezione `site` (descrizione, tema, smoke) da `global-settings.json`. I codici lingua qui sono il seed di build (shell, fallback `pickLocaleText`, routing per-lingua); la cultura runtime (nomi nativi, giorni, formattazione) la deriva il frontend via `Intl`. La struttura e il comportamento (pagine, `shell`, `isWebApp`, `loginPage`, `legalPages`) restano in `site.ts`; il menu vive in `nav.ts`. Va eseguito ogni volta che si modifica `global-settings.json` o `site.ts` (è già nei passi `prebuild`/`prestart`; in Docker la config arriva via l'ARG `BR1_PROJECT_JSON`).
+Lo script sincronizza i file statici e inietta nel frontend (via `src/environments/environment.ts`) identità minima del progetto: `project.name`/`project.version`, i codici lingua (`Localization`) e la sezione `site` (descrizione, tema) da `global-settings.json`. I codici lingua qui sono il seed di build (shell, fallback `pickLocaleText`, routing per-lingua); la cultura runtime (nomi nativi, giorni, formattazione) la deriva il frontend via `Intl`. La struttura e il comportamento (pagine, `shell`, `isWebApp`, `loginPage`, `legalPages`) restano in `site.ts`; il menu vive in `nav.ts`. Va eseguito ogni volta che si modifica `global-settings.json` o `site.ts` (è già nei passi `prebuild`/`prestart`; in Docker la config arriva via l'ARG `BR1_PROJECT_JSON`).
 
 ```bash
 npm run generate:statics
@@ -2107,8 +2417,8 @@ npm run generate:statics
 
 | File | Contenuto sincronizzato |
 | :--- | :--- |
-| `src/index.html` | `<html lang>`, `<title>`, tutti i meta OpenGraph/Twitter, favicon |
-| `public/manifest.webmanifest` | `name`, `description`, `theme_color`, `background_color`, `lang`, `version` |
+| `src/index.html` | `<html lang>` (+ `dir`), `<title>`, tutti i meta OpenGraph/Twitter, `<link rel="icon">`, `<link rel="apple-touch-icon">` |
+| `public/manifest.webmanifest` | `name`, `short_name`, `id`, `description`, `lang`, `dir`, `theme_color`, `background_color`, `icons` (`any`/`maskable`), `version` — solo con `isWebApp:true` |
 | `public/robots.txt` | `Allow: /` + URL sitemap. Le pagine protette **non** sono elencate (un robots.txt è pubblico e ne rivelerebbe i path): la loro non-indicizzazione è gestita a runtime dal server SSR con `X-Robots-Tag: noindex` |
 | `public/llms.txt` | Indice del sito per i crawler AI (convenzione `llms.txt`): nome, descrizione, elenco pagine |
 | `public/security.txt` | Contatto di sicurezza RFC 9116 (`Expires` rigenerato a ogni build); servito sul percorso canonico `/.well-known/security.txt` dal Node SSR |
@@ -2125,11 +2435,22 @@ npm run generate:statics
 
 A differenza degli altri output di questa pagina, `sitemap.xml` non è un file generato al build: è un endpoint (`GET /sitemap.xml`, `server/routes/dynamic-sitemap.ts`), montato in `server.ts` prima dello static handler. Usa gli stessi calcoli dello script `generate-statics` (via `services/sitemap-xml.ts`, condiviso) plus l'espansione delle pagine con `dynamicParams` dichiarato (campo opzionale di `LeafPageInput`, in `siteBuilder.ts`: una funzione che recupera dal backend l'albero `SlugNode[]` degli slug accettati per una rotta con `:segmenti`) — non enumerabili a build time perché il catalogo arriva da un'API. Cache in-process con TTL (default 7 giorni, env var `SITEMAP_CACHE_TTL_MS` in millisecondi): l'aggiornamento primario è la notifica on-demand dal backend (`POST /internal/revalidate-sitemap`, `SitemapNotifier`, vedi backend/README.md) dopo una scrittura su un catalogo `dynamicParams`, il TTL è solo un fallback per il caso in cui quella notifica si perda. Il consumer è quasi solo un crawler, non serve ricalcolare a ogni richiesta; richieste concorrenti durante un ricalcolo condividono la stessa promise, e se il ricalcolo fallisce ma esiste una cache scaduta si serve quella invece di un errore. `robots.txt` continua a puntare allo stesso URL (`Sitemap: <base>/sitemap.xml`), invariato.
 
-### Icone PWA automatiche (`generate-icons.ts`)
+### Icone del sito automatiche (`generate-icons.ts`)
 
-Un secondo script, `generate-icons.ts`, deriva le icone PWA `public/icons/icon-192x192.png` e `icon-512x512.png` dall'asset `favIcon` dichiarato in `mapping.json` (ridimensiona con `sharp`, con fallback a copia se `sharp` manca). Gira in automatico negli stessi pre-hook di `generate-statics` (`prestart` / `predev` / `prebuild`), quindi non va lanciato a mano.
+Un secondo script, `generate-icons.ts`, deriva **quattro** file da un solo asset, `favIcon` dichiarato in `mapping.json` (ridimensiona con `sharp`, con fallback a copia semplice se `sharp` manca):
 
-Il punto pratico: un solo asset, `favIcon`, alimenta tutto, favicon del sito (in `index.html`), icone dell'app installabile (PWA) e il badge sulle anteprime social generate da `/cdn-cgi/preview`. Cambi quel singolo file in `mapping.json` e si aggiornano tutti e tre.
+| File | Uso | Trattamento |
+| :--- | :--- | :--- |
+| `public/icons/icon-192x192.png` | `<link rel="icon">`, manifest (`purpose: any`) | resize semplice, trasparenza originale preservata |
+| `public/icons/icon-512x512.png` | `og:image`/`twitter:image` di fallback, badge anteprime social, manifest (`purpose: any`) | sfondo brand pieno, artwork a bordo pieno (mai trasparente) |
+| `public/icons/icon-512x512-maskable.png` | manifest (`purpose: maskable`) | sfondo brand pieno, artwork ridotta all'80% del canvas (safe-zone), altrimenti il masking adattivo di Android taglierebbe i bordi |
+| `public/icons/apple-touch-icon-180x180.png` | `<link rel="apple-touch-icon">` | stesso trattamento della maskable (iOS non gestisce la trasparenza) |
+
+Le prime due icone e l'Apple Touch Icon vengono generate **sempre**, anche con `isWebApp:false`: favicon e "Aggiungi a Home" su iOS non dipendono dall'installabilità PWA. Solo `icon-512x512-maskable.png` serve esclusivamente al manifest (comunque generata, ma consumata solo se `isWebApp:true`).
+
+`any` e `maskable` sono due file distinti apposta, mai un'unica icona con `"purpose": "any maskable"`: un'icona pensata per il masking ha già il proprio padding di sicurezza, quindi usata anche come `any` apparirebbe artificialmente piccola fuori da un contesto di masking adattivo (Chrome DevTools e web.dev sconsigliano esplicitamente la combinazione).
+
+Lo script gira in automatico negli stessi pre-hook di `generate-statics` (`prestart` / `predev` / `prebuild`), quindi non va lanciato a mano. Se la chiave `favIcon` manca da `mapping.json`, o il file che dichiara non esiste su disco, lo script fallisce il build con un errore esplicito invece di lasciare le icone assenti in silenzio (404 su favicon/manifest/anteprime social a runtime).
 
 ### Variabili d'Ambiente
 
@@ -2364,6 +2685,12 @@ IMAGE_CACHE_MAX_MB=500                   # default: 500 MB — oltre questa sogl
 Posizione (`IMAGE_CACHE_DIR`): senza override la cache vive in una cartella dedicata nella temp di sistema, isolata per progetto tramite un hash del percorso asset (così più siti, questo template e i suoi figli, sullo stesso host non si mischiano le immagini). Tenerla fuori da `src/assets` è ciò che evita che `ng serve` ricarichi la pagina a ogni miniatura generata in sviluppo, e che thumbnail effimeri finiscano copiati in `dist` al build. In produzione la temp è scrivibile anche col container non-root, ma è effimera: dopo un riavvio la cache parte fredda e si rigenera on-demand. Per una cache calda tra i deploy, monta un volume persistente e punta `IMAGE_CACHE_DIR` lì.
 
 Sweep (`IMAGE_CACHE_MAX_MB`): lo sweep LRU avviene ogni 6 ore e porta la cache al 90% del cap (non al 100%) per evitare di ri-sweepare a ogni singolo thumbnail aggiunto. L'`mtime` di ogni file viene aggiornato a ogni hit, così i thumbnail realmente richiesti sopravvivono e vengono scartati solo quelli inutilizzati.
+
+Concorrenza dei job (`IMAGE_JOBS_MAX`), indipendente dal cap di dimensione sopra: ogni decode/resize `sharp` allova il bitmap intero in memoria, quindi il numero di job eseguibili in parallelo è limitato — default `Math.max(2, availableParallelism())`, configurabile via `IMAGE_JOBS_MAX`. Le richieste eccedenti il tetto entrano in una coda FIFO interna (non bounded, nessun timeout): su cache fredda con molte immagini distinte in una stessa pagina — tipicamente il primo traffico dopo un deploy — i thumbnail oltre il tetto di concorrenza aspettano il proprio turno invece di fallire, con un ritardo di caricamento silenzioso (nessun log, nessuna metrica dedicata) fra le richieste, non un errore.
+
+```bash
+IMAGE_JOBS_MAX=4   # default: max(2, CPU disponibili)
+```
 
 ---
 

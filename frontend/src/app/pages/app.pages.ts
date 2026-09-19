@@ -131,9 +131,7 @@ export const appPagesDecl: SitePageInput[] = [
         title: 'homeNav',
         pageType: AppPages.Home,
         // La home espone già Generatori/Storie/Giochi come sezioni: la navbar sarebbe ridondante.
-        // showSmoke:true — lo smoke decorativo è voluto SOLO qui; senza pannello (default del sito,
-        // vedi site.ts shell.showPanel) smoke di suo non si mostrerebbe (default: pannello && !full-bleed).
-        layout: { showNav: false, showSmoke: true },
+        layout: { role: 'home' },
         description: 'Generatori casuali, avventure interattive e tanto altro da Br1.',
         component: () => import('./home/home.component').then(m => m.HomeComponent),
     },
@@ -203,10 +201,8 @@ export const appPagesDecl: SitePageInput[] = [
                 path: ':slug',
                 title: 'avventura',
                 pageType: AppPages.Storia,
-                // Unica pagina che riaccende il pannello (spento globalmente, vedi site.ts
-                // shell.showPanel). Lo smoke è voluto SOLO sulla home: qui, col pannello riacceso,
-                // il default lo mostrerebbe, quindi lo spegniamo esplicitamente.
-                layout: { showPanel: true, showSmoke: false },
+                // Unica pagina che riaccende il pannello (spento globalmente dal design system).
+                layout: { role: 'storia' },
                 component: () => import('./story-player/story-player.component')
                     .then(m => m.StoryPlayerComponent),
                 dynamicParams: async (ctx) => {
@@ -224,7 +220,7 @@ export const appPagesDecl: SitePageInput[] = [
         title: `ducenonduce`,
         description: 'Indovina se la persona è un duce o non duce',
         pageType: AppPages.GameDuceNonDuce,
-        layout: { fitViewport: true },
+        layout: { role: 'giochini' },
         // Eccezione: qui la card NON diventa trasparente (è normale sia con Valerio Lundini),
         // quindi niente OG separata — l'immagine della card fa già da anteprima social.
         otherSEO: { ogImage: { id: 'game.ducenonduce' } },
@@ -237,7 +233,7 @@ export const appPagesDecl: SitePageInput[] = [
         title: `burocrazia`,
         description: 'Attraversa la città a colpi di passaggi in auto e chiudi la pratica prima che chiudano gli sportelli.',
         pageType: AppPages.GameBurocrazia,
-        layout: { fitViewport: true },
+        layout: { role: 'giochini' },
         // OG opaca dedicata (la card può diventare trasparente senza rovinare l'anteprima social).
         otherSEO: { ogImage: { id: 'game.burocrazia.og' } },
         component: () => import('./burocrazia/burocrazia.component')
@@ -249,7 +245,8 @@ export const appPagesDecl: SitePageInput[] = [
         title: `umarell`,
         description: 'Contempla il cantiere con le mani dietro la schiena e intervieni al momento giusto.',
         pageType: AppPages.GameUmarell,
-        layout: { fitViewport: true },
+        // "Il vecchio che guarda i cantieri": naked (niente nav/footer/pannello) + fitViewport.
+        layout: { role: 'cantiere' },
         otherSEO: { ogImage: { id: 'game.umarell.og' } },
         component: () => import('./umarell/umarell.component')
             .then(m => m.UmarellComponent),
@@ -269,7 +266,8 @@ export const appPagesDecl: SitePageInput[] = [
                 pageType: AppPages.UtilityRadar,
                 // OG opaca dedicata (la card può diventare trasparente senza rovinare l'anteprima social).
                 otherSEO: { ogImage: { id: 'game.radar.og' } },
-                layout: { fitViewport: true },
+                // Riusa 'giochini' solo per fitViewport: stessa esigenza tecnica, non è un gioco.
+                layout: { role: 'giochini' },
                 component: () => import('./radar/radar.component')
                     .then(m => m.RadarComponent),
             },

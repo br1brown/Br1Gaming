@@ -22,7 +22,7 @@
         align-items: center;
     }
 
-    // --bs-secondary-color è calibrato da ThemeService contro colorMutedBg (~4.8:1), non contro
+    // --bs-secondary-color è calibrato da AppearanceService contro colorMutedBg (~4.8:1), non contro
     // questa pillola: diluito dal 12% di rgba() sopra sfondo chiaro scende a ~4.1:1, sotto AA.
     // --bs-body-color ha margine enorme (quasi nero/bianco) e resta conforme anche diluito.
     &__link {
@@ -88,5 +88,11 @@
         margin: 0 0.5em;
         font-weight: 300;
         user-select: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .app-breadcrumb__link {
+        transition: none;
     }
 }

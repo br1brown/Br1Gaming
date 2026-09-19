@@ -4,18 +4,6 @@
 export interface AppSiteConfig {
     description?: Record<string, string>;
     colorTema?: string;
-    colorSecondary?: string;
-    colorBackground?: string;
-    colorText?: string;
-    colorInfo?: string;
-    smoke?: {
-        enable?: boolean;
-        color?: string;
-        opacity?: number;
-        maximumVelocity?: number;
-        particleRadius?: number;
-        density?: number;
-    };
 }
 
 export interface AppEnvironment {
@@ -38,18 +26,9 @@ export const environment: AppEnvironment = {
     availableLanguages: ["it"],
     config: {
             "colorTema": "#add8e6",
-            "colorSecondary": "#fff000",
-            "smoke": {
-                    "enable": true,
-                    "color": "#add8e6",
-                    "opacity": 0.7,
-                    "maximumVelocity": 120,
-                    "particleRadius": 350,
-                    "density": 18
-            },
             "description": {
                     "it": "Generatori ignoranti, avventure interattive, universo Br1."
             }
     },
-    configFingerprint: "c33c1ba56058"
+    configFingerprint: "f388119c48a1"
 };

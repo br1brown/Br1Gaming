@@ -1,7 +1,7 @@
 import { isPlatformBrowser } from '@angular/common';
 import { Injectable, PLATFORM_ID, inject } from '@angular/core';
 import * as QRCode from 'qrcode';
-import { ThemeService } from './theme.service';
+import { AppearanceService } from './appearance.service';
 import { TranslateService } from './translate.service';
 import { Validation } from './validation';
 
@@ -38,7 +38,7 @@ export type QrResponse =
 @Injectable({ providedIn: 'root' })
 export class QrCodeService {
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
-    private readonly theme = inject(ThemeService);
+    private readonly theme = inject(AppearanceService);
     private readonly translate = inject(TranslateService);
 
     /**

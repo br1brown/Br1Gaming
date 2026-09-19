@@ -44,9 +44,10 @@ export abstract class PageBaseComponent<T> {
     protected readonly contentByResolve = input<ResolvedPage<T> | null>(null);
 
     /**
-     * Flag pageFade già risolto in routing.ts (gate: globale `shell.pageFade` + override per-pagina
-     * `layout.pageFade`), iniettato via route.data come `pageType`. L'alias tiene libero il nome
-     * `pageFade` per il getter @HostBinding sotto.
+     * Flag pageFade già risolto in routing.ts (gate: globale `DesignSystemPreset.pageFade` +
+     * `ruoloPagina.<ruolo>.pageFade`, deciso dal design system attivo — non più dalla pagina),
+     * iniettato via route.data come `pageType`. L'alias tiene libero il nome `pageFade` per il
+     * getter @HostBinding sotto.
      */
     // Alias necessario: deve combaciare con la chiave route.data['pageFade']
     // (withComponentInputBinding), il nome interno resta libero per il getter @HostBinding

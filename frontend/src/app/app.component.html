@@ -10,7 +10,7 @@
 }
 
 @if (showNavbar()) {
-    <app-navbar />
+    <app-navbar [showBrandIcon]="showBrandIcon()" />
 }
 
 <main id="main-content" tabindex="-1" class="flex-grow-1"
@@ -22,13 +22,14 @@
         <router-outlet />
     } @else {
         <div class="row">
-            <div class="col-12 col-lg-10 offset-lg-1 mb-3">
+            <div [class]="contentWidthClass" class="mb-3">
                 <app-breadcrumb [forceShow]="breadcrumbOverride()" />
             </div>
             @if (showPanel()) {
-                <div class="col-12 col-lg-10 offset-lg-1 shadow rounded content-panel"
-                     [class.panel-light]="theme.panelForcedLight"
-                     [attr.data-bs-theme]="theme.panelBootstrapTheme">
+                <div [class]="contentWidthClass" class="shadow rounded content-panel"
+                     [class.panel-light]="theme.panelTone === 'light'"
+                     [class.panel-dark]="theme.panelTone === 'dark'"
+                     [attr.data-bs-theme]="theme.panelTone">
                     <router-outlet />
                 </div>
             } @else {

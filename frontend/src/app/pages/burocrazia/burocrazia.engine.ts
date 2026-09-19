@@ -14,9 +14,9 @@
 import {
     BURO_SPRITE_META, BURO_BUILDINGS, BURO_BUILDING_LIGHT, BURO_TREES, BURO_HOME, BURO_CAR_TYPES, BURO_PLAYER, type BuroSpriteMeta,
 } from './burocrazia.sprites';
-// Solo i metodi STATICI di ThemeService (conversione colore + contrasto): il README li dichiara
-// puri/SSR-safe, quindi è il seam giusto per validare i colori dei prop di scena senza DI Angular.
-import { ThemeService } from '../../core/engine/services/theme.service';
+// Solo i metodi STATICI di AppearanceService (conversione colore + contrasto): il README li
+// dichiara puri/SSR-safe, quindi è il seam giusto per validare i colori dei prop di scena senza DI Angular.
+import { AppearanceService } from '../../core/engine/services/appearance.service';
 
 // ─── tipi condivisi col componente ──────────────────────────────────────────
 export type ClockTone = 'none' | 'warn' | 'crit';
@@ -115,7 +115,7 @@ export interface GameHooks {
 export interface GameController {
     resize(): void;
     setPalette(p: Palette): void;
-    /** Riduce/azzera le animazioni del canvas (da ThemeService.prefersReducedMotion()). */
+    /** Riduce/azzera le animazioni del canvas (da matchMedia('prefers-reduced-motion'), vedi il componente). */
     setReduceMotion(v: boolean): void;
     /** Moltiplica lo zoom mappa (es. 1.1 = avvicina, 0.9 = allontana), con clamp ai limiti. */
     zoomBy(factor: number): void;
@@ -187,8 +187,8 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
 
     // Accessibilità — rispetta prefers-reduced-motion: sul canvas niente lampeggi, niente
     // pulsazioni "elastiche" e camera che insegue di scatto invece che con inerzia. Il valore
-    // NON lo leggiamo qui: lo spinge il componente via setReduceMotion() dal signal reattivo
-    // ThemeService.prefersReducedMotion() (convenzione del framework per i componenti canvas).
+    // NON lo leggiamo qui: lo spinge il componente via setReduceMotion() dal proprio signal
+    // reattivo su matchMedia('prefers-reduced-motion') (convenzione del framework per i componenti canvas).
     let reduceMotion = false;
 
     // Palette corrente: default scuro, sovrascritta da setPalette() col tema reale del sito.
@@ -214,13 +214,13 @@ export function createBurocraziaGame(canvas: HTMLCanvasElement, stageEl: HTMLEle
         if (hit !== undefined) return hit;
         let out = hex;
         try {
-            if (ThemeService.calcContrastRatio(hex, pal.ground) < VIS_MIN) {
-                const [L, C, H] = ThemeService.hexToOklch(hex);
-                const dir = ThemeService.calcLuminance(pal.ground) < 0.5 ? 1 : -1;   // terreno scuro → schiarisci; chiaro → scurisci
-                let best = hex, bestR = ThemeService.calcContrastRatio(hex, pal.ground);
+            if (AppearanceService.calcContrastRatio(hex, pal.ground) < VIS_MIN) {
+                const [L, C, H] = AppearanceService.hexToOklch(hex);
+                const dir = AppearanceService.calcLuminance(pal.ground) < 0.5 ? 1 : -1;   // terreno scuro → schiarisci; chiaro → scurisci
+                let best = hex, bestR = AppearanceService.calcContrastRatio(hex, pal.ground);
                 for (let d = 0.06; d <= 0.5; d += 0.06) {
-                    const cand = ThemeService.oklchToHex(clamp(L + dir * d, 0, 1), C, H);
-                    const r = ThemeService.calcContrastRatio(cand, pal.ground);
+                    const cand = AppearanceService.oklchToHex(clamp(L + dir * d, 0, 1), C, H);
+                    const r = AppearanceService.calcContrastRatio(cand, pal.ground);
                     if (r > bestR) { bestR = r; best = cand; }
                     if (r >= VIS_MIN) { best = cand; break; }
                 }

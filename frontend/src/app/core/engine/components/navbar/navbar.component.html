@@ -8,14 +8,14 @@
         @if (isRouteActive(homePath())) {
         <span #brandEl class="navbar-brand nav-current-link d-flex align-items-center gap-2" aria-current="page">
             @if (brandIconAsset(); as icon) {
-            <img aria-hidden="true" alt="" class="navbar-brand-icon" [appAsset]="icon" [appAssetWidth]="125" />
+            <img aria-hidden="true" alt="" class="navbar-brand-icon" [appAsset]="icon" [appAssetWidth]="125" [appAssetPriority]="true" />
             }
             {{ appName }}
         </span>
         } @else {
         <a #brandEl class="navbar-brand d-flex align-items-center gap-2" [routerLink]="homePath()">
             @if (brandIconAsset(); as icon) {
-            <img aria-hidden="true" alt="" class="navbar-brand-icon" [appAsset]="icon" [appAssetWidth]="125" />
+            <img aria-hidden="true" alt="" class="navbar-brand-icon" [appAsset]="icon" [appAssetWidth]="125" [appAssetPriority]="true" />
             }
             {{ appName }}
         </a>
@@ -37,6 +37,7 @@
                     [attr.inert]="i >= visibleCount() ? '' : null">
                     <app-nav-dropdown [item]="item"
                                       [open]="isNavDropdownOpen(i)"
+                                      [class]="item.itemClass"
                                       (toggle)="onNavDropdownToggle(i)"
                                       (linkClick)="onNavigationLinkClick()" />
                 </li>
@@ -47,6 +48,7 @@
                     <app-nav-link [link]="item"
                                   cssClass="nav-link"
                                   activeCssClass="nav-current-link active"
+                                  [class]="item.itemClass"
                                   (linkClick)="onNavigationLinkClick()" />
                 </li>
                 }
@@ -130,7 +132,7 @@
         <div class="dropdown language-dropdown" [class.show]="langOpen()">
             <button type="button"
                     class="nav-link nav-dropdown-toggle language-toggle"
-                    [attr.aria-label]="'selezionaLinguaAzione' | translate"
+                    [attr.aria-label]="('selezionaLinguaAzione' | translate) + ', ' + langName(translate.currentLang())"
                     aria-haspopup="true"
                     [attr.aria-expanded]="langOpen()"
                     (click)="toggleLang()">

@@ -1,17 +1,23 @@
 import {
     Component,
     ElementRef,
+    Injector,
+    computed,
+    inject,
     input,
     output,
-    viewChild,
+    viewChildren,
 } from '@angular/core';
+import { FocusKeyManager, FocusableOption } from '@angular/cdk/a11y';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { ContextMenuOption } from './context-menu.models';
 
 /**
  * UI del menu contestuale, creata dentro un overlay CDK dalla `ContextMenuDirective`.
- * Non va usata direttamente nei template. Il posizionamento lo fa CDK Overlay: qui resta
- * solo il rendering della lista, la navigazione da tastiera e la gestione del focus.
+ * Non va usata direttamente nei template. Il posizionamento e il dismiss-on-outside-click li fa
+ * CDK Overlay (`context-menu.directive.ts`); qui resta il rendering della lista e la navigazione
+ * da tastiera fra le voci, con CDK `FocusKeyManager` (`@angular/cdk/a11y`) — stessa dipendenza
+ * CDK già in uso per l'overlay/portal, niente roving focus scritto a mano.
  */
 @Component({
     selector: 'app-context-menu-overlay',
@@ -28,11 +34,25 @@ export class ContextMenuOverlayComponent {
     /** Emesso quando il menu va chiuso senza selezione (es. Tab). */
     readonly menuDismissed = output<void>();
 
-    readonly menuEl = viewChild<ElementRef<HTMLElement>>('menuEl');
+    // In ordine DOM: solo i bottoni menuitem hanno #itemEl (i separatori no), quindi coincide
+    // già con l'ordine di navigazione voluto senza dover escludere altro.
+    private readonly itemEls = viewChildren<ElementRef<HTMLButtonElement>>('itemEl');
+    private readonly items = computed<FocusableOption[]>(() =>
+        this.itemEls().map(el => ({
+            disabled: el.nativeElement.disabled,
+            focus: () => el.nativeElement.focus(),
+        }))
+    );
+    // Signal-based: si ricostruisce da sola quando `items` cambia (es. opzioni async), nessun
+    // ri-query manuale del DOM. withWrap/withHomeAndEnd riproducono lo stesso comportamento
+    // di prima (frecce con giro, Home/End al primo/ultimo); l'orientamento verticale è il default.
+    private readonly keyManager = new FocusKeyManager(this.items, inject(Injector))
+        .withWrap()
+        .withHomeAndEnd();
 
     /** Sposta il focus al primo menuitem abilitato */
     focusFirst(): void {
-        requestAnimationFrame(() => this.getFocusableItems()[0]?.focus());
+        requestAnimationFrame(() => this.keyManager.setFirstItemActive());
     }
 
     onSelect(option: ContextMenuOption): void {
@@ -42,40 +62,14 @@ export class ContextMenuOverlayComponent {
     }
 
     onKeydown(event: KeyboardEvent): void {
-        const items = this.getFocusableItems();
-        if (items.length === 0) return;
-
-        const idx = items.indexOf(document.activeElement as HTMLButtonElement);
-
-        switch (event.key) {
-            case 'ArrowDown':
-                event.preventDefault();
-                items[(idx + 1) % items.length].focus();
-                break;
-            case 'ArrowUp':
-                event.preventDefault();
-                items[(idx - 1 + items.length) % items.length].focus();
-                break;
-            case 'Home':
-                event.preventDefault();
-                items[0].focus();
-                break;
-            case 'End':
-                event.preventDefault();
-                items[items.length - 1].focus();
-                break;
-            case 'Tab':
-                event.preventDefault();
-                this.menuDismissed.emit();
-                break;
+        // Tab: FocusKeyManager la ignora di proposito (emette solo `tabOut`, senza preventDefault —
+        // lascia al consumer decidere) — qui il menu si chiude invece di lasciare che il browser
+        // sposti il focus fuori.
+        if (event.key === 'Tab') {
+            event.preventDefault();
+            this.menuDismissed.emit();
+            return;
         }
-    }
-
-    private getFocusableItems(): HTMLButtonElement[] {
-        return Array.from(
-            this.menuEl()?.nativeElement?.querySelectorAll<HTMLButtonElement>(
-                'button[role="menuitem"]:not([disabled]):not(.disabled)'
-            ) ?? []
-        );
+        this.keyManager.onKeydown(event);
     }
 }

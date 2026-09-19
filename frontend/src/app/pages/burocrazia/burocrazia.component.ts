@@ -2,7 +2,7 @@ import { Component, computed, effect, ElementRef, inject, OnDestroy, PLATFORM_ID
 import { isPlatformBrowser } from '@angular/common';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
-import { ThemeService } from '../../core/engine/services/theme.service';
+import { AppearanceService } from '../../core/engine/services/appearance.service';
 import { CookieConsentService } from '../../core/engine/services/cookie-consent.service';
 import {
     ClockTone, CoachData, GameController, IntroData, Palette, PratData, ResultData, SavedRun, ServeData, WelcomeData,
@@ -87,9 +87,15 @@ export class BurocraziaComponent extends PageBaseComponent<void> implements OnDe
         return p ? Array.from({ length: p.total }, (_, i) => i + 1) : [];
     });
 
-    private readonly theme = inject(ThemeService);
+    private readonly theme = inject(AppearanceService);
     private readonly cookies = inject(CookieConsentService);
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+
+    // `AppearanceService` non espone più `prefersReducedMotion` (rimosso dall'Engine): stesso
+    // schema di `themeTone` (matchMedia + addEventListener), tenuto qui perché usato solo da questo gioco.
+    private readonly reduceMotion = signal(
+        this.isBrowser && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    );
 
     private game?: GameController;
     private gameCanvas?: HTMLCanvasElement;   // canvas su cui il gioco è agganciato: se cambia, si riaggancia
@@ -109,9 +115,13 @@ export class BurocraziaComponent extends PageBaseComponent<void> implements OnDe
         effect(() => { this.theme.themeTone(); this.applyPalette(); });
 
         // Accessibilità: rispetta la preferenza "meno movimento" del sistema. Il segnale è
-        // reattivo (ThemeService), così attivando/disattivando la preferenza il canvas si adegua
-        // senza reload — stesso schema dell'effetto palette qui sopra.
-        effect(() => { this.game?.setReduceMotion(this.theme.prefersReducedMotion()); });
+        // reattivo, così attivando/disattivando la preferenza il canvas si adegua senza reload —
+        // stesso schema dell'effetto palette qui sopra.
+        if (this.isBrowser) {
+            window.matchMedia('(prefers-reduced-motion: reduce)')
+                .addEventListener('change', e => this.reduceMotion.set(e.matches));
+        }
+        effect(() => { this.game?.setReduceMotion(this.reduceMotion()); });
 
         // (Ri)crea il gioco quando il canvas "vivo" cambia. Su F5 (SSR+hydration) il canvas a cui era
         // legato il gioco viene SOSTITUITO dopo la creazione → il gioco disegnava su un canvas staccato
@@ -158,7 +168,7 @@ export class BurocraziaComponent extends PageBaseComponent<void> implements OnDe
             onPerfNotice: () => this.notify.toastOnce('buro-lite', this.translate.translate('buroPerfNotice'), 'warning', { durationMs: 6000 }),
         });
         this.applyPalette();
-        this.game.setReduceMotion(this.theme.prefersReducedMotion());   // stato iniziale (l'effect copre i cambi successivi)
+        this.game.setReduceMotion(this.reduceMotion());   // stato iniziale (l'effect copre i cambi successivi)
         this.resizeObs = new ResizeObserver(() => this.game?.resize());
         this.resizeObs.observe(stage);
     }

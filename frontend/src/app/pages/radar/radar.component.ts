@@ -3,7 +3,7 @@ import { RouterLink } from '@angular/router';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { APP_CUSTOM } from '../../core/engine/app-custom';
-import { ThemeService } from '../../core/engine/services/theme.service';
+import { AppearanceService } from '../../core/engine/services/appearance.service';
 import { CookieConsentService } from '../../core/engine/services/cookie-consent.service';
 import type { Map as MbMap, Marker as MbMarker } from 'mapbox-gl';
 
@@ -40,7 +40,7 @@ export class RadarComponent extends PageBaseComponent<void> implements OnDestroy
     readonly status = signal<RadarStatus>('init');
     readonly errorMsg = signal('');
 
-    private readonly theme = inject(ThemeService);
+    private readonly theme = inject(AppearanceService);
     /** Il radar usa Mapbox, che scrive telemetria di terza parte (`mapbox.eventData*`, categoria
      *  Analytics) nel Web Storage: senza quel consenso non carichiamo mapbox-gl (privacy by default). */
     private readonly consent = inject(CookieConsentService);

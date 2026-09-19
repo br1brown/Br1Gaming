@@ -1,3 +1,9 @@
+# Pacchetti Alpine dei font di sistema (SystemFont, font-system.ts) — UNA sola dichiarazione,
+# condivisa fra lo stage di build (dove viene anche VERIFICATA, sotto) e lo stage runtime (dove
+# viene installata per davvero): aggiungere una voce a SystemFont senza aggiornare questo ARG fa
+# fallire il build all'istante invece di scoprirlo a runtime con un font muto in produzione.
+ARG FONT_PACKAGES="font-dejavu font-roboto font-noto font-liberation font-opensans font-jetbrains-mono"
+
 # =============================================================================
 # Frontend - Angular build + Node SSR runtime
 # =============================================================================
@@ -19,6 +25,19 @@ COPY package-lock.json* ./
 RUN if [ -f package-lock.json ]; then npm ci --include=dev; else npm install; fi
 
 COPY . .
+
+# Stessi pacchetti font dello stage runtime sotto, installati anche qui SOLO per verificare —
+# prima di spendere tempo su lint/build — che coprano per intero SYSTEM_FONTS (font-system.ts):
+# l'unico modo genuino di saperlo è controllare che i file esistano DAVVERO su disco dopo un vero
+# `apk add`, non fidarsi che l'elenco sia rimasto sincrono con l'enum a mano. Fallisce l'intero
+# build (quindi ENTRAMBI i percorsi di pubblicazione, che condividono questo stesso Dockerfile:
+# build locale di scripts/deploy.sh e immagine GHCR/tar.gz di deploy-release.sh) se un SystemFont
+# viene aggiunto senza aggiornare FONT_PACKAGES sopra, o se un pacchetto Alpine cambia percorso
+# interno da una release all'altra. Dettaglio: scripts/checks/system-fonts-installed.ts.
+ARG FONT_PACKAGES
+RUN apk add --no-cache fontconfig $FONT_PACKAGES && \
+    npx tsx src/app/core/engine/scripts/checks/system-fonts-installed.ts
+
 # Esegui il linter prima della build per bloccare deploy con codice errato
 RUN npm run lint
 RUN npm run build
@@ -44,7 +63,8 @@ COPY docker-entrypoint.sh /docker-entrypoint.sh
 # BR1_FONTS_DIR): dichiararlo qui come cartella fontconfig è sicuro anche se al build è ancora
 # vuota — fc-match/Sharp lo scoprirà una volta montato il volume a runtime, dopo il refresh
 # della cache che fa docker-entrypoint.sh a ogni avvio (il volume non esiste ancora in questa fase).
-RUN apk add --no-cache fontconfig ttf-dejavu font-roboto font-noto font-liberation wget && \
+ARG FONT_PACKAGES
+RUN apk add --no-cache fontconfig $FONT_PACKAGES wget && \
     mkdir -p /app/fonts /etc/fonts/conf.d && \
     printf '<?xml version="1.0"?>\n<!DOCTYPE fontconfig SYSTEM "fonts.dtd">\n<fontconfig>\n  <dir>/app/fonts</dir>\n</fontconfig>\n' > /etc/fonts/conf.d/70-custom-fonts-dir.conf && \
     fc-cache -f && \

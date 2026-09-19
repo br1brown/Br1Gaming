@@ -3,6 +3,7 @@
   "level": "error",
   "runners": ["axe", "htmlcs"],
   "levelCapWhenNeedsReview": "warning",
+  "includeWarnings": true,
   "hideElements": ".swal2-container",
   "wait": 400,
   "chromeLaunchConfig": {

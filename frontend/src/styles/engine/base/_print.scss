@@ -14,8 +14,9 @@
        lo sfondo scuro di `body` (--colorBase, base.scss) — spreco di inchiostro/toner, e comunque
        non garantito: molti browser NON stampano i background-color di default, quindi il testo
        chiaro pensato per un fondo scuro sparirebbe su carta bianca. Va su html/body (non solo su
-       .content-panel sotto): copre anche le pagine senza pannello (layout.showPanel:false) o
-       full-bleed (layout.fitViewport:true), che il pannello non ce l'hanno. color-scheme:light
+       .content-panel sotto): copre anche le pagine senza pannello o full-bleed (ruoli con
+       roleChrome.showPanel:false o fitViewport:true, deciso dal design system attivo), che il
+       pannello non ce l'hanno. color-scheme:light
        allinea anche i controlli nativi del browser (checkbox, ecc.) allo stesso registro. */
     html,
     body {

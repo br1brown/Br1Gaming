@@ -1,6 +1,7 @@
 import { buildSite } from './core/engine/siteBuilder';
 import { AppPages, appPagesDecl } from './pages/app.pages';
 import { LegalPages, legalPagesDecl } from './pages/policy/legal.pages';
+import { br1gamingDesignSystem } from './components/shared/design-systems/br1gaming.design-system';
 
 export type {
     SiteConfig,
@@ -18,8 +19,8 @@ export const PageType = {
 } as const;
 export type PageType = (typeof PageType)[keyof typeof PageType];
 
-// Struttura del sito: slot globali e pagine. Identita' ed estetica (nome, versione,
-// lingue, tema, smoke) vivono in global-settings.json.
+// Struttura del sito: slot globali e pagine. Identita' minima (nome, versione, lingue, colore
+// tema) vive in global-settings.json; tutta l'estetica (smoke incluso) è il design system attivo.
 // Riferimento completo dei campi: frontend/README.md §"Opzioni Avanzate di site.ts".
 export const ContestoSito = buildSite({
 
@@ -30,10 +31,8 @@ export const ContestoSito = buildSite({
     legalPages: legalPagesDecl,
     cookiePolicy: PageType.CookiePolicy,
 
-    // Pannello contenuti spento globalmente (quasi nessuna pagina lo vuole): le poche che lo
-    // riaccendono lo fanno col proprio `layout.showPanel: true` (oggi solo Storia).
     shell: {
-        showPanel: false,
+        designSystem: br1gamingDesignSystem,
     },
 
     // Le dichiarazioni pagina vivono nel file di area (pages/app.pages.ts): qui solo lo spread.

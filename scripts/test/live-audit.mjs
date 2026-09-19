@@ -86,15 +86,30 @@ async function runA11ySweep(browser, baseUrl, paths, pa11yOptions) {
         let detail;
         try {
             const result = await pa11y(url, { ...pa11yOptions, browser, timeout });
-            if (result.issues.length === 0) {
+            // Solo gli 'error' bloccano il budget — i 'warning' (incluse le voci axe
+            // needsFurtherReview, capate a warning da levelCapWhenNeedsReview) sono sempre
+            // stampati (mai scartati in silenzio, a differenza del default di Pa11y) ma non
+            // fanno fallire la pagina: axe non può risolverli in automatico, serve una verifica
+            // umana caso per caso — vedi ENGINE.md.
+            const errors = result.issues.filter((i) => i.type === 'error');
+            const warnings = result.issues.filter((i) => i.type !== 'error');
+            if (errors.length === 0) {
                 out.push(`  ${paint('32', 'OK')} Nessuna violazione WCAG 2.1 AA — ${path}`);
-                detail = { ok: true };
+                if (warnings.length > 0) {
+                    out.push(cliReporter.results({ ...result, issues: warnings }));
+                    out.push(`  ${paint('33', 'WARN')} ${warnings.length} avviso/i da verificare a mano (non bloccante) — ${path}`);
+                }
+                detail = { ok: true, warnings: warnings.map((i) => `${i.message} — ${i.selector}`) };
             } else {
                 out.push(cliReporter.results(result));
                 out.push(`  ${paint('31', 'ERR')} Violazioni WCAG 2.1 AA — ${path}`);
                 failed = true;
-                reason = `${result.issues.length} violazione/i WCAG 2.1 AA`;
-                detail = { ok: false, violations: result.issues.map((i) => `${i.message} — ${i.selector}`) };
+                reason = `${errors.length} violazione/i WCAG 2.1 AA`;
+                detail = {
+                    ok: false,
+                    violations: errors.map((i) => `${i.message} — ${i.selector}`),
+                    warnings: warnings.map((i) => `${i.message} — ${i.selector}`),
+                };
             }
         } catch (err) {
             out.push(`  ${paint('31', 'ERR')} pa11y non ha completato (${err.message}) — ${path}: NON misurato, tratto come fallimento`);
@@ -275,9 +290,17 @@ function buildRouteBlock(url, a11y, lighthouse) {
         lines.push(`  ERR  Pa11y non misurato (${a11y.reason})`);
     } else if (a11y.ok) {
         lines.push('  OK   Nessuna violazione WCAG 2.1 AA');
+        if (a11y.warnings?.length > 0) {
+            lines.push(`  WARN ${a11y.warnings.length} avviso/i da verificare a mano (non bloccante):`);
+            for (const w of a11y.warnings) lines.push(`         - ${w}`);
+        }
     } else {
         lines.push(`  ERR  ${a11y.violations.length} violazione/i WCAG 2.1 AA:`);
         for (const v of a11y.violations) lines.push(`         - ${v}`);
+        if (a11y.warnings?.length > 0) {
+            lines.push(`  WARN ${a11y.warnings.length} avviso/i da verificare a mano (non bloccante):`);
+            for (const w of a11y.warnings) lines.push(`         - ${w}`);
+        }
     }
 
     return lines.join('\n');
@@ -294,7 +317,7 @@ function lighthouseCell(category, categories) {
 function pa11yCell(a11y) {
     if (a11y === undefined) return '—';
     if (a11y.notMeasured) return '❌ n/m';
-    if (a11y.ok) return '✅';
+    if (a11y.ok) return a11y.warnings?.length > 0 ? `⚠️ ${a11y.warnings.length}` : '✅';
     return `❌ ${a11y.violations.length}`;
 }
 
@@ -317,7 +340,8 @@ function buildStepSummaryMarkdown(baseUrl, allRoutePaths, a11yPerPage, lighthous
 
         const lhFailed = lighthouse && (lighthouse.notMeasuredReason || !lighthouse.ok);
         const a11yFailed = a11y && (a11y.notMeasured || !a11y.ok);
-        if (lhFailed || a11yFailed) {
+        const a11yHasWarnings = a11y && a11y.ok && a11y.warnings?.length > 0;
+        if (lhFailed || a11yFailed || a11yHasWarnings) {
             const detailLines = [];
             if (lhFailed) {
                 detailLines.push(lighthouse.notMeasuredReason
@@ -329,7 +353,13 @@ function buildStepSummaryMarkdown(baseUrl, allRoutePaths, a11yPerPage, lighthous
                     ? `**Pa11y** — non misurato (${a11y.reason})`
                     : `**Pa11y** — ${a11y.violations.length} violazione/i WCAG 2.1 AA:\n${a11y.violations.map((v) => `  - ${v}`).join('\n')}`);
             }
-            detailsBlocks.push(`<details><summary>❌ <code>${path}</code></summary>\n\n${detailLines.join('\n\n')}\n\n</details>`);
+            // Warning (incluse le voci axe needsFurtherReview): mai bloccanti, ma sempre visibili
+            // qui — vanno verificate a mano caso per caso, non danno un verdetto automatico.
+            if (a11y?.warnings?.length > 0) {
+                detailLines.push(`**Pa11y** — ${a11y.warnings.length} avviso/i da verificare a mano (non bloccante):\n${a11y.warnings.map((v) => `  - ${v}`).join('\n')}`);
+            }
+            const icon = lhFailed || a11yFailed ? '❌' : '⚠️';
+            detailsBlocks.push(`<details><summary>${icon} <code>${path}</code></summary>\n\n${detailLines.join('\n\n')}\n\n</details>`);
         }
     }
 
@@ -340,7 +370,7 @@ function buildStepSummaryMarkdown(baseUrl, allRoutePaths, a11yPerPage, lighthous
         '',
         `Base URL: \`${baseUrl}\``,
         '',
-        `> **Legenda:** ✅ ok · ❌ sotto soglia o violazione · ⏭️ SKIP (non conta ai fini del budget — es. SEO su pagina \`noindex\`, non indicizzabile per costruzione) · — pagina fuori dal campione di quello strumento (\`A11Y_DYNAMIC_MAX\`/\`LIGHTHOUSE_DYNAMIC_MAX\`)`,
+        `> **Legenda:** ✅ ok · ⚠️ avviso/i da verificare a mano (non bloccante — vedi ENGINE.md) · ❌ sotto soglia o violazione · ⏭️ SKIP (non conta ai fini del budget — es. SEO su pagina \`noindex\`, non indicizzabile per costruzione) · — pagina fuori dal campione di quello strumento (\`A11Y_DYNAMIC_MAX\`/\`LIGHTHOUSE_DYNAMIC_MAX\`)`,
         `>`,
         `> Soglie minime (\`lighthouse.json\`): ${legendThresholds}`,
         '',
@@ -412,6 +442,7 @@ async function main() {
 
     const a11yFailed = a11yResult.failures > 0;
     const lighthouseFailed = lighthouseResult.failures > 0;
+    const a11yWarningCount = [...a11yResult.perPage.values()].reduce((sum, d) => sum + (d?.warnings?.length ?? 0), 0);
 
     // Unione ordinata delle rotte analizzate da entrambe le fasi
     const allRoutePaths = [...new Set([...a11yResult.perPage.keys(), ...lighthouseResult.perPage.keys()])];
@@ -432,6 +463,7 @@ async function main() {
     console.log('');
     console.log(BOLD('══ Esito ══'));
     if (a11yFailed) log.fail(`Pa11y: ${a11yResult.failures}/${a11yResult.total} pagina/e con violazioni WCAG 2.1 AA o non misurate`);
+    else if (a11yWarningCount > 0) log.warn(`Pa11y: ${a11yResult.total} pagina/e, nessuna violazione WCAG 2.1 AA — ${a11yWarningCount} avviso/i da verificare a mano (non bloccante, vedi sopra)`);
     else log.ok(`Pa11y: ${a11yResult.total} pagina/e, nessuna violazione WCAG 2.1 AA`);
     if (lighthouseFailed) log.fail(`Lighthouse: ${lighthouseResult.failures}/${lighthouseResult.total} pagina/e sotto il budget o non misurate`);
     else log.ok(`Lighthouse: ${lighthouseResult.total} pagina/e, tutti i budget rispettati`);
@@ -440,7 +472,9 @@ async function main() {
     if (process.env.GITHUB_STEP_SUMMARY) {
         const verdict = a11yFailed || lighthouseFailed
             ? `❌ Uno o più controlli falliti — **${allRoutePaths.length}** rotte analizzate (Pa11y: ${a11yResult.total} · Lighthouse: ${lighthouseResult.total})`
-            : `✅ Tutti i controlli superati — **${allRoutePaths.length}** rotte analizzate (Pa11y: ${a11yResult.total} · Lighthouse: ${lighthouseResult.total})`;
+            : a11yWarningCount > 0
+                ? `⚠️ Tutti i controlli superati, ${a11yWarningCount} avviso/i Pa11y da verificare a mano (non bloccante) — **${allRoutePaths.length}** rotte analizzate (Pa11y: ${a11yResult.total} · Lighthouse: ${lighthouseResult.total})`
+                : `✅ Tutti i controlli superati — **${allRoutePaths.length}** rotte analizzate (Pa11y: ${a11yResult.total} · Lighthouse: ${lighthouseResult.total})`;
         const md = buildStepSummaryMarkdown(baseUrl, allRoutePaths, a11yResult.perPage, lighthouseResult.perPage, thresholds, verdict);
         try {
             appendFileSync(process.env.GITHUB_STEP_SUMMARY, md + '\n');

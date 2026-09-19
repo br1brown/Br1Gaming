@@ -16,13 +16,15 @@
 
 /* Il dropdown desktop usa gli stessi colori della navbar,
    mantenendo l'ombra per dare senso di elevazione. */
+/* Raggio/ombra decisi dal design system attivo (`DesignSystemPreset.elevazione`, default
+   'sospesa' — i valori qui sotto restano il fallback, vedi AppearanceService). */
 .navbar .dropdown-menu {
     margin-top: 0.35rem;
-    border-radius: 0.85rem;
+    border-radius: var(--elevazioneRaggio, 0.85rem);
     background-color: var(--colorNavBg);
     color: var(--colorNavText);
     border-color: var(--colorNavBorder);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14), 0 0 0 1px var(--colorNavBorder);
+    box-shadow: var(--shadowElevated, 0 6px 20px rgba(0, 0, 0, 0.14)), 0 0 0 1px var(--colorNavBorder);
 }
 
 /* Colore e padding degli item: Bootstrap userebbe --bs-dropdown-link-color
@@ -39,13 +41,25 @@
     line-height: 1.35;
     font-weight: 500;
     color: inherit;
+    /* Bug verificato: `.dropdown-item` eredita `white-space: nowrap` da Bootstrap — per
+       un'etichetta breve statica va bene, ma una lunga (dinamica dal backend, o solo un
+       progetto figlio con nomi verbosi) sforava il pannello invece di andare a capo (nessun
+       `max-width` sotto la fermava, essendo shrink-to-fit). Stessa regola già applicata a
+       `.submenu-panel .dropdown-item` (_submenu.scss) — qui estesa a QUALUNQUE dropdown della
+       navbar, non solo ai flyout annidati. */
+    white-space: normal;
+    overflow-wrap: break-word;
 }
 
+/* Il tint di sfondo (hover + focus da tastiera) è un feedback in più, non il solo indicatore di
+   focus: quello resta l'anello globale (:focus-visible in _base.scss, --focusRingColor/Width/
+   Offset). Prima qui c'era un outline:none che lo sovrascriveva (residuo del reset Bootstrap sul
+   dropdown-item) — un item raggiunto da tastiera diventava indistinguibile dagli altri, solo un
+   10% di tint su sfondo già scuro, sotto la soglia di percepibilità per molti utenti (WCAG 2.4.7). */
 .navbar .dropdown-item:hover,
 .navbar .dropdown-item:focus-visible {
     background-color: color-mix(in srgb, currentColor 10%, transparent);
     color: inherit;
-    outline: none;
 }
 
 /* Bootstrap .dropdown-item.active usa --bs-dropdown-link-active-bg (primary).
@@ -110,7 +124,44 @@
 
 @media (min-width: #{lib.$bp-md}) {
     .navbar .dropdown-menu.show {
-        animation: navDropdownEnter 0.15s ease both;
+        animation: navDropdownEnter var(--movimentoPannello, 0.15s) ease both;
+    }
+
+    /* Tetto d'altezza calcolato da NavDropdownComponent.updateMaxHeight() (spazio libero reale
+       sotto il bottone, non un vh fisso): un gruppo di 1° livello con tanti figli scrolla al
+       proprio interno invece di sforare il fondo pagina — stessa convenzione del submenu
+       (--submenu-max-height in _submenu.scss), stesso fallback 80vh prima del primo calcolo JS. */
+    .navbar .dropdown-menu {
+        max-height: var(--dropdown-max-height, 80vh);
+        overflow-y: auto;
+        overflow-x: hidden;
+        /* Bug verificato: `width: auto` con `white-space: normal` (sopra) non "riempie" lo spazio
+           disponibile per ridurre le righe — lo shrink-to-fit del browser collassa al MINIMO che
+           basta al contenuto (qui il floor di Bootstrap, `--bs-dropdown-min-width: 10rem`), poi
+           avvolge il testo lungo su molte righe corte invece di poche righe larghe, anche quando a
+           destra c'è ampio spazio libero. Serve alzare il floor (`min-width`), non solo il tetto
+           (`max-width`) — quest'ultimo da solo non basta. Valori PIÙ GENEROSI di quelli del flyout
+           (`.submenu-panel`, 11rem/20rem, _submenu.scss): quello deve restare stretto perché apre A
+           FIANCO di un altro pannello (spazio conteso in orizzontale); questo apre da solo sotto il
+           bottone, niente vincoli di affiancamento. Solo desktop: su mobile il pannello è statico a
+           piena larghezza (regola sotto), questi vincoli lo romperebbero. */
+        min-width: min(18rem, 90vw);
+        max-width: min(28rem, 90vw);
+    }
+
+    /* Bug verificato: un flyout di 2° livello (.submenu-panel, `left: 100%` — _submenu.scss) deve
+       sconfinare oltre il bordo destro di QUESTO pannello, ma `overflow-x: hidden` sopra lo
+       clippava (appariva "non aprirsi") — e anche da clippato, il suo ingombro verticale finiva
+       comunque nello scrollable-overflow del contenitore, aggiungendo uno scroll indesiderato
+       anche quando le voci di 1° livello ci starebbero tutte. Overflow-x/y non possono valere
+       "clip di lato, libero sull'altro" sullo stesso elemento (la spec forza l'altro asse ad
+       `auto` quando uno dei due non è `visible`): quando un discendente è aperto (hover/focus/
+       `.expanded`, anche annidato più in profondità — `:has()` scava a qualunque livello),
+       il pannello passa tutto a `overflow: visible`, perdendo il proprio tetto/scroll SOLO in
+       quel momento — corretto: mentre un figlio è aperto lo spazio serve a lui, non a scrollare
+       il padre. */
+    .navbar .dropdown-menu:has(.dropdown-submenu:hover, .dropdown-submenu:focus-within, .dropdown-submenu.expanded) {
+        overflow: visible;
     }
 
     /* Mai testo spezzato a metà etichetta in riga: se una voce di primo livello non entra,
@@ -126,8 +177,7 @@
 
 @media (max-width: #{lib.$bp-md - 0.02px}) {
     .nav-link,
-    .nav-current-link,
-    .nav-dropdown-toggle {
+    .nav-current-link {
         min-height: 2.75rem;
     }
 

@@ -113,15 +113,21 @@ code {
    currentColor sarebbe passato inosservato su un bottone outline-secondary grigio. Va applicata
    via classe esplicita sul componente (es. [class.pulse-live]="isSpeaking()"), non sull'attributo
    aria-pressed: più bottoni toggle nell'app (like-action) lo usano senza voler pulsare. */
+/* Intensità decisa dal design system attivo (`DesignSystemPreset.pulsazioneAttiva`, default
+   'lieve' — i valori storici qui sotto restano il fallback). `animation-name` diventa `none`
+   per `'assente'`: `--pulsazioneNome` lo sostituisce di peso, vedi AppearanceService. */
 .pulse-live {
-    animation: pulseLive 1.5s ease-in-out infinite;
+    animation-name: var(--pulsazioneNome, pulseLive);
+    animation-duration: 1.5s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
 }
 
 @keyframes pulseLive {
     0%, 100% {
-        box-shadow: 0 0 0 4px color-mix(in srgb, transparent 78%, var(--colorPrimary));
+        box-shadow: 0 0 0 var(--pulsazioneSpread1, 4px) color-mix(in srgb, transparent var(--pulsazioneTrasparenza1, 78%), var(--colorPrimary));
     }
     50% {
-        box-shadow: 0 0 0 8px color-mix(in srgb, transparent 55%, var(--colorPrimary));
+        box-shadow: 0 0 0 var(--pulsazioneSpread2, 8px) color-mix(in srgb, transparent var(--pulsazioneTrasparenza2, 55%), var(--colorPrimary));
     }
 }

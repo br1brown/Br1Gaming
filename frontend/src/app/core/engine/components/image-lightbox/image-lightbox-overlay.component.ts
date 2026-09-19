@@ -1,4 +1,5 @@
 import { Component, ElementRef, computed, inject, input, output, viewChild } from '@angular/core';
+import { CdkTrapFocus } from '@angular/cdk/a11y';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { AssetService } from '../../services/asset.service';
 import { ALLOWED_WIDTHS } from '../../asset-config';
@@ -10,15 +11,14 @@ export type LightboxSource = { assetId: string } | { blob: Blob };
 
 /** UI del lightbox, creata dentro un overlay CDK da `ImageLightboxService`. Non va usata
  *  direttamente: apertura/backdrop/Esc li gestisce il servizio, qui solo il contenuto — dialog
- *  modale ARIA (focus dentro, intrappolato, ripristinato dal servizio alla chiusura), stesso
- *  pattern del WAI-ARIA Dialog Pattern. */
+ *  modale ARIA (focus dentro, intrappolato via CDK `cdkTrapFocus`, ripristinato dal servizio alla
+ *  chiusura), stesso pattern del WAI-ARIA Dialog Pattern. */
 @Component({
     selector: 'app-image-lightbox-overlay',
     standalone: true,
-    imports: [TranslatePipe],
+    imports: [TranslatePipe, CdkTrapFocus],
     templateUrl: './image-lightbox-overlay.component.html',
     styleUrl: './image-lightbox-overlay.component.scss',
-    host: { '(keydown)': 'onKeydown($event)' },
 })
 export class ImageLightboxOverlayComponent {
     private readonly asset = inject(AssetService);
@@ -41,17 +41,10 @@ export class ImageLightboxOverlayComponent {
     protected readonly dialogLabel = computed(() => this.alt() || this.translate.translate('immagineIngranditaNav'));
 
     /** Sposta il focus dentro il dialog all'apertura (WAI-ARIA Dialog Pattern) — l'unico elemento
-     *  interattivo qui dentro è il bottone di chiusura. */
+     *  interattivo qui dentro è il bottone di chiusura. Il trap di Tab/Shift+Tab (restare dentro
+     *  invece di uscire verso la pagina sotto — CDK Overlay non lo fa da solo, a differenza di un
+     *  <dialog> nativo) è `cdkTrapFocus` nel template, non più a mano. */
     focusClose(): void {
         requestAnimationFrame(() => this.closeBtn()?.nativeElement.focus());
-    }
-
-    /** Focus trap: un solo elemento interattivo nel dialog, quindi Tab/Shift+Tab ci restano
-     *  sempre sopra invece di uscire verso la pagina sotto (CDK Overlay non lo fa da solo,
-     *  a differenza di un <dialog> nativo). */
-    protected onKeydown(event: KeyboardEvent): void {
-        if (event.key !== 'Tab') return;
-        event.preventDefault();
-        this.closeBtn()?.nativeElement.focus();
     }
 }

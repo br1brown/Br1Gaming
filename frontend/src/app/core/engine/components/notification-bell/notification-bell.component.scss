@@ -32,6 +32,15 @@
     border-radius: 999px;
 }
 
+/* `'puntino'` (DesignSystemPreset.badgeNotifiche) — solo indicatore, niente conteggio: stesso
+   posizionamento/colore del badge numerico, ridotto a un punto. */
+.notification-bell-badge--dot {
+    min-width: 0.55rem;
+    width: 0.55rem;
+    height: 0.55rem;
+    padding: 0;
+}
+
 /* Allineato a "fine riga" (come il language picker): senza Popper lo posizioniamo noi. */
 .notification-bell-menu {
     inset-inline-end: 0;
