@@ -1,5 +1,6 @@
 import { isDevMode, type Type } from '@angular/core';
 import type { PageType } from '../../site';
+import { ContestoSito } from '../../site';
 import { applyPathParams } from './siteBuilder';
 import type { Identity } from './dto/identity.dto';
 import { FooterField, FooterFieldDeps, FooterEntry, FooterGroupChild, FooterItemKind, resolveFooterField } from './footer-content';
@@ -415,6 +416,62 @@ export function createFooterSectionBuilder(state: FooterBuildState): FooterSecti
         },
         hideLegalStrip: () => { state.hideLegalStrip = true; },
     };
+}
+
+/**
+ * Footer di DEFAULT (Engine): usato da `ShellNavService.resolveFooterInto` SOLO quando il progetto
+ * non definisce `ShellNavResolver.footer` in nav.ts — mai insieme a un resolver di progetto, che lo
+ * sostituisce per intero (stesso principio di ogni altro slot di `ShellNavResolver`: non esistono
+ * due fonti attive in contemporanea). Replica il blocco automatico storico (societari, legali,
+ * contatti, orari, social) con lo STESSO builder che un progetto userebbe per personalizzarlo —
+ * `addField`/`addSocialLink`, gli stessi `FooterField` e le stesse chiavi i18n di sempre — invece
+ * di un componente a parte (`app-identity-render`) sempre attivo indipendentemente da `nav.ts`: un
+ * solo meccanismo, non due paralleli che possono disallinearsi o duplicarsi (era già successo: un
+ * progetto che aggiunge propri `addField` equivalenti si ritrovava lo stesso dato due volte, uno
+ * dal blocco automatico e uno dal proprio gruppo). Un progetto che vuole SOLO alcuni di questi
+ * campi, un layout diverso, o niente di tutto questo, scrive il proprio `footer` in nav.ts — che
+ * rimpiazza questa funzione, non la estende.
+ */
+export function defaultFooterResolver(f: FooterSectionBuilder, ctx: ShellNavContext): void {
+    f.addGroup('datiSocietariAzienda', g => {
+        g.addField(FooterField.PartitaIvaCodiceFiscale);
+        g.addField(FooterField.RegistroImprese);
+        g.addField(FooterField.NumeroRea);
+        g.addField(FooterField.CodiceSdi);
+    });
+    f.addGroup('datiLegaliAzienda', g => {
+        g.addField(FooterField.CapitaleSociale);
+        g.addField(FooterField.CapitaleVersato);
+        g.addField(FooterField.SocioUnico);
+        g.addField(FooterField.InLiquidazione);
+    });
+    f.addGroup('contattiAzienda', g => {
+        g.addField(FooterField.RagioneSociale);
+        g.addField(FooterField.SedeLegale);
+        g.addField(FooterField.RappresentanteLegale);
+        g.addField(FooterField.TitolareDelTrattamento);
+        g.addField(FooterField.ResponsabileProtezioneDati);
+        g.addField(FooterField.Telefono);
+        g.addField(FooterField.Email);
+        g.addField(FooterField.Pec);
+        g.addField(FooterField.OpeningHours);
+    });
+    // I social non sono un FooterField (vedi footer-content.ts): a differenza degli altri campi,
+    // `identity.social` è un array, quindi qui si itera invece di un singolo `addField`. Un gruppo
+    // a sé (non annidato nei tre sopra) per restare fedele al layout storico, dove compariva in una
+    // riga a parte sotto le colonne, non "dentro" una di esse. Rispetta `footerIdentita`
+    // (`'essenziale'` li nasconde) — stesso axis, stesso significato di quando li mostrava
+    // `app-identity-render`. Gli orari restano sempre accordion (leaf `'hours'` in
+    // `footer-nav-group.component.html`): la variante a lista piatta di `'essenziale'` non ha
+    // ancora un equivalente qui, nessun design system la usa oggi.
+    const social = ctx.identity?.social;
+    if (ContestoSito.config.footerIdentita === 'esteso' && Array.isArray(social) && social.length > 0) {
+        f.addGroup('socialAzienda', g => {
+            for (const s of social) {
+                if (hasText(s?.url)) g.addSocialLink(s.url, s.name);
+            }
+        });
+    }
 }
 
 /** Risolve un item grezzo in zero, una o più foglie finali: zero se non risolve (pagina disabilitata,
