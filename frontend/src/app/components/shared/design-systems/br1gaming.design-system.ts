@@ -20,6 +20,7 @@ import { SystemFont } from '../../../core/engine/font-system';
 export const br1gamingDesignSystem: DesignSystemFactory = extendDesignSystem(emptyDesignSystem, {
     superfici: 'distinte',
     defaultFont: SystemFont.NotoSerif,
+    lightboxBordiArrotondati: false,
     // Colore ufficiale (era in global-settings.json): #fff000, giallo puro. Cambiato qui perché
     // aveva 1.09-1.13:1 di contrasto contro gli sfondi chiari di 'distinte' (colorBaseLt/
     // colorSurfaceLt, quasi bianchi) — praticamente invisibile in tema chiaro, molto sotto la
