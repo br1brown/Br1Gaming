@@ -296,7 +296,19 @@ color:       var(--colorPrimaryText);
 
 /* Focus ring (WCAG 2.4.7) */
 outline: var(--focusRingWidth)
-         solid var(--focusRingColor);`,
+         solid var(--focusRingColor);
+
+/* Trappole Bootstrap — la utility "giusta sulla carta"
+   non è quella WCAG-safe: */
+
+/* ✗ .text-secondary = accent brand (badge/bottoni) */
+/* ✓ testo attenuato: */
+<p class="text-body-secondary">…</p>
+
+/* ✗ .form-floating > label: opacity 0.65 fissa,
+      può scendere sotto AA su brand scuri */
+/* ✓ già corretto nel design system (vedi
+      _bootstrap-theme.scss) — nessuna azione */`,
 
         i18n:
 `// Template
