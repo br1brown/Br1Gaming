@@ -242,7 +242,7 @@ export class RadarComponent extends PageBaseComponent<void> implements OnDestroy
         root.append(title);
         if (c.address) {
             const addr = document.createElement('p');
-            addr.className = 'text-secondary small mb-2';
+            addr.className = 'text-body-secondary small mb-2';
             addr.textContent = c.address;
             root.append(addr);
         }

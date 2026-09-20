@@ -288,7 +288,7 @@ export class BurocraziaComponent extends PageBaseComponent<void> implements OnDe
             case 'amber': case 'gold': return 'text-warning';
             case 'red': return 'text-danger';
             case 'green': return 'text-success';
-            case 'muted': return 'text-secondary';
+            case 'muted': return 'text-body-secondary';
             default: return '';
         }
     }

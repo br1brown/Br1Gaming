@@ -15,7 +15,7 @@
         }
         <div>
             <h1 class="h4 fw-bold mb-1">{{ gen.name }}</h1>
-            <p class="text-secondary small mb-0">{{ gen.description }}</p>
+            <p class="text-body-secondary small mb-0">{{ gen.description }}</p>
         </div>
     </div>
 
@@ -93,7 +93,7 @@
     </p>
 
     @if (recovered()) {
-    <p class="text-secondary small mb-3 text-center">
+    <p class="text-body-secondary small mb-3 text-center">
         {{ 'condivisiDaCondivisi' | translate }}
         <a [appPage]="PageType.Piaciuti" class="ms-1">{{ 'condivisiVaiAiCondivisi' | translate }}</a>
     </p>
@@ -102,14 +102,14 @@
     <!-- Il testo per esteso resta, solo più defilato: la card sopra è la vetrina, questo è per chi
          vuole leggerlo con calma o copiarlo — e per chi arriva senza JS/con uno screen reader. -->
     @if (result(); as res) {
-    <div class="gen-result p-3 small text-secondary">
+    <div class="gen-result p-3 small text-body-secondary">
         <div [innerHTML]="res.markdown | markdown"></div>
     </div>
     }
 
     } @else {
     <div class="d-flex justify-content-center align-items-center py-5">
-        <div class="spinner-grow text-secondary opacity-50" role="status"></div>
+        <div class="spinner-grow text-body-secondary opacity-50" role="status"></div>
     </div>
     }
 </div>

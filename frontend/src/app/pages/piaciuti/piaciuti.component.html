@@ -5,11 +5,11 @@
     @if (filterName(); as name) {
     <p class="mb-4">
         <a [routerLink]="piaciutiPath" class="text-decoration-none small">{{ 'condivisiTuttiIGeneratori' | translate }}</a>
-        <span class="text-secondary mx-2">/</span>
+        <span class="text-body-secondary mx-2">/</span>
         <span class="fw-semibold">{{ name }}</span>
     </p>
     } @else {
-    <p class="text-secondary mb-4">{{ 'condivisiSottotitolo' | translate }}</p>
+    <p class="text-body-secondary mb-4">{{ 'condivisiSottotitolo' | translate }}</p>
     }
 
     @if (groups(); as list) {
@@ -39,7 +39,7 @@
                             </div>
                             <div class="card-footer bg-transparent">
                                 <div class="d-flex justify-content-end align-items-center">
-                                    <small class="text-secondary">{{ ago(card.createdUtc) }}</small>
+                                    <small class="text-body-secondary">{{ ago(card.createdUtc) }}</small>
                                 </div>
                                 <div class="d-flex gap-2 mt-2">
                                     <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 position-relative z-2"

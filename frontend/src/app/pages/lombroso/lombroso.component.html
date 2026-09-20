@@ -1,7 +1,7 @@
 <div class="d-flex flex-column overflow-hidden user-select-none flex-grow-1 bg-black text-white">
 
     <header class="flex-shrink-0 text-center py-2 px-3">
-        <h1 class="h4 fw-bold mb-0">{{ 'lombroso' | translate }}</h1>
+        <h1 class="h4 fw-bold mb-0 text-white">{{ 'lombroso' | translate }}</h1>
     </header>
 
     <div class="position-relative flex-grow-1 overflow-hidden">
@@ -12,7 +12,7 @@
                 <div class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-4">
                     <div class="card text-center p-4" style="max-width: 28rem;">
                         <p class="h5 fw-bold mb-2">{{ 'lombrosoIntroTitle' | translate }}</p>
-                        <p class="text-secondary small mb-3">{{ 'lombrosoIntroText' | translate }}</p>
+                        <p class="text-body-secondary small mb-3">{{ 'lombrosoIntroText' | translate }}</p>
                         <button type="button" class="btn btn-primary mb-2" (click)="startCamera()">
                             {{ 'lombrosoStart' | translate }}
                         </button>
@@ -63,9 +63,9 @@
                         <img [src]="frame" alt="" class="lombroso-result-img rounded-4 mb-3 align-self-center">
                         }
                         @if (verdict(); as v) {
-                        <p class="text-secondary small mb-1">{{ 'lombrosoVerdictLabel' | translate }}</p>
+                        <p class="text-body-secondary small mb-1">{{ 'lombrosoVerdictLabel' | translate }}</p>
                         <p class="h5 fw-bold mb-1">{{ v.title }}</p>
-                        <p class="text-secondary small mb-3">{{ v.desc }}</p>
+                        <p class="text-body-secondary small mb-3">{{ v.desc }}</p>
                         }
                         <button type="button" class="btn btn-primary mb-2" (click)="retry()">
                             {{ 'lombrosoRifai' | translate }}

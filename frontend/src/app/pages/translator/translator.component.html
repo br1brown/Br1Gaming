@@ -12,10 +12,10 @@
             <!-- Sorgente: italiano -->
             <div class="flex-fill d-flex flex-column">
                 <div class="d-flex align-items-center justify-content-between px-3 pt-3 pb-2">
-                    <span class="fw-semibold text-secondary text-uppercase small">{{ 'translatorItaliano' | translate }}</span>
+                    <span class="fw-semibold text-body-secondary text-uppercase small">{{ 'translatorItaliano' | translate }}</span>
                     @if (testo()) {
                     <button type="button"
-                            class="btn btn-sm btn-link text-secondary text-decoration-none p-0 lh-1"
+                            class="btn btn-sm btn-link text-body-secondary text-decoration-none p-0 lh-1"
                             (click)="pulisci()"
                             [title]="'translatorPulisci' | translate"
                             [attr.aria-label]="'translatorPulisci' | translate">
@@ -32,7 +32,7 @@
                           [attr.aria-label]="'translatorItaliano' | translate"></textarea>
                 <div class="d-flex align-items-center justify-content-between px-3 py-2">
                     <app-speech-action [action]="leggiTesto" />
-                    <small class="text-secondary">{{ testo().length }} / {{ maxChars }}</small>
+                    <small class="text-body-secondary">{{ testo().length }} / {{ maxChars }}</small>
                 </div>
             </div>
 
@@ -43,7 +43,7 @@
             <!-- Destinazione: spagnolo (leggero sfondo per distinguerla, come DeepL) -->
             <div class="flex-fill d-flex flex-column bg-body-tertiary">
                 <div class="px-3 pt-3 pb-2">
-                    <span class="fw-semibold text-secondary text-uppercase small">{{ 'translatorSpagnolo' | translate }}</span>
+                    <span class="fw-semibold text-body-secondary text-uppercase small">{{ 'translatorSpagnolo' | translate }}</span>
                 </div>
                 <textarea class="form-control border-0 shadow-none rounded-0 flex-grow-1 fs-5 bg-body-tertiary"
                           rows="6"
