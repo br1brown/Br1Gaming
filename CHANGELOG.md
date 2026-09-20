@@ -2,6 +2,16 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### og:image: lo sfondo della card testuale torna al colore brand nudo (`colorTema`), non più rinforzato a contrasto WCAG AAA
+
+Lo sfondo passava per due scurimenti in sequenza: `colorPrimary` è già `colorTema` scurito in OKLCH finché non raggiunge 4.5:1 contro il fondo pagina chiaro (tarato per un bottone su pagina chiara, non per rappresentare il brand); `strongFillColor` lo scuriva UNA SECONDA VOLTA per arrivare a 7:1 (AAA) contro nero/bianco puro. Per un `colorTema` scuro la somma è quasi un no-op (parte già oltre soglia), ma per un `colorTema` chiaro i due scurimenti si sommano: un pastello finiva per diventare una card quasi nera, ben oltre quanto un solo passaggio giustificherebbe — riscontrato su più figli.
+
+- `ImgBuilderService.strongFillColor` rimosso (era usato solo da `og-preview.ts`).
+- `og-preview.ts`: `strongBgColor` (= `strongFillColor(sitePalette.colorPrimary)`) → `cardBgColor` (= `sitePalette.colorTema`, il brand così com'è), usato sia per la card testuale a schermo intero sia per lo sfondo del badge/chip nella variante con immagine. Il testo overlay resta comunque al contrasto migliore tra nero e bianco (`ImgBuilderService.getReadableTextColor`), la stessa funzione già usata per ogni altro testo su sfondo colorato del sito — nessuna soglia minima garantita (a differenza del 7:1 di prima), accettabile qui perché un brand color è quasi sempre chiaramente chiaro o scuro, raramente un grigio-colorato a metà scala.
+- **Eccezione consapevole a "og:image segue sempre la palette del design system attivo"** (vedi voce sotto, `ogImageFollowsPaletteOverrides` rimosso): `colorTema`, a differenza di `colorPrimary`, non risponde a `secondary`/`background`/`text`/`info`/`customPalette`/`backgroundVividness` — la card ora non segue un eventuale override della palette su quell'asse specifico. Scelta deliberata a favore della leggibilità: il colore scritto in `global-settings.json` è sempre quello che appare, senza scurimenti impliciti da spiegare.
+- `frontend/README.md` aggiornato (§"Generazione og:image: la rotta `/cdn-cgi/preview`").
+- Verificato: `tsc --noEmit` pulito.
+
 ### Ruoli custom: registrazione con la propria chiave in `ruoloPagina`, non più `EngineRoleRegistry` (declaration merging)
 
 Registrare un ruolo di pagina in più richiedeva TypeScript declaration merging (`declare module { interface EngineRoleRegistry { sidebar: unknown } }`) in un file separato — corretto (l'unico modo per un file di Dominio di allargare un tipo già usato nell'Engine, verificato anche il perché un `enum` non può sostituirlo: compila ma produce un riferimento `undefined` a runtime) ma percepito come cerimonioso per un'operazione concettualmente semplice. Sostituito con una registrazione a runtime, nello stesso posto in cui si descrive il comportamento del ruolo — il compromesso esplicito: un typo si scopre al boot (`buildSite()`), non più in editor.

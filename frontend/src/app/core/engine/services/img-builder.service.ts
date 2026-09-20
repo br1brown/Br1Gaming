@@ -857,20 +857,6 @@ export class ImgBuilderService {
         return AppearanceService.getReadableTextColor(bgHex);
     }
 
-    /** Rinforza il colore primario in OKLCH per garantire il contrasto target con il testo. */
-    static strongFillColor(colorPrimary: string, targetContrast = 7): string {
-        const [L0, C, H] = AppearanceService.hexToOklch(colorPrimary);
-        for (let L = L0; L >= 0.02; L -= 0.005) {
-            const candidate = AppearanceService.oklchToHex(L, C, H);
-            const contrast = Math.max(
-                AppearanceService.calcContrastRatio(candidate, '#000000'),
-                AppearanceService.calcContrastRatio(candidate, '#ffffff'),
-            );
-            if (contrast >= targetContrast) return candidate;
-        }
-        return '#000000';
-    }
-
     /** Calcola un colore di testo attenuato preservando il contrasto minimo garantito. */
     static mutedTextColor(fgHex: string, bgHex: string, targetOpacity = 0.75, minContrast = 5.5): string {
         for (let opacity = targetOpacity; opacity <= 1; opacity += 0.05) {

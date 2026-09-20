@@ -33,8 +33,10 @@ const sitePalette: PaletteTokens = AppearanceService.computePalette(ContestoSito
     separazioneSuperficiFattore: SEPARAZIONE_SUPERFICI_FATTORE[ContestoSito.config.separazioneSuperfici],
 });
 
-/** Sfondo card con contrasto rinforzato, derivato dalla palette una sola volta. */
-const strongBgColor = ImgBuilderService.strongFillColor(sitePalette.colorPrimary);
+/** Sfondo card sul colore brand nudo (`colorTema`, invariato da eventuali override della palette):
+ *  il testo overlay ne deriva nero/bianco per il contrasto migliore (resolvePreviewBuilder/buildPill,
+ *  via ImgBuilderService.getReadableTextColor), come ogni altro testo su sfondo colorato del sito. */
+const cardBgColor = sitePalette.colorTema;
 
 /** Normalizza gli spazi e tronca il testo entro `max` caratteri. */
 function normalizeAndTruncate(text: string, max: number): string {
@@ -115,7 +117,7 @@ export async function ogPreviewHandler(req: Request, res: Response): Promise<voi
  *  (comportamento invariato); un valore esplicito arriva da `DesignSystemPreset.ogTextTransform`. */
 async function renderPreviewText(res: Response, title: string, subtitle: string, fontFamily: string = customFontServerStack): Promise<void> {
     const { version } = ContestoSito.config;
-    const r = PreviewBuilder.resolvePreviewBuilder({ title, subtitle, bgColor: strongBgColor, fontFamily });
+    const r = PreviewBuilder.resolvePreviewBuilder({ title, subtitle, bgColor: cardBgColor, fontFamily });
 
     const keyData = JSON.stringify({ version, ...r });
     const hash = createHash('sha1').update(keyData).digest('hex').slice(0, 16);
@@ -252,7 +254,7 @@ async function renderPreviewWithImage(
                         maxRight: OG_W - SAFE_MARGIN,
                         title: normalizedTitle,
                         subtitle: normalizedSubtitle || undefined,
-                        bgColor: strongBgColor,
+                        bgColor: cardBgColor,
                         fontSize: 48,
                         fontFamily,
                     });
