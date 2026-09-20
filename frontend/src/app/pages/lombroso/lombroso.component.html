@@ -60,13 +60,19 @@
                 <div class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-4">
                     <div class="card text-center p-4" style="max-width: 28rem;">
                         @if (frozenFrame(); as frame) {
-                        <img [src]="frame" alt="" class="lombroso-result-img rounded-4 mb-3 align-self-center">
+                        <!-- Tocca per ingrandire (LightboxDirective, Blob locale): niente più azioni
+                             a sorpresa al tocco, solo lo zoom che ci si aspetta da una foto. -->
+                        <img [src]="frame" [appLightbox]="frozenFrameBlob()" [attr.alt]="verdict()?.title ?? ''"
+                             class="lombroso-result-img rounded-4 mb-3 align-self-center">
                         }
                         @if (verdict(); as v) {
                         <p class="text-body-secondary small mb-1">{{ 'lombrosoVerdictLabel' | translate }}</p>
                         <p class="h5 fw-bold mb-1">{{ v.title }}</p>
                         <p class="text-body-secondary small mb-3">{{ v.desc }}</p>
                         }
+                        <div class="d-flex justify-content-center mb-2">
+                            <app-share-action [action]="buildShareCanvas" [title]="shareTitle()" filename="lombroso.png" />
+                        </div>
                         <button type="button" class="btn btn-primary mb-2" (click)="retry()">
                             {{ 'lombrosoRifai' | translate }}
                         </button>

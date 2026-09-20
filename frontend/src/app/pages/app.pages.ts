@@ -256,7 +256,7 @@ export const appPagesDecl: SitePageInput[] = [
     {
         path: `lombroso`,
         title: `lombroso`,
-        description: 'Inquadrati, scatta e scopri il tuo vero archetipo criminale secondo il calibro antropometrico di Lombroso — scienza vera del 1876, giuro.',
+        description: 'Inquadrati, scatta e scopri il tuo vero archetipo criminale secondo lo scanner antropometrico di Lombroso — scienza vera del 1876.',
         pageType: AppPages.GameLombroso,
         layout: { role: 'giochini' },
         component: () => import('./lombroso/lombroso.component')
