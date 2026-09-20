@@ -237,9 +237,9 @@
    Bootstrap, che si adattano già al tono chiaro/scuro via data-bs-theme.
    Sovrascriverli ogni volta complicherebbe la cascata senza guadagno utente.
 
-   Eccezione: .form-floating > label. Bootstrap la diluisce a opacity 0.65
-   fissa, che su brand scuri/saturi scende sotto AA (pa11y su /login). Uso
-   --bs-secondary-color pieno, già garantito ≥4.8:1 da AppearanceService. */
+   Eccezione: .form-floating > label. L'opacity 0.65 fissa di Bootstrap può
+   scendere sotto AA su brand scuri/saturi — uso --bs-secondary-color pieno,
+   già garantito ≥4.8:1 da AppearanceService. */
 .form-floating > label {
     opacity: 1;
     color: var(--bs-secondary-color);
