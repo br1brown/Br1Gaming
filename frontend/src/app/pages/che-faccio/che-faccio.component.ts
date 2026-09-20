@@ -308,7 +308,13 @@ outline: var(--focusRingWidth)
 /* ✗ .form-floating > label: opacity 0.65 fissa,
       può scendere sotto AA su brand scuri */
 /* ✓ già corretto nel design system (vedi
-      _bootstrap-theme.scss) — nessuna azione */`,
+      _bootstrap-theme.scss) — nessuna azione */
+
+/* ✗ .table-secondary / .table-info: Bootstrap le
+      compila a colore letterale, mai var(--bs-*) —
+      NON ancora corretto, nessuna pagina le usa oggi */
+/* ✓ prima di usarle: estendi _bootstrap-theme.scss
+      con lo stesso schema di .btn-secondary/.btn-info */`,
 
         i18n:
 `// Template
