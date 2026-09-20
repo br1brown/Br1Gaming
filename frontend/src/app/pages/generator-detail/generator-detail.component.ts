@@ -6,7 +6,9 @@ import { ContestoSito, PageType } from '../../site';
 import { applyPathParams } from '../../core/engine/siteBuilder';
 import { SpeechService } from '../../core/engine/services/speech.service';
 import { ImgBuilderService } from '../../core/engine/services/img-builder.service';
+import { AppearanceService } from '../../core/engine/services/appearance.service';
 import { AssetDirective } from '../../core/engine/directives/asset.directive';
+import { LightboxDirective } from '../../core/engine/directives/lightbox.directive';
 import { PageDirective } from '../../core/engine/directives/page.directive';
 import { MarkdownPipe } from '../../core/engine/pipes/markdown.pipe';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
@@ -25,6 +27,7 @@ import { VariantButtonsComponent } from '../../components/shared/variant-buttons
         TranslatePipe,
         MarkdownPipe,
         AssetDirective,
+        LightboxDirective,
         PageDirective,
         RouterLink,
         LikeActionComponent,
@@ -44,9 +47,10 @@ import { VariantButtonsComponent } from '../../components/shared/variant-buttons
             to   { opacity: 1; transform: none; }
         }
 
-        /* La card è essa stessa il pulsante "genera": tap = nuovo tiro, come scorrere un filtro.
-           L'hint sta SOTTO l'immagine (non in overlay): sopra un'immagine generata i colori
-           cambiano ogni volta, un badge sovrapposto rischiava di finire illeggibile. */
+        /* La card non è più il pulsante "genera" (un tap sull'immagine apriva una nuova generazione
+           invece di lasciar leggere quella corrente — soprattutto su mobile non c'era il tempo di
+           leggerla). L'immagine ora è solo ingrandibile (LightboxDirective, [appLightbox]); "Ancora!"
+           è un bottone separato SOTTO, l'unico modo di rigenerare. */
         .gen-card-wrap { max-width: 420px; margin-inline: auto; }
         .gen-card-tap {
             display: flex;
@@ -54,15 +58,7 @@ import { VariantButtonsComponent } from '../../components/shared/variant-buttons
             align-items: center;
             gap: .6rem;
             width: 100%;
-            padding: 0;
-            border: none;
-            background: none;
-            cursor: pointer;
-            transition: transform .15s ease;
         }
-        .gen-card-tap:hover { transform: scale(1.015); }
-        .gen-card-tap:active { transform: scale(.97); }
-        .gen-card-tap:disabled { cursor: default; }
         .gen-card-tap__img {
             width: 100%;
             height: auto;
@@ -77,11 +73,16 @@ import { VariantButtonsComponent } from '../../components/shared/variant-buttons
             gap: .4rem;
             padding: .4rem .9rem;
             border-radius: 999px;
+            border: none;
             background: var(--colorSurface, rgba(0, 0, 0, .65));
             color: var(--colorSurfaceText, #fff);
             font-weight: 700;
             font-size: .85rem;
+            transition: transform .15s ease;
         }
+        .gen-card-tap__hint:hover:not(:disabled) { transform: scale(1.04); }
+        .gen-card-tap__hint:active:not(:disabled) { transform: scale(.96); }
+        .gen-card-tap__hint:disabled { cursor: default; }
         .gen-card-tap--loading {
             aspect-ratio: 3 / 2;
             border-radius: var(--elevazioneRaggio, 1rem);
@@ -92,7 +93,8 @@ import { VariantButtonsComponent } from '../../components/shared/variant-buttons
             to   { opacity: 1; transform: scale(1); }
         }
         @media (prefers-reduced-motion: reduce) {
-            .gen-card-tap, .gen-card-tap:hover, .gen-card-tap:active { animation: none; transform: none; }
+            .gen-card-tap__img { animation: none; }
+            .gen-card-tap__hint, .gen-card-tap__hint:hover, .gen-card-tap__hint:active { transform: none; }
         }
     `],
 })
@@ -105,6 +107,7 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
     private readonly router = inject(Router);
     private readonly speech = inject(SpeechService);
     private readonly imgBuilder = inject(ImgBuilderService);
+    private readonly appearance = inject(AppearanceService);
 
     readonly generator = computed<GeneratorInfo | null>(() => this.pageContent()?.generator ?? null);
 
@@ -150,6 +153,9 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
     /** Data URL della card social (stesso `buildShareCanvas` di app-share-action), rigenerata a ogni
      *  risultato per mostrarla subito accanto al testo — non solo al click su "Condividi". */
     readonly previewUrl = signal<string | null>(null);
+    /** Stesso canvas della preview, come Blob: sorgente del lightbox ([appLightbox]), che vuole un
+     *  Blob locale, non una data URL (vedi LightboxDirective). */
+    readonly previewBlob = signal<Blob | null>(null);
     private previewToken = 0;
 
     constructor() {
@@ -161,7 +167,7 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
         });
         effect(() => {
             if (this.result() && this.generator()) void this.refreshPreview();
-            else this.previewUrl.set(null);
+            else { this.previewUrl.set(null); this.previewBlob.set(null); }
         });
     }
 
@@ -171,9 +177,11 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
         const token = ++this.previewToken;
         try {
             const canvas = await this.buildShareCanvas();
-            if (token === this.previewToken) this.previewUrl.set(canvas.toDataURL('image/png'));
+            if (token !== this.previewToken) return;
+            this.previewUrl.set(canvas.toDataURL('image/png'));
+            canvas.toBlob(blob => { if (token === this.previewToken) this.previewBlob.set(blob); }, 'image/webp');
         } catch {
-            if (token === this.previewToken) this.previewUrl.set(null);
+            if (token === this.previewToken) { this.previewUrl.set(null); this.previewBlob.set(null); }
         }
     }
 
@@ -261,6 +269,9 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
      * bottone "mi piace" a parte): condivisione e "mi piace" sono azioni indipendenti. Stile
      * `'fittedCaption'` (Engine): calcola da sé altezza canvas e maxLines in base alla lunghezza
      * di `res.text`, così il testo generato entra sempre per intero, mai troncato con ellissi.
+     * `scrimColor` esplicito: il default (`colorPrimary`, scurito per il contrasto testo-su-pagina)
+     * rende la fascia un blu-petrolio scuro poco fedele al brand — qui invece il brand vero
+     * (`colorTema`, chiaro), col testo che si adatta da sé al contrasto (`getReadableTextColor`).
      */
     readonly buildShareCanvas = async (): Promise<HTMLCanvasElement> => {
         const res = this.result();
@@ -269,7 +280,11 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
         const canvas = await this.imgBuilder.buildCanvas({
             style: 'fittedCaption',
             imageSrc: this.asset.getUrl(`generator.${gen.slug}.og`),
-            captionOpts: { text: res.text, subtitle: `${gen.name} | ${ContestoSito.config.appName}` },
+            captionOpts: {
+                text: res.text,
+                subtitle: `${gen.name} | ${ContestoSito.config.appName}`,
+                scrimColor: this.appearance.colorTema(),
+            },
             imgOpts: { width: 1200 },
         });
         if (!canvas) throw new Error('Errore nella generazione dell\'immagine');

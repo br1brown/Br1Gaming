@@ -38,28 +38,26 @@
     }
 
     <!-- CARD PROTAGONISTA: la stessa immagine che finirebbe condivisa (ImgBuilderService), qui e
-         ora invece che solo al download. Sulla rotta "frase condivisa" (recovered) è statica —
-         stai guardando un pezzo già fatto, non se ne tira uno nuovo da lì. Sul playground è invece
-         essa stessa il pulsante "genera": un tap vale come la vecchia leva, un po' come si scorrono
-         i filtri — niente più CTA istituzionale a parte. -->
+         ora invece che solo al download. Il tap sull'immagine non rigenera più (su mobile non
+         lasciava il tempo di leggere il risultato appena arrivato): apre solo l'ingrandimento
+         (LightboxDirective, [appLightbox]); "Ancora!" è un bottone separato sotto, l'unico modo di
+         rigenerare. Sulla rotta "frase condivisa" (recovered) niente bottone: si guarda un pezzo già
+         fatto, non se ne tira uno nuovo da lì. -->
     <div class="gen-card-wrap mb-3">
         @if (previewUrl(); as url) {
-            @if (recovered()) {
-            <img [src]="url" alt="" class="gen-card-tap__img gen-card-tap__img--static rounded-4 shadow">
-            } @else {
-            <button type="button" class="gen-card-tap" (click)="generate(true)" [disabled]="loading()"
-                    [attr.aria-label]="(result() ? 'ancora' : 'genera') | translate">
-                <img [src]="url" alt="" class="gen-card-tap__img">
-                <span class="gen-card-tap__hint">
-                    @if (loading()) {
-                    <span class="spinner-border spinner-border-sm" role="status"></span>
-                    } @else {
-                    <i class="fa-solid fa-arrow-rotate-right" aria-hidden="true"></i>
-                    {{ (result() ? 'ancora' : 'genera') | translate }}!
-                    }
-                </span>
+        <div class="gen-card-tap">
+            <img [src]="url" [appLightbox]="previewBlob()" [attr.alt]="gen.name" class="gen-card-tap__img rounded-4">
+            @if (!recovered()) {
+            <button type="button" class="gen-card-tap__hint" (click)="generate(true)" [disabled]="loading()">
+                @if (loading()) {
+                <span class="spinner-border spinner-border-sm" role="status"></span>
+                } @else {
+                <i class="fa-solid fa-arrow-rotate-right" aria-hidden="true"></i>
+                {{ (result() ? 'ancora' : 'genera') | translate }}!
+                }
             </button>
             }
+        </div>
         } @else if (loading()) {
         <div class="gen-card-tap gen-card-tap--loading placeholder-glow" aria-hidden="true">
             <span class="placeholder w-100 h-100 d-block rounded-4"></span>
