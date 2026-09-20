@@ -118,6 +118,7 @@ export const AppPages = {
     GameDuceNonDuce: 'app.gioco.ducenonduce',
     GameBurocrazia: 'app.gioco.burocrazia',
     GameUmarell: 'app.gioco.umarell',
+    GameLombroso: 'app.gioco.lombroso',
     Piaciuti: 'app.piaciuti',
     // Utility: strumenti che non sono giochi (il radar chiese, spostato qui, e il traduttore).
     UtilityRadar: 'app.utility.radar',
@@ -250,6 +251,16 @@ export const appPagesDecl: SitePageInput[] = [
         otherSEO: { ogImage: { id: 'game.umarell.og' } },
         component: () => import('./umarell/umarell.component')
             .then(m => m.UmarellComponent),
+    },
+
+    {
+        path: `lombroso`,
+        title: `lombroso`,
+        description: 'Inquadrati, scatta e scopri il tuo vero archetipo criminale secondo il calibro antropometrico di Lombroso — scienza vera del 1876, giuro.',
+        pageType: AppPages.GameLombroso,
+        layout: { role: 'giochini' },
+        component: () => import('./lombroso/lombroso.component')
+            .then(m => m.LombrosoComponent),
     },
 
     // ── Utility sotto /utility ───────────────────────────────────

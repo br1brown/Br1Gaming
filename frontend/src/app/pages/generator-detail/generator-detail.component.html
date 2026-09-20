@@ -1,118 +1,109 @@
 <div class="col-12 col-md-8 offset-md-2 py-3">
 
     @if (generator(); as gen) {
-    <div class="d-flex align-items-center gap-3 mb-4">
+    <div class="d-flex align-items-center gap-3 mb-3">
         @if (coverAssetId() && coverVisible()) {
-        <!-- La cover deve essere alta quanto il blocco testo, non viceversa: l'img è
-             position-absolute così la sua altezza intrinseca NON entra nel calcolo
-             della riga flex (in-flow creerebbe circolarità e vincerebbe l'immagine).
-             Il wrapper stretchato le dà il box: alto come il testo, largo 25%;
-             object-fit-contain mantiene le proporzioni dentro quel box. -->
-        <div class="align-self-stretch position-relative flex-shrink-0 w-25">
+        <!-- Piccola ora: la protagonista è la card sotto, questa resta solo un riferimento
+             all'identità del generatore. -->
+        <div class="align-self-stretch position-relative flex-shrink-0" style="width: 3rem;">
             <img [appAsset]="coverAssetId()!"
-                 [appAssetWidth]="320"
+                 [appAssetWidth]="125"
                  alt=""
                  class="position-absolute top-0 start-0 w-100 h-100 object-fit-contain rounded-5"
                  (error)="coverVisible.set(false)">
         </div>
         }
         <div>
-            <h1 class="h3 fw-bold mb-1">{{ gen.name }}</h1>
-            <p class="text-secondary mb-0">{{ gen.description }}</p>
+            <h1 class="h4 fw-bold mb-1">{{ gen.name }}</h1>
+            <p class="text-secondary small mb-0">{{ gen.description }}</p>
         </div>
     </div>
 
-    <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
-        <!-- Selettore della variante accanto alla generazione. Nascosto in modalità visualizzazione
-             condivisa (recovered): lì si guarda una frase già fatta, non se ne genera una nuova.
-             Cambiarla rigenera subito. La forma segue il NUMERO di opzioni, non un genereico "poche
-             vs tante": 2 → cursore a pillola (uno scorrere da un lato all'altro ha senso solo in
-             binario); 12 → ruota a spicchi (i 12 segni dell'oroscopo, unico caso con un conteggio
-             fisso e "circolare" per natura); tutto il resto (3-11) → bottoni, come nel widget
-             generator-hub della home — evita che un domani una variante a, es., 5 opzioni si ritrovi
-             una ruota a caso che non rappresenta nulla di circolare. -->
-        @if (!recovered() && variant(); as v) {
-            @if (v.options.length <= 2) {
-            <app-variant-toggle [options]="v.options"
-                               [active]="activeVariant()"
-                               [loading]="loading()"
-                               [ariaLabel]="v.label"
-                               [onPick]="pickVariant" />
-            } @else if (v.options.length === 12) {
-            <app-variant-wheel [options]="v.options"
-                               [active]="activeVariant()"
-                               [loading]="loading()"
-                               [ariaLabel]="v.label"
-                               [onPick]="pickVariant" />
-            } @else {
-            <app-variant-buttons [options]="v.options"
-                               [active]="activeVariant()"
-                               [loading]="loading()"
-                               [ariaLabel]="v.label"
-                               [onPick]="pickVariant" />
-            }
+    @if (!recovered() && variant(); as v) {
+    <!-- Selettore variante SOPRA la card: sceglierla rigenera subito la card stessa, coerente col
+         "tocca per generare" sotto (stesso principio, la stessa cosa che stai per generare). Forma
+         secondo il NUMERO di opzioni — vedi generator-hub della home per lo stesso criterio. -->
+    <div class="mb-3">
+        @if (v.options.length <= 2) {
+        <app-variant-toggle [options]="v.options" [active]="activeVariant()" [loading]="loading()"
+                             [ariaLabel]="v.label" [onPick]="pickVariant" />
+        } @else if (v.options.length === 12) {
+        <app-variant-wheel [options]="v.options" [active]="activeVariant()" [loading]="loading()"
+                            [ariaLabel]="v.label" [onPick]="pickVariant" />
+        } @else {
+        <app-variant-buttons [options]="v.options" [active]="activeVariant()" [loading]="loading()"
+                              [ariaLabel]="v.label" [onPick]="pickVariant" />
         }
-        @if (recovered()) {
-        <!-- Frase già generata e condivisa: niente "Ancora!", ma il ritorno al generatore "vuoto". -->
+    </div>
+    }
+
+    <!-- CARD PROTAGONISTA: la stessa immagine che finirebbe condivisa (ImgBuilderService), qui e
+         ora invece che solo al download. Sulla rotta "frase condivisa" (recovered) è statica —
+         stai guardando un pezzo già fatto, non se ne tira uno nuovo da lì. Sul playground è invece
+         essa stessa il pulsante "genera": un tap vale come la vecchia leva, un po' come si scorrono
+         i filtri — niente più CTA istituzionale a parte. -->
+    <div class="gen-card-wrap mb-3">
+        @if (previewUrl(); as url) {
+            @if (recovered()) {
+            <img [src]="url" alt="" class="gen-card-tap__img gen-card-tap__img--static rounded-4 shadow">
+            } @else {
+            <button type="button" class="gen-card-tap" (click)="generate(true)" [disabled]="loading()"
+                    [attr.aria-label]="(result() ? 'ancora' : 'genera') | translate">
+                <img [src]="url" alt="" class="gen-card-tap__img">
+                <span class="gen-card-tap__hint">
+                    @if (loading()) {
+                    <span class="spinner-border spinner-border-sm" role="status"></span>
+                    } @else {
+                    <i class="fa-solid fa-arrow-rotate-right" aria-hidden="true"></i>
+                    {{ (result() ? 'ancora' : 'genera') | translate }}!
+                    }
+                </span>
+            </button>
+            }
+        } @else if (loading()) {
+        <div class="gen-card-tap gen-card-tap--loading placeholder-glow" aria-hidden="true">
+            <span class="placeholder w-100 h-100 d-block rounded-4"></span>
+        </div>
+        }
+    </div>
+
+    @if (recovered()) {
+    <div class="text-center mb-3">
         <button class="btn btn-primary rounded-pill px-4" (click)="goToGenerator()">
             {{ 'condivisiVaiAlGeneratore' | translate }}
         </button>
-        } @else {
-        <!-- Stessa leva fisica del mobiletto in home (.btn-skeuo, hub-lever): la pagina intera del
-             generatore era rimasta un CTA Bootstrap generico mentre il widget in home aveva già
-             questo linguaggio "macchinario". Qui uniformiamo. -->
-        <button type="button" class="btn-skeuo btn-skeuo-accent gen-lever" (click)="generate(true)" [disabled]="loading()">
-            @if (loading()) {
-            <span class="spinner-border spinner-border-sm" role="status"></span>
-            } @else {
-            <i class="fa-solid fa-arrow-rotate-right" aria-hidden="true"></i>
-            }
-            {{ (result() ? 'ancora' : 'genera') | translate }}!
-        </button>
-        }
-
-        @if (result(); as res) {
-        <!-- flex semplice, non la griglia Bootstrap: con "row"/"col" i bottoni crescevano per
-             riempire lo spazio residuo, e quella crescita dipendeva dal contenuto interno
-             (l'icona ascolta/stop, uno spinner al posto dell'icona) — bastava un pixel di
-             differenza per far andare o no a capo l'intera riga insieme al bottone "Ancora!"
-             accanto. "gen-actions" è solo un gancio CSS (styles/app/_skeuo.scss, Dominio): i
-             bottoni restano gli stessi componenti Engine invariati, qui li vestiamo da tasti
-             tondi fisici e li blocchiamo a dimensione fissa via selettori globali, senza toccare
-             un solo file sotto core/engine. -->
-        <div class="d-flex align-items-center gap-2 gen-actions">
-                <app-speech-action [action]="speakText" />
-                @if (!recovered()) {
-                <app-like-action [action]="likeThis" [liked]="liked()" />
-                }
-                <app-share-action [action]="buildShareCanvas"
-                                  [title]="shareTitle()" [filename]="shareFilename()" />
-        </div>
-        }
     </div>
+    }
 
-    <p class="mb-4">
+    @if (result(); as res) {
+    <div class="d-flex justify-content-center align-items-center gap-2 gen-actions mb-3">
+        <app-speech-action [action]="speakText" />
+        @if (!recovered()) {
+        <app-like-action [action]="likeThis" [liked]="liked()" />
+        }
+        <app-share-action [action]="buildShareCanvas"
+                          [title]="shareTitle()" [filename]="shareFilename()" />
+    </div>
+    }
+
+    <p class="mb-3 text-center">
         <a class="small text-decoration-none" [routerLink]="piaciutiPath" [queryParams]="{ gen: gen.slug }">
             {{ 'condivisiDiQuesto' | translate }}
         </a>
     </p>
 
     @if (recovered()) {
-    <p class="text-secondary small mb-3">
+    <p class="text-secondary small mb-3 text-center">
         {{ 'condivisiDaCondivisi' | translate }}
         <a [appPage]="PageType.Piaciuti" class="ms-1">{{ 'condivisiVaiAiCondivisi' | translate }}</a>
     </p>
     }
 
+    <!-- Il testo per esteso resta, solo più defilato: la card sopra è la vetrina, questo è per chi
+         vuole leggerlo con calma o copiarlo — e per chi arriva senza JS/con uno screen reader. -->
     @if (result(); as res) {
-    <div class="gen-result p-4 shadow-sm">
+    <div class="gen-result p-3 small text-secondary">
         <div [innerHTML]="res.markdown | markdown"></div>
-    </div>
-    } @else if (loading()) {
-    <div class="gen-result p-4 shadow-sm placeholder-glow" aria-hidden="true">
-        <span class="placeholder col-9 mb-2 d-block"></span>
-        <span class="placeholder col-12 mb-2 d-block"></span>
-        <span class="placeholder col-7 d-block"></span>
     </div>
     }
 

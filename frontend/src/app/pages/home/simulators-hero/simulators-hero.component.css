@@ -17,14 +17,24 @@
     display: block;
     overflow: hidden;
     isolation: isolate;
-    border-radius: 1.5rem;
+    border-radius: var(--elevazioneRaggio, 1.5rem);
     aspect-ratio: 4 / 5;
     background-color: var(--colorSurface);
     border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
     box-shadow: var(--shadowElevated);
     color: #fff;
     text-decoration: none;
-    transition: transform .2s ease, box-shadow .2s ease;
+    transition: transform var(--movimentoPagina, .2s) ease, box-shadow var(--movimentoPagina, .2s) ease;
+    /* Ingresso "a scatto": le due cabine si accendono in sequenza, non insieme — più vive, meno
+       "muro di testo che appare tutto insieme". La seconda parte con un filo di ritardo. */
+    animation: sim-tile-pop .4s cubic-bezier(.2, .9, .3, 1.3) backwards;
+}
+
+.sim-tile:nth-child(2) { animation-delay: .12s; }
+
+@keyframes sim-tile-pop {
+    from { opacity: 0; transform: translateY(10px) scale(.97); }
+    to   { opacity: 1; transform: none; }
 }
 
 @media (min-width: 768px) {
@@ -128,4 +138,5 @@
 @media (prefers-reduced-motion: reduce) {
     .sim-tile-led::before { animation: none; }
     .sim-tile-bg, .sim-tile { transition: none; }
+    .sim-tile { animation: none; }
 }

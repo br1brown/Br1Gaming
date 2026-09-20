@@ -40,6 +40,7 @@ export const navResolver: ShellNavResolver = {
             g.addPage(PageType.GameDuceNonDuce);
             g.addPage(PageType.GameBurocrazia);
             g.addPage(PageType.GameUmarell);
+            g.addPage(PageType.GameLombroso);
         });
         // Utility: strumenti che non sono giochi (radar chiese + traduttore ITA→ESP).
         nav.addGroup('utility', (g) => {

@@ -1,0 +1,94 @@
+<div class="d-flex flex-column overflow-hidden user-select-none flex-grow-1 bg-black text-white">
+
+    <header class="flex-shrink-0 text-center py-2 px-3">
+        <h1 class="h4 fw-bold mb-0">{{ 'lombroso' | translate }}</h1>
+    </header>
+
+    <div class="position-relative flex-grow-1 overflow-hidden">
+
+        @switch (status()) {
+
+            @case ('init') {
+                <div class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-4">
+                    <div class="card text-center p-4" style="max-width: 28rem;">
+                        <p class="h5 fw-bold mb-2">{{ 'lombrosoIntroTitle' | translate }}</p>
+                        <p class="text-secondary small mb-3">{{ 'lombrosoIntroText' | translate }}</p>
+                        <button type="button" class="btn btn-primary mb-2" (click)="startCamera()">
+                            {{ 'lombrosoStart' | translate }}
+                        </button>
+                        <a routerLink="/" class="btn btn-outline-secondary btn-sm">{{ 'lombrosoBack' | translate }}</a>
+                    </div>
+                </div>
+            }
+
+            @case ('live') {
+                <video #videoRef class="position-absolute top-0 start-0 w-100 h-100 object-fit-cover" muted playsinline></video>
+                <div class="lombroso-viewfinder" aria-hidden="true">
+                    <span class="lombroso-corner lombroso-corner--tl"></span>
+                    <span class="lombroso-corner lombroso-corner--tr"></span>
+                    <span class="lombroso-corner lombroso-corner--bl"></span>
+                    <span class="lombroso-corner lombroso-corner--br"></span>
+                </div>
+                <div class="position-absolute bottom-0 start-0 w-100 d-flex justify-content-center pb-4">
+                    <button type="button" class="btn btn-lg btn-light rounded-circle lombroso-shutter" (click)="capture()"
+                            [attr.aria-label]="'lombrosoScatta' | translate">
+                        <i class="fa-solid fa-camera" aria-hidden="true"></i>
+                    </button>
+                </div>
+            }
+
+            @case ('scanning') {
+                <div class="position-absolute top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center p-3 gap-3">
+                    <div class="lombroso-scan-frame">
+                        @if (frozenFrame(); as frame) {
+                        <img [src]="frame" alt="" class="lombroso-scan-img">
+                        }
+                        <div class="lombroso-scan-line" aria-hidden="true"></div>
+                    </div>
+                    <div class="font-monospace small text-success lombroso-readout" role="status">
+                        <p class="mb-1 fw-bold">{{ 'lombrosoAnalizzando' | translate }}</p>
+                        @for (step of MEASURING_STEPS; track step; let i = $index) {
+                            @if (i < visibleSteps()) {
+                            <p class="mb-1">&gt; {{ step }}</p>
+                            }
+                        }
+                    </div>
+                </div>
+            }
+
+            @case ('result') {
+                <div class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-4">
+                    <div class="card text-center p-4" style="max-width: 28rem;">
+                        @if (frozenFrame(); as frame) {
+                        <img [src]="frame" alt="" class="lombroso-result-img rounded-4 mb-3 align-self-center">
+                        }
+                        @if (verdict(); as v) {
+                        <p class="text-secondary small mb-1">{{ 'lombrosoVerdictLabel' | translate }}</p>
+                        <p class="h5 fw-bold mb-1">{{ v.title }}</p>
+                        <p class="text-secondary small mb-3">{{ v.desc }}</p>
+                        }
+                        <button type="button" class="btn btn-primary mb-2" (click)="retry()">
+                            {{ 'lombrosoRifai' | translate }}
+                        </button>
+                        <a routerLink="/" class="btn btn-outline-secondary btn-sm">{{ 'lombrosoBack' | translate }}</a>
+                    </div>
+                </div>
+            }
+
+            @case ('error') {
+                <div class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-4">
+                    <div class="card text-center p-4">
+                        <p class="h5 fw-bold text-danger mb-2">{{ 'lombrosoOffline' | translate }}</p>
+                        <p class="mb-3">{{ errorMsg() | translate }}</p>
+                        <button type="button" class="btn btn-primary mb-2" (click)="startCamera()">
+                            {{ 'lombrosoStart' | translate }}
+                        </button>
+                        <a routerLink="/" class="btn btn-outline-secondary btn-sm">{{ 'lombrosoBack' | translate }}</a>
+                    </div>
+                </div>
+            }
+        }
+
+    </div>
+
+</div>

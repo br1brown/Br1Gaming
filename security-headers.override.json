@@ -12,7 +12,7 @@
   },
   "permissionsPolicy": {
     "geolocation": ["self"],
-    "camera": [],
+    "camera": ["self"],
     "microphone": []
   }
 }

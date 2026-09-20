@@ -1,5 +1,5 @@
 import { DOCUMENT } from '@angular/common';
-import { afterNextRender, Component, computed, inject, signal } from '@angular/core';
+import { afterNextRender, Component, computed, effect, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { GeneratorInfo, GenerateResponse, GeneratorPageContent } from '../../core/dto/generator.dto';
 import { ContestoSito, PageType } from '../../site';
@@ -35,7 +35,7 @@ import { VariantButtonsComponent } from '../../components/shared/variant-buttons
         VariantButtonsComponent,
     ],
     templateUrl: './generator-detail.component.html',
-    // Il risultato viene ricreato a ogni generazione (@if su result()): l'animazione
+    // Il risultato viene ricreato a ogni generazione (@if su result()/previewUrl()): l'animazione
     // si riavvia da sola a ogni "Ancora!", dando un feedback visivo allo spam.
     styles: [`
         .gen-result { animation: genPop .28s ease-out; }
@@ -43,12 +43,56 @@ import { VariantButtonsComponent } from '../../components/shared/variant-buttons
             from { opacity: 0; transform: translateY(8px); }
             to   { opacity: 1; transform: none; }
         }
-        /* Stessa firma della leva del mobiletto in home (hub-lever, generator-hub.component.css):
-           l'icona gira a ogni "tiro", non solo un cambio di testo. */
-        .gen-lever i { transition: transform .3s ease; }
-        .gen-lever:active i { transform: rotate(180deg); }
+
+        /* La card è essa stessa il pulsante "genera": tap = nuovo tiro, come scorrere un filtro.
+           L'hint sta SOTTO l'immagine (non in overlay): sopra un'immagine generata i colori
+           cambiano ogni volta, un badge sovrapposto rischiava di finire illeggibile. */
+        .gen-card-wrap { max-width: 420px; margin-inline: auto; }
+        .gen-card-tap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: .6rem;
+            width: 100%;
+            padding: 0;
+            border: none;
+            background: none;
+            cursor: pointer;
+            transition: transform .15s ease;
+        }
+        .gen-card-tap:hover { transform: scale(1.015); }
+        .gen-card-tap:active { transform: scale(.97); }
+        .gen-card-tap:disabled { cursor: default; }
+        .gen-card-tap__img {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: var(--elevazioneRaggio, 1rem);
+            box-shadow: var(--shadowElevated, 0 .5rem 1.5rem rgba(0,0,0,.35));
+            animation: genCardPop .32s cubic-bezier(.2, .9, .3, 1.3);
+        }
+        .gen-card-tap__hint {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            padding: .4rem .9rem;
+            border-radius: 999px;
+            background: var(--colorSurface, rgba(0, 0, 0, .65));
+            color: var(--colorSurfaceText, #fff);
+            font-weight: 700;
+            font-size: .85rem;
+        }
+        .gen-card-tap--loading {
+            aspect-ratio: 3 / 2;
+            border-radius: var(--elevazioneRaggio, 1rem);
+            overflow: hidden;
+        }
+        @keyframes genCardPop {
+            from { opacity: 0; transform: scale(.94); }
+            to   { opacity: 1; transform: scale(1); }
+        }
         @media (prefers-reduced-motion: reduce) {
-            .gen-lever:active i { transform: none; }
+            .gen-card-tap, .gen-card-tap:hover, .gen-card-tap:active { animation: none; transform: none; }
         }
     `],
 })
@@ -103,6 +147,11 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
      *  pagina stessa è la rotta "frase condivisa" di un piaciuto). */
     readonly liked = computed(() => this.savedId() !== null || this.recovered());
 
+    /** Data URL della card social (stesso `buildShareCanvas` di app-share-action), rigenerata a ogni
+     *  risultato per mostrarla subito accanto al testo — non solo al click su "Condividi". */
+    readonly previewUrl = signal<string | null>(null);
+    private previewToken = 0;
+
     constructor() {
         super();
         // Rotta "frase condivisa": il contenuto arriva già risolto in SSR (resolver) → niente da
@@ -110,6 +159,22 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
         afterNextRender(() => {
             if (!this.result() && !this.pageContent()?.recovered) void this.generate();
         });
+        effect(() => {
+            if (this.result() && this.generator()) void this.refreshPreview();
+            else this.previewUrl.set(null);
+        });
+    }
+
+    /** Token di generazione: scarta una risposta arrivata dopo che l'utente ha già rigenerato
+     *  (stesso principio di `resolveFooterInto`, Engine). */
+    private async refreshPreview(): Promise<void> {
+        const token = ++this.previewToken;
+        try {
+            const canvas = await this.buildShareCanvas();
+            if (token === this.previewToken) this.previewUrl.set(canvas.toDataURL('image/png'));
+        } catch {
+            if (token === this.previewToken) this.previewUrl.set(null);
+        }
     }
 
     /**
