@@ -13,9 +13,9 @@ export type ImgRenderMode = 'exactInLine' | 'wrap' | 'fixedRatio' | 'fit';
 
 /** Opzioni per i metodi istanza (default letti dal tema). */
 export interface ImgBuildOptions {
-    /** Ruolo colore semantico ('primary' | 'secondary') da cui derivare bgColor/textColor. */
+    /** Ruolo colore (bottone/CTA) da usare al posto del brand puro. Default: assente. */
     colorRole?: 'primary' | 'secondary';
-    /** Colore di sfondo esadecimale (es. '#3a86ff'). Default: colorPrimary/colorSecondary del sito, secondo `colorRole`. */
+    /** Colore di sfondo. Default: brand puro (`colorTema`), o semantico se `colorRole` è presente. */
     bgColor?: string;
     /** Colore del testo esadecimale. Default: calcolato per massimo contrasto WCAG sul bgColor. */
     textColor?: string;
@@ -42,7 +42,7 @@ export interface ImgBuildResolved {
     bgColor: string;
     textColor: string;
     fontSize: number;
-    /** Stack font completo pronto per CSS/SVG, es. 'Arial, "Apple Color Emoji", sans-serif'. */
+    /** Stack font completo pronto per CSS/SVG, es. 'Arial, sans-serif, "Apple Color Emoji"'. */
     fontFamily: string;
     ratio: '4:3' | '16:9' | '1:1' | '9:16';
     maxWidth: number;
@@ -158,9 +158,9 @@ export interface PillResult {
 
 /** Opzioni per overlay pill con posizionamento automatico via corner/margin. */
 export interface PillOverlayOptions extends Omit<PillOptions, 'x' | 'y' | 'anchorCenterY' | 'maxWidth' | 'bgColor' | 'measureFn'> {
-    /** Colore di sfondo del pill (default da colorRole o tema). */
+    /** Colore di sfondo. Default: brand puro (`colorTema`), o semantico se `colorRole` è presente. */
     bgColor?: string;
-    /** Ruolo colore semantico se bgColor è omesso. Default: 'primary'. */
+    /** Ruolo colore (bottone/CTA) da usare al posto del brand puro. Default: assente. */
     colorRole?: 'primary' | 'secondary';
     /** Angolo del canvas su cui ancorare il pill. Default: 'bottom-left'. */
     corner?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
@@ -220,9 +220,9 @@ export interface CaptionOptions {
     maxLines?: number;
     /** Scala minima del font prima di troncare con ellissi. Default: 0.5. */
     minFontScale?: number;
-    /** Padding orizzontale dello scrim. Default: fontSize. */
+    /** Padding orizzontale dello scrim. Default: fontSize * CAPTION_PAD_H_RATIO (1.25). */
     paddingH?: number;
-    /** Padding verticale del blocco testo. Default: fontSize * 0.6. */
+    /** Padding verticale del blocco testo. Default: fontSize * CAPTION_PAD_V_RATIO (0.75). */
     paddingV?: number;
     /** Funzione di misura del testo. */
     measureFn?: (text: string, fontSizePx: number, bold: boolean) => number;
@@ -230,9 +230,9 @@ export interface CaptionOptions {
 
 /** Opzioni per overlay caption con scrimColor opzionale da tema. */
 export interface CaptionOverlayOptions extends Omit<CaptionOptions, 'canvasW' | 'canvasH' | 'measureFn' | 'scrimColor'> {
-    /** Colore pieno dello scrim. Default dal tema secondo colorRole. */
+    /** Colore pieno dello scrim. Default: brand puro (`colorTema`), o semantico se `colorRole` è presente. */
     scrimColor?: string;
-    /** Ruolo colore semantico se scrimColor è omesso. Default: 'primary'. */
+    /** Ruolo colore (bottone/CTA) da usare al posto del brand puro. Default: assente. */
     colorRole?: 'primary' | 'secondary';
 }
 
@@ -405,8 +405,8 @@ export class ImgBuilderService {
         const fontSize = captionOpts.fontSize ?? Math.round(width * 0.04);
         const fontFamily = captionOpts.fontFamily ?? ContestoSito.config.fonts.webStack;
         const lineHeight = captionOpts.lineHeight ?? 1.3;
-        const paddingH = captionOpts.paddingH ?? fontSize;
-        const paddingV = captionOpts.paddingV ?? Math.round(fontSize * 0.6);
+        const paddingH = captionOpts.paddingH ?? Math.round(fontSize * ImgBuilderService.CAPTION_PAD_H_RATIO);
+        const paddingV = captionOpts.paddingV ?? Math.round(fontSize * ImgBuilderService.CAPTION_PAD_V_RATIO);
         // ctx di sola misura: measureText dipende solo dal font impostato su ctx, non dalle
         // dimensioni del canvas — stessa identica misura che darebbe il ctx (canvas diverso,
         // stesso font) che disegna il risultato più sotto, quindi nessuno scarto da coprire.
@@ -457,11 +457,16 @@ export class ImgBuilderService {
         return canvas;
     }
 
-    /** Coppia (sfondo, testo) del tema per il colorRole richiesto ('secondary' o default 'primary'). */
+    /** Risolve il `colorRole` nel colore corrispondente del tema.
+     *  Di default (nessun `colorRole`) usa il brand puro (`colorTema`), allineandosi alle og:image.
+     *  Non usiamo `colorPrimary` di default perché l'Engine lo scurisce in OKLCH per l'accessibilità 
+     *  UI (bottoni/CTA), il che altererebbe in modo inatteso i brand chiari sulle grafiche 
+     *  a tutto schermo. `primary` o `secondary` restano validi se si cerca esplicitamente
+     *  il colore di un bottone. */
     private roleColors(colorRole?: 'primary' | 'secondary'): [string, string] {
-        return colorRole === 'secondary'
-            ? [this.theme.colorSecondary(), this.theme.colorSecondaryText()]
-            : [this.theme.colorPrimary(), this.theme.colorPrimaryText()];
+        if (colorRole === 'secondary') return [this.theme.colorSecondary(), this.theme.colorSecondaryText()];
+        if (colorRole === 'primary') return [this.theme.colorPrimary(), this.theme.colorPrimaryText()];
+        return [this.theme.colorTema(), this.theme.colorTemaText()];
     }
 
     private async prepareBaseCanvas(imageSrc: string | Blob, imgOpts: ImageCanvasOptions) {
@@ -637,6 +642,12 @@ export class ImgBuilderService {
      *  ricorrere allo shrink-to-fit (poi, sotto `minFontScale`, al troncamento con ellissi). */
     static readonly CAPTION_MAX_TEXT_HEIGHT_RATIO = 0.6;
 
+    /** Padding orizzontale della caption (multiplo di fontSize).
+     *  1.25x garantisce una safe-zone visibile per non incollare il testo shrink-to-fit ai bordi. */
+    static readonly CAPTION_PAD_H_RATIO = 1.25;
+    /** Padding verticale della caption (multiplo di fontSize). */
+    static readonly CAPTION_PAD_V_RATIO = 0.75;
+
     /** Costruisce il frammento SVG di una caption con fascia scrim. */
     static buildCaption(opts: CaptionOptions): { svg: string } {
         const esc = ImgBuilderService.escapeXml;
@@ -650,8 +661,8 @@ export class ImgBuilderService {
         const fontFamily = opts.fontFamily ?? ContestoSito.config.fonts.webStack;
         const lineHeight = opts.lineHeight ?? 1.3;
         const maxLines = opts.maxLines ?? this.MAX_CAPTION_LINES;
-        const paddingH = opts.paddingH ?? fontSize;
-        const paddingV = opts.paddingV ?? Math.round(fontSize * 0.6);
+        const paddingH = opts.paddingH ?? Math.round(fontSize * this.CAPTION_PAD_H_RATIO);
+        const paddingV = opts.paddingV ?? Math.round(fontSize * this.CAPTION_PAD_V_RATIO);
         const measure = opts.measureFn ?? ((t: string, fs: number) => t.length * fs * 0.55);
 
         const textColor = ImgBuilderService.getReadableTextColor(scrimColor);

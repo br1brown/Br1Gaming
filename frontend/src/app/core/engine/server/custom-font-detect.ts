@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { serverEnv } from './server-env';
 import { ContestoSito } from '../../../site';
-import { isSystemFont, systemFontWebStack, customFontWebStack, SystemFont, type FontChoice, type CustomFontDef } from '../font-system';
+import { isSystemFont, systemFontServerStack, customFontServerFamilyStack, SystemFont, type FontChoice, type CustomFontDef } from '../font-system';
 
 /** Percorso assoluto di una faccia di un font custom di progetto (`fontsDir` + nome file
  *  dichiarato in `CustomFontFace.file`) — solo risoluzione, nessuna verifica di esistenza (la fa
@@ -62,8 +62,8 @@ function realServerFamily(def: CustomFontDef): string | null {
  * da `fc-scan` se disponibile, altrimenti la `family` dichiarata (comportamento pre-esistente).
  */
 export function serverStackForChoice(choice: FontChoice): string {
-    if (typeof choice === 'string') return systemFontWebStack(choice);
-    return customFontWebStack(realServerFamily(choice) ?? choice.family);
+    if (typeof choice === 'string') return systemFontServerStack(choice);
+    return customFontServerFamilyStack(realServerFamily(choice) ?? choice.family);
 }
 
 /**
