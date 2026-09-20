@@ -11,9 +11,45 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Rileva file cambiati (per gating live-tests)
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      i18n: ${{ steps.filter.outputs.i18n }}
+      infra: ${{ steps.filter.outputs.infra }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - "backend/**"
+              - "global.json"
+            frontend:
+              - "frontend/**"
+              - "global-settings.json"
+              - "global-settings.schema.json"
+              - ".nvmrc"
+            i18n:
+              - "frontend/src/assets/i18n/**"
+              - "global-settings.json"
+            infra:
+              - "docker-compose*.yml"
+              - "scripts/lib/**"
+              - "scripts/test/**"
+              - ".github/workflows/Controlli Automatici di Tutto.yml"
+
   backend:
     name: Backend — build e audit pacchetti
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.backend == 'true'
     steps:
       - uses: actions/checkout@v5
 
@@ -50,6 +86,8 @@ jobs:
   frontend:
     name: Frontend — qualità e build
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.frontend == 'true'
     steps:
       - uses: actions/checkout@v5
 
@@ -126,6 +164,8 @@ jobs:
   i18n:
     name: i18n — completezza traduzioni
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.i18n == 'true'
     steps:
       - uses: actions/checkout@v5
 
@@ -170,7 +210,13 @@ jobs:
   live-tests:
     name: Audit live — Pa11y + Lighthouse
     runs-on: ubuntu-latest
-    needs: [backend, frontend]
+    needs: [changes, backend, frontend]
+    if: >-
+      always() &&
+      (needs.backend.result == 'success' || needs.backend.result == 'skipped') &&
+      (needs.frontend.result == 'success' || needs.frontend.result == 'skipped') &&
+      (needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.infra == 'true') &&
+      (github.ref == 'refs/heads/main' || github.event_name == 'pull_request')
     steps:
       - uses: actions/checkout@v5
 
