@@ -21,7 +21,7 @@ export interface AppEnvironment {
 
 export const environment: AppEnvironment = {
     appName: "Br1Gaming",
-    version: "2.5.0",
+    version: "2.5.1",
     defaultLang: 'it',
     availableLanguages: ["it"],
     config: {
@@ -30,5 +30,5 @@ export const environment: AppEnvironment = {
                     "it": "Generatori ignoranti, avventure interattive, universo Br1."
             }
     },
-    configFingerprint: "6603966eb334"
+    configFingerprint: "abad7ce3c5e4"
 };
