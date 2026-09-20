@@ -185,9 +185,14 @@ export class LombrosoComponent extends PageBaseComponent<void> implements OnDest
 
     /**
      * Canvas della card da condividere: la foto scattata (mai lasciata il browser finora, resta
-     * così anche qui — nessun upload) più il verdetto come didascalia. `scrimColor` esplicito: il
-     * default (`colorPrimary`, scurito per il contrasto testo-su-pagina) darebbe una fascia blu
-     * scuro poco fedele al brand — qui il brand vero (`colorTema`, chiaro), testo adattato da sé.
+     * così anche qui — nessun upload) più il verdetto come didascalia. Titolo e descrizione stanno
+     * insieme nel blocco principale (mai troncato con ellissi, vedi `buildFittedCaptionCanvas`):
+     * il `subtitle` da solo tronca a una riga, quindi non può portare il titolo del verdetto, che
+     * per costruzione è battuta quanto la descrizione — condividere la card non deve perdere metà
+     * della battuta rispetto a quello che si legge in pagina. `subtitle` resta solo per il branding
+     * (nome pagina + app), sempre corto, sempre entro una riga. `scrimColor` esplicito: il default
+     * (`colorPrimary`, scurito per il contrasto testo-su-pagina) darebbe una fascia blu scuro poco
+     * fedele al brand — qui il brand vero (`colorTema`, chiaro), testo adattato da sé.
      */
     readonly buildShareCanvas = async (): Promise<HTMLCanvasElement> => {
         const blob = this.frozenFrameBlob();
@@ -197,8 +202,8 @@ export class LombrosoComponent extends PageBaseComponent<void> implements OnDest
             style: 'fittedCaption',
             imageSrc: blob,
             captionOpts: {
-                text: v.desc,
-                subtitle: `${v.title} | ${ContestoSito.config.appName}`,
+                text: `${v.title}\n\n${v.desc}`,
+                subtitle: `${this.translate.translate('lombroso')} | ${ContestoSito.config.appName}`,
                 scrimColor: this.appearance.colorTema(),
             },
             imgOpts: { width: 1200 },

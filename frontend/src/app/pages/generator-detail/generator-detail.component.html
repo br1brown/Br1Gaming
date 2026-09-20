@@ -46,7 +46,7 @@
     <div class="gen-card-wrap mb-3">
         @if (previewUrl(); as url) {
         <div class="gen-card-tap">
-            <img [src]="url" [appLightbox]="previewBlob()" [attr.alt]="gen.name" class="gen-card-tap__img rounded-4">
+            <img [src]="url" [appLightbox]="previewBlob()" [attr.alt]="result()?.text ?? gen.name" class="gen-card-tap__img rounded-4">
             @if (!recovered()) {
             <button type="button" class="gen-card-tap__hint" (click)="generate(true)" [disabled]="loading()">
                 @if (loading()) {
@@ -97,12 +97,17 @@
     </p>
     }
 
-    <!-- Il testo per esteso resta, solo più defilato: la card sopra è la vetrina, questo è per chi
-         vuole leggerlo con calma o copiarlo — e per chi arriva senza JS/con uno screen reader. -->
+    <!-- Il testo per esteso, una volta che la card sopra è pronta, è ridondante: la card lo
+         contiene già per intero, sia in figura (fittedCaption, mai troncata) sia nell'alt
+         dell'immagine. Resta qui SOLO finché la card non è pronta (niente JS, o non ancora
+         idratata): è l'unico modo per chi arriva senza JS o con uno screen reader pre-idratazione
+         di leggere il risultato. -->
     @if (result(); as res) {
+    @if (!previewUrl()) {
     <div class="gen-result p-3 small text-body-secondary">
         <div [innerHTML]="res.markdown | markdown"></div>
     </div>
+    }
     }
 
     } @else {
