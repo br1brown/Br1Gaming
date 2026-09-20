@@ -194,25 +194,50 @@ export const SYSTEM_FONTS: Record<SystemFont, SystemFontDef> = {
 /** Fallback emoji comune a ogni stack (Apple/Segoe, a colori). */
 const EMOJI = '"Apple Color Emoji", "Segoe UI Emoji"';
 
-/** Compone uno stack CSS: famiglie + fallback emoji + famiglia generica. */
+/** Compone uno stack CSS: famiglie + famiglia generica + fallback emoji.
+ *  L'ordine è critico: mettere l'emoji PRIMA della generic-family causa rendering errato
+ *  dei numeri su Safari/iOS per i font custom sprovvisti di cifre (pescano il fallback keycap
+ *  dall'emoji font invece del sans-serif standard). */
 const stack = (families: string, generic: 'sans-serif' | 'serif' | 'monospace' = 'sans-serif'): string =>
-    `${families}, ${EMOJI}, ${generic}`;
+    `${families}, ${generic}, ${EMOJI}`;
+
+/** Stack CSS per il rendering SERVER (Sharp+librsvg via fontconfig/Pango).
+ *  Omette volontariamente le emoji: se fontconfig risolve i nomi "Apple/Segoe Emoji"
+ *  in un font Linux reale (es. Noto Color Emoji), Pango dirotta spesso le cifre normali
+ *  sui glifi keycap di quel font, corrompendo visivamente il testo delle immagini OG. */
+const stackServer = (families: string, generic: 'sans-serif' | 'serif' | 'monospace' = 'sans-serif'): string =>
+    `${families}, ${generic}`;
 
 /** Stack CSS di un `SystemFont` — stessa risoluzione usata internamente da `resolveFonts()`, ma
  *  per un consumer che vuole UN font specifico invece del font attivo del design system
  *  (es. `ImgBuildOptions.fontFamily`, `img-builder.service.ts`: un'immagine generata può chiedere
- *  esplicitamente un font diverso da quello del sito). */
+ *  esplicitamente un font diverso da quello del sito). Solo BROWSER (canvas/SVG lato client): per
+ *  il rendering server vedi `systemFontServerStack`. */
 export function systemFontWebStack(key: SystemFont): string {
     const def = SYSTEM_FONTS[key];
     return stack(`"${def.family}"`, def.generic);
 }
 
-/** Stack CSS per una `family` di font custom arbitraria — stesso fallback emoji/generic-family di
- *  `systemFontWebStack`, nessun `generic` dichiarabile per un font custom (stessa scelta neutra di
- *  `familyAndGenericFor` sotto). Usato da `custom-font-detect.ts` per costruire lo stack server di
- *  QUALUNQUE `CustomFontDef`, non solo quello attivo del sito. */
+/** Come `systemFontWebStack`, ma per il rendering SERVER (fontconfig/Pango) — vedi `stackServer`.
+ *  Usata da `custom-font-detect.ts` per costruire lo stack server di un `SystemFont`. */
+export function systemFontServerStack(key: SystemFont): string {
+    const def = SYSTEM_FONTS[key];
+    return stackServer(`"${def.family}"`, def.generic);
+}
+
+/** Stack CSS per una `family` di font custom arbitraria — stesso generic-family neutro di
+ *  `systemFontWebStack`, nessun `generic` dichiarabile per un font custom (stessa scelta di
+ *  `familyAndGenericFor` sotto). Solo BROWSER: per il rendering server vedi
+ *  `customFontServerFamilyStack`. */
 export function customFontWebStack(family: string): string {
     return stack(`"${family}"`, 'sans-serif');
+}
+
+/** Come `customFontWebStack`, ma per il rendering SERVER (fontconfig/Pango) — vedi `stackServer`.
+ *  Usata da `custom-font-detect.ts` per costruire lo stack server di QUALUNQUE `CustomFontDef`, non
+ *  solo quello attivo del sito. */
+export function customFontServerFamilyStack(family: string): string {
+    return stackServer(`"${family}"`, 'sans-serif');
 }
 
 /** L'unico stack "di sistema" rimasto — nessun self-hosting, nessuna opinione: quello che l'OS
@@ -323,10 +348,11 @@ export interface AppFontConfig {
 export interface ResolvedFonts {
     /** Stack CSS per il browser (`--fontFamily`) — l'unico font del sito, corpo E titoli. */
     webStack: string;
-    /** Stack CSS per le immagini OG (`PreviewBuilder`). Per un `SystemFont` è LO STESSO file di
-     *  `webStack`, risolto per nome via fontconfig; per un font custom è la `family` dichiarata
-     *  (`custom-font-detect.ts` la corregge se necessario col nome che fontconfig userà davvero
-     *  per il file). */
+    /** Stack CSS per le immagini OG (`PreviewBuilder`, fontconfig/Pango via Sharp+librsvg) — MAI il
+     *  fallback emoji di `webStack` (vedi `stackServer`). Per un `SystemFont` è lo stesso file
+     *  fisico di `webStack`, risolto per nome via fontconfig; per un font custom è la `family`
+     *  dichiarata (`custom-font-detect.ts` la corregge se necessario col nome che fontconfig userà
+     *  davvero per il file). */
     serverStack: string;
     /** Key del font attivo, per le metriche server: il valore di `SystemFont`, o `.key` del
      *  `CustomFontDef` attivo (`choiceKey()` di `defaultFont`). */
@@ -402,6 +428,10 @@ export function resolveFonts(config: AppFontConfig): ResolvedFonts {
 
     const resolved = familyAndGenericFor(defaultKey, customByKey);
     const webStack = resolved ? stack(`"${resolved.family}"`, resolved.generic) : SYSTEM_UI_STACK;
+    // Mai riusare webStack per il server: porterebbe con sé il fallback emoji, che su Sharp/librsvg
+    // corrompe le cifre (vedi commento di `stackServer`). "system-ui" non è comunque un nome
+    // fontconfig valido: nessun defaultFont configurato → stesso fallback di systemUiFonts() sotto.
+    const serverStack = resolved ? stackServer(`"${resolved.family}"`, resolved.generic) : stackServer('"Liberation Sans"');
 
     // fontFaces: il font scelto, PIÙ ogni addonFonts registrato (SystemFont o custom) — anche le
     // voci "secondarie" mai scelte come font del sito restano servite e raggiungibili da SCSS
@@ -418,7 +448,7 @@ export function resolveFonts(config: AppFontConfig): ResolvedFonts {
 
     return {
         webStack,
-        serverStack: webStack,
+        serverStack,
         serverKey: defaultKey,
         fontFaces,
         customFontVars: addonFonts.map(addonVar),
@@ -437,7 +467,7 @@ export function systemUiFonts(addonFonts: readonly FontChoice[] = []): ResolvedF
     const fontFaces = addonFonts.flatMap(c => facesFor(choiceKey(c), customByKey));
     return {
         webStack: SYSTEM_UI_STACK,
-        serverStack: stack('"Liberation Sans"'),
+        serverStack: stackServer('"Liberation Sans"'),
         serverKey: SystemFont.Liberation,
         fontFaces,
         customFontVars: addonFonts.map(addonVar),
