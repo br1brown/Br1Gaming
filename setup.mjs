@@ -17,9 +17,12 @@
  *
  * Poi CHIEDE conferma [s/N] per la "cerimonia" da template a progetto (DISTRUTTIVA):
  *   5. Rimuove la demo (frontend + backend): pagina Social + galleria social
- *      (store/SiteService/social.json), home → placeholder, addon i18n → {},
- *      BaseController minimo, data/identity.json azzerato a scheletro, site.ts/nav.ts riscritti.
- *      L'identità del sito resta servita dall'Engine (GET /identity).
+ *      (store/SiteService/social.json), home → placeholder, addon i18n filtrato alle sole
+ *      chiavi ancora in uso, BaseController minimo, data/identity.json azzerato a scheletro,
+ *      site.ts/nav.ts riscritti. L'identità del sito resta servita dall'Engine (GET /identity).
+ *      "Che faccio" (vetrina delle funzionalità Engine) NON viene cancellata: resta una rotta
+ *      viva (fuori menu, /che-faccio) da consultare mentre costruisci il tuo sito — il pezzo
+ *      che dipendeva dal Social (DEMO_BLOCK in che-faccio.component.ts/.html) viene rimosso.
  *   6. Elimina il README.md vetrina del template.
  *   7. Elimina .github/CODE_OF_CONDUCT.md e .github/CONTRIBUTING.md (governance da
  *      repo open source: fork, PR pubbliche, issue tracker pubblico — morti in un
@@ -101,12 +104,79 @@ function removeChunk(src, chunk, label) {
     return src.replace(chunk, '');
 }
 
+/** Rimuove ogni `<!-- <DEMO_BLOCK_START> -->…<!-- <DEMO_BLOCK_END> -->` (o l'equivalente a
+ *  commento `//`) da un file: stesso marcatore, letto da C#/TS/HTML — vedi Program.cs. */
+function stripDemoBlocks(filePath, style, label) {
+    const regex = style === 'html'
+        ? /<!-- <DEMO_BLOCK_START> -->[\s\S]*?<!-- <DEMO_BLOCK_END> -->\r?\n?/g
+        : /\/\/ <DEMO_BLOCK_START>[\s\S]*?\/\/ <DEMO_BLOCK_END>\r?\n?/g;
+    editFile(filePath, src => {
+        if (!regex.test(src)) {
+            console.warn(`  ⚠  blocco DEMO_BLOCK non trovato in ${label}: salto`);
+        }
+        return src.replace(regex, '');
+    });
+}
+
+// Chiavi addon.*.json ancora usate dopo l'eject: solo "che faccio" (tenuta viva, fuori menu) +
+// login-form (pezzo pronto ma non ricablato di default, resta sul disco). Tutto il resto — home
+// demo, Social, footer/nav della demo, impostazioni — sparisce con le pagine che lo usavano.
+// Aggiorna questa lista se che-faccio.component.html/ts cambia le chiavi che usa.
+const CHE_FACCIO_ADDON_KEYS = [
+    'cheFaccioNav',
+    'sectionActions', 'sectionGenerators', 'sectionQr', 'sectionNotify', 'sectionSystem',
+    'markdownLabTitle', 'markdownLabDesc', 'markdownInputLabel', 'markdownPlaceholder',
+    'markdownAutoPreview', 'markdownShortcutHint', 'markdownPreviewTitle', 'markdownHtmlOutputTitle',
+    'copyHtml', 'actionDemoText', 'presetBase', 'presetTable',
+    'themeAccessibilityTitle', 'accessibilityDesc', 'i18nTitle', 'i18nDesc', 'labelLang',
+    'apiStatusTitle', 'internalsApiDesc',
+    'uploadDemoTitle', 'uploadDemoDesc',
+    'assetResolverTitle', 'assetResolverDesc', 'assetResolverInputLabel', 'assetPreviewAlt',
+    'imageTextPlaceholder', 'imageSize', 'imgBuilderTitle', 'imgBuilderDesc', 'imgContextMenuHint',
+    'modalDemoTitle', 'modalDemoDesc', 'modalAlertBtn', 'modalConfirmBtn', 'modalFormBtn',
+    'modalAlertBody', 'modalConfirmTitle', 'modalConfirmBody',
+    'modalChooseBtn', 'modalChooseTitle', 'modalChooseBody', 'modalChooseSave', 'modalChooseDiscard',
+    'modalChooseSaved', 'modalChooseDiscarded',
+    'modalPromiseBtn', 'modalPromiseSaving', 'modalPromiseSuccess',
+    'modalFormTitle', 'speechPlaying', 'modalFormNameLabel', 'modalFormSubmit', 'modalResultSubmitted',
+    'usageCodeLabel', 'resetAction',
+    'qrCodeTitle', 'qrCodeDesc', 'qrType', 'qrTypeText', 'qrTypeWhatsapp', 'qrTypeEmail', 'qrTypeWifi',
+    'qrTypeSepa', 'qrContent', 'qrContentPlaceholder', 'qrPhone', 'qrWhatsappText',
+    'qrEmailRecipient', 'qrEmailSubject', 'qrEmailBody', 'qrSsid', 'qrWifiPassword', 'qrWifiEncryption',
+    'qrWifiEncWpa', 'qrWifiEncWep', 'qrWifiEncNone', 'qrIban', 'qrBeneficiaryName', 'qrAmount',
+    'qrRemittance', 'qrGenerate', 'qrCodeAlt', 'qrCodeEmpty', 'originalSize',
+    'actionComponentsTitle', 'actionComponentsDesc', 'actionDemoInputLabel',
+    'demoActionsGroup', 'demoContactsGroup', 'demoNavGroup',
+    // login-form (components/shared/login-form/): "pezzo pronto" non cancellato dall'eject
+    // (si ricablega attivando il login, vedi PageType in MINIMAL_SITE_TS) — la sua unica chiave.
+    'loginUsernameObbligatorio',
+];
+
+/** Filtra addon.it.json/addon.en.json alla whitelist sopra: i VALORI restano quelli reali del
+ *  catalogo (mai copiati qui), solo le chiavi non più referenziate da nessun file superstite
+ *  spariscono (home demo, Social, footer/nav demo, impostazioni). */
+function pruneAddonI18n(fe) {
+    for (const lang of ['it', 'en']) {
+        editFile(join(fe, `assets/i18n/addon.${lang}.json`), src => {
+            const full = JSON.parse(src);
+            const kept = {};
+            for (const key of CHE_FACCIO_ADDON_KEYS) {
+                if (key in full) kept[key] = full[key];
+            }
+            return JSON.stringify(kept, null, 2) + '\n';
+        });
+    }
+}
+
 // ── Contenuti minimi del "progetto vuoto" (scritti dall'eject) ───────────────
 
 const MINIMAL_SITE_TS = `import { inject } from '@angular/core';
 import { buildSite } from './core/engine/siteBuilder';
 import { extendDesignSystem, emptyDesignSystem } from './core/engine/design-system-presets';
 import { ApiService } from './core/services/api.service';
+// "export type { X } from" sotto RI-esporta X ma non lo mette in scope in QUESTO file: per
+// usarlo nella firma di withApi (sotto) serve anche l'import esplicito.
+import type { ContentLoader, ContentLoaderContext, ContentLoaderResult } from './core/engine/siteBuilder';
 
 export type {
     SiteConfig,
@@ -132,6 +202,9 @@ export function withApi(loaderFn: (ctx: ContentLoaderContext, api: ApiService) =
 // qui con lo spread — pattern descritto in AGENTS.md § "Aggiungere una pagina".
 export const PageType = {
     Home: 'home',
+    // Vetrina Engine tenuta viva dall'eject (fuori menu: nessun addPage in nav.ts).
+    // Cancellala pure insieme a pages/che-faccio/ quando non ti serve più da consultare.
+    CheFaccio: 'che-faccio',
 } as const;
 export type PageType = (typeof PageType)[keyof typeof PageType];
 
@@ -182,6 +255,16 @@ export const ContestoSito = buildSite({
             // Skeleton pulito: la home parte senza navbar (ruolo 'senzaNavbar', sopra). Togli questo
             // layout (o cambia ruolo) quando vuoi la shell anche qui.
             layout: { role: 'senzaNavbar' },
+        },
+        {
+            // Path PER-LINGUA a scopo dimostrativo (BasePageInput.path come oggetto, non solo
+            // prefissato) — vedi frontend/README.md §"Pagine & rotte". Volutamente fuori da
+            // nav.ts: si raggiunge solo digitando l'URL, non compare in nessun menu.
+            path: { it: 'che-faccio', en: 'what-i-do' },
+            title: 'cheFaccioNav',
+            pageType: PageType.CheFaccio,
+            otherSEO: { noindex: true },
+            component: () => import('./pages/che-faccio/che-faccio.component').then(m => m.CheFaccioComponent),
         },
     ],
     // Menu di header/footer: dato risolto a runtime in nav.ts —
@@ -312,8 +395,11 @@ function ejectDemo() {
     writeNew(join(fe, 'app/pages/policy/legal.pages.ts'), MINIMAL_LEGAL_PAGES_TS);
     writeNew(join(fe, 'app/pages/home/home.component.ts'), MINIMAL_HOME_TS);
     writeNew(join(fe, 'app/pages/home/home.component.html'), MINIMAL_HOME_HTML);
-    writeNew(join(fe, 'assets/i18n/addon.it.json'), '{}\n');
-    writeNew(join(fe, 'assets/i18n/addon.en.json'), '{}\n');
+    // addon i18n: non azzerato a {} come gli altri file demo-only, perché "che faccio" (tenuta
+    // viva sotto) usa un centinaio di quelle chiavi — filtrato alla sola whitelist ancora in uso,
+    // i valori restano quelli reali del catalogo (mai duplicati qui: se cheFaccio cambia testo,
+    // l'eject lo eredita automaticamente).
+    pruneAddonI18n(fe);
     writeNew(join(be, 'Controllers/BaseController.cs'), MINIMAL_BASECONTROLLER_CS);
 
     // L'identità è servita dall'Engine (GET /identity): qui resta solo il dato, azzerato a scheletro.
@@ -327,35 +413,36 @@ function ejectDemo() {
     console.log('  ✓  azzerato a scheletro: backend/data/identity.json');
 
     // Program.cs: via le registrazioni dello store/SiteService demo.
-    editFile(join(be, 'Program.cs'), src => {
-        const regex = /\/\/ <DEMO_BLOCK_START>[\s\S]*?\/\/ <DEMO_BLOCK_END>\r?\n?/g;
-        if (!regex.test(src)) {
-            console.warn(`  ⚠  blocco DEMO_BLOCK non trovato in Program.cs: salto`);
-        }
-        return src.replace(regex, '');
-    });
+    stripDemoBlocks(join(be, 'Program.cs'), 'cs', 'Program.cs');
 
     // Niente più un case da ripulire in content.resolver.ts (Engine, non si tocca): la demo
     // Social porta la propria logica in app.pages.ts (contentLoader/dynamicParams), cancellato
     // sotto in blocco con l'intera pagina — non resta nulla da disattivare a mano nel resolver.
 
     // api.service: via getSocial + path + import HttpParams (usato solo lì).
-    editFile(join(fe, 'app/core/services/api.service.ts'), src => {
-        const regex = /\/\/ <DEMO_BLOCK_START>[\s\S]*?\/\/ <DEMO_BLOCK_END>\r?\n?/g;
-        if (!regex.test(src)) {
-            console.warn(`  ⚠  blocchi DEMO_BLOCK non trovati in api.service.ts: salto`);
-        }
-        return src.replace(regex, '');
-    });
+    stripDemoBlocks(join(fe, 'app/core/services/api.service.ts'), 'ts', 'api.service.ts');
 
-    // Cancella le pagine demo (Social, "che faccio") e l'area che le dichiarava: il nuovo
-    // site.ts minimale non importa più da app.pages.ts, che senza questa rimozione resterebbe
-    // sul disco con un import morto verso ./social/social.component (cancellato sotto) —
-    // compilato comunque (tsconfig non ha un `include` che lo escluda), build rotta.
+    // Cancella le pagine demo (Social) e l'area che le dichiarava: il nuovo site.ts minimale
+    // non importa più da app.pages.ts, che senza questa rimozione resterebbe sul disco con un
+    // import morto verso ./social/social.component (cancellato sotto) — compilato comunque
+    // (tsconfig non ha un `include` che lo escluda), build rotta.
     rmSync(join(fe, 'app/pages/app.pages.ts'), { force: true });
     rmSync(join(fe, 'app/pages/social'), { recursive: true, force: true });
-    rmSync(join(fe, 'app/pages/che-faccio'), { recursive: true, force: true });
-    console.log('  ✓  rimosse: frontend/src/app/pages/{app.pages.ts, social, che-faccio}');
+    console.log('  ✓  rimosse: frontend/src/app/pages/{app.pages.ts, social}');
+
+    // "Che faccio" NON si cancella: resta una rotta viva (site.ts sopra la instrada fuori menu)
+    // per consultare dal vivo la vetrina delle funzionalità Engine mentre costruisci il sito —
+    // cancellala a mano quando non ti serve più. L'unico pezzo che non sopravviverebbe
+    // all'eject è la card che chiamava il Social (DEMO_BLOCK, via stripDemoBlocks sotto);
+    // il resto (markdown, QR, action components, upload, asset resolver...) non dipende da nulla
+    // che questo script rimuove.
+    stripDemoBlocks(join(fe, 'app/pages/che-faccio/che-faccio.component.ts'), 'ts', 'che-faccio.component.ts');
+    stripDemoBlocks(join(fe, 'app/pages/che-faccio/che-faccio.component.html'), 'html', 'che-faccio.component.html');
+    // Il playground "Asset Resolver" punta di default all'asset demo 4K, cancellato sotto insieme
+    // al resto della demo: senza questo ripuntamento mostrerebbe un'immagine rotta al primo giro.
+    editFile(join(fe, 'app/pages/che-faccio/che-faccio.component.ts'), src =>
+        src.replace("assetId = 'img4k';", "assetId = 'favIcon';")
+    );
 
     // Asset demo 4K (usato dal playground di resize nella home demo): via il file e la voce
     // dal mapping. Nel progetto resta solo la favicon; la home placeholder non lo referenzia.

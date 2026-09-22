@@ -1,16 +1,4 @@
-/**
- * Configurazione dell'ambiente Node SSR, letta una volta al boot.
- * Unica sorgente di verità per server.ts e app.config.server.ts.
- *
- * Le sezioni sono valutate in modo lazy: l'import del modulo non legge
- * nessuna variabile d'ambiente, così il build Angular può importare questo
- * file durante la route extraction senza richiedere le variabili runtime.
- *
- * La validazione delle variabili obbligatorie avviene in server.ts prima
- * di avviare il listener Express, non qui: questo consente al processo di
- * build di completarsi normalmente e all'errore di emergere solo all'avvio
- * reale del server Node.
- */
+/** Configurazione dell'ambiente Node SSR, letta una volta al boot: unica sorgente per server.ts e app.config.server.ts. Sezioni lazy (l'import non legge env var, così la route extraction non le richiede); validazione in server.ts, non qui. */
 
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -21,14 +9,9 @@ import type { CspOverride } from './csp';
 import type { PermissionsPolicyOverride } from './permissions-policy';
 
 // ── Lettura global-settings.json (+ override global-settings.local.json) ──────────────
-// GLOBAL_SETTINGS_PATH (env var) → path esplicito (Docker: /app/global-settings.json,
-//   già file effettivo base+.local fuso da scripts/lib/br1-config.sh)
-// Fallback 1: global-settings.json nella cwd (Docker dev)
-// Fallback 2: ../global-settings.json rispetto alla cwd (dev locale: cwd=frontend/)
-// In DEV locale i segreti (ApiConfig.Keys, Token) stanno in global-settings.local.json: viene
-// fuso sopra il base con lo stesso deep-merge di br1-config.sh (deepMergeSettings, condivisa
-// anche con generate-statics.ts — vedi ../scripts/config/settings-merge.ts), così l'SSR locale ha la API key
-// come backend e proxy. In Docker/prod il .local non esiste → merge no-op.
+// GLOBAL_SETTINGS_PATH (Docker) → cwd → ../cwd (dev locale). In dev i segreti stanno in
+// global-settings.local.json, fuso sopra il base con lo stesso deep-merge di generate-statics.ts.
+// In Docker/prod il .local non esiste → merge no-op.
 
 /** Primo file esistente lungo la catena, parsato come oggetto; null se nessuno c'è/è valido. */
 function readJsonFile(candidates: (string | undefined)[]): Record<string, unknown> | null {
@@ -60,14 +43,10 @@ function loadBr1Settings(): Record<string, unknown> {
 type Br1Json = GlobalSettings;
 
 // ── Lettura security-headers.json ─────────────────────────────────────────────
-// File del template (uguale per ogni progetto): contiene gli header di sicurezza fissi.
-// Stessa logica di ricerca di global-settings.json (env var → cwd → ../cwd). Se manca,
-// security-headers.ts ricade su FALLBACK_SECURITY_HEADERS, così il server parte protetto.
-//
-// Il contenuto grezzo viene anche hashato (templateHash): security-headers.ts confronta
-// l'hash con quello shipped dall'engine e si rifiuta di avviarsi se non combacia, per evitare
-// che una modifica a mano di questo file (invece di security-headers.override.json) diverga
-// silenziosamente dai futuri aggiornamenti del template. Vedi security-headers.ts.
+// File del template (header di sicurezza fissi), stessa logica di ricerca del precedente.
+// Se manca, security-headers.ts ricade su FALLBACK_SECURITY_HEADERS. Il contenuto grezzo viene
+// anche hashato (templateHash): security-headers.ts si rifiuta di avviarsi se l'hash non combacia
+// con quello shipped, per intercettare una modifica a mano invece di security-headers.override.json.
 interface LoadedSecurityHeaders {
     readonly headers: Record<string, string>;
     /** sha256 esadecimale del file letto, null se il file non è stato trovato/leggibile. */
@@ -215,6 +194,12 @@ export interface SiteEnv {
      *  risolve a `frontend/fonts/`). Cartella assente o vuota = nessun font custom (vedi
      *  `custom-font-detect.ts`). Impostato da FONTS_DIR. */
     readonly fontsDir: string;
+    /** Qualità WebP (1-100) della variante web-ottimizzata — STESSO `Media.WebOptQuality` letto
+     *  lato backend (`MediaOptions`), unica sorgente `global-settings.json`. Le dimensioni
+     *  richiedibili per `?webopt=true&size=N` NON sono qui: sono la whitelist fissa dell'Engine
+     *  `ALLOWED_WIDTHS` (`asset-config.ts`) — un consumer SSR la importa direttamente da lì, non
+     *  da `serverEnv` (non è più una sezione di `global-settings.json`). Default 85. */
+    readonly webOptQuality: number;
 }
 
 /** Header di sicurezza condivisi col backend, letti da security-headers.json (file del template). */
@@ -258,13 +243,7 @@ const parseBool = (value: string | undefined): boolean =>
  *  Il fallback a host locali espliciti permette lo sviluppo locale senza configurazione aggiuntiva. */
 const LOCAL_DEV_HOSTS: readonly string[] = ['localhost', '127.0.0.1', '[::1]'];
 
-/**
- * Parsa la lista host separata da virgole. Se il risultato è vuoto (né NG_ALLOWED_HOSTS né
- * frontend.hostname forniscono valori), usa LOCAL_DEV_HOSTS come fallback.
- *
- * Per restringere o ampliare l'allowlist: valorizzare NG_ALLOWED_HOSTS (env var, lista
- * separata da virgola) oppure frontend.hostname in global-settings.json.
- */
+/** Parsa la lista host separata da virgole; se vuota (né NG_ALLOWED_HOSTS né frontend.hostname), ripiega su LOCAL_DEV_HOSTS. */
 const parseAllowedHosts = (value: string | undefined): readonly string[] => {
     const hosts = (value ?? '')
         .split(',')
@@ -303,12 +282,14 @@ export const serverEnv: ServerEnv = {
     },
     get site(): SiteEnv {
         const hostname = br1().frontend?.hostname ?? '';
+        const media = br1().Media;
         return _site ??= {
             baseUrl:             process.env['FRONTEND_BASE_URL'] || (hostname ? `https://${hostname}` : ''),
             assetsDir:           process.env['ASSETS_DIR'] ?? '',
             previewCryptoSecret: process.env['PREVIEW_CRYPTO_SECRET'] ?? '',
             noindex:             parseBool(process.env['SEO_NOINDEX']),
             fontsDir:            process.env['FONTS_DIR'] || resolve(process.cwd(), 'fonts'),
+            webOptQuality:       media?.WebOptQuality ?? 85,
         };
     },
     get security(): SecurityEnv {

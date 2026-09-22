@@ -1,11 +1,6 @@
-/**
- * Deep-merge usato per fondere global-settings.json con l'override opzionale
- * global-settings.local.json. 
- * Condiviso tra build-time (`generate-statics.ts`) e runtime (`server-env.ts`) 
- * per garantire una semantica unificata.
- *
- * Semantica: oggetti fusi ricorsivamente, array e scalari sostituiti dal valore di override.
- */
+/** Deep-merge usato per fondere global-settings.json con l'override opzionale
+ *  global-settings.local.json, condiviso tra build-time e runtime per una semantica unificata:
+ *  oggetti fusi ricorsivamente, array e scalari sostituiti dal valore di override. */
 function isPlainObject(v: unknown): v is Record<string, unknown> {
     return typeof v === 'object' && v !== null && !Array.isArray(v);
 }

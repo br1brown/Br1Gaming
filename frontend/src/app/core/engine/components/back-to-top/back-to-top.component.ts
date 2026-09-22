@@ -4,17 +4,9 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
 import { ContestoSito } from '../../../../site';
 import { BACK_TO_TOP_SOGLIA_PX } from '../../design-system-presets';
 
-/**
- * BackToTopComponent — Bottone "torna su" che appare durante lo scroll.
- *
- * Il bottone diventa visibile quando l'utente scorre oltre la soglia decisa dal design system
- * attivo (`DesignSystemPreset.backToTopSoglia`, default `'standard'` = 300px, il comportamento storico).
- * Al click, la pagina torna all'inizio con un'animazione fluida (smooth scroll).
- *
- * Aspetto: utility .fab + .surface-elevated dal layer globale — fondo neutro
- * (body-bg), ombra elevata, inner ring theme-aware. Si adatta light/dark senza
- * variabili componente.
- */
+/** Bottone "torna su": visibile oltre la soglia di scroll decisa dal design system attivo
+ *  (`DesignSystemPreset.backToTopSoglia`, default `'standard'` = 300px). Aspetto da utility globali
+ *  (`.fab` + `.surface-elevated`), si adatta light/dark senza variabili componente. */
 @Component({
   selector: 'app-back-to-top',
   imports: [TranslatePipe],

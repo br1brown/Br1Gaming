@@ -137,7 +137,7 @@ Task<string> ReadStaticFileAsync(string name, string dataPath, IMemoryCache cach
 
 Unico punto d'invio email del template (usa `MailKit`/`MimeKit`). Configurato in `global-settings.local.json` e iniettato come singleton.
 - **Accensione/Spegnimento**: Se la configurazione manca, `IsEnabled` è `false` e ogni invio lancia `MailNotConfiguredException`. Non serve cablaggio.
-- **Sicurezza e Hardening**: TLS sempre obbligatorio, subject sanitizzato, allegati limitati, e check sul dominio `To` (se `VerifyRecipientDomain` è true).
+- **Sicurezza e Hardening**: TLS sempre obbligatorio, subject sanitizzato, allegati limitati, e check sul dominio `To` (se `VerifyRecipientDomain` è true). `MailKit`/`MimeKit` fissati a ≥ 4.17.0 (fix CVE-2026-30227/CVE-2026-41319).
 - **In background**: L'uso raccomandato non blocca le richieste HTTP. Usa `IEmailQueue.TryEnqueue` e un worker manderà le mail in asincrono (retry 3 volte). `IEngineMailer.SendAsync` resta disponibile per chiamate dirette.
 
 ```csharp
@@ -719,6 +719,17 @@ Le lingue sono dichiarate una volta in `Localization.SupportedLanguages`; backen
 
 - **Backend** — dai codici, via `EngineCultures`/`CultureInfo`, per i propri usi: `UseRequestLocalization` (la cultura della richiesta da `Accept-Language`) e i **messaggi d'errore/validazione localizzati** (`.resx`).
 - **Frontend** — deriva tutto da `Intl` (ECMA-402/CLDR): locale, formattazione (date/valuta/numeri), nomi giorno e nomi nativi delle lingue. Autonomo (nessuna chiamata al backend, corretto anche offline) e disaccoppiato da come il backend gestisce la propria cultura.
+
+#### Riferimento `MediaOptions` e `NotificationsOptions` (`global-settings.json`)
+
+Altre opzioni di configurazione infrastrutturale configurabili in `global-settings.json`:
+
+- **`Media`**: controlla la variante web-ottimizzata dei file.
+  - `WebOptQuality` (`number`, default `85`): Qualità WebP usata dal converter.
+  - Le dimensioni ammesse per `?webopt=true&size=N` NON sono qui: sono una whitelist fissa dell'Engine (`AllowedWebOptSizes` in `EngineBlobController.cs`, rispecchiata lato frontend da `ALLOWED_WIDTHS` in `asset-config.ts`), non una scelta per-progetto.
+- **`Notifications`**: controlla i parametri di streaming (SSE).
+  - `HeartbeatSeconds` (`number`, default `25`): Frequenza in secondi dei frame keep-alive di `EngineNotificationStreamController`, per impedire il drop della connessione da parte del CDN/reverse proxy.
+  - `ReconnectDelaySeconds` (`number`, default `5`): Tempo suggerito al browser per la riconnessione (`retry:`).
 
 ### Sezione `Custom` (Configurazione Libera)
 

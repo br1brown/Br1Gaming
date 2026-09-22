@@ -4,12 +4,7 @@ namespace Backend.Diagnostics;
 // contratto del servizio. La chiamata HTTP verso il webhook resta in EngineErrorReporting.cs.
 // Stesso schema di Mail/Notifications/Delivery/Tasks.
 
-/// <summary>
-/// Istantanea immutabile di un errore da segnalare. Costruita SINCRONAMENTE dentro
-/// <see cref="Backend.Security.ApiExceptionHandler"/> prima di accodare la segnalazione: mai la
-/// <c>HttpContext</c> live, che Kestrel ricicla subito dopo la risposta e non è sicura da leggere
-/// da un task in background (stesso principio di <c>BackgroundQueue</c> altrove nel template).
-/// </summary>
+/// <summary>Istantanea immutabile di un errore, costruita SINCRONAMENTE prima di accodare la segnalazione: mai la <c>HttpContext</c> live, che Kestrel ricicla e non è sicura da leggere in background.</summary>
 public sealed record ErrorReport
 {
     /// <summary><c>Exception.Message</c> dell'errore originale.</summary>
@@ -36,12 +31,7 @@ public sealed record ErrorReport
     public string Source { get; init; } = "server";
 }
 
-/// <summary>
-/// Payload inviato dal browser per un'eccezione JavaScript non gestita — vedi
-/// <see cref="Backend.Controllers.EngineClientErrorController"/> e, lato frontend,
-/// <c>frontend/README.md</c> § Error Tracking. Tutti i campi opzionali: un <c>Error</c> del
-/// browser non garantisce sempre uno stack o un nome tipizzato.
-/// </summary>
+/// <summary>Payload inviato dal browser per un'eccezione JS non gestita. Tutti i campi opzionali: un <c>Error</c> del browser non garantisce sempre stack o nome tipizzato.</summary>
 public sealed record ClientErrorReport
 {
     /// <summary><c>Error.message</c> dell'eccezione originale.</summary>
@@ -57,29 +47,12 @@ public sealed record ClientErrorReport
     public string? StackTrace { get; init; }
 }
 
-/// <summary>
-/// Segnalazione errori dell'Engine: un punto d'ingresso unico, iniettato in DI (singleton), al
-/// posto di un provider di monitoring integrato a mano progetto per progetto. Superficie minima
-/// apposta — niente SDK di terze parti nell'Engine, un webhook HTTP generico (vedi
-/// <see cref="Backend.Models.Configuration.ErrorReportingOptions"/>): non è un sostituto di un
-/// vero APM (Sentry, Bugsnag...), è "avvisami quando qualcosa si rompe" senza dipendenze aggiuntive.
-/// </summary>
-/// <remarks>
-/// Chiamato da <see cref="Backend.Security.ApiExceptionHandler"/> per ogni eccezione non
-/// applicativa (bug veri, sempre un bug) o applicativa con status ≥500 (upstream/infrastruttura):
-/// mai per un 4xx applicativo (401/404/422...), che è traffico normale, non un errore da segnalare.
-/// La chiamata è accodata su <c>IBackgroundTaskQueue</c>, non attesa nella risposta HTTP: un
-/// webhook lento o giù non deve mai rallentare (o far fallire) la risposta di errore al client.
-/// </remarks>
+/// <summary>Segnalazione errori dell'Engine (singleton): webhook HTTP generico, non un sostituto di un vero APM. Chiamato solo per bug veri o status ≥500, mai per un 4xx applicativo; accodato su <c>IBackgroundTaskQueue</c>, mai atteso nella risposta HTTP.</summary>
 public interface IErrorReportingService
 {
-    /// <summary><see langword="true"/> se un webhook è configurato (vedi <see cref="Backend.Models.Configuration.ErrorReportingOptions.IsConfigured"/>).</summary>
+    /// <summary>Se un webhook è configurato.</summary>
     bool IsEnabled { get; }
 
-    /// <summary>
-    /// Invia la segnalazione al webhook configurato. Non lancia mai: un fallimento di rete o
-    /// dell'endpoint remoto viene loggato internamente, non deve mai propagare (segnalare un
-    /// errore non deve poter generarne un altro).
-    /// </summary>
+    /// <summary>Invia la segnalazione al webhook; non lancia mai (un fallimento viene solo loggato).</summary>
     Task ReportAsync(ErrorReport report, CancellationToken cancellationToken = default);
 }

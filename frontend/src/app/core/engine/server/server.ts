@@ -31,12 +31,7 @@ import { systemFontHandler } from './routes/system-font';
 /** Alias sulla sezione server senza requireEnv, valutata al caricamento del modulo */
 const { server: nodeCfg, site } = serverEnv;
 
-/** Host canonico da FRONTEND_BASE_URL (stesso valore che `PageMetaService.getCanonicalUrl()`
- *  forza nel tag canonical) — usato per il redirect 301 www/alias→canonico più sotto. `null` se
- *  `site.baseUrl` è assente o malformato (dev locale senza FRONTEND_BASE_URL: nessun redirect).
- *  Due varianti come per l'allowlist qui sopra: `Hostname` (senza porta) per il CONFRONTO con
- *  `request.hostname` (Express lo restituisce sempre senza porta, stessa convenzione già usata
- *  dal blocco host qui sopra), `Host` (con porta se presente) per COSTRUIRE l'URL di redirect. */
+/** Host canonico da FRONTEND_BASE_URL, per il redirect 301 www/alias→canonico sotto. Null se `site.baseUrl` è assente/malformato (dev locale: nessun redirect). `Hostname` (senza porta) per il confronto con `request.hostname`, `Host` (con porta) per costruire l'URL. */
 const canonicalHostname: string | null = (() => {
     try {
         return new URL(site.baseUrl).hostname.toLowerCase() || null;
@@ -209,15 +204,7 @@ app.use((request, response, next) => {
     });
 });
 
-/**
- * Normalizzazione SEO: 301 su host alias→canonico (es. `allowedHosts` accetta sia l'apex sia
- * `www.` durante una migrazione DNS, ma solo uno dei due è `FRONTEND_BASE_URL`/canonical) e su
- * slash finale (`/pagina/` → `/pagina`). Il tag `<link rel="canonical">` da solo dichiara quale
- * URL preferire, ma non impedisce a un crawler di indicizzare comunque anche la variante — qui
- * la variante non viene proprio servita, redirige e basta. `/health` resta escluso: è colpito da
- * probe di infrastruttura (IP interno, hostname diverso dal pubblico) che si aspettano 200 diretto,
- * non un redirect da seguire.
- */
+/** Normalizzazione SEO: 301 su host alias→canonico (es. www durante una migrazione DNS) e su slash finale. `<link rel="canonical">` da solo non impedisce l'indicizzazione della variante: qui non viene proprio servita. `/health` escluso (probe di infrastruttura si aspettano 200 diretto). */
 app.use((request, response, next) => {
     if (request.path === '/health' || (request.method !== 'GET' && request.method !== 'HEAD')) {
         next();

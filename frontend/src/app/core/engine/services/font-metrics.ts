@@ -2,30 +2,16 @@ import { SystemFont } from '../font-system';
 import { ContestoSito } from '../../../site';
 
 /**
- * FONT METRICS
- *
  * Misura della larghezza del testo senza canvas/DOM, per il layer server (Sharp/SSR) dove non
- * esiste `ctx.measureText`. Le metriche vivono in un dizionario `FONT_METRICS` keyed su
- * `SystemFont` (`core/engine/font-system.ts`), così ogni font ha i suoi valori e la misura resta
- * corretta anche cambiando il font scelto dal design system attivo.
- *
- * Le metriche reali le deriva a runtime il loader server (`server/server-font-metrics`), che legge
- * DIRETTAMENTE i file di `SYSTEM_FONTS` (percorso già noto, nessun `fc-match` — a differenza del
- * font custom di progetto, per il catalogo il path è verificato a priori, vedi font-system.ts) e
- * li parsa come TTF: così restano allineate ai file senza rigenerare a mano. Il loader si inietta
- * con `FontMetrics.configure`; gira pigro al primo `measure` e su QUALSIASI intoppo (file non
- * leggibile, numeri implausibili) cade sulle tabelle `FONT_METRICS` qui sotto. Quindi questo file
- * resta privo di dipendenze node, e le tabelle sono lo **snapshot di fallback** — non più l'unica
- * fonte.
- *
- * Le tabelle `advance` (unità/1000 em, code point 32–126) sono ESTRATTE dai font reali installati
- * nel container (Regular di ciascuna delle 11 voci di `SystemFont`) con lo stesso parser TTF di
- * `server/server-font-metrics.ts` (`head.unitsPerEm` + `cmap` + `hmtx`), non inventate. Per
- * rigenerare uno snapshot dopo un aggiornamento dei pacchetti Alpine: leggere `head.unitsPerEm` +
- * `cmap` + `hmtx` con un parser TTF (es. `fonttools`) e scalare `advance·1000/unitsPerEm`.
- * `fallbackAdvance` (≈ advance di 'o') copre i code point fuori tabella (accentate rare, emoji,
- * CJK). `boldFactor` = rapporto medio bold/regular sulle lettere. Limite noto: solo advance
- * per-glifo (niente kerning/ligature).
+ * esiste `ctx.measureText`. Le metriche reali le deriva a runtime `server/server-font-metrics.ts`
+ * parsando i TTF veri; questo file resta privo di dipendenze node e le tabelle `FONT_METRICS` sotto
+ * sono solo lo SNAPSHOT DI FALLBACK usato su qualsiasi intoppo del loader (file non leggibile,
+ * numeri implausibili) — non più l'unica fonte.
+ * Le tabelle `advance` (unità/1000 em) sono estratte dai font reali installati nel container con lo
+ * stesso parser TTF, non inventate. Per rigenerarle dopo un aggiornamento pacchetti Alpine: leggere
+ * `head.unitsPerEm`+`cmap`+`hmtx` con un parser TTF (es. fonttools) e scalare `advance·1000/unitsPerEm`.
+ * `fallbackAdvance` copre i code point fuori tabella; `boldFactor` = rapporto medio bold/regular.
+ * Limite noto: solo advance per-glifo, niente kerning/ligature.
  */
 
 /** Metriche di un singolo font, per il calcolo della larghezza testo lato server. */
@@ -245,12 +231,7 @@ let metricsLoader: ServerMetricsLoader | null = null;
 let activeMetrics: Record<string, FontMetric> | null = null;
 
 export class FontMetrics {
-    /**
-     * Registra il loader che legge le metriche dai font reali (vedi `server/server-font-metrics`).
-     * Lo chiama il layer server una volta sola, all'avvio; il loader gira pigro al primo `measure` e
-     * cade da solo su `FONT_METRICS` se i font non sono leggibili. Senza `configure` (o se il loader
-     * lancia) si usano direttamente le tabelle di fallback.
-     */
+    /** Registra il loader che legge le metriche dai font reali (chiamato una volta dal layer server all'avvio). Gira pigro al primo `measure`, cade su `FONT_METRICS` se i font non sono leggibili. */
     static configure(loader: ServerMetricsLoader): void {
         metricsLoader = loader;
         activeMetrics = null;
@@ -267,19 +248,7 @@ export class FontMetrics {
         return activeMetrics;
     }
 
-    /**
-     * Larghezza in pixel del testo al `fontSizePx` indicato, con le metriche del font server
-     * effettivo (`ContestoSito.config.fonts.serverKey`: il custom se impostato, altrimenti il default di
-     * sistema). `bold` applica la maggiorazione del peso 700. Se la chiave effettiva non ha
-     * metriche risolte (es. custom dichiarato ma file assente dalla cartella montata), ripiega su
-     * Liberation — mai un lookup a vuoto.
-     *
-     * Niente parametro `font`: la scelta vive solo nel design system attivo (`DesignSystemPreset.
-     * defaultFont`/`addonFonts`, risolti in `ContestoSito.config.fonts` — sorgente unica) ed è lo
-     * stesso font che genera l'SVG → misura e rendering coincidono sempre. La firma `(text, fontSizePx,
-     * bold)` combacia con `FitOptions.measureFn`, così `measure` si passa come callback nudo
-     * (es. `measureFn: FontMetrics.measure`), senza dipendere da `this` alla chiamata.
-     */
+    /** Larghezza in pixel del testo, con le metriche del font server effettivo (`ContestoSito.config.fonts.serverKey`); ripiega su Liberation se non risolte. Niente parametro `font`: la scelta vive solo nel design system, stesso font che genera l'SVG. Firma compatibile con `FitOptions.measureFn`. */
     static measure(text: string, fontSizePx: number, bold = false): number {
         const m = FontMetrics.resolve()[ContestoSito.config.fonts.serverKey] ?? FONT_METRICS[SystemFont.Liberation];
         let units = 0;

@@ -1,15 +1,18 @@
 /* ── Footer: colonne di navigazione (gruppi) — griglia fluida ────────
    auto-fit/minmax invece dei breakpoint Bootstrap fissi (col-lg-2), pensati
-   per il caso denso (tante colonne, tipo un Comune). Tetto massimo (240px)
-   e centratura come blocco, sempre — anche con un solo gruppo: la larghezza
-   piena, testata dal vivo, restava a sinistra, sbilanciata e poco estetica.
-   Poche colonne restano compatte invece di perdersi in un mare di vuoto;
-   molte smettono di allargarsi sotto la soglia leggibile (160px) e vanno a
-   capo. Nessun numero di colonne "giusto" da indovinare: si adatta da solo,
-   da 1 gruppo (vetrina) a 8+ (Comune). */
+   per il caso denso (tante colonne, tipo un Comune). Centratura come blocco,
+   sempre — anche con un solo gruppo: la larghezza piena, testata dal vivo,
+   restava a sinistra, sbilanciata e poco estetica.
+   `1fr` (non un tetto fisso tipo 240px) come massimo: con poche colonne (1-3,
+   il caso vetrina) le tracce si dividono lo spazio residuo del contenitore
+   invece di restare compresse alla larghezza minima con un mare di vuoto
+   intorno — proprio il difetto opposto già corretto sopra, solo sui pochi
+   gruppi anziché sul singolo. Con molte colonne (denso, tipo Comune) il
+   minimo leggibile (160px) resta l'unico vincolo che conta: superata la
+   soglia si va a capo esattamente come prima, `1fr` non cambia quel caso. */
 .footer-nav-groups {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 240px));
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     justify-content: center;
     gap: 1.5rem;
     text-align: start;

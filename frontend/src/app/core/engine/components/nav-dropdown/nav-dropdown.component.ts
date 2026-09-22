@@ -57,12 +57,9 @@ export class NavDropdownComponent {
                 }));
     }
 
-    /**
-     * All'apertura del dropdown di 1° livello calcola il tetto d'altezza: un gruppo con tanti
-     * figli scrolla al proprio interno invece di sforare il fondo pagina. Spazio libero REALE
-     * sotto il bottone (`rect.bottom`, non `rect.top` come nel submenu): il dropdown di 1° livello
-     * apre sotto il pulsante, non a fianco dell'ancora del gruppo padre.
-     */
+    /** All'apertura del dropdown di 1° livello calcola il tetto d'altezza (scrolla al proprio
+     *  interno invece di sforare il fondo pagina), da `rect.bottom` — non `rect.top` come nel
+     *  submenu: il dropdown di 1° livello apre sotto il pulsante, non a fianco dell'ancora. */
     private updateMaxHeight(): void {
         if (!this.isBrowser) return;
         const root = this.host.nativeElement.querySelector<HTMLElement>(':scope > .dropdown');

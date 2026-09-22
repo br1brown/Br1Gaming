@@ -4,17 +4,10 @@ import { FooterNavGroupComponent } from '../footer-nav-group/footer-nav-group.co
 import { FooterLinkRowComponent } from '../footer-link-row/footer-link-row.component';
 import { FooterEntry, footerLeafKey } from '../../shell-nav';
 
-/**
- * FOOTER NAV COMPONENT
- *
- * Render della griglia di link/gruppi risolti da `ShellNavService.footer()`.
- *  - Gruppi (`addGroup`): resi in una propria colonna tramite `FooterNavGroupComponent` — un gruppo
- *    può contenere link, pagine, campi Identity (`addField`), testo libero (`addText`) e social
- *    (`addSocialLink`), vedi `footer-nav-group.component.ts`.
- *  - Link sciolti (`addPage`/`addLink` top-level): raggruppati assieme in una riga compatta
- *    (`FooterLinkRowComponent`) per non consumare un'intera colonna. Solo link qui: `addField`/
- *    `addText`/`addSocialLink` esistono solo dentro un `addGroup` (vedi `FooterGroupBuilder`).
- */
+/** Render della griglia di link/gruppi risolti da `ShellNavService.footer()`: i gruppi (`addGroup`)
+ *  vanno in una colonna propria (`FooterNavGroupComponent`), i link sciolti top-level (`addPage`/
+ *  `addLink`) in una riga compatta (`FooterLinkRowComponent`) per non consumare un'intera colonna —
+ *  `addField`/`addText`/`addSocialLink` esistono solo dentro un `addGroup`. */
 @Component({
     selector: 'app-footer-nav',
     standalone: true,

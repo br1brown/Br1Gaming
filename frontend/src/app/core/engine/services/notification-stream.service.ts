@@ -6,14 +6,7 @@ import { TranslateService } from './translate.service';
 import { SSR_API_PREFIX } from './base-api.service';
 import { NotificationConnection } from './notification-connection';
 
-/**
- * Notifica realtime ricevuta dal server via SSE.
- *
- * Volutamente generica: `type` guida il dispatch e `payload` è libero, così le notifiche
- * NON sono solo testuali — possono trasportare qualsiasi struttura (link, immagini, dati di
- * un'entità, avanzamento, azioni…). Il toast di default copre il caso semplice; per il resto
- * si registra un handler per tipo con {@link NotificationStreamService.on}.
- */
+/** Notifica realtime via SSE. Volutamente generica: `type` guida il dispatch, `payload` è libero (link, immagini, dati, avanzamento...). Il toast di default copre il caso semplice, per il resto un handler per tipo via {@link NotificationStreamService.on}. */
 export interface StreamNotification<T = unknown> {
     /** Identificativo univoco del messaggio (per dedup/lista). */
     id: string;
@@ -25,13 +18,7 @@ export interface StreamNotification<T = unknown> {
     timestamp: string;
 }
 
-/**
- * Forma attesa dal toast di default (tipo `"toast"`).
- *
- * Per l'i18n il server manda preferibilmente una **chiave** (`messageKey`) + eventuali parametri,
- * così il testo è tradotto lato client nella lingua corrente; `message` resta per contenuto
- * letterale/dinamico senza chiave.
- */
+/** Forma attesa dal toast di default (tipo "toast"). Per l'i18n il server manda preferibilmente `messageKey` (tradotta lato client), `message` resta per contenuto letterale/dinamico senza chiave. */
 export interface ToastPayload {
     /** Testo letterale (contenuto dinamico senza chiave di traduzione). */
     message?: string;
@@ -46,15 +33,7 @@ export interface ToastPayload {
 /** Reazione registrata per un tipo di notifica. */
 export type NotificationHandler<T = unknown> = (notification: StreamNotification<T>) => void;
 
-/**
- * NOTIFICATION STREAM SERVICE
- *
- * Trasporto realtime SSE e dispatch delle notifiche. In SSR rimane inerte.
- * 
- * - Mantiene lo stato reattivo zoneless-safe (via signal) per lista, non-letti e connectionId.
- * - Esegue un dispatch per tipo (es. `toast` di default, o handler custom tramite `on()`).
- * - Attivazione lazy: apre la connessione solo alla prima iniezione nel browser.
- */
+/** Trasporto realtime SSE e dispatch delle notifiche; inerte in SSR. Stato reattivo via signal (lista, non-letti, connectionId), dispatch per tipo (toast di default o handler custom via `on()`), attivazione lazy alla prima iniezione nel browser. */
 @Injectable({ providedIn: 'root' })
 export class NotificationStreamService {
     /** Tetto della lista lato client: in una scheda longeva le notifiche non crescono all'infinito. */
@@ -168,12 +147,7 @@ export class NotificationStreamService {
         this.connection.set(null);
     }
 
-    /**
-     * Registra la reazione per un tipo di notifica, sovrascrivendo il default (toast).
-     * Qui rendi le notifiche "non solo testuali": l'handler può aprire un modale ricco
-     * (`notify.interact`), mostrare un'immagine, un link/azione, o pilotare un componente
-     * leggendo {@link notifications}.
-     */
+    /** Registra la reazione per un tipo di notifica, sovrascrivendo il default (toast): un modale ricco, un'immagine, un link/azione, o un componente che legge {@link notifications}. */
     on<T = unknown>(type: string, handler: NotificationHandler<T>): void {
         this.handlers.set(type, handler as NotificationHandler);
     }

@@ -25,16 +25,8 @@ const MARKDOWN_OPTIONS = {
     renderer: safeRenderer
 } as const;
 
-/**
- * MarkdownPipe — Converte testo Markdown in HTML sicuro (usando marked con GFM e breaks attivi).
- *
- * USO NEI TEMPLATE:
- *   <div [innerHTML]="testoMarkdown | markdown"></div>
- *
- * PROTEZIONE XSS: HTML grezzo e URL pericolosi vengono bloccati (renderer custom).
- *
- * Per l'uso da TypeScript, chiamare il metodo statico `MarkdownPipe.render(value)`.
- */
+/** Converte Markdown in HTML sicuro (`marked`, GFM + breaks): `<div [innerHTML]="testo | markdown">`.
+ *  HTML grezzo e URL pericolosi bloccati dal renderer custom sopra. Da TypeScript: `MarkdownPipe.render(value)`. */
 @Pipe({ name: 'markdown' })
 export class MarkdownPipe implements PipeTransform {
     transform(value: string): string {

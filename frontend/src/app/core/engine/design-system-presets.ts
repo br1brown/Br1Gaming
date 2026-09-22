@@ -1,30 +1,11 @@
 import { type FontChoice, type CustomFontDef, CUSTOM_FONT_KEY_PATTERN, isSystemFont } from './font-system';
 
-/**
- * Design system: bundle di campi granulari (tono, superfici, chrome per ruolo, palette, font) che
- * decide l'aspetto del sito — l'UNICA fonte di questi campi, sempre una funzione
- * (`DesignSystemFactory`), mai un letterale statico. `extendDesignSystem` sotto è l'UNICA grammatica
- * per scriverne uno, Engine o dominio — preset condivisi in `components/shared/design-systems/
- * engine/`, dettaglio in frontend/README.md §"Preset di Design System".
- */
+/** Design system: bundle di campi (tono, superfici, chrome per ruolo, palette, font), sempre una funzione (`DesignSystemFactory`), mai un letterale statico. Grammatica: `extendDesignSystem` sotto. */
 
-/**
- * Ruolo dichiarato da una pagina (`layout.role`) — CHE COSA è, non COME appare: lo decide il design
- * system attivo (`ruoloPagina`). 4 di serie: `'default'`/`'legal'`/`'error'`/`'naked'` (l'unico
- * forzato, vedi `NAKED_CHROME`). `(string & {})` accetta anche ruoli custom, registrati con la loro
- * chiave in `ruoloPagina` e validati a runtime da `assertRuoloConosciuto` (siteBuilder.ts), non dal
- * compilatore. Dettaglio: frontend/README.md §"Ruoli di Pagina".
- */
+/** Ruolo dichiarato da una pagina (`layout.role`): CHE COSA è, non COME appare (lo decide `ruoloPagina`). 4 di serie + ruoli custom `(string & {})`, validati a runtime da `assertRuoloConosciuto`. */
 export type PageRole = 'default' | 'legal' | 'error' | 'naked' | (string & {});
 
-/**
- * Comportamento di un ruolo, campo per campo. `showNav`/`showFooter`/`showBreadcrumb`/`pageFade`/
- * `showBrandIcon` hanno un interruttore MASTER sul campo globale omonimo (`false` esplicito blocca
- * ogni ruolo); `showPanel` ha lo stesso tipo di master ma su un campo DIVERSO, non omonimo —
- * `DesignSystemPreset.superfici` (derivato, vedi lì) — stesso pattern di `showSmoke`, puramente
- * per-ruolo ma comunque subordinato a `smoke.enable`; `fitViewport` è l'unico senza alcun master.
- * Dettaglio: frontend/README.md §"Ruoli di Pagina".
- */
+/** Comportamento di un ruolo, campo per campo. La maggior parte ha un master sul campo globale omonimo; `showPanel` sul campo diverso `DesignSystemPreset.superfici`; `fitViewport` non ha master. */
 export interface SpecRuoloPagina {
     /** Mostra la navbar su questo ruolo. Stessa regola/eccezione master di `DesignSystemPreset.showNav`. */
     showNav?: boolean;
@@ -55,11 +36,7 @@ export const ERROR_CHROME_DEFAULT: SpecRuoloPagina = { showPanel: false };
 /** Default di Engine per `'legal'` — niente smoke decorativo, scostabile mappando `ruoloPagina.legal.showSmoke`. */
 export const LEGAL_CHROME_DEFAULT: SpecRuoloPagina = { showSmoke: false };
 
-/** Configurazione RISOLTA dell'effetto smoke (particellare, decorativo) — quella che
- *  `SmokeEffectComponent` consuma davvero (velocità/raggio/densità grezzi della simulazione).
- *  Un design system NON scrive questa forma direttamente: scrive `SmokePreset` sotto (`intensita`),
- *  `buildSite()` la risolve in questa tramite `SMOKE_INTENSITY`. Territorio del design system,
- *  non `global-settings.json`. */
+/** Configurazione RISOLTA dell'effetto smoke, quella che `SmokeEffectComponent` consuma. Un design system non la scrive direttamente: scrive `SmokePreset` (`intensita`), `buildSite()` la risolve via `SMOKE_INTENSITY`. */
 export interface SmokeSettings {
     enable: boolean;
     color: string;
@@ -69,30 +46,17 @@ export interface SmokeSettings {
     density: number;
 }
 
-/** 3 gradi di presenza dell'effetto smoke, crescenti — nomi skeuomorfici come `superfici`
- *  (fenomeni atmosferici di densità crescente), non i 3 numeri grezzi della simulazione
- *  (`maximumVelocity`/`particleRadius`/`density`) che stanno dietro. Vedi `SMOKE_INTENSITY` per i
- *  valori, `DesignSystemPreset.smoke` per l'uso pratico. */
+/** 3 gradi crescenti dell'effetto smoke, nomi skeuomorfici come `superfici`, non i numeri grezzi della simulazione. Vedi `SMOKE_INTENSITY`. */
 export type SmokeIntensity = 'pulviscolo' | 'bruma' | 'nebbia';
 
-/** Valori grezzi della simulazione dietro ogni `SmokeIntensity` — SOLO uso interno di `buildSite()`
- *  per risolvere `SmokePreset.intensita` in `SmokeSettings`, mai scritti a mano da un design
- *  system. `'pulviscolo'`: puntini piccoli, lenti, radi. `'bruma'`: macchie medie, deriva
- *  moderata. `'nebbia'`: macchie grandi e dense, molto presente. */
+/** Valori grezzi dietro ogni `SmokeIntensity`, uso interno di `buildSite()` — mai scritti a mano da un design system. */
 export const SMOKE_INTENSITY: Record<SmokeIntensity, Pick<SmokeSettings, 'maximumVelocity' | 'particleRadius' | 'density'>> = {
     pulviscolo: { maximumVelocity: 8, particleRadius: 6, density: 10 },
     bruma: { maximumVelocity: 40, particleRadius: 80, density: 16 },
     nebbia: { maximumVelocity: 100, particleRadius: 220, density: 20 },
 };
 
-/**
- * Configurazione dell'effetto smoke COME LA SCRIVE un design system — `color`/`opacity` restano
- * override diretti (già intuitivi: un hex, un alpha 0-1), ma niente `maximumVelocity`/
- * `particleRadius`/`density` grezzi: quei tre numeri sono parametri della simulazione, non una
- * decisione di design, e il loro range utile dipende da un fattore di scala interno a
- * `SmokeEffectComponent` che nessun design system dovrebbe dover conoscere. Al loro posto,
- * `intensita` (un `SmokeIntensity`, default `'pulviscolo'` se `enable: true` e non specificata).
- */
+/** Configurazione smoke COME LA SCRIVE un design system: `color`/`opacity` restano override diretti, ma niente parametri grezzi della simulazione — al loro posto `intensita` (default 'pulviscolo' se `enable: true`). */
 export interface SmokePreset {
     enable: boolean;
     color: string;
@@ -100,36 +64,20 @@ export interface SmokePreset {
     intensita?: SmokeIntensity;
 }
 
-/** 3 velocità nominate per OGNI gesto d'apertura/transizione dell'interfaccia (fade di pagina,
- *  dropdown/submenu di navbar, context-menu, lightbox) — un solo asse invece di 4 durate scelte
- *  indipendentemente per ognuno (il difetto che questo campo corregge: oggi 0.25s/0.15s/0.12s/
- *  0.16s per lo stesso identico gesto "un pannello compare"). Non è un valore in ms/s scelto a
- *  mano: solo i 3 gradi con un carattere riconoscibile sono esposti, stesso principio di
- *  `superfici`/`smoke.intensita`. */
+/** 3 velocità nominate per ogni gesto d'apertura/transizione (fade pagina, dropdown, lightbox): un solo asse invece di durate scelte indipendentemente per ognuno. Stesso principio di `superfici`/`smoke.intensita`. */
 export type Movimento = 'scatto' | 'svelto' | 'morbido';
 
-/** Durate grezze dietro ogni `Movimento` — SOLO uso interno di `AppearanceService`, mai scritte a mano
- *  da un design system. `pagina`: fade-in del contenuto di pagina (`.page-fade`). `pannello`:
- *  apertura di dropdown/submenu/context-menu/lightbox — un gesto più piccolo, sempre più rapido
- *  del fade di pagina a parità di grado. `'svelto'` (default) riprende i valori storici più
- *  diffusi nel codice (0.25s pagina, 0.15s pannello). */
+/** Durate grezze dietro ogni `Movimento`, uso interno di `AppearanceService`. `pannello` (dropdown/submenu/lightbox) sempre più rapido del fade `pagina` a parità di grado. 'svelto' (default) = valori storici. */
 export const MOVIMENTO_DURATA: Record<Movimento, { pagina: string; pannello: string }> = {
     scatto: { pagina: '0.15s', pannello: '0.1s' },
     svelto: { pagina: '0.25s', pannello: '0.15s' },
     morbido: { pagina: '0.45s', pannello: '0.28s' },
 };
 
-/** 3 gradi nominati di "quanto un pannello elevato (dropdown/submenu/context-menu/`.fab`/
- *  `.surface-elevated`) si stacca dalla superficie sotto" — ombra E raggio d'angolo insieme, non
- *  separabili (stessa idea di `superfici`: una sensazione unica, non due numeri da tenere
- *  sincronizzati). Corregge lo stesso difetto di `Movimento`: oggi l'ombra è un unico valore
- *  fisso ovunque MA il raggio d'angolo diverge già senza motivo fra dropdown (0.85rem) e
- *  context-menu (8px). */
+/** 3 gradi di "quanto un pannello elevato si stacca dalla superficie sotto": ombra E raggio d'angolo insieme, non separabili (stessa idea di `superfici`). */
 export type Elevazione = 'piatta' | 'sospesa' | 'flottante';
 
-/** Valori grezzi dietro ogni `Elevazione` — SOLO uso interno di `AppearanceService`, mai scritti a
- *  mano. `'sospesa'` (default) riprende l'ombra storica di `--shadowElevated`/
- *  `--shadowElevatedHover` e il raggio storico del dropdown navbar (0.85rem). */
+/** Valori grezzi dietro ogni `Elevazione`, uso interno di `AppearanceService`. 'sospesa' (default) = valori storici. */
 export const ELEVAZIONE_TIERS: Record<Elevazione, { ombra: string; ombraHover: string; raggio: string }> = {
     piatta: { ombra: '0 1px 3px rgba(0, 0, 0, 0.10)', ombraHover: '0 2px 6px rgba(0, 0, 0, 0.14)', raggio: '0.35rem' },
     sospesa: { ombra: '0 10px 24px rgba(0, 0, 0, 0.18)', ombraHover: '0 14px 28px rgba(0, 0, 0, 0.24)', raggio: '0.85rem' },
@@ -175,14 +123,7 @@ export const MUTEZZA_SECONDARIO_FATTORE: Record<MutezzaSecondario, number> = {
     satura: 1,
 };
 
-/** 3 intensità nominate per lo scurimento hover/active dei bottoni pieni (`.btn-primary`/
- *  `.btn-secondary`/`.btn-info`) — oggi percentuali fisse (12/16/18/22%) identiche per ogni
- *  design system, indipendenti da quanto "vivace" vuole sentirsi il feedback interattivo. In DARK
- *  lo scurimento hover/active è un trade-off già accettato dell'engine (`_bootstrap-theme.scss`,
- *  commento su `.btn-primary`): il boundary TRANSITORIO scende sotto WCAG 1.4.11 mentre il testo
- *  resta sempre ≥5.9:1 e lo stato a RIPOSO resta ≥3.2:1 (garantito altrove, non da questo campo).
- *  `'decisa'` spinge un po' più in là lo stesso trade-off già presente oggi, non ne introduce uno
- *  nuovo. */
+/** 3 intensità nominate per lo scurimento hover/active dei bottoni pieni. In dark il boundary TRANSITORIO può scendere sotto WCAG 1.4.11 (trade-off già accettato, testo e stato a riposo restano garantiti altrove): `'decisa'` lo spinge un po' più in là, non ne introduce uno nuovo. */
 export type HoverIntensity = 'lieve' | 'standard' | 'decisa';
 
 /** Percentuali grezze di `color-mix` verso il nero dietro ogni `HoverIntensity` — SOLO uso interno
@@ -313,59 +254,23 @@ export interface DesignSystemPreset {
     /**
      * Override dei quattro colori derivati opzionali. `colorBackground`/`colorText` restano un
      * suggerimento (garanzia WCAG sempre attiva); `colorSecondary`/`colorInfo` sono override
-     * "duri" (l'hex esatto, nessuna garanzia). Dettaglio: frontend/README.md §"Override opzionali".
+     * "duri" (l'hex esatto, nessuna garanzia).
      */
     colorBackground?: string;
     colorSecondary?: string;
     colorText?: string;
     colorInfo?: string;
-    /**
-     * Identità visiva delle superfici del sito — DUE cose insieme, non separabili: quanto pannello/
-     * navbar/footer/hover/bordi restano DISTINTI fra loro o si FONDONO nello stesso colore, E se il
-     * pannello contenuti (`.content-panel`) è presente. Interruttore MASTER su
-     * `SpecRuoloPagina.showPanel` esattamente come `showNav`/`showFooter`/ecc. lo sono sui propri
-     * campi omonimi (stesso pattern di `smoke.enable` su `showSmoke`) — un ruolo non può riaccendere
-     * il pannello se il valore scelto qui non ce l'ha, può sempre spegnerlo se ce l'ha.
-     *
-     * Nomi skeuomorfici come i preset condivisi (Aria/Carta/Lavagna/.../Muro, §"Preset di Design
-     * System") — la sensazione fisica, non i due booleani sottostanti. 5 valori, ogni combinazione
-     * esprimibile è una scelta sensata (nessuna coppia vividezza/pannello senza senso
-     * rappresentabile):
-     * - `'foglio'` (*assente* = stesso identico comportamento, mai divergono): neutro
-     *   (`colorBase*`/`colorSurface*`/ecc. near-black/near-white appena tinti, il dark/light mode
-     *   classico), PANNELLO ACCESO — il contenuto su un foglio sopra una superficie neutra, il
-     *   comportamento storico, invariato per chi non tocca questo campo.
-     * - `'distinte'`: stesso neutro di `'foglio'`, PANNELLO SPENTO — il contenuto vive direttamente
-     *   sulla superficie, senza un foglio a parte.
-     * - `'tenue'`: a metà strada fra neutro e tinta piena, PANNELLO SPENTO.
-     * - `'tenue-flotting'`: stessa via di mezzo, PANNELLO ACCESO — il foglio resta a galla sopra una
-     *   superficie già colorata, non più neutra.
-     * - `'fusione'`: tinta piena — tutte le superfici diventano il colore ESATTO del brand, un unico
-     *   campo di colore continuo — PANNELLO SEMPRE SPENTO, nessuna variante "flotting": un foglio di
-     *   tono diverso vanificherebbe la fusione, uno dello stesso colore sarebbe indistinguibile dal
-     *   resto (vedi `muro.design-system.ts`).
-     *
-     * Uso pratico — quale scegliere:
-     * - Non tocchi questo campo → hai già `'foglio'`, il comportamento di sempre. Non serve
-     *   dichiararlo per "essere espliciti": è ridondante, non più chiaro.
-     * - Vuoi un sito "a tinta piena" senza pannello, il caso di `muro` → `'fusione'`, punto: non
-     *   c'è altro da combinare (niente `showPanel` a parte, vedi sopra).
-     * - Vuoi una tinta via di mezzo ma NON vuoi perdere il pannello → `'tenue-flotting'`.
-     * - Vuoi il pannello spento ma SENZA la tinta piena di `'fusione'` (un'identità piatta, non
-     *   satura) → `'distinte'`.
-     *
-     * Dettaglio: frontend/README.md §"Sfondo a tinta piena".
-     */
+    /** Identità visiva delle superfici: quanto si distinguono/fondono col brand, E se il pannello contenuti è presente (master su `SpecRuoloPagina.showPanel`, stesso pattern di `smoke.enable`). 5 valori nominati. Default (assente) = `'foglio'`. */
     superfici?: 'foglio' | 'distinte' | 'tenue' | 'tenue-flotting' | 'fusione';
     /**
      * Colori con nome proprio oltre ai quattro slot fissi — override "duro" come `colorSecondary`,
      * esposto come `--color<Label>`/`--color<Label>Text`. Etichette riservate rifiutate a
-     * validazione (`RESERVED_PALETTE_LABELS` sotto). Dettaglio: frontend/README.md §"Colori con nome proprio".
+     * validazione (`RESERVED_PALETTE_LABELS` sotto).
      */
     customPalette?: Record<string, string>;
     /** Effetto smoke, decorativo. `enable` è l'interruttore MASTER, `intensita` sceglie il grado di
      *  presenza (`SmokeIntensity`, vedi `SmokePreset` sopra) — non i numeri grezzi della
-     *  simulazione. Dettaglio: frontend/README.md §"Effetto smoke". */
+     *  simulazione. */
     smoke?: Partial<SmokePreset>;
     /** Velocità dei gesti d'apertura/transizione (fade di pagina, dropdown/submenu/context-menu/
      *  lightbox) — vedi `Movimento`/`MOVIMENTO_DURATA` sopra. Default `'svelto'`. */
@@ -379,6 +284,11 @@ export interface DesignSystemPreset {
     /** Separatore fra le voci del breadcrumb — vedi `BreadcrumbStile`/`BREADCRUMB_SEPARATORE`
      *  sopra. Default `'traccia'`. */
     breadcrumbStile?: BreadcrumbStile;
+    /** Soglia oltre la quale `BreadcrumbComponent` tronca il trail a "Home … penultimo ultimo"
+     *  invece di mostrare ogni livello — `'none'` disattiva il troncamento (mostra sempre l'intero
+     *  trail, utile per una tassonomia profonda — es. e-commerce categoria/sottocategoria/prodotto
+     *  — dove ogni livello è informazione utile). Default `4` (comportamento storico). */
+    breadcrumbMaxItems?: number | 'none';
     /** Saturazione del `secondary` auto-calcolato (ignorato se `colorSecondary` è overridden) —
      *  vedi `MutezzaSecondario`/`MUTEZZA_SECONDARIO_FATTORE` sopra. Default `'standard'`. */
     mutezzaSecondario?: MutezzaSecondario;
@@ -405,42 +315,11 @@ export interface DesignSystemPreset {
     pulsazioneAttiva?: PulsazioneAttiva;
     /** Se l'og:image mostra solo lo sfondo, senza titolo/favicon sovrapposti. Default `false`. */
     ogImagePlain?: boolean;
-    /**
-     * Personalizzazione facoltativa di testo/font SOLO per l'immagine OG (titolo/sottotitolo) —
-     * MAI per il resto del sito, che resta sempre su `defaultFont`/i testi di pagina reali. Assente
-     * (il caso comune): l'immagine OG mostra `title`/`subtitle` così come sono, nel `defaultFont`
-     * del sito — la bussola di ogni campo di questo bundle, qui compresa: un design system che non
-     * la tocca si comporta esattamente come uno che non sa che esiste.
-     *
-     * `font`, se restituito, deve essere lo stesso `defaultFont` o una voce già dichiarata in
-     * `addonFonts` — MAI un font nuovo scritto qui al volo: un `SystemFont` è sempre valido (il
-     * catalogo è sempre raggiungibile, indipendentemente da cosa il sito ha scelto), un
-     * `CustomFontDef` deve invece coincidere per `key` con uno già registrato altrove (`defaultFont`
-     * o `addonFonts`), l'unico modo per restare dentro le stesse garanzie di reachability/
-     * correzione server (`fc-scan`, `custom-font-detect.ts`) già valide per ogni altro font del
-     * catalogo — mai una seconda fonte di verità scollegata. Un valore non valido viene ignorato
-     * (si ripiega sul `defaultFont` del sito), mai un errore/crash: stesso trattamento silenzioso
-     * di ogni altro campo opzionale di questo bundle.
-     */
+    /** Personalizzazione facoltativa di testo/font SOLO per l'immagine OG, mai per il resto del sito. Assente: mostra title/subtitle così come sono, nel defaultFont. `font`, se restituito, deve coincidere con `defaultFont` o una voce già in `addonFonts` (mai un font nuovo al volo). Valore non valido ⇒ ignorato, ripiega sul defaultFont. */
     ogTextTransform?: (input: OgTextTransformInput) => OgTextTransformResult;
-    /** Font del sito, un solo campo per tutto (nessuna distinzione titoli/corpo) — un `FontChoice`
-     *  (font-system.ts): una voce di `SystemFont` (già installata nel container) O un `CustomFontDef`
-     *  pieno (`{key, family, faces}`, scritto qui direttamente — cartella `fonts/`, accanto a
-     *  `global-settings.json`), non una `string` che rimanda altrove — stesso meccanismo per
-     *  entrambi, self-hosted via `@font-face` per il browser E usato per nome dal rendering server
-     *  delle immagini OG. Assente: font puro di sistema, nessuna opinione (`aria.design-system.ts`).
-     *  Un font diverso solo sui titoli non è un campo di questo bundle: si registra in `addonFonts`
-     *  e si scrive la regola CSS su `h1`-`h6` a mano (`--fontFamily-<key>`, `frontend/README.md`
-     *  §"Font: `SystemFont` + `addonFonts`"). */
+    /** Font del sito, un solo campo per tutto: un `FontChoice` (SystemFont o CustomFontDef pieno), self-hosted via @font-face e usato per nome dal rendering server delle OG image. Assente: font puro di sistema. Font diverso solo sui titoli → `addonFonts` + regola CSS a mano. */
     defaultFont?: FontChoice;
-    /** Font "aggiuntivi" di questo sito — zero o più `FontChoice` (una voce di `SystemFont`, o un
-     *  `CustomFontDef` pieno per un font caricato dal progetto — nessun uso del sistema di
-     *  asset/mapping, i file restano nella cartella `fonts/`), ognuno raggiungibile per `key` da
-     *  SCSS di progetto via `--fontFamily-<key>` (sempre disponibile, scelto o no come font del
-     *  sito). Registrare un font qui NON lo rende attivo: `defaultFont` resta l'unico modo
-     *  esplicito di scegliere il font attivo, nessuna eccezione — utile per esporre un secondo
-     *  font di sistema (es. `--fontFamily-Roboto`) oltre a quello scelto in `defaultFont`, senza
-     *  ridichiararlo. */
+    /** Font aggiuntivi, ognuno raggiungibile per key da SCSS via `--fontFamily-<key>`. Registrarlo qui NON lo rende attivo: solo `defaultFont` sceglie il font attivo. */
     addonFonts?: readonly FontChoice[];
 }
 
@@ -528,6 +407,15 @@ export function validateDesignSystemPreset(name: string, preset: DesignSystemPre
     if (smoke?.opacity != null && (smoke.opacity < 0 || smoke.opacity > 1)) {
         throw new Error(`[DesignSystem] "${name}".smoke.opacity=${smoke.opacity} deve essere tra 0 e 1.`);
     }
+    const maxItems = preset.breadcrumbMaxItems;
+    if (maxItems != null && maxItems !== 'none' && (!Number.isInteger(maxItems) || maxItems < 3)) {
+        throw new Error(
+            `[DesignSystem] "${name}".breadcrumbMaxItems=${maxItems} non valido: deve essere un ` +
+            `intero >= 3 (il troncamento mostra sempre 4 voci: Home, "…", penultimo, ultimo — sotto 3 ` +
+            `il confronto "length > maxItems" troncherebbe un trail più corto del risultato troncato ` +
+            `stesso) oppure la stringa 'none'.`
+        );
+    }
     if (preset.defaultFont != null && typeof preset.defaultFont !== 'string') {
         checkCustomFontDef(name, 'defaultFont', preset.defaultFont);
     }
@@ -610,11 +498,9 @@ function mergeDesignSystemPreset(base: DesignSystemPreset, patch: Partial<Design
 }
 
 /**
- * Grammatica UNICA per scrivere un design system, Engine o dominio: estende un altro
- * (`emptyDesignSystem`, un preset condiviso, o un altro `extendDesignSystem`) con un patch piatto —
- * un ruolo custom si registra scrivendo la sua chiave in `ruoloPagina`. `patch` può anche essere una
- * funzione che riceve `base` già risolto, per un override calcolato. Dettaglio:
- * frontend/README.md §"Preset di Design System".
+ * Grammatica UNICA per scrivere un design system: estende un altro (`emptyDesignSystem`, un preset
+ * condiviso, o un altro `extendDesignSystem`) con un patch piatto, anche una funzione di `base` già
+ * risolto per un override calcolato.
  * ```typescript
  * import { muroDesignSystem } from '../../../components/shared/design-systems/engine/muro.design-system';
  *
@@ -623,12 +509,8 @@ function mergeDesignSystemPreset(base: DesignSystemPreset, patch: Partial<Design
  *     ruoloPagina: { sidebar: { showNav: false } },  // ruolo custom: la chiave stessa lo registra
  * });
  * ```
- *
- * `defaultFont`/`addonFonts` sono `FontChoice` semplici (`SystemFont | CustomFontDef`, vedi
- * `font-system.ts`) — un font custom si scrive come oggetto letterale DIRETTAMENTE nel campo che
- * lo usa, mai come `string` che rimanda a un'altra dichiarazione: niente da tenere allineato fra
- * due campi, niente indirezione da validare a compile-time. Dettaglio ed esempio completo:
- * `frontend/README.md` §"Font: `SystemFont` + `addonFonts`".
+ * Un font custom si scrive come oggetto letterale direttamente nel campo che lo usa, mai come
+ * stringa che rimanda altrove.
  * ```typescript
  * export const clienteX = extendDesignSystem(cartaDesignSystem, {
  *     defaultFont: { key: 'brand', family: 'MiaFontBrand', faces: [{ file: 'MiaFontBrand.woff2', weight: 400, style: 'normal' }] },

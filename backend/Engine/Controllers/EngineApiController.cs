@@ -41,30 +41,13 @@ public abstract class EngineApiController : ControllerBase
     /// <summary>Consegna esiti con switch realtime/email: <c>Delivery.DeliverAsync(message)</c>.</summary>
     protected IDeliveryService Delivery => HttpContext.RequestServices.GetRequiredService<IDeliveryService>();
 
-    /// <summary>
-    /// Avvisa il frontend che un catalogo dietro <c>dynamicParams</c> è cambiato, invalidando la
-    /// cache della sitemap: <c>Sitemap.NotifyChangedAsync()</c>. Spento finché <c>Frontend.Origin</c>
-    /// non è configurato (no-op silenzioso, vedi <see cref="SitemapNotifier"/>).
-    /// </summary>
+    /// <summary>Invalida la cache sitemap (<c>Sitemap.NotifyChangedAsync()</c>); no-op silenzioso finché <c>Frontend.Origin</c> non è configurato.</summary>
     protected SitemapNotifier Sitemap => HttpContext.RequestServices.GetRequiredService<SitemapNotifier>();
 
-    /// <summary>
-    /// Cifratura generica AES-GCM: <c>Crypto.Encrypt(bytes)</c> / <c>Crypto.Decrypt(blob)</c>.
-    /// </summary>
-    /// <remarks>
-    /// Risolta on-demand come le altre proprietà ambient sopra, non iniettata nel costruttore:
-    /// <see cref="EngineCrypto"/> lancia se <c>Security.CryptoSecret</c> è vuota, e un'iniezione nel
-    /// costruttore la costruirebbe (quindi farebbe fallire) a ogni richiesta del controller, anche
-    /// quando l'azione non ha alcun payload da cifrare — es. <c>EngineDataPrivacyController</c> con lo
-    /// store di dati personali di default (nessun dato, niente da proteggere).
-    /// </remarks>
+    /// <summary>Cifratura AES-GCM. Risolta on-demand (non nel costruttore): <see cref="EngineCrypto"/> lancia se <c>Security.CryptoSecret</c> è vuota, e costruirla sempre farebbe fallire anche le azioni che non cifrano nulla.</summary>
     protected IEngineCrypto Crypto => HttpContext.RequestServices.GetRequiredService<IEngineCrypto>();
 
-    /// <summary>
-    /// connectionId della SSE del chiamante (header <c>X-Connection-Id</c>, aggiunto in automatico dal
-    /// frontend quando lo stream è attivo), oppure <c>null</c>. Permette di notificare "questa scheda"
-    /// senza un parametro nelle firme degli endpoint; <c>null</c> ⇒ nessuna connessione da targettare.
-    /// </summary>
+    /// <summary>connectionId della SSE del chiamante (header X-Connection-Id) o null; targeta "questa scheda" senza un parametro nelle firme degli endpoint.</summary>
     protected string? ConnectionId
     {
         get
@@ -74,12 +57,7 @@ public abstract class EngineApiController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Cultura della richiesta, risolta da <c>Accept-Language</c> da <c>UseRequestLocalization</c>
-    /// (es. <c>it-IT</c>/<c>it</c>). Comodità per non ricordarne la fonte: legge
-    /// <see cref="CultureInfo.CurrentCulture"/>, NON l'header — nei service (che non ereditano dal
-    /// base) si usa direttamente <see cref="CultureInfo.CurrentCulture"/>.
-    /// </summary>
+    /// <summary>Cultura della richiesta, risolta da Accept-Language via UseRequestLocalization. Nei service (che non ereditano dalla base) si usa direttamente <see cref="CultureInfo.CurrentCulture"/>.</summary>
     protected CultureInfo CurrentCulture => CultureInfo.CurrentCulture;
 
     /// <summary>Codice lingua a due lettere della richiesta (es. <c>"it"</c>), la forma usata dal <c>FileContentStore</c>.</summary>

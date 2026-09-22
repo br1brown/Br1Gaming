@@ -4,17 +4,10 @@ import { TranslateService } from '../../services/translate.service';
 import { NotificationStreamService, type StreamNotification } from '../../services/notification-stream.service';
 import { ContestoSito } from '../../../../site';
 
-/**
- * Campanellino delle notifiche realtime nella navbar.
- *
- * Mostrato dall'Engine quando `shell.showNotifications` è attivo (opt-in). Iniettare questo
- * componente attiva il {@link NotificationStreamService} (apre lo stream SSE e idrata lo storico
- * dal server). Visualizza un badge con le notifiche non lette e un pannello con lo storico;
- * la storia vive nel servizio (signal + recupero dal server), qui si rende soltanto.
- *
- * Accessibilità: il nome del pulsante include il conteggio non lette, una regione `aria-live`
- * annuncia gli arrivi dal vivo, `Esc` chiude il pannello, le voci sono una lista semantica.
- */
+/** Campanellino delle notifiche realtime nella navbar, mostrato quando `shell.showNotifications`
+ *  è attivo. Iniettarlo attiva {@link NotificationStreamService} (stream SSE + storico dal server);
+ *  lo stato vive nel servizio, qui si rende soltanto. A11y: nome pulsante con conteggio non lette,
+ *  `aria-live` sugli arrivi dal vivo, `Esc` chiude il pannello. */
 @Component({
     selector: 'app-notification-bell',
     imports: [TranslatePipe],

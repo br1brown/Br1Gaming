@@ -1,45 +1,12 @@
-/**
- * FONT SYSTEM (Engine) — catalogo, tipi, risoluzione. La scelta del progetto è una decisione
- * estetica come colore/pannello/nav: vive nel design system attivo (`DesignSystemPreset.
- * defaultFont`/`addonFonts`, `design-system-presets.ts`), non in un file separato — cambiare
- * design system cambia anche il font, di proposito. Un solo font per l'intero sito: nessun campo
- * dedicato per un font diverso sui titoli — chi lo vuole registra quel font in `addonFonts` (un
- * `SystemFont` o un font caricato) e scrive la regola CSS su `h1`-`h6` a mano, come qualunque altra
- * personalizzazione di progetto (`--fontFamily-<key>`, vedi `CustomFontVar`).
- *
- * UN meccanismo per ogni font, di sistema o di progetto: `FontChoice` (= `SystemFont` o un
- * `CustomFontDef` pieno) è risolto sempre allo stesso modo — self-hosted via `@font-face`, file
- * reali serviti da `/cdn-cgi/font/:key/:index` (`server/routes/system-font.ts`) — e lo stesso file
- * è quello che il rendering server delle immagini OG usa per nome via fontconfig (`PreviewBuilder`).
- * Prima di questo file `WEB_FONTS` (nomi di sistema come "Times New Roman"/"Georgia" — sperati
- * sull'OS del visitatore, mai garantiti) e `SERVER_FONTS` (font realmente installati nel
- * container, ma un catalogo scollegato) erano due scelte indipendenti: un preset poteva mostrare
- * in pagina un serif generico su un OS senza Times, mentre l'immagine di anteprima social usava
- * tutt'altro font. Un font custom di progetto era poi un TERZO meccanismo ancora (`/assets/fonts/`,
- * un solo file, gestito a parte). `SystemFont`+`CustomFontDef` chiudono entrambi i divari: stesso
- * endpoint, stessa forma (chiave → famiglia → facce), sia per gli 11 font già nel container
- * (Apache/OFL, `apk add` nel Dockerfile) sia per quelli caricati dal progetto in `fonts/`.
- */
+/** Font System (Engine): catalogo, tipi, risoluzione. La scelta vive nel design system attivo
+ *  (`DesignSystemPreset.defaultFont`/`addonFonts`), non in un file a parte. Un solo meccanismo per
+ *  ogni font: `FontChoice` è sempre self-hosted via @font-face, stesso file che il rendering
+ *  server delle OG image usa per nome via fontconfig. */
 
-/** Percorso radice dei font di sistema nel container — installati da `apk add font-roboto
- *  font-noto font-liberation font-dejavu font-opensans font-jetbrains-mono` (`frontend/Dockerfile`).
- *  Verificato contro il contenuto REALE dei 6 pacchetti Alpine (non un percorso indovinato):
- *  stabile da Alpine v3.18 a edge (i primi 4); Open Sans/JetBrains Mono verificati su v3.24. */
+/** Percorso radice dei font di sistema nel container, installati da `apk add font-roboto font-noto font-liberation font-dejavu font-opensans font-jetbrains-mono` (Dockerfile). Verificato contro il contenuto reale dei pacchetti Alpine, non un percorso indovinato. */
 const FONTS_ROOT = '/usr/share/fonts';
 
-/** Catalogo dei font di sistema disponibili — enum, non stringhe magiche: `SystemFont.Roboto`.
- *  11 voci invece di 6 pacchetti: quasi ogni pacchetto Alpine installato porta in realtà famiglia
- *  Sans+Serif+Mono complete (scoperto verificando il contenuto reale dei pacchetti), non solo il
- *  Sans che il vecchio `SERVER_FONTS` esponeva — `LiberationSerif`/`LiberationMono` sono il vero
- *  sostituto open di Times New Roman/Courier New, non un parente alla lontana. Open Sans e
- *  JetBrains Mono, aggiunti dopo, sono invece pacchetti mono-famiglia (nessuna variante Serif/Mono
- *  sorella da esporre in più). Candidati scartati allo stesso giro — Nunito e Inter — perché Alpine
- *  li impacchetta SOLO come font variabili (un unico file, asse di peso continuo, non 4 file statici
- *  regular/bold/italic/bold-italic come richiede `SystemFontFace`): Inter arriva anche come
- *  `Inter.ttc`, una collection con le istanze statiche giuste, ma senza un modo affidabile in CSS
- *  (`@font-face`) di indirizzare UNA faccia dentro un `.ttc` — servirebbe o supporto ai font
- *  variabili (un asse di peso, non 4 file) o uno step di estrazione delle istanze statiche in build:
- *  entrambe estensioni reali di questo file, non un'aggiunta al catalogo, quindi non fatte qui. */
+/** Catalogo dei font di sistema — enum, non stringhe magiche. 11 voci: quasi ogni pacchetto Alpine porta famiglia Sans+Serif+Mono complete. Nunito/Inter scartati: Alpine li impacchetta solo come font variabili, senza le 4 facce statiche regular/bold/italic/bold-italic che `SystemFontFace` richiede. */
 export enum SystemFont {
     Roboto = 'Roboto',
     Noto = 'Noto',
@@ -259,14 +226,7 @@ export interface CustomFontFace {
     style: 'normal' | 'italic';
 }
 
-/**
- * Font caricato dal progetto — stessa forma di `SystemFontDef` (chiave, famiglia, facce), stesso
- * endpoint di servizio (`/cdn-cgi/font/:key/:index`), STESSO meccanismo del catalogo di sistema.
- * Un valore di `CustomFontDef` è un `FontChoice` a tutti gli effetti — si scrive direttamente
- * come `defaultFont` (il font del sito) o come voce di `addonFonts` (un font aggiuntivo, servito e
- * raggiungibile via `--fontFamily-<key>` ma mai attivo di per sé): stesso identico oggetto, cambia
- * solo dove lo scrivi.
- */
+/** Font caricato dal progetto: stessa forma e stesso endpoint del catalogo di sistema. Un `CustomFontDef` è un `FontChoice` a tutti gli effetti, scritto come `defaultFont` o come voce di `addonFonts` — stesso oggetto, cambia solo dove lo scrivi. */
 export interface CustomFontDef {
     /** Chiave con cui è esposto — vedi `CUSTOM_FONT_KEY_PATTERN`. Non può coincidere con una voce
      *  di `SystemFont` (validato): l'endpoint disambigua provando prima il catalogo di sistema. */

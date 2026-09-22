@@ -1,16 +1,7 @@
 import { computed, inject, Injectable, isDevMode, OnDestroy, PLATFORM_ID, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 
-/**
- * TOKEN SERVICE
- * Conserva il token JWT: unica sorgente di verità sulla sessione attiva.
- * È separato da AuthService per risolvere il problema delle "Circular Dependencies":
- * ApiService usa TokenService, e AuthService usa ApiService.
- *
- * Vive in un modulo foglia a sé (nessun import verso api/auth/base-api) così che
- * BaseApiService possa iniettarlo senza chiudere il ciclo
- * api → base-api → auth → api.
- */
+/** Conserva il token JWT: unica sorgente di verità sulla sessione attiva. Modulo foglia a sé (nessun import verso api/auth/base-api), separato da AuthService per non chiudere il ciclo api → base-api → auth → api. */
 @Injectable({ providedIn: 'root' })
 export class TokenService implements OnDestroy {
     // Identifica se il codice sta girando nel browser o sul server (SSR)
@@ -26,17 +17,7 @@ export class TokenService implements OnDestroy {
     readonly token = this._token.asReadonly();
     readonly isLoggedIn = computed(() => this._token() !== null);
 
-    /**
-     * Rilegge il payload di sessione che il backend ha messo nel claim "session"
-     * del JWT, tipizzandolo con l'interfaccia fornita dal progetto.
-     *
-     * L'engine resta generico: non conosce la forma del payload. Il progetto passa
-     * il proprio tipo al call-site, es. `tokenService.session<SessionInfo>()`,
-     * dove SessionInfo rispecchia il record C# (vedi dto/session.dto.ts).
-     *
-     * È reattivo: legge il signal del token, quindi si aggiorna a login/logout se
-     * usato dentro un computed o un template.
-     */
+    /** Rilegge il payload di sessione dal claim "session" del JWT, tipizzato dal progetto (`tokenService.session<SessionInfo>()`, rispecchia il record C#). Reattivo: legge il signal del token. */
     session<T>(): T | null {
         const token = this._token();
         if (!token) return null;
@@ -64,13 +45,10 @@ export class TokenService implements OnDestroy {
 
         this._token.set(token);
 
-        // Persistenza in sessionStorage: il login resta al refresh ma sparisce alla chiusura tab.
-        // È l'UNICO accesso diretto al Web Storage fuori da CookieConsentService (allowlist ESLint),
-        // ECCEZIONE DELIBERATA: TokenService è un modulo foglia che rompe il ciclo
-        // api→base-api→auth→api (accoppiarlo al consenso lo re-introdurrebbe), e il bearerToken è
-        // auth strettamente necessaria → bypasserebbe comunque il gate del consenso. È comunque
-        // censito in ENGINE_COOKIE_MAP, quindi compare in policy ed è escluso dalla pulizia: la
-        // compliance è già coperta, migrarlo all'API darebbe solo purezza marginale.
+        // sessionStorage: il login resta al refresh, sparisce alla chiusura tab. Unico accesso
+        // diretto al Web Storage fuori da CookieConsentService (allowlist ESLint): eccezione
+        // deliberata, accoppiarlo al consenso reintrodurrebbe il ciclo api→base-api→auth→api —
+        // comunque censito in ENGINE_COOKIE_MAP, compare in policy ed è escluso dalla pulizia.
         if (this.isBrowser) sessionStorage.setItem('bearerToken', token);
 
         this.scheduleExpiration(expiration);

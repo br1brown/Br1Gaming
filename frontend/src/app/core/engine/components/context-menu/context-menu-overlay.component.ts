@@ -12,13 +12,9 @@ import { FocusKeyManager, FocusableOption } from '@angular/cdk/a11y';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { ContextMenuOption } from './context-menu.models';
 
-/**
- * UI del menu contestuale, creata dentro un overlay CDK dalla `ContextMenuDirective`.
- * Non va usata direttamente nei template. Il posizionamento e il dismiss-on-outside-click li fa
- * CDK Overlay (`context-menu.directive.ts`); qui resta il rendering della lista e la navigazione
- * da tastiera fra le voci, con CDK `FocusKeyManager` (`@angular/cdk/a11y`) — stessa dipendenza
- * CDK già in uso per l'overlay/portal, niente roving focus scritto a mano.
- */
+/** UI del menu contestuale, creata dentro un overlay CDK dalla `ContextMenuDirective` — non va
+ *  usata direttamente nei template. Posizionamento e dismiss-on-outside-click li fa CDK Overlay;
+ *  qui resta il rendering della lista e la navigazione da tastiera con CDK `FocusKeyManager`. */
 @Component({
     selector: 'app-context-menu-overlay',
     standalone: true,

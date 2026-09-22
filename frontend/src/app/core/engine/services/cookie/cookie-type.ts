@@ -1,10 +1,8 @@
-/** Categoria di consenso (GDPR/ePrivacy) di una voce di archiviazione — vale per cookie E Web
- *  Storage. Abbina la voce al consenso dell'utente; indipendente dal mezzo (`storage`). Quattro
- *  categorie SIMMETRICHE nel trattamento (stesso gate, stesso pattern "un consenso per l'intera
- *  categoria"): l'unica eccezione è Technical, sempre esente per legge — mai un vero consenso da
- *  chiedere. Aggiunta una voce qui = aggiornare anche `isCategoryAccepted` in
- *  `CookieConsentService` (uno switch/case coperto a compile-time da `default`, non da tutti i
- *  case: TypeScript non segnala un case mancante). */
+/** Categoria di consenso (GDPR/ePrivacy) di una voce di archiviazione, vale per cookie E Web
+ *  Storage, indipendente dal mezzo (`storage`). Quattro categorie simmetriche (stesso gate, stesso
+ *  pattern "un consenso per l'intera categoria"), eccetto Technical, sempre esente per legge.
+ *  Aggiunta una voce qui = aggiornare anche `isCategoryAccepted` in `CookieConsentService` (uno
+ *  switch coperto da `default`, TypeScript non segnala un case mancante). */
 export enum ConsentCategory {
     /** Strettamente necessari a erogare il servizio esplicitamente richiesto (sessione, memorie
      *  del consenso). Esenti da consenso per legge (art. 122 Codice Privacy / art. 5.3 ePrivacy):

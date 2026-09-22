@@ -1,17 +1,9 @@
-/**
- * Verifica che OGNI faccia di OGNI voce di `SYSTEM_FONTS` (font-system.ts) esista davvero su
- * disco — l'unico modo genuino di sapere se i pacchetti Alpine installati dal Dockerfile
- * (`apk add ... $FONT_PACKAGES`) coprono per intero l'enum `SystemFont`, non solo alla data in cui
- * qualcuno l'ha verificato a mano. Un fallimento qui è quasi sempre una di due cose: un font
- * aggiunto a `SYSTEM_FONTS` senza aggiornare `FONT_PACKAGES` nel Dockerfile, o un pacchetto Alpine
- * che ha cambiato nome/percorso interno da una release all'altra.
- *
- * Uso: tsx system-fonts-installed.ts, invocato direttamente dal Dockerfile (RUN, stage di build).
- * Ha senso SOLO dove i pacchetti sono realmente installati — dentro il container Docker: eseguito
- * su un host qualunque fallisce sempre, di proposito, perché i file non ci sono per definizione —
- * non è quindi cablato nel gate "frontend" (bare, senza Docker, in CI), ma nello stage di build del
- * Dockerfile, l'unico punto dove il check e i file installati sono garantiti sincroni fra loro.
- */
+/** Verifica che OGNI faccia di OGNI voce di `SYSTEM_FONTS` esista su disco — unico modo genuino di
+ *  sapere se i pacchetti Alpine del Dockerfile (`apk add ... $FONT_PACKAGES`) coprono per intero
+ *  l'enum `SystemFont`. Un fallimento qui è quasi sempre un font aggiunto senza aggiornare
+ *  `FONT_PACKAGES`, o un pacchetto che ha cambiato nome/percorso da una release all'altra. Uso: tsx
+ *  system-fonts-installed.ts, invocato dal Dockerfile (RUN, stage di build) — fallisce sempre fuori
+ *  dal container per definizione, di proposito non cablato nel gate "frontend" bare in CI. */
 import { SystemFont, SYSTEM_FONTS } from '../../font-system';
 import { existsSync } from 'node:fs';
 

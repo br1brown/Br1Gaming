@@ -27,7 +27,7 @@ const API = {
 
 /**
  * Client HTTP: un metodo pubblico per ogni endpoint. Errori gestiti dall'apiErrorInterceptor;
- * `{ silent: true }` li lascia al chiamante (UI d'errore propria). Ricetta: AGENTS.md §"Aggiungere un endpoint al client".
+ * `{ silent: true }` li lascia al chiamante (UI d'errore propria).
  * ⚙️ Contratto Engine: `PageBaseComponent` la inietta come `this.api` — non rinominare la classe.
  */
 @Injectable({ providedIn: 'root' })
@@ -42,14 +42,15 @@ export class ApiService extends BaseApiService {
         return this.api_get_blob(API.blob(slug));
     }
 
-    /**
-     * URL relativo del blob (`/api/blob/{slug}`) per l'uso diretto in template, senza scaricarlo in
-     * memoria. Sempre relativo, anche in SSR: il browser lo raggiunge via proxy, non l'URL interno.
-     * `webopt`: versione web-ottimizzata (di default = resize immagini max 1920px→WebP; altri tipi invariati).
-     */
-    getBlobUrl(slug: string, webopt = true): string {
+    /** URL relativo del blob (`/api/blob/{slug}`) per l'uso diretto in template, senza scaricarlo
+     *  in memoria — sempre relativo, anche in SSR: il browser lo raggiunge via proxy, non l'URL
+     *  interno. `webopt` (default true) = resize→WebP; `size` è una delle `ALLOWED_WIDTHS`
+     *  (ignorato se `webopt` è false), assente o fuori whitelist ricade sulla dimensione
+     *  intermedia lato server. */
+    getBlobUrl(slug: string, webopt = true, size?: number): string {
         const base = `${this.apiProxyPrefix}/${API.blob(slug)}`;
-        return webopt ? `${base}?webopt=true` : base;
+        if (!webopt) return base;
+        return size != null ? `${base}?webopt=true&size=${size}` : `${base}?webopt=true`;
     }
 
     /**
@@ -62,14 +63,7 @@ export class ApiService extends BaseApiService {
         return this.api_post_form<{ slug: string }>(API.blobUpload, formData);
     }
 
-    /**
-     * Carica più file e restituisce i rispettivi slug, nello stesso ordine di `files`. In
-     * sequenza (l'endpoint accetta un `IFormFile` alla volta, non esiste una POST multipla):
-     * se una richiesta fallisce si ferma lì e propaga l'errore — gli slug dei file già caricati
-     * con successo prima del fallimento non sono nella risposta né vengono ripuliti dal server
-     * (rollback esplicito a carico del chiamante, se serve, via `api_delete` su `blob/{slug}` —
-     * oggi non esposto: il backend non ha ancora una DELETE su questo endpoint).
-     */
+    /** Carica più file in sequenza (l'endpoint accetta un IFormFile alla volta) e ritorna gli slug nello stesso ordine. Se una richiesta fallisce si ferma lì: gli slug già caricati non vengono ripuliti dal server. */
     async uploadBlobs(files: File[]): Promise<string[]> {
         const slugs: string[] = [];
         for (const file of files) {

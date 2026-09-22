@@ -11,17 +11,9 @@ export interface ImgRenderConfig extends ImgBuildOptions {
     text: string;
 }
 
-/**
- * IMG RENDER DIRECTIVE
- * 
- * Trasforma un `<img>` nel render di un'immagine canvas da ImgBuilderService.
- * 
- * - Output `canvasChange`: emesso al render per download/condivisione.
- * - SSR / Fallback: su server o errore rimuove il `src`, ripiegando sul testo `alt`.
- * - Race-condition safe: ignora i risultati di build asincrone resi obsoleti.
- * 
- * Uso: `<img [appImgRender]="config" (canvasChange)="...">`
- */
+/** Trasforma un `<img>` nel render di un'immagine canvas da ImgBuilderService:
+ *  `<img [appImgRender]="config" (canvasChange)="...">`. Su server o errore rimuove il `src`
+ *  (ripiega su `alt`); ignora i risultati di build asincrone resi obsoleti da nuovi input. */
 @Directive({
     selector: 'img[appImgRender]',
     standalone: true,

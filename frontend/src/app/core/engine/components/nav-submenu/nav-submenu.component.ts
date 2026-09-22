@@ -13,15 +13,10 @@ const SUBMENU_VIEWPORT_MARGIN = 16;
  *  visibili + indicazione che continua) che un pannello schiacciato a un dito di altezza. */
 const SUBMENU_MIN_HEIGHT = 160;
 
-/**
- * NAV SUBMENU COMPONENT
- *
- * Gruppo di navigazione dal secondo livello in giù, reso ricorsivamente dentro il
- * dropdown della navbar. Desktop: pannello laterale (flyout) aperto su hover/focus,
- * verso destra o ribaltato a sinistra se sforerebbe il viewport. Mobile: accordion
- * indentato aperto al tap. Il singolo link resta delegato a <app-nav-link>; un figlio
- * che è a sua volta un gruppo si rende con un altro <app-nav-submenu>.
- */
+/** Gruppo di navigazione dal secondo livello in giù, reso ricorsivamente nel dropdown della navbar.
+ *  Desktop: pannello flyout su hover/focus, verso destra o ribaltato se sforerebbe il viewport.
+ *  Mobile: accordion indentato al tap. Il singolo link va a `<app-nav-link>`; un figlio gruppo si
+ *  rende con un altro `<app-nav-submenu>`. */
 @Component({
     selector: 'app-nav-submenu',
     standalone: true,

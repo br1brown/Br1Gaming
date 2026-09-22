@@ -80,39 +80,17 @@ export interface JsonLdContactExposure {
 export interface SiteConfig {
     /** Nome applicativo del sito. */
     appName: string;
-    /** Se l'immagine di anteprima social (og:image auto-generata) mostra SOLO l'immagine di
-     *  sfondo, senza titolo/sottotitolo/favicon sovrapposti. SOLO da `DesignSystemPreset.
-     *  ogImagePlain`, default `false` (con scritte) se il design system attivo non lo propone —
-     *  decisione dell'intero sito, non della singola pagina: la stessa immagine di anteprima
-     *  serve OGNI pagina (un badge uguale per tutte). */
+    /** Personalizza il tag `<title>` (e og:title/twitter:title/og:image:alt). Solo da `SiteDefinition.formatBrowserTitle`. Default: `"${pageTitle} | ${appName}"`. */
+    formatBrowserTitle?: (pageTitle: string, appName: string) => string;
+    /** Se l'og:image auto-generata mostra solo lo sfondo, senza titolo/sottotitolo/favicon. Solo da `DesignSystemPreset.ogImagePlain`, default false. Decisione di sito, non di pagina. */
     ogImagePlain?: boolean;
-    /** Personalizzazione facoltativa di testo/font della sola immagine OG — SOLO da
-     *  `DesignSystemPreset.ogTextTransform`, assente se il design system attivo non la propone
-     *  (comportamento pre-esistente, invariato: l'immagine OG mostra `title`/`subtitle` così come
-     *  sono, nel `defaultFont` del sito). Letta da `server/routes/og-preview.ts`, mai altrove. */
+    /** Personalizzazione di testo/font della sola immagine OG. Solo da `DesignSystemPreset.ogTextTransform`. Letta solo da `server/routes/og-preview.ts`. */
     ogTextTransform?: DesignSystemPreset['ogTextTransform'];
-    /** `defaultFont` del preset attivo, GREZZO (non risolto) — SOLO da `DesignSystemPreset.
-     *  defaultFont`, assente se il design system attivo non lo propone. Serve a chi ha bisogno
-     *  della scelta originale, non del suo stack CSS già risolto (`fonts` sotto): oggi solo
-     *  `custom-font-detect.ts`/`ogTextTransform` (il font "corrente" da mostrare al design system
-     *  prima di un'eventuale personalizzazione). Consumer ordinari restano su `fonts`. */
+    /** `defaultFont` del preset attivo, GREZZO (non risolto): serve a chi ha bisogno della scelta originale, non dello stack CSS già risolto (`fonts` sotto) — oggi solo custom-font-detect.ts/ogTextTransform. */
     defaultFont?: FontChoice;
-    /** Font risolto (stack CSS web, stack server, chiave metriche, sorgenti @font-face, var CSS dei
-     *  custom) — SOLO da `DesignSystemPreset.defaultFont`/`addonFonts`, via `resolveFonts()`/
-     *  `systemUiFonts()` (`font-system.ts`): un `SystemFont` o un font custom sono lo STESSO
-     *  meccanismo, mai due cataloghi scollegati. Font puro di sistema (`systemUiFonts()`, nessun
-     *  self-hosting) se il design system attivo non propone `defaultFont`. Unica fonte per ogni
-     *  consumer (`AppearanceService`, `server.ts`, `ImgBuilderService`, `PreviewBuilder`, metriche
-     *  OG) — nessuno legge il preset o il catalogo direttamente. */
+    /** Font risolto (stack CSS, stack server, metriche, @font-face) via `resolveFonts()`: unica fonte per ogni consumer (AppearanceService, server.ts, ImgBuilderService...), nessuno legge il preset direttamente. */
     fonts: ResolvedFonts;
-    /** Catalogo GREZZO di OGNI `CustomFontDef` di questo sito (chiave, famiglia, facce) — quello di
-     *  `defaultFont` (se custom) PIÙ quelli di `addonFonts`, deduplicati per `key` — non risolto per
-     *  ruolo come `fonts` sopra: serve a `server/routes/system-font.ts`/`custom-font-detect.ts`/
-     *  `server-font-metrics.ts` per risolvere QUALUNQUE font custom registrato per `key`, anche
-     *  quelli mai scelti come font attivo (le voci "secondarie" restano comunque servibili/
-     *  raggiungibili da SCSS di progetto). Le eventuali voci `SystemFont` (di `defaultFont` o
-     *  `addonFonts`) NON sono qui: risolvono già da sole via `isSystemFont()`, senza bisogno di
-     *  questo catalogo. */
+    /** Catalogo grezzo di ogni `CustomFontDef` del sito (defaultFont + addonFonts, deduplicati per key), non risolto per ruolo: serve a risolvere QUALUNQUE font custom registrato, anche quelli mai scelti come attivo. */
     customFontsCatalog: readonly CustomFontDef[];
     /** Dati facoltativi di `identity` esposti nel JSON-LD del brand. */
     jsonld: JsonLdContactExposure;
@@ -135,9 +113,7 @@ export interface SiteConfig {
     /** Colori con nome proprio proposti dal design system attivo (`DesignSystemPreset.customPalette`),
      *  oltre ai quattro slot fissi sopra — `{}` se il design system attivo non ne definisce. */
     customPalette: Record<string, string>;
-    /** Quanto le superfici derivate (pannello, navbar/footer, hover, bordi) somigliano al colore
-     *  che le governa invece di restare quasi neutre — SOLO da `DesignSystemPreset.backgroundVividness`
-     *  (vedi lì, e `AppearanceService.PaletteOverrides`), `undefined` se il design system attivo non lo propone. */
+    /** Quanto le superfici somigliano al colore che le governa invece di restare neutre. Solo da `DesignSystemPreset.backgroundVividness`, vedi `AppearanceService.PaletteOverrides`. */
     backgroundVividness?: number;
     /** Indica se il footer deve essere visibile. Default: `true`. SOLO dal design system attivo. */
     showFooter: boolean;
@@ -167,33 +143,11 @@ export interface SiteConfig {
     smoke: SmokeSettings;
     /** `true` se `shell.designSystem` è impostato in site.ts. Esposto solo per debug/introspezione. */
     designSystem: boolean;
-    /**
-     * Forza l'intero sito su un tono, ignorando `prefers-color-scheme`: utile per un design a
-     * palette fissa (es. sempre scuro) dove un tema derivato dall'OS romperebbe il contrasto
-     * studiato dal grafico. SOLO da `DesignSystemPreset.forceThemeTone` — nessuno scostamento a
-     * livello di sito. Default: assente — segue l'OS come sempre (`AppearanceService.themeTone`, sia in
-     * SSR sia runtime).
-     * Diverso da `panelSurface` (sotto): quello forza SOLO il pannello contenuti su un tono
-     * indipendente dall'OS che governa il resto; questo fissa l'intero sito. Compongono, non si
-     * escludono — un pannello con tono diverso dal resto del sito, anche già fissato, è una
-     * composizione valida (Radix Themes/Chakra/Ant Design/Carbon la documentano tutte come pattern
-     * intenzionale, non un conflitto). Cambia solo il DEFAULT di `panelSurface`: `'auto'` (segue
-     * l'ambiente, già coerente) quando questo campo è impostato, `'light'` altrimenti — un valore
-     * esplicito del design system vince sempre su entrambi i default.
-     */
+    /** Forza l'intero sito su un tono, ignorando prefers-color-scheme. Solo da `DesignSystemPreset.forceThemeTone`, assente = segue l'OS. Cambia solo il default di `panelSurface` ('auto' invece di 'light'): i due campi compongono, non si escludono. */
     forceThemeTone?: 'light' | 'dark';
-    /**
-     * Tono del pannello contenuti, indipendente dall'OS che governa navbar/footer/sfondo.
-     * `'auto'` = segue l'ambiente come il resto del sito. Default: `'light'` (comportamento
-     * storico del template) — o `'auto'` se `forceThemeTone` è impostato, vedi sopra.
-     */
+    /** Tono del pannello contenuti, indipendente dall'OS che governa navbar/footer/sfondo. 'auto' segue l'ambiente. Default 'light' (o 'auto' se `forceThemeTone` è impostato). */
     panelSurface: 'light' | 'dark' | 'auto';
-    /**
-     * Sfondo/testo di navbar e footer. `'brand'` (default) = superficie immersiva derivata dal
-     * brand, sempre diversa dallo sfondo pagina. `'body'` = navbar/footer condividono lo sfondo
-     * pagina, nessuna cesura visibile — vedi `DesignSystemPreset.navSurface` per il dettaglio.
-     * SOLO dal design system attivo (es. `muro`) — nessuno scostamento a livello di sito.
-     */
+    /** Sfondo/testo di navbar e footer. 'brand' (default) = superficie immersiva dal brand; 'body' = condivide lo sfondo pagina, nessuna cesura. Solo dal design system attivo (es. `muro`). */
     navSurface: 'brand' | 'body';
     /** Fade-in d'ingresso pagina (`.page-fade` via `PageBaseComponent`). Default: `true`. SOLO dal design system attivo. */
     pageFade: boolean;
@@ -205,6 +159,8 @@ export interface SiteConfig {
     contentWidth: ContentWidth;
     /** Separatore del breadcrumb. Default `'traccia'`. SOLO dal design system attivo — vedi `DesignSystemPreset.breadcrumbStile`. */
     breadcrumbStile: BreadcrumbStile;
+    /** Soglia di troncamento del breadcrumb (`'none'` = mai troncare). Default `4`. SOLO dal design system attivo — vedi `DesignSystemPreset.breadcrumbMaxItems`. */
+    breadcrumbMaxItems: number | 'none';
     /** Saturazione del secondary auto-calcolato. Default `'standard'`. SOLO dal design system attivo — vedi `DesignSystemPreset.mutezzaSecondario`. */
     mutezzaSecondario: MutezzaSecondario;
     /** Intensità hover/active dei bottoni pieni. Default `'standard'`. SOLO dal design system attivo — vedi `DesignSystemPreset.hoverIntensity`. */
@@ -221,12 +177,7 @@ export interface SiteConfig {
     badgeNotifiche: BadgeNotifiche;
     /** Intensità dell'alone pulsante di un toggle attivo. Default `'lieve'`. SOLO dal design system attivo — vedi `DesignSystemPreset.pulsazioneAttiva`. */
     pulsazioneAttiva: PulsazioneAttiva;
-    /**
-     * Chrome (nav/footer/pannello) del ruolo `'error'` (vedi `PageRole`/`ERROR_CHROME_DEFAULT` in
-     * `design-system-presets.ts`), già risolta dal design system attivo — `routing.ts` la applica
-     * di peso alle rotte di errore (404/401/ecc), che restano nell'Engine e non passano dalla DSL
-     * delle pagine (`LeafPageInput.layout.role`), quindi non hanno altro modo di riceverla.
-     */
+    /** Chrome del ruolo 'error', già risolta dal design system: `routing.ts` la applica alle rotte di errore (404/401...), che restano nell'Engine e non passano dalla DSL delle pagine. */
     errorChrome: SpecRuoloPagina;
     /** Pagina a cui reindirizzare l'utente se non autenticato (default /error/401). */
     loginPage?: PageType | null;
@@ -244,6 +195,12 @@ export interface SiteConfig {
      *  Default: convenzione `BlobController` (`blob/{guid}?webopt=true`) — un endpoint blob
      *  diverso nel progetto figlio sovrascrive solo questo hook. */
     resolveBlobImageUrl?: (guid: string) => string;
+    /** Intervallo (ms) del polling `VersionCheckService` sul meta `app-version` di `index.html`.
+     *  Default 10 minuti. Un sito con contenuto che cambia raramente può volerlo più diradato
+     *  (meno richieste); non tocca `SwUpdate` (PWA), che resta guidato dal Service Worker. */
+    versionCheckIntervalMs?: number;
+    /** Override della UX all'aggiornamento rilevato (default: dialog bloccante + reload). `apply` incapsula già l'eventuale Service Worker: il figlio decide solo quando/se chiamarlo. */
+    onVersionUpdateAvailable?: (apply: () => void) => void;
 }
 
 // ======================================================
@@ -342,35 +299,16 @@ export type ExternalPageInput = Omit<BasePageInput, 'path'> & {
     requiresAuth?: never;
 };
 
-/**
- * Un elemento dell'albero pagine — dichiarato nel file di area (`pages/*.pages.ts`),
- * non in `site.ts`: `site.ts` assembla gli array di più aree con uno spread
- * (`pages: () => [...appPagesDecl, ...]`), non dichiara pagine direttamente.
- *
- * L'utente non è obbligato a esplicitare `kind`: il builder lo ricava
- * automaticamente dalla forma dell'oggetto.
- */
+/** Un elemento dell'albero pagine, dichiarato nel file di area (`pages/*.pages.ts`), non in site.ts (che assembla più aree con uno spread). `kind` è opzionale: il builder lo ricava dalla forma dell'oggetto. */
 export type SitePageInput = ParentPageInput | LeafPageInput | ExternalPageInput;
 
-/**
- * Versione interna normalizzata della pagina contenitore.
- *
- * Da questo punto in poi `kind` è sempre presente e affidabile,
- * così il resto del motore può continuare a usare una union discriminata.
- */
+/** Versione normalizzata della pagina contenitore: da qui in poi `kind` è sempre presente. */
 export type ParentPage = Omit<ParentPageInput, 'children' | 'kind'> & {
     kind: 'parent';
     children: SitePage[];
 };
 
-/**
- * Versione interna normalizzata della pagina foglia.
- *
- * `otherSEO` è appiattito al top-level; le levette di chrome sono RAGGRUPPATE nell'oggetto
- * `chrome` (RouteChrome), che viaggia coerente fino a `route.data[CHROME_DATA_KEY]` senza essere
- * appiattito e poi riraggruppato. `pageFade` resta a parte: passa flat in `route.data` e diventa
- * input di PageBaseComponent.
- */
+/** Versione normalizzata della pagina foglia: `otherSEO` appiattito al top-level, le levette di chrome raggruppate in `chrome` (viaggia fino a `route.data[CHROME_DATA_KEY]`); `pageFade` resta a parte, flat, input di PageBaseComponent. */
 export type LeafPage = Omit<LeafPageInput, 'kind' | 'layout' | 'otherSEO'> & {
     kind: 'leaf';
     /** Levette di chrome raggruppate, lette dal root via `route.data[CHROME_DATA_KEY]`. */
@@ -387,12 +325,6 @@ export type ExternalPage = Omit<ExternalPageInput, 'kind'> & {
     kind: 'external';
 };
 
-/**
- * Un elemento dell'albero pagine interno è una discriminated union e può essere:
- * - un nodo contenitore
- * - una pagina interna
- * - una pagina esterna
- */
 export type SitePage = ParentPage | LeafPage | ExternalPage;
 export type InternalSitePage = ParentPage | LeafPage;
 
@@ -405,73 +337,27 @@ export type InternalSitePage = ParentPage | LeafPage;
 // TYPE GUARDS
 // ======================================================
 
-/**
- * Verifica se una pagina è un nodo contenitore.
- *
- * La logica di discriminazione viene tenuta confinata qui,
- * così il resto del codice non deve spargere controlli strutturali.
- *
- * @param page - La pagina da verificare
- * @returns true se la pagina è un nodo contenitore
- */
 export const isParentPage = (page: SitePage): page is ParentPage =>
     page.kind === 'parent';
 
-/**
- * Verifica se una pagina è una pagina esterna.
- *
- * Il discriminante `kind` rende il controllo esplicito e stabile,
- * senza dover inferire il tipo dalla presenza di altre proprietà.
- *
- * @param page - La pagina da verificare
- * @returns true se la pagina è una pagina esterna
- */
 export const isExternalPage = (page: SitePage): page is ExternalPage =>
     page.kind === 'external';
 
-/**
- * Verifica se una pagina è interna al sito.
- *
- * È semplicemente il complemento di `isExternalPage`.
- * Questo type guard è utile soprattutto nel return finale,
- * per filtrare solo le pagine valide per Angular Router.
- *
- * @param page - La pagina da verificare
- * @returns true se la pagina è interna (parent o leaf)
- */
+/** Complemento di `isExternalPage`: filtra le pagine valide per Angular Router. */
 export const isInternalPage = (page: SitePage): page is InternalSitePage =>
     page.kind === 'parent' || page.kind === 'leaf';
 
-/**
- * Verifica se l'input dichiarato rappresenta una pagina contenitore.
- *
- * Qui usiamo un controllo strutturale per permettere a `site.ts`
- * di restare privo del discriminante esplicito.
- */
+/** Controllo strutturale (non su `kind`): permette a site.ts di restare privo del discriminante esplicito. */
 const isParentPageInput = (page: SitePageInput): page is ParentPageInput =>
     'children' in page;
 
-/**
- * Verifica se l'input dichiarato rappresenta una pagina esterna.
- */
 const isExternalPageInput = (page: SitePageInput): page is ExternalPageInput =>
     'externalUrl' in page;
 
-/**
- * Verifica se l'input dichiarato rappresenta una pagina foglia interna.
- */
 const isLeafPageInput = (page: SitePageInput): page is LeafPageInput =>
     'component' in page;
 
-/**
- * Garantisce che un eventuale `kind` scritto manualmente sia coerente
- * con la forma reale dell'oggetto.
- *
- * @param page - La pagina da validare
- * @param inferredKind - Il tipo di pagina dedotto dalla struttura
- * @param context - Contesto per il messaggio di errore (es. "sitePages[0]")
- * @throws Se il `kind` esplicito non coincide con il tipo dedotto
- */
+/** Garantisce che un eventuale `kind` scritto a mano sia coerente con la forma reale dell'oggetto. */
 const assertDeclaredKind = (
     page: SitePageInput,
     inferredKind: SitePageKind,
@@ -484,15 +370,7 @@ const assertDeclaredKind = (
     }
 };
 
-/**
- * Normalizza una pagina dichiarata dall'utente aggiungendo il `kind`
- * interno e ricorsivamente tutti i figli.
- *
- * @param page - La pagina grezza da normalizzare
- * @param context - Contesto per il messaggio di errore (es. "sitePages[0]")
- * @returns La pagina normalizzata con `kind` esplicito e figli processati
- * @throws Se la pagina non specifica `children`, `component` o `externalUrl`
- */
+/** Normalizza una pagina dichiarata dall'utente aggiungendo il `kind` interno e ricorsivamente tutti i figli. Lancia se non specifica `children`, `component` o `externalUrl`. */
 const normalizeSitePage = (
     page: SitePageInput,
     context: string,
@@ -584,13 +462,7 @@ export type SitePageContext = {
     readonly showLoginInHeader: boolean;
 };
 
-/** Comportamento della shell — oggi solo ciò che NON è estetico (design system attivo,
- *  notifiche): navbar/footer/pannello/header sono decisioni del design system attivo, non più
- *  scostabili qui. QUALE icona di brand in navbar non è nemmeno lei qui: è dato risolvibile a
- *  runtime (può dipendere da un'API, cambiare per pagina...), non struttura fissa del sito — vedi
- *  `ShellNavResolver.brandIcon` in `shell-nav.ts`, risolto insieme a header/footer. SE comparire è
- *  invece la solita decisione del design system (`DesignSystemPreset.showBrandIcon`), come
- *  nav/footer/pannello. */
+/** Comportamento della shell — solo ciò che NON è estetico (design system attivo, notifiche): navbar/footer/pannello sono decisioni del design system, non più scostabili qui. */
 export interface SiteShellConfig {
     /**
      * Design system attivo — l'UNICA fonte di tono/superfici/`ruoloPagina`/palette (vedi
@@ -631,6 +503,12 @@ export interface SiteDefinition {
     resolveBreadcrumb?: (pageType: PageType, ctx: BreadcrumbContext) => BreadcrumbItem[] | null;
     /** Override del percorso backend per un'immagine blob dinamica (og:image). Vedi {@link SiteConfig.resolveBlobImageUrl}. */
     resolveBlobImageUrl?: (guid: string) => string;
+    /** Override della strategia di formattazione del `<title>` del browser. Vedi {@link SiteConfig.formatBrowserTitle}. */
+    formatBrowserTitle?: (pageTitle: string, appName: string) => string;
+    /** Intervallo di polling di `VersionCheckService`. Vedi {@link SiteConfig.versionCheckIntervalMs}. */
+    versionCheckIntervalMs?: number;
+    /** Override della UX di aggiornamento versione. Vedi {@link SiteConfig.onVersionUpdateAvailable}. */
+    onVersionUpdateAvailable?: (apply: () => void) => void;
     /** Esposizione dati di `identity` nel JSON-LD del brand. */
     jsonld?: JsonLdContactExposure;
     /** Factory dell'albero pagine. */
@@ -874,6 +752,9 @@ function buildFinalConfig(definition: SiteDefinition): { config: SiteConfig; pre
     const login = normalizeLoginPage(definition.loginPage);
     const config: SiteConfig = {
         appName: environment.appName,
+        formatBrowserTitle: definition.formatBrowserTitle,
+        versionCheckIntervalMs: definition.versionCheckIntervalMs,
+        onVersionUpdateAvailable: definition.onVersionUpdateAvailable,
         version: normalizeVersion(environment.version) || '1.0.0',
         description: cfg.description ?? {},
         colorTema: cfg.colorTema ?? '#888888',
@@ -934,6 +815,7 @@ function buildFinalConfig(definition: SiteDefinition): { config: SiteConfig; pre
         elevazione: preset?.elevazione ?? 'sospesa',
         contentWidth: preset?.contentWidth ?? 'ampio',
         breadcrumbStile: preset?.breadcrumbStile ?? 'traccia',
+        breadcrumbMaxItems: preset?.breadcrumbMaxItems ?? 4,
         mutezzaSecondario: preset?.mutezzaSecondario ?? 'standard',
         hoverIntensity: preset?.hoverIntensity ?? 'standard',
         separazioneSuperfici: preset?.separazioneSuperfici ?? 'classica',
@@ -1158,13 +1040,7 @@ export function applyPathParams(path: string, params: Record<string, string> | u
         .join('/');
 }
 
-/**
- * Risolve `legalPages` (NON filtrata dall'override: una pagina overridden resta comunque nel
- * footer) in `NavLink[]` per la fascia "small prints", nello stesso ordine della lista. Una voce
- * che non risolve in `pageMap` (mai configurata, o rimossa insieme alla pagina che referenziava)
- * è semplicemente assente dal risultato — stessa logica "silente" di `resolveNavItems`
- * (shell-nav.ts) per un `addPage` non risolto.
- */
+/** Risolve `legalPages` (non filtrata dall'override) in `NavLink[]` per la fascia "small prints". Una voce che non risolve in `pageMap` resta semplicemente assente, come `resolveNavItems` in shell-nav.ts. */
 function resolveLegalFooterLinks(
     legalPages: readonly LegalPageSpec[],
     pageMap: Map<string, PageInfo>,

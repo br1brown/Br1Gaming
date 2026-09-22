@@ -3,22 +3,15 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { isPlatformBrowser } from '@angular/common';
 import { SwUpdate } from '@angular/service-worker';
 import { Subscription, filter, interval } from 'rxjs';
+import { ContestoSito } from '../../../site';
 import { NotificationService } from './notification.service';
 import { TranslateService } from './translate.service';
 import { CookieConsentService, isTechnicalOptionalConsentGiven } from './cookie-consent.service';
 
-/** Intervallo di controllo: 10 minuti. */
-const CHECK_INTERVAL_MS = 10 * 60 * 1000;
+/** Intervallo di controllo di default: 10 minuti — override via `SiteConfig.versionCheckIntervalMs`. */
+const DEFAULT_CHECK_INTERVAL_MS = 10 * 60 * 1000;
 
-/**
- * VERSION CHECK SERVICE
- *
- * Monitora gli aggiornamenti dell'app tramite due fonti parallele:
- * 1. SwUpdate (per PWA installate / tab con Service Worker attivo)
- * 2. Polling del meta tag `app-version` in `index.html` (fallback o `isWebApp:false`)
- * 
- * Se rileva una nuova versione propone il reload all'utente.
- */
+/** Monitora gli aggiornamenti dell'app: SwUpdate (PWA/Service Worker attivo) + polling del meta `app-version` in index.html (fallback o `isWebApp:false`). Propone il reload se rileva una nuova versione. */
 @Injectable({ providedIn: 'root' })
 export class VersionCheckService implements OnDestroy {
     private readonly document = inject(DOCUMENT);
@@ -38,12 +31,8 @@ export class VersionCheckService implements OnDestroy {
      * Deve essere chiamato nel costruttore di app.component o tramite un initializer.
      */
     init(): void {
-        /**
-         * SICUREZZA PER SSR (Server Side Rendering):
-         * un timer periodico crea una macrotask che impedirebbe ad Angular Universal di terminare
-         * il rendering della pagina, causando il timeout del server.
-         * Inoltre, il controllo versione ha senso solo nel client.
-         */
+        // SSR: un timer periodico creerebbe una macrotask che impedirebbe ad Angular Universal di
+        // terminare il rendering (timeout server); il controllo versione ha senso solo nel client.
         if (!this.isBrowser) return;
 
         // Se la PWA richiede il consenso TechnicalOptional, avvia il check solo se fornito 
@@ -61,7 +50,7 @@ export class VersionCheckService implements OnDestroy {
         // Zoneless: l'observable non innesca change detection da solo (check() aggiorna i signal,
         // che la innescano da soli). takeUntilDestroyed pulisce la sottoscrizione da sola, coerente
         // con la subscription SwUpdate qui sotto — nessun timer/cleanup manuale da tracciare.
-        interval(CHECK_INTERVAL_MS)
+        interval(ContestoSito.config.versionCheckIntervalMs ?? DEFAULT_CHECK_INTERVAL_MS)
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe(() => void this.check());
 
@@ -75,24 +64,14 @@ export class VersionCheckService implements OnDestroy {
         }
     }
 
-    /**
-     * Polling: confronta la versione servita con quella in memoria.
-     * Funziona in ogni tab senza SW (sempre quando `isWebApp:false`); con un SW attivo è
-     * SwUpdate a prendere il sopravvento (il SW serve `index.html` dalla cache, quindi qui
-     * la versione resta stabile finché non interviene SwUpdate).
-     */
+    /** Polling: confronta la versione servita con quella in memoria. Funziona senza SW (sempre con `isWebApp:false`); con un SW attivo è SwUpdate a prendere il sopravvento. */
     private async check(): Promise<void> {
-        // Evita di mostrare più dialog contemporaneamente se l'utente non ha ancora risposto
         if (this.updateShown) return;
 
         try {
-            /**
-             * Scarica `index.html` e legge il meta `app-version`. È la sorgente di versione
-             * sempre presente — a differenza del manifest, che con `isWebApp:false` non viene
-             * generato né servito (404). 'cache: no-store' è CRITICO: forza il browser a
-             * ignorare la cache locale e chiedere al server l'ultima versione disponibile.
-             * Nota: con un SW attivo l'index è servito dalla cache — qui ci affidiamo a SwUpdate.
-             */
+            // index.html è la sorgente di versione sempre presente (a differenza del manifest, 404
+            // con isWebApp:false). 'cache: no-store' è CRITICO: forza il browser a chiedere al
+            // server l'ultima versione invece di leggere dalla cache locale.
             const response = await fetch('/index.html', { cache: 'no-store' });
             if (!response.ok) return;
 
@@ -108,16 +87,47 @@ export class VersionCheckService implements OnDestroy {
         }
     }
 
-    /**
-     * Mostra un popup all'utente informandolo dell'aggiornamento.
-     * @param source 'sw' se l'evento arriva da SwUpdate (PWA), 'poll' se dal polling di index.html.
-     *               In 'sw' attiva esplicitamente la nuova versione prima del reload,
-     *               altrimenti il SW continuerebbe a servire l'app cached.
-     */
+    /** Notifica l'aggiornamento: dialog di default, o `SiteConfig.onVersionUpdateAvailable` se dichiarato. `source: 'sw'` fa attivare da `apply()` la nuova versione prima del reload (altrimenti il SW servirebbe ancora la cache), incapsulato: chi riceve `apply` non deve saperlo. */
     private async showUpdateDialog(source: 'sw' | 'poll'): Promise<void> {
         if (this.updateShown) return;
         this.updateShown = true;
 
+        const apply = (): void => {
+            void (async () => {
+                if (source === 'sw') {
+                    try { await this.swUpdate.activateUpdate(); } catch { /* fallback al reload */ }
+                }
+                // Hard-reload per portare la nuova versione attiva
+                window.location.reload();
+            })();
+        };
+
+        const override = ContestoSito.config.onVersionUpdateAvailable;
+        if (override) {
+            // Cattura sia un throw sincrono sia un reject async (override può essere una funzione
+            // async): senza il .catch sotto, un reject async passerebbe come unhandled rejection e
+            // updateShown resterebbe bloccato a true per sempre.
+            try {
+                const result: unknown = override(apply);
+                if (result instanceof Promise) {
+                    result.catch((err: unknown) => {
+                        console.error('[VersionCheckService] onVersionUpdateAvailable (async) ha lanciato, ricado sul dialog di default:', err);
+                        void this.showDefaultUpdateDialog(apply);
+                    });
+                }
+                return;
+            } catch (err) {
+                console.error('[VersionCheckService] onVersionUpdateAvailable ha lanciato, ricado sul dialog di default:', err);
+            }
+        }
+
+        await this.showDefaultUpdateDialog(apply);
+    }
+
+    /** Dialog bloccante di default (Rifiuta/Accetta, `allowOutsideClick: false`): estratto a parte
+     *  perché va invocato sia dal percorso sincrono di `showUpdateDialog` sia dal `.catch` asincrono
+     *  di un `onVersionUpdateAvailable` che ha già superato il `try/catch` sincrono (vedi sopra). */
+    private async showDefaultUpdateDialog(apply: () => void): Promise<void> {
         const confirmed = await this.notify.confirm(
             this.translate.translate('nuovaVersioneTitoloStato'),
             this.translate.translate('nuovaVersioneDescrizioneStato'),
@@ -129,15 +139,11 @@ export class VersionCheckService implements OnDestroy {
         );
 
         if (confirmed) {
-            if (source === 'sw') {
-                try { await this.swUpdate.activateUpdate(); } catch { /* fallback al reload */ }
-            }
-            // Hard-reload per portare la nuova versione attiva
-            window.location.reload();
+            apply();
         } else {
             // L'utente ha posticipato: chiude la subscription SW per non riproporre
             // il dialog da VERSION_READY nello stesso ciclo. Il polling di index.html
-            // continuerà ogni CHECK_INTERVAL_MS e mostrerà un nuovo dialog se esce
+            // continuerà ogni intervallo configurato e mostrerà un nuovo dialog se esce
             // un aggiornamento successivo.
             this.swSub?.unsubscribe();
             this.swSub = null;

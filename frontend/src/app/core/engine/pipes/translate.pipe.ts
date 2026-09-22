@@ -1,23 +1,9 @@
 import { Pipe, PipeTransform, inject } from '@angular/core';
 import { TranslateService } from '../services/translate.service';
 
-/**
- * TranslatePipe — Pipe per tradurre testi nei template HTML.
- *
- * USO NEI TEMPLATE:
- *   {{ 'chiave.di.traduzione' | translate }}
- *   {{ 'benvenuto' | translate: nomeUtente }}
- *
- * PURE: FALSE
- *   La pipe e' impura (pure: false) perche' le traduzioni cambiano quando
- *   l'utente cambia lingua. Una pipe pura non rileverebbe il cambio
- *   (il valore della chiave non cambia, cambia il dizionario interno).
- *   Angular ri-esegue le pipe impure ad ogni ciclo di change detection.
- *
- *   Nota: in un'app con pochi template tradotti il costo e' trascurabile.
- *   Se in futuro servisse ottimizzare, si puo' passare a un approccio
- *   signal-first chiamando translate.t() direttamente nei computed().
- */
+/** `{{ 'chiave' | translate }}` / `{{ 'benvenuto' | translate: nomeUtente }}`. `pure: false`: le
+ *  traduzioni cambiano quando cambia la lingua, ma la chiave resta la stessa — una pipe pura non
+ *  rileverebbe il cambiamento (cambia il dizionario interno, non l'input). */
 @Pipe({
     name: 'translate',
     pure: false

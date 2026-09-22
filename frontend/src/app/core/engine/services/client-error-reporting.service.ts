@@ -2,32 +2,11 @@ import { ErrorHandler, Injectable, PLATFORM_ID, inject, isDevMode } from '@angul
 import { isPlatformBrowser } from '@angular/common';
 import { BaseApiService } from './base-api.service';
 
-/**
- * CLIENT ERROR REPORTING SERVICE
- *
- * `ErrorHandler` globale: cattura ogni eccezione JavaScript non gestita nel browser e la inoltra
- * a `POST diagnostics/ui-fault`, che il backend accoda allo stesso `IErrorReportingService` (webhook
- * generico, spento finché non configuri un URL — vedi `global-settings.local.json` §
- * `ErrorReporting`) già usato per i bug lato API: un solo canale di allerta, non due sistemi.
- *
- * Estende `BaseApiService` (non lo consuma via un `ApiService` di progetto) proprio per restare
- * nell'Engine: risoluzione URL/SSR e header sono già lì, non serve reinventarli né dipendere da
- * codice di Dominio.
- *
- * IMPORTANTE — app zoneless (`provideZonelessChangeDetection`): senza zone.js, `ErrorHandler` da
- * solo intercetta solo gli errori sollevati DENTRO l'esecuzione che Angular già traccia (template,
- * `effect`, HttpClient) — un errore in un `setTimeout` nudo, in un listener DOM aggiunto a mano o
- * in uno script di terze parti sfuggirebbe del tutto, silenzioso (verificato: senza i listener
- * `window` sotto, un errore fuori da un contesto Angular non arriva mai a `handleError`). Da qui i
- * listener `error`/`unhandledrejection` in aggiunta, non alternativi — coprono insieme tutta la
- * superficie, senza doppioni: un errore che Angular già gestisce con try/catch interno non risale
- * mai fino a diventare un evento `window` non gestito.
- *
- * Non consumo di rete aggiunto se il webhook non è configurato: il backend risponde comunque 202
- * ma non fa nulla (`IErrorReportingService.IsEnabled` false) — l'unico costo è una POST innocua
- * per ogni errore reale, mai per traffico normale. Spento anche in sviluppo (`isDevMode()`): un
- * errore mentre iteri in locale non deve spammare un webhook di produzione.
- */
+/** `ErrorHandler` globale. Estende `BaseApiService` invece di passare da un `ApiService` di
+ *  progetto, per restare nell'Engine. App zoneless: `ErrorHandler` da solo
+ *  intercetta solo gli errori nell'esecuzione che Angular traccia (template/`effect`/HttpClient) —
+ *  un `setTimeout` nudo o un listener DOM a mano gli sfuggirebbe (verificato), da cui i listener
+ *  `window` `error`/`unhandledrejection` sotto, in aggiunta e senza doppioni con quelli. */
 @Injectable({ providedIn: 'root' })
 export class ClientErrorReportingService extends BaseApiService implements ErrorHandler {
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));

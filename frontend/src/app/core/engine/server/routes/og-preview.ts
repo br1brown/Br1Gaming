@@ -70,13 +70,10 @@ export async function ogPreviewHandler(req: Request, res: Response): Promise<voi
         const { appName } = ContestoSito.config;
         const effectiveTitle = title || appName;
 
-        // DesignSystemPreset.ogTextTransform — personalizzazione facoltativa di testo/font SOLO
-        // per questa immagine (mai per il resto del sito): assente, comportamento invariato. Un
-        // solo punto di chiamata copre entrambe le varianti sotto (testuale/immagine). Il font
-        // restituito è validato PRIMA di fidarsene (deve essere defaultFont o una voce già
-        // registrata in addonFonts, vedi custom-font-detect.ts) — un valore non valido si ignora,
-        // mai un crash: si ripiega sul font di default, come se ogTextTransform non l'avesse mai
-        // toccato.
+        // DesignSystemPreset.ogTextTransform — personalizzazione facoltativa di testo/font SOLO per
+        // questa immagine (assente = invariato). Il font restituito è validato prima di fidarsene
+        // (deve essere defaultFont o una voce già registrata in addonFonts): un valore non valido
+        // si ignora, mai un crash — ripiega sul font di default.
         let ogTitle = effectiveTitle, ogSubtitle = subtitle, fontFamily = customFontServerStack;
         const transform = ContestoSito.config.ogTextTransform;
         if (transform) {

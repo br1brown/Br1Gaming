@@ -12,17 +12,9 @@ import { PageMetaService } from '../services/page-meta.service';
 import { PageType } from '../../../site';
 import { ContentResolver, ResolvedPage } from './content.resolver';
 
-/**
- * Base comune per tutte le pagine.
- *
- * Il generic T descrive il tipo del contenuto caricato dal resolver:
- *   class ArticoloComponent extends PageBaseComponent<ArticoloDTO> { ... }
- *
- * pageContent() è già tipizzato come T | null — nessun cast nei componenti figli.
- *
- * I meta tag SEO (titolo, descrizione, og:image) vengono aggiornati automaticamente
- * via effect() ogni volta che il contenuto cambia, incluso il cambio lingua.
- */
+/** Base comune per tutte le pagine. Il generic T è il tipo del contenuto caricato dal resolver
+ *  (`class ArticoloComponent extends PageBaseComponent<ArticoloDTO>`): `pageContent()` è già
+ *  tipizzato come T | null, nessun cast nei figli. I meta SEO si aggiornano via effect(). */
 @Directive()
 export abstract class PageBaseComponent<T> {
     private readonly contentResolverService = inject(ContentResolver);
@@ -43,34 +35,15 @@ export abstract class PageBaseComponent<T> {
     /** Dati grezzi dal resolver al momento della navigazione (SSR + client). */
     protected readonly contentByResolve = input<ResolvedPage<T> | null>(null);
 
-    /**
-     * Flag pageFade già risolto in routing.ts (gate: globale `DesignSystemPreset.pageFade` +
-     * `ruoloPagina.<ruolo>.pageFade`, deciso dal design system attivo — non più dalla pagina),
-     * iniettato via route.data come `pageType`. L'alias tiene libero il nome `pageFade` per il
-     * getter @HostBinding sotto.
-     */
-    // Alias necessario: deve combaciare con la chiave route.data['pageFade']
-    // (withComponentInputBinding), il nome interno resta libero per il getter @HostBinding
-    // `pageFade` sotto (vedi commento sopra).
+    /** Flag pageFade già risolto in routing.ts, iniettato via route.data. Alias necessario: deve combaciare con la chiave route.data['pageFade'], il nome interno resta libero per il getter @HostBinding `pageFade` sotto. */
     // eslint-disable-next-line @angular-eslint/no-input-rename
     protected readonly pageFadeEnabled = input<boolean>(false, { alias: 'pageFade' });
 
-    /**
-     * Il fade è "tra pagine": NON deve scattare al primo caricamento (SSR + idratazione), dove la
-     * shell sta ancora risolvendo i flag di layout della route e mostrerebbe lo stato sbagliato.
-     * `router.navigated` è `false` durante la prima navigazione (passa a `true` solo al primo
-     * NavigationEnd): catturandolo alla costruzione, la pagina d'ingresso non sfuma, quelle
-     * raggiunte navigando sì. SSR e idratazione concordano (entrambi prima navigazione) → niente
-     * mismatch sulla classe. Si somma a `withViewTransitions({ skipInitialTransition: true })`.
-     */
+    /** Il fade è "tra pagine": non deve scattare al primo caricamento (SSR+idratazione), dove mostrerebbe lo stato sbagliato. `router.navigated` è false durante la prima navigazione: catturato alla costruzione, la pagina d'ingresso non sfuma. */
     private readonly engineRouter = inject(Router);
     private readonly fadeAllowed = this.engineRouter.navigated;
 
-    /**
-     * Applica `.page-fade` sull'host quando il flag è attivo. DEVE essere @HostBinding, non
-     * `host: {}` del decoratore: solo il primo si eredita nelle sottoclassi @Component — è ciò che
-     * rende il fade automatico per ogni pagina. CSS e guardia reduced-motion in `base/_motion.scss`.
-     */
+    /** Applica `.page-fade` sull'host. DEVE essere @HostBinding, non `host: {}` del decoratore: solo il primo si eredita nelle sottoclassi @Component. */
     @HostBinding('class.page-fade')
     protected get pageFade(): boolean {
         return this.fadeAllowed && this.pageFadeEnabled();
@@ -86,14 +59,7 @@ export abstract class PageBaseComponent<T> {
         { initialValue: Object.fromEntries(this.activatedRoute.snapshot.paramMap.keys.map(key => [key, this.activatedRoute.snapshot.paramMap.get(key)!])) }
     );
 
-    /**
-     * Ricarica del contenuto al cambio lingua (lato browser). `resource()` sostituisce l'effect
-     * scritto a mano + la guardia `reqId`: gestisce da solo la cancellazione delle richieste
-     * obsolete (l'ultima `params` vince, niente risposte stantie). In SSR `params` torna `undefined`
-     * → resource idle, nessuna fetch lato server: il contenuto del primo render arriva da
-     * `contentByResolve` (resolver del router). `defaultValue: null` → `.value()` è `null` (mai
-     * throw, anche in errore) finché non c'è un caricamento completato.
-     */
+    /** Ricarica del contenuto al cambio lingua (browser). `resource()` gestisce da solo la cancellazione delle richieste obsolete (l'ultima params vince). SSR: params torna undefined, nessuna fetch, il primo contenuto arriva da `contentByResolve`. */
     private readonly contentResource = resource<ResolvedPage<T> | null, { pageType: PageType; lang: string; params: Record<string, string> } | undefined>({
         params: () => isPlatformBrowser(this.platformId)
             // this.lang() (l'input di route, sincrono) e NON this.translate.currentLang(): quest'ultimo
@@ -147,20 +113,16 @@ export abstract class PageBaseComponent<T> {
 
     constructor() {
         // PUNTO UNICO "URL → stato lingua app": ogni pagina, al mount, allinea TranslateService alla
-        // lingua della propria route. Gira una volta per ogni NUOVA istanza di pagina (la route reuse
-        // strategy di default ricrea sempre il componente quando il path cambia, es. /pagina → /en/pagina).
+        // lingua della propria route (gira una volta per ogni nuova istanza pagina).
         effect(() => {
-            const lang = this.lang(); // lingua dichiarata dalla route corrente (route.data.lang).
-            // Guardia: senza, ogni navigazione — anche fra due pagine della STESSA lingua — rifetcherebbe
-            // i cataloghi i18n inutilmente. Con una sola lingua configurata, lang === currentLang() SEMPRE
-            // dopo il bootstrap: questo effect non fa mai nulla, zero overhead per i siti mono-lingua.
-            // `untracked`: currentLang() va letto ma NON tracciato come dipendenza, altrimenti questo
-            // effect si ririeseguirebbe ad ogni cambio lingua globale (anche innescato da un'ALTRA
-            // istanza pagina in fase di navigazione/distruzione), rimettendo `this.lang()` (vecchia
-            // route) come lingua corrente mentre il resolver della nuova pagina sta ancora fetchando —
-            // causa della race che faceva tornare i dati in italiano dopo lo switch a inglese.
+            const lang = this.lang();
+            // Guardia: senza, ogni navigazione rifetcherebbe i cataloghi i18n inutilmente. `untracked`:
+            // currentLang() va letto ma NON tracciato, altrimenti l'effect si rieseguirebbe ad ogni
+            // cambio lingua globale innescato da UN'ALTRA istanza pagina in navigazione/distruzione,
+            // rimettendo la vecchia route come lingua corrente mentre il resolver della nuova pagina
+            // sta ancora fetchando (race: i dati tornerebbero nella lingua sbagliata dopo lo switch).
             if (lang !== untracked(() => this.translate.currentLang())) {
-                void this.translate.setLanguage(lang); // async: carica i cataloghi JSON della nuova lingua.
+                void this.translate.setLanguage(lang);
             }
         });
 

@@ -1,9 +1,7 @@
-/**
- * Data di ultima modifica (YYYY-MM-DD), per `og:updated_time`. Fonte: `project.lastModified` in
- * global-settings.json (`GG/MM/AAAA`, da bumpare a mano). Fallback alla data corrente se assente
- * o non valida. Non usata per `<lastmod>` di sitemap.xml: una data generica identica su ogni
- * pagina non è un segnale che Google verifica, vedi `SitemapEntry.lastmod` in siteBuilder.ts.
- */
+/** Data di ultima modifica (YYYY-MM-DD), per `og:updated_time`. Fonte: `project.lastModified` in
+ *  global-settings.json (`GG/MM/AAAA`, da bumpare a mano), fallback alla data corrente se assente
+ *  o non valida. Non usata per `<lastmod>` di sitemap.xml: una data generica identica su ogni
+ *  pagina non è un segnale che Google verifica. */
 export function getLastModifiedDate(project: Record<string, unknown> | undefined): string {
     const raw = project?.['lastModified'];
     if (typeof raw === 'string') {

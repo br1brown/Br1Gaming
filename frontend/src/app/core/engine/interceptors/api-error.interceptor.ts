@@ -18,18 +18,10 @@ function overrideKeysFor(status: number): { titleKey?: string; descKey?: string 
     }
 }
 
-/**
- * INTERCEPTOR ERRORI API
- *
- * Concern trasversale (idioma Angular canonico): la notifica automatica degli errori HTTP
- * NON vive più dentro il client API — il servizio fa solo la chiamata e resta puro. Qui,
- * per le sole richieste marcate come "gestite" (vedi {@link API_NOTIFY}):
- *  1. l'`HttpErrorResponse` grezzo viene normalizzato in un `ApiError` tipizzato (status + problem);
- *  2. se la richiesta non è `silent`, l'utente viene avvisato via NotificationService.
- *
- * Le pagine con UI d'errore propria (login) passano `{ silent: true }`: niente toast, solo
- * l'`ApiError` da gestire inline. Le richieste non gestite (httpResource, asset) passano intatte.
- */
+/** Concern trasversale: la notifica automatica degli errori HTTP non vive nel client API, che resta
+ *  puro. Per le sole richieste marcate "gestite" ({@link API_NOTIFY}) normalizza l'`HttpErrorResponse`
+ *  grezzo in un `ApiError` tipizzato e, se non `silent`, avvisa via NotificationService. Le pagine
+ *  con UI d'errore propria (login) passano `{ silent: true }`; le richieste non gestite passano intatte. */
 export const apiErrorInterceptor: HttpInterceptorFn = (req, next) => {
     const mode = req.context.get(API_NOTIFY);
     if (mode === null) return next(req);

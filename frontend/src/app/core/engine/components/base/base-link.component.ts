@@ -1,11 +1,8 @@
 import { Directive, Signal, computed, input } from '@angular/core';
 
-/**
- * Base condivisa dalle famiglie "contatti" e "navigazione": semplici link (`<a href>`) con
- * icona-badge e label opzionale, nessun servizio da iniettare. Centralizza gli input comuni
- * (label/showLabel/fullWidth); il concreto fornisce href/glyph/color/displayLabel e delega il
- * rendering a `LinkBadgeComponent`.
- */
+/** Base condivisa dalle famiglie "contatti" e "navigazione": semplici link (`<a href>`) con
+ *  icona-badge e label opzionale, nessun servizio da iniettare. Il concreto fornisce
+ *  href/glyph/color/displayLabel e delega il rendering a `LinkBadgeComponent`. */
 @Directive({
     host: {
         '[class.d-inline-block]': '!fullWidth()',

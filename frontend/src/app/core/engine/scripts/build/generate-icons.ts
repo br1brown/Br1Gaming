@@ -1,26 +1,6 @@
-/**
- * Genera le icone del sito a partire dal favicon definito in mapping.json.
- * Output: public/icons/ (file generati, non tracciati da git)
- *
- * Eseguire con:  npm run generate:icons
- * (gira già in automatico nei passi prestart/predev/prebuild, insieme a generate:statics)
- *
- * File generati, SEMPRE (indipendentemente da `isWebApp`: favicon e Apple Touch Icon servono
- * a qualunque sito, non solo a una PWA installabile):
- * - icon-192x192.png             → `any`, resize semplice, trasparenza preservata (favicon nel tab)
- * - icon-512x512.png             → `any`, sfondo brand pieno, artwork a bordo pieno (og:image/
- *                                   twitter:image e badge anteprime social: mai trasparente)
- * - icon-512x512-maskable.png    → `maskable`, sfondo brand pieno, artwork ridotta all'80% del
- *                                   canvas (safe-zone): senza, il masking del sistema (cerchio,
- *                                   squircle...) taglierebbe contenuto a ridosso del bordo
- * - apple-touch-icon-180x180.png → stesso trattamento della maskable (sfondo pieno + safe-zone):
- *                                   iOS non gestisce la trasparenza (renderizza nero al suo posto)
- *
- * `icon-512x512.png` e `icon-512x512-maskable.png` sono DUE file distinti (non un solo icona
- * `"purpose": "any maskable"`): un'icona pensata per il masking ha già il proprio padding, quindi
- * usata anche come `any` apparirebbe artificialmente piccola/impaginata male fuori da un masking
- * adattivo — pratica sconsigliata esplicitamente da Chrome DevTools e web.dev.
- */
+/** Genera le icone del sito dal favicon dichiarato in mapping.json, in public/icons/ (non
+ *  tracciati da git). Gira in automatico nei pre-hook (prestart/predev/prebuild): favicon/
+ *  Apple Touch Icon sempre, icona maskable solo se `isWebApp:true`. */
 
 import '@angular/compiler'; // richiesto per importare site.ts (ContestoSito) fuori da un bootstrap Angular — stesso pattern di generate-statics.ts
 import { existsSync, copyFileSync, mkdirSync, readFileSync } from 'fs';
@@ -76,14 +56,9 @@ function parseHexColor(input: string | undefined): { r: number; g: number; b: nu
     return { r: Number.isNaN(r) ? 255 : r, g: Number.isNaN(g) ? 255 : g, b: Number.isNaN(b) ? 255 : b };
 }
 
-/** Colore brand per lo sfondo delle icone a safe-zone — da `ContestoSito.config.colorTema`
- *  (site.ts), non da una lettura indipendente di global-settings.json: è la stessa identica fonte
- *  di verità usata da `generate-statics.ts`/`og-preview.ts` per ogni altro colore derivato,
- *  qualunque design system sia attivo. `colorTema` resta l'unico colore di IDENTITÀ (non ha una
- *  leva nel design system, a differenza di secondario/sfondo/testo/info — vedi
- *  `design-system-presets.ts`), quindi il valore non cambia con il design system scelto, ma la
- *  fonte da cui viene letto è la stessa per tutti, invece di una seconda lettura indipendente del
- *  JSON che potrebbe divergere. */
+/** Colore brand per lo sfondo delle icone a safe-zone — da `ContestoSito.config.colorTema`, stessa
+ *  fonte usata da `generate-statics.ts`/`og-preview.ts` per ogni altro colore derivato (mai una
+ *  seconda lettura indipendente di global-settings.json, che potrebbe divergere). */
 function resolveBrandColor(): { r: number; g: number; b: number } {
     return parseHexColor(ContestoSito.config.colorTema);
 }

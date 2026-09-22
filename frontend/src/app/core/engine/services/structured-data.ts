@@ -1,17 +1,7 @@
-/**
- * STRUCTURED DATA — DSL tipizzato + adapter verso schema.org
- *
- * Lo sviluppatore dichiara i dati strutturati con campi dal nome parlante, SENZA conoscere
- * il vocabolario schema.org. L'unico punto che traduce verso JSON-LD valido è `buildStructuredData`
- * qui sotto: se domani schema.org cambia, si tocca solo l'adapter, non i tipi che vede il figlio.
- *
- * Non è una copia 1:1 di schema.org: copre i `kind` utili al 90% dei siti. Per i casi rari c'è
- * la via di fuga `kind: 'raw'` (JSON-LD grezzo passato così com'è).
- *
- * Dove si imposta (vedi PageInfo / ResolvedPage):
- *   - statico  → `site.ts` `otherSEO.structuredData` (es. una FAQ con domande fisse)
- *   - dinamico → il `contentLoader` di una pagina, derivandolo dal contenuto (es. autore/data di un Article)
- */
+/** DSL tipizzato + adapter verso schema.org: lo sviluppatore dichiara campi dal nome parlante senza
+ *  conoscere il vocabolario schema.org, `buildStructuredData` sotto è l'unico punto che traduce in
+ *  JSON-LD. Non copre l'intero schema.org, solo i `kind` utili al 90% dei siti (per i casi rari
+ *  c'è `kind: 'raw'`). Si imposta staticamente (`site.ts` otherSEO.structuredData) o dinamicamente. */
 
 /** Autore in forma minima: solo il nome, o nome + URL. L'adapter lo mappa su `Person`. */
 export type SdAuthor = string | { name: string; url?: string };
@@ -70,6 +60,11 @@ export interface SdEvent {
     url?: string;
 }
 
+/** Pagina "profilo" (portfolio, chi-sono, pagina autore): rich result "Profile page" di Google. Nessun campo proprio: il `mainEntity` punta al nodo Person/Organization già costruito dall'Engine da identity.json. */
+export interface SdProfile {
+    kind: 'profile';
+}
+
 /** Via di fuga: JSON-LD schema.org grezzo, aggiunto al grafo così com'è (un nodo o più). */
 export interface SdRaw {
     kind: 'raw';
@@ -77,11 +72,13 @@ export interface SdRaw {
 }
 
 /** Unione discriminata su `kind`: ciò che lo sviluppatore dichiara. */
-export type StructuredData = SdArticle | SdFaq | SdProduct | SdEvent | SdRaw;
+export type StructuredData = SdArticle | SdFaq | SdProduct | SdEvent | SdProfile | SdRaw;
 
-/** Un item di structured data: una **stringa** (= solo il `@type` schema.org della pagina, es.
- *  'AboutPage', 'ContactPage'; per i tipi non coperti dai `kind`) oppure un oggetto tipizzato
- *  `{ kind, … }` (ricco, con default a cascata). */
+/** Un item: una **stringa** (solo `@type`, es. 'AboutPage' — OK solo per tipi senza proprietà
+ *  aggiuntive richieste) o un oggetto tipizzato `{ kind, … }` (ricco, con default a cascata). I
+ *  sette `@type` con un `kind` dedicato (`'ProfilePage'`/`'FAQPage'`/`'Article'`/`'NewsArticle'`/
+ *  `'BlogPosting'`/`'Product'`/`'Event'`) come stringa nuda producono un nodo incompleto che Google
+ *  segnala prima o poi (`buildStructuredDataGraph` avvisa in console): usa sempre `{ kind, ... }`. */
 export type StructuredDataItem = string | StructuredData;
 
 /** Ciò che si passa a `structuredData`: un item o una lista (più entità sulla stessa pagina,
@@ -124,6 +121,31 @@ export interface SdGraph {
     nodes: Record<string, unknown>[];
     /** Meta OG dell'entità principale della pagina (es. `article:*`), da emettere nel <head>. */
     ogMeta: { property: string; content: string }[];
+}
+
+/** `@type` schema.org che schema.org/Google richiedono SEMPRE accompagnati da proprietà
+ *  aggiuntive (`mainEntity`, `headline`, `name`, `startDate`...) — la stringa nuda imposta SOLO
+ *  `@type`, quindi per questi produce sempre un nodo incompleto (Search Console lo segnala prima
+ *  o poi). Ognuno ha già un `kind` dedicato che fornisce quei campi correttamente: la mappa serve
+ *  solo al warning qui sotto, mai alla resa vera e propria. */
+const UNSAFE_BARE_TYPES: Record<string, StructuredData['kind']> = {
+    ProfilePage: 'profile', FAQPage: 'faq', Article: 'article', NewsArticle: 'article',
+    BlogPosting: 'article', Product: 'product', Event: 'event',
+};
+
+/** Un solo avviso per `@type` per processo (SSR: una pagina con questo bug lo servirebbe a ogni
+ *  richiesta, non solo alla prima — qui basta accorgersene una volta nei log). */
+const warnedBareTypes = new Set<string>();
+
+function warnIfUnsafeBareType(type: string): void {
+    const kind = UNSAFE_BARE_TYPES[type];
+    if (!kind || warnedBareTypes.has(type)) return;
+    warnedBareTypes.add(type);
+    console.warn(
+        `[structured-data] otherSEO.structuredData: '${type}' come stringa nuda produce un @type `
+        + `senza le proprietà che schema.org/Google richiedono per questo tipo (Search Console lo `
+        + `segnalerà come dato strutturato incompleto) — usa { kind: '${kind}', ... } invece della stringa.`,
+    );
 }
 
 const AVAILABILITY: Record<SdAvailability, string> = {
@@ -226,6 +248,10 @@ export function buildStructuredData(data: StructuredData, ctx: SdContext): SdRes
                 ...(data.url && { url: data.url }),
             } };
         }
+        case 'profile':
+            // mainEntity SOLO se il grafo ha un publisher risolto (sempre vero nella pratica: lo
+            // passa page-meta.service.ts a ogni chiamata) — mai un riferimento a un @id inventato.
+            return { type: 'ProfilePage', ...(ctx.publisherId && { props: { mainEntity: { '@id': ctx.publisherId } } }) };
         case 'raw':
             return { nodes: Array.isArray(data.jsonLd) ? data.jsonLd : [data.jsonLd] };
         default:
@@ -234,25 +260,21 @@ export function buildStructuredData(data: StructuredData, ctx: SdContext): SdRes
     }
 }
 
-/**
- * Compone uno o più `StructuredData` nel contributo al grafo della pagina.
- *
- * - Singolo item → arricchisce il nodo `WebPage`.
- * - Array → il **primo** item tipizzato arricchisce il `WebPage` (il "cos'è" della pagina); gli
- *   altri item tipizzati diventano **nodi standalone**; i nodi `raw` sono sempre aggiunti al grafo.
- *
- * Robusto: `null`/`undefined` → contributo vuoto; ogni item passa per `buildStructuredData`
- * (che non lancia mai), quindi voci malformate degradano senza rompere il grafo.
- */
+/** Compone uno o più `StructuredData` nel contributo al grafo. Singolo item: arricchisce `WebPage`. Array: il primo tipizzato arricchisce `WebPage`, gli altri diventano nodi standalone, i `raw` sono sempre aggiunti. null/undefined ⇒ contributo vuoto, ogni item passa per `buildStructuredData` (mai lancia) quindi voci malformate degradano senza rompere il grafo. */
 export function buildStructuredDataGraph(input: StructuredDataInput | null | undefined, ctx: SdContext): SdGraph {
     const items = input == null ? [] : (Array.isArray(input) ? input : [input]);
     const out: SdGraph = { pageProps: {}, nodes: [], ogMeta: [] };
     let enriched = false;
     for (const item of items) {
         // Stringa = solo il @type della pagina (vuota/spazi → ignorata); oggetto = item tipizzato.
-        const r: SdResult = typeof item === 'string'
-            ? (item.trim() ? { type: item.trim() } : {})
-            : buildStructuredData(item, ctx);
+        let r: SdResult;
+        if (typeof item === 'string') {
+            const type = item.trim();
+            if (type) warnIfUnsafeBareType(type);
+            r = type ? { type } : {};
+        } else {
+            r = buildStructuredData(item, ctx);
+        }
         if (!enriched && (r.type || r.props)) {
             out.pageType = r.type;
             out.pageProps = r.props ?? {};

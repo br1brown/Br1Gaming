@@ -12,14 +12,10 @@ import { ComponentPortal } from '@angular/cdk/portal';
 import { ContextMenuOption } from '../components/context-menu/context-menu.models';
 import { ContextMenuOverlayComponent } from '../components/context-menu/context-menu-overlay.component';
 
-/**
- * Menu contestuale su qualsiasi elemento (`[appContextMenu]`).
- *
- * L'overlay (creazione, posizionamento viewport-aware, dismiss su click-fuori ed Escape)
- * è gestito da **CDK Overlay**. Resta custom solo la UX di apertura: right-click su desktop
- * (popover al cursore) e long-press su touch (bottom-sheet), con soppressione del click
- * sintetico che il browser emette dopo un long-press.
- */
+/** Menu contestuale su qualsiasi elemento (`[appContextMenu]`). L'overlay (creazione,
+ *  posizionamento viewport-aware, dismiss su click-fuori/Escape) è gestito da CDK Overlay; resta
+ *  custom solo la UX di apertura: right-click su desktop, long-press su touch (con soppressione
+ *  del click sintetico che il browser emette dopo il long-press). */
 @Directive({
     selector: '[appContextMenu]',
     standalone: true,

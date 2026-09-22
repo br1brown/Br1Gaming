@@ -3,6 +3,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { DayName, DAY_ORDER, OpeningHours } from '../../dto/identity.dto';
 import { LocalizationService } from '../../services/localization.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
+import { isValidOpeningInterval } from '../../identity-format';
 
 /** Una riga della tabella orari: giorno + fasce del giorno (vuoto = chiuso) + se è oggi. */
 interface DayRow {
@@ -67,7 +68,7 @@ export class OpeningHoursComponent {
         // Fasce valide raggruppate per giorno → "09:00–18:00", in ordine di dichiarazione.
         const byDay = new Map<DayName, string[]>();
         for (const it of list) {
-            if (!it || !DAY_ORDER.includes(it.day) || !isHm(it.opens) || !isHm(it.closes)) continue;
+            if (!isValidOpeningInterval(it)) continue;
             const range = `${it.opens}–${it.closes}`;
             const ranges = byDay.get(it.day);
             if (ranges) ranges.push(range);
@@ -89,14 +90,8 @@ export class OpeningHoursComponent {
 /** Nome `DayOfWeek` per indice di `Date.getDay()` (0=Domenica). Per marcare "oggi" senza mappe locale. */
 const DAY_BY_JS_INDEX: readonly DayName[] = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-/** Orario "HH:mm" (24h). Difesa contro valori sporchi (sorgente esterna/CMS) prima di renderli. */
-const HM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-function isHm(value: unknown): value is string {
-    return typeof value === 'string' && HM_RE.test(value);
-}
-
 /** True se la lista ha almeno una fascia valida → il componente renderà qualcosa. Predice la
  *  visibilità per il consumer (che decide il proprio wrapper) senza rieseguire il raggruppamento. */
 export function hasOpeningHours(list: OpeningHours | null | undefined): boolean {
-    return Array.isArray(list) && list.some(it => !!it && DAY_ORDER.includes(it.day) && isHm(it.opens) && isHm(it.closes));
+    return Array.isArray(list) && list.some(isValidOpeningInterval);
 }

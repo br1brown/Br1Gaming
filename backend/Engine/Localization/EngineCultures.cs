@@ -3,18 +3,7 @@ using Backend.Models.Configuration;
 
 namespace Backend.Engine.Localization;
 
-/// <summary>
-/// Trasforma i **codici lingua dichiarati** (due lettere, in <c>global-settings.json</c> →
-/// <c>Localization</c>, esposti via <see cref="LocalizationOptions"/>) nelle <see cref="CultureInfo"/>
-/// **tipizzate** del framework. È la magia "dichiari il noto — i codici — e il framework deriva il
-/// resto (BCP-47, calendario, formati)": da queste culture l'Engine alimenta
-/// <c>UseRequestLocalization</c>, così la cultura della richiesta (da Accept-Language) guida i
-/// messaggi d'errore e di validazione localizzati.
-///
-/// Design: le lingue sono dichiarate UNA volta in <c>Localization.SupportedLanguages</c>; backend e
-/// frontend le consumano in modo indipendente e dalla stessa fonte — il backend qui via
-/// <see cref="CultureInfo"/> (.NET), il frontend via <c>Intl</c>. Nessun endpoint condiviso.
-/// </summary>
+/// <summary>Arricchisce i codici lingua dichiarati in <c>Localization.SupportedLanguages</c> nelle <see cref="CultureInfo"/> tipizzate che alimentano <c>UseRequestLocalization</c>.</summary>
 public static class EngineCultures
 {
     /// <summary>Cultura dal codice lingua (es. <c>"it"</c>). Lancia su codice non valido (errore di configurazione, fail-fast).</summary>

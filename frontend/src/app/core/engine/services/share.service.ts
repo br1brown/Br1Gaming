@@ -1,17 +1,7 @@
 import { Injectable, PLATFORM_ID, inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 
-/**
- * Esito di un'operazione di condivisione. Il servizio si limita a *fare* e a
- * restituire cosa è successo; spetta al componente che ha scatenato l'azione
- * decidere se e come avvisare l'utente (vedi `shareResultNotice`).
- *
- * - `shared`    → condiviso col foglio nativo dell'OS (feedback già dato dall'OS)
- * - `copied`    → fallback: testo copiato negli appunti
- * - `downloaded`→ fallback: file scaricato localmente
- * - `cancelled` → l'utente ha annullato il foglio di condivisione
- * - `error`     → operazione non riuscita
- */
+/** Esito di un'operazione di condivisione: il servizio si limita a fare, il componente decide se avvisare l'utente (vedi `shareResultNotice`). 'shared'/'cancelled' hanno già un feedback dell'OS. */
 export type ShareResult = 'shared' | 'copied' | 'downloaded' | 'cancelled' | 'error';
 
 /** Descrittore di un toast: chiave i18n + tipo. */
@@ -20,13 +10,7 @@ export interface ShareNotice {
     type: 'success' | 'error';
 }
 
-/**
- * Mappa un {@link ShareResult} al toast appropriato, o `null` quando non serve
- * avvisare (condivisione nativa riuscita, download avviato, annullamento: hanno
- * già un loro feedback visibile). È una funzione pura: NON mostra nulla: è il
- * componente a chiamare `notify.toast(...)`. Centralizza solo la decisione perché
- * più bottoni condividono lo stesso esito.
- */
+/** Mappa un {@link ShareResult} al toast appropriato, null quando non serve avvisare. Funzione pura: non mostra nulla, è il componente a chiamare `notify.toast(...)`. */
 export function shareResultNotice(result: ShareResult): ShareNotice | null {
     switch (result) {
         case 'copied': return { key: 'clipboardCopied', type: 'success' };
@@ -35,25 +19,7 @@ export function shareResultNotice(result: ShareResult): ShareNotice | null {
     }
 }
 
-/**
- * SHARE SERVICE
- *
- * Servizio centralizzato per:
- * - copia negli appunti
- * - condivisione nativa (Web Share API)
- * - download locale di file e canvas
- *
- * Responsabilità unica: esegue l'operazione e ne restituisce l'esito. NON mostra
- * toast: le notifiche sono dei componenti che scatenano l'azione (il bottone
- * "copia"/"condividi"), così lo stesso servizio resta usabile anche in contesti
- * silenziosi.
- *
- * Gerarchia interna:
- * download:  downloadCanvas → downloadBlob (core)
- * share:     shareCanvas → shareBlob → shareFile (core)
- *
- * Le funzioni wrapper si occupano solo della conversione dei dati.
- */
+/** Copia negli appunti, condivisione nativa (Web Share API), download locale. Esegue e ritorna l'esito, non mostra toast (compito del componente chiamante). Gerarchia: download → downloadCanvas → downloadBlob; share → shareCanvas → shareBlob → shareFile. */
 @Injectable({ providedIn: 'root' })
 export class ShareService {
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
@@ -135,12 +101,7 @@ export class ShareService {
         return this.shareFile(file, title);
     }
 
-    /**
-     * CORE SHARE
-     *
-     * Usa la Web Share API se disponibile.
-     * In caso di errore o mancanza di supporto, effettua il fallback al download.
-     */
+    /** CORE SHARE: usa la Web Share API se disponibile, fallback al download su errore o mancanza di supporto. */
     async shareFile(file: File, title?: string): Promise<ShareResult> {
         if (this.isBrowser && navigator.canShare && navigator.canShare({ files: [file] })) {
             try {

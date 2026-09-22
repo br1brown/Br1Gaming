@@ -226,12 +226,9 @@ export class PolicyComponent extends PageBaseComponent<string> {
     /** Etichetta dell'affordance "mostra elenco" (nascosta quando il pannello è aperto). */
     readonly showListLabel = computed(() => this.translate.translate('mostraElencoListaCookie'));
 
-    /** Info per la riga "ultimo aggiornamento" della pagina corrente (o null se non c'è data).
-     *  Le date sono in `pages/legal.pages.ts` (vicino agli ID delle pagine legali che rappresentano).
-     *  La data la formatta il servizio (culture-aware e reattivo, nessun `Intl` qui);
-     *  l'attributo `datetime` porta l'ISO per un <time> semantico. */
-    /** Sorgente unica per og:updated_time/dateModified (PageBaseComponent): stessa data mostrata
-     *  a video, così i due non possono disallinearsi. */
+    /** Data "ultimo aggiornamento" della pagina corrente (le date sono in `pages/legal.pages.ts`),
+     *  in ISO per il `datetime` del `<time>` semantico — sorgente unica anche per
+     *  og:updated_time/dateModified (PageBaseComponent), così i due non possono disallinearsi. */
     protected override pageUpdatedOn(): string | null {
         const updated = this.identityFlags().updated;
         return updated && !isNaN(updated.getTime()) ? updated.toISOString().slice(0, 10) : null;

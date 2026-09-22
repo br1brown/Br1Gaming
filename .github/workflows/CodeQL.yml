@@ -4,9 +4,12 @@ name: CodeQL
 
 on:
   push:
-    branches: ["**"]
+    # main sempre; fix/** anche in push diretto (branch di consolidamento pre-merge, es. dopo
+    # aver unito più branch da verificare prima di mergiare in main) — i branch di sessione
+    # (claude/**, ecc.) restano fuori, coperti solo da pull_request qui sotto se ne apri una.
+    branches: [main, "fix/**"]
   pull_request:
-    branches: ["**"]
+    branches: [main]
   schedule:
     # Scansione periodica settimanale
     - cron: "17 4 * * 1"

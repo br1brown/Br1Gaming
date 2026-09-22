@@ -33,12 +33,10 @@ export interface ResolvedPage<T = unknown> {
     structuredData?: StructuredDataInput | null;
 }
 
-/**
- * Carica i contenuti di pagina: generico, zero PageType conosciuti. Le pagine legali sono gestite
- * qui (via `getLegalSlug`/`tryLoadPolicy`); ogni altra pagina porta la propria logica nel
- * `contentLoader` della sua definizione (`SitePageInput.contentLoader`, stesso schema di `dynamicParams`).
- * ⚙️ Contratto Engine: non rinominare gli export ContentResolver/ResolvedPage/contentLoaderResolver.
- */
+/** Carica i contenuti di pagina: generico, zero PageType conosciuti. Le pagine legali sono gestite
+ *  qui (`getLegalSlug`/`tryLoadPolicy`); ogni altra porta la propria logica nel `contentLoader`
+ *  della sua definizione. Contratto Engine: non rinominare gli export ContentResolver/ResolvedPage/
+ *  contentLoaderResolver. */
 @Injectable({ providedIn: 'root' })
 export class ContentResolver {
     private readonly http = inject(HttpClient);
@@ -104,18 +102,11 @@ export class ContentResolver {
     }
 }
 
-/* Factory ResolveFn per core/engine/routing.ts. `lang` è passato esplicitamente in chiusura (nota
- * in routing.ts sul perché non si legge da TranslateService.currentLang() qui). Tutti i `:segmenti`
- * della rotta (come `route.paramMap`) passano attraverso al `contentLoader`, se gli servono.
- *
- * `inject()` va preso QUI, sincrono (prima di ogni await) — l'unico punto con injection context
- * garantito per un ResolveFn; per questo il redirect sul 404 usa `.catch()` sulla promise già
- * creata, non async/await (un `inject()` dopo un await fallirebbe fuori contesto).
- *
- * Nota sul routing: un `ResolveFn` redirige SOLO con `RedirectCommand` — un `UrlTree` nudo (es.
- * `router.parseUrl(...)`) viene trattato come DATO risolto, non come redirect (diverso da
- * `CanActivateFn`). Un `UrlTree` nudo qui produrrebbe un soft-404: la pagina resterebbe sulla
- * rotta richiesta con `content: null`, invece di redirigere davvero a `/error/404`. */
+/** Factory ResolveFn per core/engine/routing.ts. `inject()` va preso sincrono, prima di ogni await
+ *  — l'unico punto con injection context garantito — per questo il redirect sul 404 usa `.catch()`
+ *  sulla promise già creata invece di async/await. Un `ResolveFn` redirige SOLO con
+ *  `RedirectCommand`: un `UrlTree` nudo qui sarebbe trattato come dato risolto (soft-404), non
+ *  come redirect (diverso da `CanActivateFn`). */
 export const contentLoaderResolver = (pageType: PageType, lang: string): ResolveFn<ResolvedPage | RedirectCommand> =>
     (route) => {
         const contentResolver = inject(ContentResolver);

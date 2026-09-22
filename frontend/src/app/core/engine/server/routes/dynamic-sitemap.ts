@@ -6,13 +6,9 @@ import { serverEnv } from '../server-env';
 import { flattenDynamicParams, applyPathParams, type SitemapEntry, type DynamicParamsContext } from '../../siteBuilder';
 import { buildSitemapXml } from '../../services/sitemap-xml';
 
-/**
- * Endpoint `/sitemap.xml`: genera la sitemap combinando le entry statiche (`ContestoSito`,
- * `buildSitemapXml()`) con l'espansione delle pagine `dynamicParams`, il cui catalogo arriva da
- * un'API e non è enumerabile a build time. Cache in-process invalidata da
- * `POST /internal/revalidate-sitemap` (sotto); il TTL è solo una rete di sicurezza per il caso
- * raro in cui quella notifica si perda.
- */
+/** Endpoint `/sitemap.xml`: combina le entry statiche (`ContestoSito`) con l'espansione delle
+ *  pagine `dynamicParams` (catalogo da API, non enumerabile a build time). Cache in-process
+ *  invalidata da `POST /internal/revalidate-sitemap` (sotto); il TTL è solo un fallback. */
 
 // Alto (7 giorni): l'aggiornamento primario è la notifica `POST /internal/revalidate-sitemap`,
 // il TTL è solo un fallback per il caso in cui quella notifica si perda.
@@ -209,21 +205,11 @@ export function revalidateSitemapHandler(req: Request, res: Response): void {
     res.status(204).end();
 }
 
-/**
- * `/internal/dynamic-audit-paths`: path pubblici (SOLO lingua di default) delle pagine
- * `dynamicParams`, raggruppati per `pageType` — un gruppo = una famiglia di pagine che condivide
- * lo stesso componente/template (stesso comportamento, cambiano solo i dati: es. tutte le
- * varianti di "social-feed/:slug"). Consumato da scripts/test/discover-audit-paths.cjs per
- * campionare N istanze PER COMPONENTE negli audit live (Pa11y/Lighthouse), invece che un
- * campione unico su tutte le pagine dinamiche mescolate insieme: senza il raggruppamento, un
- * domani un template con mille entità (es. un blog) "ruberebbe" campione a un template con
- * cinque entità solo perché ne genera di più — pur essendo due componenti indipendenti con
- * un profilo di accessibilità/performance proprio.
- *
- * Nessuna autenticazione, a differenza di /internal/revalidate-sitemap: qui non si muta nulla,
- * e l'informazione esposta non è più sensibile di /sitemap.xml (stessi dati via
- * getDynamicEntries(), solo raggruppati per pageType invece che appiattiti in <loc>).
- */
+/** `/internal/dynamic-audit-paths`: path pubblici (lingua default) delle pagine `dynamicParams`,
+ *  raggruppati per `pageType` — consumato da scripts/test/discover-audit-paths.cjs per campionare
+ *  N istanze PER COMPONENTE negli audit live (Pa11y/Lighthouse), non un campione unico mescolato
+ *  tra template con popolazioni di entità diverse. Nessuna autenticazione: stessi dati pubblici
+ *  di /sitemap.xml, solo raggruppati invece che appiattiti in <loc>. */
 export async function dynamicAuditPathsHandler(_req: Request, res: Response): Promise<void> {
     res.set('Cache-Control', 'no-cache');
     try {

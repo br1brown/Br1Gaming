@@ -8,7 +8,8 @@ import { MailContactComponent, MailContactConfig } from '../mail-contact/mail-co
 import { PecContactComponent } from '../pec-contact/pec-contact.component';
 import { SocialLinkComponent } from '../social-link/social-link.component';
 import { OpeningHoursComponent, hasOpeningHours } from '../opening-hours/opening-hours.component';
-import { BadgeTone, formatAddress, formatCurrency, hasText } from '../../identity-format';
+import { BadgeTone, hasText } from '../../identity-format';
+import { FooterField, FooterFieldDeps, FooterGroupChild, resolveFooterField } from '../../footer-content';
 
 type IdentityItem =
     | { kind: 'text'; label: string; value: string; itemClass?: string }
@@ -26,12 +27,9 @@ type ContactChannel =
     | { kind: 'mail'; key: string; label: string; config: MailContactConfig }
     | { kind: 'pec'; key: string; label: string; config: MailContactConfig };
 
-/**
- * Rende l'Identity del sito (GET /identity) in sezioni a colonne (societari, legali, contatti): ogni
- * voce solo se valorizzata (skip-empty), label tradotta, markup per tipo, più la logica di formato.
- * `[showSocial]="true"` aggiunge le icone social (un solo punto di rendering gateato da un flag:
- * footer sì, pagine legali no).
- */
+/** Rende l'Identity del sito (GET /identity) in sezioni a colonne (societari, legali, contatti):
+ *  ogni voce solo se valorizzata, label tradotta, markup per tipo. `[showSocial]="true"` aggiunge
+ *  le icone social (footer sì, pagine legali no). */
 @Component({
     selector: 'app-identity-render',
     standalone: true,
@@ -58,6 +56,9 @@ export class IdentityRenderComponent {
     readonly showContacts = input(true, { transform: booleanAttribute });
     readonly showOpeningHours = input(true, { transform: booleanAttribute });
 
+    /** Deps di `resolveFooterField`: stessi servizi già iniettati qui, nessun provider in più. */
+    private readonly footerDeps: FooterFieldDeps = { translate: this.translate, localization: this.localization };
+
     readonly sections = computed<IdentitySection[]>(() => {
         const identity = this.identity();
         if (!identity) return [];
@@ -71,17 +72,20 @@ export class IdentityRenderComponent {
     });
 
     /** Voci testuali della sezione Contatti (nome, sede, rappresentante, cariche legali). Gli orari
-     *  sono resi a parte da `app-opening-hours` (componente autonomo), non più una riga di testo qui. */
+     *  sono resi a parte da `app-opening-hours` (componente autonomo), non più una riga di testo qui.
+     *  Stessa fonte di `FooterField.TitolareDelTrattamento`/`ResponsabileProtezioneDati`: quel campo
+     *  risolve fino a due foglie (nome + email), qui prendiamo solo quella `kind: 'value'` (il nome —
+     *  l'email finisce invece in `contacts()`, badge cliccabile, non testo). */
     readonly contactItems = computed<IdentityItem[]>(() => {
         const identity = this.identity();
         if (!identity || !this.showContacts()) return [];
-        return this.compactItems([
-            this.createTextItem(identity.ragioneSociale, this.label('ragioneSocialeAzienda')),
-            this.createTextItem(formatAddress(identity.sedeLegale, this.localization), this.label('sedeLegaleAzienda')),
-            this.createTextItem(identity.rappresentanteLegale, this.label('rappresentanteLegaleAzienda')),
-            this.createTextItem(identity.titolareDelTrattamento?.nome, this.label('titolareDelTrattamentoAzienda')),
-            this.createTextItem(identity.responsabileProtezioneDati?.nome, this.label('responsabileProtezioneDatiAzienda')),
-        ]);
+        return [
+            ...this.valueItems(FooterField.RagioneSociale, identity),
+            ...this.valueItems(FooterField.SedeLegale, identity),
+            ...this.valueItems(FooterField.RappresentanteLegale, identity),
+            ...this.valueItems(FooterField.TitolareDelTrattamento, identity),
+            ...this.valueItems(FooterField.ResponsabileProtezioneDati, identity),
+        ];
     });
 
     /** Orari (via `app-opening-hours`): richiesti da `showOpeningHours` e con dati presenti. */
@@ -105,59 +109,31 @@ export class IdentityRenderComponent {
 
     /**
      * Identificativi dell'entità (P.IVA, CF, Registro Imprese, REA, SDI). Se CF e P.IVA coincidono,
-     * una sola voce "Codice Fiscale / P.IVA" per non ripetere lo stesso dato.
+     * una sola voce "Codice Fiscale / P.IVA" per non ripetere lo stesso dato — stessa dedup di
+     * `FooterField.PartitaIvaCodiceFiscale` (`footer-content.ts`), unica fonte per questa decisione.
      */
     private identifierItems(identity: Identity): IdentityItem[] {
-        const piva = identity.partitaIva?.trim();
-        const cf = identity.codiceFiscale?.trim();
-        const ds = identity.datiSocietari;
-
-        const idCodes: Array<IdentityItem | null> = hasText(piva) && piva === cf
-            ? [this.createCodeItem(`${this.label('codiceFiscaleAzienda')} / ${this.label('partitaIvaAzienda')}`, piva)]
-            : [
-                this.createCodeItem(this.label('partitaIvaAzienda'), identity.partitaIva),
-                this.createCodeItem(this.label('codiceFiscaleAzienda'), identity.codiceFiscale),
-            ];
-
-        return this.compactItems([
-            ...idCodes,
-            this.createTextItem(ds?.registroImprese, this.label('registroImpreseAzienda')),
-            this.createCodeItem(this.label('numeroReaAzienda'), ds?.numeroRea),
-            this.createCodeItem(this.label('codiceSdiAzienda'), ds?.codiceSdi),
-        ]);
+        return [
+            ...this.valueItems(FooterField.PartitaIvaCodiceFiscale, identity),
+            ...this.valueItems(FooterField.RegistroImprese, identity),
+            ...this.valueItems(FooterField.NumeroRea, identity),
+            ...this.valueItems(FooterField.CodiceSdi, identity),
+        ];
     }
 
-    /**
-     * Canali di contatto cliccabili (telefono, email, PEC) resi come badge in cima, fuori dalle colonne.
-     * `label` è la CHIAVE i18n, non il valore: il contatto traduce da sé (pre-tradurre → doppio
-     * translate → "key not found").
-     */
+    /** Canali di contatto cliccabili (telefono, email, PEC, Titolare/DPO) resi come badge in cima,
+     *  fuori dalle colonne — stessi `FooterField`/componenti di `resolveFooterField`, non una
+     *  lettura diretta di `identity.contatti` fatta una seconda volta qui. */
     readonly contacts = computed<ContactChannel[]>(() => {
         const identity = this.identity();
         if (!identity || !this.showContacts()) return [];
-
-        const list: ContactChannel[] = [];
-        const c = identity.contatti;
-        if (c) {
-            if (hasText(c.telefono)) {
-                list.push({ kind: 'phone', key: 'telefono', label: 'telefonoAzienda', number: c.telefono.trim() });
-            }
-            if (hasText(c.email)) {
-                list.push({ kind: 'mail', key: 'email', label: 'emailAzienda', config: { to: c.email.trim() } });
-            }
-            if (hasText(c.pec)) {
-                list.push({ kind: 'pec', key: 'pec', label: 'pecAzienda', config: { to: c.pec.trim() } });
-            }
-        }
-        const titolareEmail = identity.titolareDelTrattamento?.email;
-        if (hasText(titolareEmail)) {
-            list.push({ kind: 'mail', key: 'titolareDelTrattamento', label: 'titolareDelTrattamentoAzienda', config: { to: titolareEmail.trim() } });
-        }
-        const dpoEmail = identity.responsabileProtezioneDati?.email;
-        if (hasText(dpoEmail)) {
-            list.push({ kind: 'mail', key: 'responsabileProtezioneDati', label: 'responsabileProtezioneDatiAzienda', config: { to: dpoEmail.trim() } });
-        }
-        return list;
+        return [
+            this.contactChannel('phone', FooterField.Telefono, identity),
+            this.contactChannel('mail', FooterField.Email, identity),
+            this.contactChannel('pec', FooterField.Pec, identity),
+            this.contactChannel('mail', FooterField.TitolareDelTrattamento, identity),
+            this.contactChannel('mail', FooterField.ResponsabileProtezioneDati, identity),
+        ].filter((c): c is ContactChannel => c !== null);
     });
 
     /**
@@ -165,58 +141,48 @@ export class IdentityRenderComponent {
      * liquidazione): mostrati come colonna a sé per trasparenza e accessibilità.
      */
     private legalItems(identity: Identity): IdentityItem[] {
-        const ds = identity.datiSocietari;
-        if (!ds) return [];
-        return this.compactItems([
-            this.createTextItem(formatCurrency(ds.capitaleSociale, identity.currency, this.localization), this.label('capitaleSocialeAzienda')),
-            this.createBoolItem(this.label('capitaleVersatoAzienda'), ds.capitaleInteramenteVersato),
-            this.createBoolItem(this.label('socioUnicoAzienda'), ds.isSocioUnico),
-            // Flag "negativo": essere in liquidazione è un campanello → Sì in warning.
-            this.createBoolItem(this.label('inLiquidazioneAzienda'), ds.inLiquidazione, { onTrue: 'warning', onFalse: 'secondary' }),
-        ]);
+        return [
+            ...this.valueItems(FooterField.CapitaleSociale, identity),
+            ...this.valueItems(FooterField.CapitaleVersato, identity),
+            ...this.valueItems(FooterField.SocioUnico, identity),
+            ...this.valueItems(FooterField.InLiquidazione, identity),
+        ];
     }
 
-    private compactItems(items: Array<IdentityItem | null>): IdentityItem[] {
-        return items.filter((item): item is IdentityItem => item !== null);
+    /** Risolve un `FooterField` e adatta le sue foglie `kind: 'value'` (0, 1 o — solo per
+     *  `PartitaIvaCodiceFiscale` — 2) in `IdentityItem`: STESSA decisione "è valorizzato? come si
+     *  formatta? come si etichetta?" di `resolveFooterField`, solo tradotta nel tipo locale del
+     *  template di questo componente. Le eventuali foglie `kind: 'custom'` (email di Titolare/DPO)
+     *  restano fuori: quelle le legge `contactChannel`, non un testo semplice. */
+    private valueItems(field: FooterField, identity: Identity): IdentityItem[] {
+        return resolveFooterField(field, identity, this.footerDeps)
+            .filter((leaf): leaf is Extract<FooterGroupChild, { kind: 'value' }> => leaf.kind === 'value')
+            .map(leaf => this.toIdentityItem(leaf));
+    }
+
+    private toIdentityItem(leaf: Extract<FooterGroupChild, { kind: 'value' }>): IdentityItem {
+        const label = this.translate.translate(leaf.label);
+        if (leaf.itemKind === 'badge') return { kind: 'bool', label, value: leaf.value, tone: leaf.tone as BadgeTone, itemClass: leaf.itemClass };
+        if (leaf.itemKind === 'code') return { kind: 'code', label, value: leaf.value, itemClass: leaf.itemClass };
+        return { kind: 'text', label, value: leaf.value, itemClass: leaf.itemClass };
+    }
+
+    /** Risolve un `FooterField` e adatta la sua foglia `kind: 'custom'` (`contactComponentLeaf` in
+     *  `footer-content.ts`) in `ContactChannel` — `label` resta la CHIAVE i18n non tradotta, come
+     *  già negli `inputs` della foglia: il componente contatto traduce da sé. */
+    private contactChannel(kind: ContactChannel['kind'], field: FooterField, identity: Identity): ContactChannel | null {
+        const leaf = resolveFooterField(field, identity, this.footerDeps)
+            .find((l): l is Extract<FooterGroupChild, { kind: 'custom' }> => l.kind === 'custom');
+        if (!leaf) return null;
+        const inputs = leaf.inputs ?? {};
+        const label = inputs['label'] as string;
+        const key = FooterField[field];
+        if (kind === 'phone') return { kind, key, label, number: inputs['number'] as string };
+        return { kind, key, label, config: inputs['config'] as MailContactConfig };
     }
 
     private compactSections(sections: IdentitySection[]): IdentitySection[] {
         return sections.filter(section => section.items.length > 0);
-    }
-
-    private createTextItem(value: string | null | undefined, label = '', itemClass?: string): IdentityItem | null {
-        if (!hasText(value)) return null;
-        return { kind: 'text', label, value: value.trim(), itemClass };
-    }
-
-    private createCodeItem(label: string, value: string | null | undefined, itemClass?: string): IdentityItem | null {
-        if (!hasText(value)) return null;
-        return { kind: 'code', label, value: value.trim(), itemClass };
-    }
-
-    private label(key: string): string {
-        return this.translate.translate(key);
-    }
-
-    /**
-     * Voce booleana resa come badge. `tones` mappa il valore al tono Bootstrap
-     * in modo generico: di default Sì→verde / No→grigio, ma un campo può
-     * dichiarare toni diversi (es. un flag negativo: Sì→warning).
-     */
-    private createBoolItem(
-        label: string,
-        value: boolean | null | undefined,
-        tones: { onTrue: BadgeTone; onFalse: BadgeTone } = { onTrue: 'success', onFalse: 'secondary' },
-        itemClass?: string,
-    ): IdentityItem | null {
-        if (typeof value !== 'boolean') return null;
-        return {
-            kind: 'bool',
-            label,
-            value: this.translate.translate(value ? 'siAzione' : 'noAzione'),
-            tone: value ? tones.onTrue : tones.onFalse,
-            itemClass,
-        };
     }
 }
 

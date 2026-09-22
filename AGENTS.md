@@ -245,6 +245,21 @@ Per un flag/variante che un CRO/SEM specialist deve poter cambiare senza toccare
   otherSEO: { noindex: true } }
 ```
 
+#### Gestire la UX di aggiornamento versione (PWA / Polling)
+Di default, quando il `VersionCheckService` (che unisce SwUpdate e il polling periodico) rileva un aggiornamento, mostra un alert nativo bloccante che forza il ricaricamento.
+Se un progetto figlio ha form lunghi o stato che non deve andare perso all'improvviso, puoi intercettare questo evento e mostrare un avviso non invasivo, rinviando l'aggiornamento a un momento più opportuno.
+```typescript
+// site.ts
+export const cfg = buildSite({
+    onVersionUpdateAvailable: (apply) => {
+        // Salva `apply` in uno store o mostralo in una snackbar non bloccante.
+        // Quando l'utente cliccherà "Aggiorna ora", chiama `apply()`.
+        // `apply()` si occuperà da solo di attivare il nuovo SW e fare il reload.
+        toast.info("Nuova versione disponibile!", { action: () => apply() });
+    }
+});
+```
+
 #### Comporre l'identità da una fonte diversa dal file
 Il caso base si riempie in `data/identity.json` (campi nello schema engine `Engine/Models/Identity/identity.schema.json`). Per prendere un pezzo da un DB/API si fa l'override del solo metodo dedicato: stesso tipo in ingresso e in uscita, arricchisci e ritorna. Dichiari col framework (`DayOfWeek`, `TimeOnly`, codici ISO), non stringhe magiche né nozioni di schema.org: l'Engine deriva resa e JSON-LD.
 

@@ -2,12 +2,9 @@ import { Directive, computed, inject, input, signal } from '@angular/core';
 import { TranslateService } from '../../services/translate.service';
 import { NotificationService } from '../../services/notification.service';
 
-/**
- * Base dei componenti azione (copy, share, speech, download, pdf, mail): centralizza input
- * label/showLabel/fullWidth, traduzione della label, stato di loading ed esecuzione protetta del
- * lavoro asincrono (errori + notifica). Il concreto dichiara solo `defaultLabelKey` e cosa fa in
- * `run()`; il consumer non inietta mai il servizio (componenti autonomi).
- */
+/** Base dei componenti azione (copy, share, speech, download, pdf, mail): centralizza input,
+ *  traduzione label, loading ed esecuzione protetta del lavoro asincrono (errori + notifica). Il
+ *  concreto dichiara solo `defaultLabelKey` e `run()`; il consumer non inietta mai il servizio. */
 @Directive({
     host: {
         // inline di default; quando fullWidth, l'host diventa block a tutta

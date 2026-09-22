@@ -5,14 +5,10 @@ import { serverEnv } from '../server-env';
 /** Alias sulla sezione server (timeout proxy), valutata al caricamento del modulo. */
 const { server: nodeCfg } = serverEnv;
 
-/**
- * Istanza http-proxy-middleware creata pigramente alla prima richiesta.
- *
- * createProxyMiddleware legge `target` al momento della costruzione: crearla a
- * runtime (non all'import) preserva il contratto lazy di server-env, così la
- * route-extraction del build può importare server.ts senza BACKEND_ORIGIN.
- * A quel punto assertRequiredEnv() ha già garantito che l'origin sia presente.
- */
+/** Istanza http-proxy-middleware creata pigramente alla prima richiesta: `createProxyMiddleware`
+ *  legge `target` al momento della costruzione, crearla a runtime (non all'import) preserva il
+ *  contratto lazy di server-env, così la route-extraction del build può importare server.ts senza
+ *  BACKEND_ORIGIN — a quel punto assertRequiredEnv() ha già garantito che l'origin sia presente. */
 let proxy: RequestHandler | undefined;
 
 function buildProxy(): RequestHandler {

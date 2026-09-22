@@ -31,25 +31,15 @@ export class AssetService implements OnDestroy {
     private readonly blobUrls = new Set<string>();
 
     constructor() {
-        /**
-         * LOGICA DI PULIZIA AUTOMATICA
-         * I "Blob URL" occupano memoria finché non vengono revocati esplicitamente.
-         * Sottoscrivendosi agli eventi del router, il servizio libera la RAM
-         * ogni volta che l'utente cambia pagina. takeUntilDestroyed() chiude la
-         * subscription alla distruzione del servizio (nel contesto di iniezione del costruttore).
-         */
+        // I Blob URL occupano memoria finché non vengono revocati esplicitamente: il servizio li
+        // libera a ogni cambio pagina (eventi router).
         this.router.events.pipe(
             filter(event => event instanceof NavigationEnd),
             takeUntilDestroyed()
         ).subscribe(() => this.revokeAll());
     }
 
-    /**
-     * Costruisce un URL per una risorsa remota gestita dal server.
-     * @param id - Identificativo univoco dell'asset.
-     * @param width - Larghezza desiderata (per ottimizzazione on-the-fly).
-     * @returns Stringa URL completa di parametri di versione e ridimensionamento.
-     */
+    /** Costruisce l'URL per una risorsa remota gestita dal server, con eventuale ridimensionamento on-the-fly. */
     getUrl(id: string, width?: AssetWidth): string {
 
         let url = AssetService._UrlvirtualPathAsset(id);
@@ -60,13 +50,7 @@ export class AssetService implements OnDestroy {
         return url;
     }
 
-    /** 
-     * Crea un URL temporaneo per un oggetto Blob o File.
-     * Utile per anteprime di immagini caricate dall'utente o file scaricati via API.
-     * 
-     * @param blob - Il file binario da visualizzare.
-     * @returns Oggetto con URL grezzo e URL sanitizzato per Angular.
-     */
+    /** Crea un URL temporaneo per un Blob/File: anteprime di immagini caricate dall'utente o file scaricati via API. */
     getUrlFromBlob(blob: Blob): { rawUrl: string, angularUrl: SafeUrl } {
         // I Blob URL esistono solo nel browser, non in SSR
         if (!this.isBrowser) {

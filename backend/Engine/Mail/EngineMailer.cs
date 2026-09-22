@@ -17,31 +17,16 @@ namespace Backend.Mail;
 /// <param name="ContentType">MIME esplicito (es. "application/pdf"); <see langword="null"/> = dedotto.</param>
 public sealed record MailAttachment(string FileName, byte[] Content, string? ContentType = null);
 
-/// <summary>
-/// Contratto del mailer del template: unico punto d'invio email dell'Engine, iniettato in DI
-/// (singleton) e condiviso da ogni progetto. Superficie volutamente minima — <see cref="IsEnabled"/>,
-/// <see cref="IsValidAddress"/> e gli overload di <c>SendAsync</c> — così un consumer inietta solo
-/// questo e non tocca mai la meccanica SMTP.
-/// </summary>
+/// <summary>Unico punto d'invio email dell'Engine, iniettato in DI come singleton.</summary>
 public interface IEngineMailer
 {
-    /// <summary>
-    /// <see langword="true"/> se l'invio è configurato e utilizzabile. I chiamanti lo controllano
-    /// per evitare di offrire la funzione quando il mailer è spento.
-    /// </summary>
+    /// <summary>Se l'invio è configurato e utilizzabile.</summary>
     bool IsEnabled { get; }
 
-    /// <summary>
-    /// <see langword="true"/> se l'indirizzo è parsabile e ha un dominio. Utile ai chiamanti per
-    /// validare un destinatario letto da configurazione e fallire subito invece di scoprire
-    /// l'errore nel worker, quando il messaggio verrebbe scartato senza rimedio.
-    /// </summary>
+    /// <summary>Se l'indirizzo è parsabile e ha un dominio.</summary>
     bool IsValidAddress(string? address);
 
-    /// <summary>
-    /// Invia un'email descritta come parametri espliciti. Comodo overload del primitivo;
-    /// delega a <see cref="SendAsync(EmailMessage, CancellationToken)"/>.
-    /// </summary>
+    /// <summary>Overload comodo che delega a <see cref="SendAsync(EmailMessage, CancellationToken)"/>.</summary>
     Task SendAsync(
         IReadOnlyCollection<string> to,
         string subject,
@@ -58,33 +43,7 @@ public interface IEngineMailer
     Task SendAsync(EmailMessage message, CancellationToken cancellationToken = default);
 }
 
-/// <summary>
-/// Implementazione di <see cref="IEngineMailer"/>. Tutta la meccanica SMTP (connessione, TLS,
-/// autenticazione, costruzione MIME) è privata e basata su <b>MailKit</b>. Il trasporto e il
-/// mittente di default vengono da <see cref="MailOptions"/> (sezione <c>Mail</c> di
-/// global-settings.local.json), iniettata via <see cref="IOptions{TOptions}"/>.
-/// </summary>
-/// <remarks>
-/// <para>
-/// Hardening di sicurezza (verificato su best practice 2026):
-/// <list type="bullet">
-/// <item>TLS sempre obbligatorio: 465 → SslOnConnect, altrimenti StartTls. Mai la variante
-/// opportunistica di MailKit, che potrebbe ricadere in chiaro (STARTTLS stripping).</item>
-/// <item>Indirizzi parsati con <c>MailboxAddress.TryParse</c> e dominio obbligatorio: input
-/// malformato o senza dominio → <see cref="MailInvalidAddressException"/> (400), non una
-/// <c>ParseException</c> non gestita.</item>
-/// <item>Subject sanitizzato dai CR/LF (difesa in profondità contro l'header injection).</item>
-/// <item>Allegati limitati da <see cref="MailOptions.MaxAttachmentBytes"/> (413 se superati).</item>
-/// </list>
-/// Richiede <b>MailKit/MimeKit ≥ 4.17.0</b> (fix CVE-2026-30227 e CVE-2026-41319).
-/// </para>
-/// <para>
-/// Si attiva da configurazione come il login: senza una sezione <c>Mail</c> valida
-/// <see cref="IsEnabled"/> è <see langword="false"/> e <see cref="SendAsync(EmailMessage, CancellationToken)"/>
-/// lancia <see cref="MailNotConfiguredException"/> (503). Per non bloccare la richiesta HTTP,
-/// preferisci accodare via <see cref="IEmailQueue"/> (invio in background con retry).
-/// </para>
-/// </remarks>
+/// <summary>Meccanica SMTP di <see cref="IEngineMailer"/> via MailKit. Hardening e opzioni <c>Mail.*</c>.</summary>
 internal sealed class EngineMailer : IEngineMailer
 {
     private readonly MailOptions _options;
@@ -105,34 +64,21 @@ internal sealed class EngineMailer : IEngineMailer
     /// <inheritdoc />
     public bool IsValidAddress(string? address) => TryParseStrict(address, out _);
 
-    /// <summary>
-    /// Controllo <b>best-effort</b> di deliverabilità del DOMINIO via DNS (record MX, con fallback
-    /// A/AAAA per l'MX implicito di RFC 5321). Attivato dal flag <see cref="MailOptions.VerifyRecipientDomain"/>:
-    /// scarta i typo di dominio (<c>gmail.con</c>) e i domini inesistenti senza inviare nulla.
-    /// NON verifica l'esistenza della casella (impossibile in modo affidabile): quella la sai solo
-    /// col bounce o con un doppio opt-in.
-    /// </summary>
-    /// <returns>
-    /// <see langword="false"/> solo se l'indirizzo non ha un dominio valido oppure il dominio non
-    /// ha né MX né A/AAAA (typo / dominio inesistente). <see langword="true"/> se il dominio può
-    /// ricevere posta <b>o</b> se il DNS è inconcludente (fail-open: non blocca un indirizzo
-    /// legittimo per un disguido di rete; un errore reale emergerà come bounce dopo l'invio).
-    /// </returns>
+    /// <summary>Check MX/A/AAAA best-effort per <see cref="MailOptions.VerifyRecipientDomain"/>; non verifica la casella.</summary>
+    /// <returns>Fail-open: <see langword="false"/> solo se il DNS esclude esplicitamente il dominio, <see langword="true"/> anche se inconcludente.</returns>
     private async Task<bool> IsDomainDeliverableAsync(string? address, CancellationToken cancellationToken)
     {
-        // Senza un dominio valido non c'è niente da risolvere.
         if (!TryParseStrict(address, out var parsed))
             return false;
 
         var domain = parsed.Domain;
         try
         {
-            // MX: il dominio dichiara dei server di posta? È il caso normale dei domini reali.
             var mx = await _dns.QueryAsync(domain, QueryType.MX, cancellationToken: cancellationToken);
             if (mx.Answers.MxRecords().Any())
                 return true;
 
-            // Nessun MX esplicito: RFC 5321 ammette l'MX implicito sull'A/AAAA del dominio.
+            // RFC 5321 ammette l'MX implicito sull'A/AAAA del dominio quando manca un MX esplicito.
             var a = await _dns.QueryAsync(domain, QueryType.A, cancellationToken: cancellationToken);
             if (a.Answers.ARecords().Any())
                 return true;
@@ -141,10 +87,7 @@ internal sealed class EngineMailer : IEngineMailer
             if (aaaa.Answers.AaaaRecords().Any())
                 return true;
 
-            // Né MX né A/AAAA trovati. Distinguo "definitivamente non spedibile" da "inconcludente":
-            //  - NXDOMAIN o risposta valida senza record → il dominio non riceve posta → false.
-            //  - errore di server reale (SERVFAIL, timeout…) → DNS inconcludente → fail-open (true).
-            // NXDOMAIN setta HasError ma è una risposta DEFINITIVA, non un disservizio: va esclusa.
+            // NXDOMAIN è una risposta DEFINITIVA (non spedibile); un errore server reale è solo inconcludente (fail-open).
             static bool Inconclusive(IDnsQueryResponse r)
                 => r.HasError && r.Header.ResponseCode != DnsHeaderResponseCode.NotExistentDomain;
 
@@ -152,7 +95,6 @@ internal sealed class EngineMailer : IEngineMailer
         }
         catch (Exception ex)
         {
-            // DNS irraggiungibile/timeout: non blocchiamo un indirizzo potenzialmente valido.
             _logger.LogWarning(ex, "Check MX non riuscito per il dominio '{Domain}': lo tratto come spedibile (fail-open).", domain);
             return true;
         }
@@ -251,11 +193,7 @@ internal sealed class EngineMailer : IEngineMailer
         await SendCoreAsync(mime, options, cancellationToken);
     }
 
-    /// <summary>
-    /// Parsa un indirizzo richiedendo un dominio: input non valido o senza dominio →
-    /// <see cref="MailInvalidAddressException"/> (400) invece di una <c>ParseException</c> non
-    /// gestita. Rifiuta anche i CR/LF degli indirizzi malformati (MimeKit ≥ 4.15.1, fix CVE-2026-30227).
-    /// </summary>
+    /// <summary>Parsa un indirizzo; input non valido o senza dominio → <see cref="MailInvalidAddressException"/> (400) invece di <c>ParseException</c>.</summary>
     private static MailboxAddress ParseAddress(string address)
     {
         if (!TryParseStrict(address, out var parsed))
@@ -263,12 +201,7 @@ internal sealed class EngineMailer : IEngineMailer
         return parsed;
     }
 
-    /// <summary>
-    /// <see langword="true"/> se l'indirizzo è parsabile <b>e</b> ha un dominio. MimeKit di default
-    /// (<c>AllowAddressesWithoutDomain</c>) accetterebbe un local-part nudo come "nope" o
-    /// "not-an-email": imponendo il dominio rifiutiamo a monte gli indirizzi non spedibili,
-    /// invece di scoprirli come errore SMTP nel worker.
-    /// </summary>
+    /// <summary>Vero se parsabile e con dominio: MimeKit di default accetterebbe anche un local-part nudo come "nope".</summary>
     private static bool TryParseStrict(string? address, out MailboxAddress parsed)
     {
         if (!string.IsNullOrWhiteSpace(address)
@@ -321,12 +254,7 @@ internal sealed class EngineMailer : IEngineMailer
     private static string SanitizeSingleLine(string value)
         => (value ?? string.Empty).Replace('\r', ' ').Replace('\n', ' ').Trim();
 
-    /// <summary>
-    /// Apre una connessione SMTP nuova, autentica se servono credenziali, invia e chiude.
-    /// Lo <c>SmtpClient</c> di MailKit non è riusabile tra thread: una connessione per invio
-    /// (overhead trascurabile per posta transazionale). La validazione del certificato resta
-    /// quella di default: non va mai disabilitata.
-    /// </summary>
+    /// <summary>Apre una connessione SMTP, autentica se servono credenziali, invia e chiude: <c>SmtpClient</c> di MailKit non è riusabile tra thread.</summary>
     private async Task SendCoreAsync(MimeMessage message, MailOptions options, CancellationToken cancellationToken)
     {
         var socketOptions = ResolveSocketOptions(options);
@@ -353,11 +281,7 @@ internal sealed class EngineMailer : IEngineMailer
         }
     }
 
-    /// <summary>
-    /// Mappa la modalità di config su MailKit imponendo SEMPRE TLS: 465 → TLS implicito,
-    /// ogni altra porta → STARTTLS obbligatorio. Non usa mai <c>StartTlsWhenAvailable</c>/
-    /// <c>Auto</c> di MailKit (potrebbero ricadere in chiaro). <c>None</c> solo per relay fidati.
-    /// </summary>
+    /// <summary>Impone SEMPRE TLS (465 → implicito, altrimenti STARTTLS): mai le varianti opportunistiche di MailKit.</summary>
     private static SecureSocketOptions ResolveSocketOptions(MailOptions options) => options.Security switch
     {
         MailSecurity.None => SecureSocketOptions.None,

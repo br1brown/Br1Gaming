@@ -1,51 +1,41 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
+using Backend.Models.Configuration;
 using Backend.Notifications;
 
 namespace Backend.Controllers;
 
-/// <summary>
-/// Endpoint SSE (Server-Sent Events) del template: tiene aperta una connessione e inoltra al client
-/// i messaggi pubblicati su <see cref="INotificationStream"/>.
-/// </summary>
-/// <remarks>
-/// Eredita da <see cref="EngineApiController"/>: richiede la sola API key (sempre iniettata dal proxy),
-/// quindi NON richiede il login — il canale funziona anche per utenti anonimi. L'eventuale identità
-/// per il targeting di gruppo è delegata a <see cref="INotificationGroupResolver"/>, che un figlio
-/// aggancia alla propria auth.
-/// </remarks>
+/// <summary>Endpoint SSE del template: tiene aperta una connessione e inoltra i messaggi pubblicati su <see cref="INotificationStream"/>. Solo API key, non login (funziona anche per anonimi); il targeting di gruppo è delegato a <see cref="INotificationGroupResolver"/>.</summary>
 [Route("notifications")]
 public sealed class EngineNotificationStreamController : EngineApiController
 {
     // Opzioni "web" (camelCase): i nomi dei campi combaciano con le interfacce TypeScript lato client.
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
-    // Intervallo del commento di keep-alive: tiene viva la connessione attraverso proxy/idle-timeout.
-    private static readonly TimeSpan Heartbeat = TimeSpan.FromSeconds(25);
-
-    // Delay di riconnessione suggerito al browser (campo SSE `retry:`).
-    private static readonly TimeSpan ReconnectDelay = TimeSpan.FromSeconds(5);
+    // Heartbeat e delay di riconnessione: da NotificationsOptions, default 25s/5s se assente.
+    private readonly TimeSpan _heartbeat;
+    private readonly TimeSpan _reconnectDelay;
 
     private readonly INotificationStream _stream;
     private readonly INotificationGroupResolver _groupResolver;
 
-    /// <inheritdoc cref="EngineNotificationStreamController"/>
+    /// <summary>Inietta lo stream, il resolver di gruppo, le opzioni di timing e il logger.</summary>
     public EngineNotificationStreamController(
         INotificationStream stream,
         INotificationGroupResolver groupResolver,
+        IOptions<NotificationsOptions> options,
         ILogger<EngineNotificationStreamController> logger)
         : base(logger)
     {
         _stream = stream;
         _groupResolver = groupResolver;
+        _heartbeat = TimeSpan.FromSeconds(options.Value.HeartbeatSeconds);
+        _reconnectDelay = TimeSpan.FromSeconds(options.Value.ReconnectDelaySeconds);
     }
 
-    /// <summary>
-    /// Apre lo stream SSE. Il primo frame comunica al client il suo <c>connectionId</c>, così può
-    /// allegarlo alle richieste che avviano un job e ricevere la notifica mirata a fine elaborazione.
-    /// </summary>
-    /// <param name="cancellationToken">Annullato da ASP.NET quando il client si disconnette.</param>
+    /// <summary>Apre lo stream SSE. Il primo frame comunica al client il suo connectionId, così può allegarlo alle richieste che avviano un job e ricevere la notifica mirata a fine elaborazione.</summary>
     [HttpGet("stream")]
     public async Task Stream(CancellationToken cancellationToken)
     {
@@ -53,28 +43,23 @@ public sealed class EngineNotificationStreamController : EngineApiController
         var subscriber = _stream.Subscribe(groupKey);
 
         Response.Headers.ContentType = "text/event-stream";
-        // no-transform: nessun intermediario deve comprimere/trasformare lo stream. gzip
-        // bufferizzerebbe i frame SSE e il browser non li riceverebbe in tempo reale; il
-        // middleware `compression` (e i reverse proxy conformi) rispettano questo direttivo.
+        // no-transform: gzip bufferizzerebbe i frame SSE, il browser non li riceverebbe in tempo reale.
         Response.Headers.CacheControl = "no-cache, no-transform";
-        // Disabilita il buffering di reverse proxy come nginx (e del response body di Kestrel),
-        // altrimenti i frame SSE resterebbero in coda invece di arrivare subito.
+        // Disabilita il buffering di reverse proxy come nginx, altrimenti i frame restano in coda.
         Response.Headers["X-Accel-Buffering"] = "no";
         HttpContext.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();
 
         try
         {
             // Suggerisce al browser il delay di riconnessione (campo SSE standard).
-            await Response.WriteAsync($"retry: {(int)ReconnectDelay.TotalMilliseconds}\n\n", cancellationToken);
+            await Response.WriteAsync($"retry: {(int)_reconnectDelay.TotalMilliseconds}\n\n", cancellationToken);
 
             await WriteFrameAsync("connection",
                 JsonSerializer.Serialize(new { connectionId = subscriber.ConnectionId }, Json),
                 cancellationToken);
 
-            // Recupero dei messaggi persi durante una disconnessione: il browser rimanda l'ultimo
-            // id ricevuto nell'header Last-Event-ID (meccanismo SSE nativo). Rispediamo i broadcast/
-            // gruppo successivi a quell'id, ciascuno col proprio id così la catena resta consistente.
-            // (Il primo collegamento di una scheda non ha Last-Event-ID: lì il client usa GET /history.)
+            // Il browser rimanda l'ultimo id ricevuto in Last-Event-ID (SSE nativo): rispediamo i
+            // messaggi successivi. Il primo collegamento non ha Last-Event-ID: lì il client usa GET /history.
             var lastEventId = Request.Headers["Last-Event-ID"].FirstOrDefault();
             if (!string.IsNullOrEmpty(lastEventId))
             {
@@ -87,11 +72,10 @@ public sealed class EngineNotificationStreamController : EngineApiController
             var reader = subscriber.Reader;
             while (!cancellationToken.IsCancellationRequested)
             {
-                // Attesa di un messaggio con timeout = heartbeat: se nel frattempo non arriva nulla,
-                // il timeout scatta e inviamo un commento di keep-alive. Linkando i token evitiamo
-                // task pendenti: alla disconnessione del client il token reale annulla tutto.
+                // Attesa con timeout = heartbeat: scaduto, mandiamo un keep-alive. Token linkati per
+                // non lasciare task pendenti alla disconnessione del client.
                 using var beat = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                beat.CancelAfter(Heartbeat);
+                beat.CancelAfter(_heartbeat);
 
                 try
                 {
@@ -120,12 +104,7 @@ public sealed class EngineNotificationStreamController : EngineApiController
         }
     }
 
-    /// <summary>
-    /// Storico recente delle notifiche recuperabili dal chiamante (broadcast + eventuale gruppo),
-    /// per popolare il campanellino al primo caricamento o su una nuova scheda. Le notifiche mirate
-    /// a una connessione non sono incluse (effimere). Predisposto per lo storico per-utente post-login:
-    /// basta registrare un INotificationGroupResolver che mappi l'utente.
-    /// </summary>
+    /// <summary>Storico recente (broadcast + eventuale gruppo, mai le notifiche per-connessione) per popolare il campanellino al primo caricamento.</summary>
     [HttpGet("history")]
     public IActionResult History()
     {
@@ -133,11 +112,7 @@ public sealed class EngineNotificationStreamController : EngineApiController
         return Ok(_stream.GetHistory(groupKey));
     }
 
-    /// <summary>
-    /// Scrive un frame SSE. Con <paramref name="id"/> valorizzato aggiunge il campo <c>id:</c>,
-    /// che il browser memorizza e rimanda come <c>Last-Event-ID</c> alla riconnessione (recupero
-    /// dei messaggi persi). Formato: <c>[id: &lt;id&gt;\n]event: &lt;name&gt;\ndata: &lt;json&gt;\n\n</c>.
-    /// </summary>
+    /// <summary>Scrive un frame SSE; con <paramref name="id"/> aggiunge il campo id: che il browser rimanda come Last-Event-ID alla riconnessione.</summary>
     private Task WriteFrameAsync(string eventName, string data, CancellationToken ct, string? id = null)
     {
         var frame = id is null

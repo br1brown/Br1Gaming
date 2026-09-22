@@ -6,17 +6,10 @@ import { SocialLinkComponent } from '../social-link/social-link.component';
 import { OpeningHoursComponent } from '../opening-hours/opening-hours.component';
 import { FooterGroupChild, footerLeafKey } from '../../shell-nav';
 
-/**
- * FOOTER NAV GROUP COMPONENT
- *
- * Gruppo del footer reso ricorsivamente: intestazione + lista dei figli. Un figlio può essere un
- * link/pagina (`<app-nav-link>`), un sottogruppo (`<app-footer-nav-group>` con `level` incrementato,
- * indentazione crescente), un valore mappato da `Identity` o testo libero (badge/codice/testo — lo
- * stesso vocabolario visivo di `app-identity-render`, non uno stile a sé per i gruppi custom), gli
- * orari (`<app-opening-hours>`), un social esplicito (`<app-social-link>`) o un componente proprio
- * del progetto (`addCustom`, reso via `NgComponentOutlet`). Liste statiche, nessuna interazione: la
- * gerarchia è resa solo a livello visivo.
- */
+/** Gruppo del footer reso ricorsivamente: intestazione + lista dei figli — link/pagina, sottogruppo
+ *  (`level` incrementato, indentazione crescente), valore `Identity`/testo libero (stesso
+ *  vocabolario visivo di `app-identity-render`), orari, social esplicito, o un componente proprio
+ *  del progetto (`addCustom`, via `NgComponentOutlet`). Liste statiche, nessuna interazione. */
 @Component({
     selector: 'app-footer-nav-group',
     standalone: true,

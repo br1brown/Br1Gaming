@@ -1,7 +1,5 @@
-// base — stili globali dell'Engine, divisi in partial tematici.
-//
-// L'ordine di @use riproduce la sequenza originale di base.scss: la cascata CSS
-// dipende dall'ordine sorgente, quindi NON riordinare i partial qui sotto.
+// Stili globali dell'Engine, divisi in partial tematici. NON riordinare: la cascata CSS
+// dipende dall'ordine sorgente.
 //   tokens          → :root design token (--color*), scala z-index, ombre
 //   base            → focus-visible, html/body/app-root (viewport dvh), link
 //   bootstrap-theme → ponte token→Bootstrap, subtheme light/dark, bottoni, .theme-bg

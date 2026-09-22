@@ -6,14 +6,7 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace Backend.Engine;
 
-/// <summary>
-/// Utilità statiche per la lettura e la deserializzazione dei file JSON nella cartella <c>data/</c>.
-/// </summary>
-/// <remarks>
-/// Raggruppa due collaboratori usati dal livello store:
-/// <see cref="ReadStaticFileAsync"/> per la lettura con cache, e
-/// <see cref="LocalizedJsonDeserializer"/> per la risoluzione dei campi i18n.
-/// </remarks>
+/// <summary>Utilità per la lettura/deserializzazione dei file JSON in <c>data/</c>: <see cref="ReadStaticFileAsync"/> (cache) e <see cref="LocalizedJsonDeserializer"/> (risoluzione i18n).</summary>
 public static class FileUtils
 {
     /// <summary>
@@ -49,17 +42,7 @@ public static class FileUtils
 
         return content!;
     }
-    /// <summary>
-    /// Risolve ricorsivamente strutture JSON localizzate del tipo <c>{ "it": ..., "en": ... }</c>,
-    /// restituendo un albero JSON già "appiattito" nella lingua richiesta.
-    /// </summary>
-    /// <remarks>
-    /// Un oggetto è considerato un blocco i18n solo se tutte le sue chiavi sono tag lingua
-    /// riconosciuti da <see cref="System.Globalization.CultureInfo"/> e presenti in
-    /// <c>supportedLanguages</c>. Se anche una sola chiave è un campo di dominio, l'oggetto
-    /// viene attraversato ricorsivamente senza collassarlo.
-    /// I valori vuoti (stringa, array o oggetto vuoto) vengono eliminati dal risultato.
-    /// </remarks>
+    /// <summary>Risolve ricorsivamente blocchi JSON localizzati (<c>{ "it": ..., "en": ... }</c>) nella lingua richiesta. Un oggetto è i18n solo se TUTTE le chiavi sono tag lingua noti; una sola chiave di dominio lo esclude, attraversato ricorsivamente senza collassarlo. Valori vuoti rimossi.</summary>
     public class LocalizedJsonDeserializer
     {
         private readonly string _defaultLanguage;

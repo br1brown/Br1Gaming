@@ -8,15 +8,10 @@ import { applyPathParams, pickLocaleText, type OgImageRef } from '../siteBuilder
 import { CdnCgi } from './asset.service';
 import { TranslateService } from './translate.service';
 import { IdentityService } from './identity.service';
-import { type Identity, type Address, type DayName, DAY_ORDER } from '../dto/identity.dto';
+import { type Identity, type Address, type DayName } from '../dto/identity.dto';
 import { type StructuredDataInput, buildStructuredDataGraph } from './structured-data';
 import { BreadcrumbService, toJsonLdTrail } from './breadcrumb';
-
-/** Orario "HH:mm" (24h): difesa contro valori sporchi prima di mapparli su JSON-LD. */
-const HM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-function isHm(value: unknown): value is string {
-    return typeof value === 'string' && HM_RE.test(value);
-}
+import { hasText, isValidOpeningInterval } from '../identity-format';
 
 /** Input di {@link PageMetaService.setPageMeta}. Tutti i campi tranne `title` sono opzionali. */
 export interface PageMetaInput {
@@ -34,6 +29,21 @@ export interface PageMetaInput {
     structuredData?: StructuredDataInput | null;
     /** Se true, emette `<meta name="robots" content="noindex, nofollow">`. */
     noindex?: boolean | null;
+}
+
+/** Titolo del tag `<title>` (riusato da og:title/twitter:title/og:image:alt): applica `SiteConfig.formatBrowserTitle` se dichiarato, altrimenti `"${pageTitle} | ${appName}"`. Funzione pura, testabile senza TestBed. */
+export function resolveBrowserTitle(
+    pageTitle: string,
+    appName: string,
+    formatBrowserTitle?: (pageTitle: string, appName: string) => string,
+): string {
+    if (formatBrowserTitle) return formatBrowserTitle(pageTitle, appName);
+    return pageTitle ? `${pageTitle} | ${appName}` : appName;
+}
+
+/** Annuncio aria-live per screen reader a ogni navigazione SPA: sempre non-vuoto, a differenza di `browserTitle` che un `formatBrowserTitle` custom può legittimamente svuotare (es. la home). */
+export function resolveAnnouncedTitle(browserTitle: string, appName: string): string {
+    return browserTitle || appName;
 }
 
 /** Funzione sincrona di cifratura del payload preview (disponibile solo in SSR). */
@@ -78,13 +88,12 @@ export class PageMetaService {
     setPageMeta(input: PageMetaInput): void {
         const { title: pageTitle, description, imgId, ogType, updatedTime, structuredData, noindex } = input;
 
-        // Titolo browser: "Pagina | AppName", oppure solo "AppName" se pageTitle è vuoto
-        const { appName } = ContestoSito.config;
-        const browserTitle = pageTitle ? `${pageTitle} | ${appName}` : appName;
+        const { appName, formatBrowserTitle } = ContestoSito.config;
+        const browserTitle = resolveBrowserTitle(pageTitle, appName, formatBrowserTitle);
 
         // Aggiorna il tag <title> del browser
         this.title.setTitle(browserTitle);
-        this.announcedTitle.set(browserTitle);
+        this.announcedTitle.set(resolveAnnouncedTitle(browserTitle, appName));
         this.resolvedTitle.set(pageTitle || appName);
 
         // noindex di istanza: assente/false → nessun tag (la pagina segue l'indicizzazione di
@@ -153,6 +162,11 @@ export class PageMetaService {
             else if (imgId?.id) payload['id'] = imgId.id;
             const hasImage = !!(imgId?.blobGuid || imgId?.id);
             if (ContestoSito.config.ogImagePlain) payload['plain'] = 'true';
+            // version nel payload: l'IV di PreviewCrypto è deterministico sul payload (URL stabili e
+            // cacheable), quindi senza questo campo un bump di versione non cambierebbe mai l'URL
+            // esposto ai crawler social, che non ri-scansionerebbero mai l'immagine dopo un redesign
+            // a parità di titolo pagina (updatedTime copre solo il contenuto, non l'aspetto del sito).
+            if (ContestoSito.config.version) payload['version'] = ContestoSito.config.version;
             const blob = this.encryptFn(payload);
             imageUrl = `${origin}${CdnCgi.preview}?p=${blob}`;
             this.meta.updateTag({ property: 'og:image', content: imageUrl });
@@ -200,25 +214,26 @@ export class PageMetaService {
     /** `PostalAddress` da un indirizzo dell'identità (sede legale o operativa). Null se nessun campo utile. */
     private buildPostalAddress(a: Address | null | undefined): Record<string, unknown> | null {
         if (!a) return null;
-        const street = [a.via, a.civico].filter(s => typeof s === 'string' && s.trim()).join(' ').trim();
+        const street = [a.via, a.civico].filter(hasText).join(' ').trim();
         const addr: Record<string, unknown> = { '@type': 'PostalAddress' };
-        if (street) addr['streetAddress'] = street;
-        if (a.cap?.trim()) addr['postalCode'] = a.cap.trim();
-        if (a.citta?.trim()) addr['addressLocality'] = a.citta.trim();
-        if (a.provincia?.trim()) addr['addressRegion'] = a.provincia.trim();
+        if (hasText(street)) addr['streetAddress'] = street;
+        if (hasText(a.cap)) addr['postalCode'] = a.cap.trim();
+        if (hasText(a.citta)) addr['addressLocality'] = a.citta.trim();
+        if (hasText(a.provincia)) addr['addressRegion'] = a.provincia.trim();
         // Codice ISO 3166-1 alpha-2
-        if (a.nazione?.trim()) addr['addressCountry'] = a.nazione.trim();
+        if (hasText(a.nazione)) addr['addressCountry'] = a.nazione.trim();
         return Object.keys(addr).length > 1 ? addr : null;
     }
 
     /** Costruisce il nodo schema.org `ContactPoint` con contatti, orari e lingue. */
     private buildContactPoint(identity: Identity | null, includeHours = true): Record<string, unknown> | null {
-        const c = identity?.contatti;
+        const telefono = identity?.contatti?.telefono;
+        const email = identity?.contatti?.email;
         const hours = includeHours ? this.buildOpeningHours(identity) : [];
         const cp: Record<string, unknown> = { '@type': 'ContactPoint', contactType: 'customer service' };
         const { jsonld } = ContestoSito.config;
-        if (jsonld.telefono && c?.telefono?.trim()) cp['telephone'] = c.telefono.trim();
-        if (jsonld.email && c?.email?.trim()) cp['email'] = c.email.trim();
+        if (jsonld.telefono && hasText(telefono)) cp['telephone'] = telefono.trim();
+        if (jsonld.email && hasText(email)) cp['email'] = email.trim();
         if (hours.length) cp['hoursAvailable'] = hours;
         if (!cp['telephone'] && !cp['email'] && !hours.length) return null;
         const langs = this.translate.availableLangs();
@@ -233,7 +248,7 @@ export class PageMetaService {
 
         const byRange = new Map<string, { opens: string; closes: string; days: DayName[] }>();
         for (const it of list) {
-            if (!it || !DAY_ORDER.includes(it.day) || !isHm(it.opens) || !isHm(it.closes)) continue;
+            if (!isValidOpeningInterval(it)) continue;
             const group = byRange.get(`${it.opens}-${it.closes}`);
             if (group) { if (!group.days.includes(it.day)) group.days.push(it.day); }
             else byRange.set(`${it.opens}-${it.closes}`, { opens: it.opens, closes: it.closes, days: [it.day] });
