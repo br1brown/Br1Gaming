@@ -4,7 +4,11 @@
         <h1 class="h4 fw-bold mb-0 text-white">{{ 'lombroso' | translate }}</h1>
     </header>
 
-    <div class="position-relative flex-grow-1 overflow-hidden">
+    <!-- overflow-auto (non -hidden): il testo del verdetto è ora combinatorio e varia in lunghezza —
+         una descrizione lunga non deve tagliare i pulsanti sotto senza modo di raggiungerli
+         (successo prima solo da desktop, dove non c'è lo scroll "naturale" del touch). 'live' non ne
+         risente: il video riempie esattamente il contenitore, niente overflow da rivelare. -->
+    <div class="position-relative flex-grow-1 overflow-auto">
 
         @switch (status()) {
 

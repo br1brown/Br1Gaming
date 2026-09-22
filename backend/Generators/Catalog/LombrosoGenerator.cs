@@ -32,6 +32,52 @@ public sealed class LombrosoGenerator : GeneratorBase, IHiddenGenerator
     /// ridondante: il frontend mostra già il titolo separato dal testo generato).</summary>
     internal static readonly Tag Indizio = new("lombroso-indizio") { "Nessuna stigmata rilevata." };
 
+    /// <summary>Strumenti (parodia) del gabinetto lombrosiano — alcuni veri (antropometro, estesiometro,
+    /// ergografo, craniometro di Broca), altri assurdi per estensione: prima era un solo strumento
+    /// fisso citato sempre uguale nel Core, ora un Tag come gli altri, varietà a ogni generazione.</summary>
+    internal static readonly Tag Strumento = new("lombroso-strumento")
+    {
+        "l'antropometro (di legno, 1876)",
+        "l'estesiometro per la soglia del dolore",
+        "l'ergografo per la fatica muscolare",
+        "il craniometro di Broca, requisito al museo apposta per l'occasione",
+        "un calibro da falegname riadattato",
+        "il dinamometro a molla, tarato l'ultima volta nel secolo scorso",
+    };
+
+    /// <summary>Gergo misto: i termini VERI di Lombroso (indice cefalico, angolo facciale, bernoccolo
+    /// dell'onestà — vedi MEASURING_STEPS nel frontend) accanto a quelli altrettanto pseudo-scientifici
+    /// del looksmaxxing da forum (canthal tilt, gonial angle, midface ratio, hunter eyes): la stessa
+    /// ossessione di misurare il volto per dedurne un giudizio assoluto, un secolo e mezzo dopo.</summary>
+    internal static readonly Tag Gergo = new("lombroso-gergo")
+    {
+        "l'indice cefalico", "l'angolo facciale", "il bernoccolo dell'onestà",
+        "il canthal tilt", "il gonial angle", "il midface ratio", "lo sguardo da hunter eyes",
+    };
+
+    /// <summary>Come si chiude (per ora) il fascicolo — varietà sull'esito, mai una vera conseguenza:
+    /// il bersaglio resta la pseudoscienza stessa, non un destino a cui credere davvero.</summary>
+    internal static readonly Tag Esito = new("lombroso-esito")
+    {
+        "il fascicolo resta aperto a tempo indeterminato",
+        "il caso passa al collega del turno successivo, che lo riaprirà identico",
+        "la pratica viene archiviata per manifesta assurdità, salvo essere riaperta per abitudine",
+        "il verdetto finisce affisso in bacheca, giusto per la cronaca",
+    };
+
+    /// <summary>
+    /// Prova debole, COMBINATA: nome + città + professione in un'unica frase riusabile — stesso
+    /// principio di annidamento di Incel/Complotto (una voce di Tag che è essa stessa un'interpolazione
+    /// con altri Tag dentro, non solo testo fisso). Va dichiarata DOPO i Tag che cita (Nome/City/
+    /// Professioni sono condivisi, sempre pronti; l'ordine conta solo per i campi di QUESTA classe).
+    /// </summary>
+    internal static readonly Tag ProvaDebole = new("lombroso-prova-debole")
+    {
+        new($"un testimone di nome {Nome.Any}, residente a {City.Any}, giura di averti riconosciuto sul luogo esatto dei fatti", 2),
+        new($"il fascicolo cita un {Professioni.M} di {City.Any} come consulente esterno, pagato profumatamente e mai davvero interpellato", 2),
+        new($"un {Professioni.M} anonimo ha segnalato tutto da {City.Any}, salvo ritrattare in {Giorni.Any}", 2),
+    };
+
     public override string Slug => "lombroso";
 
     public override GeneratorInfo Info { get; } = new()
@@ -42,10 +88,23 @@ public sealed class LombrosoGenerator : GeneratorBase, IHiddenGenerator
 
     public override GenerationSettings? PhraseSettings { get; } = new()
     {
-        MinPhrases = 2,
-        MaxPhrases = 3,
-        Separators = [". ", "; "],
+        // Scala allineata a Incel/Complotto (3-4 frasi, non 2-3): con un Core più ampio regge meglio.
+        MinPhrases = 3,
+        MaxPhrases = 4,
+        Separators = [". ", "; ", ".\n"],
+        // Come Complotto (MinScore 10): con frasi da punteggio 2-4 e 3-4 frasi, quasi sempre superata
+        // al primo tentativo, ma scarta le rare combinazioni troppo scarne.
+        MinScore = 10,
     };
+
+    /// <summary>
+    /// Come Incel/Complotto: le liste condivise più "affollate" da questo generatore (città,
+    /// professione, parente) contano UNA sola volta per generazione, anche se citate da più frasi
+    /// diverse del Core (direttamente o via <see cref="ProvaDebole"/>) — evita il "due testimoni
+    /// diversi nella stessa città" o "due professionisti citati" nello stesso verdetto.
+    /// </summary>
+    public override List<string>? ExclusiveGroups { get; } =
+        [City.Any.Key, Professioni.M.Key, Parente.M.Key];
 
     /// <summary>Sempre presente: il verdetto originale dell'archetipo, testo piano (niente Markdown —
     /// il frontend lo mostra come semplice `desc`, non lo passa per il pipe `markdown`). Spazio finale
@@ -66,18 +125,38 @@ public sealed class LombrosoGenerator : GeneratorBase, IHiddenGenerator
     /// </summary>
     public override List<Frase> Core { get; } =
     [
-        new($"Un testimone di nome {Nome.Any}, residente a {City.Any}, giura di averti riconosciuto sul luogo esatto dei fatti", 2),
-        // Professioni.M (SoloM + Neutre), non .Any: "un" davanti richiede l'accordo che il pool misto non garantisce.
-        new($"Il fascicolo cita un {Professioni.M} come consulente esterno dell'indagine, pagato profumatamente e mai davvero interpellato", 2),
+        // ── Prova debole (nome+città+professione annidati, vedi ProvaDebole) ──────────────
+        new($"{ProvaDebole}", 2),
+        new($"{ProvaDebole}, ma ritratta tutto appena arriva {Strumento}", 3),
+
+        // ── Strumentazione e gergo, variabili a ogni scatto ───────────────────────────────
+        new($"{Strumento} assegna un indice di sospettosità di {60..99} su 100", 2),
+        new($"Secondo {Strumento}, {Gergo} è fuori norma di almeno {2..15} punti", 3),
+        new($"{Gergo} risulta borderline: né innocente né colpevole, ma lo scanner non contempla vie di mezzo", 2),
+        new($"Il valore di {Gergo} viene ricontrollato tre volte: cambia ogni volta, il verdetto no", 3),
+
+        // ── Precedenti e statistiche pseudo-scientifiche ──────────────────────────────────
         new($"Secondo l'atlante, chi presenta questa stigmata ha in media {18..70} precedenti per reati altrettanto immaginari", 2),
-        // Solo Parente.M (non .Any): "tuo" richiede l'accordo di genere, che il pool misto non garantisce.
+        new($"Età presunta secondo l'ergografo: {Eta.Adulto} anni, ma nelle foto segnaletiche dimostra di meno", 2),
+        new($"Il fascicolo digitale segna {1..9} procedimenti pendenti, tutti apertisi lo stesso {Giorni.Any}", 2),
+
+        // ── Parente/testimoni di famiglia (Parente.M per l'accordo, vedi sopra) ───────────
         new($"Tuo {Parente.M} conferma: \"lo dicevo sempre, quello sguardo non mi tornava\"", 3),
+        new($"Tuo {Parente.M} produce come prova una foto di {2..15} anni fa, comunque ammissibile", 2),
+
+        // ── Giudiziario/burocratico, con città (ExclusiveGroups la limita a una sola comparsa) ──
         new($"Prossima udienza fissata a {City.Any}, ma nessuno ha ancora trovato l'aula", 2),
-        new($"L'antropometro (di legno, 1876) assegna un indice di sospettosità di {60..99} su 100", 2),
+        new($"Il verbale, redatto a {City.Any}, riporta {Gergo} sbagliato per errore di trascrizione — non cambia il verdetto", 2),
+
+        // ── Eco social/commerciale del verdetto ───────────────────────────────────────────
         new($"Un annuncio su {Marketplace.Any} venderebbe già la tua \"vera storia\" per {5..40} euro, spese di spedizione escluse", 2),
         new($"Su {Social.Any} circola già uno screenshot del verdetto, con didascalia \"chiamate un {Professioni.M}\"", 2),
-        new($"Età presunta secondo l'ergografo: {Eta.Adulto} anni, ma nelle foto segnaletiche dimostra di meno", 2),
+        new($"Su {Social.Any}, {Nome.Any} ha già commentato \"lo sapevo\" senza aver letto il fascicolo", 2),
+
+        // ── Esito e prossimi passi ─────────────────────────────────────────────────────────
         new($"Prossimo controllo di routine: {Giorni.Any}, salvo imprevisti — ce ne saranno", 2),
+        new($"Per ora {Esito}", 2),
+        new($"Il collega di turno propone una seconda misurazione con {Strumento}; {Esito}", 3),
     ];
 
     /// <summary>
