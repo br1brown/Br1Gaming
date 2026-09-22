@@ -115,7 +115,12 @@
     min-width: 5.5rem;
 }
 
+/* Bootstrap dà a .nav-link (classe presente insieme a .language-toggle, vedi HTML) un colore
+   proprio (--bs-nav-link-color), non il nostro --colorNavText: senza questo override il testo
+   esce nel colore di default Bootstrap invece di ereditare quello (chiaro) della navbar, stesso
+   bug e stessa causa già risolti sopra per .navbar-toggler. */
 .language-toggle {
+    color: inherit;
     font-size: 0.85rem;
     font-weight: 600;
     letter-spacing: 0.04em;
