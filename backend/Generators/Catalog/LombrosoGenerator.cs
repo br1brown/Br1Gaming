@@ -87,13 +87,14 @@ public sealed class LombrosoGenerator : GeneratorBase, IHiddenGenerator
 
     public override GenerationSettings? PhraseSettings { get; } = new()
     {
-        // Scala allineata a Incel/Complotto (3-4 frasi, non 2-3): con un Core più ampio regge meglio.
-        MinPhrases = 3,
-        MaxPhrases = 4,
+        // 1-2, non 3-4 come Incel/Complotto: la versione precedente (36 verdetti fissi in TS, un
+        // paragrafo corto) era breve e proporzionata — con Apertura (indizio) già presente, 3-4 frasi
+        // di Core sopra rendevano il verdetto lungo e sopra le righe. Niente MinScore: con solo 1-2
+        // frasi scelte da un Core già curato, ogni combinazione è di per sé sostanziosa — il filtro
+        // "scarta le combinazioni troppo scarne" (utile con 3-4 frasi) qui non aggiunge nulla.
+        MinPhrases = 1,
+        MaxPhrases = 2,
         Separators = [". ", "; ", ".\n"],
-        // Come Complotto (MinScore 10): con frasi da punteggio 2-4 e 3-4 frasi, quasi sempre superata
-        // al primo tentativo, ma scarta le rare combinazioni troppo scarne.
-        MinScore = 10,
     };
 
     /// <summary>
