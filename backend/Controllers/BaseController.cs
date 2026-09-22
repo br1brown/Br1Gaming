@@ -24,6 +24,7 @@ public class BaseController : EngineApiController
     private readonly ShareSigner _signer;
     private readonly IValidator<StoryPlayRequestDto> _playValidator;
     private readonly FintoSpagnoloTranslator _translator;
+    private readonly LombrosoScanner _lombroso;
 
     /// <summary>Inizializza il controller con i servizi di dominio, il validator del play e il logger.</summary>
     public BaseController(
@@ -33,6 +34,7 @@ public class BaseController : EngineApiController
         ShareSigner signer,
         IValidator<StoryPlayRequestDto> playValidator,
         FintoSpagnoloTranslator translator,
+        LombrosoScanner lombroso,
         ILogger<BaseController> logger)
         : base(logger)
     {
@@ -42,6 +44,7 @@ public class BaseController : EngineApiController
         _signer = signer;
         _playValidator = playValidator;
         _translator = translator;
+        _lombroso = lombroso;
     }
 
     // ── Storie ───────────────────────────────────────────────────────
@@ -114,6 +117,22 @@ public class BaseController : EngineApiController
     [HttpPost("translate")]
     public IActionResult Translate([FromBody] TranslateRequestDto? body)
         => Ok(new TranslateResultDto(_translator.Translate(body?.Text)));
+
+    // ── Lombroso Scanner (parodia fisiognomica) ─────────────────────────
+    // Non tra i generatori di proposito: LombrosoGenerator implementa IHiddenGenerator, quindi
+    // GeneratorRegistration.AddGenerators() lo esclude dall'auto-scoperta — non compare mai in
+    // "generators". LombrosoScanner lo compila e genera a mano (vedi lì per il perché).
+
+    /// <summary>
+    /// Verdetto Lombroso per l'hash del frame. La foto non arriva mai qui: il client la scatta,
+    /// ne calcola l'hash dei pixel e scarta subito il canvas — solo il numero viaggia fin qui.
+    /// </summary>
+    [HttpGet("lombroso/verdict")]
+    public IActionResult GetLombrosoVerdict([FromQuery] long hash)
+    {
+        var verdict = _lombroso.VerdictFor(hash);
+        return Ok(new LombrosoVerdictDto(verdict.Title, verdict.Desc));
+    }
 
     // ── Condivisi (raccolta pubblica) ──────────────────────────────────
 

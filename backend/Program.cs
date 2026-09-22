@@ -114,6 +114,11 @@ builder.Services.AddScoped<SiteService>();
 
 // Translator "finto spagnolo": logica pura e stateless (fonte unica in C#), servita da BaseController.
 builder.Services.AddSingleton<FintoSpagnoloTranslator>();
+// Lombroso Scanner: LombrosoGenerator usa la stessa grammatica combinatoria dei generatori (Tag,
+// Frase, liste condivise) ma è un IHiddenGenerator — AddGenerators() lo esclude di proposito, non
+// deve comparire in "generators". LombrosoScanner lo compila e sceglie l'archetipo dall'hash che
+// il client calcola dal frame — la foto non lascia mai il browser, solo l'hash arriva qui.
+builder.Services.AddSingleton<LombrosoScanner>();
 // Generatori: factory di registrazione che auto-scopre gli IGenerator dell'assembly e li indicizza
 // (vedi GeneratorRegistration). Aggiungere un generatore = creare la classe.
 builder.Services.AddGenerators();

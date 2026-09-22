@@ -6,6 +6,7 @@ import { StorySummary, StorySnapshotDto } from '../dto/story.dto';
 import { GeneratorInfo, GenerateResponse, ShareEntry, ShareSaveResult } from '../dto/generator.dto';
 import { LoginResult, LoginRequest } from '../dto/auth.dto';
 import { TranslateResult } from '../dto/translator.dto';
+import { LombrosoVerdict } from '../dto/lombroso.dto';
 
 /** Endpoint backend. Aggiungere il path qui, poi il metodo pubblico sotto. */
 const API = {
@@ -23,6 +24,7 @@ const API = {
     shares: 'shares',
     sharesCounts: 'shares/counts',
     translate: 'translate',
+    lombrosoVerdict: 'lombroso/verdict',
 } as const;
 
 /**
@@ -186,5 +188,15 @@ export class ApiService extends BaseApiService {
      *  Nome `tradurre` (non `translate`): `translate` è già il TranslateService ereditato da BaseApiService. */
     tradurre(text: string): Promise<string> {
         return this.api_post<TranslateResult>(API.translate, { text }, { silent: true }).then(r => r.text);
+    }
+
+    /**
+     * Verdetto Lombroso per l'hash del frame scattato — il "colore" campionato dai pixel, mai la foto
+     * (che non lascia il browser). Il backend possiede i 36 archetipi e li ricombina con la grammatica
+     * dei generatori (nomi, città, date...): stesso hash → stesso archetipo, corredo variabile.
+     * `silent: true`: LombrosoComponent gestisce l'errore da sé (stato 'error' dedicato).
+     */
+    lombrosoVerdict(hash: number): Promise<LombrosoVerdict> {
+        return this.api_get<LombrosoVerdict>(API.lombrosoVerdict, new HttpParams().set('hash', hash), { silent: true });
     }
 }

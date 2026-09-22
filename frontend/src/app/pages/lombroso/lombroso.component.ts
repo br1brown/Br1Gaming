@@ -7,14 +7,13 @@ import { ImgBuilderService } from '../../core/engine/services/img-builder.servic
 import { AppearanceService } from '../../core/engine/services/appearance.service';
 import { LightboxDirective } from '../../core/engine/directives/lightbox.directive';
 import { ShareActionComponent } from '../../core/engine/components/share-action/share-action.component';
+import { LombrosoVerdict } from '../../core/dto/lombroso.dto';
 
 type LombrosoStatus = 'init' | 'live' | 'scanning' | 'result' | 'error';
 
-interface Verdict { title: string; desc: string; }
-
 /**
  * Finto tabellone di misurazione: righe che compaiono in sequenza durante 'scanning', puro colore
- * — nessuna vera analisi dell'immagine oltre all'hash che sceglie il verdetto. Strumenti e termini
+ * — nessuna vera analisi dell'immagine oltre all'hash che sceglie l'archetipo. Strumenti e termini
  * sono quelli VERI del gabinetto di Lombroso (antropometro, estesiometro per la sensibilità al
  * dolore, ergografo per la forza muscolare — esposti ancora oggi al Museo di Antropologia Criminale
  * di Torino, che lui stesso fondò nel 1876): i numeri con cui li riempiamo, ovviamente, no.
@@ -28,60 +27,6 @@ const MEASURING_STEPS: readonly string[] = [
     "Ergografo: affaticamento muscolare sotto la media dell'atlante",
     "Bernoccolo dell'onestà (regione parietale): assente. Nessun margine d'errore",
     "Confronto con l'atlante del Museo di Antropologia Criminale, Torino 1876…",
-];
-
-/**
- * Archetipi assurdi, tono demenziale coerente col resto del sito: "crimini" innocui, mai un tratto
- * reale di una persona reale — il bersaglio della battuta è la pseudoscienza stessa. Le "stigmate"
- * citate (zigomi sporgenti, arcata sopraccigliare pronunciata, prognatismo, orecchie a manico
- * d'ansa, asimmetria cranica...) sono quelle vere che Lombroso elencava nell'Uomo delinquente;
- * mescolate al gergo altrettanto vero (e altrettanto pseudo-scientifico) del "looksmaxxing" da
- * forum incel — canthal tilt, gonial angle, midface ratio, hunter eyes: la stessa ossessione di
- * misurare il volto per dedurne un giudizio assoluto, solo un secolo e mezzo dopo. Applicate
- * sempre a reati immaginari da bar, non a persone vere: la battuta è nel metodo, non nel viso.
- *
- * Seconda metà dell'elenco: stessa struttura ma bersaglio più specifico, l'economia del grift che
- * gira proprio intorno a quell'ossessione — guru del looksmaxxing, corsi di seduzione, piramidi di
- * affiliazioni crypto/MLM, lo stesso ecosistema da cui l'incel importa idoli e vocabolario (vedi
- * IncelGenerator.Idoli/ProfessioniIncel). Il bersaglio resta il metodo/il giro, mai un tratto reale.
- */
-const VERDICTS: readonly Verdict[] = [
-    { title: 'Ladro di polli seriale', desc: "Zigomi sporgenti, gonial angle acuto e canthal tilt positivo da manuale: profilo da pollaio conforme in ogni misura." },
-    { title: 'Innocente ma sospetto', desc: 'Midface ratio nella norma, canthal tilt neutro: nessuna stigmata rilevata — ed è proprio questo, secondo lo scanner, a insospettire.' },
-    { title: 'Recidivo da parcheggio in doppia fila', desc: 'Lieve prognatismo e gonial angle da bulldog: mascella di chi non arretra di un centimetro, tanto meno in retromarcia.' },
-    { title: 'Sovversivo da bar sport', desc: 'Seni frontali pronunciati e arcata sopraccigliare a tenda: la fronte grida "arbitro venduto" da sola.' },
-    { title: 'Manomettitore di distributori automatici', desc: "Mani grandi rispetto al busto, ergografo compatibile con lo scuotimento energico." },
-    { title: 'Evasore della fila alle Poste', desc: 'Mandibola sviluppata e gonial angle da looksmaxxing riuscito, tipica di chi si intrufola senza chiedere permesso.' },
-    { title: 'Tagliatore di code al supermercato', desc: "Orecchie a manico d'ansa e lieve asimmetria del padiglione: nell'atlante del 1876 era già un classico." },
-    { title: 'Sabotatore di gruppi WhatsApp', desc: 'Asimmetria cranica lieve, compatibile con il "rispondo dopo".' },
-    { title: 'Occupante abusivo di ombrellone', desc: 'Zigomi larghi, sguardo da hunter eyes e indice cranico da mattiniero seriale: primo in spiaggia, primo ovunque.' },
-    { title: 'Falso invalido nel parcheggio disabili', desc: "Fronte sfuggente e canthal tilt negativo: il Museo di Torino non avrebbe avuto dubbi." },
-    { title: 'Rosicatore di parmigiano altrui dal frigo condiviso', desc: 'Narici dilatate, compatibili con l\'intenditore furtivo.' },
-    { title: 'Molestatore seriale del pulsante "rispondi a tutti"', desc: 'Mandibola pronunciata e midface ratio da manuale, tipica del reply-all recidivo.' },
-    { title: 'Guru del corso "Diventa Chad in 30 giorni"', desc: 'Gonial angle da miniatura di YouTube, canthal tilt corretto in post-produzione: l\'antropometro non mente, il pacchetto Premium sì.' },
-    { title: 'Rivenditore di integratori per il gonial angle', desc: 'Scorta di flaconi "BoneBroth Maxxer" nel bagagliaio, mandibola pubblicizzata come "chirurgicamente naturale".' },
-    { title: 'Fondatore di una piramide di affiliazioni in criptovalute', desc: 'Zigomi da webinar, sorriso da landing page: promette il 10x a chi entra prima delle 23:59.' },
-    { title: 'Life coach della "red pill" immobiliare', desc: 'Fronte ampia da stratega, portafoglio da esordiente: il vero investimento resta il suo corso da 997€.' },
-    { title: 'Truffatore di corsi di seduzione via videochiamata', desc: 'Canthal tilt disegnato col trucco, voce da podcast motivazionale: "hunter eyes" garantite o rimborso (mai).' },
-    { title: 'Rivenditore di calibri e gadget da looksmaxxing sul Marketplace', desc: 'Un calibro di plastica e un "mewing trainer" di gomma: l\'antropometro certifica solo la truffa, non la mascella.' },
-    { title: 'Promotore di NFT del "volto perfetto"', desc: 'Midface ratio calcolato su un\'immagine generata, portafoglio crypto vuoto da tre cicli di mercato consecutivi.' },
-    { title: 'Ambasciatore non retribuito di un multilivello di proteine', desc: 'Zigomi enfatizzati dal filtro, scorta di barrette invendute in garage: indice cranico da chi ci crede ancora.' },
-    { title: 'Fondatore della setta del "mewing estremo"', desc: 'Mandibola serrata H24 nonostante il dentista lo sconsigli da anni, seguaci convinti comunque.' },
-    { title: 'Coach di looksmaxxing certificato da un forum', desc: 'Diploma auto-rilasciato, gonial angle misurato con un righello dell\'IKEA: stessa serietà del calibro, zero credenziali in più.' },
-    { title: 'Affiliato di terzo livello in una piramide di corsi motivazionali', desc: 'Presentazione da quaranta slide, unico guadagno reale quello di chi gliel\'ha venduta.' },
-    { title: 'Investitore nella criptovaluta lanciata dal suo idolo da "red pill"', desc: 'Convinto sia "la prossima Bitcoin": portafoglio già a -97%, canthal tilt inalterato.' },
-    { title: 'Ex allievo del bootcamp "Alpha Transformation Weekend"', desc: 'Certificato plastificato in tasca, prognatismo da chi sostiene ancora sia valso i 1.500€.' },
-    { title: 'Sostenitore instancabile degli scout', desc: 'Nodo Savoia già pronto nel taschino, mandibola quadrata da capo-reparto: fedeltà al giglio rilevata anche a quarant\'anni suonati.' },
-    { title: 'Occupante di un parcheggio non ancora libero', desc: 'Piedi piantati sulla striscia bianca: gonial angle da guardiano non retribuito, il posto è già suo.' },
-    { title: 'Incontinente verbale cronico', desc: 'Midface iperattivo, nessuna pausa articolatoria rilevata dallo scanner: il flusso prosegue anche in assenza di ascoltatori.' },
-    { title: 'Sovrapponitore seriale di conversazioni altrui', desc: 'Mandibola già in movimento mentre l\'interlocutore è a metà frase: ha sempre "giusto una cosa veloce" da aggiungere.' },
-    { title: 'Sminuitore professionista dei problemi altrui', desc: 'Sopracciglio sollevato in automatico a ogni lamentela ricevuta, seguito immancabilmente da "eh ma io ho avuto di peggio".' },
-    { title: 'Pedante correttore compulsivo', desc: 'Indice cranico da enciclopedia vivente, mandibola pronta a intervenire su ogni congiuntivo sbagliato altrui — richiesto o meno.' },
-    { title: 'Automobilista con lo sguardo fisso sul telefono', desc: 'Canthal tilt rivolto verso il basso, verso lo schermo, non verso la strada: priorità alterate secondo ogni misurazione.' },
-    { title: 'Interlocutore che guarda il telefono mentre gli parli', desc: 'Hunter eyes puntati altrove, sul telefono, mentre annuisce a un discorso che non sta ascoltando.' },
-    { title: 'Lamentoso cronico', desc: 'Rughe di espressione già scavate in assetto permanente "poteva andare peggio, e infatti".' },
-    { title: 'Rispondente perennemente glaciale', desc: 'Temperatura del tono costantemente sotto zero indipendentemente dalla domanda ricevuta: un "ok" è già un\'apertura generosa.' },
-    { title: 'Mansplainer seriale', desc: 'Sopracciglio inarcato in modalità "lascia che ti spieghi": midface ratio di chi crede di aver capito tutto per primo.' },
 ];
 
 /**
@@ -115,7 +60,7 @@ export class LombrosoComponent extends PageBaseComponent<void> implements OnDest
     /** Stesso scatto, come Blob: sorgente del lightbox ([appLightbox]) e della card di
      *  condivisione (ImgBuilderService vuole un Blob/URL, non una data URL). */
     readonly frozenFrameBlob = signal<Blob | null>(null);
-    readonly verdict = signal<Verdict | null>(null);
+    readonly verdict = signal<LombrosoVerdict | null>(null);
     /** Quante righe del tabellone sono già comparse (reveal progressivo durante 'scanning'). */
     readonly visibleSteps = signal(0);
 
@@ -160,8 +105,9 @@ export class LombrosoComponent extends PageBaseComponent<void> implements OnDest
         }
     }
 
-    /** Scatta: disegna il frame corrente su un canvas volante, calcola il verdetto dall'hash dei
-     *  pixel, spegne subito la fotocamera. Il canvas non viene mai conservato oltre questa chiamata. */
+    /** Scatta: disegna il frame corrente su un canvas volante, calcola l'hash dei pixel, spegne
+     *  subito la fotocamera. Il canvas non viene mai conservato oltre questa chiamata — solo l'hash
+     *  (il "colore", non la foto) viaggia verso il backend per il verdetto, vedi resolveVerdict(). */
     capture(): void {
         const video = this.videoRef()?.nativeElement;
         if (!video || video.videoWidth === 0) return;
@@ -171,16 +117,36 @@ export class LombrosoComponent extends PageBaseComponent<void> implements OnDest
         canvas.height = video.videoHeight;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
+        // Specchiato come l'anteprima live (.lombroso-mirrored in CSS): il canvas legge il buffer
+        // video reale, ignaro del transform CSS sull'elemento, quindi va ribaltato qui a mano —
+        // altrimenti lo scatto congelato/condiviso non combacerebbe con quanto visto inquadrando.
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
         ctx.drawImage(video, 0, 0);
 
         const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-        const index = LombrosoComponent.hashFrame(pixels) % VERDICTS.length;
+        const hash = LombrosoComponent.hashFrame(pixels);
 
         this.frozenFrame.set(canvas.toDataURL('image/jpeg', 0.7));
         canvas.toBlob(blob => this.frozenFrameBlob.set(blob), 'image/jpeg', 0.7);
-        this.verdict.set(VERDICTS[index]);
         this.stopCamera();
-        this.runScan();
+        void this.resolveVerdict(hash);
+    }
+
+    /**
+     * Chiede al backend il verdetto per l'hash (il "colore" campionato dai pixel — mai la foto, che
+     * non lascia mai capture()). Il backend possiede i 36 archetipi e li ricombina con la grammatica
+     * dei generatori (nomi, città, professioni, date...): stesso hash → stesso archetipo, corredo
+     * variabile a ogni scatto. Attesa PRIMA di avviare l'animazione di scansione (non in parallelo):
+     * così runScan() parte già col verdetto in mano, nessuna corsa fra rete e timer dell'animazione.
+     */
+    private async resolveVerdict(hash: number): Promise<void> {
+        try {
+            this.verdict.set(await this.api.lombrosoVerdict(hash));
+            this.runScan();
+        } catch {
+            this.fail('lombrosoErrBackend');
+        }
     }
 
     /**

@@ -166,7 +166,11 @@ public class GeneratorService
             RegexOptions.Multiline);
     }
 
-    private static string ArmonizzaTesto(string text)
+    /// <summary>Stessa armonizzazione finale usata da <see cref="Generate"/> (punteggiatura, spazi,
+    /// maiuscole, elisioni) — <c>internal</c> perché <c>LombrosoScanner</c> orchestra la propria
+    /// generazione a mano (variante scelta dall'hash, non da <see cref="GeneratorService"/>) ma vuole
+    /// lo stesso rifinimento del testo, non una copia duplicata della logica.</summary>
+    internal static string ArmonizzaTesto(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return text;
 

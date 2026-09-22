@@ -1,3 +1,11 @@
+/* Fotocamera frontale: l'anteprima va specchiata, altrimenti muoversi a destra si vede muoversi
+ * a sinistra — l'opposto di come ci si vede in uno specchio vero, disorientante nell'inquadrare.
+ * Lo scatto (canvas) è specchiato di conseguenza in capture(): la foto congelata/condivisa deve
+ * combaciare con quello che si è visto mentre si inquadrava, non con l'orientamento "vero". */
+.lombroso-mirrored {
+    transform: scaleX(-1);
+}
+
 /* Mirino stile fotocamera: quattro angoli, niente riquadro pieno (coprirebbe il viso). */
 .lombroso-viewfinder {
     position: absolute;
