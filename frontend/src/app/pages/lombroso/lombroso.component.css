@@ -6,6 +6,37 @@
     transform: scaleX(-1);
 }
 
+/* Cancella il padding di <main> (container-fluid: gutter laterale via --bs-gutter-x; py-4: 1.5rem
+ * sopra/sotto) che fitViewport toglieva da sé (vedi _layout.scss engine) e che qui torna, non
+ * essendo più fitViewport (ruolo 'NoFooter'). Solo margini negativi, non un ripensamento del
+ * componente: la fotocamera resta edge-to-edge come prima, il resto (scroll normale) non cambia. */
+.lombroso-edge-to-edge {
+    margin-block: -1.5rem;
+    margin-inline: calc(var(--bs-gutter-x, 1rem) * -0.5);
+}
+
+/* Niente fitViewport sulla rotta (ruolo 'NoFooter': solo showFooter:false) — la pagina scorre
+ * normale. min-height, non height: init/live/scanning/error (tutti position-absolute, quindi non
+ * contribuiscono all'altezza del genitore) restano visivamente "a schermo pieno" appoggiandosi a
+ * questa altezza minima; il risultato (l'unico case NON absolute, vedi .lombroso-result-fill)
+ * può invece farla crescere oltre quando il testo combinatorio è lungo.
+ * calc(): 100dvh meno la stima di navbar+header di questa pagina — non serve il pixel esatto,
+ * solo restare "quasi schermo pieno" senza sforare oltre e generare uno scroll fittizio.
+ * 7.5rem, non 7rem: da .lombroso-edge-to-edge in poi (niente più py-4 di <main> a mangiarsi
+ * spazio) navbar+header misurano ~7.4rem, non 7rem — 7rem lasciava uno scroll fittizio di ~6px. */
+.lombroso-stage {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100dvh - 7.5rem);
+}
+
+/* Il case 'result': in-flow (non position-absolute, vedi HTML) così può crescere oltre
+ * .lombroso-stage quando il verdetto è lungo — flex-grow lo fa comunque riempire tutto lo
+ * spazio minimo disponibile quando il testo è corto, stesso effetto visivo degli altri case. */
+.lombroso-result-fill {
+    flex-grow: 1;
+}
+
 /* Mirino stile fotocamera: quattro angoli, niente riquadro pieno (coprirebbe il viso). */
 .lombroso-viewfinder {
     position: absolute;

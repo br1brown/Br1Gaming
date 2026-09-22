@@ -9,13 +9,16 @@
              loading="lazy">
         <span class="sim-tile-scrim" aria-hidden="true"></span>
         } @else if (tile.icon) {
-        <!-- Niente cover fotografica (non è un "gioco"): un'icona su sfondo pieno, stesso scrim/LED/body. -->
+        <!-- Niente cover fotografica (non è un "gioco"): un'icona su sfondo pieno, stesso scrim/body. -->
         <i class="sim-tile-icon {{ tile.icon }}" aria-hidden="true"></i>
         }
-        <span class="sim-tile-led" aria-hidden="true">{{ 'heroPronto' | translate }}</span>
         <div class="sim-tile-body">
             <h3 class="sim-tile-title">{{ tile.titleKey | translate }}</h3>
+            <!-- taglineKey assente per Generatori: il numero di generatori cambia, meglio non
+                 doverlo tenere sincronizzato in un testo statico qui. -->
+            @if (tile.taglineKey) {
             <p class="sim-tile-tagline">{{ tile.taglineKey | translate }}</p>
+            }
             <span class="btn-skeuo sim-tile-cta">
                 <i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i>
                 {{ tile.ctaKey | translate }}

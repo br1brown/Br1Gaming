@@ -1,14 +1,19 @@
-<div class="d-flex flex-column overflow-hidden user-select-none flex-grow-1 bg-black text-white">
+<!-- lombroso-edge-to-edge: senza fitViewport (ruolo 'NoFooter') <main> torna al normale
+     container-fluid + py-4 (gutter laterale + padding verticale) — annullati qui, la fotocamera
+     vuole arrivare ai bordi come prima, non un riquadro rientrato. Vedi CSS per i valori esatti. -->
+<div class="d-flex flex-column user-select-none lombroso-edge-to-edge">
 
     <header class="flex-shrink-0 text-center py-2 px-3">
-        <h1 class="h4 fw-bold mb-0 text-white">{{ 'lombroso' | translate }}</h1>
+        <h1 class="h4 fw-bold mb-0">{{ 'lombroso' | translate }}</h1>
     </header>
 
-    <!-- overflow-auto (non -hidden): il testo del verdetto è ora combinatorio e varia in lunghezza —
-         una descrizione lunga non deve tagliare i pulsanti sotto senza modo di raggiungerli
-         (successo prima solo da desktop, dove non c'è lo scroll "naturale" del touch). 'live' non ne
-         risente: il video riempie esattamente il contenitore, niente overflow da rivelare. -->
-    <div class="position-relative flex-grow-1 overflow-auto">
+    <!-- Niente fitViewport (ruolo 'NoFooter': solo showFooter:false, non anche fitViewport) — la
+         pagina scorre normale, come qualunque altra. .lombroso-stage dà comunque un'altezza minima
+         generosa (bg nero, contesto per i figli in position-absolute/h-100) così init/live/scanning
+         restano visivamente "a schermo pieno"; il risultato, testo combinatorio a lunghezza
+         variabile, può semplicemente crescere oltre e far scorrere la PAGINA — niente più scroll
+         interno separato da gestire, niente contenuto irraggiungibile su schermi bassi. -->
+    <div class="position-relative lombroso-stage">
 
         @switch (status()) {
 
@@ -61,8 +66,15 @@
             }
 
             @case ('result') {
-                <div class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-4">
-                    <div class="card text-center p-4" style="max-width: 28rem;">
+                <!-- Unico case NON position-absolute: gli altri riempiono .lombroso-stage (altezza
+                     minima fissa, va bene); questo deve poter CRESCERE oltre quando il verdetto
+                     combinatorio è lungo — un figlio absolute non fa mai crescere il genitore, un
+                     figlio in-flow sì (vedi .lombroso-stage nel CSS). Così la pagina scorre da sola,
+                     niente scroll interno separato da gestire. -->
+                <div class="w-100 d-flex align-items-center justify-content-center p-4 lombroso-result-fill">
+                    <!-- 38rem, non 28rem come le altre card: il verdetto ora è testo combinatorio
+                         (fino a 4 frasi), più largo = meno righe da leggere in verticale. -->
+                    <div class="card text-center p-4" style="max-width: 38rem;">
                         @if (frozenFrame(); as frame) {
                         <!-- Tocca per ingrandire (LightboxDirective, Blob locale): niente più azioni
                              a sorpresa al tocco, solo lo zoom che ci si aspetta da una foto. -->

@@ -178,10 +178,12 @@ export class LombrosoComponent extends PageBaseComponent<void> implements OnDest
         return canvas;
     };
 
-    /** Titolo per la Web Share API. */
+    /** Titolo per la Web Share API — come nei generatori (nome: link), qui col verdetto in mezzo:
+     *  chi riceve la condivisione (solo canvas immagine + questo titolo, niente `text` separato,
+     *  vedi ShareService.shareFile) deve poter tornare alla pagina, non solo vedere lo screenshot. */
     readonly shareTitle = computed(() => {
         const v = this.verdict();
-        return v ? `${this.translate.translate('lombroso')}: ${v.title}` : '';
+        return v ? `${this.translate.translate('lombroso')}: ${v.title} — ${this.getCurrentUrl()}` : '';
     });
 
     /** Riprova: stessa istanza pagina, si torna dritti alla fotocamera (il permesso resta valido,

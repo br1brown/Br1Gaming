@@ -13,7 +13,8 @@ import { PageType } from '../../../site';
 interface SimulatorTile {
     slug: string;
     titleKey: string;
-    taglineKey: string;
+    /** Assente per Generatori: nessun testo da tenere sincronizzato con un numero che cambia. */
+    taglineKey?: string;
     ctaKey: string;
     imageId?: string;
     /** Solo per i tile senza immagine (Font Awesome, es. "fa-solid fa-dice"). */
@@ -41,7 +42,6 @@ const SIMULATORS: SimulatorTile[] = [
     {
         slug: 'generatori',
         titleKey: 'generatori',
-        taglineKey: 'heroGeneratoriTagline',
         ctaKey: 'heroApri',
         icon: 'fa-solid fa-dice',
         pageType: PageType.Generatori,

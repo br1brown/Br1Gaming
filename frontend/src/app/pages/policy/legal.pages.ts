@@ -53,7 +53,7 @@ export interface LegalPageConfig {
  */
 export const legalPages: Partial<Record<LegalPageId, LegalPageConfig>> = {
     [LegalPages.PrivacyPolicy]: {
-        updated: new Date('2026-07-03'),
+        updated: new Date('2026-09-22'),
         showCompanyDetails: true, showLegalDetails: false, showContacts: true, showOpeningHours: false,
     },
     [LegalPages.CookiePolicy]: {

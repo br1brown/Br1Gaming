@@ -258,7 +258,10 @@ export const appPagesDecl: SitePageInput[] = [
         title: `lombroso`,
         description: 'Inquadrati, scatta e scopri il tuo vero archetipo criminale secondo lo scanner antropometrico di Lombroso — scienza vera del 1876.',
         pageType: AppPages.GameLombroso,
-        layout: { role: 'giochini' },
+        // 'NoFooter', non 'giochini': niente fitViewport (bloccherebbe l'altezza al viewport,
+        // sbagliato con un verdetto di lunghezza variabile) — solo il footer sparisce, per il resto
+        // è una pagina normale che scorre da sé (vedi lombroso.component.css).
+        layout: { role: 'NoFooter' },
         component: () => import('./lombroso/lombroso.component')
             .then(m => m.LombrosoComponent),
     },

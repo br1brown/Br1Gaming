@@ -87,44 +87,6 @@
     background: linear-gradient(180deg, rgba(10, 12, 14, 0.1) 0%, rgba(10, 12, 14, 0.55) 55%, rgba(10, 12, 14, 0.92) 100%);
 }
 
-/* Targhetta "sportello aperto": un cartellino da insegna, non un LED da hacker — bezel scuro,
-   font monospazio, glow contenuto. Skeuomorfismo misurato: leggibile, non invadente. */
-.sim-tile-led {
-    position: absolute;
-    top: 1.1rem;
-    right: 1.1rem;
-    display: inline-flex;
-    align-items: center;
-    gap: .4rem;
-    padding: .3rem .6rem;
-    border-radius: .4rem;
-    background: rgba(8, 10, 8, 0.6);
-    border: 1px solid rgba(57, 255, 20, 0.35);
-    font-family: var(--fontFamily);
-    font-weight: 700;
-    font-size: .68rem;
-    line-height: 1;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-    color: #8CFF6E;
-}
-
-.sim-tile-led::before {
-    content: '';
-    width: 6px;
-    height: 6px;
-    flex-shrink: 0;
-    border-radius: 50%;
-    background: #39ff14;
-    box-shadow: 0 0 4px #39ff14;
-    animation: sim-led-pulse 2.6s ease-in-out infinite;
-}
-
-@keyframes sim-led-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: .4; }
-}
-
 .sim-tile-body {
     position: absolute;
     inset-inline: 0;
@@ -154,7 +116,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .sim-tile-led::before { animation: none; }
     .sim-tile-bg, .sim-tile { transition: none; }
     .sim-tile { animation: none; }
 }
