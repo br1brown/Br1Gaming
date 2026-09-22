@@ -13,18 +13,18 @@
 
 .bento-simulators { grid-column: 1 / -1; }
 
-.bento-hub { grid-column: span 12; }
 .bento-tools {
     grid-column: span 12;
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
 }
+.bento-lombroso { grid-column: span 12; }
 .bento-dilemma { grid-column: 1 / -1; }
 
 @media (min-width: 992px) {
-    .bento-hub { grid-column: span 7; }
-    .bento-tools { grid-column: span 5; }
+    .bento-tools { grid-column: span 7; }
+    .bento-lombroso { grid-column: span 5; }
 }
 
 .bento-skeleton {

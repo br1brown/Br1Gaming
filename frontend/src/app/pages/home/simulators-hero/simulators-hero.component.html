@@ -1,12 +1,17 @@
 <div class="sim-grid">
     @for (tile of tiles; track tile.slug) {
-    <a class="sim-tile" [appPage]="tile.pageType">
+    <a class="sim-tile" [class.sim-tile--flat]="!tile.imageId" [appPage]="tile.pageType">
+        @if (tile.imageId) {
         <img [appAsset]="tile.imageId"
-             [appAssetSizes]="'(min-width: 992px) 50vw, 100vw'"
+             [appAssetSizes]="'(min-width: 992px) 33vw, 100vw'"
              alt=""
              class="sim-tile-bg"
              loading="lazy">
         <span class="sim-tile-scrim" aria-hidden="true"></span>
+        } @else if (tile.icon) {
+        <!-- Niente cover fotografica (non è un "gioco"): un'icona su sfondo pieno, stesso scrim/LED/body. -->
+        <i class="sim-tile-icon {{ tile.icon }}" aria-hidden="true"></i>
+        }
         <span class="sim-tile-led" aria-hidden="true">{{ 'heroPronto' | translate }}</span>
         <div class="sim-tile-body">
             <h3 class="sim-tile-title">{{ tile.titleKey | translate }}</h3>

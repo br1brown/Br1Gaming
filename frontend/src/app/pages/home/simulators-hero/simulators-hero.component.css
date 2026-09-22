@@ -1,14 +1,14 @@
-/* Due "sportelli" affiancati da desktop, impilati su mobile. Altezza generosa: è il blocco
-   dominante della viewport (BR1-UI §3.A) — non una card come le altre. */
+/* Tre "sportelli" affiancati da desktop (Burocrazia, Umarell, Generatori), impilati su mobile.
+   Altezza generosa: è il blocco dominante della viewport (BR1-UI §3.A) — non una card come le altre. */
 .sim-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
     gap: 1rem;
 }
 
-@media (max-width: 767.98px) {
+@media (min-width: 768px) {
     .sim-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(3, 1fr);
     }
 }
 
@@ -31,20 +31,38 @@
 }
 
 .sim-tile:nth-child(2) { animation-delay: .12s; }
+.sim-tile:nth-child(3) { animation-delay: .22s; }
 
 @keyframes sim-tile-pop {
     from { opacity: 0; transform: translateY(10px) scale(.97); }
     to   { opacity: 1; transform: none; }
 }
 
+/* 4/3, non 16/11: con tre colonne (non più due) uno sportello più largo che alto avrebbe
+   schiacciato troppo il testo del body. */
 @media (min-width: 768px) {
-    .sim-tile { aspect-ratio: 16 / 11; }
+    .sim-tile { aspect-ratio: 4 / 3; }
 }
 
 .sim-tile:hover,
 .sim-tile:focus-visible {
     transform: translateY(-4px);
     box-shadow: var(--shadowElevatedHover);
+}
+
+/* Variante senza cover fotografica (Generatori: non è un "gioco", nessuna immagine da mostrare) —
+   sfondo pieno color brand invece dello scrim su foto, stessa struttura LED/body sopra. */
+.sim-tile--flat {
+    background: linear-gradient(160deg, var(--colorPrimary, #2a2a2a) 0%, color-mix(in srgb, var(--colorPrimary, #2a2a2a) 60%, black) 100%);
+}
+
+.sim-tile-icon {
+    position: absolute;
+    top: 52%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: clamp(3rem, 8vw, 4.5rem);
+    color: rgba(255, 255, 255, 0.18);
 }
 
 .sim-tile-bg {

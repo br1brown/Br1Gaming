@@ -11,23 +11,13 @@
          (BR1-DEV §1 "Layout Engine"). -->
     <div class="bento">
 
-        <!-- A. I Pesi Massimi: idratato subito, è il blocco dominante above-the-fold. -->
+        <!-- A. I Pesi Massimi + Generatori: idratato subito, è il blocco dominante above-the-fold. -->
         <section class="bento-cell bento-simulators">
             <app-simulators-hero />
         </section>
 
-        <!-- B. Hub Generatori (7 in 1) + C. Micro-tool istantanei: stessa riga da desktop. -->
-        <section class="bento-cell bento-hub">
-            @defer (hydrate on viewport) {
-            <app-generator-hub />
-            } @placeholder {
-            <div class="bento-skeleton placeholder-glow" aria-hidden="true">
-                <span class="placeholder col-9 mb-2 d-block" style="height: 1.5rem"></span>
-                <span class="placeholder col-12 d-block" style="height: 8rem"></span>
-            </div>
-            }
-        </section>
-
+        <!-- B. Micro-tool istantanei (traduttore + radar, stessa colonna) + C. Lombroso Scanner:
+             stessa riga da desktop. L'hub Generatori interattivo vive solo in /generatori adesso. -->
         <section class="bento-cell bento-tools">
             @defer (hydrate on viewport) {
             <app-translator-widget />
@@ -38,6 +28,16 @@
             }
             @defer (hydrate on viewport) {
             <app-radar-widget />
+            } @placeholder {
+            <div class="bento-skeleton placeholder-glow" aria-hidden="true">
+                <span class="placeholder col-12 d-block" style="height: 6rem"></span>
+            </div>
+            }
+        </section>
+
+        <section class="bento-cell bento-lombroso">
+            @defer (hydrate on viewport) {
+            <app-lombroso-widget />
             } @placeholder {
             <div class="bento-skeleton placeholder-glow" aria-hidden="true">
                 <span class="placeholder col-12 d-block" style="height: 6rem"></span>
