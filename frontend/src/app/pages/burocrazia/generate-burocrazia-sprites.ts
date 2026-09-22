@@ -18,7 +18,7 @@
 import { writeFileSync, mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 
-const ROOT = join(__dirname, '../../../../../');                          // -> frontend/
+const ROOT = join(__dirname, '../../../../');                             // -> frontend/
 const ASSETS_DIR = join(ROOT, 'src', 'assets', 'files', 'burocrazia');
 const MAPPING_PATH = join(ROOT, 'src', 'assets', 'mapping.json');
 const MANIFEST_PATH = join(ROOT, 'src', 'app', 'pages', 'burocrazia', 'burocrazia.sprites.ts');
@@ -282,7 +282,7 @@ function main(): void {
     // scrivi il manifest TS
     const meta: Record<string, Meta> = {};
     for (const b of built) meta[b.id] = b.meta;
-    const manifest = `// GENERATO da scripts/generate-burocrazia-sprites.ts — non modificare a mano.
+    const manifest = `// GENERATO da pages/burocrazia/generate-burocrazia-sprites.ts — non modificare a mano.
 // Metadati degli sprite isometrici: dimensioni px, anchor (offset del centro-a-terra
 // dall'angolo alto-sx dell'immagine) e footprint world-px (collisione/ombra).
 

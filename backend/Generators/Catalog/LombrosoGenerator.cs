@@ -61,7 +61,7 @@ public sealed class LombrosoGenerator : GeneratorBase, IHiddenGenerator
     {
         "il fascicolo resta aperto a tempo indeterminato",
         "il caso passa al collega del turno successivo, che lo riaprirà identico",
-        "la pratica viene archiviata per manifesta assurdità, salvo essere riaperta per abitudine",
+        "la pratica viene archiviata per stanchezza del funzionario di turno, salvo essere riaperta per abitudine",
         "il verdetto finisce affisso in bacheca, giusto per la cronaca",
     };
 
@@ -80,11 +80,10 @@ public sealed class LombrosoGenerator : GeneratorBase, IHiddenGenerator
 
     public override string Slug => "lombroso";
 
-    public override GeneratorInfo Info { get; } = new()
-    {
-        Name = "Lombroso Scanner",
-        Description = "Verdetto pseudo-antropometrico (parodia) — non un generatore autonomo, orchestrato da LombrosoScanner.",
-    };
+    // Niente Description: è per catalogo/SEO (vedi GeneratorInfo), ma Lombroso è IHiddenGenerator —
+    // fuori dal catalogo pubblico, quella descrizione non verrebbe mai letta da nessuno. Name resta:
+    // identifica il generatore nei log/errori di boot anche se nascosto.
+    public override GeneratorInfo Info { get; } = new() { Name = "Lombroso Scanner" };
 
     public override GenerationSettings? PhraseSettings { get; } = new()
     {
@@ -112,11 +111,11 @@ public sealed class LombrosoGenerator : GeneratorBase, IHiddenGenerator
     /// tra una frase del Core e l'altra), quindi senza andrebbero a incollarsi senza soluzione.</summary>
     public override Frase? Apertura { get; } = new($"{Indizio.Fissato} ");
 
-    /// <summary>Punto d'apertura esplicito: se la frase precedente finisce già con punteggiatura,
-    /// ArmonizzaTesto collassa il doppio segno in uno solo (vedi GeneratorService), quindi è sempre
-    /// sicuro — anche quando l'ultima frase del Core non ha punteggiatura propria.</summary>
-    public override Frase? Chiusura { get; } =
-        ". Fascicolo aggiornato a oggi, Museo di Antropologia Criminale di Torino (1876) — misurazioni non validate da alcun ente scientifico.";
+    // Niente Chiusura (default null, vedi GeneratorBase): una firma istituzionale fissa a ogni
+    // verdetto (prima: "Fascicolo aggiornato a oggi, Museo di Antropologia Criminale di Torino...")
+    // era l'UNICA riga davvero identica ogni volta, in un generatore pensato apposta per essere il
+    // più combinatorio possibile — meglio lasciare l'ultima parola al Core (variabile) che chiudere
+    // sempre con lo stesso timbro.
 
     /// <summary>
     /// "Corredo probatorio" generico: si combina con QUALUNQUE archetipo (nessun <c>SoloOpzione</c>),
@@ -136,7 +135,7 @@ public sealed class LombrosoGenerator : GeneratorBase, IHiddenGenerator
         new($"Il valore di {Gergo} viene ricontrollato tre volte: cambia ogni volta, il verdetto no", 3),
 
         // ── Precedenti e statistiche pseudo-scientifiche ──────────────────────────────────
-        new($"Secondo l'atlante, chi presenta questa stigmata ha in media {18..70} precedenti per reati altrettanto immaginari", 2),
+        new($"Secondo l'atlante, chi presenta questa stigmata ha in media {18..70} precedenti, sempre per lo stesso identico episodio", 2),
         new($"Età presunta secondo l'ergografo: {Eta.Adulto} anni, ma nelle foto segnaletiche dimostra di meno", 2),
         new($"Il fascicolo digitale segna {1..9} procedimenti pendenti, tutti apertisi lo stesso {Giorni.Any}", 2),
 

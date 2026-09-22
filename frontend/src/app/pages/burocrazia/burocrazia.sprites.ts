@@ -1,4 +1,4 @@
-// GENERATO da scripts/generate-burocrazia-sprites.ts — non modificare a mano.
+// GENERATO da pages/burocrazia/generate-burocrazia-sprites.ts — non modificare a mano.
 // Metadati degli sprite isometrici: dimensioni px, anchor (offset del centro-a-terra
 // dall'angolo alto-sx dell'immagine) e footprint world-px (collisione/ombra).
 

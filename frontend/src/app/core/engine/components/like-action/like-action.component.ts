@@ -2,9 +2,9 @@ import { Component, computed, input } from '@angular/core';
 import { BaseActionComponent } from '../base/base-action.component';
 
 /**
- * Bottone "mi piace": registra il risultato mostrato tra i piaciuti del generatore (ex "condivisi").
- * A differenza della condivisione vera e propria (share-action) non apre nessun canale esterno:
- * è un'azione tutta interna al sito, che il chiamante implementa passando `action`.
+ * Bottone "mi piace": registra un apprezzamento tramite `action` (nessun contenuto
+ * prodotto o trasformato, a differenza degli altri componenti azione). Stato piatto:
+ * una volta `liked`, il click è no-op — niente "togli mi piace".
  */
 @Component({
     selector: 'app-like-action',
@@ -15,10 +15,10 @@ import { BaseActionComponent } from '../base/base-action.component';
 export class LikeActionComponent extends BaseActionComponent {
     protected readonly defaultLabelKey = 'mettiMiPiaceAzione';
 
-    /** Funzione che registra il risultato tra i piaciuti (sync o async). */
+    /** Funzione che registra l'apprezzamento (sync o async). */
     readonly action = input.required<() => void | Promise<void>>();
 
-    /** true se il risultato mostrato è già tra i piaciuti (stato piatto, niente "togli mi piace"). */
+    /** Stato iniziale "già piaciuto": se `true` il bottone è attivo e il click è no-op. */
     readonly liked = input(false);
 
     override readonly displayLabel = computed(() =>
