@@ -12,24 +12,7 @@ export function customFontFacePath(fileName: string): string {
     return join(serverEnv.site.fontsDir, fileName);
 }
 
-/**
- * Nome che fontconfig usa DAVVERO per il file di UN `CustomFontDef`, letto dai suoi metadati
- * interni via `fc-scan` (funziona sul file diretto, non serve che sia in una cartella già nota a
- * fontconfig) — non necessariamente la `family` dichiarata in `CustomFontDef`, che è solo
- * un'etichetta per il browser (il `@font-face` la lega esplicitamente all'URL del file).
- *
- * Sharp/librsvg (le OG image, `preview-builder.ts`) risolvono invece i font tramite fontconfig,
- * che indicizza ogni font per questo nome interno: se `family` non coincide, l'SVG chiede a
- * fontconfig un nome che non esiste e ripiega silenziosamente sul font di sistema, pur avendo il
- * file corretto sotto mano. Usare qui il nome vero (invece di richiedere che lo sviluppatore lo
- * indovini in `defaultFont`) rende il font custom effettivo nelle OG image senza alcuna
- * dichiarazione né file aggiuntivi — un font aggiunto alla cartella `fonts/` basta.
- *
- * `null` se la faccia regular non esiste, o `fc-scan` manca/fallisce (es. `ng serve` in sviluppo
- * locale, o un formato che non sa leggere). Memoizzata per `key`: più richieste per lo stesso font
- * (es. il default PIÙ lo stesso font scelto da `DesignSystemPreset.ogTextTransform`, o più
- * immagini OG nello stesso processo server) costano un solo `fc-scan`, non uno a chiamata.
- */
+/** Nome che fontconfig usa DAVVERO per il file (letto via `fc-scan`), non necessariamente la `family` dichiarata: Sharp/librsvg risolvono i font tramite fontconfig, non @font-face. `null` se la faccia regular manca o `fc-scan` fallisce. Memoizzata per `key`. */
 const realFamilyCache = new Map<string, string | null>();
 function realServerFamily(def: CustomFontDef): string | null {
     if (realFamilyCache.has(def.key)) return realFamilyCache.get(def.key)!;
@@ -52,40 +35,16 @@ function realServerFamily(def: CustomFontDef): string | null {
     return result;
 }
 
-/**
- * Stack CSS server (`PreviewBuilder`, OG image) per QUALUNQUE `FontChoice` — non solo il font
- * attivo del sito: la stessa funzione serve sia il default (`customFontServerStack` sotto) sia un
- * font restituito da `DesignSystemPreset.ogTextTransform` (`og-preview.ts`), stessa identica
- * garanzia in entrambi i casi — mai un font "di serie B" senza la correzione `fc-scan`. Un
- * `SystemFont` risolve già per nome via fontconfig senza bisogno di correzione (family dichiarata
- * == family vera, verificato a monte in `SYSTEM_FONTS`); un `CustomFontDef` usa il nome vero letto
- * da `fc-scan` se disponibile, altrimenti la `family` dichiarata (comportamento pre-esistente).
- */
+/** Stack CSS server per QUALUNQUE `FontChoice` (default o da `DesignSystemPreset.ogTextTransform`): stessa correzione `fc-scan` in entrambi i casi, mai un font "di serie B". SystemFont risolve già per nome, CustomFontDef usa il nome vero se disponibile, altrimenti la family dichiarata. */
 export function serverStackForChoice(choice: FontChoice): string {
     if (typeof choice === 'string') return systemFontServerStack(choice);
     return customFontServerFamilyStack(realServerFamily(choice) ?? choice.family);
 }
 
-/**
- * Stack CSS server (`PreviewBuilder`) da usare per le OG image DI DEFAULT — il font attivo del
- * sito (`ContestoSito.config.defaultFont`, o Liberation se il sito non ne sceglie uno esplicito,
- * stesso fallback di `systemUiFonts()`), con la correzione `fc-scan` già applicata se custom. Un
- * `DesignSystemPreset.ogTextTransform` che restituisce un font diverso usa invece
- * `serverStackForChoice` sopra direttamente (vedi `og-preview.ts`) — stessa funzione, font diverso.
- */
+/** Stack CSS server per le OG image di DEFAULT: il font attivo del sito (o Liberation), con la correzione `fc-scan` già applicata. Un `ogTextTransform` con font diverso usa `serverStackForChoice` direttamente. */
 export const customFontServerStack: string = serverStackForChoice(ContestoSito.config.defaultFont ?? SystemFont.Liberation);
 
-/**
- * Valida un font restituito da `DesignSystemPreset.ogTextTransform` (`og-preview.ts`): un
- * `SystemFont` è sempre valido (il catalogo è sempre raggiungibile, indipendentemente da cosa il
- * sito ha scelto — stessa libertà di `ImgBuildOptions.fontFamily`); un `CustomFontDef` deve
- * coincidere per `key` con uno già registrato (`defaultFont` o `addonFonts`, via
- * `customFontsCatalog`) — mai un font nuovo scritto lì al volo, l'unico modo di restare dentro le
- * stesse garanzie di reachability/correzione server di ogni altro font del catalogo. Ritorna
- * sempre la definizione CANONICA registrata (mai l'oggetto passato, che potrebbe avere `family`/
- * `faces` divergenti sotto la stessa `key`) — `null` se non valido, il chiamante ripiega sul
- * default, mai un crash.
- */
+/** Valida un font da `DesignSystemPreset.ogTextTransform`: SystemFont sempre valido; CustomFontDef deve coincidere per `key` con uno già registrato (mai un font nuovo al volo). Ritorna sempre la definizione CANONICA registrata, null se non valido (il chiamante ripiega sul default). */
 export function validateOgFontOverride(choice: FontChoice): FontChoice | null {
     if (typeof choice === 'string') return isSystemFont(choice) ? choice : null;
     return ContestoSito.config.customFontsCatalog.find(c => c.key === choice.key) ?? null;

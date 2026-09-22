@@ -1,38 +1,8 @@
-/* base/_tokens.scss — Design token del tema (--color*), scala z-index, ombre.
- * Le custom properties sono impostate da AppearanceService.
- *
- * ── Design Token Reference ───────────────────────────────────────────────────
- * Tutte le variabili --color* sono "design token" gestiti da AppearanceService.
- * Non usare valori di colore hardcoded nei componenti: usa sempre i token qui
- * sotto per garantire coerenza, dark-mode e accessibilità automatici.
- *
- * Token di colore:
- *   --colorTema          Colore principale del brand (impostato runtime)
- *   --colorBase          Sfondo body
- *   --colorPrimary       Variante scura/WCAG-safe per bottoni/CTA (4.5:1 su sfondo pagina chiaro)
- *   --colorPrimaryRgb    Versione RGB di --colorPrimary (per Bootstrap opacity)
- *   --colorPrimaryText   Testo su sfondo --colorPrimary (#fff o #000 per a11y)
- *   --colorLink          Colore link tone-adaptive (Lt: scuro su bianco, Dk: chiaro su scuro)
- *   --colorSurface       Sfondo pannelli/card
- *   --colorSurfaceHover  Sfondo pannelli on hover
- *   --colorSurfaceBorder Bordo pannelli (≥ 3:1 WCAG 1.4.11)
- *   --colorSurfaceText   Testo su --colorSurface
- *
- * Token di focus (WCAG 2.4.7 / 2.4.11):
- *   --focusRingColor     Colore dell'anello di focus (default: --colorPrimary)
- *   --focusRingWidth     Spessore dell'anello (default: 3px)
- *   --focusRingOffset    Offset dall'elemento (default: 2px)
- *
- * Uso tipico nei componenti:
- *   background: var(--colorSurface);
- *   color: var(--colorSurfaceText);
- *   border: 1px solid var(--colorSurfaceBorder);
- * ─────────────────────────────────────────────────────────────────────────── */
-
-/* §5 — Variabili CSS tema. Convenzione: --colorXxx (Italian camelCase).
-   AppearanceService imposta i valori a runtime tramite inline style su <html>
-   (priorità massima). I valori qui in :root sono i fallback pre-idratazione /
-   no-JS, coperti anche da <style id="theme-init"> iniettato da server.ts per-request. */
+/* Design token del tema (--color*), scala z-index, ombre — impostati a runtime da
+ * AppearanceService. Non usare colori hardcoded nei componenti. Riferimento completo dei
+ * token: frontend/README.md § Tema e Sistema di Colori.
+ * I valori qui in :root sono i fallback pre-idratazione/no-JS (priorità: inline style
+ * AppearanceService > <style id="theme-init"> per-request > questi). */
 :root {
     --fontFamily: inherit;
     --colorTema: #212529;
@@ -46,9 +16,7 @@
     --colorSurfaceBorder: #2e3338;
     --colorSurfaceText: #e9ecef;
 
-    /* Focus tokens — WCAG 2.4.7 / 2.4.11 */
-    /* --focusRingColor usa --colorLink: stesso token tone-adaptive del link,
-       così focus ring e link hanno coerenza cromatica e contrasto garantito. */
+    /* Focus tokens (WCAG 2.4.7/2.4.11). --focusRingColor usa --colorLink: stesso token tone-adaptive, coerenza cromatica e contrasto garantito. */
     --focusRingColor: var(--colorLink, #141619);
     --focusRingWidth: 3px;
     --focusRingOffset: 2px;
@@ -60,23 +28,11 @@
     --colorNavBg: #212529;
     --colorNavText: #ffffff;
 
-    /* ── Scala z-index del template ──────────────────────────────────────
-       Unico punto di verità per lo stacking: i componenti usano SOLO queste
-       variabili, mai valori letterali. La scala è incastrata nei vuoti di
-       quella Bootstrap (dropdown 1000 · sticky 1020 · fixed 1030 ·
-       offcanvas 1045 · modal-backdrop 1050 · modal 1055 · popover 1070 ·
-       toast 1090): i widget persistenti (cookie banner, back-to-top) stanno
-       sopra la navbar fissa ma SOTTO offcanvas e modali, che devono coprirli. */
-    /* Stesso livello di sticky-top Bootstrap (1020): dato ai dropdown della navbar quando non è
-       né .fixed-top né .sticky-top (Bootstrap in quei due casi le assegna già 1030/1020) — così
-       galleggiano comunque sopra contenuto arbitrario dei progetti figli, invece di un valore
-       basso (100) che qualunque z-index positivo del progetto figlio batterebbe senza sforzo. */
-    --z-navbar-static: 1020;
+    /* Scala z-index del template, incastrata nei vuoti di quella Bootstrap. Vedi frontend/README.md § z-index. */
+    --z-navbar-static: 1020; /* sticky-top Bootstrap: dropdown navbar quando non è fixed/sticky */
     --z-cookie-banner: 1040;
     --z-fab: 1035;
-    /* Stesso livello di offcanvas (1045): il pannello mobile della navbar (navbar.component.scss)
-       è concettualmente un offcanvas — deve poter coprire il cookie banner, come da riga sopra. */
-    --z-mobile-nav-overlay: 1045;
+    --z-mobile-nav-overlay: 1045; /* livello offcanvas: il pannello mobile navbar deve coprire il cookie banner */
     --z-skip-link: 1095;
     --z-cdk-overlay: 1100;
 

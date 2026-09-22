@@ -1,22 +1,11 @@
-/**
- * Invarianti di SiteBuilder che ogni figlio eredita e potrebbe rompere senza accorgersene (es. un
- * merge che tocca siteBuilder.ts, o una modifica a site.ts che ne cambia i presupposti): un
- * fallimento qui è un difetto dell'Engine, non serve alzare un server per scoprirlo.
- *
- * - auditPaths (Pa11y/Lighthouse in CI, vedi scripts/test/live-test.sh):
- *   SOLO lingua di default — vedi il commento su isLiveAuditEndpoint in siteBuilder.ts. Una
- *   regressione che tornasse a includere le altre lingue raddoppierebbe (o peggio, con più
- *   lingue) il tempo degli audit live senza che nessuno se ne accorga finché non nota la CI più
- *   lenta.
- * - sitemap: invariante opposta sullo stesso dato di partenza — deve restare multi-lingua
- *   (hreflang) quando il sito ne configura più di una, altrimenti i motori di ricerca smettono
- *   di ricevere le varianti-lingua delle pagine.
- *
- * Uso: tsx site-builder-invariants.ts (wrapper: scripts/test/site-builder-check.sh)
- */
-// Richiesto per importare site.ts fuori da un bundle Angular (stesso motivo di
-// generate-statics.ts): alcuni injectable delle librerie Angular (es. PlatformLocation)
-// vanno in JIT senza il compiler già caricato.
+/** Invarianti di SiteBuilder che un merge o una modifica a site.ts potrebbero rompere senza
+ *  accorgersene: `auditPaths` (Pa11y/Lighthouse) deve restare SOLO lingua default (vedi
+ *  `isLiveAuditEndpoint` in siteBuilder.ts — altrimenti gli audit live raddoppiano di durata in
+ *  silenzio), la sitemap l'opposto, multi-lingua (hreflang) quando il sito ne configura più di
+ *  una. Uso: tsx site-builder-invariants.ts (wrapper: scripts/test/site-builder-check.sh). */
+
+// Richiesto per importare site.ts fuori da un bundle Angular: alcuni injectable delle librerie
+// Angular (es. PlatformLocation) vanno in JIT senza il compiler già caricato.
 import '@angular/compiler';
 import { ContestoSito } from '../../../../site';
 import { environment } from '../../../../../environments/environment';

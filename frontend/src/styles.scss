@@ -1,15 +1,7 @@
-// ============================================================================
-//  styles.scss — PUNTO DI PARTENZA DEGLI STILI DEL PROGETTO
-//
-//  Le FONDAMENTA dell'Engine (token del tema, ponte Bootstrap, layout, a11y)
-//  sono caricate automaticamente dalla build — angular.json → "styles":
-//  src/styles/engine/base.scss — quindi non compaiono qui e non si possono
-//  rompere per sbaglio. Anche i CSS di terze parti (Bootstrap, FontAwesome,
-//  SweetAlert2) stanno lì.
-//
-//  Qui il progetto figlio: 1) sceglie gli stili OPZIONALI dell'Engine,
-//  2) aggiunge i propri (in questo file o in partial sotto src/styles/app/).
-// ============================================================================
+// Punto di partenza degli stili del progetto. Le FONDAMENTA dell'Engine (token, ponte Bootstrap,
+// layout, a11y, e i CSS di terze parti) sono caricate automaticamente da angular.json →
+// src/styles/engine/base.scss, non compaiono qui. Qui il progetto figlio sceglie gli stili
+// OPZIONALI dell'Engine e aggiunge i propri (in questo file o in src/styles/app/).
 
 // ── ENGINE opzionale ─────────────────────────────────────────────────────────
 // Navigazione: navbar, footer, dropdown, sottomenu. Commenta questa riga per dare

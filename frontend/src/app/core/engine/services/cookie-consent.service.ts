@@ -6,24 +6,14 @@ import { ConsentCategory, CookieConfig, CookieValueType, ENGINE_COOKIE_MAP, Engi
 
 export type { CookieKey } from '../../services/cookie-registry';
 
-/**
- * Utility type per inferire il tipo di ritorno di get/set in base alla configurazione.
- * Legge la proprietà 'valueType' da COOKIE_MAP o ENGINE_COOKIE_MAP. Se non specificata, ricade su 'string'.
- */
+/** Inferisce il tipo di ritorno di get/set da `valueType` in COOKIE_MAP/ENGINE_COOKIE_MAP; assente ⇒ string. */
 export type InferCookieType<K extends CookieKey | EngineCookieKey> =
     (typeof ENGINE_COOKIE_MAP & typeof COOKIE_MAP)[K] extends { valueType: 'boolean' } ? boolean :
     (typeof ENGINE_COOKIE_MAP & typeof COOKIE_MAP)[K] extends { valueType: 'number' } ? number :
     (typeof ENGINE_COOKIE_MAP & typeof COOKIE_MAP)[K] extends { valueType: 'json' } ? unknown :
     string;
 
-/**
- * Controlla se il consenso ai cookie tecnici NON obbligatori (TechnicalOptional — PWA/SW built-in
- * o cookie di progetto nella stessa categoria) è già stato salvato nei cookie fisici del browser.
- * Fonte unica della chiave — usata anche da app.config.ts per decidere
- * se abilitare il Service Worker all'avvio dell'app prima del bootstrap di Angular.
- *
- * @returns {boolean} True se il cookie di consenso è presente e vale '1'.
- */
+/** Se il consenso ai cookie TechnicalOptional (PWA/SW built-in o categoria omonima) è già salvato nel browser. Usata anche da app.config.ts per decidere il Service Worker prima del bootstrap Angular. */
 export function isTechnicalOptionalConsentGiven(): boolean {
     try {
         if (typeof document === 'undefined') return false;
@@ -45,15 +35,7 @@ export function isTechnicalOptionalConsentGiven(): boolean {
     }
 }
 
-/**
- * Costruisce il nome fisico completo (namespace) con cui il cookie verrà salvato nel browser.
- * Questa funzione è esportata ma vive fuori dalla classe del servizio, in modo da non sporcare
- * l'API pubblica che gli sviluppatori vedono quando iniettano CookieConsentService.
- *
- * @param rawKey Chiave di base censita in COOKIE_MAP o ENGINE_COOKIE_MAP.
- * @param config Parametro opzionale per fornire la configurazione senza re-interrogare la mappa.
- * @returns Il nome del cookie sanificato e prefissato, o null se la chiave non è censita.
- */
+/** Nome fisico (namespace) con cui il cookie viene salvato. Esportata fuori dalla classe per non sporcare l'API pubblica del servizio. Null se `rawKey` non è censita. */
 export function buildPhysicalCookieKey(rawKey: CookieKey | EngineCookieKey, config?: CookieConfig): string | null {
     if (rawKey === CookieConsentService.NGSW_WORKER) {
         return rawKey;
@@ -72,17 +54,7 @@ export function buildPhysicalCookieKey(rawKey: CookieKey | EngineCookieKey, conf
     return `${prefix}_${safeKey}`;
 }
 
-/**
- * COOKIE CONSENT SERVICE
- * Gestione centralizzata del consenso (ePrivacy + GDPR) con principio "Privacy by Default".
- * 
- * - Technical: Esente per legge. Si dichiara (banner/policy) ma non si richiede consenso.
- * - Analytics / Profiling / TechnicalOptional: Categorie simmetriche. Ciascuna sblocca
- *   la scrittura solo a consenso esplicito, con switch dedicato nel banner.
- * 
- * L'interfaccia (isXxxNeeded) si auto-calcola combinando COOKIE_MAP (progetto) 
- * ed ENGINE_COOKIE_MAP (built-in, es. Service Worker).
- */
+/** Gestione centralizzata del consenso (ePrivacy + GDPR), "Privacy by Default": Technical è esente per legge (si dichiara, non si chiede); Analytics/Profiling/TechnicalOptional sbloccano la scrittura solo a consenso esplicito. */
 @Injectable({ providedIn: 'root' })
 export class CookieConsentService {
     public static readonly NGSW_WORKER = 'ngsw-worker.js';
@@ -98,14 +70,7 @@ export class CookieConsentService {
     private readonly request = inject(REQUEST, { optional: true });
     private readonly siteConfig = inject(SITE_CONFIG);
 
-    /**
-     * True se il browser (o un'estensione) manda il segnale Global Privacy Control — opt-out
-     * universale da "vendita/condivisione" dei dati, riconosciuto come Universal Opt-Out Mechanism
-     * e obbligatorio da onorare in California/Colorado/Connecticut (e altri stati USA) dal 2026.
-     * `navigator.globalPrivacyControl` non è ancora in TypeScript lib.dom: accesso tipizzato a mano.
-     * Sempre `false` in SSR — stesso motivo di `isNeeded`: lo stato di consenso è browser-only,
-     * mai assunto lato server.
-     */
+    /** True se il browser manda Global Privacy Control (opt-out universale, obbligatorio in California/Colorado/Connecticut dal 2026). `navigator.globalPrivacyControl` non è ancora in lib.dom: accesso tipizzato a mano. Sempre false in SSR (stato browser-only). */
     readonly gpcSignaled: boolean = this.isBrowser
         && (navigator as Navigator & { globalPrivacyControl?: boolean }).globalPrivacyControl === true;
 
@@ -113,12 +78,7 @@ export class CookieConsentService {
     //
     // Ogni computed guarda esclusivamente la propria fetta di COOKIE_MAP.
 
-    /** True se c'è almeno una voce TechnicalOptional che richiede una VERA scelta dell'utente: il
-     *  Service Worker/PWA built-in, o un cookie di progetto in COOKIE_MAP con quella categoria
-     *  (tecnico ma non strettamente necessario, come un'estensione facoltativa). Tutte le voci
-     *  TechnicalOptional condividono lo stesso switch/bucket — stesso pattern di Analytics/Profiling.
-     *  Le voci Technical (categoria diversa) sono esenti per legge e non passano da qui: si
-     *  dichiarano, non si chiedono — vedi `hasTechnicalCategory` più sotto, e `isCategoryAccepted`. */
+    /** True se c'è almeno una voce TechnicalOptional che richiede una VERA scelta (SW/PWA built-in o un cookie di progetto in quella categoria); tutte condividono lo stesso switch. Technical vero è esente per legge, non passa da qui — vedi `hasTechnicalCategory`. */
     readonly isTechnicalOptionalNeeded = computed(() =>
         this.siteConfig.isWebApp
         || (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === ConsentCategory.TechnicalOptional)
@@ -132,17 +92,7 @@ export class CookieConsentService {
         (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === ConsentCategory.Profiling)
     );
 
-    /** True se esiste almeno una voce Technical da DICHIARARE (banner/policy), a prescindere dal
-     *  bisogno di un vero consenso: include gli eventuali cookie tecnici essenziali di progetto in
-     *  COOKIE_MAP, `bearerToken` quando è configurato un login (indipendente da qualunque categoria
-     *  di consenso) e, quando è attiva un'altra categoria (TechnicalOptional/Analytics/Profiling), le
-     *  memorie del consenso stesso — sempre Technical — perché finché il sito registra un consenso
-     *  qualsiasi deve poterlo scrivere da qualche parte. Guida il badge "Necessari" nel banner e il
-     *  riepilogo categorie in policy. A differenza di `isCategoryAccepted` (sempre vera per Technical,
-     *  senza condizioni: è un'esenzione di legge, non uno stato derivato) QUESTO computed elenca
-     *  deliberatamente le fonti note — è una domanda diversa ("c'è qualcosa da dichiarare adesso?"),
-     *  non "la scrittura è permessa?". Una nuova voce Technical built-in con una condizione di
-     *  attivazione tutta sua va aggiunta anche qui. */
+    /** True se c'è almeno una voce Technical da DICHIARARE (banner/policy), a prescindere dal bisogno di consenso: cookie tecnici di progetto, `bearerToken` col login, e le memorie del consenso stesso quando un'altra categoria è attiva. Domanda diversa da `isCategoryAccepted` ("c'è da dichiarare?" vs "è permesso scrivere?"). Una nuova voce Technical built-in va aggiunta anche qui. */
     readonly hasTechnicalCategory = computed(() =>
         (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === ConsentCategory.Technical)
         || this.siteConfig.loginPage != null
@@ -224,13 +174,10 @@ export class CookieConsentService {
                 let analyticsStored = this.get(CONSENT_KEYS.analytics);
                 let profilingStored = this.get(CONSENT_KEYS.profiling);
 
-                // Global Privacy Control: onora il segnale come opt-out per Analytics/Profiling —
-                // MAI per Technical/TechnicalOptional (GPC riguarda "vendita/condivisione" dei dati,
-                // non i cookie tecnici). Solo se l'utente non ha ancora risposto esplicitamente per
-                // quella categoria: una scelta manuale successiva (dal banner) prevale sempre e la
-                // sovrascrive. Va REGISTRATO subito (non solo applicato in-memory ai signal), altrimenti
-                // il banner riproporrebbe la stessa domanda ad ogni visita nonostante il browser stia
-                // già rispondendo "no" per conto dell'utente.
+                // GPC: opt-out per Analytics/Profiling (mai Technical/TechnicalOptional, GPC riguarda
+                // solo vendita/condivisione dati), solo se l'utente non ha già risposto (una scelta dal
+                // banner prevale sempre). Va REGISTRATO subito, non solo applicato in-memory, altrimenti
+                // il banner riproporrebbe la domanda ogni visita nonostante il browser dica già "no".
                 analyticsStored = this.applyGpcOptOut(CONSENT_KEYS.analytics, isAnalyticsNeededNow, analyticsStored);
                 profilingStored = this.applyGpcOptOut(CONSENT_KEYS.profiling, isProfilingNeededNow, profilingStored);
 
@@ -370,21 +317,10 @@ export class CookieConsentService {
     }
 
     // ─── GESTIONE ARCHIVIAZIONE (cookie + Web Storage) ──────────────────
-    //
-    // Chiave fisica del cookie: {category}_{rawKey} (eccetto service worker). Per il Web Storage
-    // la chiave è raw. Il mezzo lo decide `config.storage`; set/get/remove instradano da soli.
-    // Gestisce in modo unificato CookieKey (progetto) ed EngineCookieKey (built-in).
-    // Una chiave non censita blocca la scrittura (Privacy by Default).
+    // Chiave fisica del cookie: {category}_{rawKey} (eccetto service worker); per il Web Storage
+    // è raw. Il mezzo lo decide `config.storage`. Una chiave non censita blocca la scrittura.
 
-    /**
-     * Scrive una voce nello storage del browser — cookie o Web Storage, secondo `config.storage`.
-     * Bloccata se la chiave non è censita o se manca il consenso per la categoria (Privacy by Default).
-     * I cookie di memoria del consenso bypassano il gate (serve poter salvare lo "0" su rifiuto).
-     *
-     * @param key La chiave tipizzata, presente in `COOKIE_MAP`/`ENGINE_COOKIE_MAP`.
-     * @param value Il valore tipizzato in base alla configurazione.
-     * @param maxAgeSeconds Durata in secondi (solo cookie; ignorata dal Web Storage).
-     */
+    /** Scrive una voce (cookie o Web Storage, secondo `config.storage`). Bloccata se la chiave non è censita o manca il consenso (Privacy by Default); i memo del consenso stesso bypassano il gate. */
     set<K extends CookieKey | EngineCookieKey>(key: K, value: InferCookieType<K>, maxAgeSeconds: number = 60 * 60 * 24 * 365): void {
         const rawKey = key as string;
         const config = this._cm[rawKey];
@@ -426,26 +362,13 @@ export class CookieConsentService {
         }
     }
 
-    /**
-     * Attributi di sicurezza comuni a tutti i cookie scritti dal template.
-     * `Secure` viene aggiunto automaticamente quando la pagina è servita su HTTPS:
-     * in produzione (dietro reverse proxy TLS) i cookie viaggiano solo cifrati, mentre
-     * in locale su http restano scrivibili. Zero-config, deciso a runtime dal protocollo.
-     */
+    /** Attributi di sicurezza comuni: `Secure` aggiunto automaticamente se la pagina è su HTTPS, deciso a runtime dal protocollo (zero-config). */
     private cookieSecurityAttributes(): string {
         const secure = this.isBrowser && this.document.location?.protocol === 'https:' ? '; Secure' : '';
         return `; Path=/; SameSite=Lax${secure}`;
     }
 
-    /**
-     * Legge una voce — cookie o Web Storage, secondo `config.storage`. Ritorna `null` se non
-     * censita o assente. Le letture non richiedono consenso (il gate è solo sulla scrittura).
-     * I cookie si leggono anche in SSR (header della request); il Web Storage è browser-only → in
-     * SSR torna `null` (per questo le voci storage non vanno usate per contenuto renderizzato SSR).
-     *
-     * @param key La chiave tipizzata della voce.
-     * @returns Il valore decodificato e castato, o `null` se assente o non censito.
-     */
+    /** Legge una voce (cookie o Web Storage). Le letture non richiedono consenso (il gate è solo sulla scrittura). I cookie si leggono anche in SSR; il Web Storage è browser-only → null in SSR (non usarlo per contenuto renderizzato SSR). */
     get<K extends CookieKey | EngineCookieKey>(key: K): InferCookieType<K> | null {
         const config = this._cm[key as string];
         if (!config) return null;
@@ -465,13 +388,7 @@ export class CookieConsentService {
         return raw as T;
     }
 
-    /**
-     * Valore grezzo di un cookie: da `document.cookie` nel browser, dall'header `cookie`
-     * della REQUEST in SSR. Senza la lettura SSR, `get` tornerebbe sempre `null` lato server
-     * (`document.cookie` è vuoto): un cookie di progetto letto per personalizzare il render SSR
-     * (es. una preferenza salvata) uscirebbe con l'HTML sbagliato, corretto solo dopo l'idratazione
-     * — un mismatch visibile. Le letture non richiedono consenso (il gate GDPR è solo sulla scrittura).
-     */
+    /** Valore grezzo: da `document.cookie` nel browser, dall'header `cookie` della REQUEST in SSR — senza, `get` tornerebbe sempre null lato server e un cookie letto per personalizzare il render SSR uscirebbe con l'HTML sbagliato fino all'idratazione. */
     private readRawCookie(fullKey: string): string | null {
         const header = this.isBrowser
             ? this.document.cookie
@@ -486,12 +403,7 @@ export class CookieConsentService {
         return null;
     }
 
-    /**
-     * Rimuove una voce — cookie o Web Storage, secondo `config.storage`.
-     * A differenza della scrittura, l'eliminazione è sempre consentita anche a consenso revocato.
-     *
-     * @param key La chiave tipizzata della voce da eliminare.
-     */
+    /** Rimuove una voce; a differenza della scrittura, sempre consentita anche a consenso revocato. */
     remove(key: CookieKey | EngineCookieKey): void {
         if (!this.isBrowser) return;
         const config = this._cm[key as string];
@@ -519,19 +431,7 @@ export class CookieConsentService {
 
     // ─── HELPER INTERNI ───────────────────────────────────────────────
 
-    /** Technical è esente per legge (art. 122 Codice Privacy / art. 5.3 ePrivacy): SEMPRE
-     *  accettata, senza condizioni — NON legarla a `hasTechnicalCategory()`: sembra equivalente ma
-     *  non lo è, quel computed guarda solo COOKIE_MAP/TechnicalOptional/Analytics/Profiling,
-     *  mentre un cookie Technical built-in può entrare in `_cm` per una via che
-     *  `hasTechnicalCategory` non vede — es. `bearerToken`, registrato appena `loginPage` è
-     *  configurato, indipendentemente da qualunque categoria di consenso. Legandola a quel
-     *  computed, un sito solo-login (nessuna PWA, nessun cookie di progetto) si vedrebbe bloccare
-     *  in silenzio la scrittura del token: oggi lo evitano solo `TokenService`/
-     *  `ESSENTIAL_ENGINE_STORAGE_KEYS`, che bypassano comunque questo gate — un incrocio di tre
-     *  garanzie sparse che nessuno garantisce resti vero per il prossimo cookie built-in aggiunto.
-     *  Il `true` fisso non ha invarianti da mantenere: Technical è esente per definizione, punto —
-     *  non "esente quando succede che lo sia". Le altre tre categorie sono simmetriche: un signal
-     *  di consenso ciascuna. */
+    /** Technical è esente per legge (art. 122 Codice Privacy / art. 5.3 ePrivacy): SEMPRE true, senza condizioni. NON legarla a `hasTechnicalCategory()`: quel computed non vede tutte le vie con cui un cookie Technical built-in entra in `_cm` (es. `bearerToken` col login) — legarli bloccherebbe in silenzio siti solo-login. */
     private isCategoryAccepted(category: ConsentCategory): boolean {
         switch (category) {
             case ConsentCategory.Technical: return true;
@@ -542,12 +442,7 @@ export class CookieConsentService {
         }
     }
 
-    /**
-     * De-registra ogni Service Worker residuo e svuota le sue cache. Idempotente e browser-only:
-     * se non c'è nulla da rimuovere è un no-op. Usato quando la PWA non deve essere attiva
-     * (`isWebApp:false` o consenso TechnicalOptional negato), sia all'avvio sia al cambio di consenso, così
-     * un SW registrato in passato non continua a servire una copia in cache obsoleta.
-     */
+    /** De-registra ogni Service Worker residuo e svuota le cache; idempotente. Usato quando la PWA non deve essere attiva, così un SW registrato in passato non continua a servire una copia obsoleta. */
     private unregisterServiceWorker(): void {
         if (!this.isBrowser || !('serviceWorker' in navigator)) return;
         navigator.serviceWorker.getRegistrations()

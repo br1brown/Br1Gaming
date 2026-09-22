@@ -11,34 +11,18 @@ import { hasText } from './identity-format';
 export { FooterField };
 export type { FooterEntry, FooterGroupChild, FooterFieldDeps, FooterItemKind };
 
-/**
- * Voci di navigazione della shell (header/footer): dato, non struttura del sito. A differenza di
- * `site.ts`/`siteBuilder.ts` (PageType/rotte, per forza build-time — Angular vuole `routes`
- * statico al bootstrap), quali destinazioni mostrare, in che ordine, con che etichetta, è
- * risolvibile a runtime — vedi `services/shell-nav.service.ts`, che consuma questi tipi.
- */
-
+/** Voci di navigazione della shell: dato risolvibile a runtime (non struttura del sito come le rotte). Vedi `services/shell-nav.service.ts`. */
 export type NavLink = {
-    /** Etichetta visibile del link. */
     label: string;
-    /** Path o URL finale del link — con eventuali segmenti `:xxx` già sostituiti (vedi
-     *  `NavItemOptions.params`), ma senza query string appesa: quest'ultima va definita separatamente in
-     *  `queryParams` (routerLink non la interpreterebbe se concatenata direttamente nella stringa). */
+    /** Path o URL finale, con eventuali segmenti `:xxx` già sostituiti; senza query string (va in `queryParams` a parte). */
     path: string;
-    /** true se il link punta a una risorsa esterna al sito (externalUrl o link diretto http/https). */
     isExternal: boolean;
-    /** Query params del link, se impostati via `NavItemOptions.queryParams` — bindati a parte
-     *  (`[queryParams]`) dal componente che rende il link, mai concatenati in `path`. */
+    /** Bindato a parte (`[queryParams]`) dal componente, mai concatenato in `path`. */
     queryParams?: Record<string, string>;
-    /** Eventuali link figli se l'elemento rappresenta un gruppo. */
     children?: NavLink[];
-    /** `true` se la voce (o l'intero gruppo) va mostrata solo a utente loggato — vedi
-     *  `NavItemOptions.authOnly` su `addPage`/`addLink`/`addGroup`. Filtrato a runtime da
-     *  `filterNavByAuth`, non qui: la struttura resta identica per bot e utenti sloggati. */
+    /** Mostrata solo a utente loggato, filtrato a runtime da `filterNavByAuth`. */
     authOnly?: boolean;
-    /** Classe(i) CSS aggiuntive sulla voce (o sull'intero gruppo, se su `addGroup`) — vedi
-     *  `NavItemOptions.itemClass`. Si aggiunge allo stile di default del contenitore
-     *  (`cssClass` su `app-nav-link`), non lo sostituisce. */
+    /** Si aggiunge allo stile di default del contenitore, non lo sostituisce. */
     itemClass?: string;
 };
 
@@ -46,29 +30,13 @@ export type NavLink = {
 export const isNavGroup = (item: NavLink): item is NavLink & { children: NavLink[] } =>
     Array.isArray(item.children) && item.children.length > 0;
 
-/** Chiave stabile per il `track` degli `@for` che rendono `NavLink[]` (navbar, dropdown, submenu,
- *  footer): `path` da solo non basta quando due voci condividono lo stesso `PageType`/path — con
- *  `queryParams` diversi (es. due filtri sulla stessa pagina) o con la stessa destinazione ma
- *  un'etichetta diversa (es. un collegamento rapido duplicato altrove nel menu). Angular
- *  segnalerebbe chiavi duplicate (NG0955) e la reconciliation del DOM potrebbe riusare il nodo
- *  sbagliato. */
+/** Chiave stabile per il `track` degli `@for` che rendono `NavLink[]`: `path` da solo non basta quando due voci condividono lo stesso path con `queryParams` o etichetta diversi (Angular segnalerebbe NG0955, chiavi duplicate). */
 export function navLinkKey(item: NavLink): string {
     const qp = item.queryParams ? `?${new URLSearchParams(item.queryParams).toString()}` : '';
     return `${item.path}${qp}#${item.label}`;
 }
 
-/**
- * Filtra ricorsivamente un albero `NavLink` in base allo stato di login: le voci (o interi
- * gruppi) con `authOnly: true` spariscono se `loggedIn` è `false`. Un gruppo rimasto senza
- * figli dopo il filtro sparisce a sua volta — stessa regola già applicata in fase di risoluzione
- * per i gruppi vuoti (`resolveNavItems`), qui ripetuta perché il login è runtime.
- *
- * Solo `true`/`false`: la shell non conosce ruoli, solo "loggato / non loggato"
- * (`TokenService.isLoggedIn()`). Chi ha bisogno di granularità per-ruolo la gestisce a monte,
- * nel proprio resolver (`ShellNavResolver`).
- *
- * Usato da `navbar.component.ts` e `footer.component.ts` (Engine).
- */
+/** Filtra ricorsivamente un albero `NavLink` per login: voci/gruppi con `authOnly: true` spariscono se `loggedIn` è false, un gruppo rimasto senza figli sparisce a sua volta. Solo true/false (non ruoli): la granularità per-ruolo va nel proprio `ShellNavResolver`. */
 export function filterNavByAuth(items: NavLink[], loggedIn: boolean): NavLink[] {
     return items.reduce<NavLink[]>((visible, item) => {
         if (item.authOnly && !loggedIn) return visible;
@@ -87,68 +55,23 @@ export function filterNavByAuth(items: NavLink[], loggedIn: boolean): NavLink[] 
  * Opzioni comuni alle tre azioni del builder di navigazione (`addPage`/`addLink`/`addGroup`).
  */
 export interface NavItemOptions {
-    /**
-     * Se `true`, la voce — o l'intero gruppo, se su `addGroup` — compare in navbar/footer solo
-     * per utenti loggati (`TokenService.isLoggedIn()`), sparendo del tutto per visitatori e bot:
-     * niente più link fantasma verso pagine `requiresAuth` per chi non può comunque accedervi.
-     * Il filtro è runtime (`filterNavByAuth`), non alla risoluzione: la struttura resta identica,
-     * cambia solo cosa viene mostrato al render. Default `false` (sempre visibile).
-     *
-     * Volutamente binario — loggato/non loggato, non un sistema di ruoli: la granularità
-     * per-ruolo è complessità di dominio (un progetto che ne ha bisogno filtra nel proprio
-     * `ShellNavResolver`), non generica abbastanza da meritare un seam qui.
-     */
+    /** Se true, la voce (o l'intero gruppo su `addGroup`) compare solo per utenti loggati, filtrato a runtime (`filterNavByAuth`). Binario, non un sistema di ruoli. Default false. */
     authOnly?: boolean;
-    /**
-     * Valori per i segmenti `:xxx` del path risolto (`addPage`) o passato (`addLink`), es.
-     * `{ slug: 'incel' }` su `/generatori/:slug` produce `/generatori/incel` — serve a collegare
-     * in menu una voce concreta di una rotta parametrica senza ricostruire il path a mano
-     * (`getPath(pageType)` da solo risolverebbe al template letterale). Un segmento senza valore
-     * resta invariato (warning in dev); chiavi senza un segmento da riempire sono ignorate.
-     */
+    /** Valori per i segmenti `:xxx` del path (es. `{ slug: 'incel' }` su `/generatori/:xxx`). Un segmento senza valore resta invariato (warning in dev). */
     params?: Record<string, string>;
-    /** Query params del link, es. `{ gen: 'incel' }` → `?gen=incel`. Tenuti separati dal path
-     *  risolto (mai concatenati a mano): il componente che rende il link li passa a `[queryParams]`,
-     *  l'unico modo con cui `routerLink` li interpreta davvero come query e non come segmento path. */
+    /** Bindati a `[queryParams]` dal componente che rende il link, mai concatenati al path risolto. */
     queryParams?: Record<string, string>;
-    /** Etichetta custom per una voce `addPage`, al posto del titolo della pagina — es. il nome di
-     *  un prodotto per un'istanza concreta di una rotta parametrica. Ignorata da `addLink`/`addGroup`. */
+    /** Etichetta custom per `addPage`, al posto del titolo della pagina. Ignorata da `addLink`/`addGroup`. */
     label?: string;
-    /** Classe(i) CSS aggiuntive sulla voce (o sull'intero gruppo, su `addGroup`) — si somma allo
-     *  stile di default del contenitore, non lo sostituisce. Stesso ruolo di `itemClass` su
-     *  `addField`/`addText`/`addSocialLink` nel footer. */
+    /** Si somma allo stile di default del contenitore, non lo sostituisce. */
     itemClass?: string;
 }
 
-/**
- * Builder usato all'interno delle sezioni di navigazione.
- *
- * Espone tre azioni:
- * - `addPage(...)`  -> aggiunge un riferimento a una pagina tramite PageType
- * - `addLink(...)`  -> aggiunge un link a un URL esterno
- * - `addGroup(...)` -> crea un gruppo annidato con una callback
- */
+/** Builder di sezioni di navigazione: `addPage` (PageType), `addLink` (URL esterno), `addGroup` (gruppo annidato). */
 export interface NavSectionBuilder {
-    /**
-     * Aggiunge un riferimento a una pagina del sito tramite `PageType`.
-     * @param pageType Tipo pagina da risolvere in fase finale.
-     * @param options Opzioni della voce (es. `authOnly`, `label` per un'etichetta diversa dal titolo della pagina).
-     */
     addPage: (pageType: PageType, options?: NavItemOptions) => void;
-    /**
-     * Aggiunge un link a una risorsa esterna al sito. Per una pagina interna (con o senza
-     * etichetta custom) usa `addPage` — non questo.
-     * @param labelTranslationKey Chiave di traduzione o etichetta del link.
-     * @param destinationPath URL di destinazione (http/https).
-     * @param options Opzioni della voce (es. `authOnly`).
-     */
+    /** Per una pagina interna usa sempre `addPage`, non questo. */
     addLink: (labelTranslationKey: string, destinationPath: string, options?: NavItemOptions) => void;
-    /**
-     * Crea un gruppo annidato nella navigazione.
-     * @param groupLabelTranslationKey Chiave di traduzione o etichetta del gruppo.
-     * @param configureGroupItems Callback che definisce gli elementi del gruppo.
-     * @param options Opzioni del gruppo (es. `authOnly`: nasconde l'intero gruppo se sloggato).
-     */
     addGroup: (
         groupLabelTranslationKey: string,
         configureGroupItems: (groupItemsBuilder: NavSectionBuilder) => void,
@@ -156,11 +79,7 @@ export interface NavSectionBuilder {
     ) => void;
 }
 
-/**
- * Rappresentazione intermedia "grezza" della navigazione, accumulata da `NavSectionBuilder`
- * prima della risoluzione finale in `NavLink[]` — un riferimento a `PageType` non porta ancora
- * path/etichetta (dipendono dalla lingua), un link diretto sì.
- */
+/** Rappresentazione intermedia "grezza" prima della risoluzione in `NavLink[]`: un riferimento a `PageType` non porta ancora path/etichetta (dipendono dalla lingua), un link diretto sì. */
 export type RawNavItem =
     | { kind: 'page'; type: PageType; label?: string; authOnly?: boolean; params?: Record<string, string>; queryParams?: Record<string, string>; itemClass?: string }
     | { kind: 'link'; label: string; path: string; authOnly?: boolean; params?: Record<string, string>; queryParams?: Record<string, string>; itemClass?: string }
@@ -231,12 +150,7 @@ export function resolveNavItems(items: RawNavItem[], lookupPage: PageInfoLookup,
 const NAV_DEPTH_WARN = 4; // da questo livello in poi: avviso di usabilità (dev). 3 livelli (voce → dropdown → sottomenu) è la profondità dimostrata dal template ed è ok.
 const NAV_DEPTH_MAX = 5;  // livelli oltre questo: errore bloccante
 
-/**
- * Valida la profondità di una sezione di navigazione risolta: lancia se si annida oltre
- * `NAV_DEPTH_MAX` livelli, avvisa (solo in dev) se si raggiunge `NAV_DEPTH_WARN`.
- *
- * @throws Se un gruppo genera figli oltre il quinto livello di profondità.
- */
+/** Valida la profondità di una sezione risolta: lancia oltre `NAV_DEPTH_MAX` livelli, avvisa (solo dev) da `NAV_DEPTH_WARN`. */
 export function validateNavDepth(items: NavLink[], section: 'header' | 'footer'): void {
     // Profondità massima effettivamente raggiunta, per decidere l'avviso una sola volta.
     let maxDepth = 0;
@@ -269,82 +183,41 @@ export function validateNavDepth(items: NavLink[], section: 'header' | 'footer')
     }
 }
 
-/** Contesto passato a un `ShellNavResolver`: lingua per cui risolvere la navigazione, `getPath`
- *  per risolvere un `PageType` in path grezzo (senza sostituzione `:xxx`) quando serve fuori dal
- *  builder — per una voce di navigazione vera e propria usa `addPage` (che risolve params e titolo
- *  in un solo passaggio), non questo — e `identity`, l'`Identity` del sito già risolta dall'engine
- *  (stesso fetch condiviso di `IdentityService`, `null` se il sito non la configura): serve al
- *  resolver del footer per costruire a mano un `addSocialLink`/`addText` a partire da un dato reale
- *  (es. filtrare `identity.social` su un solo profilo) senza doverla andare a recuperare da sé. */
+/** Contesto passato a un `ShellNavResolver`. `getPath` risolve un `PageType` fuori dal builder (per una voce vera usa `addPage`). `identity` è già risolta dall'engine, null se non configurata. */
 export interface ShellNavContext {
     lang: string;
     getPath: (type: PageType, lang: string) => string | null;
     identity: Identity | null;
 }
 
-/**
- * Sorgente delle voci di navigazione di header/footer: sincrona (`void`) per una dichiarazione
- * statica, o asincrona (`Promise<void>`) per un resolver che dipende da un'API — stesso builder
- * `addPage`/`addLink`/`addGroup` in entrambi i casi, cambia solo se la callback aspetta qualcosa
- * prima di chiamarlo. Vedi `services/shell-nav.service.ts`.
- */
+/** Sorgente delle voci di header/footer: sincrona o async (se dipende da un'API). Vedi services/shell-nav.service.ts. */
 export interface ShellNavResolver {
     header?: (nav: NavSectionBuilder, ctx: ShellNavContext) => void | Promise<void>;
-    /** Il builder del footer è un superset di quello dell'header: oltre a `addPage`/`addLink`/
-     *  `addGroup`, ogni gruppo (`FooterGroupBuilder`) accetta anche `addField` (un campo di
-     *  `Identity` mappato dall'engine, auto-nascosto se vuoto), `addText` (chiave/valore libero) e
-     *  `addSocialLink` — vedi `footer-content.ts` e la sezione footer più sotto in questo file. */
+    /** Superset del builder header: ogni gruppo (`FooterGroupBuilder`) accetta anche `addField`/`addText`/`addSocialLink`. Vedi footer-content.ts. */
     footer?: (nav: FooterSectionBuilder, ctx: ShellNavContext) => void | Promise<void>;
-    /** QUALE icona del brand mostrare in navbar, risolvibile a runtime come `header`/`footer`:
-     *  assente → `favIcon` di default, una stringa è una chiave di `mapping.json` o il GUID di un
-     *  blob (stessa risoluzione "mapping poi blob" di `cdn-asset.ts`). SE comparire non è più qui:
-     *  è `DesignSystemPreset.showBrandIcon`/`SpecRuoloPagina.showBrandIcon` (design-system-presets.ts)
-     *  — stessa decisione estetica di nav/footer/pannello, non un dato di contenuto. */
+    /** Riga "small print" (default: `defaultFooterCopyright`). Passa da `markdownLite` (stesso sottoinsieme del banner cookie: `[testo](url)`/`**grassetto**`). */
+    footerCopyright?: (ctx: ShellNavContext) => string | Promise<string>;
+    /** Icona brand in navbar; assente → favIcon di default. SE comparire è invece `DesignSystemPreset.showBrandIcon`. */
     brandIcon?: (ctx: ShellNavContext) => string | Promise<string>;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────────────────────
-// FOOTER: builder e risoluzione dei gruppi con contenuto misto (link + campi Identity + testo libero)
-// ─────────────────────────────────────────────────────────────────────────────────────────────
-//
-// Il footer riusa `addPage`/`addLink`/`addGroup` (stesso builder dell'header, stessa risoluzione dei
-// `PageType`), ma i figli di un gruppo possono anche essere `addField` (un `FooterField` mappato su
-// `Identity`), `addText` (chiave/valore libero, per ciò che l'engine non può conoscere) e
-// `addSocialLink` (URL esplicito, mai dedotto automaticamente da `identity.social` — un elenco social
-// è una scelta del progetto, non un dato che l'engine può "indovinare" di voler mostrare per intero).
-// Deliberatamente NON disponibili in cima al footer (solo dentro un gruppo): ogni esempio discusso li
-// usa per dare contenuto a una colonna, mai sciolti come i link liberi — tenerli solo lì evita una
-// terza modalità di rendering per la fascia dei link sciolti (`FooterLinkRowComponent`).
+// FOOTER: builder e risoluzione dei gruppi con contenuto misto (link + campi Identity + testo libero).
+// addField/addText/addSocialLink sono disponibili SOLO dentro un addGroup (mai in cima al footer):
+// danno contenuto a una colonna, non sono link sciolti — evita una terza modalità di rendering
+// per la fascia link liberi (FooterLinkRowComponent).
 
-/** Builder disponibile SOLO dentro un `addGroup` del footer: oltre a link/pagine/sottogruppi, i
- *  contenuti mappati dall'identità o dichiarati a mano. */
+/** Builder disponibile solo dentro un `addGroup` del footer: link/pagine/sottogruppi più contenuti mappati dall'identità o dichiarati a mano. */
 export interface FooterGroupBuilder {
     addPage: NavSectionBuilder['addPage'];
     addLink: NavSectionBuilder['addLink'];
-    /** Sottogruppo annidato, stesso builder ricorsivamente (stesso limite di profondità di
-     *  `validateFooterDepth` più sotto). */
     addGroup: (label: string, configure: (group: FooterGroupBuilder) => void, options?: NavItemOptions) => void;
-    /** Campo di `Identity` mappato dall'engine: label, valore e formato risolti da `FooterField`
-     *  (`footer-content.ts`), nascosto in automatico se il sito non lo valorizza. `itemClass`
-     *  aggiunge classi allo stile di default (testo/codice/badge) senza sostituirlo. */
+    /** Campo di `Identity` mappato dall'engine (`FooterField`), nascosto se il sito non lo valorizza. */
     addField: (field: FooterField, options?: { itemClass?: string }) => void;
-    /** Chiave/valore libero: `label` segue la stessa convenzione di `addLink` (chiave di traduzione
-     *  o etichetta letterale — non trovata → resta invariata, solo un avviso in dev), `value` non è
-     *  mai tradotto (è un dato, non testo d'interfaccia). Per un valore stesso localizzato per
-     *  lingua, componilo con `pickLocaleText` prima di passarlo qui.
-     *  `skipEmptyValue` (default `true`): come `addField`, nasconde la voce se `value` è vuoto/solo
-     *  spazi — utile quando `value` viene da un dato che il progetto stesso può non avere. Portalo a
-     *  `false` per mostrarla comunque (es. un'etichetta voluta anche senza valore). */
+    /** Chiave/valore libero: `value` non è mai tradotto (è un dato). `skipEmptyValue` (default true) nasconde la voce se `value` è vuoto. */
     addText: (label: string, value: string, options?: { itemClass?: string; kind?: FooterItemKind; skipEmptyValue?: boolean }) => void;
-    /** Social esplicito: `url` letterale o preso da `ctx.identity.social` (es. filtrato a un solo
-     *  profilo) — l'icona è dedotta dall'URL, stessa logica di `app-social-link` nel blocco identità. */
+    /** Social esplicito: `url` letterale o da `ctx.identity.social`; l'icona è dedotta dall'URL. */
     addSocialLink: (url: string, label?: string, options?: { itemClass?: string; authOnly?: boolean }) => void;
-    /** Via di fuga: un componente Angular proprio del progetto per un rendering che gli altri
-     *  metodi non coprono (stesso ruolo di `kind: 'raw'` in `structured-data.ts`) — es. un social
-     *  con un widget dedicato invece del solo link+icona di `addSocialLink`. `inputs` viene passato
-     *  tale e quale a `NgComponentOutlet`. `key` serve solo a distinguere due foglie con lo stesso
-     *  `component` nello stesso gruppo (altrimenti il fallback sul nome della classe collide, come
-     *  già succede con `navLinkKey` per due voci identiche — vedi `footerLeafKey`). */
+    /** Via di fuga: componente Angular di progetto per un rendering che gli altri metodi non coprono. `key` distingue due foglie con lo stesso `component` nello stesso gruppo. */
     addCustom: (component: Type<unknown>, options?: { inputs?: Record<string, unknown>; itemClass?: string; authOnly?: boolean; key?: string }) => void;
 }
 
@@ -418,20 +291,12 @@ export function createFooterSectionBuilder(state: FooterBuildState): FooterSecti
     };
 }
 
-/**
- * Footer di DEFAULT (Engine): usato da `ShellNavService.resolveFooterInto` SOLO quando il progetto
- * non definisce `ShellNavResolver.footer` in nav.ts — mai insieme a un resolver di progetto, che lo
- * sostituisce per intero (stesso principio di ogni altro slot di `ShellNavResolver`: non esistono
- * due fonti attive in contemporanea). Replica il blocco automatico storico (societari, legali,
- * contatti, orari, social) con lo STESSO builder che un progetto userebbe per personalizzarlo —
- * `addField`/`addSocialLink`, gli stessi `FooterField` e le stesse chiavi i18n di sempre — invece
- * di un componente a parte (`app-identity-render`) sempre attivo indipendentemente da `nav.ts`: un
- * solo meccanismo, non due paralleli che possono disallinearsi o duplicarsi (era già successo: un
- * progetto che aggiunge propri `addField` equivalenti si ritrovava lo stesso dato due volte, uno
- * dal blocco automatico e uno dal proprio gruppo). Un progetto che vuole SOLO alcuni di questi
- * campi, un layout diverso, o niente di tutto questo, scrive il proprio `footer` in nav.ts — che
- * rimpiazza questa funzione, non la estende.
- */
+/** Testo di DEFAULT della riga "small print" del footer, usato solo se il progetto non definisce `ShellNavResolver.footerCopyright`. Un progetto lo sostituisce con `footerCopyright` senza reinventare il formato. */
+export function defaultFooterCopyright(appName: string, year: number, translate: (key: string) => string): string {
+    return `© ${year} **${appName}** | ${translate('dirittiRiservatiAzienda')}`;
+}
+
+/** Footer di DEFAULT (Engine), usato solo se il progetto non definisce `ShellNavResolver.footer` (lo sostituisce per intero, mai insieme). Stesso builder/FooterField/chiavi i18n che userebbe un progetto per personalizzarlo — un solo meccanismo, non un componente parallelo che può disallinearsi. */
 export function defaultFooterResolver(f: FooterSectionBuilder, ctx: ShellNavContext): void {
     f.addGroup('datiSocietariAzienda', g => {
         g.addField(FooterField.PartitaIvaCodiceFiscale);
@@ -456,14 +321,9 @@ export function defaultFooterResolver(f: FooterSectionBuilder, ctx: ShellNavCont
         g.addField(FooterField.Pec);
         g.addField(FooterField.OpeningHours);
     });
-    // I social non sono un FooterField (vedi footer-content.ts): a differenza degli altri campi,
-    // `identity.social` è un array, quindi qui si itera invece di un singolo `addField`. Un gruppo
-    // a sé (non annidato nei tre sopra) per restare fedele al layout storico, dove compariva in una
-    // riga a parte sotto le colonne, non "dentro" una di esse. Rispetta `footerIdentita`
-    // (`'essenziale'` li nasconde) — stesso axis, stesso significato di quando li mostrava
-    // `app-identity-render`. Gli orari restano sempre accordion (leaf `'hours'` in
-    // `footer-nav-group.component.html`): la variante a lista piatta di `'essenziale'` non ha
-    // ancora un equivalente qui, nessun design system la usa oggi.
+    // I social non sono un FooterField: identity.social è un array, quindi si itera invece di un
+    // singolo addField. Gruppo a sé (non annidato sopra) per restare fedele al layout storico.
+    // Rispetta footerIdentita ('essenziale' li nasconde).
     const social = ctx.identity?.social;
     if (ContestoSito.config.footerIdentita === 'esteso' && Array.isArray(social) && social.length > 0) {
         f.addGroup('socialAzienda', g => {
@@ -474,10 +334,7 @@ export function defaultFooterResolver(f: FooterSectionBuilder, ctx: ShellNavCont
     }
 }
 
-/** Risolve un item grezzo in zero, una o più foglie finali: zero se non risolve (pagina disabilitata,
- *  campo Identity assente, gruppo rimasto vuoto), più di una solo per `addField(FooterField.
- *  PartitaIvaCodiceFiscale)` quando i due valori differiscono (vedi `resolveFooterField`) — tutti
- *  gli altri casi restano a una foglia, il tipo di ritorno è array per trattarli con lo stesso `flatMap`. */
+/** Risolve un item grezzo in zero, una o più foglie: zero se non risolve (pagina disabilitata, campo assente, gruppo vuoto), più di una per campi che possono espandersi in due valori (es. nome+email). Ritorna array per trattare tutti i casi con lo stesso `flatMap`. */
 function resolveFooterLeaf(item: RawFooterLeaf, lookupPage: PageInfoLookup, identity: Identity | null, deps: FooterFieldDeps, lang: string): FooterGroupChild[] {
     switch (item.kind) {
         case 'field':

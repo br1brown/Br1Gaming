@@ -3,23 +3,12 @@ import type { Identity, OpeningHours } from './dto/identity.dto';
 import type { TranslateService } from './services/translate.service';
 import type { LocalizationService } from './services/localization.service';
 import { hasOpeningHours } from './components/opening-hours/opening-hours.component';
+import { PhoneContactComponent } from './components/phone-contact/phone-contact.component';
+import { MailContactComponent } from './components/mail-contact/mail-contact.component';
+import { PecContactComponent } from './components/pec-contact/pec-contact.component';
 import { BadgeTone, formatAddress, formatCurrency, hasText } from './identity-format';
 
-/**
- * FOOTER CONTENT
- *
- * L'engine possiede per intero la forma di `Identity` (GET /identity): sa quali campi esistono,
- * come si chiamano nei cataloghi i18n e come si formattano. `FooterField` rende questa conoscenza
- * utilizzabile dal resolver del footer di un progetto (`nav.ts`) senza che il figlio debba
- * conoscere né la chiave di traduzione né la forma esatta di `Identity`: dichiara solo "voglio la
- * P.IVA qui" (`g.addField(FooterField.PartitaIva)`), l'engine pesca il valore, lo formatta e — se
- * il campo non è valorizzato per quel sito — lo fa sparire da solo (nessuna colonna con un'etichetta
- * e niente sotto).
- *
- * Fuori da questo elenco: i social (`addSocialLink`, sempre espliciti — un URL non è "un campo",
- * e filtrare/scegliere quali mostrare è decisione del progetto, non dell'engine) e qualunque
- * contenuto che l'engine non può conoscere a priori (`addText`, chiave/valore libero).
- */
+/** L'engine possiede per intero la forma di `Identity`: `FooterField` la rende utilizzabile dal resolver del footer (`nav.ts`) senza che il progetto conosca chiave i18n o forma esatta — `g.addField(FooterField.PartitaIva)` pesca, formatta e nasconde se non valorizzato. Fuori da qui: social (`addSocialLink`, sempre espliciti) e contenuto libero (`addText`). */
 export enum FooterField {
     RagioneSociale,
     PartitaIva,
@@ -47,16 +36,13 @@ export enum FooterField {
 }
 
 /** Trattamento visivo di un valore testuale: testo semplice, monospace "da codice" (P.IVA, REA...),
- *  o badge (oggi usato per i booleani, non più imposto come unico stile disponibile). */
+ *  o badge (booleani). Un canale di contatto cliccabile (telefono/email/pec) non è un `itemKind`:
+ *  è una foglia `kind: 'custom'` che delega a `app-phone-contact`/`app-mail-contact`/
+ *  `app-pec-contact` (`contactComponentLeaf`) — stesso componente già usato da
+ *  `identity-render.component.ts`, non un `<a>` reinventato qui con la propria icona/colore. */
 export type FooterItemKind = 'text' | 'code' | 'badge';
 
-/**
- * Foglia risolta dentro un gruppo del footer: un link/pagina vera, un valore mappato da `Identity`
- * (`addField`) o libero (`addText`), gli orari (resi dal componente dedicato) o un social esplicito
- * (`addSocialLink`) — oppure un sottogruppo annidato con lo stesso set di possibilità.
- * Discriminata su `kind`, non su forma strutturale: evita ambiguità fra varianti che altrimenti
- * condividerebbero campi opzionali.
- */
+/** Foglia risolta dentro un gruppo del footer: link/pagina, valore mappato o libero, orari, social esplicito, o un sottogruppo annidato. Discriminata su `kind` per evitare ambiguità fra varianti con campi opzionali condivisi. */
 export type FooterGroupChild =
     | { kind: 'link'; label: string; path: string; isExternal: boolean; queryParams?: Record<string, string>; authOnly?: boolean; itemClass?: string }
     | { kind: 'value'; label: string; value: string; itemKind: FooterItemKind; tone?: BadgeTone; itemClass?: string }
@@ -109,6 +95,25 @@ function valueLeaf(label: string, value: string | null | undefined, itemKind: Fo
     return hasText(value) ? { kind: 'value', label, value: value.trim(), itemKind, itemClass } : null;
 }
 
+/** Contatto cliccabile (telefono/email/pec): foglia `kind: 'custom'` che delega allo stesso componente di `identity-render.component.ts`, non un `<a>` reinventato con propria icona/colore — un `<a class="link-body-emphasis">` scritto a mano aveva già causato un bug di contrasto reale (`--bs-emphasis-color !important` batteva `color: inherit`). */
+function contactComponentLeaf(
+    component: Type<unknown>,
+    value: string | null | undefined,
+    label: string,
+    inputKey: 'number' | 'config',
+    itemClass?: string,
+): FooterGroupChild | null {
+    if (!hasText(value)) return null;
+    const trimmed = value.trim();
+    const contactInput = inputKey === 'number' ? trimmed : { to: trimmed };
+    return {
+        kind: 'custom',
+        component,
+        inputs: { [inputKey]: contactInput, label, showLabel: true, showValue: true },
+        itemClass,
+    };
+}
+
 function boolLeaf(
     label: string,
     value: boolean | null | undefined,
@@ -134,12 +139,19 @@ function arr(leaf: FooterGroupChild | null): FooterGroupChild[] {
     return leaf ? [leaf] : [];
 }
 
-/**
- * Risolve un `FooterField` sull'`Identity` del sito in zero, una o due foglie (solo
- * `PartitaIvaCodiceFiscale` può produrne due — tutti gli altri campi sono a un valore). Array
- * vuoto = campo non valorizzato per questo sito: chi chiama (il gruppo che lo contiene) lo scarta,
- * esattamente come un `addPage` che non risolve — vedi `resolveFooterItems` in `shell-nav.ts`.
- */
+/** `LegalRole` (titolare del trattamento / DPO) in zero, una o due foglie: il nome come testo
+ *  semplice, l'email come contatto cliccabile (`contactComponentLeaf`, stesso componente di
+ *  `FooterField.Email`) — stessa etichetta per entrambe, stesso trattamento a due righe che aveva
+ *  `identity-render.component.ts` (nome nella colonna informativa, email come badge cliccabile a
+ *  parte). Prima di questo fix l'email non veniva mai resa: nessun `FooterField` la esponeva. */
+function legalRoleLeaves(label: string, role: { nome?: string; email?: string } | undefined, itemClass?: string): FooterGroupChild[] {
+    return [
+        valueLeaf(label, role?.nome, 'text', itemClass),
+        contactComponentLeaf(MailContactComponent, role?.email, label, 'config', itemClass),
+    ].filter((leaf): leaf is FooterGroupChild => leaf !== null);
+}
+
+/** Risolve un `FooterField` sull'`Identity` in zero, una o due foglie (solo `PartitaIvaCodiceFiscale` può produrne due). Array vuoto = campo non valorizzato, il gruppo che lo contiene lo scarta. */
 export function resolveFooterField(field: FooterField, identity: Identity, deps: FooterFieldDeps, itemClass?: string): FooterGroupChild[] {
     // Chiave i18n grezza, NON tradotta qui: come `NavLink.label`/`addText`, la label passa sempre dal
     // template (`| translate`) — tradurla anche qui produrrebbe un doppio-translate ("key not found")
@@ -171,12 +183,12 @@ export function resolveFooterField(field: FooterField, identity: Identity, deps:
         // Flag "negativo": essere in liquidazione è un campanello → Sì in warning (stessa scelta di identity-render).
         case FooterField.InLiquidazione: return arr(boolLeaf(label, ds?.inLiquidazione, deps.translate, itemClass, { onTrue: 'warning', onFalse: 'secondary' }));
         case FooterField.SedeLegale: return arr(valueLeaf(label, formatAddress(identity.sedeLegale, deps.localization), 'text', itemClass));
-        case FooterField.Telefono: return arr(valueLeaf(label, identity.contatti?.telefono, 'text', itemClass));
-        case FooterField.Email: return arr(valueLeaf(label, identity.contatti?.email, 'text', itemClass));
-        case FooterField.Pec: return arr(valueLeaf(label, identity.contatti?.pec, 'text', itemClass));
+        case FooterField.Telefono: return arr(contactComponentLeaf(PhoneContactComponent, identity.contatti?.telefono, label, 'number', itemClass));
+        case FooterField.Email: return arr(contactComponentLeaf(MailContactComponent, identity.contatti?.email, label, 'config', itemClass));
+        case FooterField.Pec: return arr(contactComponentLeaf(PecContactComponent, identity.contatti?.pec, label, 'config', itemClass));
         case FooterField.RappresentanteLegale: return arr(valueLeaf(label, identity.rappresentanteLegale, 'text', itemClass));
-        case FooterField.TitolareDelTrattamento: return arr(valueLeaf(label, identity.titolareDelTrattamento?.nome, 'text', itemClass));
-        case FooterField.ResponsabileProtezioneDati: return arr(valueLeaf(label, identity.responsabileProtezioneDati?.nome, 'text', itemClass));
+        case FooterField.TitolareDelTrattamento: return legalRoleLeaves(label, identity.titolareDelTrattamento, itemClass);
+        case FooterField.ResponsabileProtezioneDati: return legalRoleLeaves(label, identity.responsabileProtezioneDati, itemClass);
         case FooterField.OpeningHours:
             return hasOpeningHours(identity.openingHours) ? [{ kind: 'hours', label, hours: identity.openingHours!, itemClass }] : [];
         default:

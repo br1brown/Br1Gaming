@@ -1,33 +1,5 @@
-/**
- * Sincronizza i file statici con la configurazione centrale del sito.
- *
- * Aggiorna:
- * - src/index.html           → lang, title, theme-color, meta PWA
- * - src/environments/environment.ts → identità/estetica del progetto iniettate nel bundle
- * - public/manifest.webmanifest → nome, descrizione, colori
- * - public/robots.txt        → user-agent, disallow, sitemap URL
- * - public/theme-init.js     → script anti-flash del tema, referenziato da index.html
- *
- * security.txt (RFC 9116), sitemap.xml e llms.txt NON sono qui: sono endpoint runtime,
- * non file di build — il contatto viene dall'identità del sito, mentre sitemap/llms
- * includono rotte dinamiche (es. catalogo) non enumerabili a build time.
- *
- * Solo index.html ed environment.ts sono generati MA versionati (seed: type-check e build
- * passano anche prima della prima esecuzione). Tutto ciò che finisce in public/ (manifest,
- * robots, theme-init, icons) è solo output di build, gitignored
- * (public/ è ignorata per intero): lo rigenera il pre-hook prebuild.
- *
- * Eseguire con:
- *   npm run generate:statics
- *
- * Variabile d'ambiente:
- *   FRONTEND_BASE_URL — URL base del sito (default: https://example.com con warning)
- *
- * Esclusioni robots automatiche (gestite dal siteBuilder):
- *   - Pagine disabilitate (enabled: false)
- *   - Pagine esterne (externalUrl)
- *   - Pagine protette da autenticazione (requiresAuth: true)
- */
+/** Sincronizza i file statici (index.html, environment.ts, manifest, robots.txt, theme-init.js) con
+ *  global-settings.json/site.ts. Eseguire con `npm run generate:statics` (già nei pre-hook build/dev). */
 
 // Necessario: carica il JIT compiler di Angular così i decoratori @Injectable
 // funzionano quando Node.js importa site.ts e il suo grafo di dipendenze.
@@ -44,19 +16,12 @@ import type { GlobalSettings } from '../../global-settings.types';
 
 const ROOT = join(__dirname, '../../../../../../');
 
-// Config di progetto a build-time. Sorgente: global-settings.json (sezioni project /
-// Localization / site). Nel build dell'immagine Docker il file (nella root del repo) NON è
-// nel build context (./frontend), quindi scripts/deploy.sh passa il suo contenuto minificato come
-// build ARG BR1_PROJECT_JSON (solo config di progetto, NIENTE segreti). Su host/CI il file
-// c'è e si legge direttamente (guardato). FRONTEND_BASE_URL resta un ARG a parte (deploy).
-// Tipizzato con GlobalSettings (generato dallo schema, `npm run generate:types`): le letture sono
-// type-safe, un typo di chiave (es. `Localizaton`) è errore a `tsc`.
+// Config di progetto a build-time (global-settings.json). Nel build Docker il file non è nel
+// build context, quindi deploy.sh lo passa minificato come ARG BR1_PROJECT_JSON. Tipizzato con
+// GlobalSettings: un typo di chiave è errore a tsc.
 function readProjectSettings(): GlobalSettings {
-    // BR1_PROJECT_JSON (build Docker): SOLO il file base, mai fuso con .local.json qui — è
-    // il confine di sicurezza voluto (vedi commento sopra l'export in br1-config.sh): i segreti
-    // di .local.json non devono finire in un build ARG. Il flusso automatico non mette mai
-    // identità/tema in .local.json (br1_ensure_local_secrets scrive solo frontend/backend/
-    // Security), quindi seguendo la convenzione questo ramo non diverge mai dal runtime.
+    // BR1_PROJECT_JSON: SOLO il file base, mai fuso con .local.json — confine di sicurezza voluto,
+    // i segreti di .local.json non devono finire in un build ARG.
     const inline = process.env['BR1_PROJECT_JSON'];
     if (inline) {
         try { return JSON.parse(inline) as GlobalSettings; } catch { /* fallback al file */ }
@@ -79,12 +44,9 @@ function readProjectSettings(): GlobalSettings {
     }
     if (!base) return {};
 
-    // Fusa con global-settings.local.json se presente, stessa deepMergeSettings usata da
-    // server-env.ts al boot (vedi config/settings-merge.ts): letture da file (dev locale/CI, non il
-    // ramo BR1_PROJECT_JSON sopra) devono vedere la stessa identità che vedrà il runtime,
-    // altrimenti un progetto che (contro convenzione) mette identità/tema in .local.json
-    // farebbe scattare l'avviso "environment.ts disallineato" a ogni riavvio, pure appena
-    // dopo un generate:statics pulito.
+    // Fusa con global-settings.local.json se presente (stessa deepMergeSettings di server-env.ts al
+    // boot): senza, un progetto con identità/tema in .local.json vedrebbe l'avviso "environment.ts
+    // disallineato" anche subito dopo un generate:statics pulito.
     const localCandidates = [
         join(ROOT, '../global-settings.local.json'),
         join(ROOT, 'global-settings.local.json'),
@@ -106,12 +68,8 @@ const _settings = readProjectSettings();
 const CONFIG_FINGERPRINT = fingerprintIdentitySections(_settings);
 const _fileLoc = _settings.Localization ?? {};
 const _fileProject = _settings.project ?? {};
-// Config di sito: solo identità MINIMA finisce in environment.ts. Tutto ciò che è
-// aspetto/comportamento (showNav/showFooter/showPanel/fixedTopHeader/showLoginInHeader/
-// showNotifications/panelSurface/forceThemeTone/designSystem/isWebApp/ogImagePlain, i quattro
-// override colore, l'effetto smoke) è migrato in site.ts (struttura o `DesignSystemPreset`), quindi
-// viene filtrato via qui anche se un vecchio JSON lo contiene ancora. L'icona di brand non è più
-// tra questi: è dato runtime risolto da ShellNavResolver.brandIcon in nav.ts (shell-nav.ts).
+// Solo identità MINIMA finisce in environment.ts: aspetto/comportamento è migrato in site.ts
+// (struttura o DesignSystemPreset), filtrato via qui anche se un vecchio JSON lo contiene ancora.
 const SITE_CONFIG = _settings.site ?? {};
 const SITE_AESTHETIC_KEYS = ['description', 'colorTema'];
 
@@ -119,16 +77,10 @@ const SITE_AESTHETIC_KEYS = ['description', 'colorTema'];
 const APP_NAME = _fileProject.name || 'App';
 const APP_VERSION = _fileProject.version || '1.0.0';
 const COLOR_TEMA = SITE_CONFIG.colorTema ?? '#888888';
-// Gli override colore non vivono più nel JSON: sono una proposta del design system attivo
-// (shell.designSystem in site.ts, DesignSystemPreset.colorSecondary/... nell'Engine o in
-// un'estensione di dominio). Leggerli da ContestoSito.config è corretto qui (a differenza di
-// COLOR_TEMA/SITE_CONFIG sopra, che vengono da global-settings.json e che QUESTO script stesso
-// rigenera in environment.ts più sotto): site.ts non passa da environment.ts, quindi non c'è alcun
-// problema di staleness — ContestoSito legge site.ts così com'è ora, non una versione precedente.
-// Stesso ragionamento di FORCE_THEME_TONE subito sotto. Stesso set di campi di
-// AppearanceService._overrides (client)/app.config.server.ts/og-preview.ts — le quattro fonti che
-// calcolano una palette devono leggere esattamente lo stesso design system, altrimenti
-// manifest/SSR/preview social/runtime potrebbero disegnare colori diversi per lo stesso sito.
+// Gli override colore sono una proposta del design system attivo (site.ts), letta da
+// ContestoSito.config senza rischio di staleness (site.ts non passa da environment.ts, a
+// differenza di COLOR_TEMA/SITE_CONFIG sopra). Stesso set di campi di AppearanceService._overrides
+// (client)/app.config.server.ts/og-preview.ts: le quattro fonti devono restare sincronizzate.
 const COLOR_OVERRIDES = {
     secondary: ContestoSito.config.colorSecondary,
     background: ContestoSito.config.colorBackground,
@@ -143,12 +95,9 @@ const COLOR_OVERRIDES = {
 // shell.designSystem che lo preveda).
 const FORCE_THEME_TONE: 'light' | 'dark' | undefined = ContestoSito.config.forceThemeTone;
 
-// PWA on/off — fonte unica: ContestoSito.config.isWebApp (site.ts). Guida la generazione
-// dei TRIGGER di installabilità: il manifest e, in index.html, <link rel="manifest"> più i
-// meta mobile-web-app-capable / apple-mobile-web-app-*. Quando è false il sito non deve
-// essere installabile (nessun prompt "Aggiungi a schermata Home"), quindi questi elementi
-// non vengono scritti. La de-registrazione runtime del Service Worker è già gestita da
-// cookie-consent.service.ts; qui agiamo solo sul lato generazione statici.
+// PWA on/off: guida i TRIGGER di installabilità (manifest, <link rel="manifest">, meta
+// mobile-web-app-*). La de-registrazione runtime del SW è gestita da cookie-consent.service.ts;
+// qui solo il lato generazione statici.
 const IS_WEBAPP = ContestoSito.config.isWebApp;
 
 const _normLang = (tag: unknown): string | null => {
@@ -378,12 +327,9 @@ export const environment: AppEnvironment = {
     );
 
     // ── Blocco PWA deterministico ────────────────────────────────────────────
-    // I trigger di installabilità (manifest + meta) vivono in un blocco delimitato da
-    // marker, rigenerato per intero da qui: con IS_WEBAPP vengono iniettati, altrimenti
-    // rimossi del tutto. Così l'installabilità non dipende mai da tag hardcoded nel seed.
-    // Solo marker nudi (PWA:START/END) nell'HTML servito: nessun path di build né nome di
-    // flag di config nel sorgente pubblico. Quando IS_WEBAPP è false il blocco resta vuoto
-    // (niente manifest né meta di installabilità), senza commenti che ne spieghino il perché.
+    // Trigger di installabilità in un blocco delimitato da marker, rigenerato per intero: con
+    // IS_WEBAPP iniettati, altrimenti rimossi. Solo marker nudi (PWA:START/END) nell'HTML servito,
+    // nessun path di build o nome di flag di config nel sorgente pubblico.
     const pwaBlock = IS_WEBAPP
         ? '\n    ' + [
             '<meta name="mobile-web-app-capable" content="yes">',
@@ -407,10 +353,8 @@ export const environment: AppEnvironment = {
 // ── Aggiornamento manifest.webmanifest ────────────────────────────────────
 
 function updateManifest(): void {
-    // PWA disattivata: nessun manifest installabile. Se un manifest era stato generato da
-    // un build precedente (toggle isWebApp da true a false) lo rimuoviamo, così il sito non
-    // resta installabile via un file residuo. public/ è gitignored: il manifest vive solo
-    // come artefatto di build, mai nel repo — niente da versionare in questo ramo.
+    // PWA disattivata: rimuove un eventuale manifest residuo di un build precedente (toggle
+    // isWebApp true→false), così il sito non resta installabile via un file vecchio.
     if (!IS_WEBAPP) {
         if (existsSync(MANIFEST)) {
             rmSync(MANIFEST);
@@ -426,13 +370,9 @@ function updateManifest(): void {
     const manifest: Record<string, unknown> = {
         name: APP_NAME,
         short_name: APP_NAME,
-        // Relativo come scope/start_url (mai un percorso assoluto hardcoded: questo è un
-        // template con N progetti figli, ognuno sul proprio dominio — un valore calcolato
-        // sulla stessa base di start_url resta corretto qualunque sia il deployment di quel
-        // figlio, un "/" fisso assumerebbe sempre "radice del dominio"). Risolve oggi allo
-        // stesso URL di start_url (spec: id assente ricade su start_url), ma dichiararlo
-        // esplicito fissa l'identità dell'app: un domani start_url guadagnasse un query
-        // param (es. tracking sorgente installazione) l'identità installata non cambierebbe.
+        // Relativo come scope/start_url, mai un "/" assoluto hardcoded (ogni progetto figlio ha il
+        // proprio dominio). Dichiarato esplicito anche se oggi coincide con start_url (spec: id
+        // assente vi ricade): un domani start_url con un query param non cambierebbe l'identità installata.
         id: "./",
         description: DESCRIPTION,
         lang: DEFAULT_LANG,
@@ -475,12 +415,10 @@ function updateManifest(): void {
 // ── Generazione robots.txt ────────────────────────────────────────────────
 
 function updateRobots(): void {
-    // Le pagine protette (`requiresAuth`) NON vengono più elencate come `Disallow`: un
-    // `robots.txt` è pubblico, quindi enumerarle ne rivelerebbe i path. La non-indicizzazione
-    // è ottenuta in modo più solido a runtime dal server SSR con `X-Robots-Tag: noindex` su
-    // quelle rotte (vedi server.ts), che vale anche per i crawler che ignorano robots.txt.
-    // La disattivazione globale dell'indicizzazione (staging) è gestita dal server via
-    // SEO_NOINDEX, che serve un robots.txt dinamico `Disallow: /` sovrascrivendo questo file.
+    // Le pagine protette (`requiresAuth`) non sono elencate come `Disallow`: un robots.txt è
+    // pubblico, enumerarle ne rivelerebbe i path. La non-indicizzazione è affidata a runtime al
+    // server SSR con `X-Robots-Tag: noindex`, che vale anche per i crawler che ignorano
+    // robots.txt. SEO_NOINDEX (staging) serve un robots.txt dinamico `Disallow: /` a runtime.
     const lines = ['User-agent: *', 'Allow: /', '', `Sitemap: ${BASE_URL}/sitemap.xml`];
 
     writeFileSync(ROBOTS, lines.join('\n') + '\n', 'utf8');
@@ -492,15 +430,10 @@ function updateRobots(): void {
 // ── Generazione theme-init.js (anti-flash tema, pre-idratazione) ───────────
 
 function updateThemeInit(): void {
-    // Script anti-flash: imposta data-bs-theme / data-theme-tone su <html> prima che
-    // Bootstrap carichi qualsiasi stile. Referenziato da <script src="theme-init.js"> in
-    // index.html, eseguito sincrono (no defer/async) nel <head> così non c'è un ciclo di
-    // rendering col tono sbagliato. È uno script esterno, non inline: coperto da
-    // script-src 'self' nella CSP, quindi non serve né hash né nonce. È un asset statico
-    // servito da express.static: va materializzato qui perché public/ è gitignored,
-    // altrimenti mancherebbe su un checkout/build pulito (404 + MIME error a ogni full load).
-    // Tono forzato (shell.forceThemeTone in site.ts): valore baked-in, niente matchMedia — nessun ascolto di
-    // prefers-color-scheme da rimuovere in seguito, lo script è già deterministico dal boot.
+    // Script anti-flash: imposta data-bs-theme/data-theme-tone su <html> prima che Bootstrap carichi
+    // qualsiasi stile, eseguito sincrono nel <head>. Esterno (non inline): coperto da script-src
+    // 'self' in CSP, niente hash/nonce. public/ è gitignored: va materializzato qui o mancherebbe
+    // su un checkout pulito. Tono forzato = valore baked-in, niente matchMedia da ascoltare.
     const script = FORCE_THEME_TONE
         ? `(function () {
     var el = document.documentElement;

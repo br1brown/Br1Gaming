@@ -1,9 +1,6 @@
-/**
- * Utility di parsing/serializzazione della Content-Security-Policy come stringa a direttive
- * (`nome valore1 valore2; nome2 valore1; ...`). Usata da security-headers.ts per estendere la
- * CSP del template con le sorgenti dichiarate dal progetto figlio in
- * security-headers.override.json (mai in sostituzione, solo aggiunta).
- */
+/** Parsing/serializzazione della CSP come stringa a direttive (`nome valore1 valore2; nome2 ...`).
+ *  Usata da security-headers.ts per estendere la CSP del template con le sorgenti dichiarate dal
+ *  progetto figlio in security-headers.override.json (mai in sostituzione, solo aggiunta). */
 
 import { Transform } from 'node:stream';
 
@@ -48,27 +45,13 @@ export function extendCsp(baseCsp: string, override: CspOverride | null | undefi
     return serializeCsp(map);
 }
 
-/**
- * Angular applica automaticamente il nonce CSP agli `<style>` che crea lui (encapsulation) SOLO
- * quando `CSP_NONCE` è iniettabile nel bootstrap: per le pagine renderizzate server-side succede
- * (app.config.server.ts lo fornisce da REQUEST_CONTEXT), ma per il bootstrap che avviene
- * INTERAMENTE nel browser — rotte `RenderMode.Client` (jolly `/error/**`, pagine
- * `requiresAuth`) e qualunque navigazione client-side successiva a un componente lazy non ancora
- * caricato — non c'è alcun REQUEST_CONTEXT: Angular userebbe il fallback di default di
- * `CSP_NONCE`, che legge l'attributo `ngCspNonce` dal primo elemento di `<body>` che lo porta
- * (`@angular/core`, factory di CSP_NONCE). Senza quell'attributo gli `<style>` creati lì
- * nascono senza nonce e la CSP (`style-src-elem 'nonce-...'`) li scarta silenziosamente.
- *
- * Questo Transform inietta `ngCspNonce="<nonce>"` sul tag `<app-root` (primo figlio di `<body>`
- * in ogni variante di pagina, SSR o solo-shell) mentre la risposta scorre in streaming verso il
- * client, così il bootstrap browser trova sempre un nonce valido — innocuo sulle pagine già
- * renderizzate server-side, dove l'attributo resta semplicemente inutilizzato.
- *
- * Opera solo su byte grezzi (mai una decodifica testo dello stream intero): la ricerca del tag e
- * l'inserimento avvengono con `Buffer.indexOf`/`Buffer.concat`, quindi una sequenza UTF-8
- * multi-byte spezzata a metà da un confine di chunk (es. testo tradotto nei tag <meta> prima di
- * <body>) non viene mai toccata né può corrompersi.
- */
+/** Le rotte con bootstrap interamente client (`RenderMode.Client`: jolly `/error/**`, pagine
+ *  `requiresAuth`) non hanno un REQUEST_CONTEXT da cui Angular prenda il nonce CSP: ricadrebbe sul
+ *  fallback di `CSP_NONCE`, l'attributo `ngCspNonce` sul primo elemento di `<body>` — assente, gli
+ *  `<style>` di encapsulation creati lì nascono senza nonce e la CSP li scarta silenziosamente.
+ *  Questo Transform inietta `ngCspNonce="<nonce>"` sul tag `<app-root` mentre la risposta scorre in
+ *  streaming, byte grezzi (mai una decodifica testo intera, per non spezzare una sequenza UTF-8 a
+ *  cavallo di due chunk). */
 export function injectCspNonceIntoAppRoot(nonce: string): Transform {
     const needle = Buffer.from('<app-root', 'utf-8');
     const attr = Buffer.from(` ngCspNonce="${nonce}"`, 'utf-8');

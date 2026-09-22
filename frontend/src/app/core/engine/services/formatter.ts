@@ -1,12 +1,7 @@
-/**
- * LOCALE FORMATTER
- *
- * Facciata unica per la formattazione culture-aware (date, numeri, valuta, nomi regione). Passi il
- * dato, esce la stringa nel locale corrente: l'implementazione — oggi `Intl`, lo standard di
- * piattaforma — resta NASCOSTA, così domani si può cambiare (altra libreria) senza toccare un solo
- * chiamante. Il locale non è cablato qui: arriva da un provider reattivo (vedi
- * `LocalizationService.formatter`), quindi le stringhe seguono la lingua corrente da sole.
- */
+/** Facciata unica per la formattazione culture-aware (date, numeri, valuta, nomi regione).
+ *  L'implementazione (oggi `Intl`) resta nascosta: domani si può cambiare senza toccare un
+ *  chiamante. Il locale arriva da un provider reattivo (`LocalizationService.formatter`), le
+ *  stringhe seguono la lingua corrente da sole. */
 export class LocaleFormatter {
     constructor(private readonly localeOf: () => string) {}
 

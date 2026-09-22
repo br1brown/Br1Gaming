@@ -5,19 +5,11 @@ import { ContestoSito } from '../../../site';
 import { customFontFacePath } from './custom-font-detect';
 
 /**
- * SERVER FONT METRICS — loader runtime delle metriche font (lato server).
- *
- * Deriva le metriche dai font *realmente installati* nel container invece di fidarsi delle tabelle
- * baked-in. Per il catalogo `SYSTEM_FONTS` il percorso è già noto e verificato (vedi font-system.ts):
- * si legge il file direttamente, nessun `fc-match` — a differenza del font custom di progetto
- * (`buildMetricFromFile`, sotto), che non ha un percorso certo a priori. Gli advance si leggono con
- * un parser TTF minimale (solo `head`/`hhea`/`maxp`/`cmap` formato 4/`hmtx`). Così aggiornando i
- * pacchetti font nel Dockerfile le misure restano allineate, senza rigenerare a mano.
- *
- * Robusto per costruzione: ogni font è isolato in try/catch + sanity-gate (`assertSane`); se il
- * file non esiste/non si legge o i numeri sono implausibili, quel font ripiega sul suo snapshot in
- * `FONT_METRICS`. Niente dipendenze esterne (no fontkit): il parser copre solo ciò che serve e su
- * qualunque struttura inattesa lancia → fallback.
+ * Loader runtime delle metriche font lato server: le deriva dai font REALMENTE installati nel
+ * container (parser TTF minimale: head/hhea/maxp/cmap formato 4/hmtx, no fontkit) invece di fidarsi
+ * delle tabelle baked-in, così un aggiornamento pacchetti nel Dockerfile resta allineato senza
+ * rigenerare a mano. Ogni font è isolato in try/catch + sanity-gate (`assertSane`): su qualunque
+ * intoppo ripiega sul suo snapshot in `FONT_METRICS`.
  */
 
 /** Code point delle lettere ASCII (A–Z, a–z): base per il rapporto bold/regular. */
@@ -168,14 +160,7 @@ function assertSane(m: FontMetric): void {
     if (m.boldFactor < 1 || m.boldFactor > 1.4) throw new Error('metriche: boldFactor fuori range');
 }
 
-/**
- * Metriche per ogni font di `SYSTEM_FONTS` lette dai file reali, con fallback per-font sullo
- * snapshot baked-in. Se il font ATTIVO come corpo (`ContestoSito.config.fonts.serverKey`) è un
- * custom di progetto invece di un `SystemFont`, aggiunge anche la sua voce sotto quella stessa
- * chiave — assente, `measure()` ripiega da sola su Liberation. Solo il font attivo: le eventuali
- * voci "secondarie" di `addonFonts` non renderizzano mai un'immagine OG, non serve misurarle. Da
- * passare a `FontMetrics.configure`; sincrono e una-tantum, all'avvio.
- */
+/** Metriche per ogni `SYSTEM_FONTS` dai file reali, fallback per-font sullo snapshot baked-in. Se il font attivo (`serverKey`) è un custom di progetto, aggiunge anche la sua voce (solo lui: le voci secondarie di `addonFonts` non renderizzano mai un'OG image). Da passare a `FontMetrics.configure`, sincrono e una-tantum. */
 export function loadServerFontMetrics(): Record<string, FontMetric> {
     const result: Record<string, FontMetric> = {};
     for (const key of Object.values(SystemFont) as SystemFont[]) {

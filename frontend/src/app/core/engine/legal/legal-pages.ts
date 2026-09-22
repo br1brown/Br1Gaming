@@ -3,13 +3,7 @@ import type { PageBaseComponent } from '../pages/page-base.component';
 import type { PageType } from '../../../site';
 import type { LegalPageSpec, ParentPageInput, SitePageInput } from '../siteBuilder';
 
-/**
- * Default "di sistema" per le 5 pagine legali standard (path sotto `policy/`, chiavi i18n,
- * basename del Markdown in `assets/legal/`) — dati, non un meccanismo a parte: il figlio li usa
- * con lo spread abbinandoli al proprio `PageType` (vedi `pages/policy/legal.pages.ts`), o li
- * ignora e scrive la propria voce di `legalPages` per esteso, esattamente come per qualunque
- * altra pagina legale di progetto. Nessuna delle due strade passa da qui: sono solo default.
- */
+/** Default "di sistema" per le 5 pagine legali standard (path, chiavi i18n, basename Markdown): dati, non meccanismo — il figlio li spreada col proprio `PageType`, o li ignora e scrive la propria voce per esteso. */
 export const STANDARD_LEGAL_PAGES = {
     privacy:       { path: 'privacy',       titleKey: 'privacyPolicyMenu',       descriptionKey: 'privacyPolicyDescrizione',       markdownSlug: 'privacy' },
     cookie:        { path: 'cookie',        titleKey: 'cookiePolicyMenu',        descriptionKey: 'cookiePolicyDescrizione',        markdownSlug: 'cookie' },
@@ -32,20 +26,12 @@ export function filterManagedLegalPages(
     return legalPages.filter(spec => !declared.has(spec.pageType));
 }
 
-/**
- * Nodo `policy/` con le pagine legali gestite dall'Engine (già filtrate dall'override tramite
- * `filterManagedLegalPages`); `null` se la lista è vuota. Iniettato automaticamente da
- * `buildSite`. Ogni voce riceve lo stesso trattamento, senza distinguere una pagina "di sistema"
- * da una di progetto: la differenza vive solo nei dati (`STANDARD_LEGAL_PAGES` o scritti a mano).
- */
+/** Nodo `policy/` con le pagine legali gestite dall'Engine (già filtrate da `filterManagedLegalPages`); null se vuota. Iniettato automaticamente da `buildSite`, stesso trattamento per ogni voce: la differenza vive solo nei dati. */
 export function buildPolicySection(managed: readonly LegalPageSpec[]): ParentPageInput | null {
     if (managed.length === 0) return null;
-    // `role: 'legal'` le fa interpretare dal design system attivo come tali (es. `muro`, che gli
-    // restituisce il pannello per leggibilità anche quando le pagine di contenuto non ne hanno).
-    // Niente smoke decorativo di default: non è più hardcoded qui, è `LEGAL_CHROME_DEFAULT`
-    // (design-system-presets.ts) — un default di ruolo come ogni altro, scostabile da un design
-    // system con `ruoloPagina.legal.showSmoke`. Un figlio che volesse un ruolo diverso ridichiara la
-    // pagina legale con un proprio `layout`.
+    // role: 'legal' le fa interpretare come tali dal design system attivo (es. muro, che restituisce
+    // il pannello per leggibilità). Niente smoke di default: LEGAL_CHROME_DEFAULT, scostabile via
+    // ruoloPagina.legal.showSmoke.
     const children: SitePageInput[] = managed.map(spec => ({
         path: spec.path,
         title: spec.titleKey,

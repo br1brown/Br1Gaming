@@ -8,18 +8,7 @@ namespace Backend.Mail;
 // l'hosted service che la consuma. La meccanica SMTP (corposa) resta in EngineMailer.cs; le
 // eccezioni vivono con le altre ApiException in Backend.Models (MailExceptions.cs).
 
-/// <summary>
-/// Messaggio email completo, neutro rispetto al dominio. È sia l'unità che
-/// <see cref="IEngineMailer.SendAsync(EmailMessage, System.Threading.CancellationToken)"/>
-/// spedisce, sia l'elemento accodato da <see cref="IEmailQueue"/> per l'invio in background.
-/// </summary>
-/// <remarks>
-/// Quando inoltri un messaggio scritto da un utente: <see cref="From"/> sul proprio dominio
-/// (default da config) e l'indirizzo dell'utente in <see cref="ReplyTo"/> — mai come From
-/// (anti-spam/anti-spoofing). Se <see cref="IsHtml"/> è true, il chiamante è responsabile
-/// dell'encoding dell'input non fidato nel corpo (XSS lato client di posta); con input non
-/// fidato si preferisce testo semplice.
-/// </remarks>
+/// <summary>Messaggio email, spedito da <see cref="IEngineMailer"/> o accodato da <see cref="IEmailQueue"/>. Inoltrando un messaggio utente: <see cref="From"/> resta sul proprio dominio, l'indirizzo utente va in <see cref="ReplyTo"/> (mai From, anti-spoofing). HTML con input non fidato: il chiamante deve incapsulare l'encoding (XSS lato client di posta).</summary>
 public sealed record EmailMessage
 {
     /// <summary>Destinatari (almeno uno).</summary>

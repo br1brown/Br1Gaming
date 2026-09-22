@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using SkiaSharp;
 using Backend.Blob;
 using Backend.Engine;
 using Backend.Models;
+using Backend.Models.Configuration;
 using Backend.Security;
 
 namespace Backend.Controllers;
@@ -29,33 +31,70 @@ public sealed class EngineBlobController : EngineApiController
     /// <summary>Tetto sui megapixel totali dell'immagine da decodificare (~40 MP: copre 8K e oltre).</summary>
     private const long MaxDecodePixels = 40_000_000;
 
+    /// <summary>
+    /// Whitelist FISSA (Engine, non per-progetto) delle dimensioni richiedibili per
+    /// <c>?webopt=true&amp;size=N</c>. Deve restare identica a <c>ALLOWED_WIDTHS</c> in
+    /// <c>frontend/src/app/core/engine/asset-config.ts</c> (fonte "vera", anche literal type
+    /// <c>AssetWidth</c>) — nessuna generazione cross-linguaggio, va aggiornata a mano in coppia.
+    /// </summary>
+    private static readonly int[] AllowedWebOptSizes = [125, 320, 480, 512, 640, 768, 1024, 1080, 1366, 1600, 1920];
+
     private readonly FileBlobStore _blobs;
     private readonly BoundedByteCache _weboptCache;
+    private readonly MediaOptions _media;
 
     /// <summary>Inizializza una nuova istanza di <see cref="EngineBlobController"/>.</summary>
-    public EngineBlobController(FileBlobStore blobs, BoundedByteCache weboptCache, ILogger<EngineBlobController> logger)
+    public EngineBlobController(FileBlobStore blobs, BoundedByteCache weboptCache, IOptions<MediaOptions> media, ILogger<EngineBlobController> logger)
         : base(logger)
     {
         _blobs = blobs;
         _weboptCache = weboptCache;
+        _media = media.Value;
+    }
+
+    /// <summary>
+    /// Dimensione da usare per il resize: <paramref name="requested"/> se in whitelist, altrimenti
+    /// la MEDIANA (non la più grande, non un 400: un client con valori a caso non deve trovare
+    /// sistematicamente l'immagine più pesante né un errore da gestire).
+    /// </summary>
+    private int ResolveWebOptSize(int? requested)
+    {
+        var sizes = AllowedWebOptSizes;
+        if (requested.HasValue && Array.IndexOf(sizes, requested.Value) >= 0)
+            return requested.Value;
+
+        var sorted = sizes.OrderBy(x => x).ToArray();
+        var middle = sorted[sorted.Length / 2];
+
+        if (requested.HasValue)
+        {
+            Logger.LogWarning("Richiesto webopt size {Requested} fuori whitelist. Fallback alla dimensione intermedia: {Fallback}.", requested.Value, middle);
+        }
+
+        return middle;
     }
 
     /// <summary>
     /// Restituisce il file dello <c>slug</c> (con estensione). <c>webopt</c>: chiede la versione
-    /// web-ottimizzata (resize immagini max 1920px→WebP; altri tipi invariati).
+    /// web-ottimizzata (resize immagini→WebP; altri tipi invariati). <c>size</c> (opzionale, solo
+    /// con <c>webopt</c>): una delle dimensioni di <see cref="AllowedWebOptSizes"/> — assente o
+    /// fuori whitelist ricade sulla dimensione mediana della lista (vedi <see cref="ResolveWebOptSize"/>).
     /// </summary>
     [HttpGet("{slug}")]
-    public async Task<IActionResult> Get(string slug, [FromQuery] bool webopt, CancellationToken ct)
+    public async Task<IActionResult> Get(string slug, [FromQuery] bool webopt, [FromQuery] int? size, CancellationToken ct)
     {
         var info = await _blobs.GetInfoAsync(slug, ct) ?? throw new NotFoundException("blob");
         var isImage = _imageContentTypes.Contains(info.ContentType);
+        var resolvedSize = ResolveWebOptSize(size);
 
         Logger.LogInformation("Blob richiesto: {Slug}", slug);
 
         // Cache HTTP: lo slug è immutabile (ogni upload conia un GUID nuovo), la risposta è cacheabile
         // a lungo. L'ETag (mtime+size+variante) copre le cache condivise; la variante r/w distingue
-        // l'originale dalla versione ottimizzata (corpo diverso).
-        var variant = webopt ? "w" : "r";
+        // l'originale dalla versione ottimizzata (corpo diverso), e per "w" include la dimensione
+        // risolta — dimensioni diverse sono corpi diversi, un client che passa da un size all'altro
+        // non deve mai ricevere un 304 sul body sbagliato.
+        var variant = webopt ? $"w{resolvedSize}" : "r";
         var etag = $"\"{info.LastModified.ToUnixTimeSeconds():x}-{info.Length:x}-{variant}\"";
         Response.Headers.ETag = etag;
         Response.Headers.CacheControl = "public, max-age=31536000, immutable";
@@ -65,19 +104,20 @@ public sealed class EngineBlobController : EngineApiController
         if (RequestMatchesETag(etag))
             return StatusCode(StatusCodes.Status304NotModified);
 
-        // webopt + immagine raster gestita: resize al volo (lato lungo max 1920 px → WebP), con cache
-        // in-memory sullo slug univoco. GetOrCreateAsync fa anche da coalescing: richieste concorrenti
-        // sullo stesso slug non ancora in cache condividono un solo resize invece di rifarlo ciascuna.
+        // webopt + immagine raster gestita: resize al volo (lato lungo → WebP), con cache in-memory
+        // sullo slug+dimensione (dimensioni diverse dello stesso slug sono varianti distinte, non si
+        // sovrascrivono a vicenda). GetOrCreateAsync fa anche da coalescing: richieste concorrenti
+        // sullo stesso slug+size non ancora in cache condividono un solo resize invece di rifarlo ciascuna.
         if (webopt && isImage)
         {
             // CancellationToken.None apposta, non ct: il lavoro è condiviso (coalescing) fra richieste
             // concorrenti sullo stesso slug, quindi non deve essere annullabile dalla disconnessione di
             // UNA sola di esse — altrimenti chi si disconnette per primo annullerebbe il resize anche
             // per gli altri richiedenti ancora connessi in attesa dello stesso Task.
-            var content = await _weboptCache.GetOrCreateAsync(slug, async () =>
+            var content = await _weboptCache.GetOrCreateAsync($"{slug}:{resolvedSize}", async () =>
             {
                 using var imageStream = await _blobs.OpenReadAsync(slug, CancellationToken.None) ?? throw new NotFoundException("blob");
-                return ResizeImageForWeb(imageStream).FileContents;
+                return ResizeImageForWeb(imageStream, resolvedSize, _media.WebOptQuality).FileContents;
             });
             return File(content, "image/webp");
         }
@@ -179,11 +219,13 @@ public sealed class EngineBlobController : EngineApiController
     /// <summary>
     /// Dato uno stream immagine, restituisce un <see cref="FileContentResult"/> con il lato più lungo
     /// ridimensionato a <paramref name="maxSide"/> pixel mantenendo le proporzioni originali e
-    /// convertito in WebP. Se l'immagine è già entro i limiti non viene riscalata.
+    /// convertito in WebP alla <paramref name="quality"/> indicata. Se l'immagine è già entro i
+    /// limiti non viene riscalata (ma resta ricodificata in WebP alla qualità data).
     /// </summary>
     /// <param name="imageStream">Stream del file immagine da elaborare.</param>
-    /// <param name="maxSide">Dimensione massima in pixel del lato più lungo (default 1920).</param>
-    private static FileContentResult ResizeImageForWeb(Stream imageStream, int maxSide = 1920)
+    /// <param name="maxSide">Dimensione massima in pixel del lato più lungo — da <see cref="AllowedWebOptSizes"/>.</param>
+    /// <param name="quality">Qualità WebP (1-100) — da <see cref="MediaOptions.WebOptQuality"/>.</param>
+    private static FileContentResult ResizeImageForWeb(Stream imageStream, int maxSide, int quality)
     {
         // Guardia "decompression bomb": leggiamo le dimensioni dall'HEADER (SKCodec, senza decodificare
         // il raster) e rifiutiamo PRIMA di allocare. `SKBitmap.Decode` allocherebbe width*height*4 byte
@@ -220,7 +262,7 @@ public sealed class EngineBlobController : EngineApiController
         if (resized is null)
             throw new UnprocessableEntityException();
         using var skImage = SKImage.FromBitmap(resized);
-        using var data = skImage.Encode(SKEncodedImageFormat.Webp, quality: 85);
+        using var data = skImage.Encode(SKEncodedImageFormat.Webp, quality);
         if (data is null)
             throw new UnprocessableEntityException();
         return new FileContentResult(data.ToArray(), "image/webp");

@@ -8,25 +8,10 @@ namespace Backend.Tasks;
 // e hosted service che la consuma. Un endpoint accoda e risponde subito (202); il worker esegue
 // fuori dalla richiesta HTTP, ciascun task nel proprio scope DI.
 
-/// <summary>
-/// Coda di lavoro in background generica (<see cref="System.Threading.Channels.Channel{T}"/>).
-/// Consente di accodare un task e rispondere subito (es. 202), delegandone l'esecuzione a un HostedService.
-/// </summary>
-/// <remarks>
-/// Il task accodato riceverà un <see cref="IServiceProvider"/> con un proprio scope DI isolato e il 
-/// <see cref="CancellationToken"/> di shutdown dell'host.
-/// Evitare l'uso diretto di <c>Task.Run</c> nei controller per scongiurare la distruzione asincrona dello scope DI.
-/// </remarks>
+/// <summary>Coda di lavoro in background: accoda un task e rispondi subito (es. 202), l'esecuzione è dell'hosted service. Evita <c>Task.Run</c> diretto nei controller (distruggerebbe lo scope DI a metà).</summary>
 public interface IBackgroundTaskQueue
 {
-    /// <summary>
-    /// Accoda un'unità di lavoro. Ritorna <see langword="false"/> se la coda è piena (backpressure):
-    /// il chiamante può tradurlo in 503. Non blocca.
-    /// </summary>
-    /// <param name="work">
-    /// Il lavoro da eseguire: riceve un <see cref="IServiceProvider"/> con scope proprio e il
-    /// <see cref="CancellationToken"/> di shutdown dell'host.
-    /// </param>
+    /// <summary>Accoda un lavoro (riceve uno scope DI proprio e il token di shutdown host). False se la coda è piena (backpressure, es. 503); non blocca.</summary>
     bool TryEnqueue(Func<IServiceProvider, CancellationToken, Task> work);
 }
 
@@ -51,10 +36,7 @@ internal sealed class ChannelBackgroundTaskQueue : IBackgroundTaskQueue
     public ChannelReader<Func<IServiceProvider, CancellationToken, Task>> Reader => _channel.Reader;
 }
 
-/// <summary>
-/// Servizio in background che consuma la <see cref="ChannelBackgroundTaskQueue"/> ed esegue i task,
-/// ciascuno nel proprio scope DI. Rispetta il <c>CancellationToken</c> di shutdown per uno stop pulito.
-/// </summary>
+/// <summary>Consuma la coda ed esegue i task, ciascuno nel proprio scope DI.</summary>
 internal sealed class BackgroundTaskHostedService : BackgroundService
 {
     private readonly ChannelBackgroundTaskQueue _queue;

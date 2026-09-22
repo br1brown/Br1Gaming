@@ -484,6 +484,7 @@
                     <p class="small text-muted mb-2">{{ 'internalsApiDesc' | translate }}</p>
                     <p class="small mb-2">{{ apiStatus }}</p>
 
+                    <!-- <DEMO_BLOCK_START> -->
                     <label class="form-label small mb-1" for="socialFilter">{{ 'socialFilterLabel' | translate }}</label>
                     <div class="input-group input-group-sm mb-3">
                         <input type="text" id="socialFilter" class="form-control"
@@ -497,6 +498,7 @@
                     @if (socialResult()) {
                         <pre class="border rounded p-2 mb-3 overflow-auto bg-body-tertiary" style="max-height: 140px;"><code>{{ socialResult() }}</code></pre>
                     }
+                    <!-- <DEMO_BLOCK_END> -->
 
                     @if (auth.isLoggedIn()) {
                         <hr class="my-2">

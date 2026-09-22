@@ -4,23 +4,11 @@ import { injectCurrentUrl } from '../../routing';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { NavLink } from '../../shell-nav';
 
-/**
- * NAV LINK COMPONENT
- *
- * Atomo presentazionale per il singolo link di navigazione, con i tre rami:
- *   - esterno  → <a href target="_blank" rel="noopener noreferrer">
- *   - rotta corrente → <span aria-current="page"> (non cliccabile, classe attiva)
- *   - interno  → <a [routerLink]>
- *
- * Centralizza l'a11y (aria-current, rel) e la marcatura "rotta attiva" — cosi'
- * i contenitori (footer-nav, navbar, future sidebar) si concentrano solo sul
- * proprio layout. Estratto a parte per consentire test unitari mirati sui
- * tre rami invece di re-testarli in ogni contenitore.
- *
- * `cssClass` è la classe base applicata sempre; `activeCssClass` (opzionale)
- * viene appesa solo quando la rotta corrisponde — utile per i contesti
- * (navbar) che vogliono uno stile aggiuntivo sulla voce corrente.
- */
+/** Atomo presentazionale per il singolo link di navigazione, con i tre rami: esterno (`<a href
+ *  target="_blank" rel="noopener noreferrer">`), rotta corrente (`<span aria-current="page">`, non
+ *  cliccabile), interno (`<a [routerLink]>`) — centralizza l'a11y e la marcatura "rotta attiva" così
+ *  i contenitori (footer-nav, navbar) si concentrano solo sul proprio layout. `activeCssClass`
+ *  (opzionale) si appende a `cssClass` solo quando la rotta corrisponde. */
 @Component({
     selector: 'app-nav-link',
     standalone: true,

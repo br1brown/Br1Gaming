@@ -1,14 +1,9 @@
 import { Injectable, signal } from '@angular/core';
 
-/**
- * Sorgente unica del `connectionId` della SSE corrente, separata dal {@link NotificationStreamService}.
- *
- * Serve a leggere il connectionId (es. dal `BaseApiService` per l'header `X-Connection-Id`) **senza
- * iniettare — e quindi attivare — lo stream**: questo holder è inerte (un signal, nessun side-effect,
- * nessuna connessione). Lo stream lo popola quando si connette e lo azzera quando cade; finché nessuno
- * apre lo stream (es. `shell.showNotifications` false) resta `null` → nessun header → il backend riceve
- * un connectionId nullo e gestisce il caso (broadcast / nessun target).
- */
+/** Sorgente unica del `connectionId` della SSE corrente, separata dal
+ *  {@link NotificationStreamService}: serve a leggerlo (es. per l'header `X-Connection-Id`) senza
+ *  iniettare — e quindi attivare — lo stream. Holder inerte (un signal, nessun side-effect); resta
+ *  `null` finché nessuno apre lo stream, e il backend gestisce il connectionId nullo (broadcast). */
 @Injectable({ providedIn: 'root' })
 export class NotificationConnection {
     private readonly _id = signal<string | null>(null);

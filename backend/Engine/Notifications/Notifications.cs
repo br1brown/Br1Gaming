@@ -23,20 +23,7 @@ public enum NotificationTargetKind
     Group
 }
 
-/// <summary>
-/// Destinatario di un push: scelto in modo programmatico dal codice di dominio.
-/// </summary>
-/// <remarks>
-/// <list type="bullet">
-/// <item><see cref="All"/>: broadcast a chiunque sia connesso.</item>
-/// <item><see cref="Connection"/>: solo il client che ha avviato il job (gli passa il proprio
-///   <c>connectionId</c> alla richiesta). Funziona anche per utenti anonimi.</item>
-/// <item><see cref="Group"/>: tutte le connessioni di una chiave di gruppo — il significato lo
-///   decide il progetto (es. l'id utente, un tenant, una "stanza"). La chiave viene assegnata a
-///   ogni connessione da <c>INotificationGroupResolver</c>, che è il punto in cui un progetto
-///   figlio aggancia la propria identità/auth.</item>
-/// </list>
-/// </remarks>
+/// <summary>Destinatario di un push, scelto in modo programmatico dal codice di dominio.</summary>
 public readonly record struct NotificationTarget(NotificationTargetKind Kind, string? Value)
 {
     /// <summary>Broadcast a tutti i client connessi.</summary>
@@ -51,27 +38,13 @@ public readonly record struct NotificationTarget(NotificationTargetKind Kind, st
         new(NotificationTargetKind.Group, groupKey);
 }
 
-/// <summary>
-/// Messaggio realtime spinto dal server verso i client connessi.
-/// </summary>
-/// <remarks>
-/// L'engine fornisce solo il "contenitore": <see cref="Type"/> guida il dispatch lato client
-/// (il <c>NotificationStreamService</c> Angular decide come reagire per tipo — toast di default
-/// o handler custom), mentre <see cref="Payload"/> è un oggetto libero serializzato come JSON.
-/// La FORMA del payload la decide il chiamante (codice di dominio), non l'engine.
-/// </remarks>
+/// <summary>Messaggio realtime spinto dal server: l'engine fornisce solo il contenitore, la forma del <see cref="Payload"/> la decide il chiamante.</summary>
 public sealed record NotificationMessage
 {
-    /// <summary>
-    /// Tipo logico della notifica. Il client lo usa per scegliere la reazione
-    /// (es. <c>"toast"</c> di default, oppure un tipo custom con handler registrato).
-    /// </summary>
+    /// <summary>Tipo logico che guida il dispatch lato client (default "toast", o un tipo custom con handler registrato).</summary>
     public string Type { get; init; } = "toast";
 
-    /// <summary>
-    /// Dati applicativi della notifica, serializzati come JSON. Per il toast di default
-    /// il client si aspetta <c>{ message, icon? }</c>; per i tipi custom è ciò che serve all'handler.
-    /// </summary>
+    /// <summary>Dati applicativi serializzati come JSON; per il toast di default il client si aspetta <c>{ message, icon? }</c>.</summary>
     public object? Payload { get; init; }
 
     /// <summary>Identificativo univoco del messaggio (utile per dedup/lista lato client).</summary>
@@ -81,14 +54,7 @@ public sealed record NotificationMessage
     public DateTimeOffset Timestamp { get; init; } = DateTimeOffset.UtcNow;
 }
 
-/// <summary>
-/// Rappresenta una singola connessione SSE in ascolto: il suo <see cref="ConnectionId"/>,
-/// l'eventuale <see cref="GroupKey"/> e il canale da cui l'endpoint legge i messaggi da inviare.
-/// </summary>
-/// <remarks>
-/// Il canale fa da buffer per-connessione: il publisher scrive (da qualunque thread), l'endpoint
-/// SSE legge e inoltra. È volutamente opaco verso l'esterno (solo <see cref="Reader"/> è pubblico).
-/// </remarks>
+/// <summary>Una connessione SSE in ascolto: <see cref="ConnectionId"/>, <see cref="GroupKey"/> e il canale (buffer per-connessione) da cui l'endpoint legge.</summary>
 public sealed class NotificationSubscriber
 {
     internal NotificationSubscriber(string connectionId, string? groupKey, Channel<NotificationMessage> channel)
@@ -111,14 +77,7 @@ public sealed class NotificationSubscriber
     public ChannelReader<NotificationMessage> Reader => Channel.Reader;
 }
 
-/// <summary>
-/// Canale di notifiche realtime server → client (SSE). Registro delle connessioni + pubblicazione mirata.
-/// </summary>
-/// <remarks>
-/// Singleton. Il codice di dominio inietta questa interfaccia e chiama <see cref="Publish"/> con il
-/// <see cref="NotificationTarget"/> scelto; l'endpoint SSE dell'engine usa <see cref="Subscribe"/>/
-/// <see cref="Unsubscribe"/> per gestire il ciclo di vita di ogni connessione.
-/// </remarks>
+/// <summary>Canale di notifiche realtime server → client (SSE), singleton: registro connessioni + pubblicazione mirata.</summary>
 public interface INotificationStream
 {
     /// <summary>Registra una nuova connessione e restituisce il relativo <see cref="NotificationSubscriber"/>.</summary>
@@ -128,52 +87,27 @@ public interface INotificationStream
     /// <summary>Rimuove una connessione e ne chiude il canale.</summary>
     void Unsubscribe(string connectionId);
 
-    /// <summary>Pubblica un messaggio verso i destinatari indicati dal <paramref name="target"/>.</summary>
-    /// <returns><c>true</c> se almeno una connessione viva l'ha ricevuto: lo usa il fallback Auto della
-    /// delivery per ripiegare su email senza una finestra TOCTOU tra "verifica" e "pubblica".</returns>
+    /// <summary>Pubblica verso i destinatari del target. Ritorna true se almeno una connessione viva l'ha ricevuto (senza finestra TOCTOU rispetto a un IsReachable chiamato prima).</summary>
     bool Publish(NotificationTarget target, NotificationMessage message);
 
-    /// <summary>
-    /// Storico recente delle notifiche recuperabili da un client (per popolare il campanellino
-    /// anche dopo un reload o su una nuova scheda). Include i broadcast e — se <paramref name="groupKey"/>
-    /// è valorizzato — le notifiche di quel gruppo. Le notifiche mirate a una singola connessione
-    /// sono effimere e NON entrano nello storico (legate a una connessione viva, non recuperabili).
-    /// </summary>
-    /// <param name="groupKey">Chiave di gruppo del chiamante, o <c>null</c> per i soli broadcast.</param>
-    /// <param name="afterId">
-    /// Se valorizzato, restituisce solo i messaggi <b>successivi</b> a quell'id (replay dopo una
-    /// riconnessione, da <c>Last-Event-ID</c>). Se l'id non è più in storico, restituisce tutto il
-    /// rilevante (il client deduplica per id). <c>null</c> = storico completo rilevante.
-    /// </param>
+    /// <summary>Storico recuperabile (broadcast + eventuale gruppo, mai le notifiche per-connessione). Con <paramref name="afterId"/> restituisce solo i messaggi successivi (replay da Last-Event-ID).</summary>
     IReadOnlyList<NotificationMessage> GetHistory(string? groupKey, string? afterId = null);
 
-    /// <summary>
-    /// Indica se esiste almeno una connessione viva che <paramref name="target"/> raggiungerebbe.
-    /// Usato dalla consegna in modalità Auto: se nessuno è raggiungibile via realtime, si ripiega
-    /// su un canale durevole (email).
-    /// </summary>
+    /// <summary>Se esiste almeno una connessione viva che il target raggiungerebbe (usato dal fallback Auto della delivery per ripiegare su email).</summary>
     bool IsReachable(NotificationTarget target);
 
     /// <summary>Numero di connessioni attualmente attive.</summary>
     int ConnectionCount { get; }
 }
 
-/// <summary>
-/// Implementazione in memoria di <see cref="INotificationStream"/> basata su canali bufferizzati thread-safe.
-/// </summary>
-/// <remarks>
-/// Progettata per una singola istanza backend. In scenari multi-istanza va sostituita 
-/// registrando un provider basato su backplane (es. Redis).
-/// </remarks>
+/// <summary>Implementazione in memoria di <see cref="INotificationStream"/>: per singola istanza backend, sostituibile con un backplane (es. Redis) per lo scale-out.</summary>
 public sealed class NotificationStream : INotificationStream
 {
     // Buffer per-connessione: se un client è lento, scartiamo i messaggi più vecchi invece di
     // accumulare memoria all'infinito. Una notifica persa è preferibile a un leak.
     private const int PerConnectionBuffer = 100;
 
-    // Storico recuperabile via API: anch'esso bounded. In memoria → per una singola istanza.
-    // È il punto in cui, "domani", lo storico per-utente persistente (post-login) sostituirebbe
-    // questa struttura con uno store (DB) interrogato per id utente.
+    // Storico recuperabile via API, anch'esso bounded e in memoria (per singola istanza).
     private const int HistoryCapacity = 100;
 
     private readonly ConcurrentDictionary<string, NotificationSubscriber> _subscribers = new();
@@ -271,48 +205,27 @@ public sealed class NotificationStream : INotificationStream
     };
 }
 
-/// <summary>
-/// Decide a quale "gruppo" appartiene una connessione SSE in arrivo, a partire dall'<see cref="HttpContext"/>.
-/// </summary>
-/// <remarks>
-/// È il punto di estensione con cui un progetto figlio abilita il targeting per utente/tenant senza
-/// che l'engine conosca la forma della sua sessione. L'engine registra un default che ritorna
-/// <c>null</c> (nessun gruppo → il targeting <see cref="NotificationTargetKind.Group"/> non raggiunge
-/// nessuno, comportamento anonimo-safe). Un figlio sostituisce la registrazione con la propria
-/// implementazione, ad esempio leggendo l'id utente dal claim di sessione del JWT.
-/// </remarks>
+/// <summary>Punto di estensione: decide a quale gruppo appartiene una connessione SSE, senza che l'engine conosca la forma della sessione del progetto (es. legge l'id utente dal claim JWT).</summary>
 public interface INotificationGroupResolver
 {
     /// <summary>Chiave di gruppo per la connessione, o <c>null</c> se non raggruppata.</summary>
     string? Resolve(HttpContext context);
 }
 
-/// <summary>
-/// Default dell'engine: nessun raggruppamento. Mantiene il meccanismo utilizzabile senza login;
-/// il targeting per gruppo diventa attivo solo quando un figlio registra il proprio resolver.
-/// </summary>
+/// <summary>Default dell'engine: nessun raggruppamento (anonimo-safe), finché un progetto non registra il proprio resolver.</summary>
 public sealed class NullNotificationGroupResolver : INotificationGroupResolver
 {
     /// <inheritdoc />
     public string? Resolve(HttpContext context) => null;
 }
 
-/// <summary>
-/// Registrazione DI del meccanismo di notifiche realtime del template.
-/// </summary>
+/// <summary>Registrazione DI del meccanismo di notifiche realtime del template.</summary>
 public static class NotificationExtensions
 {
-    /// <summary>
-    /// Registra lo stream di notifiche (singleton) e il resolver di gruppo di default.
-    /// </summary>
-    /// <remarks>
-    /// Il resolver è registrato con <c>TryAddSingleton</c>: un progetto figlio può sostituirlo
-    /// con la propria implementazione (<c>services.AddSingleton&lt;INotificationGroupResolver, ...&gt;()</c>)
-    /// per abilitare il targeting per utente/tenant, senza che l'engine conosca la sua sessione.
-    /// </remarks>
+    /// <summary>Registra stream e resolver di gruppo (entrambi <c>TryAddSingleton</c>): un progetto può sostituire l'uno o l'altro.</summary>
     public static IServiceCollection AddTemplateNotifications(this IServiceCollection services)
     {
-        services.AddSingleton<INotificationStream, NotificationStream>();
+        services.TryAddSingleton<INotificationStream, NotificationStream>();
         services.TryAddSingleton<INotificationGroupResolver, NullNotificationGroupResolver>();
         return services;
     }

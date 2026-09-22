@@ -15,31 +15,17 @@ namespace Backend.Security;
 
 /// <summary>
 /// Estensioni che registrano e applicano la sicurezza del template (defense in depth).
-/// L'ordine di registrazione e applicazione è fisso. Vedi README.md → "Pipeline HTTP".
+/// L'ordine di registrazione e applicazione è fisso.
 /// </summary>
 public static class SecurityExtensions
 {
-    /// <summary>
-    /// Registra autenticazione, autorizzazione, CORS, rate limiting e gestione errori.
-    /// </summary>
-    /// <param name="services">Collezione DI da configurare.</param>
-    /// <param name="security">Opzioni tipizzate lette da <c>global-settings.json</c>.</param>
-    /// <param name="configureRateLimiting">
-    /// Callback opzionale eseguita dopo la configurazione di default del rate limiter: un progetto
-    /// che vuole andare oltre le soglie di <see cref="RateLimitingOptions"/> (partizionare per
-    /// utente invece che per IP, un algoritmo diverso, policy aggiuntive per un proprio endpoint)
-    /// riceve le stesse <see cref="RateLimiterOptions"/> e può aggiungervi o sovrascriverne membri.
-    /// </param>
-    /// <returns>La stessa collezione servizi, per consentire il chaining della configurazione.</returns>
+    /// <summary>Registra autenticazione, autorizzazione, CORS, rate limiting e gestione errori. <paramref name="configureRateLimiting"/> è un hook opzionale invocato dopo il default, per policy/soglie aggiuntive di progetto.</summary>
     public static IServiceCollection AddTemplateSecurity(
         this IServiceCollection services,
         SecurityOptions security,
         Action<RateLimiterOptions>? configureRateLimiting = null)
     {
-        // ── AUTENTICAZIONE ──────────────────────────────────────────────
-        //
-        // Schema primario: API Key (header X-Api-Key).
-        //
+        // ── AUTENTICAZIONE ── Schema primario: API Key (header X-Api-Key).
         var authBuilder = services
             .AddAuthentication(options =>
             {
@@ -58,11 +44,7 @@ public static class SecurityExtensions
                     options.ValidKeys = new HashSet<string>(security.ApiConfig.Keys, StringComparer.Ordinal);
                 });
 
-        // ── JWT BEARER (condizionale) ───────────────────────────────────
-        //
-        // Registrato solo se Security.Token.SecretKey e' valorizzata.
-        // Se vuota, l'intero sistema JWT non esiste a runtime.
-        //
+        // ── JWT BEARER (condizionale) ── Registrato solo se Security.Token.SecretKey è valorizzata.
         if (security.LoginEnabled)
         {
             authBuilder.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
@@ -85,11 +67,7 @@ public static class SecurityExtensions
             });
         }
 
-        // ── AUTORIZZAZIONE ──────────────────────────────────────────────
-        //
-        // Policy "RequireLogin", usata da ProtectedController con
-        // [Authorize(Policy = "RequireLogin")].
-        //
+        // ── AUTORIZZAZIONE ── Policy "RequireLogin", usata via [Authorize(Policy = "RequireLogin")].
         services.AddAuthorization(options =>
         {
             var policyBuilder = new AuthorizationPolicyBuilder(
@@ -138,19 +116,13 @@ public static class SecurityExtensions
             });
         });
 
-        // ── RATE LIMITING ───────────────────────────────────────────────
-        //
-        // Protezione da abuso, partizionata per IP del client. Soglie in Security.ApiConfig.RateLimiting
-        // (global-settings.json): un progetto le cambia lì, senza toccare questo file.
-        //
+        // ── RATE LIMITING ── Protezione da abuso, partizionata per IP. Soglie in
+        // Security.ApiConfig.RateLimiting (global-settings.json), un progetto le cambia lì.
         var apiRateLimiting = security.ApiConfig.RateLimiting;
         services.AddRateLimiter(options =>
         {
-            // OnRejected sostituisce RejectionStatusCode: scrive un ProblemDetails (RFC 9457)
-            // con status 429 e, quando il limiter espone il tempo d'attesa residuo, aggiunge
-            // l'header Retry-After e lo include nel campo detail.
-            // UseRequestLocalization non ha ancora eseguito in questo punto del pipeline,
-            // quindi la cultura viene ricavata direttamente dall'header Accept-Language.
+            // OnRejected scrive un ProblemDetails 429 con Retry-After. UseRequestLocalization non ha
+            // ancora eseguito qui, quindi la cultura si ricava direttamente da Accept-Language.
             options.OnRejected = async (context, _) =>
             {
                 var http = context.HttpContext;
@@ -225,22 +197,13 @@ public static class SecurityExtensions
             configureRateLimiting?.Invoke(options);
         });
 
-        // ── CIFRATURA GENERICA ───────────────────────────────────────────
-        //
-        // Servizio "cappello" AES-GCM per chi deve cifrare un payload (es. l'export dati
-        // personali in EngineDataPrivacyController). Indipendente da LoginEnabled: la chiave
-        // viene da Security.CryptoSecret, non da Token.SecretKey. Singleton costruito pigramente
-        // da DI: se CryptoSecret manca, l'eccezione emerge solo quando qualcosa risolve
-        // IEngineCrypto (property ambient Crypto su EngineApiController), non prima — così un
-        // controller che espone Crypto ma non la usa in un dato ramo (es. nessun dato da cifrare)
-        // non fallisce per una chiave che, in quel momento, non gli serve davvero.
-        //
+        // ── CIFRATURA GENERICA ── Servizio AES-GCM per chi deve cifrare un payload (es. export dati
+        // personali). Indipendente da LoginEnabled (chiave da Security.CryptoSecret). Costruito
+        // pigramente da DI: l'eccezione per chiave mancante emerge solo quando qualcosa risolve
+        // IEngineCrypto, non prima, così un controller che non la usa in un ramo non fallisce a vuoto.
         services.AddSingleton<IEngineCrypto, EngineCrypto>();
 
-        // ── GESTIONE ERRORI CENTRALIZZATA ───────────────────────────────
-        //
-        // I controller lanciano ApiException, ApiExceptionHandler le converte
-        // in risposte ProblemDetails (RFC 9457) con status, title e detail.
+        // ── GESTIONE ERRORI CENTRALIZZATA ── ApiException → ProblemDetails (RFC 9457).
         services.AddProblemDetails(options =>
         {
             options.CustomizeProblemDetails = context =>
@@ -251,12 +214,7 @@ public static class SecurityExtensions
         return services;
     }
 
-    /// <summary>
-    /// Aggiunge alla pipeline HTTP i middleware di sicurezza del template.
-    /// </summary>
-    /// <param name="app">Applicazione ASP.NET da configurare.</param>
-    /// <param name="security">Opzioni tipizzate lette da <c>global-settings.json</c>.</param>
-    /// <returns>La stessa applicazione, per consentire il chaining della pipeline.</returns>
+    /// <summary>Aggiunge alla pipeline HTTP i middleware di sicurezza del template, nell'ordine fisso.</summary>
     public static WebApplication UseTemplateSecurity(
         this WebApplication app,
         SecurityOptions security)
@@ -313,13 +271,9 @@ public static class SecurityExtensions
         // viene bloccato subito senza sprecare risorse sui middleware successivi.
         app.UseRateLimiter();
 
-        // Header di sicurezza rivolti al browser, definiti in security-headers.json
-        // (file del template) e condivisi col frontend Node SSR. Nel default il backend
-        // è interno e l'SSR è l'unico layer che parla col browser, ma quando backend.public
-        // è attivo il backend diventa raggiungibile dal browser: applicarli qui rende
-        // l'esposizione sicura a prescindere dal reverse proxy. Content-Security-Policy
-        // viene saltata: il backend serve solo JSON, su cui la CSP non ha effetto nel
-        // browser (e conterrebbe il placeholder per-nonce, gestito solo dall'SSR).
+        // Header di sicurezza da security-headers.json, condivisi col frontend SSR: applicati anche
+        // qui perché quando backend.public è attivo il backend diventa raggiungibile dal browser
+        // a prescindere dal reverse proxy. CSP esclusa: il backend serve solo JSON, dove non ha effetto.
         if (security.Headers.Count > 0)
         {
             // Content-Security-Policy: irrilevante su risposte JSON (gestita solo dall'SSR).

@@ -3,16 +3,7 @@ import { CSP_NONCE, Injectable, PLATFORM_ID, Signal, WritableSignal, afterNextRe
 import { ContestoSito } from '../../../site';
 import { toPascalCaseLabel, MOVIMENTO_DURATA, ELEVAZIONE_TIERS, HOVER_INTENSITY_TIERS, PULSAZIONE_TIERS, MUTEZZA_SECONDARIO_FATTORE, SEPARAZIONE_SUPERFICI_FATTORE } from '../design-system-presets';
 
-/**
- * Coppie CSS custom property per gli assi "sensazione" del design system attivo (`movimento`/
- * `elevazione`/`hoverIntensity`/`pulsazioneAttiva`/`lightboxBordiArrotondati`, `design-system-
- * presets.ts`) — costante di MODULO, non un metodo: a differenza della palette colore (tone-
- * reattiva, ricalcolata ad ogni cambio `prefers-color-scheme`), questi assi dipendono SOLO da
- * `ContestoSito.config`, fissa per l'intero deployment — calcolarli una volta sola al load del
- * modulo (server E client) invece che ad ogni `_applyPalette`/render SSR evita lookup ripetuti su
- * valori che non cambiano mai. Condivisa fra `_applyPalette` (client) e
- * `_buildThemeStyleTagFromPalette` (SSR) così le due emissioni non possono divergere.
- */
+/** Coppie CSS custom property per gli assi "sensazione" del design system. Costante di MODULO (non un metodo): a differenza della palette colore, questi assi dipendono solo da `ContestoSito.config`, fissa per tutto il deployment — calcolata una volta, condivisa fra client e SSR così le due emissioni non divergono. */
 const STATIC_DESIGN_VARS: readonly [string, string][] = (() => {
     const cfg = ContestoSito.config;
     const movimento = MOVIMENTO_DURATA[cfg.movimento];
@@ -38,12 +29,7 @@ const STATIC_DESIGN_VARS: readonly [string, string][] = (() => {
     ];
 })();
 
-/**
- * Token subtle/emphasis generati da `computeSemanticSubtle` per un colore semantico.
- * Alimentano il sistema Bootstrap `.alert-*-subtle` / `.text-*-emphasis` / `.bg-*-subtle`.
- * Le varianti `Lt`/`Dk` sono pre-calcolate per entrambi i toni: `_applyPalette`
- * seleziona la coppia corretta in base al tone OS corrente.
- */
+/** Token subtle/emphasis da `computeSemanticSubtle`, per `.alert-*-subtle`/`.text-*-emphasis`/`.bg-*-subtle`. Varianti Lt/Dk pre-calcolate, `_applyPalette` sceglie la coppia in base al tone OS. */
 export interface SemanticSubtleTokens {
     /** Sfondo pastello light: tinta pallida del colore semantico su base chiara. CSS: `--bs-*-bg-subtle` (light) */
     bgSubtleLt: string;
@@ -59,13 +45,7 @@ export interface SemanticSubtleTokens {
     textEmphasisDk: string;
 }
 
-/**
- * Snapshot completo della palette calcolata da `computePalette` per un dato `colorTema`.
- * Tutti i valori sono esadecimali (`#rrggbb`) tranne `colorPrimaryRgb` (tripla `"r, g, b"`)
- * e `naturalTone`. Le varianti `Lt`/`Dk` sono pre-calcolate per entrambi i toni in un
- * unico passaggio: `_applyPalette` si limita a selezionare la coppia corretta senza
- * ricalcolare nulla a ogni cambio di tema.
- */
+/** Snapshot della palette da `computePalette` per un `colorTema`: esadecimale tranne `colorPrimaryRgb` (tripla RGB) e `naturalTone`. Varianti Lt/Dk pre-calcolate insieme, `_applyPalette` sceglie senza ricalcolare. */
 export interface PaletteTokens {
     // ── Brand ─────────────────────────────────────────────────────────────────
     /** Colore brand esatto (`site.colorTema` in global-settings.json). CSS: `--colorTema` */
@@ -76,29 +56,15 @@ export interface PaletteTokens {
     colorPrimary: string;
     /** Tripla RGB di `colorPrimary` (es. `"31, 64, 255"`), per le utility `rgba()` di Bootstrap. CSS: `--colorPrimaryRgb` */
     colorPrimaryRgb: string;
-    /**
-     * Gemella scura di `colorPrimary`: brand schiarito in OKLCH (hue e chroma preservate) finché il
-     * contrasto 4.8:1 (sopra AA) sulla superficie più ESTREMA dark (`mutedBgDk`) è garantito. Usata per
-     * il primary come FOREGROUND (testo `.text-primary`, bordo `.border-primary`) in dark mode, dove
-     * `colorPrimary` — tarato per il fondo chiaro — risulterebbe scuro-su-scuro. CSS: `--colorPrimaryFgDk`
-     */
+    /** Gemella scura di `colorPrimary` (brand schiarito in OKLCH, contrasto 4.8:1 su `mutedBgDk`): FOREGROUND del primary in dark mode, dove `colorPrimary` risulterebbe scuro-su-scuro. CSS: `--colorPrimaryFgDk` */
     colorPrimaryFgDk: string;
     /** Tripla RGB di `colorPrimaryFgDk`, per le utility `rgba()` con opacity. CSS: `--colorPrimaryFgRgbDk` */
     colorPrimaryFgDkRgb: string;
-    /**
-     * Variante LIGHT del primary come FOREGROUND (testo `.text-primary`, bordo `.border-primary`):
-     * brand scurito in OKLCH finché il contrasto 4.8:1 (sopra AA) sulla superficie più ESTREMA light
-     * (`mutedBgLt`) è garantito. Disaccoppiata dal fill `colorPrimary` (`--bs-primary`), che resta il
-     * colore brand fedele: il foreground vive sulle superfici, il fill ospita testo proprio. CSS: `--colorPrimaryFgLt`
-     */
+    /** Variante light del primary come FOREGROUND (brand scurito in OKLCH, contrasto 4.8:1 su `mutedBgLt`), disaccoppiata dal fill `colorPrimary`: il foreground vive sulle superfici, il fill ospita testo proprio. CSS: `--colorPrimaryFgLt` */
     colorPrimaryFgLt: string;
     /** Tripla RGB di `colorPrimaryFgLt`. CSS: `--colorPrimaryFgRgbLt` */
     colorPrimaryFgLtRgb: string;
-    /**
-     * Variante DARK del primary come FILL (`--bs-primary` in dark mode): `colorPrimary` schiarito quanto
-     * basta per un boundary ≥3.2:1 sul fondo pagina scuro, così `.btn-primary`/`.bg-primary` resta
-     * visibile anche con brand quasi-neri. Brand già luminosi: invariato. CSS: `--colorPrimaryDk` (fill)
-     */
+    /** Variante dark del primary come FILL: `colorPrimary` schiarito quanto basta per un boundary ≥3.2:1 sul fondo scuro (brand già luminosi: invariato). CSS: `--colorPrimaryDk` (fill) */
     colorPrimaryFillDk: string;
     /** Tripla RGB di `colorPrimaryFillDk`. CSS: `--colorPrimaryRgbDk` (fill) */
     colorPrimaryFillDkRgb: string;
@@ -114,9 +80,7 @@ export interface PaletteTokens {
     colorLinkDk: string;
 
     // ── Surfaces — light tone ──────────────────────────────────────────────
-    /** Sfondo pagina light: quasi bianco con leggera tinta brand (L=0.970 di default — più basso,
-     *  fino alla lucentezza reale del colore di sfondo, con `backgroundVividness` > 0, vedi
-     *  `PaletteOverrides`). CSS: `--colorBaseLt` */
+    /** Sfondo pagina light: quasi bianco con leggera tinta brand (L=0.970 default, più basso con `PaletteOverrides.backgroundVividness` > 0). CSS: `--colorBaseLt` */
     colorBaseLt: string;
     /** Sfondo card/modal light: leggermente più luminoso di Base (L=0.985). CSS: `--colorSurfaceLt` */
     colorSurfaceLt: string;
@@ -128,9 +92,7 @@ export interface PaletteTokens {
     colorSurfaceTextLt: string;
 
     // ── Surfaces — dark tone ───────────────────────────────────────────────
-    /** Sfondo pagina dark: quasi nero con leggera tinta brand (L=0.140 di default — più alto, fino
-     *  alla lucentezza reale del colore di sfondo, con `backgroundVividness` > 0, vedi
-     *  `PaletteOverrides`). CSS: `--colorBaseDk` */
+    /** Sfondo pagina dark: quasi nero con leggera tinta brand (L=0.140 default, più alto con `PaletteOverrides.backgroundVividness` > 0). CSS: `--colorBaseDk` */
     colorBaseDk: string;
     /** Sfondo card/modal dark (L=0.180). CSS: `--colorSurfaceDk` */
     colorSurfaceDk: string;
@@ -197,10 +159,7 @@ export interface PaletteTokens {
     colorMutedTextDk: string;
 
     // ── Adaptive Navbar/Footer tokens ──────────────────────────────────────
-    /**
-     * Sfondo navbar/footer light. Se `colorTemaText === '#ffffff'` (brand scuro): usa `colorTema` direttamente
-     * per un look brand immersivo. Altrimenti versione pastello (L=0.965) per evitare colori aggressivi. CSS: `--colorNavBgLt`
-     */
+    /** Sfondo navbar/footer light: `colorTema` diretto se brand scuro (look immersivo), altrimenti pastello (L=0.965) per evitare colori aggressivi. CSS: `--colorNavBgLt` */
     colorNavBgLt: string;
     /** Testo navbar/footer light: bianco su brand scuro, oppure quasi-nero tintato brand su pastello. CSS: `--colorNavTextLt` */
     colorNavTextLt: string;
@@ -213,151 +172,56 @@ export interface PaletteTokens {
     /** Bordo navbar/dropdown dark: mix 15% text su bg. CSS: `--colorNavBorderDk` */
     colorNavBorderDk: string;
 
-    /**
-     * Tono suggerito dal brand: `'light'` se il brand è sufficientemente chiaro da richiedere testo scuro,
-     * `'dark'` altrimenti. Usato come valore iniziale di `themeTone` in SSR (dove `prefers-color-scheme` non è disponibile).
-     */
+    /** Tono suggerito dal brand ('light' se richiede testo scuro): valore iniziale di `themeTone` in SSR, dove `prefers-color-scheme` non è disponibile. */
     naturalTone: 'light' | 'dark';
 
-    /**
-     * Colori con nome proprio risolti da `PaletteOverrides.customPalette` — chiave = la stessa
-     * etichetta scelta dal design system (es. `'bordeaux'`), stessa pipeline WCAG di
-     * `colorSecondary*` (fill conforme al contrasto target + testo leggibile sopra). `{}` se nessun
-     * design system ne propone. CSS: `--color<Label>` (Pascal-case)/`--color<Label>Text`.
-     */
+    /** Colori con nome proprio da `PaletteOverrides.customPalette` (stessa pipeline WCAG di `colorSecondary*`); `{}` se nessun design system ne propone. CSS: `--color<Label>`/`--color<Label>Text`. */
     customPalette: Record<string, { lt: string; ltText: '#000000' | '#ffffff'; dk: string; dkText: '#000000' | '#ffffff' }>;
 }
 
-/**
- * Override opzionali per le catene di derivazione che possono avere una hue indipendente dal
- * brand: secondario, sfondo (superfici), testo e info. Due comportamenti diversi secondo il campo.
- * `background`/`text` sostituiscono hue e chroma SOLO per la propria catena — le varianti
- * light/dark restano comunque calcolate e garantite WCAG dalla stessa pipeline usata per
- * `colorTema`: sono famiglie di più superfici derivate (base/surface/hover/subtle/muted...), non
- * un singolo colore, quindi non hanno un equivalente "letterale" da imporre di peso.
- * `secondary`/`info`/ogni voce di `customPalette` sono invece override "duri": il fill finale
- * (light E dark) è ESATTAMENTE l'hex scritto, senza alcuna ricerca di contrasto — resta calcolato
- * solo il testo leggibile sopra (altrimenti sarebbe invisibile, non solo fuori standard). Un design
- * system vince quindi anche sulle garanzie WCAG dell'engine per questi tre campi: se il risultato
- * non è leggibile a sufficienza è una scelta visibile e reversibile di chi l'ha impostata, non un
- * bug dell'engine. Assente: ciascun campo ha un proprio fallback, calcolato come sempre con
- * garanzia WCAG — vedi il commento del singolo campo (`text` NON ricade sul brand ma su
- * `background`, `info` non ha alcun fallback).
- */
+/** Override opzionali con hue indipendente dal brand: secondario, sfondo, testo, info. `background`/`text` restano famiglie derivate con garanzia WCAG; `secondary`/`info`/`customPalette` sono override "duri" (fill esatto, WCAG non garantita — scelta visibile di chi lo imposta). Dettagli per campo sotto. */
 export interface PaletteOverrides {
-    /**
-     * Override "duro" di `colorSecondary*`: se presente, il fill finale è esattamente questo hex
-     * in entrambi i toni, nessuna ricerca di contrasto — solo `subtleSecondary` resta derivato con
-     * garanzia WCAG dalla stessa hue/chroma. Assente: muted del brand, calcolato come sempre con
-     * garanzia WCAG.
-     */
+    /** Override "duro" di `colorSecondary*`: se presente, fill esatto in entrambi i toni (nessuna ricerca di contrasto), solo `subtleSecondary` resta derivato WCAG. Assente: muted del brand, come sempre. */
     secondary?: string;
-    /**
-     * Hue/chroma indipendenti per `colorBase*`/`colorSurface*`/`colorMutedBg*`/`colorSubtleBg*` —
-     * famiglia di superfici derivate, sempre garantita WCAG (non un override "duro": non esiste un
-     * solo hex che sia contemporaneamente base/surface/hover/subtle/muted).
-     */
+    /** Hue/chroma indipendenti per la famiglia base/surface/mutedBg/subtleBg — sempre derivata con garanzia WCAG (non un override "duro": nessun hex singolo copre tutti quei ruoli). */
     background?: string;
-    /**
-     * Hue/chroma indipendenti per `colorSurfaceText*`/`colorHeading*`/`colorMutedText*` — stessa
-     * natura di `background` sopra (famiglia derivata, sempre garantita WCAG). Assente: il testo
-     * NON ricade sul brand ma segue `background` (che a sua volta è il brand se nemmeno quello è
-     * overridden) — testo e sfondo restano sempre intonati di default, evitando due tinte
-     * scollegate che nessuno ha scelto di proposito.
-     */
+    /** Hue/chroma per surfaceText/heading/mutedText, stessa natura di `background`. Assente: il testo segue `background` (o il brand), mai scollegato da chi non l'ha scelto. */
     text?: string;
-    /**
-     * Override "duro" di `colorInfo*`, stessa natura di `secondary` sopra: se presente, il fill
-     * finale è esattamente questo hex in entrambi i toni, nessuna ricerca di contrasto — solo
-     * `subtleInfo` resta derivato con garanzia WCAG. A differenza degli altri campi, `info` non ha
-     * un fallback derivato dal brand: assente, `computePalette` non produce alcun token
-     * `colorInfo*` e Bootstrap 5.3 continua a gestire `--bs-info*` per intero coi suoi blocchi
-     * `[data-bs-theme]` nativi.
-     */
+    /** Override "duro" di `colorInfo*` come `secondary`. A differenza degli altri campi non ha fallback dal brand: assente, niente token `colorInfo*` e Bootstrap gestisce `--bs-info*` per intero. */
     info?: string;
-    /**
-     * Colori con nome proprio (da `DesignSystemPreset.customPalette`) — override "duro" come
-     * `secondary`: ogni voce diventa il fill esatto (light E dark, nessuna ricerca di contrasto)
-     * del token dinamico corrispondente (`--color<Label>`/`--color<Label>Text`, quest'ultimo
-     * calcolato per restare leggibile sopra), invece dei nomi fissi `colorSecondary*`. Assente/
-     * vuoto: nessun token in più, comportamento identico a prima dell'introduzione di questo campo.
-     */
+    /** Colori con nome proprio (`DesignSystemPreset.customPalette`), override "duro" come `secondary`: ogni voce diventa il fill esatto di `--color<Label>`/`--color<Label>Text`. Vuoto: nessun token in più. */
     customPalette?: Record<string, string>;
-    /**
-     * Quanto le superfici (`colorBase*`/`colorSurface*`/`colorMutedBg*`/`colorSubtleBg*`/
-     * `colorNavBg*`) devono "somigliare" al colore che le governa (`background` se presente,
-     * altrimenti il brand) invece che restare quasi neutre — 0 (default) = comportamento storico:
-     * near-black/near-white con una tinta appena percettibile (stile "dark mode" di
-     * GitHub/Discord/VS Code); 1 = la superficie usa la STESSA lucentezza (L, in OKLCH) del colore
-     * di riferimento — uno sfondo che è visibilmente quel colore, non nero tinto (es. un sito con
-     * un intero campo rosso acceso come sfondo, non un dark mode neutro). Valori intermedi
-     * interpolano linearmente fra i due. Interpolare (non sostituire) preserva l'ORDINE relativo fra
-     * le superfici della scala (base più scura di surface, più scura di hover, ecc. — nessuna può
-     * mai superare le altre, qualunque sia il valore) — a costo di margini di contrasto FRA superfici
-     * via via più stretti quanto più ci si avvicina a 1 (mai sotto WCAG: il testo sopra ciascuna
-     * superficie resta calcolato con `findCompliantColor` contro la superficie REALE risultante, non
-     * contro il valore storico). Assente/0: zero differenza per un design system che non lo imposta.
-     */
+    /** Quanto le superfici si avvicinano alla lucentezza (L, OKLCH) del colore di riferimento invece di restare neutre: 0 (default) = near-black/white appena tinto, 1 = sfondo visibilmente quel colore, interpolato in mezzo. L'interpolazione preserva l'ordine fra superfici e non scende mai sotto WCAG (testo ricalcolato contro la superficie reale). */
     backgroundVividness?: number;
-    /**
-     * Fattore (0-1) che moltiplica il chroma OKLCH del `secondary` auto-calcolato dal brand —
-     * SOLO se `secondary` sopra non è già un override "duro" (quello vince comunque per intero).
-     * 1 (default) = comportamento storico. Da `DesignSystemPreset.mutezzaSecondario`
-     * (`MUTEZZA_SECONDARIO_FATTORE`, `design-system-presets.ts`).
-     */
+    /** Fattore (0-1) sul chroma OKLCH del `secondary` auto-calcolato, solo se non è già un override "duro". 1 (default) = comportamento storico. Da `DesignSystemPreset.mutezzaSecondario`. */
     mutezzaSecondarioFattore?: number;
-    /**
-     * Fattore che scala lo SCARTO di lucentezza di ogni superficie di contenuto (subtle/muted/
-     * surface/surfaceHover) dalla base — asse ORTOGONALE a `backgroundVividness` (che decide quanto
-     * ci si avvicina al colore del BRAND, non quanto le superfici si distinguono FRA loro). Il
-     * bordo (`colorSurfaceBorder*`) resta escluso: ancorato a un minimo WCAG 1.4.11, non una scelta
-     * di stile. 1 (default) = scarti storici esatti. Da `DesignSystemPreset.separazioneSuperfici`
-     * (`SEPARAZIONE_SUPERFICI_FATTORE`, `design-system-presets.ts`).
-     */
+    /** Fattore che scala lo scarto di lucentezza fra le superfici di contenuto (asse ortogonale a `backgroundVividness`); il bordo resta escluso (ancorato al minimo WCAG 1.4.11). 1 (default) = scarti storici. Da `DesignSystemPreset.separazioneSuperfici`. */
     separazioneSuperficiFattore?: number;
 }
 
 /**
- * APPEARANCE SERVICE
- *
- * Unica fonte di verità per l'estetica del sito derivata dal design system attivo — non solo
- * colore, nonostante il nome storico (ThemeService) suggerisse altro:
- * - Palette calcolata una volta via OKLCH da ContestoSito.config.colorTema
- * - themeTone è un signal reattivo all'OS preference (prefers-color-scheme)
- * - movimento/elevazione/hoverIntensity/pulsazioneAttiva (STATIC_DESIGN_VARS, sopra) — CSS vars
- *   statiche per l'intero deployment, non legate al colore
- * - font-face self-hosted del font attivo e di ogni addonFonts registrato, di sistema o di progetto (_ensureFontFaces)
- * - _applyPalette inietta tutte queste CSS vars e attributi su <html> in modo sincrono; condivide
- *   lo stesso canale SSR (`_buildThemeStyleTagFromPalette`) con tutti e 3 gli assi sopra — motivo
- *   per cui restano in UNA classe invece di essere separati per argomento (ENGINE.md, sezione
- *   "Leve nominate del design system: risoluzione")
- *
- * Metodi statici (puri, usabili da Node/scripts di build):
- *   computePalette, hexToOklch, oklchToHex,
- *   computeThemeTone, computeColorPrimary, prefersDarkText,
- *   getReadableTextColor, mixHexColors, calcContrastRatio, ecc.
+ * Unica fonte di verità per l'estetica del sito derivata dal design system attivo (palette colore
+ * OKLCH, movimento/elevazione/hoverIntensity, font-face self-hosted): `_applyPalette` inietta tutte
+ * le CSS vars su `<html>` in modo sincrono, condividendo il canale SSR con tutti gli assi — perché
+ * restano in una classe sola. Metodi statici puri (usabili anche da script di build): computePalette,
+ * hexToOklch, oklchToHex, computeThemeTone, computeColorPrimary, prefersDarkText,
+ * getReadableTextColor, mixHexColors, calcContrastRatio.
  */
 @Injectable({ providedIn: 'root' })
 export class AppearanceService {
 
-    // Colore brand — fisso per l'intera sessione, da ContestoSito.config (site.colorTema in
-    // global-settings.json): non esiste più un modo di cambiarlo a runtime (era setColorTema(),
-    // mai chiamato da nessun consumer reale, rimosso). Resta un Signal (non un plain field) solo
-    // per compatibilità dell'API pubblica `colorTema` sotto — chi la legge continua a chiamarla
-    // come prima, `_palette` computed continua a funzionare invariato.
+    // Fisso per l'intera sessione (site.colorTema): niente più setColorTema() a runtime (rimosso,
+    // mai usato). Resta un Signal solo per compatibilità dell'API pubblica `colorTema` sotto.
     private readonly _colorTema: Signal<string>;
     private readonly _palette: Signal<PaletteTokens>;
 
-    // Override di secondario/sfondo/testo — statici per la durata della sessione (config di
-    // progetto, non runtime come colorTema): letti una volta in costruzione da ContestoSito.config.
+    // Statici per la sessione (config di progetto, non runtime come colorTema).
     private readonly _overrides: PaletteOverrides;
 
     private readonly document = inject(DOCUMENT);
     private readonly platformId = inject(PLATFORM_ID);
-    // Stesso nonce del provider CSP_NONCE server-side (o, sul bootstrap client-only, dell'attributo
-    // ngCspNonce che server.ts inietta su <app-root> — vedi CSP_NONCE in @angular/core): serve
-    // esplicito perché _ensureFontFaces crea il tag via DOM nativo (createElement), non via
-    // Renderer2 — Angular applica il nonce in automatico solo agli elementi che crea lui.
+    // Stesso nonce del provider CSP_NONCE: serve esplicito perché _ensureFontFaces crea il tag via
+    // DOM nativo, non via Renderer2 (che applicherebbe il nonce in automatico).
     private readonly cspNonce = inject(CSP_NONCE, { optional: true });
 
     // ── Plain readonly from palette ───────────────────────────────────────
@@ -366,30 +230,15 @@ export class AppearanceService {
     readonly colorTema: Signal<string>;
     /** Signal `#000000` o `#ffffff` — testo a contrasto massimo su `--colorTema`. CSS: `--colorTemaText` */
     readonly colorTemaText: Signal<'#000000' | '#ffffff'>;
-    /**
-     * Signal della variante scurita del brand con contrasto WCAG 4.5:1 sullo sfondo pagina chiaro reale.
-     * Usare per bottoni, CTA e link. CSS: `--colorPrimary`
-     */
+    /** Signal della variante scurita del brand, contrasto WCAG 4.5:1 sullo sfondo chiaro reale. Bottoni, CTA, link. CSS: `--colorPrimary` */
     readonly colorPrimary: Signal<string>;
     /** Signal `#000000` o `#ffffff` — testo leggibile su `--colorPrimary`. CSS: `--colorPrimaryText` */
     readonly colorPrimaryText: Signal<'#000000' | '#ffffff'>;
-    /**
-     * Signal della variante muted del brand (chroma ridotta al 75%, o hue indipendente se
-     * `colorSecondary` è overridden in global-settings.json). Come `colorPrimary`, non è
-     * tone-adaptive: stesso valore a prescindere dal tema OS — coerente con l'uso in canvas/immagini
-     * generate, che restano un artefatto statico una volta prodotte. CSS: `--colorSecondaryLt`
-     */
+    /** Signal della variante muted del brand (o hue indipendente se overridden). Non tone-adaptive come `colorPrimary`, coerente con l'uso in canvas/immagini generate (artefatto statico). CSS: `--colorSecondaryLt` */
     readonly colorSecondary: Signal<string>;
     /** Signal `#000000` o `#ffffff` — testo leggibile su `--colorSecondary`. CSS: `--colorSecondaryTextLt` */
     readonly colorSecondaryText: Signal<'#000000' | '#ffffff'>;
-    /**
-     * Tono effettivo del pannello contenuti (`.content-panel`), indipendente dalla preferenza OS
-     * (o dal tono fissato da `forceThemeTone`) che governa navbar/footer/sfondo — dal
-     * `panelSurface` del design system attivo (`'light'|'dark'`), `null` se `'auto'` (segue
-     * l'ambiente, quale che sia). Guida sia l'attributo Bootstrap sia le classi CSS, un'unica fonte di verità:
-     * `<div [attr.data-bs-theme]="theme.panelTone" [class.panel-light]="theme.panelTone === 'light'"
-     *       [class.panel-dark]="theme.panelTone === 'dark'">`.
-     */
+    /** Tono del pannello contenuti (`.content-panel`), indipendente dal tono di navbar/footer/sfondo: da `panelSurface` del design system, `null` se `'auto'` (segue l'ambiente). Unica fonte per attributo Bootstrap e classi CSS. */
     readonly panelTone: 'light' | 'dark' | null;
     // Da global-settings.json → site.forceThemeTone. null = segue l'OS (comportamento di sempre).
     private readonly _forcedThemeTone: 'light' | 'dark' | undefined;
@@ -402,12 +251,7 @@ export class AppearanceService {
     // WritableSignal interno: aggiornato dal listener prefers-color-scheme nel costruttore.
     // Esposto in sola lettura come `themeTone` — i componenti leggono, non scrivono.
     private readonly _themeTone: WritableSignal<'light' | 'dark'>;
-    /**
-     * Signal `'light' | 'dark'` reattivo alla preferenza OS (`prefers-color-scheme`).
-     * Cambia in tempo reale se l'utente alterna il tema di sistema senza ricaricare la pagina.
-     * Riflesso come attributo `data-theme-tone` su `<html>`.
-     * Usare nei componenti che adattano canvas, icone o stili inline al tono corrente.
-     */
+    /** Signal reattivo a `prefers-color-scheme`, cambia senza reload; riflesso come attributo `data-theme-tone` su `<html>`. Per componenti che adattano canvas/icone/stili inline al tono corrente. */
     readonly themeTone: Signal<'light' | 'dark'>;
 
     constructor() {
@@ -435,12 +279,9 @@ export class AppearanceService {
         this.colorSecondaryText = computed(() => this._palette().colorSecondaryTextLt);
         // Da global-settings.json → site.forceThemeTone: sito intero fissato su un tono, mai riletto dall'OS.
         this._forcedThemeTone = ContestoSito.config.forceThemeTone;
-        // panelSurface pinna il pannello indipendentemente dall'ambiente circostante — anche se
-        // quell'ambiente è già fissato da forceThemeTone: un pannello su un tono diverso dal resto
-        // del sito è una composizione valida (pattern comune ad es. in Radix Themes/Chakra/Ant
-        // Design/Carbon: una card chiara dentro un'app scura, o viceversa), non un conflitto da
-        // arbitrare qui. siteBuilder.ts sceglie già il default giusto in base a forceThemeTone
-        // ('auto' se impostato, altrimenti 'light'): qui non resta che leggerlo.
+        // panelSurface pinna il pannello indipendentemente dall'ambiente (anche se fissato da
+        // forceThemeTone): un tono diverso dal resto del sito è una composizione valida (pattern
+        // comune, es. Radix/Chakra/Carbon), non un conflitto da arbitrare qui.
         this.panelTone = ContestoSito.config.panelSurface === 'auto' ? null : ContestoSito.config.panelSurface;
         this._navSurface = ContestoSito.config.navSurface;
 
@@ -449,14 +290,9 @@ export class AppearanceService {
         this._themeTone = signal(this._forcedThemeTone ?? this._palette().naturalTone);
         this.themeTone = this._themeTone.asReadonly();
 
-        // 4. `<style id="theme-init">` presente = l'SSR ha già iniettato i blocchi
-        //    `@media(prefers-color-scheme)` che coprono DA SOLI, in puro CSS, sia il render
-        //    iniziale sia ogni cambio OS successivo (colorTema è fisso per la sessione — non
-        //    esiste più nulla che possa disallinearli da quel CSS). Stesso principio già usato da
-        //    `_ensureFontFaces` per l'@font-face: quando il tag manca (CSR-only, es. build/
-        //    preview senza SSR) non c'è alcun CSS a cui appoggiarsi, quindi JS applica e riapplica
-        //    per intero; quando c'è, JS non riscrive mai le CSS vars — evita ~100 `setProperty` a
-        //    vuoto sia al boot sia ad ogni toggle OS.
+        // 4. `<style id="theme-init">` presente = l'SSR ha già iniettato i blocchi @media che coprono
+        //    da soli, in puro CSS, render iniziale e ogni cambio OS: JS non riscrive mai le CSS vars
+        //    (evita ~100 setProperty a vuoto). Manca solo su CSR-only (build/preview senza SSR).
         const ssrThemeTagPresent = isPlatformBrowser(this.platformId) && !!this.document.getElementById('theme-init');
 
         afterNextRender(() => {
@@ -489,13 +325,7 @@ export class AppearanceService {
 
     // ── DOM injection ─────────────────────────────────────────────────────
 
-    /**
-     * Sceglie quale coppia di token già calcolati alimenta lo slot navbar/footer — stessa
-     * matematica di `computePalette`, solo una scelta di ALIAS in più (vedi `SiteShellConfig.navSurface`).
-     * `'brand'` (default): i token immersivi dedicati (`colorNavBg*`/`colorNavText*`/`colorNavBorder*`).
-     * `'body'`: gli stessi token dello sfondo pagina (`colorBase*`/`colorSurfaceText*`/`colorSurfaceBorder*`)
-     * — navbar/footer diventano indistinguibili dal contenuto, nessuna cesura.
-     */
+    /** Sceglie la coppia di token già calcolati per lo slot navbar/footer (alias, non nuova matematica): 'brand' = token immersivi dedicati, 'body' = stessi token dello sfondo pagina (nessuna cesura col contenuto). */
     private static _resolveNavColors(p: PaletteTokens, navSurface: 'brand' | 'body'): {
         navBgLt: string; navBgDk: string;
         navTextLt: string; navTextDk: string;
@@ -515,13 +345,7 @@ export class AppearanceService {
         };
     }
 
-    /**
-     * Inietta tutte le CSS custom properties del tema su `<html>` via `style.setProperty`.
-     * Chiamata SOLO quando manca `<style id="theme-init">` (CSR-only, vedi costruttore) — al boot
-     * e ad ogni cambio `prefers-color-scheme`; quando il tag SSR è presente i suoi blocchi
-     * `@media` coprono già entrambi i casi in puro CSS, questo metodo non viene mai invocato.
-     * Aggiorna anche `data-bs-theme` e `data-theme-tone` per il sistema di varianti Bootstrap.
-     */
+    /** Inietta le CSS custom properties del tema su `<html>` (+ data-bs-theme/data-theme-tone). Solo CSR-only, quando manca `<style id="theme-init">`: col tag SSR i blocchi @media coprono già tutto in CSS puro. */
     private _applyPalette(p: PaletteTokens, tone: 'light' | 'dark'): void {
         const el = this.document.documentElement;
         const lt = tone === 'light';
@@ -572,15 +396,10 @@ export class AppearanceService {
             // Link + focus ring — tone-adaptive: contrasto leggibile del link sul pannello
             ['--colorLinkLt', p.colorLinkLt],
             ['--colorLinkDk', p.colorLinkDk],
-            // Triple RGB fisse Lt/Dk di link e link-hover: senza queste, un subtheme [data-bs-theme]
-            // nidificato (es. pannello forced-light dentro pagina dark, vedi app.component.html) fa
-            // ricadere Bootstrap sul SUO --bs-link-color-rgb di stock (#0d6efd) — la mixin
-            // theme-bridge in _lib.scss sovrascrive --bs-link-color (hex) ma non la variante -rgb,
-            // che è quella che il CSS compilato di Bootstrap usa davvero per il colore del testo dei
-            // link (`a { color: rgba(var(--bs-link-color-rgb), ...) }`) e per il suo hover
-            // (`a:hover { --bs-link-color-rgb: var(--bs-link-hover-color-rgb) }`). Definite per
-            // garantire la propagazione del colore brand (e la conformità WCAG AA) anche dentro un
-            // subtheme [data-bs-theme] nidificato, evitando il fallback ai blu default di Bootstrap.
+            // Triple RGB fisse Lt/Dk di link/link-hover: la mixin theme-bridge in _lib.scss sovrascrive
+            // --bs-link-color (hex) ma non la variante -rgb, che Bootstrap usa davvero per il testo dei
+            // link (rgba(var(--bs-link-color-rgb))). Senza, un subtheme [data-bs-theme] nidificato
+            // ricadrebbe sul blu di stock Bootstrap invece del brand.
             ['--colorLinkRgbLt', AppearanceService.hexToRgbTriplet(p.colorLinkLt)],
             ['--colorLinkRgbDk', AppearanceService.hexToRgbTriplet(p.colorLinkDk)],
             ['--colorLinkHoverRgbLt', AppearanceService.hexToRgbTriplet(linkHoverLt)],
@@ -795,16 +614,7 @@ export class AppearanceService {
         return AppearanceService._buildThemeStyleTagFromPalette(AppearanceService._getCachedPalette(colorTema, overrides), forcedTone, navSurface);
     }
 
-    /**
-     * Produce il blocco `<style id="theme-init">` da iniettare nell'HTML SSR prima di `</head>`.
-     * Posizionato dopo il `<link>` di Bootstrap → stessa specificità (0,1,0), posizione successiva
-     * → nostro `:root` vince la cascade senza bisogno di inline styles.
-     * I `@media` blocks delegano al browser la scelta del tone in base all'OS — OMESSI del tutto
-     * se `forcedTone` è impostato: senza quei blocchi nessun cambio di `prefers-color-scheme` può
-     * più sovrascrivere le CSS vars, il `:root` col tono forzato resta l'unica dichiarazione.
-     * Se ci sono `@font-face` da iniettare (`SystemFont` attivo e/o font custom), le aggiunge nello
-     * STESSO tag — così `_ensureFontFaces` (client) lo trova già pronto ed evita un duplicato.
-     */
+    /** Blocco `<style id="theme-init">` per l'HTML SSR: dopo il `<link>` Bootstrap, stessa specificità (0,1,0) ma posizione successiva → il nostro `:root` vince senza inline styles. I blocchi @media sono omessi se `forcedTone` è impostato (nessun cambio OS può sovrascrivere). @font-face vanno nello stesso tag, così `_ensureFontFaces` (client) lo trova pronto ed evita duplicati. */
     private static _buildThemeStyleTagFromPalette(p: PaletteTokens, forcedTone?: 'light' | 'dark' | null, navSurface: 'brand' | 'body' = 'brand'): string {
         const nav = AppearanceService._resolveNavColors(p, navSurface);
 
@@ -988,12 +798,7 @@ export class AppearanceService {
      */
     private static readonly TARGET_TEXT_CONTRAST = 4.8;
 
-    /**
-     * Target di contrasto NON-testo per il boundary del fill primary (`--bs-primary`) contro lo sfondo
-     * pagina: 3.2:1, un margine sopra il minimo WCAG 1.4.11 (3:1). Usato in dark mode da
-     * `computeColorPrimaryFillDk` per garantire che `.btn-primary`/`.bg-primary` resti distinguibile
-     * dal fondo scuro anche con brand quasi-neri (che da soli sarebbero invisibili, ~1:1).
-     */
+    /** Target contrasto NON-testo del boundary fill primary contro lo sfondo: 3.2:1 (sopra il minimo WCAG 1.4.11 3:1). Usato in dark da `computeColorPrimaryFillDk` (brand quasi-neri sarebbero altrimenti ~1:1, invisibili). */
     private static readonly TARGET_FILL_BOUNDARY = 3.2;
 
     /**
@@ -1014,58 +819,30 @@ export class AppearanceService {
             return [c, h];
         };
         const [C_bg, H_bg] = chFor(overrides?.background);
-        // Testo: se overrides.text è presente resta un override pieno e indipendente (stessa
-        // pipeline di sempre, contrasto garantito allo stesso modo). Se ASSENTE, il default non è
-        // più il brand ma lo sfondo (C_bg/H_bg) — che a sua volta è già il brand se nemmeno
-        // colorBackground è stato impostato. Testo e sfondo restano quindi sempre intonati tra loro
-        // di default, invece di poter divergere in due tinte scollegate senza che nessuno lo scelga
-        // esplicitamente: elimina un asse di stonatura estetica che il solo controllo WCAG (basato
-        // su luminanza, non su armonia) non può intercettare.
+        // Testo: se overrides.text è presente resta un override pieno (stessa pipeline, contrasto
+        // garantito uguale). Assente, il default non è più il brand ma lo sfondo (C_bg/H_bg): testo
+        // e sfondo restano sempre intonati di default, invece di poter divergere senza che nessuno lo scelga.
         const [C_txt, H_txt] = overrides?.text ? chFor(overrides.text) : [C_bg, H_bg];
 
-        // I tetti di chroma delle superfici (vedi computeBaseLt/computeMutedBgLt/ecc., tutti
-        // Math.min(C*fattore, tetto)) sono tarati per il caso "brand derivato automaticamente":
-        // una sfumatura appena percettibile, perché prima era l'unico input possibile — e quel tetto
-        // è quasi sempre il valore VINCENTE del min(), a prescindere da quanto è saturo il colore in
-        // ingresso (un input molto saturo supera il tetto comunque). Con un override esplicito il
-        // risultato resterebbe quindi IDENTICO indipendentemente dalla tinta scelta: un giallo pieno
-        // finirebbe comunque appena percettibile. bgBoost/txtBoost moltiplicano il risultato GIÀ
-        // clampato (non l'input prima del tetto: min(a,b)*k = min(a*k,b*k), quindi alzare l'input da
-        // solo non basta se il tetto resta più piccolo) SOLO quando la tinta arriva da un override —
-        // il caso derivato dal brand resta bit-a-bit invariato. 16 è tarato empiricamente: rende la
-        // tinta riconoscibile (#fffacd → base ≈ #f8f6e1, chiaramente calda) restando una superficie
-        // chiara/scura, non un blocco di colore pieno — verificato anche con input a saturazione
-        // piena (#ff0000, #00ff00) senza mai scendere sotto WCAG AA. Il contrasto resta garantito a
-        // prescindere dal boost: findCompliantColor calcola sempre il testo dinamicamente contro la
-        // superficie reale risultante, qualunque essa sia.
+        // I tetti di chroma delle superfici (Math.min(C*fattore, tetto)) sono tarati per il brand
+        // derivato automaticamente: con un override esplicito il tetto vincerebbe quasi sempre e il
+        // risultato sarebbe identico a prescindere dalla tinta. bgBoost/txtBoost moltiplicano il
+        // risultato GIÀ clampato (min(a,b)*k = min(a*k,b*k)) solo quando la tinta viene da un
+        // override; il caso derivato dal brand resta bit-a-bit invariato. 16 è tarato empiricamente
+        // (tinta riconoscibile ma non un blocco di colore pieno, verificato anche a saturazione piena
+        // #ff0000/#00ff00). Il contrasto resta garantito a prescindere: findCompliantColor lo calcola
+        // sempre contro la superficie reale risultante.
         const OVERRIDE_CHROMA_BOOST = 16;
-        // `backgroundVividness`: quanto le superfici di CONTENUTO (base/surface/hover/subtle/muted —
-        // non la navbar, vedi sotto) devono avvicinarsi, in LUCENTEZZA (OKLCH L, `liftBg` sotto) E
-        // SATURAZIONE (chroma — attiva lo stesso `OVERRIDE_CHROMA_BOOST` di un `background` esplicito,
-        // altrimenti alzare solo la lucentezza produrrebbe un grigio spento, non il colore atteso), al
-        // colore che le governa — vedi il campo su `PaletteOverrides` per il perché. `L_bg` è quel
-        // colore (background se presente, altrimenti il brand — stessa fonte di C_bg/H_bg sopra,
-        // quindi coerente anche quando nessuno dei due è impostato: vividness=0 e L_bg=qualunque
-        // restano un no-op).
         const vividness = Math.max(0, Math.min(1, overrides?.backgroundVividness ?? 0));
         const bgBoost = (overrides?.background || vividness > 0) ? OVERRIDE_CHROMA_BOOST : 1;
         const txtBoost = overrides?.text ? OVERRIDE_CHROMA_BOOST : 1;
         const [L_bg] = AppearanceService.hexToOklch(overrides?.background ?? colorTema);
-        // `L_t` (SEMPRE il brand, mai `background`) alza solo la LUCENTEZZA della navbar (mai la
-        // chroma: il rapporto/tetto di `colorNavBg*` non è tarato per il boost x16 usato sopra, la
-        // saturerebbe oltre il colore di riferimento) — la navbar resta legata al brand come da
-        // sempre (vedi colorNavBg* sotto); su `navSurface:'body'` non è comunque usata, la navbar
-        // eredita di peso i token di sfondo (già pienamente vivid-capable) invece di questi.
+        // `L_t` (sempre il brand, mai `background`) alza solo la lucentezza della navbar, mai la
+        // chroma (il tetto di colorNavBg* non è tarato per il boost x16, saturerebbe troppo).
         const [L_t] = AppearanceService.hexToOklch(colorTema);
         const liftBg = (defaultL: number): number => defaultL + (L_bg - defaultL) * vividness;
         const liftNav = (defaultL: number): number => defaultL + (L_t - defaultL) * vividness;
 
-        // `separazioneSuperficiFattore`: asse ORTOGONALE a vividness — scala lo SCARTO di
-        // lucentezza di ogni superficie di CONTENUTO dalla base (0.970 Lt / 0.140 Dk, l'ancora fissa
-        // che resta sempre 0.970/0.140 qualunque sia il fattore), applicato PRIMA di liftBg qui
-        // sotto. 1 (default) = scarti storici esatti. Il bordo (colorSurfaceBorder*) resta escluso
-        // di proposito: ancorato a un minimo WCAG 1.4.11, non una scelta di stile — vedi
-        // `PaletteOverrides.separazioneSuperficiFattore`.
         const separaFattore = Math.max(0, overrides?.separazioneSuperficiFattore ?? 1);
         const separaLt = (defaultL: number): number => 0.970 + (defaultL - 0.970) * separaFattore;
         const separaDk = (defaultL: number): number => 0.140 + (defaultL - 0.140) * separaFattore;
@@ -1077,21 +854,16 @@ export class AppearanceService {
         const baseLtHex = AppearanceService.computeBaseLt(C_bg, H_bg, bgBoost, liftBg(0.970));
         const baseDkHex = AppearanceService.computeBaseDk(C_bg, H_bg, bgBoost, liftBg(0.140));
 
-        // Superfici precomputate qui (dipendono solo da C_bg/H_bg) perché sono i riferimenti
-        // di contrasto per i foreground derivati (link/secondary/muted/primary-fg).
-        //
+        // Superfici precomputate qui (dipendono solo da C_bg/H_bg): riferimenti di contrasto per i
+        // foreground derivati (link/secondary/muted/primary-fg).
         // tertiary-bg (--bs-tertiary-bg): table-striped alternato, placeholder.
         const colorSubtleBgLt = AppearanceService.oklchToHex(liftBg(separaLt(0.967)), Math.min(C_bg * 0.05, 0.007) * bgBoost, H_bg);
         const colorSubtleBgDk = AppearanceService.oklchToHex(liftBg(separaDk(0.248)), Math.min(C_bg * 0.20, 0.025) * bgBoost, H_bg);
-        // secondary-bg (--bs-secondary-bg): disabled inputs, table-striped. È la superficie
-        // più ESTREMA su cui i foreground possono comparire, in ENTRAMBI i toni:
-        //   light L=0.942 → più SCURA di tertiary(0.967)/base(0.970)/surface(0.985)/hover(0.950);
-        //   dark  L=0.295 → più CHIARA di tertiary(0.248)/surface(0.180)/base(0.140)/hover(0.220).
-        // Tarare i foreground contro questa (anziché la tertiary) garantisce il target a fortiori
-        // su TUTTE le altre superfici (base, card, hover, tertiary) — verificato via stress test.
-        // Con `backgroundVividness` > 0 ognuna di queste L viene "alzata" (liftBg) della stessa
-        // proporzione verso quella del colore di sfondo: l'ORDINE relativo (chi è più chiaro/scuro
-        // di chi) resta identico qualunque sia la vividness, perché è la STESSA trasformazione affine
+        // secondary-bg (--bs-secondary-bg): disabled inputs, table-striped. Superficie più ESTREMA su
+        // cui i foreground possono comparire in entrambi i toni (light L=0.942 più scura di tutte le
+        // altre, dark L=0.295 più chiara di tutte le altre): tararli contro questa garantisce il
+        // target a fortiori sulle altre. Con `backgroundVividness` > 0, liftBg alza ogni L della
+        // stessa proporzione, quindi l'ordine relativo resta identico qualunque sia la vividness
         // applicata a tutte — i margini fra superfici si stringono man mano che vividness cresce, ma
         // il testo sopra resta comunque garantito WCAG perché calcolato contro la superficie reale.
         const colorMutedBgLt = AppearanceService.computeMutedBgLt(C_bg, H_bg, bgBoost, liftBg(separaLt(0.942)));
@@ -1144,16 +916,12 @@ export class AppearanceService {
             secLt = overrides.secondary;
             secDk = overrides.secondary;
         } else {
-            // Nessun override: variante muted del brand, calcolata come sempre con garanzia WCAG —
-            // sia come TESTO sulla superficie muted (comportamento storico) sia come FILL contro lo
-            // sfondo pagina reale (colorBaseLt/Dk, passati qui sotto): senza questo secondo vincolo,
-            // un `backgroundVividness` alto può avvicinare lo sfondo pagina alla stessa hue del
-            // secondario quanto basta per farlo scomparire come blocco (contrasto sotto 3:1, WCAG
-            // 1.4.11), anche se il testo sopra resta correttamente leggibile — scoperto da
-            // example.design-system.spec.ts (Muro ora sempre a vividness:1).
-            // `mutezzaSecondarioFattore` (PaletteOverrides sopra): quanto il secondary si allontana
-            // in chroma dal brand pieno — 0.75 (default) è il fattore storico, invariato per chi non
-            // tocca `DesignSystemPreset.mutezzaSecondario`.
+            // Nessun override: variante muted del brand, garanzia WCAG sia come TESTO sulla
+            // superficie muted sia come FILL contro lo sfondo reale (colorBaseLt/Dk, sotto) — senza
+            // questo secondo vincolo, backgroundVividness alto può avvicinare lo sfondo alla stessa
+            // hue del secondary fino a farlo scomparire come blocco, pur restando leggibile come
+            // testo (regressione coperta da example.design-system.spec.ts, Muro a vividness:1).
+            // mutezzaSecondarioFattore: 0.75 default (invariato se non si tocca DesignSystemPreset).
             C_sec = Math.min(C_t * (overrides?.mutezzaSecondarioFattore ?? 0.75), 0.12);
             H_sec = H_t;
             ({ lt: secLt, dk: secDk } = AppearanceService.computeAccentPair(C_sec, H_sec, colorMutedBgLt, colorMutedBgDk, baseLtHex, baseDkHex, 0.72, 0.55));
@@ -1207,13 +975,9 @@ export class AppearanceService {
         const colorHeadingDk = AppearanceService.oklchToHex(0.958, Math.min(C_txt * 0.04, 0.006) * txtBoost, H_txt);
         // (colorMutedBgLt/Dk — secondary-bg — sono precomputati sopra: servono come
         //  riferimento di contrasto estremo per i foreground oltre che come token nel return.)
-        // secondary-color: testo muted — hue dal testo (segue l'override), TARGET_TEXT (4.8:1,
-        // sopra AA) garantito da findCompliantColor contro la superficie più ESTREMA (secondary-bg,
-        // già bg-aware): il muted compare su card/pannelli, righe tabella alternate e input
-        // disabilitati. Garantendolo lì, lo si ottiene su ogni altra superficie. È il token che
-        // l'audit segnalava al limite (4.49:1).
-        // NB: colorSurfaceDkHex resta definito qui, è ancora il token --colorSurfaceDk nel return —
-        // segue l'override background, non testo.
+        // secondary-color: testo muted, TARGET_TEXT (4.8:1) garantito contro la superficie più
+        // estrema (secondary-bg) — così vale anche sulle altre superfici dove il muted compare
+        // (card, righe alternate, input disabilitati). Era il token che l'audit segnalava al limite (4.49:1).
         const colorSurfaceDkHex = AppearanceService.oklchToHex(liftBg(separaDk(0.180)), Math.min(C_bg * 0.12, 0.014) * bgBoost, H_bg);
         const colorMutedTextLt = AppearanceService.findCompliantColor(Math.min(C_txt * 0.08, 0.012) * txtBoost, H_txt, colorMutedBgLt, TARGET_TEXT, 0.65, -0.01);
         const colorMutedTextDk = AppearanceService.findCompliantColor(Math.min(C_txt * 0.08, 0.012) * txtBoost, H_txt, colorMutedBgDk, TARGET_TEXT, 0.45, +0.01);
@@ -1272,13 +1036,10 @@ export class AppearanceService {
             colorSurfaceTextLt: AppearanceService.oklchToHex(0.200, Math.min(C_txt * 0.20, 0.030) * txtBoost, H_txt),
 
             // Dark surfaces — low L, moderate chroma, background hue (testo: text hue).
-            // Border L=0.600: un valore più basso (es. ~0.490) fa cadere il contrasto sotto 3:1 su
-            // tutte le superfici tranne base (es. bordo input disabilitato su secondary-bg L=0.295
-            // → 2.18:1). A L=0.600 il caso peggiore vs la superficie più CHIARA (secondary-bg) è
-            // ≈ 3.47:1 — margine sopra il minimo WCAG 1.4.11 (3:1); a fortiori su base/surface/hover/tertiary.
-            // Con backgroundVividness > 0 anche i bordi si alzano (liftBg) della stessa proporzione:
-            // il margine sopra si restringe ma non si azzera per vividness < 1 (a vividness=1 tutte
-            // le superfici collassano sullo stesso L del colore di sfondo, bordo incluso).
+            // Border L=0.600: più basso (es. ~0.490) fa cadere il contrasto sotto 3:1 su tutte le
+            // superfici tranne base. A 0.600 il caso peggiore (vs secondary-bg) è ≈3.47:1, sopra il
+            // minimo WCAG 1.4.11. Con backgroundVividness > 0 anche i bordi si alzano (liftBg): il
+            // margine si restringe ma non si azzera finché vividness < 1.
             colorBaseDk: baseDkHex,
             colorSurfaceDk: colorSurfaceDkHex,
             colorSurfaceHoverDk: AppearanceService.oklchToHex(liftBg(separaDk(0.220)), Math.min(C_bg * 0.10, 0.012) * bgBoost, H_bg),
@@ -1310,12 +1071,10 @@ export class AppearanceService {
             customPalette,
         };
 
-        // Un override "duro" (colorSecondary/colorInfo/customPalette, vedi PaletteOverrides sopra)
-        // non ha più la rete di sicurezza che il calcolo automatico garantisce — può collassare
-        // sulla superficie che lo circonda invece che solo su un testo poco leggibile (quello resta
-        // sempre garantito). auditPaletteContrast copre proprio questo buco: solo un warning in
-        // dev-mode, mai un blocco — il design system resta libero di scegliere, ma lo scopre subito
-        // invece che a occhio (vedi README §"Override opzionali").
+        // Un override "duro" non passa dalla ricerca di contrasto automatica e può collassare sulla
+        // superficie circostante (il testo sopra resta comunque garantito). auditPaletteContrast
+        // copre questo buco: solo un warning in dev-mode, mai un blocco — il design system resta
+        // libero di scegliere, ma lo scopre subito invece che a occhio.
         if (isDevMode()) {
             for (const message of AppearanceService.auditPaletteContrast(tokens)) {
                 console.warn(`[AppearanceService] ${message}`);
@@ -1325,17 +1084,7 @@ export class AppearanceService {
         return tokens;
     }
 
-    /**
-     * WCAG 1.4.11 (contrasto "non testuale", ≥3:1): un fill (secondario/info/customPalette) deve
-     * restare DISTINGUIBILE dalla superficie su cui probabilmente si appoggia (pagina o pannello),
-     * non solo avere un testo leggibile sopra — quel secondo problema è già coperto altrove
-     * (`getReadableTextColor`) e non richiede questo controllo. Un override "duro" può collassare
-     * qui perché non passa più dalla ricerca di contrasto automatica (vedi `computePalette` sopra):
-     * questa funzione è la rete di sicurezza — SOLO segnalazione, mai una correzione silenziosa,
-     * coerente con "il design system vince su tutto" del refactor precedente. Pura e statica: la
-     * stessa lista di problemi la usa sia `computePalette` (console.warn in dev) sia
-     * `design-system-presets.spec.ts`, stesso identico calcolo in entrambi.
-     */
+    /** WCAG 1.4.11 (≥3:1): un fill (secondario/info/customPalette) deve restare distinguibile dalla superficie su cui si appoggia, non solo avere testo leggibile sopra (già coperto da `getReadableTextColor`). Rete di sicurezza per gli override "duri": solo segnalazione, mai correzione silenziosa. Pura e statica, stesso calcolo usato da `computePalette` e da `design-system-presets.spec.ts`. */
     static auditPaletteContrast(tokens: PaletteTokens): string[] {
         const MIN_UI_CONTRAST = 3.0;
         const messages: string[] = [];
@@ -1368,36 +1117,17 @@ export class AppearanceService {
         return messages;
     }
 
-    /**
-     * Sfondo pagina chiaro reale: off-white con micro-tinta brand (L=0.970, chroma minima).
-     * È il riferimento di contrasto per i token che vi compaiono come testo (`colorPrimary`,
-     * `colorLink`, `mutedText`): più scuro del bianco puro, quindi il caso peggiore in light mode.
-     * Fonte unica della formula — usato sia da `computePalette` (token `colorBaseLt`) sia da
-     * `computeColorPrimary`, così il primary si tara sullo stesso fondo su cui poi vive.
-     */
+    /** Sfondo pagina chiaro reale (L=0.970, chroma minima): riferimento di contrasto per i token testuali (colorPrimary, colorLink, mutedText). Fonte unica, usata sia da `computePalette` sia da `computeColorPrimary` così tarano sullo stesso fondo. */
     private static computeBaseLt(C: number, H: number, boost = 1, liftedL = 0.970): string {
         return AppearanceService.oklchToHex(liftedL, Math.min(C * 0.03, 0.004) * boost, H);
     }
 
-    /**
-     * Sfondo pagina scuro reale: near-black con micro-tinta brand (L=0.140, chroma minima).
-     * Gemello scuro di `computeBaseLt`: è il riferimento di contrasto per il boundary del FILL primary
-     * in dark mode (`colorPrimaryFillDk`). Fonte unica della formula — usato sia da `computePalette`
-     * (token `colorBaseDk`) sia da `computeColorPrimaryFillDk`, così il fill scuro si tara sullo stesso
-     * fondo pagina su cui poi compare. (I foreground dark — `colorPrimaryFgDk`, `colorLinkDk` — si
-     * tarano invece sulla superficie più estrema `mutedBgDk`, non sulla base.)
-     */
+    /** Gemello scuro di `computeBaseLt` (L=0.140): riferimento di contrasto per il boundary del FILL primary in dark (`colorPrimaryFillDk`). I foreground dark si tarano invece su `mutedBgDk`, non sulla base. */
     private static computeBaseDk(C: number, H: number, boost = 1, liftedL = 0.140): string {
         return AppearanceService.oklchToHex(liftedL, Math.min(C * 0.08, 0.010) * boost, H);
     }
 
-    /**
-     * Superficie più ESTREMA su cui un foreground può comparire (`--bs-secondary-bg`: table-striped,
-     * input disabilitati). Light L=0.942 → più scura di tertiary/base/surface/hover; dark L=0.295 →
-     * più chiara delle stesse. È il riferimento di contrasto worst-case per i token foreground:
-     * garantendo il target qui lo si ottiene a fortiori su ogni altra superficie. Fonte unica della
-     * formula — usata da `computePalette` (token `colorMutedBg`) e dai foreground `computeColorPrimaryFgLt`/`computeColorPrimaryFgDk`.
-     */
+    /** Superficie più ESTREMA su cui un foreground può comparire (`--bs-secondary-bg`): riferimento worst-case, garantendo il target qui lo si ottiene a fortiori sulle altre. Usata da `computePalette` e dai `computeColorPrimaryFg*`. */
     private static computeMutedBgLt(C: number, H: number, boost = 1, liftedL = 0.942): string {
         return AppearanceService.oklchToHex(liftedL, Math.min(C * 0.08, 0.011) * boost, H);
     }
@@ -1419,17 +1149,7 @@ export class AppearanceService {
         return { bgSubtleLt, bgSubtleDk, borderSubtleLt, borderSubtleDk, textEmphasisLt, textEmphasisDk };
     }
 
-    /**
-     * Deriva una coppia fill/testo WCAG-safe (Lt/Dk) da hue/chroma dati per il secondario
-     * auto-calcolato (nessun override — vedi `PaletteOverrides.secondary`): cerca la prima
-     * variante che sia SIA leggibile come testo sulla superficie muted di riferimento (target
-     * `TARGET_TEXT_CONTRAST`) SIA distinguibile come fill dallo sfondo pagina reale (`baseBgLt/Dk`,
-     * WCAG 1.4.11 ≥3:1 — senza questo secondo vincolo un `backgroundVividness` alto può avvicinare
-     * lo sfondo pagina alla stessa hue del secondario quanto basta da farlo scomparire come
-     * blocco). Se nemmeno bianco/nero puro (il ripiego naturale) bastano su ENTRAMBI i fronti —
-     * caso limite di brand a chroma molto alta — resta comunque il massimo contrasto ottenibile
-     * sulla superficie muted, mai sotto WCAG lì (vedi `findDualCompliantColor`).
-     */
+    /** Coppia fill/testo WCAG-safe (Lt/Dk) per il secondario auto-calcolato: leggibile come testo sulla superficie muted E distinguibile come fill dallo sfondo reale (vedi `findDualCompliantColor`). */
     private static computeAccentPair(
         C: number, H: number,
         mutedBgLt: string, mutedBgDk: string,
@@ -1446,19 +1166,7 @@ export class AppearanceService {
         };
     }
 
-    /** Come `findCompliantColor`, ma richiede la soglia su DUE sfondi contemporaneamente — usato
-     *  solo per il secondario auto-calcolato (`computeAccentPair`): deve restare leggibile come
-     *  TESTO sulla superficie muted (`targetMuted`, `TARGET_TEXT_CONTRAST`) E distinguibile come
-     *  FILL dallo sfondo pagina reale (`targetBase`, WCAG 1.4.11 ≥3:1) — senza questo secondo
-     *  vincolo, un `backgroundVividness` alto può avvicinare `bgBase` alla stessa hue del
-     *  secondario quanto basta da farlo scomparire come blocco, anche se il testo sopra resta
-     *  leggibile. Se nessuna L soddisfa entrambi i vincoli (caso limite, es. un brand scuro con
-     *  `forceThemeTone` che rende irraggiungibile la variante Lt — non un bug, quella variante non
-     *  viene mai davvero renderizzata in quel caso): il ripiego è nero o bianco, quello con il
-     *  contrasto MINIMO più alto sui due sfondi PRESI INSIEME — non semplicemente il migliore su
-     *  `bgMuted` (`getReadableTextColor(bgMuted)`, come in `findCompliantColor`): quel ripiego
-     *  ignorerebbe proprio il vincolo che questa funzione esiste per garantire, vanificandolo nel
-     *  caso limite invece di limitarsi a rilassarlo. */
+    /** Come `findCompliantColor` ma su DUE sfondi contemporaneamente (testo su `bgMuted` E fill su `bgBase`, per non far scomparire il secondary se `backgroundVividness` avvicina lo sfondo alla sua hue). Se nessuna L soddisfa entrambi (caso limite): nero o bianco, quello col contrasto minimo più alto sui due PRESI INSIEME — non il migliore sul solo `bgMuted`, che vanificherebbe il vincolo. */
     private static findDualCompliantColor(
         C: number, H: number,
         bgMuted: string, targetMuted: number,
@@ -1575,28 +1283,17 @@ export class AppearanceService {
 
     // ── Metodi statici (SSR-safe) ───────────────────────────────────────────
     // API pubblica di calcolo colore, usata sia internamente (computePalette e la generazione
-    // SSR dei tag <head>) sia direttamente dai consumer (vedi frontend/README.md "Metodi Statici
-    // (SSR-Safe)"): pure, senza stato, chiamabili sia lato server che client.
+    // SSR dei tag <head>) sia direttamente dai consumer: pure, senza stato, chiamabili sia lato
+    // server che client.
 
     /**
-     * Variante del brand con contrasto WCAG 4.5:1 (AA, testo normale) sullo sfondo pagina chiaro
-     * reale `baseLt`, per bottoni/CTA/link e testo `.text-primary`. Scurisce in OKLCH a hue e
-     * chroma invariati — abbassa solo la luminanza L, partendo da quella del brand, il minimo
-     * indispensabile per raggiungere 4.5:1. A differenza del mix con nero in RGB, NON desatura:
-     * un brand chiaro (es. `#bfffff`) resta una tinta viva invece di virare al grigio spento, e
-     * un brand già conforme viene restituito pressoché intatto invece di essere sovra-scurito.
-     *
-     * Il riferimento è `baseLt` (off-white con micro-tinta brand, L=0.970), NON il bianco puro:
-     * il primary compare anche come testo su quel fondo, che essendo più scuro del bianco
-     * abbassa il contrasto reale (~0.4 in meno) — tararlo sul bianco lascerebbe il testo più
-     * piccolo sotto la soglia AA sulla pagina vera. Stesso ragionamento già applicato a
-     * `colorLink`. Il contrasto WCAG dipende dalla luminanza, non dalla chroma: preservare la
-     * saturazione non costa accessibilità.
-     * Fallback `#1a1a1a` se nessuna L conforme (hue al limite del gamut sRGB).
-     *
-     * `baseLtHex`, se passato, sostituisce il calcolo interno di `baseLt` — usato da
-     * `computePalette` per tarare il primary sulla superficie REALE quando `PaletteOverrides.background`
-     * è presente, invece che su una derivata dal solo brand.
+     * Variante del brand con contrasto WCAG 4.5:1 su `baseLt` (off-white L=0.970, NON bianco puro:
+     * più scuro, abbassa il contrasto reale di ~0.4). Scurisce in OKLCH a hue/chroma invariati —
+     * solo la luminanza scende, il minimo indispensabile: a differenza del mix con nero in RGB non
+     * desatura (un brand chiaro resta vivo, non vira al grigio). Fallback `#1a1a1a` se nessuna L
+     * conforme (hue al limite del gamut sRGB).
+     * `baseLtHex`, se passato, sostituisce il calcolo interno — usato da `computePalette` per tarare
+     * sulla superficie REALE quando `PaletteOverrides.background` è presente.
      */
     static computeColorPrimary(colorTema: string, baseLtHex?: string): string {
         const [L0, C, H] = AppearanceService.hexToOklch(colorTema);
@@ -1605,10 +1302,8 @@ export class AppearanceService {
             const candidate = AppearanceService.oklchToHex(L, C, H);
             if (AppearanceService.calcContrastRatio(candidate, bg) >= 4.5) return candidate;
         }
-        // Nessuna L a chroma fisso raggiunge il target (`bg` con lucentezza vicina a quella del
-        // brand — tipico con `backgroundVividness` alto: un `#1a1a1a` fisso qui non era nemmeno
-        // garantito conforme contro un fondo così). Stesso ripiego di `findCompliantColor`: massimo
-        // contrasto possibile (nero o bianco puro), sacrificando la tinta brand ma mai la conformità.
+        // Nessuna L raggiunge il target (bg con lucentezza vicina al brand, tipico con
+        // backgroundVividness alto): stesso ripiego di findCompliantColor, massimo contrasto possibile.
         const fallback = AppearanceService.getReadableTextColor(bg);
         if (isDevMode()) {
             console.warn(`[AppearanceService] computeColorPrimary non converge a 4.5:1 (bg=${bg}) → ripiego su ${fallback}.`);
@@ -1617,17 +1312,12 @@ export class AppearanceService {
     }
 
     /**
-     * Variante LIGHT del primary come FOREGROUND (testo `.text-primary`, bordo `.border-primary`).
-     * Gemella light di `computeColorPrimaryFgDk`: scurisce il brand in OKLCH (hue e chroma preservate)
-     * finché il contrasto `TARGET_TEXT_CONTRAST` (4.8:1, sopra AA) sulla superficie più ESTREMA light
-     * (`mutedBgLt`, `--bs-secondary-bg` L=0.942) è garantito. È DISACCOPPIATA dal fill `colorPrimary`:
-     * il fill `--bs-primary` resta il colore brand fedele (tarato 4.5:1 su `baseLt`, ospita testo
-     * proprio via `colorPrimaryText`), mentre questo foreground vive sulle superfici interne (card,
-     * righe-tabella, input disabilitati) dove serve più contrasto. Tararlo su `baseLt` come il fill
-     * lasciava `.text-primary` a ~4.1:1 su quelle superfici. Fallback `#1a1a1a` (hue al limite gamut).
-     *
-     * `mutedBgLtHex`, se passato, sostituisce il calcolo interno di `mutedBgLt` — usato da
-     * `computePalette` per rispettare `PaletteOverrides.background` quando presente.
+     * Primary come FOREGROUND light (`.text-primary`/`.border-primary`): scurisce il brand in OKLCH
+     * finché `TARGET_TEXT_CONTRAST` (4.8:1) su `mutedBgLt` (L=0.942) è garantito. Disaccoppiata dal
+     * fill `colorPrimary` (tarato 4.5:1 su `baseLt`): il fill resta fedele, questo foreground vive
+     * sulle superfici interne dove serve più contrasto (tararlo su `baseLt` come il fill lasciava
+     * `.text-primary` a ~4.1:1 lì). Fallback `#1a1a1a`.
+     * `mutedBgLtHex`, se passato, sostituisce il calcolo interno — usato da `computePalette` per `PaletteOverrides.background`.
      */
     static computeColorPrimaryFgLt(colorTema: string, mutedBgLtHex?: string): string {
         const [L0, C, H] = AppearanceService.hexToOklch(colorTema);
@@ -1645,16 +1335,11 @@ export class AppearanceService {
     }
 
     /**
-     * Variante DARK del primary come FILL (`--bs-primary`, `.btn-primary`/`.bg-primary`) in dark mode.
-     * Il fill light `colorPrimary` è tarato per il fondo CHIARO: usato letteralmente come bg su pagina
-     * scura, un brand scuro/quasi-nero sparisce (boundary ~1:1, sotto WCAG 1.4.11). Qui si SCHIARISCE
-     * il fill light in OKLCH (hue e chroma preservati) finché soddisfa DUE vincoli: boundary
-     * `TARGET_FILL_BOUNDARY` (3.2:1) vs lo sfondo pagina scuro `baseDk`, E un testo leggibile (≥4.5:1,
-     * bianco o nero) ospitabile sopra. I brand già abbastanza luminosi restano invariati (nessuna
-     * deriva). Il testo del bottone in dark è poi `getReadableTextColor(questo)` = `colorPrimaryTextDk`.
-     *
-     * `baseDkHex`, se passato, sostituisce il calcolo interno di `baseDk` — usato da `computePalette`
-     * per rispettare `PaletteOverrides.background` quando presente.
+     * Primary come FILL dark (`--bs-primary`, `.btn-primary`/`.bg-primary`): il fill light è tarato
+     * per il fondo chiaro, usato tale e quale su pagina scura un brand quasi-nero sparirebbe
+     * (boundary ~1:1). Qui si SCHIARISCE in OKLCH finché soddisfa boundary `TARGET_FILL_BOUNDARY`
+     * (3.2:1) vs `baseDk` E un testo leggibile (≥4.5:1) sopra. Brand già luminosi restano invariati.
+     * `baseDkHex`, se passato, sostituisce il calcolo interno — usato da `computePalette` per `PaletteOverrides.background`.
      */
     private static computeColorPrimaryFillDk(colorPrimaryLt: string, baseDkHex?: string): string {
         const [L0, C, H] = AppearanceService.hexToOklch(colorPrimaryLt);
@@ -1672,20 +1357,11 @@ export class AppearanceService {
     }
 
     /**
-     * Gemella scura di `computeColorPrimary`: variante del brand con contrasto WCAG sopra-AA
-     * (`TARGET_TEXT_CONTRAST` = 4.8:1) per il primary usato come FOREGROUND (testo `.text-primary`,
-     * bordo `.border-primary`) in dark mode. Schiarisce in OKLCH a hue e chroma invariati — alza solo
-     * la luminanza L partendo da quella del brand, il minimo indispensabile. Preserva la chroma REALE
-     * del brand (non una minima): un primary-come-testo resta una tinta brand viva anche su fondo scuro.
-     *
-     * Riferimento = la superficie più ESTREMA `mutedBgDk` (`--bs-secondary-bg`, L=0.295), NON la base
-     * pagina: il primary come foreground compare anche su card/righe-tabella/input disabilitati, dove
-     * il contrasto è peggiore che sulla base (tarando su `baseDk` `.text-primary` cadeva a ~3.1:1).
-     * È token foreground-only (mai usato come fill `--bs-primary`), quindi alzarne il contrasto non
-     * tocca i bottoni. Fallback `#e6e6e6` se nessuna L conforme (hue al limite del gamut sRGB).
-     *
-     * `mutedBgDkHex`, se passato, sostituisce il calcolo interno di `mutedBgDk` — usato da
-     * `computePalette` per rispettare `PaletteOverrides.background` quando presente.
+     * Gemella scura di `computeColorPrimary`: FOREGROUND (`.text-primary`/`.border-primary`) in dark,
+     * schiarisce il brand in OKLCH finché `TARGET_TEXT_CONTRAST` (4.8:1) su `mutedBgDk` (L=0.295, non
+     * la base pagina: su `baseDk` `.text-primary` cadeva a ~3.1:1). Foreground-only, mai il fill
+     * `--bs-primary`. Fallback `#e6e6e6`.
+     * `mutedBgDkHex`, se passato, sostituisce il calcolo interno — usato da `computePalette` per `PaletteOverrides.background`.
      */
     static computeColorPrimaryFgDk(colorTema: string, mutedBgDkHex?: string): string {
         const [L0, C, H] = AppearanceService.hexToOklch(colorTema);

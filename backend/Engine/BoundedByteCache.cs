@@ -51,13 +51,10 @@ public sealed class BoundedByteCache : IDisposable
         if (TryGet(key, out var cached))
             return cached;
 
-        // Lazy<> come valore della dictionary, non il Task nudo: GetOrAdd non garantisce da solo
-        // che il SUO valueFactory esegua una sola volta sotto contesa (documentato in .NET), quindi
-        // con un Task nudo due richieste concorrenti sullo stesso slug potrebbero avviare due resize
-        // in parallelo. Costruire il wrapper Lazy è innocuo (non esegue nulla): quale delle
-        // costruzioni in corsa "vince" ed entra nella dictionary è invece garantito univoco da
-        // GetOrAdd, e tutti i chiamanti che leggono .Value sullo stesso Lazy — anche in parallelo —
-        // ne eseguono il factory (il resize vero) una sola volta.
+        // Lazy<> come valore, non il Task nudo: GetOrAdd non garantisce da solo che il SUO
+        // valueFactory esegua una sola volta sotto contesa, quindi un Task nudo permetterebbe due
+        // resize in parallelo sullo stesso slug. Il wrapper Lazy è innocuo da costruire; solo la
+        // costruzione "vincente" entra nella dictionary, e .Value ne esegue il factory una sola volta.
         var lazy = _inProgress.GetOrAdd(key, _ => new Lazy<Task<byte[]>>(() => RunAndCacheAsync(key, factory)));
         try
         {

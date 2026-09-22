@@ -15,7 +15,7 @@
                         <app-nav-link [link]="child" cssClass="d-block small py-2" [class]="child.itemClass" />
                     }
                     @case ('value') {
-                        <span [class]="child.itemClass">
+                        <span class="small" [class]="child.itemClass">
                             @if (child.label) { <span>{{ child.label | translate }}:</span>&nbsp; }
                             @switch (child.itemKind) {
                                 @case ('code') {
@@ -38,13 +38,13 @@
                         </span>
                     }
                     @case ('hours') {
-                        <app-opening-hours [hours]="child.hours" [label]="child.label | translate" [accordion]="true" [class]="child.itemClass" />
+                        <app-opening-hours class="small" [hours]="child.hours" [label]="child.label | translate" [accordion]="true" [class]="child.itemClass" />
                     }
                     @case ('social') {
-                        <app-social-link [value]="child.url" [label]="child.label ?? ''" [showLabel]="true" [class]="child.itemClass" />
+                        <app-social-link class="small" [value]="child.url" [label]="child.label ?? ''" [showLabel]="true" [class]="child.itemClass" />
                     }
                     @case ('custom') {
-                        <span [class]="child.itemClass">
+                        <span class="small" [class]="child.itemClass">
                             <ng-container *ngComponentOutlet="child.component; inputs: child.inputs ?? {}" />
                         </span>
                     }

@@ -4,18 +4,10 @@ import { SafeUrl } from '@angular/platform-browser';
 import { QrCodeService, QrConfig } from '../services/qr-code.service';
 import { AssetService } from '../services/asset.service';
 
-/**
- * QR RENDER DIRECTIVE
- * 
- * Trasforma un `<img>` nel render di un QR code, aggiornandone il `src` in automatico.
- * 
- * - Output `blobChange`: emesso al render, utile per bottoni di download/condivisione.
- * - Output `errorChange`: emette l'errore localizzato se la generazione fallisce.
- * - SSR / Fallback: su server o in caso d'errore rimuove il `src`, ripiegando sul testo `alt`.
- * - Race-condition safe: ignora i risultati di render asincroni resi obsoleti da nuovi input.
- * 
- * Uso: `<img [appQrContent]="config" (blobChange)="..." (errorChange)="...">`
- */
+/** Trasforma un `<img>` nel render di un QR code, aggiornandone il `src` in automatico:
+ *  `<img [appQrContent]="config" (blobChange)="..." (errorChange)="...">`. Su server o errore
+ *  rimuove il `src` (ripiega sul testo `alt`); ignora i risultati di render asincroni resi
+ *  obsoleti da nuovi input (`renderToken`). */
 @Directive({
     selector: 'img[appQrContent]',
     standalone: true,

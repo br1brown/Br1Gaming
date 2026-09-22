@@ -1,9 +1,6 @@
-/**
- * Whitelist di URL sicuri condivisa da `MarkdownPipe` (parser completo, `marked`) e
- * `MarkdownLitePipe` (solo `[testo](url)`, nessuna dipendenza da `marked`) — stessa logica di
- * sicurezza per entrambi, un solo posto da aggiornare. Deliberatamente senza import di `marked`:
- * chi importa solo questo file non si trascina dietro l'intero parser.
- */
+/** Whitelist di URL sicuri condivisa da `MarkdownPipe` e `MarkdownLitePipe` — stessa logica per
+ *  entrambi, un solo posto da aggiornare. Deliberatamente senza import di `marked`: chi importa
+ *  solo questo file non si trascina dietro l'intero parser. */
 
 /** Senza questi check un `[x](javascript:alert(1))` produrrebbe un `href` eseguibile.
  *  Consentiamo solo schemi sicuri (e i relativi/anchor); tutto il resto viene neutralizzato. */

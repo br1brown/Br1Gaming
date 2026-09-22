@@ -5,24 +5,20 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
 import { PageMetaService } from '../../services/page-meta.service';
 import { TranslateService } from '../../services/translate.service';
 import { BreadcrumbService, type BreadcrumbItem } from '../../services/breadcrumb';
-
-/**
- * BREADCRUMB COMPONENT
- *
- * Percorso Home → ... → pagina corrente, calcolato da `BreadcrumbService` (stessa fonte usata dal
- * JSON-LD `BreadcrumbList` in `PageMetaService`, così le due gerarchie non possono divergere).
- *
- * Visibilità di default "intelligente": compare da solo quando il percorso ha più di un
- * livello reale (Home + pagina corrente) — una pagina radice (la Home stessa) non
- * lo mostra mai, non serve spegnerlo a mano ovunque. `forceShow` (da `ruoloPagina.<ruolo>.showBreadcrumb`
- * del design system attivo, via lo shell) sovrascrive esplicitamente in entrambe le direzioni.
- *
- * Reso volutamente minimale: testo in linea, separatore leggero, nessun badge/pillola per livello.
- * L'ultimo elemento non è mai un link, anche quando porta un `path` (usato invece dal JSON-LD).
- */
 import { ContestoSito } from '../../../../site';
 import { BREADCRUMB_SEPARATORE } from '../../design-system-presets';
 
+/** Voce visualizzata dal template: stessa forma per una voce vera del trail e per il segnaposto di
+ *  troncamento (`ellipsis: true`, `label`/`path` inutilizzati) — niente unione discriminata, il
+ *  template legge `item.ellipsis`/`item.label`/`item.path` senza narrowing, e niente più stringa
+ *  magica (`label === '...'`) da confrontare per riconoscerlo. */
+type DisplayedBreadcrumbItem = BreadcrumbItem & { ellipsis?: boolean };
+
+/** Percorso Home → ... → pagina corrente, da `BreadcrumbService` (stessa fonte del JSON-LD
+ *  `BreadcrumbList` in `PageMetaService`, le due gerarchie non possono divergere). Visibilità
+ *  di default "intelligente": compare da solo oltre un livello reale (Home + pagina corrente),
+ *  `forceShow` sovrascrive in entrambe le direzioni. L'ultimo elemento non è mai un link, anche
+ *  quando porta un `path` (usato invece dal JSON-LD). */
 @Component({
     selector: 'app-breadcrumb',
     imports: [RouterLink, TranslatePipe],
@@ -53,12 +49,13 @@ export class BreadcrumbComponent {
         });
     });
 
-    readonly displayedItems = computed(() => {
+    readonly displayedItems = computed<DisplayedBreadcrumbItem[]>(() => {
         const all = this.items();
-        if (all.length > 4) {
+        const maxItems = ContestoSito.config.breadcrumbMaxItems;
+        if (maxItems !== 'none' && all.length > maxItems) {
             return [
                 all[0],
-                { label: '...' } as BreadcrumbItem,
+                { label: '', ellipsis: true },
                 all[all.length - 2],
                 all[all.length - 1]
             ];

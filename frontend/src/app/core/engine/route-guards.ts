@@ -6,23 +6,11 @@ import { AuthService } from '../services/auth.service';
 import { NotificationService } from './services/notification.service';
 import { TranslateService } from './services/translate.service';
 
-/**
- * GUARD DI SINCRONIZZAZIONE LINGUA — allinea `TranslateService.currentLang()` a `route.data['lang']`
- * PRIMA che qualunque guard o resolver a valle (compreso `authGuard` sotto, e i resolver di dominio
- * che chiamano `ApiService` — vedi `content.resolver.ts`) legga `currentLang()`.
- *
- * Senza questo guard, chi gira nella fase Guard/Resolve trova ancora la lingua di bootstrap (il
- * default): `PageBaseComponent` corregge `currentLang()` solo al montaggio del componente, che
- * avviene DOPO guard e resolver. È la stessa race che `authGuard` gestiva già da sé (vedi il suo
- * `lang` letto da `route.data`, non da `currentLang()`) — qui si chiude una volta per tutte, invece
- * di richiedere ad ogni guard/resolver a valle di reimplementare lo stesso pattern.
- *
- * Applicato SEMPRE (su ogni route, non solo quelle protette) in `routing.ts`: Angular Router
- * completa l'intera fase Guard prima di iniziare la fase Resolve, quindi basta un guard qualsiasi
- * — non serve che sia il primo dell'array — per garantire l'ordine verso i resolver. Fra guard
- * multipli sulla stessa route l'ordine relativo non è garantito, ma `authGuard` è già difensivo
- * (stesso controllo `lang !== currentLang()`), quindi l'eventuale ridondanza resta innocua.
- */
+/** Allinea `TranslateService.currentLang()` a `route.data['lang']` PRIMA che qualunque guard o
+ *  resolver a valle (compreso `authGuard` sotto) legga `currentLang()` — senza, chi gira in fase
+ *  Guard/Resolve trova ancora la lingua di bootstrap (`PageBaseComponent` la corregge solo al
+ *  montaggio, che avviene dopo). Applicato SEMPRE in `routing.ts`: Angular completa l'intera fase
+ *  Guard prima della fase Resolve, quindi basta un guard qualsiasi in coda per garantire l'ordine. */
 export const languageSyncGuard: CanActivateFn = async (route) => {
     const translate = inject(TranslateService);
     const lang = route.data['lang'] as string | undefined;

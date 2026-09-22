@@ -4,25 +4,9 @@ import { ALLOWED_WIDTHS, type AssetWidth } from '../asset-config';
 import { LightboxActivatable } from './lightbox-activatable';
 import type { LightboxSource } from '../components/image-lightbox/image-lightbox-overlay.component';
 
-/**
- * ASSET DIRECTIVE
- *
- * Collega reattivamente l'ID di un asset al `src` di tag multimediali (img, video, iframe, ecc.).
- *
- * - Base: `<img appAsset="icon">`
- * - Fissa: `<img appAsset="thumb" [appAssetWidth]="320">`
- * - Responsive: `<img appAsset="hero" appAssetSizes="100vw">` (genera `srcset` automatico)
- * - LCP Priority: Aggiungere `[appAssetPriority]="true"` per fetchpriority=high e loading=eager.
- * - Lightbox: `<img appAsset="foto" [appAssetLightbox]="true">` apre l'immagine a tutto schermo
- *   (CDK Overlay) al click/Invio/Spazio. Solo su <img>, opt-in esplicito (default disattivato).
- *
- * Ottimizzazioni automatiche (solo su `<img>`):
- * - `decoding="async"`
- * - `loading="lazy"` (se non priority)
- * - `appAssetWidth` ha precedenza su srcset. Viene ignorato dal backend per file non-raster.
- *
- * Tipato sul tag: errore in compilazione se applicato a elementi privi di `src`.
- */
+/** Collega reattivamente l'ID di un asset al `src` di tag multimediali (img, video, iframe, ecc.);
+ *  su `<img>` aggiunge anche `decoding="async"`, `loading="lazy"` (se non priority) e srcset/sizes
+ *  responsive. */
 @Directive({
     selector: 'img[appAsset], video[appAsset], audio[appAsset], source[appAsset], iframe[appAsset], embed[appAsset]',
     standalone: true,
@@ -79,19 +63,9 @@ export class AssetDirective extends LightboxActivatable {
     );
 }
 
-/**
- * ASSET HREF DIRECTIVE
- *
- * Variante di AssetDirective per gli elementi che usano `href` invece di
- * `src` (link di download, `<link>` di preload, ecc.). Stesso service e
- * stessi input, solo l'attributo target cambia.
- *
- *   <a [appAssetHref]="'manuale'" download="manuale.pdf">Scarica manuale</a>
- *   <link rel="preload" as="image" [appAssetHref]="'hero'" [appAssetWidth]="1024">
- *
- * Selector vincolato a a[appAssetHref] e link[appAssetHref] per evitare
- * usi accidentali su elementi che non supportano href.
- */
+/** Variante di AssetDirective per elementi che usano `href` invece di `src` (link di download,
+ *  `<link>` di preload). Selector vincolato a `a`/`link` per evitare usi su elementi che non
+ *  supportano href. */
 @Directive({
     selector: 'a[appAssetHref], link[appAssetHref]',
     standalone: true,

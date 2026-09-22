@@ -203,6 +203,28 @@ export interface GlobalSettings {
     WebhookUrl?: string;
   };
   /**
+   * Qualità della variante web-ottimizzata di un blob immagine (EngineBlobController.webopt). Le DIMENSIONI richiedibili non sono qui: sono una whitelist fissa dell'Engine (`ALLOWED_WIDTHS` in `asset-config.ts`, rispecchiata lato C# in `EngineBlobController.AllowedWebOptSizes`) — non una scelta per-progetto.
+   */
+  Media?: {
+    /**
+     * Qualità WebP (1-100) della variante web-ottimizzata, per ogni dimensione della whitelist fissa dell'Engine.
+     */
+    WebOptQuality?: number;
+  };
+  /**
+   * Canale realtime SSE (EngineNotificationStreamController, `GET /notifications/stream`).
+   */
+  Notifications?: {
+    /**
+     * Intervallo (secondi) del commento di keep-alive che tiene viva la connessione attraverso proxy/idle-timeout. Un reverse proxy/CDN con idle-timeout più corto del default (alcuni tagliano a 15-20s) richiede un valore più basso.
+     */
+    HeartbeatSeconds?: number;
+    /**
+     * Delay di riconnessione (secondi) suggerito al browser (campo SSE `retry:`).
+     */
+    ReconnectDelaySeconds?: number;
+  };
+  /**
    * Identità ed estetica MINIMA del sito (committabile, del progetto). Iniettata nel frontend al build via environment.ts. Tutto ciò che è aspetto/comportamento (showNav, showFooter, showPanel, fixedTopHeader, panelSurface, forceThemeTone, ogImagePlain, superfici, ruoloPagina, i quattro override colore, l'effetto smoke) non è un campo di questo file: è decisione del design system attivo (`DesignSystemPreset`, scelto o esteso in site.ts via `shell.designSystem`). `shell` stesso resta minimo (solo `designSystem`/`showNotifications`); `isWebApp` e il `showInHeader` di `loginPage` sono campi propri di site.ts, non di `shell` né del design system. Il menu di header/footer e l'icona di brand sono dato risolto a runtime in nav.ts.
    */
   site?: {
@@ -218,18 +240,12 @@ export interface GlobalSettings {
     colorTema?: string;
   };
   /**
-   * Valori aggiuntivi liberi, leggibili da entrambi i progetti senza modificare script o codice infrastrutturale.
-   *
-   * - Backend (ASP.NET Core): ogni chiave è disponibile tramite IConfiguration["Custom:TuaChiave"] o IConfiguration["Custom:Sezione:SottoChiave"]. Supporta oggetti annidati arbitrari.
-   * - Frontend Node SSR: disponibile tramite getBr1Settings().Custom in server-env.ts.
-   * - Browser Angular: disponibile tramite inject(APP_CUSTOM) (l'SSR la serializza in TransferState e il browser la rilegge in idratazione). NON metterci segreti: è committabile e ora visibile al client.
-   *
-   * Esempio:
-   *   "Custom": {
-   *     "FeatureFlags": { "NuovaFunzione": true },
-   *     "Analytics": { "TrackingId": "UA-XXXXX" },
-   *     "MaxUploadMb": 10
-   *   }
+   * Valori liberi letti da entrambi i progetti senza toccare script/codice infrastrutturale: backend
+   * via `IConfiguration["Custom:Chiave"]`, Node SSR via `getBr1Settings().Custom`, browser via
+   * `inject(APP_CUSTOM)` (TransferState). Committabile e visibile al client: niente segreti qui.
+   * ```json
+   * "Custom": { "FeatureFlags": { "NuovaFunzione": true }, "MaxUploadMb": 10 }
+   * ```
    */
   Custom?: {
     [k: string]: unknown;

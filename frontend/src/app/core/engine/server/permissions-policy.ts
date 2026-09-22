@@ -1,9 +1,6 @@
-/**
- * Utility di parsing/serializzazione della Permissions-Policy come stringa a direttive
- * (`nome=(valore1 valore2), nome2=(valore3), ...`). Usata da security-headers.ts per estendere
- * la Permissions-Policy del template con le origini dichiarate dal progetto figlio in
- * security-headers.override.json (mai in sostituzione, solo aggiunta).
- */
+/** Parsing/serializzazione della Permissions-Policy come stringa a direttive (`nome=(valore1
+ *  valore2), nome2=(valore3), ...`). Usata da security-headers.ts per estendere la policy del
+ *  template con le origini dichiarate dal progetto figlio (mai in sostituzione, solo aggiunta). */
 
 /** Estensioni dichiarative per direttiva Permissions-Policy: nome feature (es. "geolocation") →
  *  origini extra da autorizzare (es. "self"). Letto da security-headers.override.json (vedi server-env.ts). */

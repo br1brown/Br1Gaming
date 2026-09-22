@@ -8,14 +8,10 @@ import { NavLinkComponent } from '../../../core/engine/components/nav-link/nav-l
 import { ContestoSito } from '../../../site';
 import { NavLink } from '../../../core/engine/shell-nav';
 
-/**
- * Area login/logout della navbar: dopo il logout ricarica la route per rivalutare l'authGuard.
- * Login e logout su assi indipendenti; nulla se `loginPage` è null. Dettagli: README §"Autenticazione".
- *
- * Dominio a contratto fisso: `navbar.component.ts` (Engine) importa questo file per path e nome
- * — cambi liberamente corpo e template, ma non path/nome-classe/selettore, altrimenti l'Engine
- * non compila. Vedi README radice §"Dominio a contratto fisso".
- */
+/** Area login/logout della navbar: dopo il logout ricarica la route per rivalutare l'authGuard.
+ *  Login e logout su assi indipendenti; nulla se `loginPage` è null. Dominio a contratto fisso:
+ *  `navbar.component.ts` (Engine) importa questo file per path e nome — corpo e template sono
+ *  liberi, ma non path/nome-classe/selettore, altrimenti l'Engine non compila. */
 @Component({
     selector: 'app-user-nav',
     imports: [TranslatePipe, NavLinkComponent],

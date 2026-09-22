@@ -19,16 +19,7 @@ export interface ProblemDetails {
     errors?: string[] | Record<string, string[]>;
 }
 
-/**
- * Marca una richiesta HTTP come "gestita dal client API" e indica se notificare gli errori.
- * Letto dall'`apiErrorInterceptor`, che possiede la notifica automatica (concern trasversale).
- *  - `null`  → richiesta non gestita (httpResource, asset): l'interceptor non la tocca.
- *  - `true`  → chiamata normale: notifica automatica in caso di errore.
- *  - `false` → chiamata `silent`: nessuna notifica (il chiamante gestisce l'errore con UI propria).
- *
- * Vive qui, non nel file dell'interceptor, così la dipendenza è a senso unico
- * (interceptor → base-api) e non si crea un ciclo di import.
- */
+/** Marca una richiesta come "gestita dal client API", letto da `apiErrorInterceptor`: null = non gestita (httpResource/asset), true = notifica automatica, false = silent (il chiamante gestisce l'errore). Vive qui (non nell'interceptor) per una dipendenza a senso unico. */
 export const API_NOTIFY = new HttpContextToken<boolean | null>(() => null);
 
 /** Estrae in modo sicuro i ProblemDetails (RFC 9457) dal body di una risposta d'errore. */
@@ -50,15 +41,7 @@ export function extractProblemDetails(body: unknown): ProblemDetails | null {
     return null;
 }
 
-/**
- * Errore applicativo normalizzato propagato dai metodi API.
- *
- * I wrapper (`api_get`, `api_post`, ...) catturano l'`HttpErrorResponse` grezzo di Angular
- * e lo ri-lanciano sempre come `ApiError`: un tipo stabile che espone lo `status` HTTP e gli
- * eventuali `ProblemDetails` (RFC 9457) del backend, così i chiamati possono mappare gli stati
- * (es. 401 → "credenziali errate", 404/0 → "servizio non disponibile") senza dipendere dai
- * dettagli di trasporto di Angular. `status === 0` indica errore di rete / server irraggiungibile.
- */
+/** Errore applicativo normalizzato: i wrapper (`api_get`, `api_post`...) ri-lanciano sempre `HttpErrorResponse` come `ApiError` (status + eventuali `ProblemDetails`), senza dipendere dai dettagli di trasporto Angular. `status === 0` = errore di rete/server irraggiungibile. */
 export class ApiError extends Error {
     constructor(
         readonly status: number,
@@ -165,12 +148,7 @@ export abstract class BaseApiService {
         );
     }
 
-    /**
-     * Esegue una GET che restituisce dati binari (immagini, PDF, ecc.).
-     * `responseType: 'blob'` non è compatibile con la firma generica di `api_get<T>`,
-     * quindi ha un metodo dedicato — ma passa comunque per `resolveUrl`, per gli header e
-     * per l'`apiErrorInterceptor` (normalizzazione errore + notifica) come le altre chiamate.
-     */
+    /** GET dati binari (immagini, PDF...): `responseType: 'blob'` non è compatibile con la firma generica di `api_get<T>`, quindi un metodo dedicato — ma stessa pipeline resolveUrl/header/interceptor. */
     protected api_get_blob(url: string, params?: HttpParams, opts?: ApiCallOptions): Promise<Blob> {
         if (this.ssrBackendUnconfigured) return Promise.reject(new ApiError(0, null));
         return firstValueFrom(
@@ -194,14 +172,7 @@ export abstract class BaseApiService {
         );
     }
 
-    /**
-     * Esegue una richiesta POST inviando un `FormData` (upload multipart).
-     *
-     * Non imposta `Content-Type` manualmente: Angular/browser lo fa in automatico
-     * includendo il boundary corretto. Impostarlo esplicitamente lo spezzerebbe.
-     * Passa comunque per `resolveUrl`, `build_api_Headers` e l'`apiErrorInterceptor`
-     * come tutti gli altri wrapper.
-     */
+    /** POST con `FormData` (upload multipart). Non imposta `Content-Type` a mano: Angular/browser lo fa da sé col boundary corretto, impostarlo a mano lo spezzerebbe. */
     protected api_post_form<T>(url: string, formData: FormData, opts?: ApiCallOptions): Promise<T> {
         if (this.ssrBackendUnconfigured) return Promise.reject(new ApiError(0, null));
         return firstValueFrom(
@@ -212,19 +183,7 @@ export abstract class BaseApiService {
         );
     }
 
-    /**
-     * Versione reattiva di `api_get` — esegue esclusivamente richieste **GET**.
-     *
-     * Restituisce un `HttpResourceRef<T | undefined>` con i signal `.value()` e `.isLoading`
-     * aggiornati automaticamente ogni volta che cambia un segnale reattivo letto
-     * all'interno della factory (es. lingua corrente, token).
-     *
-     * Usa questo metodo per componenti **sempre attivi** (header, footer) che devono
-     * rimanere sincronizzati senza richiedere navigazione o trigger manuali.
-     * Per chiamate una-tantum usa `api_get`; per mutazioni usa `api_post`.
-     *
-     * Ottimizzato per SSR: non blocca il rendering durante il recupero dati.
-     */
+    /** Versione reattiva di `api_get` (solo GET): `HttpResourceRef<T | undefined>` con `.value()`/`.isLoading` aggiornati a ogni segnale letto nella factory. Per componenti sempre attivi (header, footer); per chiamate una-tantum `api_get`, per mutazioni `api_post`. Guardato da `ssrBackendUnconfigured` sotto: non rimuovere il guard, un eager `inject()` che lo bypassa fa scadere l'estrazione route in CI. */
     protected api_resource<T>(url: string, params?: HttpParams): HttpResourceRef<T | undefined> {
         // `undefined` (invece di un url relativo rotto) dice a httpResource "nessuna richiesta":
         // si assesta subito su idle, stesso fail-fast silenzioso degli altri api_* — vedi ssrBackendUnconfigured.

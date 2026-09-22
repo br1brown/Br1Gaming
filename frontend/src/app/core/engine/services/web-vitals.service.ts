@@ -2,25 +2,9 @@ import { Injectable, PLATFORM_ID, inject, isDevMode, signal } from '@angular/cor
 import { isPlatformBrowser } from '@angular/common';
 import { onCLS, onFCP, onINP, onLCP, onTTFB, type Metric } from 'web-vitals';
 
-/**
- * WEB VITALS SERVICE
- *
- * Raccoglie le Core Web Vitals reali (LCP, INP, CLS, più FCP/TTFB) di chi visita davvero il sito
- * — non un audit sintetico come Lighthouse in CI, la user experience effettiva.
- *
- * Deliberatamente senza destinazione di default: DOVE mandare questi dati (un endpoint proprio,
- * GA4, un altro RUM) è una decisione di progetto, non dell'Engine — che offre solo la raccolta.
- * Zero chiamate di rete aggiunte da questo servizio: `metrics()` è un signal che chi vuole può
- * osservare con un `effect()` nel proprio `AppComponent` e spedire dove preferisce, es.:
- * ```ts
- * effect(() => {
- *     const m = this.webVitals.metrics();
- *     if (m.length) this.api.post('metrics/vitals', m.at(-1));
- * });
- * ```
- * In sviluppo le metriche finiscono anche in console (`console.debug`) per un riscontro immediato
- * senza dover collegare nulla.
- */
+/** Raccoglie le Core Web Vitals reali (LCP, INP, CLS, FCP/TTFB) dei visitatori. Deliberatamente
+ *  senza destinazione di default — dove spedirle è una decisione di progetto, non dell'Engine:
+ *  `metrics()` è un signal che chi vuole osserva con un `effect()`. */
 @Injectable({ providedIn: 'root' })
 export class WebVitalsService {
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));

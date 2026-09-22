@@ -1,18 +1,8 @@
-/**
- * VALIDATION — regole di validazione e normalizzazione condivise dell'intero sito.
- *
- * Un unico posto per le regole di validazione: le usano i builder di link (`ContactUrl`), il
- * generatore di QR (`QrCodeService`) e chiunque debba validare un input dell'utente/config.
- *
- * **Contratto condiviso col backend:** le regole di `phone` (charset + numero singolo) rispecchiano
- * `ValidPhone` di `backend/Engine/Identity/Identity.cs`; `email`/`url` rispecchiano `MailAddress`/`Uri`
- * dell'identità. Il backend valida alla fonte (fail-fast), il frontend riusa la stessa forma qui —
- * due implementazioni della *stessa* regola, una per tier (C# non condivide codice con TS).
- *
- * **Telefono, Opzione A:** il validatore base accetta anche i numeri *nazionali* (es. `06/1234567`):
- * "un solo numero", con spazi e separatori. La forma E.164 stretta (`isE164`) è un controllo *in più*,
- * richiesto solo dove serve un numero internazionale dialabile senza contesto (WhatsApp/`wa.me`).
- */
+/** Regole di validazione/normalizzazione condivise (link builder, `QrCodeService`, input utente).
+ *  `phone`/`email`/`url` rispecchiano `ValidPhone`/`MailAddress`/`Uri` di `Identity.cs` — stessa
+ *  regola, due implementazioni indipendenti (C# non condivide codice con TS). Il validatore base
+ *  di `phone` accetta anche numeri nazionali (`06/1234567`); `isE164` è un controllo in più, solo
+ *  dove serve un numero dialabile senza contesto (WhatsApp/`wa.me`). */
 export const Validation = {
     phone: {
         /**

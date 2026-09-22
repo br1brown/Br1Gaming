@@ -1,15 +1,8 @@
-/**
- * Cifratura simmetrica del payload di `/cdn-cgi/preview`.
- *
- * Usa `node:crypto` (sincrono) — utilizzabile solo in contesto Node.js:
- * SSR (via `app.config.server.ts`) e `server.ts`.
- * Il browser bundle non importa mai questo file.
- *
- * Schema:
- * - Chiave (priorità): `PREVIEW_CRYPTO_SECRET` → `Security.ApiConfig.Keys[0]` → `${appName}:${version}` (fallback pubblico, insicuro).
- * - Algoritmo: AES-GCM 256 con IV deterministico (primi 12 byte di SHA-256 del payload) per URL stabili e cacheable.
- * - Output: base64url di `IV ‖ ciphertext ‖ auth_tag` (senza padding).
- */
+/** Cifratura simmetrica del payload di `/cdn-cgi/preview`. Usa `node:crypto` sincrono: solo
+ *  contesto Node (SSR, server.ts), mai importato nel browser bundle. Chiave in ordine di priorità
+ *  `PREVIEW_CRYPTO_SECRET` → `Security.ApiConfig.Keys[0]` → `${appName}:${version}` (fallback
+ *  pubblico, insicuro). AES-GCM 256, IV deterministico (primi 12 byte di SHA-256 del payload) per
+ *  URL stabili e cacheable; output base64url di `IV ‖ ciphertext ‖ auth_tag`. */
 
 import { createCipheriv, createDecipheriv, createHash } from 'node:crypto';
 import { ContestoSito } from '../../../site';

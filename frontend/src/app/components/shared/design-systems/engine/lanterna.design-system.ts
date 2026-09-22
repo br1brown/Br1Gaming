@@ -2,12 +2,9 @@ import { emptyDesignSystem, extendDesignSystem, type DesignSystemFactory } from 
 import { SystemFont } from '../../../../core/engine/font-system';
 
 /** Preset condiviso "Lanterna": sito fissato scuro, con un pannello chiaro in risalto — un bagliore
- *  isolato nel buio (pattern Radix `panelBackground` / Carbon "g100 panel in white page"). Stesso
- *  font di `ombra.design-system.ts` (mirror, vedi lì): `DejaVu` è largo e marcato apposta, per
- *  reggere il risalto del pannello invece di sparire dentro il contrasto. Self-hosted: stesso file
- *  per il sito E per l'immagine di anteprima social. Un font diverso sui titoli (es. `DejaVuSerif`,
- *  stessa famiglia type) non è un campo di questo preset: chi lo vuole lo registra in
- *  `addonFonts` e scrive la regola CSS su `h1`-`h6` di progetto. */
+ *  isolato nel buio. `DejaVu` largo e marcato apposta, per reggere il risalto del pannello invece
+ *  di sparire nel contrasto — self-hosted, stesso file per sito e og:image. Un font diverso sui
+ *  titoli non è un campo di questo preset: chi lo vuole lo registra in `addonFonts`. */
 export const lanternaDesignSystem: DesignSystemFactory = extendDesignSystem(emptyDesignSystem, {
     forceThemeTone: 'dark',
     panelSurface: 'light',

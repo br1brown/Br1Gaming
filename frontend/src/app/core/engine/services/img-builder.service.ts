@@ -241,10 +241,7 @@ export interface CaptionOverlayOptions extends Omit<CaptionOptions, 'canvasW' | 
  *  già dimensionato per la scala piena, passarli non avrebbe alcun effetto: la prima scala
  *  tentata da `fitTextBlocks` è sempre 1 ed entra sempre) — e con `maxImageRatio` in aggiunta. */
 export interface FittedCaptionOptions extends Omit<CaptionOverlayOptions, 'minFontScale' | 'maxLines'> {
-    /** Altezza massima della zona immagine, come frazione della larghezza canvas (0-1). L'immagine
-     *  è SEMPRE mostrata nitida e per intero in larghezza, mai sfocata: se la sua altezza naturale
-     *  supera questo tetto viene ritagliata dal basso (mai zoomata sui lati). Se l'immagine è
-     *  naturalmente più bassa del tetto, nessun ritaglio. Default: 0.6. */
+    /** Tetto opzionale all'altezza della zona immagine, come frazione della larghezza canvas (0-1). L'immagine resta sempre nitida e per intero in larghezza: se supera il tetto viene ritagliata dal basso, mai zoomata sui lati. Un valore non positivo è trattato come assente. Default: nessun tetto, il canvas cresce in altezza quanto serve. */
     maxImageRatio?: number;
 }
 
@@ -388,14 +385,7 @@ export class ImgBuilderService {
         return canvas;
     }
 
-    /** Come `buildCaptionCanvas`, ma calcola da sé l'altezza della fascia testo (dal contenuto
-     *  reale, mai troncato con ellissi) e la compone SOTTO l'immagine invece di sovrapporla: le due
-     *  zone — immagine e testo — sono indipendenti, non condividono più un unico canvas. L'immagine
-     *  è SEMPRE mostrata nitida e a piena larghezza, mai sfocata: se la sua altezza naturale supera
-     *  `maxImageRatio` viene ritagliata dal basso (mai zoomata sui lati né deformata) — l'unica
-     *  modalità con immagine del servizio, così chi carica una foto vede sempre esattamente quella
-     *  foto, mai un'approssimazione riempitiva. Il passaggio verso la fascia testo resta una
-     *  dissolvenza (`buildCaption` in `position: 'bottom'`), non una riga netta. */
+    /** Come `buildCaptionCanvas`, ma calcola da sé l'altezza della fascia testo (dal contenuto reale, mai troncato) e la compone SOTTO l'immagine invece di sovrapporla. L'immagine resta sempre nitida, a piena larghezza e per intero (salvo `maxImageRatio`, che ritaglia solo il fondo). Passaggio verso il testo: dissolvenza, non riga netta. */
     private async buildFittedCaptionCanvas(
         imageSrc: string | Blob,
         captionOpts: FittedCaptionOptions,
@@ -430,8 +420,14 @@ export class ImgBuilderService {
 
         const baseImg = await ImgBuilderService.loadImage(imageSrc);
         const naturalH = Math.round(width / (baseImg.naturalWidth / baseImg.naturalHeight));
-        const maxImageRatio = captionOpts.maxImageRatio ?? 0.6;
-        const imageZoneH = Math.min(naturalH, Math.round(width * maxImageRatio));
+        // Nessun tetto di default: l'immagine è mostrata per intero (il canvas si allunga per
+        // contenerla) a prescindere da quanto testo segue sotto. `maxImageRatio` resta un limite
+        // opt-in per chi vuole esplicitamente contenere l'altezza della zona immagine. Il
+        // DIMENSIONE_MAX_PX è solo una rete di sicurezza contro canvas aberranti (es. un'immagine
+        // fotografata in verticale strettissima), non un tetto di design come lo era 0.6 di default.
+        const imageZoneH = captionOpts.maxImageRatio != null && captionOpts.maxImageRatio > 0
+            ? Math.min(naturalH, Math.round(width * captionOpts.maxImageRatio))
+            : Math.min(naturalH, ImgBuilderService.DIMENSIONE_MAX_PX);
 
         const canvasH = imageZoneH + textZoneH;
         const canvas = document.createElement('canvas');
@@ -457,12 +453,9 @@ export class ImgBuilderService {
         return canvas;
     }
 
-    /** Risolve il `colorRole` nel colore corrispondente del tema.
-     *  Di default (nessun `colorRole`) usa il brand puro (`colorTema`), allineandosi alle og:image.
-     *  Non usiamo `colorPrimary` di default perché l'Engine lo scurisce in OKLCH per l'accessibilità 
-     *  UI (bottoni/CTA), il che altererebbe in modo inatteso i brand chiari sulle grafiche 
-     *  a tutto schermo. `primary` o `secondary` restano validi se si cerca esplicitamente
-     *  il colore di un bottone. */
+    /** Risolve il `colorRole` nel colore del tema. Default (nessun `colorRole`) = brand puro
+     *  (`colorTema`), allineato alle og:image — non `colorPrimary`, che l'Engine scurisce in OKLCH
+     *  per l'accessibilità UI e altererebbe in modo inatteso i brand chiari a tutto schermo. */
     private roleColors(colorRole?: 'primary' | 'secondary'): [string, string] {
         if (colorRole === 'secondary') return [this.theme.colorSecondary(), this.theme.colorSecondaryText()];
         if (colorRole === 'primary') return [this.theme.colorPrimary(), this.theme.colorPrimaryText()];
@@ -513,12 +506,8 @@ export class ImgBuilderService {
         };
     }
 
-    // ============================================================
-    // ─── API STATICA — pura, SSR-safe, zero Signal/this/DOM ─────
-    //
-    // Non ha accesso ai Signal Angular né al DOM: tutti i parametri
-    // devono essere passati esplicitamente dal chiamante.
-    // ============================================================
+    // ─── API STATICA — pura, SSR-safe, zero Signal/this/DOM: tutti i parametri passati
+    // esplicitamente dal chiamante ────────────────────────────────────────────────────
 
     /** Calcola font-size e wrapping per adattare blocchi di testo all'altezza disponibile. */
     static fitTextBlocks(

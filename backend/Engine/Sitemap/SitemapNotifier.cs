@@ -3,13 +3,7 @@ using Backend.Models.Configuration;
 
 namespace Backend.Sitemap;
 
-/// <summary>
-/// Avvisa il frontend Node SSR che un catalogo dietro <c>dynamicParams</c> è cambiato: un
-/// <c>POST</c> senza corpo verso <c>{Frontend.Origin}/internal/revalidate-sitemap</c>, via
-/// <see cref="HttpClient"/> tipizzato (stesso schema di <c>EngineErrorReporting</c>), autenticato
-/// con la <c>x-api-key</c> condivisa. Esposta ai controller come proprietà ambient
-/// (<c>EngineApiController.Sitemap</c>).
-/// </summary>
+/// <summary>Avvisa il frontend Node SSR che un catalogo dietro <c>dynamicParams</c> è cambiato: POST verso <c>{Frontend.Origin}/internal/revalidate-sitemap</c>, autenticato con la x-api-key condivisa.</summary>
 public sealed class SitemapNotifier
 {
     private readonly HttpClient _http;

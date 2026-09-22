@@ -16,21 +16,11 @@ function escapeHtml(text: string): string {
  *  bastano a coprire link + enfasi, i due soli usi reali finora in stringhe i18n legali/cookie. */
 const TOKEN_PATTERN = /\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*/g;
 
-/**
- * MarkdownLitePipe — sottoinsieme di `MarkdownPipe` ridotto a `[testo](url)` e `**grassetto**`:
- * nessun corsivo/lista/tabella/codice, tutto il resto è HTML-escaped come testo semplice.
- *
- * USO: solo dove il contenuto è garantito limitato a questi due pattern (es. il banner cookie —
- * `testoBannerCookie`/`introBannerCookie` in i18n, o un progetto figlio che ne personalizza il
- * testo con un'enfasi). Per markdown generico (pagine Policy, editor `che-faccio`) usare `MarkdownPipe`.
- *
- * PERCHÉ ESISTE invece di riusare `MarkdownPipe`: `CookieBannerComponent` è montato in
- * `AppComponent`, sempre eager — un `import` statico di `MarkdownPipe` trascinerebbe l'intera
- * libreria `marked` (parser GFM completo con tabelle/codice/liste, ~41.5KB raw/11.8KB gzip) nel
- * bundle iniziale di OGNI progetto figlio solo per un link cliccabile e qualche parola in
- * grassetto. Qui bastano due regex: tiene `marked` fuori dall'eager bundle, scaricato solo da chi
- * apre davvero un editor o la pagina Policy (entrambi già lazy).
- */
+/** Sottoinsieme di `MarkdownPipe` ridotto a `[testo](url)` e `**grassetto**` (resto HTML-escaped);
+ *  usare dove il contenuto è garantito limitato a questi due pattern (es. banner cookie). Esiste
+ *  perché `CookieBannerComponent` è montato eager in `AppComponent`: un `import` statico di
+ *  `MarkdownPipe` trascinerebbe l'intera `marked` (~41.5KB raw/11.8KB gzip) nel bundle iniziale di
+ *  ogni progetto figlio solo per un link e un grassetto — due regex bastano e la tengono fuori. */
 @Pipe({ name: 'markdownLite' })
 export class MarkdownLitePipe implements PipeTransform {
     transform(value: string): string {

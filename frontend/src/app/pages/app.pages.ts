@@ -12,7 +12,6 @@ function withApi(loaderFn: (ctx: ContentLoaderContext, api: ApiService) => Promi
 
 // Area "app": pagine applicative del progetto. Un file per area (demo: "app"; reali: "shop", "blog"…),
 // assemblato in site.ts con uno spread. ID prefissati per area, leggibili in query string/log.
-// Riferimento campi: frontend/README.md §"Pagine & rotte" e §"Opzioni Avanzate di site.ts".
 export const AppPages = {
     Home: 'app.home',
     CheFaccio: 'app.chefaccio',

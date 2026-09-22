@@ -11,7 +11,6 @@ export type {
 
 // PageType: identità stabile di ogni pagina, assemblato dai file di area sotto pages/ (uno per area,
 // ID prefissati — es. "app.", "legal."). Area nuova = nuovo file + uno spread qui sotto.
-// Perché PageType e non il path: frontend/README.md §"Pagine & rotte" (ricetta: AGENTS.md §"Aggiungere una pagina").
 export const PageType = {
     ...LegalPages,
     ...AppPages,
@@ -20,7 +19,6 @@ export type PageType = (typeof PageType)[keyof typeof PageType];
 
 // Struttura del sito: slot globali e pagine. Identita' minima (nome, versione, lingue, colore
 // tema) vive in global-settings.json; tutta l'estetica (smoke incluso) è il design system attivo.
-// Riferimento completo dei campi: frontend/README.md §"Opzioni Avanzate di site.ts".
 export const ContestoSito = buildSite({
 
     // Redirect degli utenti non autenticati (omessa → /error/401); noindex di default.

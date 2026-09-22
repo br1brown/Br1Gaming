@@ -2,13 +2,9 @@ import { Directive, input } from '@angular/core';
 import { LightboxActivatable } from './lightbox-activatable';
 import type { LightboxSource } from '../components/image-lightbox/image-lightbox-overlay.component';
 
-/**
- * Lightbox fullscreen per un'immagine generata client-side (`Blob`) — es. il canvas del builder
- * immagini o un QR code — non un `[appAsset]` risolto dal backend (per quello vedi
- * `AssetDirective.appAssetLightbox`, stesso comportamento, condiviso via `LightboxActivatable`).
- *
- * `<img [appLightbox]="miaBlob()">` — `null`/assente disattiva (nessun handler, nessun affordance).
- */
+/** Lightbox fullscreen per un'immagine generata client-side (`Blob`) — canvas del builder immagini
+ *  o un QR code — non un `[appAsset]` risolto dal backend (vedi `AssetDirective.appAssetLightbox`,
+ *  stesso comportamento via `LightboxActivatable`): `<img [appLightbox]="miaBlob()">`. */
 @Directive({
     selector: 'img[appLightbox]',
     standalone: true,

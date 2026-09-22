@@ -19,13 +19,7 @@ public class SecurityOptions
     /// </summary>
     public string[] CorsOrigins { get; set; } = [];
 
-    /// <summary>
-    /// Header di sicurezza rivolti al browser, definiti in <c>security-headers.json</c>
-    /// (file del template, uguale per ogni progetto) e condivisi con il frontend Node SSR.
-    /// Il backend li applica solo quando viene esposto pubblicamente (browser-reachable).
-    /// La chiave <c>Content-Security-Policy</c> viene ignorata dal backend: serve solo JSON,
-    /// su cui la CSP non ha effetto.
-    /// </summary>
+    /// <summary>Header di sicurezza da security-headers.json, condivisi col frontend SSR. Il backend li applica solo se esposto pubblicamente; Content-Security-Policy ignorata (serve solo JSON).</summary>
     public Dictionary<string, string> Headers { get; set; } = new();
 
     /// <summary>
@@ -33,31 +27,13 @@ public class SecurityOptions
     /// </summary>
     public TokenOptions Token { get; set; } = new();
 
-    /// <summary>
-    /// Chiave segreta per la cifratura simmetrica generica dell'engine (<see cref="Security.EngineCrypto"/>).
-    /// </summary>
-    /// <remarks>
-    /// Volutamente separata da <see cref="TokenOptions.SecretKey"/>: riusare la stessa chiave per firmare
-    /// JWT e per cifrare dati sarebbe riuso di materiale crittografico su due scopi diversi. Generata da
-    /// <c>setup.mjs</c> alla nascita del progetto (come <see cref="ApiConfigOptions.Keys"/>), indipendente
-    /// da <see cref="LoginEnabled"/>.
-    /// </remarks>
+    /// <summary>Chiave per <see cref="Security.EngineCrypto"/>, volutamente separata da <see cref="TokenOptions.SecretKey"/> (mai riusare la stessa chiave per firmare JWT e cifrare dati).</summary>
     public string CryptoSecret { get; set; } = "";
 
-    /// <summary>
-    /// Indica se l'app e' dietro un reverse proxy (es. Nginx, Cloudflare, Azure App Service).
-    /// Se <c>true</c>, attiva il middleware ForwardedHeaders per ricostruire l'IP reale
-    /// del client dagli header <c>X-Forwarded-For</c> e <c>X-Forwarded-Proto</c>.
-    /// Se <c>false</c>, il rate limiter usa direttamente <c>RemoteIpAddress</c>.
-    /// </summary>
+    /// <summary>Se true, attiva ForwardedHeaders per ricostruire l'IP reale da X-Forwarded-For/Proto; se false il rate limiter usa RemoteIpAddress diretto.</summary>
     public bool BehindProxy { get; set; }
 
-    /// <summary>
-    /// Indica se il login JWT e' attivo.
-    /// </summary>
-    /// <remarks>
-    /// Il valore dipende esclusivamente dalla presenza di una <see cref="TokenOptions.SecretKey"/> non vuota.
-    /// </remarks>
+    /// <summary>Se il login JWT è attivo: dipende esclusivamente da <see cref="TokenOptions.SecretKey"/> non vuota.</summary>
     public bool LoginEnabled => !string.IsNullOrWhiteSpace(Token.SecretKey);
 }
 
@@ -76,15 +52,7 @@ public class TokenOptions
     /// </summary>
     public int ExpirationSeconds { get; set; } = 3000;
 
-    /// <summary>
-    /// Costruisce la chiave simmetrica usata dal middleware JWT e da <c>AuthService</c>.
-    /// </summary>
-    /// <returns>Una <see cref="SymmetricSecurityKey"/> pronta per la firma o la validazione dei token.</returns>
-    /// <exception cref="InvalidOperationException">
-    /// Sollevata quando la <see cref="SecretKey"/> e' vuota o piu' corta del minimo richiesto da HMAC-SHA256.
-    /// La configurazione va corretta in <c>global-settings.json</c>: una chiave corta non viene piu' espansa
-    /// automaticamente, perche' avrebbe l'entropia della chiave originale e mascherererebbe segreti deboli.
-    /// </exception>
+    /// <summary>Costruisce la chiave simmetrica per JWT. Lancia se <see cref="SecretKey"/> è vuota o più corta di 32 byte (HMAC-SHA256): non viene espansa automaticamente, per non mascherare segreti deboli con l'entropia originale.</summary>
     public SymmetricSecurityKey GetSigningKey()
     {
         if (string.IsNullOrEmpty(SecretKey))

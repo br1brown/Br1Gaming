@@ -1,5 +1,5 @@
 import { Component, computed, inject } from '@angular/core';
-import { TranslatePipe } from '../../pipes/translate.pipe';
+import { MarkdownLitePipe } from '../../pipes/markdown-lite.pipe';
 import { FooterNavComponent } from '../footer-nav/footer-nav.component';
 import { FooterLinkRowComponent } from '../footer-link-row/footer-link-row.component';
 import { ContestoSito } from '../../../../site';
@@ -11,7 +11,7 @@ import { AuthService } from '../../../services/auth.service';
 
 @Component({
     selector: 'app-footer',
-    imports: [TranslatePipe, FooterNavComponent, FooterLinkRowComponent],
+    imports: [MarkdownLitePipe, FooterNavComponent, FooterLinkRowComponent],
     templateUrl: './footer.component.html',
     host: { class: 'd-block mt-auto' }
 })
@@ -20,10 +20,11 @@ export class FooterComponent {
     private readonly auth = inject(AuthService);
     private readonly shellNav = inject(ShellNavService);
 
-    readonly appName = ContestoSito.config.appName;
     /** Descrizione del sito risolta sulla lingua corrente (reattiva al cambio lingua). */
     readonly description = computed(() => pickLocaleText(ContestoSito.config.description, this.translate.currentLang()));
-    readonly currentYear = new Date().getFullYear();
+    /** Riga "small print" (default `© {anno} **{appName}** | {dirittiRiservatiAzienda}`, markdownLite
+     *  nel template): vedi `ShellNavResolver.footerCopyright`/`defaultFooterCopyright` per l'override. */
+    readonly footerCopyright = this.shellNav.footerCopyright;
     /** Filtra le voci/gruppi `authOnly` in base al login corrente — stesso meccanismo della
      *  navbar (`filterNavByAuth`), qui via `AuthService` (facciata di Dominio) invece del
      *  `TokenService` d'Engine, come già fa `user-nav.component.ts`. */

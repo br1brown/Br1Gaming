@@ -9,14 +9,10 @@ bootstrapApplication(AppComponent, appConfig)
     renderFatalBootError();
   });
 
-/**
- * Bootstrap fallito (appInitializer o simili): l'albero dei componenti — quindi anche
- * `ErrorComponent`/il router — non esiste mai, `<app-root>` è rimasto vuoto. Serve markup
- * puro, senza dipendere da TranslateService (proprio ciò che può aver fallito) né da Angular:
- * qui il framework non è mai partito. Stile via classi Bootstrap (già nel bundle CSS, caricato
- * a parte dal JS) così resta coerente col resto del sito e col tema chiaro/scuro impostato da
- * theme-init.js su <html> prima di questo script.
- */
+/** Bootstrap fallito (appInitializer o simili): l'albero dei componenti non esiste mai,
+ *  `<app-root>` resta vuoto. Markup puro, senza TranslateService (proprio ciò che può aver
+ *  fallito) né Angular: il framework non è mai partito. Stile via classi Bootstrap (già nel
+ *  bundle CSS) per restare coerente col tema chiaro/scuro di theme-init.js. */
 function renderFatalBootError(): void {
   const it = (navigator.language || '').toLowerCase().startsWith('it');
   const text = it

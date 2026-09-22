@@ -1,47 +1,21 @@
 namespace Backend.Models;
 
-/// <summary>
-/// Eccezione base per gli errori API che devono essere tradotti in una risposta HTTP controllata.
-/// </summary>
-/// <remarks>
-/// Base del pattern "lancia e basta": le eccezioni lanciate nei controller vengono
-/// intercettate da <see cref="Backend.Security.ApiExceptionHandler"/> e tradotte in
-/// un payload <c>ProblemDetails</c> (RFC 9457) con il corretto status HTTP.
-/// 
-/// Messaggi localizzati: <see cref="MessageKey"/> viene risolta tramite <c>IStringLocalizer</c>
-/// (.resx), applicando eventuali <see cref="MessageArgs"/> ai segnaposto.
-/// 
-/// Per estendere: crea una sottoclasse passando status HTTP e chiave risorsa al costruttore base.
-/// </remarks>
+/// <summary>Eccezione base tradotta da <see cref="Backend.Security.ApiExceptionHandler"/> in un <c>ProblemDetails</c>.</summary>
 public class ApiException : Exception
 {
     /// <summary>Codice HTTP da restituire al client.</summary>
     public int StatusCode { get; }
 
-    /// <summary>
-    /// Chiave di risorsa del messaggio, risolta per lingua dall'handler (file .resx).
-    /// </summary>
+    /// <summary>Chiave di risorsa del messaggio, risolta per lingua dall'handler (file .resx).</summary>
     public string MessageKey { get; }
 
-    /// <summary>
-    /// Argomenti che riempiono i segnaposto del messaggio localizzato (es. <c>{0}</c>).
-    /// </summary>
+    /// <summary>Argomenti che riempiono i segnaposto del messaggio localizzato (es. <c>{0}</c>).</summary>
     public object[] MessageArgs { get; }
 
-    /// <summary>
-    /// Secondi che il client deve attendere prima di riprovare.
-    /// Se valorizzato, l'handler aggiunge l'header <c>Retry-After</c> alla risposta.
-    /// Rilevante per <see cref="TooManyRequestsException"/> (429) e
-    /// <see cref="ServiceUnavailableException"/> (503).
-    /// </summary>
+    /// <summary>Secondi di attesa suggeriti; se valorizzato l'handler aggiunge l'header <c>Retry-After</c>.</summary>
     public int? RetryAfterSeconds { get; protected init; }
 
-    /// <summary>
-    /// Inizializza l'eccezione con la chiave del messaggio, lo status HTTP e gli argomenti.
-    /// </summary>
-    /// <param name="messageKey">Chiave di risorsa presente nei file SharedResource*.resx.</param>
-    /// <param name="statusCode">Codice HTTP da usare nella risposta (es. 400, 401, 404).</param>
-    /// <param name="args">Valori per i segnaposto del testo localizzato.</param>
+    /// <summary>Chiave del messaggio, status HTTP e argomenti per i segnaposto.</summary>
     public ApiException(string messageKey, int statusCode, params object[] args)
         : base(messageKey)
     {
@@ -53,13 +27,7 @@ public class ApiException : Exception
 
 // ── 400 Bad Request ──────────────────────────────────────────────────────────
 
-/// <summary>
-/// Rappresenta un errore 400 dovuto a contenuti non decodificabili.
-/// </summary>
-/// <remarks>
-/// Uso tipico: il body della richiesta o un file di dati non e' nel formato atteso
-/// (es. JSON malformato, encoding non supportato).
-/// </remarks>
+/// <summary>Errore 400: body o file di dati non nel formato atteso (JSON malformato, encoding non supportato).</summary>
 public class DecodingException : ApiException
 {
     /// <summary>Crea l'eccezione con chiave <c>error_decoding</c> e status 400.</summary>
@@ -69,13 +37,7 @@ public class DecodingException : ApiException
     }
 }
 
-/// <summary>
-/// Rappresenta un errore 400 per parametri assenti, incompleti o non validi.
-/// </summary>
-/// <remarks>
-/// Uso tipico: un endpoint richiede un parametro obbligatorio che non e' stato fornito,
-/// o il valore fornito non rispetta le regole di validazione.
-/// </remarks>
+/// <summary>Errore 400: parametro obbligatorio assente o che non rispetta le regole di validazione.</summary>
 public class InvalidParametersException : ApiException
 {
     /// <summary>Crea l'eccezione con chiave <c>error_invalid_parameters</c> e status 400.</summary>
@@ -87,19 +49,10 @@ public class InvalidParametersException : ApiException
 
 // ── 401 Unauthorized ─────────────────────────────────────────────────────────
 
-/// <summary>
-/// Rappresenta un errore 401 per credenziali assenti, non valide o sessione non autenticata.
-/// </summary>
-/// <remarks>
-/// Uso tipico: <c>throw new UnauthorizedException("error_invalid_credentials")</c> quando la
-/// verifica delle credenziali in un controller di login fallisce. L'handler lo converte in un
-/// ProblemDetails 401, coerente con il resto della gerarchia.
-/// Usare la chiave generica <c>"error_unauthorized"</c> (default) quando non si vuole rivelare
-/// quale campo e' errato; <c>"error_invalid_credentials"</c> solo dove la distinzione e' accettabile.
-/// </remarks>
+/// <summary>Errore 401: non autenticato (vs <see cref="ForbiddenException"/> 403, autenticato ma senza permessi).</summary>
 public class UnauthorizedException : ApiException
 {
-    /// <param name="messageKey">Chiave di risorsa del motivo. Default: <c>"error_unauthorized"</c>.</param>
+    /// <summary>Chiave generica di default (non rivela il campo errato); "error_invalid_credentials" solo dove accettabile (es. login).</summary>
     public UnauthorizedException(string messageKey = "error_unauthorized")
         : base(messageKey, 401)
     {
@@ -108,14 +61,7 @@ public class UnauthorizedException : ApiException
 
 // ── 403 Forbidden ────────────────────────────────────────────────────────────
 
-/// <summary>
-/// Rappresenta un errore 403 per accesso negato a un utente autenticato ma non autorizzato.
-/// </summary>
-/// <remarks>
-/// Diversa da <see cref="UnauthorizedException"/> (401): quella indica che l'utente non e'
-/// autenticato; questa indica che e' autenticato ma non ha i permessi per l'operazione richiesta.
-/// Uso tipico: un utente loggato tenta di accedere a una risorsa riservata a un ruolo superiore.
-/// </remarks>
+/// <summary>Errore 403: utente autenticato ma senza i permessi per l'operazione richiesta.</summary>
 public class ForbiddenException : ApiException
 {
     /// <summary>Crea l'eccezione con chiave <c>error_forbidden</c> e status 403.</summary>
@@ -127,13 +73,7 @@ public class ForbiddenException : ApiException
 
 // ── 404 Not Found ────────────────────────────────────────────────────────────
 
-/// <summary>
-/// Rappresenta un errore 404 per una risorsa richiesta ma non trovata o non leggibile.
-/// </summary>
-/// <remarks>
-/// Uso tipico: <c>throw new NotFoundException("utente")</c> quando un file JSON o un record
-/// non esiste. Il nome della risorsa riempie il segnaposto del messaggio localizzato.
-/// </remarks>
+/// <summary>Errore 404: risorsa richiesta non trovata o non leggibile.</summary>
 public class NotFoundException : ApiException
 {
     /// <param name="dataName">Nome della risorsa non trovata; se omesso viene usato un messaggio generico.</param>
@@ -146,13 +86,7 @@ public class NotFoundException : ApiException
     }
 }
 
-/// <summary>
-/// Rappresenta un errore 404 per dati esistenti ma vuoti o non disponibili.
-/// </summary>
-/// <remarks>
-/// Diversa da <see cref="NotFoundException"/>: la risorsa esiste, ma il contenuto
-/// e' vuoto o non disponibile per la lingua richiesta.
-/// </remarks>
+/// <summary>Errore 404: la risorsa esiste ma il contenuto è vuoto o non disponibile per la lingua richiesta (vs <see cref="NotFoundException"/>, risorsa assente).</summary>
 public class DataNotFoundException : ApiException
 {
     /// <summary>Crea l'eccezione con chiave <c>error_data_not_found</c> e status 404.</summary>
@@ -164,14 +98,7 @@ public class DataNotFoundException : ApiException
 
 // ── 409 Conflict ─────────────────────────────────────────────────────────────
 
-/// <summary>
-/// Rappresenta un errore 409 per conflitti di stato sulla risorsa.
-/// </summary>
-/// <remarks>
-/// Uso tipico: tentativo di creare una risorsa gia' esistente, o aggiornamento
-/// su una versione obsoleta (ottimistic concurrency). Il nome della risorsa in conflitto
-/// riempie il segnaposto <c>{0}</c> del messaggio localizzato.
-/// </remarks>
+/// <summary>Errore 409: risorsa già esistente o aggiornamento su una versione obsoleta (optimistic concurrency).</summary>
 public class ConflictException : ApiException
 {
     /// <param name="resourceName">Nome della risorsa in conflitto; se omesso viene usato un messaggio generico.</param>
@@ -186,14 +113,7 @@ public class ConflictException : ApiException
 
 // ── 410 Gone ─────────────────────────────────────────────────────────────────
 
-/// <summary>
-/// Rappresenta un errore 410 per risorse rimosse definitivamente.
-/// </summary>
-/// <remarks>
-/// Diversa da <see cref="NotFoundException"/> (404): il 404 e' ambiguo (la risorsa potrebbe
-/// tornare), mentre il 410 comunica esplicitamente al client e ai crawler che la risorsa
-/// non esiste piu' e non tornera'. Il nome della risorsa riempie il segnaposto <c>{0}</c>.
-/// </remarks>
+/// <summary>Errore 410: risorsa rimossa definitivamente — a differenza del 404 (ambiguo), comunica a client e crawler che non tornerà.</summary>
 public class GoneException : ApiException
 {
     /// <param name="resourceName">Nome della risorsa rimossa; se omesso viene usato un messaggio generico.</param>
@@ -208,14 +128,7 @@ public class GoneException : ApiException
 
 // ── 422 Unprocessable Entity ─────────────────────────────────────────────────
 
-/// <summary>
-/// Rappresenta un errore 422 per richieste sintatticamente valide ma semanticamente non elaborabili.
-/// </summary>
-/// <remarks>
-/// Usato quando il JSON e' ben formato (diversamente dal 400) ma i valori non superano
-/// le regole di business (es. data di fine precedente alla data di inizio, importo negativo).
-/// Complementa FluentValidation per le validazioni che richiedono logica di dominio.
-/// </remarks>
+/// <summary>Errore 422: JSON ben formato ma valori che violano una regola di business (complementa FluentValidation).</summary>
 public class UnprocessableEntityException : ApiException
 {
     /// <summary>Crea l'eccezione con chiave <c>error_unprocessable_entity</c> e status 422.</summary>
@@ -242,16 +155,7 @@ public class PayloadTooLargeException : ApiException
 
 // ── 429 Too Many Requests ────────────────────────────────────────────────────
 
-/// <summary>
-/// Rappresenta un errore 429 per superamento dei limiti di frequenza applicativi.
-/// </summary>
-/// <remarks>
-/// Il rate limiting infrastrutturale e' gia' gestito dal middleware (100 req/min globale,
-/// 5 req/min per login). Questa eccezione serve per limiti di business applicativi piu'
-/// granulari (es. max 3 tentativi di OTP per sessione, max 10 export al giorno per utente).
-/// Se valorizzato, <c>retryAfterSeconds</c> aggiunge l'header <c>Retry-After</c>
-/// alla risposta, indicando al client quando potra' riprovare.
-/// </remarks>
+/// <summary>Errore 429: limite di business applicativo superato (es. tentativi OTP, export/giorno) — distinto dal rate limiter infrastrutturale.</summary>
 public class TooManyRequestsException : ApiException
 {
     /// <param name="retryAfterSeconds">Secondi da attendere prima di riprovare (opzionale). Se fornito, viene incluso nel messaggio e nell'header <c>Retry-After</c>.</param>
@@ -267,14 +171,7 @@ public class TooManyRequestsException : ApiException
 
 // ── 501 Not Implemented ──────────────────────────────────────────────────────
 
-/// <summary>
-/// Rappresenta un errore 501 per funzionalita' non ancora implementate lato server.
-/// </summary>
-/// <remarks>
-/// Utile per endpoint stub o funzionalita' pianificate ma non ancora disponibili.
-/// Nota: il nome e' volutamente diverso da <c>System.NotImplementedException</c>
-/// (usata per metodi astratti non implementati in C#) per evitare ambiguita'.
-/// </remarks>
+/// <summary>Errore 501: endpoint pianificato ma non ancora disponibile. Nome distinto da <c>System.NotImplementedException</c> per evitare ambiguità con i metodi astratti C#.</summary>
 public class NotImplementedEndpointException : ApiException
 {
     /// <summary>Crea l'eccezione con chiave <c>error_not_implemented</c> e status 501.</summary>
@@ -286,15 +183,7 @@ public class NotImplementedEndpointException : ApiException
 
 // ── 502 Bad Gateway ──────────────────────────────────────────────────────────
 
-/// <summary>
-/// Rappresenta un errore 502 per risposte non valide ricevute da un servizio upstream.
-/// </summary>
-/// <remarks>
-/// Usato quando il backend agisce da intermediario (chiama API esterne, microservizi,
-/// ecc.) e riceve una risposta corrotta, malformata o con un formato imprevisto.
-/// Diverso da <see cref="ServiceUnavailableException"/> (503, servizio non raggiungibile)
-/// e <see cref="GatewayTimeoutException"/> (504, servizio raggiungibile ma lento).
-/// </remarks>
+/// <summary>Errore 502: risposta corrotta/malformata da un servizio upstream (vs 503 non raggiungibile, 504 raggiungibile ma lento).</summary>
 public class BadGatewayException : ApiException
 {
     /// <summary>Crea l'eccezione con chiave <c>error_bad_gateway</c> e status 502.</summary>
@@ -306,16 +195,7 @@ public class BadGatewayException : ApiException
 
 // ── 503 Service Unavailable ──────────────────────────────────────────────────
 
-/// <summary>
-/// Rappresenta un errore 503 per servizi esterni temporaneamente non disponibili.
-/// </summary>
-/// <remarks>
-/// Uso tipico: un servizio di terze parti (email, pagamenti, SMS) non risponde o
-/// restituisce un errore. Segnala al client che l'operazione puo' essere ritentata piu' tardi,
-/// senza esporre dettagli tecnici dell'infrastruttura.
-/// Se valorizzato, <c>retryAfterSeconds</c> aggiunge l'header <c>Retry-After</c>
-/// alla risposta (RFC 9110 §15.6.4).
-/// </remarks>
+/// <summary>Errore 503: servizio esterno (email, pagamenti, SMS...) temporaneamente non disponibile, senza esporre dettagli infrastrutturali al client.</summary>
 public class ServiceUnavailableException : ApiException
 {
     /// <param name="retryAfterSeconds">Secondi da attendere prima di riprovare (opzionale). Se fornito, viene incluso nel messaggio e nell'header <c>Retry-After</c>.</param>
@@ -331,15 +211,7 @@ public class ServiceUnavailableException : ApiException
 
 // ── 504 Gateway Timeout ──────────────────────────────────────────────────────
 
-/// <summary>
-/// Rappresenta un errore 504 per timeout di risposta da un servizio upstream.
-/// </summary>
-/// <remarks>
-/// Usato quando il backend e' in attesa di una risposta da un servizio esterno e questa
-/// non arriva entro il timeout configurato. Il servizio e' raggiungibile (diversamente
-/// dal 503) ma troppo lento. Consente al client di distinguere tra "servizio giu'" e
-/// "servizio congestionato/lento".
-/// </remarks>
+/// <summary>Errore 504: servizio upstream raggiungibile (a differenza del 503) ma troppo lento a rispondere.</summary>
 public class GatewayTimeoutException : ApiException
 {
     /// <summary>Crea l'eccezione con chiave <c>error_gateway_timeout</c> e status 504.</summary>

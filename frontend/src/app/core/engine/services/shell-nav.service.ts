@@ -5,6 +5,7 @@ import { ContestoSito } from '../../../site';
 import {
     createFooterSectionBuilder,
     createNavSectionBuilder,
+    defaultFooterCopyright,
     defaultFooterResolver,
     resolveFooterItems,
     resolveNavItems,
@@ -23,37 +24,20 @@ import { IdentityService } from './identity.service';
 import { LocalizationService } from './localization.service';
 import type { Identity } from '../dto/identity.dto';
 
-/**
- * Sorgente delle voci di navigazione di header/footer per QUESTO sito — un figlio la sovrascrive
- * (`{ provide: SHELL_NAV_RESOLVER, useValue: ... }` in `app.config.ts`) per collegare la
- * navigazione a un'API invece che a una dichiarazione statica. Default: nessuna voce (menu vuoto),
- * innocuo per chi non fornisce nulla — stesso pattern di `LEGAL_FILE_READER`.
- */
+/** Sorgente delle voci di header/footer per questo sito, sovrascrivibile via DI per collegarle a un'API invece che a una dichiarazione statica. Default: nessuna voce, innocuo per chi non fornisce nulla. */
 export const SHELL_NAV_RESOLVER = new InjectionToken<ShellNavResolver>('SHELL_NAV_RESOLVER', {
     providedIn: 'root',
     factory: () => ({}),
 });
 
-const SHELL_NAV_STATE_KEY = makeStateKey<{ header: NavLink[]; footer: FooterEntry[]; brandIcon: string; hideLegalStrip: boolean }>('shellNav');
+const SHELL_NAV_STATE_KEY = makeStateKey<{ header: NavLink[]; footer: FooterEntry[]; brandIcon: string; hideLegalStrip: boolean; footerCopyright: string }>('shellNav');
 
-/**
- * Voci di navigazione di header/footer e icona di brand, condivise da `NavbarComponent`/
- * `FooterComponent` (un solo fetch, non uno a testa). Risolte da `SHELL_NAV_RESOLVER` — dato, non
- * struttura del sito: a differenza di `ContestoSito` (build-time), qui gira a ogni richiesta SSR e
- * può dipendere da un'API (es. menu diverso per utente loggato, icona diversa per pagina).
- *
- * Il primo giro (lingua iniziale) è atteso da un `provideAppInitializer` in `app.config.ts`, PRIMA
- * che qualunque componente si costruisca: `NavbarComponent` legge `header()`/`footer()` anche in
- * un field initializer sincrono (`altroDropdownIndex`), quindi il valore dev'essere già pronto al
- * primo render, non arrivare dopo. Cambio lingua o login/logout (client): ri-risolve in modo
- * reattivo, senza bloccare nulla.
- *
- * Login tracciato apposta: in SSR `TokenService.isLoggedIn()` è sempre `false` (sessione letta
- * solo client-side, vedi `TokenService.restore()`), quindi un resolver che dipende dal login
- * risolve "guest" al primo giro — corretto per l'idratazione, che deve combaciare col DOM
- * server. Il secondo giro, reattivo, arriva da questa stessa dipendenza appena `restoreSession()`
- * (in `app.config.ts`) valorizza lo stato di login sul client.
- */
+/** Voci di header/footer e icona di brand, condivise da NavbarComponent/FooterComponent (un solo
+ *  fetch). Risolte da `SHELL_NAV_RESOLVER`, dato non struttura del sito: gira a ogni richiesta SSR
+ *  e può dipendere da un'API. Il primo giro è atteso da un `provideAppInitializer` prima che
+ *  qualunque componente si costruisca. Login tracciato apposta: in SSR è sempre false, un resolver
+ *  che ne dipende risolve "guest" al primo giro e ri-risolve appena `restoreSession()` valorizza
+ *  il login sul client. */
 @Injectable({ providedIn: 'root' })
 export class ShellNavService {
     private readonly resolver = inject(SHELL_NAV_RESOLVER);
@@ -80,43 +64,32 @@ export class ShellNavService {
     // Default false: la fascia "small print" resta quella di sempre finché il resolver del footer
     // non chiama esplicitamente `f.hideLegalStrip()` — vedi FooterComponent.
     private readonly _hideLegalStrip = signal<boolean>(false);
+    // Default = testo storico (vedi defaultFooterCopyright), non stringa vuota: il primo render
+    // (prima che resolve() giri) deve già mostrare qualcosa di corretto, stesso principio di
+    // _brandIcon sopra — mai un footer "vuoto" per un istante mentre la generazione è in corso.
+    private readonly _footerCopyright = signal<string>(
+        defaultFooterCopyright(ContestoSito.config.appName, new Date().getFullYear(), key => this.translate.translate(key)));
     readonly header = this._header.asReadonly();
     readonly footer = this._footer.asReadonly();
     readonly brandIcon = this._brandIcon.asReadonly();
     readonly hideLegalStrip = this._hideLegalStrip.asReadonly();
+    readonly footerCopyright = this._footerCopyright.asReadonly();
 
-    /** Chiave (lingua + login) dell'ultimo `resolve()` completato: guardia contro il doppio giro
-     *  fra la chiamata esplicita del `provideAppInitializer` e il primo scatto automatico
-     *  dell'`effect()` sotto, che vedono lo stesso stato iniziale. Un resolver che ignora il login
-     *  paga al più un secondo `resolve()` ridondante ma innocuo dopo il login — costo minimo per
-     *  la reattività di chi il login lo usa davvero. */
+    /** Chiave (lingua+login) dell'ultimo `resolve()` completato: guardia contro il doppio giro fra `provideAppInitializer` e il primo scatto automatico dell'effect() sotto, che vedono lo stesso stato iniziale. */
     private lastResolvedKey: string | null = null;
 
-    /** Contatore monotono: ogni `resolve()` cattura il proprio valore e lo confronta prima di
-     *  scrivere sui signal. Cambio lingua/login due volte di fretta avvia due `resolve()` in
-     *  parallelo — senza questa guardia, la rete potrebbe far arrivare per prima la risposta del
-     *  giro PIÙ VECCHIO e sovrascrivere quella corretta del giro nuovo. Puramente locale (nessun
-     *  round-trip, nessuno stato lato server): non c'entra con l'invalidazione di token/sessione. */
+    /** Contatore monotono: ogni `resolve()` lo cattura e lo confronta prima di scrivere sui signal, così un giro vecchio (arrivato dopo in rete) non sovrascrive un giro più nuovo. */
     private generation = 0;
 
     constructor() {
         effect(() => {
             const lang = this.translate.currentLang();
             const loggedIn = this.tokenService.isLoggedIn();
-            // L'identità arriva da una `httpResource` indipendente (stesso fetch di `FooterComponent`,
-            // non ne innesca uno in più): quando passa da "non ancora arrivata" a "arrivata" (o si
-            // rifetcha al cambio lingua) il footer va ri-risolto, altrimenti un `addField` resterebbe
-            // nascosto per sempre come se il sito non avesse quel dato.
-            //
-            // Traccia identity() stesso, non loading(): sono quasi la stessa cosa ma non proprio —
-            // in idratazione, su un client fresco (nuova istanza del servizio, `lastResolvedKey`
-            // riparte da null), loading() può leggere già `false` un tick prima che identity()/
-            // hasValue() rifletta il dato vero. Con loading() come chiave, quel resolve() catturava
-            // ctx.identity=null e lo fissava lì per sempre: nessun secondo giro, perché loading()
-            // non cambia più — bug verificato (footer SSR corretto, footer post-idratazione con
-            // i gruppi custom svuotati, mentre il blocco automatico — bound live a identity(), non
-            // catturato una tantum — restava giusto). identity() stesso non ha questa finestra:
-            // è il valore vero, non un proxy che può disallinearsi da lui.
+            // Quando l'identità passa da "non ancora arrivata" ad "arrivata" (o si rifetcha al
+            // cambio lingua) il footer va ri-risolto, altrimenti un addField resterebbe nascosto per
+            // sempre. Traccia identity() stesso, non loading(): in idratazione su un client fresco,
+            // loading() può leggere già false un tick prima che identity() rifletta il dato vero —
+            // con loading() come chiave quel resolve() catturerebbe identity=null senza un secondo giro.
             const identity = this.identityService.identity();
             const key = `${lang}:${loggedIn}:${identity !== null}`;
             if (key === this.lastResolvedKey) return;
@@ -140,7 +113,7 @@ export class ShellNavService {
         const generation = ++this.generation;
 
         if (this.transferState.hasKey(SHELL_NAV_STATE_KEY)) {
-            const cached = this.transferState.get(SHELL_NAV_STATE_KEY, { header: [], footer: [], brandIcon: 'favIcon', hideLegalStrip: false });
+            const cached = this.transferState.get(SHELL_NAV_STATE_KEY, { header: [], footer: [], brandIcon: 'favIcon', hideLegalStrip: false, footerCopyright: this._footerCopyright() });
             this.transferState.remove(SHELL_NAV_STATE_KEY);
             this._header.set(cached.header);
             this._footer.set(cached.footer);
@@ -149,6 +122,10 @@ export class ShellNavService {
             // un rolling deploy) potrebbe non avere ancora questo campo — undefined, non false, a runtime
             // (TransferState non valida la forma, solo TS lo farebbe e qui il JSON è già disserializzato).
             this._hideLegalStrip.set(cached.hideLegalStrip ?? false);
+            // Stessa guardia di hideLegalStrip: un rolling deploy può servire un TransferState senza
+            // questo campo (scritto da un server con codice più vecchio) — ricade sul default corrente
+            // invece di un `undefined` mostrato a schermo.
+            this._footerCopyright.set(cached.footerCopyright ?? this._footerCopyright());
             return;
         }
 
@@ -156,21 +133,17 @@ export class ShellNavService {
             this.resolveHeaderInto(lang, generation),
             this.resolveFooterInto(lang, generation),
             this.resolveBrandIconInto(lang, generation),
+            this.resolveFooterCopyrightInto(lang, generation),
         ]);
-        // Un resolve() più recente è partito nel frattempo (cambio lingua/login a raffica): i suoi
-        // risultati sono già nei signal, questo giro non ha più nulla di attendibile da trasferire.
+        // Un resolve() più recente è partito nel frattempo: i suoi risultati sono già nei signal,
+        // questo giro non ha più nulla di attendibile da trasferire.
         if (generation !== this.generation) return;
-        // Solo server: TransferState è un canale "usa una volta" per il passaggio SSR→client,
-        // non una cache generica. Scriverci anche da client (bug verificato: succedeva sempre,
-        // qui la guardia mancava) arma la trappola per il PROSSIMO resolve() — che la trova già
-        // valorizzata e le crede, riusando un risultato client-side potenzialmente calcolato con
-        // un'identity ancora incompleta (la corsa fra l'effect() e il resolve() esplicito del
-        // provideAppInitializer in app.config.ts, entrambi legittimi, entrambi possono arrivare
-        // prima che identityService abbia finito il proprio fetch) invece di ri-risolvere per
-        // davvero una volta che l'identità è finalmente arrivata — il footer restava agganciato
-        // per sempre a quello scatto sbagliato, mai più ricalcolato.
+        // Solo server: TransferState è un canale "usa una volta" per SSR→client, non una cache
+        // generica. Scriverci anche da client armerebbe la trappola per il PROSSIMO resolve(), che
+        // la troverebbe già valorizzata e riuserebbe un risultato client-side potenzialmente
+        // calcolato con un'identity ancora incompleta invece di ri-risolvere per davvero.
         if (!this.isBrowser) {
-            this.transferState.set(SHELL_NAV_STATE_KEY, { header: this._header(), footer: this._footer(), brandIcon: this._brandIcon(), hideLegalStrip: this._hideLegalStrip() });
+            this.transferState.set(SHELL_NAV_STATE_KEY, { header: this._header(), footer: this._footer(), brandIcon: this._brandIcon(), hideLegalStrip: this._hideLegalStrip(), footerCopyright: this._footerCopyright() });
         }
     }
 
@@ -239,6 +212,24 @@ export class ShellNavService {
             // A differenza di header/footer: il fallback sicuro è il default (favIcon), non "nascosta"
             // — nascondere l'icona è comunque un'altra decisione, del design system, non di questo resolver.
             if (isCurrent()) this._brandIcon.set('favIcon');
+        }
+    }
+
+    /** Risolve `resolver.footerCopyright`, stesso schema di `resolveBrandIconInto` (ritorna un
+     *  valore, non popola un builder). Il fallback in caso di resolver assente/fallito è sempre lo
+     *  stesso testo storico (`defaultFooterCopyright`), mai una stringa vuota: la riga "small print"
+     *  del footer non deve sparire per un resolver che lancia. */
+    private async resolveFooterCopyrightInto(lang: string, generation: number): Promise<void> {
+        const isCurrent = () => generation === this.generation;
+        const fallback = () => defaultFooterCopyright(ContestoSito.config.appName, new Date().getFullYear(), key => this.translate.translate(key));
+        const run = this.resolver.footerCopyright;
+        if (!run) { if (isCurrent()) this._footerCopyright.set(fallback()); return; }
+        try {
+            const value = await runInInjectionContext(this.injector, () => run(this.ctx(lang)));
+            if (isCurrent()) this._footerCopyright.set(value);
+        } catch (err) {
+            console.error('[ShellNavService] Risoluzione footerCopyright fallita:', err);
+            if (isCurrent()) this._footerCopyright.set(fallback());
         }
     }
 }

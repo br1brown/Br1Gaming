@@ -249,6 +249,39 @@
         }
       }
     },
+    "Media": {
+      "type": "object",
+      "description": "Qualità della variante web-ottimizzata di un blob immagine (EngineBlobController.webopt). Le DIMENSIONI richiedibili non sono qui: sono una whitelist fissa dell'Engine (`ALLOWED_WIDTHS` in `frontend/src/app/core/engine/asset-config.ts`, rispecchiata lato C# in `EngineBlobController.AllowedWebOptSizes`) — non una scelta per-progetto, sono le stesse larghezze per qualunque sito.",
+      "additionalProperties": false,
+      "properties": {
+        "WebOptQuality": {
+          "type": "integer",
+          "description": "Qualità WebP (1-100) della variante web-ottimizzata, per ogni dimensione della whitelist fissa dell'Engine.",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 85
+        }
+      }
+    },
+    "Notifications": {
+      "type": "object",
+      "description": "Canale realtime SSE (EngineNotificationStreamController, `GET /notifications/stream`).",
+      "additionalProperties": false,
+      "properties": {
+        "HeartbeatSeconds": {
+          "type": "integer",
+          "description": "Intervallo (secondi) del commento di keep-alive che tiene viva la connessione attraverso proxy/idle-timeout. Un reverse proxy/CDN con idle-timeout più corto del default (alcuni tagliano a 15-20s) richiede un valore più basso.",
+          "minimum": 1,
+          "default": 25
+        },
+        "ReconnectDelaySeconds": {
+          "type": "integer",
+          "description": "Delay di riconnessione (secondi) suggerito al browser (campo SSE `retry:`).",
+          "minimum": 1,
+          "default": 5
+        }
+      }
+    },
     "site": {
       "type": "object",
       "description": "Identità ed estetica MINIMA del sito (committabile, del progetto). Iniettata nel frontend al build via environment.ts. Tutto ciò che è aspetto/comportamento (showNav, showFooter, showPanel, fixedTopHeader, panelSurface, forceThemeTone, ogImagePlain, superfici, ruoloPagina, i quattro override colore, l'effetto smoke) non è un campo di questo file: è decisione del design system attivo (`DesignSystemPreset`, scelto o esteso in site.ts via `shell.designSystem`). `shell` stesso resta minimo (solo `designSystem`/`showNotifications`); `isWebApp` e il `showInHeader` di `loginPage` sono campi propri di site.ts, non di `shell` né del design system. Il menu di header/footer e l'icona di brand sono dato risolto a runtime in nav.ts.",

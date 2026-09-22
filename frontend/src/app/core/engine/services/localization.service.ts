@@ -4,20 +4,10 @@ import { DAY_ORDER } from '../dto/identity.dto';
 import { LocaleFormatter } from './formatter';
 import { TranslateService } from './translate.service';
 
-/**
- * LOCALIZATION SERVICE
- *
- * Hub UNICO della cultura: tutto ciò che dipende dal locale e non è testo tradotto. È interamente
- * front-end e derivato da `Intl` (ECMA-402 / CLDR, disponibile in browser e in SSR): tag locale,
- * formattazione (`formatter`: date, numeri, valuta, regioni), nomi giorno abbreviati e nomi nativi
- * delle lingue. NIENTE round-trip al backend: la cultura la fa lo standard di piattaforma, quindi il
- * frontend è autonomo (funziona anche offline, sempre corretto) e disaccoppiato da come il backend
- * gestisce la propria cultura.
- *
- * Divisione dei ruoli: `TranslateService` possiede lo STATO lingua (quale lingua, cambio lingua,
- * elenco `availableLangs` da config); questo servizio ne deriva la CULTURA con `Intl`. Tutto è
- * reattivo: al cambio lingua i signal si ricalcolano da soli, senza fetch.
- */
+/** Hub unico della cultura: tutto ciò che dipende dal locale e non è testo tradotto (tag locale,
+ *  formattazione, nomi giorno/lingua), derivato da `Intl` (ECMA-402/CLDR) — niente round-trip al
+ *  backend, autonomo anche offline. `TranslateService` possiede lo STATO lingua, questo servizio
+ *  ne deriva la CULTURA: reattivo, i signal si ricalcolano da soli al cambio lingua. */
 @Injectable({ providedIn: 'root' })
 export class LocalizationService {
     private readonly translate = inject(TranslateService);

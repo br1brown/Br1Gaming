@@ -4,12 +4,9 @@ import { TranslateService } from '../../services/translate.service';
 import { AuthService } from '../../../services/auth.service';
 import { LoginRequest } from '../../../dto/auth.dto';
 
-/**
- * Base dei form di login: campi, validazione, chiamata di autenticazione ed errore inline.
- * Centralizza la logica (submit, stato di loading, mappatura dell'errore) così un progetto figlio
- * che vuole un markup diverso (es. campo username visibile invece che nascosto, layout proprio)
- * scrive solo il proprio `LoginFormComponent` concreto — stesso pattern di `BaseActionComponent`.
- */
+/** Base dei form di login: campi, validazione, autenticazione ed errore inline. Centralizza la
+ *  logica (submit, loading, mappatura errore) così un progetto figlio con un markup diverso
+ *  scrive solo il proprio `LoginFormComponent` concreto — stesso pattern di `BaseActionComponent`. */
 @Directive()
 export abstract class BaseLoginFormComponent {
     protected readonly auth = inject(AuthService);

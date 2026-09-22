@@ -1,17 +1,9 @@
-/**
- * Copre `systemFontHandler` (server/routes/system-font.ts) DAL VIVO — la funzione REALE, non una
- * reimplementazione — con `node:fs` mockato (nessuna dipendenza da font realmente installati su
- * disco: CI-safe fuori da un container con i pacchetti Alpine). `ContestoSito` resta quello VERO
- * del sito (`site.ts`, `customFontsCatalog` vuoto di default in questo repo): il sistema di test
- * Angular (`ng test`, `@angular/build:unit-test`) non supporta `vi.mock` su import relativi (solo
- * su specificatori bare come `node:fs`), quindi il ramo custom dell'endpoint — stesso identico
- * pattern del ramo SystemFont qui sotto, solo sorgente dati diversa — non è esercitato QUI: lo è
- * dal vivo (bytes reali via `fc-scan`+Sharp, verificato a mano) e strutturalmente dal test di
- * proprietà "raggiungibile ⇔ censito" in `design-system-presets.spec.ts` (`resolveFonts()` pura).
- * Garantisce comunque l'invariante che conta per il ramo SystemFont — reachability e adversarial:
- * ogni key/indice DICHIARATO risolve a un file, qualunque altra combinazione mai (key ignota,
- * indice fuori range/negativo/non numerico, path traversal, key array da Express).
- */
+/** Copre `systemFontHandler` DAL VIVO (funzione reale) con `node:fs` mockato — CI-safe fuori da un
+ *  container Alpine. `vi.mock` non funziona su import relativi in `ng test` (solo su specificatori
+ *  bare come `node:fs`), quindi il ramo custom dell'endpoint non è esercitato qui: lo è dal vivo e
+ *  strutturalmente dal test "raggiungibile ⇔ censito" in `design-system-presets.spec.ts`. Copre
+ *  comunque l'invariante che conta per il ramo SystemFont: ogni key/indice dichiarato risolve a un
+ *  file, ogni altra combinazione (key ignota, indice fuori range, path traversal) mai. */
 import { describe, it, expect, vi } from 'vitest';
 
 // SystemFont.Roboto/0 è un percorso reale del catalogo di sistema — preso da SYSTEM_FONTS

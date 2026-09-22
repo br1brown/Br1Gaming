@@ -51,28 +51,13 @@ export class NotificationService {
 
     private loadSwal(): Promise<SwalType> | null {
         if (!isPlatformBrowser(this.platformId)) return null;
-        // Import della build "senza stile": la variante bare 'sweetalert2' (dist/sweetalert2.all.js)
-        // inietta il proprio CSS di base al volo con un <style> creato via JS, SENZA nonce — sotto la
-        // CSP di questo template (style-src-elem con nonce, niente 'unsafe-inline': vedi
-        // security-headers.json) il browser lo scarta in silenzio, quindi .swal2-container non riceve
-        // mai `position:fixed` e la modale appare in fondo alla pagina invece che in overlay. Il CSS
-        // di base va quindi caricato staticamente via <link> (angular.json → "styles", stesso pattern
-        // di Bootstrap/FontAwesome/Mapbox) e qui si importa solo il JS puro, senza auto-injection.
+        // Build "senza stile": la variante bare inietta il proprio CSS via <style> senza nonce, che
+        // la CSP di questo template scarta in silenzio (modale in fondo alla pagina, mai in overlay).
+        // Il CSS base va quindi caricato staticamente via <link> (angular.json), qui solo il JS puro.
         return this.swalPromise ??= import('sweetalert2/dist/sweetalert2.esm.js').then(module => module.default);
     }
 
-    /**
-     * SwAl pre-configurato col tema del template:
-     *  - theme 'bootstrap-5-light' o '-dark' a seconda di themeTone, così che il
-     *    popup segua sempre lo schema chiaro/scuro corrente (il tema CSS
-     *    'sweetalert2/themes/bootstrap-5.css' è caricato da angular.json → "styles");
-     *  - confirmButton: btn-success (verde universale, segnale positivo)
-     *  - cancelButton:  btn-outline-secondary (neutro adattivo via --colorSecondary)
-     *  - denyButton:    btn-danger (rosso per azioni distruttive)
-     * `buttonsStyling: false` disabilita lo styling default di Swal così che le
-     * classi Bootstrap prevalgano. Il mixin viene ricreato ad ogni call per
-     * essere reattivo a cambi di themeTone a runtime.
-     */
+    /** SwAl pre-configurato col tema: theme light/dark segue `themeTone`, bottoni Bootstrap (success/outline-secondary/danger, `buttonsStyling: false`). Ricreato ad ogni call per restare reattivo a cambi di themeTone. */
     private loadThemedSwal(): Promise<SwalType> | null {
         const base = this.loadSwal();
         if (!base) return null;
@@ -158,12 +143,9 @@ export class NotificationService {
         void this.loadThemedSwal()?.then(Swal => Swal.close());
     }
 
-    /**
-     * Esegue un lavoro asincrono mostrandone il ciclo di vita: spinner bloccante → toast di esito.
-     * Toglie il boilerplate `openLoading`/`await`/`closeLoading`/try-catch ripetuto ovunque.
-     * Rilancia SEMPRE l'eccezione (il toast d'errore è solo UX): il chiamante decide il resto (es.
-     * `handleApiError`). In SSR esegue il lavoro senza UI (loading/toast no-op) e ne ritorna il valore.
-     */
+    /** Esegue un lavoro asincrono mostrandone il ciclo di vita: spinner bloccante → toast di esito.
+     *  Rilancia SEMPRE l'eccezione (il toast d'errore è solo UX), il chiamante decide il resto. In
+     *  SSR esegue il lavoro senza UI (loading/toast no-op) e ne ritorna il valore. */
     async promise<T>(work: Promise<T> | (() => Promise<T>), config: PromiseToastConfig<T> = {}): Promise<T> {
         const run = typeof work === 'function' ? work() : work;
         this.openLoading(config.loading);
@@ -206,13 +188,9 @@ export class NotificationService {
         return result.isConfirmed;
     }
 
-    /**
-     * Dialogo a TRE vie: conferma / rifiuto esplicito / annulla. Il caso classico delle
-     * "modifiche non salvate" → Salva / Non salvare / Annulla, dove "No" (rifiuto) e "Annulla"
-     * (ripensamento) sono esiti DIVERSI — distinzione che {@link confirm} (booleano) non coglie.
-     * Usa il `denyButton` già stilato dal tema (btn-danger). Default Sì / No / Annulla (i18n).
-     * Ritorna 'cancel' anche su ESC / clic fuori e in SSR (nessuna azione presa).
-     */
+    /** Dialogo a TRE vie: conferma / rifiuto esplicito / annulla (es. "modifiche non salvate" →
+     *  Salva / Non salvare / Annulla) — distinzione che {@link confirm} booleano non coglie.
+     *  Ritorna 'cancel' anche su ESC/clic fuori e in SSR. */
     async choose(title: string, text: string, options?: {
         confirmText?: string;
         denyText?: string;

@@ -20,20 +20,10 @@ import { VersionCheckService } from './core/engine/services/version-check.servic
 import { WebVitalsService } from './core/engine/services/web-vitals.service';
 import { TranslatePipe } from './core/engine/pipes/translate.pipe';
 
-/**
- * Chiave TransferState della chrome risolta. L'SSR serializza la chrome della rotta RISOLTA; il
- * client la rilegge come valore iniziale del signal, così il primo render combacia con l'HTML SSR
- * (no flash navbar/pannello) SENZA dipendere dal timing della prima navigazione del router.
- * Riusa la stessa stringa della chiave in `route.data`: è la stessa cosa logica, due canali diversi.
- */
+/** Chiave TransferState della chrome risolta: l'SSR la serializza, il client la rilegge come valore iniziale del signal, così il primo render combacia con l'HTML SSR senza flash navbar/pannello. */
 const ROUTE_CHROME_STATE_KEY = makeStateKey<RouteChrome>(CHROME_DATA_KEY);
 
-/**
- * Shell principale dell'app (nel senso architetturale di "app shell": il contenitore radice che
- * avvolge `<router-outlet>`): non decide quali pagine esistono, consuma le route già trasformate e
- * reagisce alla chrome risolta della pagina attiva (showPanel, showNav, showFooter) — al 100%
- * decisa dal design system attivo, vedi `RouteChrome` in `siteBuilder.ts`.
- */
+/** Shell principale dell'app: non decide quali pagine esistono, consuma le route già trasformate e reagisce alla chrome della pagina attiva (100% decisa dal design system, vedi `RouteChrome`). */
 @Component({
     selector: 'app-root',
     imports: [RouterOutlet, NavbarComponent, FooterComponent, SmokeEffectComponent, BackToTopComponent, CookieBannerComponent, BreadcrumbComponent, TranslatePipe],
@@ -55,22 +45,14 @@ export class AppComponent {
      *  storico). Vedi `CONTENT_WIDTH_CLASSES` in `design-system-presets.ts`. */
     readonly contentWidthClass = CONTENT_WIDTH_CLASSES[ContestoSito.config.contentWidth];
 
-    /**
-     * Chrome risolta della rotta attiva (`route.data[CHROME_DATA_KEY]`, scritto da routing.ts).
-     * `initialValue` = chrome serializzata dall'SSR (TransferState): il primo render client usa gli
-     * stessi flag dell'HTML SSR → niente sfarfallio prima del primo NavigationEnd. Poi si aggiorna a
-     * ogni navigazione; senza SSR → `{}` → default.
-     */
+    /** Chrome risolta della rotta attiva. `initialValue` = chrome serializzata dall'SSR: il primo render client usa gli stessi flag dell'HTML SSR, niente sfarfallio prima del primo NavigationEnd. */
     private readonly routeChrome = onNavigationEnd(
         router => (PageMetaService.getLeaf(router.routerState.snapshot).data[CHROME_DATA_KEY] ?? {}) as RouteChrome,
         this.transferState.get(ROUTE_CHROME_STATE_KEY, {} as RouteChrome)
     );
 
-    // Il ruolo vince SEMPRE sul default globale del design system, in entrambe le direzioni — non
-    // solo per "spegnere". Un ruolo esplicito (`ruoloPagina.<ruolo>.showPanel`) sovrascrive anche un
-    // default globale opposto (implicito in `DesignSystemPreset.superfici`, mai un campo showPanel a
-    // parte — vedi `siteBuilder.ts`): sono lo stesso autore (il design system), non ha senso che il
-    // globale blocchi il ruolo. Ruolo non mappato → default globale.
+    // Il ruolo vince SEMPRE sul default globale, in entrambe le direzioni (stesso autore, il design
+    // system: non ha senso che il globale blocchi il ruolo). Ruolo non mappato → default globale.
     readonly showPanel = computed(() => this.routeChrome().showPanel ?? ContestoSito.config.showPanel);
 
     // Vista full-bleed del ruolo della pagina attiva (SpecRuoloPagina.fitViewport, deciso dal design

@@ -2,17 +2,11 @@ import type { Request, Response } from 'express';
 import { environment } from '../../../../../environments/environment';
 import { serverEnv } from '../server-env';
 
-/**
- * Endpoint `/.well-known/security.txt` (RFC 9116): generato ad ogni richiesta, non al build.
- *
- * `Contact` è un dato di identità (email/telefono del sito, `GET /identity`), non di build: come
- * ogni altro contatto del progetto va modificabile senza un redeploy. `Expires` è calcolato "adesso
- * + 1 anno" ad ogni richiesta, quindi non scade mai finché il sito riceve traffico — nessuna
- * manutenzione, a differenza di un file generato una volta sola al build.
- *
- * Nessun contatto configurato in identità (email/telefono assenti) → 404: un security.txt senza un
- * modo reale di raggiungere qualcuno sarebbe peggio che non pubblicarlo affatto.
- */
+/** Endpoint `/.well-known/security.txt` (RFC 9116): generato ad ogni richiesta, non al build.
+ *  `Contact` è un dato di identità (`GET /identity`), modificabile senza redeploy; `Expires` è
+ *  "adesso + 1 anno" ad ogni richiesta, quindi non scade mai finché il sito riceve traffico.
+ *  Nessun contatto configurato (email/telefono assenti) → 404: peggio pubblicarlo senza un modo
+ *  reale di raggiungere qualcuno che non pubblicarlo affatto. */
 
 interface IdentityContact {
     contatti?: { email?: string; telefono?: string };

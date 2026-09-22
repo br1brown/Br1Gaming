@@ -23,11 +23,8 @@ using Backend.Store;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Non rivelare il server software nell'header `Server` (banner grabbing): Kestrel emette
-// "Server: Kestrel" di default. È l'equivalente del `x-powered-by` disattivato sul Node SSR
-// (server.ts): conta quando `backend.public` espone Kestrel direttamente al browser, ma resta
-// una buona pratica a prescindere. Impostato qui sull'host perché AddServerHeader è un'opzione
-// di build di Kestrel, non un middleware.
+// Non rivelare il server software nell'header Server (Kestrel lo emette di default): equivalente
+// dell'x-powered-by disattivato sul Node SSR. Qui perché AddServerHeader è un'opzione di Kestrel.
 builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 
 // global-settings.json è l'unica sorgente di verità per la configurazione del deployment.
@@ -66,19 +63,13 @@ builder.Configuration.AddJsonFile(
     optional: true, reloadOnChange: false);
 builder.Configuration.AddJsonFile("security-headers.json", optional: true, reloadOnChange: false);
 
-// Variabili d'ambiente con PRECEDENZA sul JSON (aggiunte per ultime): permettono di iniettare
-// un segreto dalla piattaforma senza che finisca nel file montato su disco. Convenzione .NET:
-// il separatore di sezione è il doppio underscore, quindi "Mail:Password" → env "Mail__Password",
-// "Security:Token:SecretKey" → "Security__Token__SecretKey". Se la variabile non è impostata,
-// vale il valore del JSON (modello di default invariato). Il passaggio al container è in
-// docker-compose.yml (backend.environment).
+// Variabili d'ambiente con PRECEDENZA sul JSON (aggiunte per ultime): inietta un segreto dalla
+// piattaforma senza che finisca sul file montato. Convenzione .NET: "Mail:Password" → "Mail__Password".
 builder.Configuration.AddEnvironmentVariables();
 
 // ── CONFIGURAZIONE ──────────────────────────────────────────────────
-//
-// Ogni sezione di global-settings.json viene registrata come IOptions<T> (DI)
-// e letta una volta come istanza diretta per la configurazione dei servizi.
-//
+// Ogni sezione di global-settings.json registrata come IOptions<T> (DI) e letta una volta come
+// istanza diretta per la configurazione dei servizi.
 builder.Services.Configure<SecurityOptions>(
     builder.Configuration.GetSection("Security"));
 builder.Services.Configure<LocalizationOptions>(
@@ -89,6 +80,10 @@ builder.Services.Configure<ErrorReportingOptions>(
     builder.Configuration.GetSection("ErrorReporting"));
 builder.Services.Configure<FrontendOptions>(
     builder.Configuration.GetSection("Frontend"));
+builder.Services.Configure<MediaOptions>(
+    builder.Configuration.GetSection("Media"));
+builder.Services.Configure<NotificationsOptions>(
+    builder.Configuration.GetSection("Notifications"));
 
 var security = builder.Configuration
     .GetSection("Security")
@@ -121,12 +116,9 @@ builder.Services.AddTemplateBlob();
 // AppBlobStore legge la sessione corrente (per il controllo di proprietà su DELETE) fuori da un
 // controller: le sostiene solo IHttpContextAccessor.
 builder.Services.AddHttpContextAccessor();
-// Il DbContext EF Core del progetto (SQLite, db/app.db — cartella SEPARATA da uploads/: lo sweep
-// degli orfani in AppBlobStore enumera solo uploads/, tenerceli insieme rischierebbe di trattare
-// app.db come un blob non censito) — oggi solo BlobOwnership, ma è il punto dove un progetto
-// aggiunge le proprie entità se gli serve un vero database, invece di introdurre un secondo
-// ORM/connessione. Factory (non AddDbContext diretto): BlobOwnershipRegistry è singleton (deve
-// vivere quanto AppBlobStore), un DbContext no — la factory ne crea uno nuovo, breve, per ogni operazione.
+// DbContext EF Core del progetto (SQLite, db/app.db — separata da uploads/, che lo sweep orfani
+// enumera). Punto dove aggiungere le proprie entità. Factory (non AddDbContext): il registry è
+// singleton, un DbContext no — la factory ne crea uno nuovo, breve, per operazione.
 var dbDirectory = Path.Combine(builder.Environment.ContentRootPath, "db");
 Directory.CreateDirectory(dbDirectory); // SQLite apre il file ma non crea la cartella che lo contiene
 builder.Services.AddDbContextFactory<AppDbContext>(options =>
@@ -177,12 +169,9 @@ if (security.LoginEnabled)
 {
     builder.Services.AddSingleton<AuthService>();
 
-    // Account utenti e dati personali del progetto, sensati solo col login acceso (spento, gli
-    // endpoint che li usano vengono esclusi dalla discovery — vedi TemplateControllerFeatureProvider).
-    // AccountService (Services/) è l'unico posto che conosce gli account: verifica credenziali per
-    // AuthController, cancellazione account per l'oblio. AppPersonalDataStore (Store/) risponde
-    // dietro GET/DELETE /me/data — vince sul default vuoto di AddTemplatePrivacy (TryAdd), come
-    // AppIdentityStore — e delega la parte account ad AccountService.
+    // Sensati solo col login acceso (spento, gli endpoint sono esclusi dalla discovery, vedi
+    // TemplateControllerFeatureProvider). AccountService è l'unico posto che conosce gli account;
+    // AppPersonalDataStore vince sul default vuoto di AddTemplatePrivacy e gli delega la cancellazione.
     builder.Services.AddSingleton<AccountService>();
     builder.Services.AddSingleton<IPersonalDataStore, AppPersonalDataStore>();
 }
@@ -229,13 +218,8 @@ builder.Services
     });
 
 // ── LOCALIZZAZIONE ──────────────────────────────────────────────────
-//
-// Le lingue supportate sono i codici dichiarati in LocalizationOptions (global-settings.json),
-// arricchiti in CultureInfo da EngineCultures. La lingua della richiesta viene poi risolta
-// dall'header Accept-Language inviato dal frontend (impostato dall'interceptor Angular).
-//
-// AddLocalization abilita IStringLocalizer: i messaggi (validazione ed errori applicativi)
-// vivono nei file .resx sotto Resources/ e si risolvono per CurrentUICulture.
+// Lingue supportate = codici in LocalizationOptions, arricchiti in CultureInfo da EngineCultures.
+// AddLocalization abilita IStringLocalizer: i messaggi vivono nei file .resx sotto Resources/.
 builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
 
 builder.Services.Configure<RequestLocalizationOptions>(options =>
@@ -249,11 +233,8 @@ builder.Services.Configure<RequestLocalizationOptions>(options =>
 });
 
 // ── SICUREZZA ───────────────────────────────────────────────────────
-//
-// Una sola chiamata registra TUTTI i servizi di sicurezza del template:
-// API key, JWT (se configurato), CORS, rate limiting, security headers
-// e gestione centralizzata degli errori (ProblemDetails).
-//
+// Una sola chiamata registra tutti i servizi di sicurezza: API key, JWT, CORS, rate limiting,
+// security headers, gestione centralizzata degli errori (ProblemDetails).
 builder.Services.AddTemplateSecurity(security);
 
 // Health check — GET /health (senza autenticazione)
@@ -293,7 +274,7 @@ app.Logger.LogInformation("Invalidazione cache sitemap sul frontend {State}.",
     app.Services.GetRequiredService<SitemapNotifier>().IsEnabled ? "attiva" : "non configurata");
 
 // ── PIPELINE HTTP ───────────────────────────────────────────────────
-// L'ordine è critico. Vedi README.md → "Ordine della pipeline HTTP".
+// L'ordine è critico.
 app.UseTemplateSecurity(security);
 
 app.UseRequestLocalization(

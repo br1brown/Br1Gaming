@@ -6,15 +6,11 @@ import {
 } from '../core/engine/design-system-presets';
 import { SystemFont, isSystemFont, resolveFonts, type CustomFontDef, type FontChoice } from '../core/engine/font-system';
 
-/**
- * Copre `extendDesignSystem`/`validateDesignSystemPreset`/`buildSite()` con fixture sintetiche
- * (`emptyDesignSystem`, letterali `DesignSystemPreset`) — mai un preset condiviso o un design
- * system di progetto (`components/shared/design-systems/`): quel contenuto è editabile a
- * piacere da chi usa il template, non un invariante dell'Engine da proteggere con un test qui.
- * La correttezza di QUALUNQUE design system, condiviso o di progetto, è già garantita a runtime
- * da `validateDesignSystemPreset` (chiamata da `extendDesignSystem` a ogni resolve, vedi
- * `design-system-presets.ts`) — nessuna rete di sicurezza aggiuntiva serve al di sopra di questo.
- */
+/** Copre `extendDesignSystem`/`validateDesignSystemPreset`/`buildSite()` con fixture sintetiche —
+ *  mai un preset condiviso o di progetto: quel contenuto è editabile a piacere da chi usa il
+ *  template, non un invariante dell'Engine da proteggere qui. La correttezza di qualunque design
+ *  system è già garantita a runtime da `validateDesignSystemPreset` (chiamata da
+ *  `extendDesignSystem` a ogni resolve): nessuna rete di sicurezza aggiuntiva serve sopra questo. */
 
 const dummyComponent: LeafPageInput['component'] = () => Promise.resolve({} as never);
 

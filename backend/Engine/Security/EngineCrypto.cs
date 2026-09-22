@@ -5,14 +5,7 @@ using Backend.Models.Configuration;
 
 namespace Backend.Security;
 
-/// <summary>
-/// Servizio "cappello" dell'engine per cifrare byte arbitrari con AES-256-GCM.
-/// </summary>
-/// <remarks>
-/// Non e' legato a un caso d'uso specifico (es. l'export dati personali in
-/// <see cref="Controllers.EngineDataPrivacyController"/>): qualunque parte dell'engine che debba
-/// proteggere un payload la inietta e chiama <see cref="Encrypt"/>/<see cref="Decrypt"/>.
-/// </remarks>
+/// <summary>Servizio generico dell'engine per cifrare byte arbitrari con AES-256-GCM, non legato a un caso d'uso specifico.</summary>
 public interface IEngineCrypto
 {
     /// <summary>Cifra <paramref name="plaintext"/>. Output: nonce (12 byte) ‖ ciphertext ‖ auth tag (16 byte).</summary>
@@ -30,15 +23,7 @@ public sealed class EngineCrypto : IEngineCrypto
 
     private readonly byte[] _key;
 
-    /// <summary>
-    /// Deriva la chiave AES da <see cref="SecurityOptions.CryptoSecret"/> con un'etichetta fissa di
-    /// domain-separation: anche riusando per errore lo stesso valore altrove, la chiave qui resta diversa.
-    /// </summary>
-    /// <exception cref="InvalidOperationException">
-    /// <see cref="SecurityOptions.CryptoSecret"/> e' vuota. Va valorizzata in
-    /// <c>global-settings.local.json</c> — <c>setup.mjs</c> la genera gia' alla nascita del progetto
-    /// (<c>openssl rand -base64 32</c> per chi la rigenera a mano).
-    /// </exception>
+    /// <summary>Deriva la chiave AES da <see cref="SecurityOptions.CryptoSecret"/> con un'etichetta fissa di domain-separation (anche riusando per errore lo stesso secret altrove, la chiave qui resta diversa). Lancia se il secret è vuoto.</summary>
     public EngineCrypto(IOptions<SecurityOptions> options)
     {
         var secret = options.Value.CryptoSecret;

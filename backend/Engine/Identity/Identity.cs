@@ -12,34 +12,14 @@ using Microsoft.Extensions.Options;
 
 namespace Backend.Identity;
 
-/// <summary>
-/// Contratto di accesso all'identità del sito (dati legali/anagrafici, social, natura del brand).
-/// </summary>
-/// <remarks>
-/// È il seam con cui un progetto figlio sceglie la sorgente dell'identità: il default file-based
-/// (<see cref="FileIdentityStore"/>) basta nella maggior parte dei casi (identità = config statica),
-/// ma chi tiene questi dati in un DB o dietro un'API esterna registra la propria implementazione in DI.
-/// L'identità è la sorgente unica per footer, pagine legali e dati strutturati SEO (JSON-LD).
-/// </remarks>
+/// <summary>Seam per la sorgente dell'identità del sito: il default file-based basta nella maggior parte dei casi, un progetto con dati in DB/API registra la propria implementazione in DI.</summary>
 public interface IIdentityStore
 {
-    /// <summary>
-    /// Recupera l'identità del sito nella lingua richiesta, oppure <c>null</c> se non è configurata.
-    /// </summary>
-    /// <param name="language">Codice lingua per la risoluzione dei campi localizzati (es. <c>it</c>).</param>
-    /// <param name="cancellationToken">Token della richiesta HTTP, propagato alla lettura.</param>
-    /// <returns>L'identità localizzata, o <c>null</c> se la sorgente non espone dati.</returns>
+    /// <summary>Identità del sito nella lingua richiesta, o null se non configurata.</summary>
     Task<SiteIdentity?> GetIdentityAsync(string language, CancellationToken cancellationToken = default);
 }
 
-/// <summary>
-/// Implementazione di default di <see cref="IIdentityStore"/>: legge <c>data/identity.json</c>.
-/// </summary>
-/// <remarks>
-/// File assente ⇒ restituisce <c>null</c> (non un errore): un sito senza identità configurata è
-/// legittimo, e il frontend nasconde da sé footer, social e JSON-LD relativi. Riusa la stessa
-/// risoluzione i18n e cache in memoria del resto dello store (<see cref="FileUtils"/>).
-/// </remarks>
+/// <summary>Implementazione di default di <see cref="IIdentityStore"/>: legge <c>data/identity.json</c>; file assente ⇒ null (non un errore).</summary>
 public class FileIdentityStore : IIdentityStore
 {
     private readonly string _dataPath;
@@ -70,12 +50,9 @@ public class FileIdentityStore : IIdentityStore
             identity = new FileUtils.LocalizedJsonDeserializer(_defaultLanguage)
                 .Deserialize<SiteIdentity>(json, language, _supportedLanguages);
 
-            // Fail-fast sui dati presenti-ma-malformati. identity.json è config committata: un valore
-            // sbagliato è un errore da correggere, non da inghiottire in silenzio. Un campo *assente*
-            // resta assente (l'identità è tutta opzionale): rompe solo il dato presente e non valido.
-            // Gli URL social li valida (e in caso lancia) il SocialLinkJsonConverter già in deserialize;
-            // qui restano i campi validati dopo, con le primitive del framework. L'eccezione risale a
-            // GET /identity (500 loggato) e il sito resta su: footer/JSON-LD si nascondono da sé.
+            // Fail-fast sui dati presenti-ma-malformati (identity.json è config committata): un campo
+            // assente resta assente, solo un valore presente e sbagliato lancia (risale a GET /identity,
+            // 500 loggato). Gli URL social li valida già SocialLinkJsonConverter in deserialize.
             if (identity?.Contatti is { } contatti)
             {
                 contatti.Email = ValidEmail(contatti.Email);
@@ -93,10 +70,8 @@ public class FileIdentityStore : IIdentityStore
             if (identity?.ResponsabileProtezioneDati is { } dpo)
                 dpo.Email = ValidEmail(dpo.Email);
 
-            // Giorno degli orari fuori range. Il JsonStringEnumConverter accetta le stringhe numeriche
-            // ("8") mappandole all'intero sottostante senza validare il range: un giorno impossibile
-            // scivolerebbe dentro come (DayOfWeek)8 (i nomi errati tipo "Lunedì" li coglie già lui). Qui
-            // lo intercettiamo — coerente col fail-fast: un orario su un giorno inesistente è un errore.
+            // JsonStringEnumConverter accetta stringhe numeriche ("8") senza validare il range: un
+            // giorno impossibile scivolerebbe come (DayOfWeek)8 (i nomi errati li coglie già lui).
             if (identity?.OpeningHours is { } hours)
                 foreach (var h in hours)
                     if (!Enum.IsDefined(h.Day))
@@ -105,33 +80,17 @@ public class FileIdentityStore : IIdentityStore
         }
         catch (NotFoundException)
         {
-            // Identità non configurata da file: resta null. Non è un errore — il footer/le pagine
-            // legali/il JSON-LD nascondono da sé le sezioni; e il compose hook qui sotto può comunque
-            // costruirla da altre fonti (caso "tutto da un'API, niente file").
+            // Non è un errore: il compose hook sotto può comunque costruire l'identità da altre fonti.
         }
 
         return await ComposeIdentityAsync(identity, language, cancellationToken);
     }
 
-    /// <summary>
-    /// Punto di estensione per comporre l'identità da più sorgenti. Riceve il modello assemblato dal
-    /// file (o <c>null</c> se assente) e lo restituisce — **di default invariato** (passthrough).
-    /// </summary>
-    /// <remarks>
-    /// Un progetto figlio sottoclassa <see cref="FileIdentityStore"/> e fa l'override di questo metodo
-    /// per fondere nel modello parti prese da altre fonti (es. orari o capitale da un DB/API), senza
-    /// reimplementare la lettura del file. Per una sorgente completamente diversa resta l'alternativa
-    /// più radicale: registrare una propria <see cref="IIdentityStore"/>.
-    /// </remarks>
+    /// <summary>Punto di estensione (default: passthrough) per fondere nel modello letto da file parti prese da altre fonti, senza reimplementare la lettura.</summary>
     protected virtual Task<SiteIdentity?> ComposeIdentityAsync(SiteIdentity? identity, string language, CancellationToken cancellationToken)
         => Task.FromResult(identity);
 
-    /// <summary>
-    /// Restituisce l'email (trimmata) se ben formata secondo <see cref="MailAddress"/> (primitiva del
-    /// framework). Assente (null/vuoto) ⇒ <c>null</c> (campo omesso, legittimo). Presente ma malformata
-    /// ⇒ **lancia** <see cref="JsonException"/>: <c>identity.json</c> è config committata, un dato
-    /// sbagliato è un errore da correggere (fail-fast), non da scartare in silenzio.
-    /// </summary>
+    /// <summary>Email trimmata se ben formata (<see cref="MailAddress"/>); assente ⇒ null, malformata ⇒ lancia (fail-fast).</summary>
     protected static string? ValidEmail(string? raw)
     {
         var s = raw?.Trim();
@@ -141,11 +100,7 @@ public class FileIdentityStore : IIdentityStore
         return s;
     }
 
-    /// <summary>
-    /// Valida e restituisce il paese se è un codice ISO 3166-1 alpha-2 valido (tramite <see cref="RegionInfo"/>).
-    /// Se il valore non è un codice valido (es. "Italia" invece di "IT"), lancia un'eccezione senza tolleranza.
-    /// Restituisce <c>null</c> se omesso.
-    /// </summary>
+    /// <summary>Paese se codice ISO 3166-1 alpha-2 valido (<see cref="RegionInfo"/>); assente ⇒ null, non valido (es. "Italia") ⇒ lancia.</summary>
     protected static string? ValidCountry(string? raw)
     {
         var s = raw?.Trim();
@@ -168,11 +123,7 @@ public class FileIdentityStore : IIdentityStore
         .Select(x => x!)
         .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// Valida e restituisce la valuta canonica (uppercase) se è un codice ISO 4217 noto al framework.
-    /// Lancia un'eccezione se il codice non è valido (es. "Euro"), per evitare fallback silenziosi
-    /// verso il default (EUR) gestito poi dal frontend. Restituisce <c>null</c> se omesso.
-    /// </summary>
+    /// <summary>Valuta canonica (uppercase) se codice ISO 4217 noto; assente ⇒ null, non valido (es. "Euro") ⇒ lancia invece di ripiegare in silenzio su EUR.</summary>
     protected static string? ValidCurrency(string? raw)
     {
         var s = raw?.Trim();
@@ -183,25 +134,15 @@ public class FileIdentityStore : IIdentityStore
         return s.ToUpperInvariant();
     }
 
-    /// <summary>Forma ammessa per l'intera stringa telefono: **solo** cifre e separatori visivi di un
-    /// numero (spazi, <c>+ / - . ( )</c>). Niente lettere, testo o markup — la stringa viene conservata
-    /// e resa nel footer, quindi non deve contenere altro che il numero e la sua formattazione.</summary>
+    /// <summary>Solo cifre e separatori visivi di un numero (spazi, <c>+ / - . ( )</c>): niente lettere/testo/markup nella stringa resa nel footer.</summary>
     private static readonly System.Text.RegularExpressions.Regex PhoneShape =
         new(@"^[+\d\s/().\-]+$", System.Text.RegularExpressions.RegexOptions.Compiled);
 
-    /// <summary>Il numero, ridotto a cifre + eventuale <c>+</c> (la forma con cui il footer costruisce
-    /// l'href <c>tel:</c>), deve essere UN solo numero E.164-plausibile: un singolo <c>+</c> iniziale e
-    /// 6–15 cifre.</summary>
+    /// <summary>Ridotto a cifre + eventuale <c>+</c> (la forma dell'href <c>tel:</c>), deve restare UN solo numero E.164-plausibile.</summary>
     private static readonly System.Text.RegularExpressions.Regex SingleNumber =
         new(@"^\+?\d{6,15}$", System.Text.RegularExpressions.RegexOptions.Compiled);
 
-    /// <summary>
-    /// Valida un numero di telefono garantendo che sia utilizzabile sia come link <c>tel:</c> che come testo visibile.
-    /// - <see cref="PhoneShape"/>: Ammette solo cifre, +, e separatori visivi (spazi, /, -, ., parentesi).
-    /// - <see cref="SingleNumber"/>: Rimuovendo i separatori, deve restare un singolo numero E.164 plausibile (1 <c>+</c> e 6-15 cifre).
-    /// Impedisce inserimenti anomali (es. testo estraneo, markup o due numeri concatenati) lanciando
-    /// un'eccezione se la validazione fallisce, ma restituisce la stringa originale formattata.
-    /// </summary>
+    /// <summary>Numero valido sia come link <c>tel:</c> che come testo (<see cref="PhoneShape"/> + <see cref="SingleNumber"/>); assente ⇒ null, anomalo (testo estraneo, due numeri) ⇒ lancia.</summary>
     protected static string? ValidPhone(string? raw)
     {
         var s = raw?.Trim();
@@ -217,20 +158,10 @@ public class FileIdentityStore : IIdentityStore
     }
 }
 
-/// <summary>
-/// Registrazione DI del sottosistema identità del template.
-/// </summary>
+/// <summary>Registrazione DI del sottosistema identità del template.</summary>
 public static class IdentityExtensions
 {
-    /// <summary>
-    /// Registra la sorgente identità di default (file-based).
-    /// </summary>
-    /// <remarks>
-    /// Usa <c>TryAddSingleton</c>: un progetto figlio può sostituire la sorgente (DB, API esterna)
-    /// registrando la propria <see cref="IIdentityStore"/> nel blocco SERVIZI APPLICATIVI, senza
-    /// toccare l'Engine. È una via di fuga, non un obbligo: il caso comune resta riempire
-    /// <c>data/identity.json</c>.
-    /// </remarks>
+    /// <summary>Registra la sorgente file-based di default con <c>TryAddSingleton</c>: un progetto figlio può sostituirla registrando la propria <see cref="IIdentityStore"/>.</summary>
     public static IServiceCollection AddTemplateIdentity(this IServiceCollection services)
     {
         services.TryAddSingleton<IIdentityStore, FileIdentityStore>();

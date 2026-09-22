@@ -8,83 +8,39 @@ using Microsoft.Extensions.Options;
 
 namespace Backend.Security;
 
-/// <summary>
-/// Definisce i nomi condivisi dallo schema di autenticazione API key del template.
-/// </summary>
-/// <remarks>
-/// L'API key e' il "biglietto d'ingresso" del template: ogni client che vuole parlare
-/// con il backend deve presentare una chiave valida nell'header <c>X-Api-Key</c>.
-/// Non identifica un utente specifico (per quello c'e' JWT), ma certifica che il client
-/// e' autorizzato a usare le API. E' la prima linea di difesa: senza chiave valida,
-/// la richiesta non arriva nemmeno ai controller.
-/// </remarks>
+/// <summary>Nomi condivisi dallo schema API key: prima linea di difesa, certifica il client (non l'utente — per quello c'è JWT).</summary>
 public static class SecurityDefaults
 {
-	/// <summary>
-	/// Nome logico dello schema di autenticazione usato con ASP.NET.
-	/// </summary>
+	/// <summary>Nome logico dello schema di autenticazione ASP.NET.</summary>
 	public const string ApiKeyAuthenticationScheme = "ApiKey";
 
-	/// <summary>
-	/// Nome dell'header HTTP in cui il client deve inviare la API key.
-	/// </summary>
+	/// <summary>Header HTTP in cui il client invia la API key.</summary>
 	public const string ApiKeyHeaderName = "X-Api-Key";
 
-	/// <summary>
-	/// Nome della policy di autorizzazione che richiede API key + JWT + ruolo.
-	/// Usata da ProtectedController con <c>[Authorize(Policy = ...)]</c>.
-	/// </summary>
+	/// <summary>Policy che richiede API key + JWT + ruolo, usata da ProtectedController.</summary>
 	public const string RequireLoginPolicy = "RequireLogin";
 
-	/// <summary>
-	/// Ruolo assegnato da <c>AuthService.GenerateToken</c> e richiesto dalla
-	/// policy <see cref="RequireLoginPolicy"/>. Case-sensitive.
-	/// </summary>
+	/// <summary>Ruolo assegnato da <c>AuthService.GenerateToken</c>, richiesto da <see cref="RequireLoginPolicy"/>. Case-sensitive.</summary>
 	public const string AuthenticatedRole = "Authenticated";
 
-	/// <summary>
-	/// Tipo del claim che trasporta il payload di sessione personalizzabile dal
-	/// progetto, serializzato come singolo oggetto JSON. Vedi <c>SessionPayload</c>.
-	/// </summary>
+	/// <summary>Tipo del claim col payload di sessione, vedi <c>SessionPayload</c>.</summary>
 	public const string SessionClaimType = "session";
 
-	/// <summary>
-	/// Nome della policy di rate limiting applicata all'endpoint di login.
-	/// Usata da AuthController con <c>[EnableRateLimiting(...)]</c>.
-	/// </summary>
+	/// <summary>Policy di rate limiting sull'endpoint di login.</summary>
 	public const string LoginRateLimitPolicy = "login";
 }
 
-/// <summary>
-/// Opzioni dello schema API key, in particolare l'elenco delle chiavi considerate valide.
-/// </summary>
+/// <summary>Opzioni dello schema API key: l'elenco delle chiavi valide.</summary>
 public class ApiKeySchemeOptions : AuthenticationSchemeOptions
 {
-	/// <summary>
-	/// Collezione delle API key ammesse, confrontate in modo ordinale (case-sensitive).
-	/// </summary>
+	/// <summary>API key ammesse, confrontate in modo ordinale (case-sensitive).</summary>
 	public HashSet<string> ValidKeys { get; set; } = new(StringComparer.Ordinal);
 }
 
-/// <summary>
-/// Handler ASP.NET che autentica una richiesta tramite header <c>X-Api-Key</c>.
-/// </summary>
-/// <remarks>
-/// Flusso di validazione:
-/// 1. Ignora le richieste OPTIONS (necessarie per il preflight CORS).
-/// 2. Estrae l'header <c>X-Api-Key</c> e lo confronta in tempo costante con le chiavi
-///    valide presenti in <c>Security.ApiConfig.Keys</c>.
-/// 3. In caso di match, emette un'identità base con claim <c>ApiKeyValidated=true</c>.
-/// L'identità finale (con ruolo e payload utente) verrà aggiunta in seguito dal middleware JWT.
-/// </remarks>
+/// <summary>Handler ASP.NET che autentica via header <c>X-Api-Key</c> in tempo costante; l'identità finale (ruolo, payload utente) arriva poi dal middleware JWT.</summary>
 public class ApiKeyHandler : AuthenticationHandler<ApiKeySchemeOptions>
 {
-	/// <summary>
-	/// Inizializza l'handler dello schema API key.
-	/// </summary>
-	/// <param name="options">Monitor delle opzioni dello schema.</param>
-	/// <param name="logger">Factory per il logging ASP.NET.</param>
-	/// <param name="encoder">Encoder usato dalla base class per le challenge.</param>
+	/// <summary>Inizializza l'handler dello schema API key.</summary>
 	public ApiKeyHandler(
 		IOptionsMonitor<ApiKeySchemeOptions> options,
 		ILoggerFactory logger,
@@ -93,37 +49,23 @@ public class ApiKeyHandler : AuthenticationHandler<ApiKeySchemeOptions>
 	{
 	}
 
-	/// <summary>
-	/// Valida la richiesta corrente controllando la presenza e la correttezza della API key.
-	/// </summary>
-	/// <returns>Esito dell'autenticazione per la richiesta corrente.</returns>
+	/// <summary>Valida la richiesta corrente controllando presenza e correttezza della API key.</summary>
 	protected override Task<AuthenticateResult> HandleAuthenticateAsync()
 	{
-		// Le OPTIONS passano sempre: il browser le manda come preflight CORS
-		// prima della richiesta vera. NoResult() dice "non ho opinioni su questa
-		// richiesta" — il middleware CORS la gestira' da solo.
-		// (Success con identita' finta marcherebbe la richiesta come autenticata
-		// senza che nessuna chiave sia stata presentata.)
+		// Le OPTIONS (preflight CORS) passano sempre: NoResult() lascia decidere al middleware CORS,
+		// senza marcare come autenticata una richiesta che non ha presentato nessuna chiave.
 		if (Request.Method == HttpMethods.Options)
 			return Task.FromResult(AuthenticateResult.NoResult());
 
-		// Legge l'header X-Api-Key dalla richiesta.
 		var apiKey = Request.Headers[SecurityDefaults.ApiKeyHeaderName].FirstOrDefault();
-
-		// Header mancante: il client non ha presentato il biglietto d'ingresso.
 		if (string.IsNullOrEmpty(apiKey))
 			return Task.FromResult(AuthenticateResult.Fail("Header " + SecurityDefaults.ApiKeyHeaderName + " mancante."));
 
-		// Chiave non presente nella whitelist configurata.
-		// Confronto a tempo costante: FixedTimeEquals evita che il tempo di risposta
-		// dipenda da quanti caratteri iniziali combaciano, chiudendo il side-channel
-		// che permetterebbe di indovinare la chiave un byte alla volta.
 		if (!IsValidApiKey(apiKey.Trim()))
 			return Task.FromResult(AuthenticateResult.Fail("API key non valida."));
 
-		// Chiave valida: crea un'identita' minima che certifica il superamento
-		// del primo livello di autenticazione. Non e' un utente, e' un client
-		// autorizzato. Il JWT Bearer (se attivo) aggiungera' l'identita' utente.
+		// Identità minima: certifica solo il client, non un utente. Il JWT Bearer (se attivo)
+		// aggiunge l'identità utente in seguito.
 		var identity = new ClaimsIdentity(Scheme.Name);
 		identity.AddClaim(new Claim("ApiKeyValidated", "true"));
 		var principal = new ClaimsPrincipal(identity);
@@ -132,15 +74,7 @@ public class ApiKeyHandler : AuthenticationHandler<ApiKeySchemeOptions>
 		return Task.FromResult(AuthenticateResult.Success(authTicket));
 	}
 
-	/// <summary>
-	/// Confronta la chiave presentata con quelle valide in tempo costante.
-	/// </summary>
-	/// <remarks>
-	/// Itera su TUTTE le chiavi senza interrompersi al primo match: un'uscita anticipata
-	/// reintrodurrebbe una dipendenza temporale dal numero di chiavi confrontate.
-	/// <see cref="CryptographicOperations.FixedTimeEquals"/> rende il confronto byte-per-byte
-	/// indipendente dalla posizione del primo carattere divergente.
-	/// </remarks>
+	/// <summary>Confronta in tempo costante contro TUTTE le chiavi, senza uscita anticipata al primo match: un'uscita anticipata reintrodurrebbe una dipendenza temporale dal numero di chiavi.</summary>
 	private bool IsValidApiKey(string presented)
 	{
 		var presentedBytes = Encoding.UTF8.GetBytes(presented);
@@ -153,15 +87,7 @@ public class ApiKeyHandler : AuthenticationHandler<ApiKeySchemeOptions>
 		return match;
 	}
 
-	/// <summary>
-	/// Restituisce una challenge in formato ProblemDetails quando la API key manca o non e' valida.
-	/// </summary>
-	/// <param name="properties">Proprieta' opzionali della challenge ASP.NET.</param>
-	/// <returns>Task che completa la scrittura della risposta di errore.</returns>
-	/// <remarks>
-	/// 401 Unauthorized: il client non ha dimostrato la propria identita'.
-	/// 403 Forbidden andrebbe usato quando l'identita' e' nota ma i permessi insufficienti.
-	/// </remarks>
+	/// <summary>Challenge ProblemDetails 401 quando la API key manca o non è valida (403 sarebbe per identità nota ma permessi insufficienti).</summary>
 	protected override async Task HandleChallengeAsync(AuthenticationProperties properties)
 	{
 		Response.StatusCode = 401;

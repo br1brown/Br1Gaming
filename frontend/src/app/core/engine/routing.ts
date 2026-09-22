@@ -43,13 +43,9 @@ export function mergeRouteParams(state: RouterStateSnapshot): Record<string, str
 // authGuard e languageSyncGuard vivono in route-guards.ts (file a parte): qui restano solo la
 // costruzione dell'albero delle route e i guard vengono solo attaccati alle route giuste.
 
-/**
- * ROUTES FINALI, esportate e usate da provideRouter() in app.config.ts.
- * Un ciclo per ogni lingua disponibile (environment.availableLanguages, generato a build-time da
- * generate-statics.ts a partire da Localization.SupportedLanguages) — NON una lista fissa di 2:
- * con una sola lingua, il ciclo gira una volta sola e produce esattamente le route di un sito
- * mono-lingua, senza prefisso, come oggi in Br1Gaming e negli altri figli.
- */
+/** Route finali, usate da provideRouter() in app.config.ts. Un ciclo per ogni lingua disponibile
+ *  (`environment.availableLanguages`, da generate-statics.ts) — NON una lista fissa di 2: con una
+ *  sola lingua produce esattamente le route di un sito mono-lingua, senza prefisso. */
 export const routes: Routes = [
     ...environment.availableLanguages.flatMap((lang): Routes =>
         lang === environment.defaultLang

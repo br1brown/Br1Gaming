@@ -15,23 +15,13 @@ const FONT_CONTENT_TYPE: Record<string, string> = {
     '.otf': 'font/otf',
 };
 
-/**
- * Endpoint `/cdn-cgi/font/:key/:index` — serve i file reali di un font, di sistema
- * (`SYSTEM_FONTS`, font-system.ts) o di progetto (`DesignSystemPreset.defaultFont`/`addonFonts`,
- * quando custom), al browser per il `@font-face` self-hosted (`AppearanceService`). Stesso
- * endpoint per entrambi: `:key` è prima provato contro `SystemFont` (whitelist chiusa), poi contro
- * `ContestoSito.config.customFontsCatalog` (OGNI `CustomFontDef` di questo sito — quello di
- * `defaultFont` se custom, più quelli di `addonFonts`, scelti o no come font attivo: le voci
- * "secondarie" restano comunque servibili) — qualunque altra stringa è 404. `:index` è la
- * posizione nell'array `faces` della voce risolta — mai un nome di file dall'esterno, quindi
- * nessun path traversal possibile per costruzione, non solo per validazione.
- *
- * `fileExists` a ogni richiesta. Per `SYSTEM_FONTS` i file arrivano da `apk add` a build-time
- * dell'immagine Docker (mai un volume montato) — "assente" qui è un'immagine mal costruita. Per
- * un font custom sono invece un volume di progetto: "assente" è uno scenario normale (il progetto
- * non ha ancora caricato il file, o l'ha rinominato) — in entrambi i casi un 404 esplicito (font
- * di fallback del browser) batte un crash del processo.
- */
+/** Endpoint `/cdn-cgi/font/:key/:index` — serve i file reali di un font, di sistema (`SYSTEM_FONTS`)
+ *  o custom di progetto (`customFontsCatalog`, incluse le voci "secondarie" di `addonFonts`), per
+ *  il `@font-face` self-hosted. `:key` prova prima `SystemFont`, poi il catalogo custom; qualunque
+ *  altra stringa è 404. `:index` è la posizione nell'array `faces` risolto, mai un nome file
+ *  dall'esterno: nessun path traversal per costruzione. Un font di sistema assente è un'immagine
+ *  Docker mal costruita (`apk add` a build-time); un font custom assente è normale (volume di
+ *  progetto) — in entrambi i casi 404 esplicito invece di un crash. */
 export function systemFontHandler(req: Request, res: Response): void {
     const rawKey = req.params['key'];
     const key = Array.isArray(rawKey) ? rawKey[0] : rawKey;

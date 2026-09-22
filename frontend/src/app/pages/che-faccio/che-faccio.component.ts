@@ -149,8 +149,10 @@ export class CheFaccioComponent extends PageBaseComponent<void> {
     readonly qrError = signal<string | null>(null);
 
     // --- Sistema & API ---
+    // <DEMO_BLOCK_START>
     socialFilter = '';
     readonly socialResult = signal('');
+    // <DEMO_BLOCK_END>
 
     // --- Upload (ApiService.uploadBlob/.uploadBlobs) ---
     /** Nome originale + slug restituito: `uploadBlobs` mantiene l'ordine di `files`, qui si
@@ -589,6 +591,7 @@ wa = { phone: '+39...', text: 'Ciao' };
 
     // ==================== Sistema & API ====================
 
+    // <DEMO_BLOCK_START>
     async callSocialApi(): Promise<void> {
         const nomi = this.socialFilter.trim()
             ? this.socialFilter.split(',').map(s => s.trim()).filter(Boolean)
@@ -597,6 +600,7 @@ wa = { phone: '+39...', text: 'Ciao' };
         const res = await this.api.getSocial(nomi);
         this.socialResult.set(JSON.stringify(res, null, 2));
     }
+    // <DEMO_BLOCK_END>
 
     /** Riceve i `File` già validati da `UploadFormComponent` (estensione/peso), li carica via
      *  `ApiService.uploadBlobs` e accoda nome+slug (stesso ordine di `files`) a quelli già

@@ -1,10 +1,6 @@
-/**
- * Breakpoint `md` (768px, Bootstrap) letto a runtime dalla custom property `--bp-md`
- * (impostata su `html` in base/_base.scss a partire da `lib.$bp-md`): fonte unica condivisa
- * con le media query SCSS, invece di duplicare "768" a mano in ogni componente che deve
- * replicare da JS la stessa soglia (`window.matchMedia` non può leggere una variabile SCSS).
- * 768 resta solo come fallback difensivo se la custom property non fosse presente.
- */
+/** Breakpoint `md` (768px, Bootstrap) letto a runtime dalla custom property `--bp-md` (impostata
+ *  su `html` da `lib.$bp-md`): fonte unica condivisa con le media query SCSS, invece di duplicare
+ *  "768" a mano ovunque JS debba replicare la stessa soglia. Fallback difensivo se assente. */
 const FALLBACK_BP_MD_PX = 768;
 
 let cachedBpMdPx: number | null = null;

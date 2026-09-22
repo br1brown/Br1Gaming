@@ -15,17 +15,11 @@ import { fileExists } from '../fs-utils';
  *  (il cap sui pixel d'ingresso lo dà già `limitInputPixels` di default di Sharp, ~268MP). */
 const SHARP_TIMEOUT = { seconds: 15 };
 
-/**
- * Endpoint CDN Asset: gestisce il recupero e l'ottimizzazione delle immagini al volo.
- * Risolve l'ID nel file sorgente, valida la larghezza contro la whitelist, e serve
- * (o genera al volo) una miniatura in cache. Le richieste concorrenti per la
- * stessa chiave riusano lo stesso job sharp (mappa inProgress).
- *
- * Negoziazione formato: se il browser dichiara `image/avif` nell'header `Accept`
- * serve AVIF (compressione migliore), altrimenti WebP. Il formato entra nella cache
- * key (varianti distinte) e la risposta porta `Vary: Accept` perché cache/CDN
- * intermedie non servano il formato sbagliato a un client diverso.
- */
+/** Endpoint CDN Asset: risolve l'ID nel file sorgente, valida la larghezza contro la whitelist,
+ *  serve (o genera al volo) una miniatura in cache — richieste concorrenti per la stessa chiave
+ *  riusano lo stesso job sharp (mappa `inProgress`). Formato AVIF se il browser lo dichiara in
+ *  `Accept`, altrimenti WebP; il formato entra nella cache key e la risposta porta `Vary: Accept`
+ *  perché cache/CDN intermedie non servano la variante sbagliata a un client diverso. */
 export async function cdnAssetHandler(req: Request, res: Response): Promise<void> {
     try {
         const id = req.query['id'] as string;
@@ -81,12 +75,8 @@ export async function cdnAssetHandler(req: Request, res: Response): Promise<void
         if (await fileExists(cacheFile)) { recordCacheHit(); AssetHandler.serveImage(res, cacheFile); return; }
         recordCacheMiss();
 
-        /**
-         * Lookup singolo nella mappa: se la generazione è già in corso si riusa
-         * la stessa Promise, altrimenti se ne avvia una nuova. Il .finally()
-         * rimuove l'entry quando il job termina (successo o errore), così la
-         * mappa contiene solo job effettivamente in volo.
-         */
+        /** Se la generazione è già in corso riusa la stessa Promise, altrimenti ne avvia una
+         *  nuova; il `.finally()` rimuove l'entry a fine job (successo o errore). */
         let job = inProgress.get(cacheKey);
         if (!job) {
             // AVIF rende qualità equivalente a WebP con quality più bassa (file più piccoli).

@@ -2,6 +2,35 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Configurazione Media e Notifiche (global-settings.json)
+
+Rimosse configurazioni hardcoded da backend e frontend.
+- **Media**: `EngineBlobController` ora accetta un `size` e lo valida contro `ALLOWED_WIDTHS` (`asset-config.ts`, whitelist fissa dell'Engine, rispecchiata lato C# in `EngineBlobController.AllowedWebOptSizes` — non una scelta per-progetto, un figlio non ha motivo di volere le sue larghezze). Se la dimensione richiesta è mancante o fuori whitelist, effettua un log di warning e usa la dimensione mediana, non ricadendo forzatamente sulla dimensione massima. Introdotta `Media.WebOptQuality` nello schema (questa sì per-progetto: qualità WebP della variante ottimizzata).
+- **Notifiche SSE**: introdotti `Notifications.HeartbeatSeconds` (default 25s) e `Notifications.ReconnectDelaySeconds` (default 5s) nello schema. `EngineNotificationStreamController` ora usa questi valori.
+
+### Frontend: Layout Navbar e Meta Tag
+
+- **Navbar Overflow Fix**: il ricalcolo dell'overflow in `navbar.component.ts` ora usa un `ResizeObserver` che osserva esplicitamente il brand, il menu utente e il selettore lingua. Inoltre, attende `document.fonts.ready` prima del primo calcolo: questo risolve i bug storici in cui il menu ad overflow si calcolava male prima che il font custom (più largo o più stretto) venisse caricato.
+- **Telephone Meta Tag**: aggiunto `<meta name="format-detection" content="telephone=no">` in `index.html`. Questo blocca iOS Safari/Chrome dal trasformare falsi positivi lunghi (es. P.IVA o CF) in link cliccabili azzurri che rompono la UI. I veri numeri di telefono restano pienamente supportati tramite markup esplicito (`<a href="tel:...">`) generato dai componenti (es. `ContactUrl.phone`).
+
+### UX Aggiornamenti PWA (VersionCheckService)
+
+- Aggiunto hook `onVersionUpdateAvailable(apply: () => void)` al `SiteConfig` (configurabile in `siteBuilder.ts`). Permette a un progetto figlio di deviare il comportamento di aggiornamento di default (un `window.confirm` bloccante con hard reload forzato) e implementare una UX non invasiva o differita, essenziale per app con sessioni di inserimento dati lunghe.
+- L'hook cattura eventuali errori silenziosi (fallback sul dialog di default) per non perdere la traccia degli aggiornamenti in caso di bug.
+- Aggiunto intervallo configurabile `versionCheckIntervalMs`.
+
+### Breadcrumb: Troncamento Intelligente e Titolo Pagina
+
+- **Breadcrumb**: Aggiunto il troncamento intermedio intelligente in `BreadcrumbComponent`. Se la soglia viene superata, mantiene il primo elemento, gli ultimi due e sostituisce gli intermedi con un'ellissi (`...`).
+- Aggiunta `breadcrumbMaxItems` in `SiteConfig` (gestito anche in `DesignSystemPreset`). Il default globale in `siteBuilder.ts` rimane `4`, attivando questa nuova "cosa fica" automaticamente su tutti i progetti.
+- **SiteBuilder**: Introdotto `formatBrowserTitle(pageTitle, appName)` per sovrascrivere il formato del tag `<title>` e `og:title`.
+
+### Identity: Riconoscimento e Contenuti Legali
+
+- **Legali**: Le pagine Privacy e TOS ora espongono in fondo la variabile testuale `{{companyProfile}}` per il "Titolare del trattamento" / "Website owner".
+- Spostata la logica regex degli orari (`isHm`) nel più robusto `isValidOpeningInterval` esposto in `identity-format.ts`.
+
+
 ### `ImgBuilderService` (pill/caption): sfondo di default allineato all'og:image, colore brand nudo invece di `colorPrimary`
 
 Confrontando a parità di sito lo sfondo dell'og:image (`PreviewBuilder`, già `colorTema` nudo — vedi voce precedente) con quello di default di `ImgBuilderService.buildPillCanvas`/`buildCaptionCanvas`/`buildFittedCaptionCanvas` (pill/caption su una foto), i due potevano divergere: `roleColors()` (nessun `colorRole` esplicito) ricadeva su `colorPrimary`, che è `colorTema` scurito in OKLCH finché non raggiunge 4.5:1 di contrasto su una pagina chiara — pensato per bottoni/CTA, non per rappresentare il brand in un'immagine a piena superficie. Con un brand già scuro (es. `#131e55`, `#8E162B`) `colorPrimary` coincide con `colorTema` e la differenza passa inosservata; con un brand chiaro (es. `#f2c14e`) diverge vistosamente (`#946700`, un marrone). Stesso principio già scelto per l'og:image: il colore scritto in `global-settings.json` è sempre quello che appare, senza scurimenti impliciti da spiegare.

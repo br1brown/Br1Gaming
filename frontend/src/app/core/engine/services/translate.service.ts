@@ -25,20 +25,7 @@ const RTL_LANGUAGES = new Set(['ar', 'he', 'fa', 'ur', 'ps', 'sd', 'yi', 'dv', '
 
 type TranslationDictionary = Record<string, string>;
 
-/**
- * TRANSLATE SERVICE
- *
- * Gestisce lingue, caricamento JSON e formattazione stringhe.
- * È anche il punto canonico per le utility BCP-47 (normalizeBcp47).
- *
- * Per aggiungere una lingua:
- *   1. Aggiungere il codice a Localization.SupportedLanguages in global-settings.json
- *   2. Creare /assets/i18n/basic.{lang}.json e addon.{lang}.json
- *
- * La lista lingue disponibili viene interamente da LOCALE_CONFIG (global-settings.json).
- * Se un file JSON manca, fetchCatalogs fallisce silenziosamente e l'app usa
- * defaultLang come fallback — la lingua rimane nel selettore ma non si carica.
- */
+/** Gestisce lingue, caricamento JSON e formattazione stringhe; punto canonico per le utility BCP-47 (`normalizeBcp47`). Lingue disponibili da `LOCALE_CONFIG` (global-settings.json); se un catalogo manca, `fetchCatalogs` fallisce silenziosamente e ricade su `defaultLang`. */
 @Injectable({ providedIn: 'root' })
 export class TranslateService {
     private readonly localeConfig = inject(LOCALE_CONFIG);
@@ -105,13 +92,7 @@ export class TranslateService {
         return Object.assign({}, ...catalogs);
     }
 
-    /**
-     * Chiamato una volta al bootstrap, prima che il router attivi la prima route: garantisce che
-     * i cataloghi i18n siano già caricati quando l'app comincia a tradurre i titoli di rotta.
-     * Risolve sempre alla lingua default — l'URL è l'unica fonte di verità sulla lingua reale
-     * della richiesta: la corregge subito dopo `PageBaseComponent`, leggendo `route.data.lang`,
-     * appena la prima pagina monta.
-     */
+    /** Chiamato una volta al bootstrap prima che il router attivi la prima route, così i cataloghi i18n sono già caricati. Risolve sempre alla lingua default: `PageBaseComponent` la corregge subito dopo leggendo `route.data.lang`. */
     async setInitialLanguage(): Promise<void> {
         await this.setLanguage(this.localeConfig.defaultLang);
     }

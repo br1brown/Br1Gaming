@@ -62,10 +62,12 @@ export class CookieBannerComponent {
         });
     }
 
-    /** True quando è attiva almeno una categoria non tecnica: sceglie il testo introduttivo del
-     *  banner (toggle e azioni ci sono sempre — il consenso qui copre anche i tecnici). */
+    /** True se c'è almeno una categoria soggetta a consenso (TechnicalOptional/Analytics/Profiling):
+     *  decide se mostrare "Salva scelte". Stessa formula di `CookieConsentService.isNeeded()` — prima
+     *  mancava `isTechnicalOptionalNeeded()`, e un sito con solo quella categoria mostrava 2 pulsanti
+     *  senza Salva: il toggle si poteva flippare ma Accetta/Rifiuta tutto lo sovrascriveva comunque. */
     readonly hasDetailedCategories = computed(() =>
-        this.cookieConsent.isAnalyticsNeeded() || this.cookieConsent.isProfilingNeeded()
+        this.cookieConsent.isTechnicalOptionalNeeded() || this.cookieConsent.isAnalyticsNeeded() || this.cookieConsent.isProfilingNeeded()
     );
 
     /** Sempre "tutto/tutti", a prescindere dal numero di categorie attive: un'etichetta che

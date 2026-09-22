@@ -1,23 +1,12 @@
 namespace Backend.Models;
 
-/// <summary>
-/// Riga di <see cref="Backend.Store.AppDbContext"/>: chi ha caricato (e, se successo, cancellato)
-/// un blob. Usata da <c>AppBlobStore</c> per il controllo di proprietà sulla DELETE; le righe non
-/// vengono rimosse alla cancellazione (<see cref="DeletedBy"/>/<see cref="DeletedAt"/> valorizzati
-/// invece), quindi la tabella è anche lo storico di chi ha fatto cosa.
-/// </summary>
+/// <summary>Riga di <see cref="Backend.Store.AppDbContext"/>: chi ha caricato/cancellato un blob. Le righe non vengono rimosse alla cancellazione (<see cref="DeletedBy"/>/<see cref="DeletedAt"/> valorizzati), quindi la tabella è anche storico.</summary>
 public class BlobOwnership
 {
-    /// <summary>Slug del blob (chiave primaria — identificativo univoco, uno per blob, mai
-    /// riassegnato: se un domani il contenuto cambia, cambia lo slug, mai questa riga).</summary>
+    /// <summary>Slug del blob (chiave primaria, mai riassegnato).</summary>
     public string Slug { get; set; } = "";
 
-    /// <summary>
-    /// Dove vive il contenuto, relativo alla cartella <c>uploads/</c> — oggi coincide sempre col
-    /// nome file (<c>FileBlobStore</c> non ha altra convenzione), ma è un campo a sé
-    /// apposta: un domani con una struttura a cartelle o uno storage diverso, questo valore lo
-    /// esprime senza dover derivarlo dallo slug per convenzione fissa.
-    /// </summary>
+    /// <summary>Dove vive il contenuto, relativo a uploads/. Campo a sé (oggi coincide con lo slug) per non legarsi alla convenzione attuale se domani cambia lo storage.</summary>
     public string Location { get; set; } = "";
 
     /// <summary>Chi ha caricato il blob (<c>SessionInfo.UserId</c>).</summary>

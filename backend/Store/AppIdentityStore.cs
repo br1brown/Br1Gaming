@@ -9,7 +9,7 @@ namespace Backend.Store;
 /// <summary>
 /// Sorgente identità del sito, di proprietà del progetto: estende il default Engine
 /// (<see cref="FileIdentityStore"/>, legge <c>data/identity.json</c>). Punto dove comporre
-/// l'identità da più fonti; oggi passthrough. Estensione a due livelli: backend/README.md.
+/// l'identità da più fonti; oggi passthrough.
 /// </summary>
 public class AppIdentityStore : FileIdentityStore
 {

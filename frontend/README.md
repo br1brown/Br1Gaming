@@ -1606,6 +1606,9 @@ Il modello i18n è a URL per lingua (vedi «Internazionalizzazione (i18n)» → 
 
 > Anteprime ricche: il `<meta name="robots">` di base include `max-image-preview:large, max-snippet:-1, max-video-preview:-1`, autorizza Google a mostrare l'anteprima immagine grande (l'OG 1200×630 generata dall'Engine) e snippet/video senza limiti nei risultati. La description di pagina, se omessa, ricade sulla `site.description` di default (localizzata) invece di restare quella della pagina precedente.
 
+### Formattazione del Titolo Pagina (`<title>`)
+Di default il tag `<title>` (e `og:title`) segue il formato `Titolo Pagina | Nome App` (o solo `Titolo Pagina` se uguale al nome app). Puoi personalizzare questo schema sovrascrivendo `SiteConfig.formatBrowserTitle` in `siteBuilder.ts` (ad esempio invertendo l'ordine o cambiando il separatore: `(pageTitle, appName) => ${pageTitle} — ${appName}`).
+
 ---
 
 ## 🔄 Controllo Versione e Aggiornamenti (VersionCheckService)
@@ -1622,9 +1625,13 @@ La versione è dichiarata in `global-settings.json` (`project.version`) e distri
 
 ### Meccanica
 
-Tab senza Service Worker (sempre con `isWebApp:false`): polling ogni 10 minuti che scarica `/index.html` e confronta il meta `app-version` → se cambia → dialog "Nuova versione disponibile" → hard reload attiva la nuova versione.
+Tab senza Service Worker (sempre con `isWebApp:false`): polling ogni intervallo (default 10 minuti, configurabile via `SiteConfig.versionCheckIntervalMs`) che scarica `/index.html` e confronta il meta `app-version` → se cambia → notifica → hard reload attiva la nuova versione.
 
 PWA / tab con SW attivo: il SW serve `index.html` dalla cache (versione stabile per il polling) e a decidere è SwUpdate, che emette `VERSION_READY` quando la nuova versione è scaricata → l'utente conferma → `activateUpdate()` + reload.
+
+#### Personalizzare la UX di Aggiornamento
+Di default, la notifica è un `window.confirm` bloccante seguito da ricaricamento forzato (`window.location.reload()`). Questo interromperebbe l'utente se stesse compilando un form lungo o giocando.
+In `site.ts` puoi deviare questo comportamento con `onVersionUpdateAvailable(apply: () => void)`: l'Engine ti consegna la callback `apply` (che incapsula attivazione SW e ricaricamento) e **tu decidi come e quando** invocarla (es. mostrando una snackbar non bloccante "Aggiorna ora"). Se l'hook fallisce, interviene il fallback sul dialog di default per non perdere l'aggiornamento. Esempi d'uso in `AGENTS.md`.
 
 Prerequisito (consenso TechnicalOptional): se sul sito serve un consenso TechnicalOptional (di norma solo il caso PWA — i cookie Technical "veri" sono esenti per legge, mai a consenso) il controllo versione è disabilitato finché l'utente non lo accetta; si attiva al reload successivo. Se invece non serve alcun consenso TechnicalOptional (non-PWA) non c'è nulla da accettare e il polling parte comunque: legge solo il meta `app-version` via `fetch`, non scrive cookie. Senza questa distinzione un sito così, tipicamente con `isWebApp:false`, resterebbe senza controllo versione per sempre.
 
@@ -1753,6 +1760,7 @@ Come `superfici`/`smoke.intensita`, questi 12 campi sostituiscono un comportamen
 | `elevazione` | `'piatta'` / `'sospesa'` / `'flottante'` | `'sospesa'` | Ombra + raggio d'angolo dei pannelli elevati (dropdown/submenu/context-menu/`.fab`) |
 | `contentWidth` | `'colonna'` / `'ampio'` / `'pieno'` | `'ampio'` | Larghezza della colonna di breadcrumb/pannello contenuti |
 | `breadcrumbStile` | `'traccia'` / `'freccia'` / `'punto'` | `'traccia'` | Separatore fra le voci del breadcrumb (`/`/`›`/`·`) |
+| `breadcrumbMaxItems` | `number` / `'none'` | `4` | Soglia di troncamento del breadcrumb (mantiene il primo e gli ultimi due elementi, collassando gli intermedi) |
 | `mutezzaSecondario` | `'tenue'` / `'standard'` / `'satura'` | `'standard'` | Chroma OKLCH del `secondary` auto-calcolato dal brand (ignorato se `colorSecondary` è overridden) |
 | `hoverIntensity` | `'lieve'` / `'standard'` / `'decisa'` | `'standard'` | Scurimento hover/active dei bottoni pieni |
 | `separazioneSuperfici` | `'ravvicinate'` / `'classica'` / `'marcata'` | `'classica'` | Quanto base/subtle/muted/surface/hover si distinguono FRA loro (asse ortogonale a `superfici`, che decide quanto si avvicinano al BRAND) |
