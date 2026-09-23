@@ -3,7 +3,7 @@
 # lint-check.sh  —  ESLint sul frontend (include regole accessibilità)
 #
 # Esegue npm run lint nella cartella frontend. Le violazioni bloccano
-# anche il pre-commit hook e il job CI frontend.
+# il job CI frontend.
 #
 # Utilizzo:
 #   ./lint-check.sh

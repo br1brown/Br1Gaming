@@ -13,14 +13,16 @@ internal sealed class EngineErrorReporting : IErrorReportingService
 {
     private readonly HttpClient _http;
     private readonly ErrorReportingOptions _options;
+    private readonly bool _enabled;
     private readonly ILogger<EngineErrorReporting> _logger;
     private readonly string _projectName;
 
-    /// <summary>Inietta l'HttpClient tipizzato, le opzioni, il logger e legge <c>project.name</c>.</summary>
-    public EngineErrorReporting(HttpClient http, IOptions<ErrorReportingOptions> options, ILogger<EngineErrorReporting> logger, IConfiguration configuration)
+    /// <summary>Inietta l'HttpClient tipizzato, le opzioni, l'interruttore <c>Features.ErrorReporting</c>, il logger e legge <c>project.name</c>.</summary>
+    public EngineErrorReporting(HttpClient http, IOptions<ErrorReportingOptions> options, IOptions<FeaturesOptions> features, ILogger<EngineErrorReporting> logger, IConfiguration configuration)
     {
         _http = http;
         _options = options.Value;
+        _enabled = features.Value.ErrorReporting && _options.IsConfigured;
         _logger = logger;
         // Letto una volta sola: project.name non cambia a runtime. Serve a distinguere la
         // provenienza quando più progetti sulla stessa VPS puntano allo STESSO webhook (es. un solo
@@ -30,12 +32,12 @@ internal sealed class EngineErrorReporting : IErrorReportingService
     }
 
     /// <inheritdoc />
-    public bool IsEnabled => _options.IsConfigured;
+    public bool IsEnabled => _enabled;
 
     /// <inheritdoc />
     public async Task ReportAsync(ErrorReport report, CancellationToken cancellationToken = default)
     {
-        if (!_options.IsConfigured)
+        if (!_enabled)
             return;
 
         try

@@ -9,8 +9,8 @@
  * Cosa fa SEMPRE (battesimo):
  *   1. Imposta project.name in global-settings.json (file committabile: identità del progetto)
  *   2. Crea global-settings.local.json (gitignored) con pubblicazione (porte/deploy) e
- *      l'API key generata. La SecretKey JWT resta VUOTA: un progetto nasce col login
- *      spento — si attiva valorizzandola, scelta esplicita e mai un default.
+ *      API key e SecretKey JWT generate. Il login nasce spento comunque: lo
+ *      accende Features.Login/PublicLogin in global-settings.json, scelta esplicita.
  *   3. Rinomina gli identificatori npm/SW generici "app" → slug del prodotto
  *      (frontend/package.json, frontend/ngsw-config.json)
  *   4. Rinomina App.sln → NomeProgetto.sln
@@ -18,7 +18,8 @@
  * Poi CHIEDE conferma [s/N] per la "cerimonia" da template a progetto (DISTRUTTIVA):
  *   5. Rimuove la demo (frontend + backend): pagina Social + galleria social
  *      (store/SiteService/social.json), home → placeholder, addon i18n filtrato alle sole
- *      chiavi ancora in uso, BaseController minimo, data/identity.json azzerato a scheletro,
+ *      chiavi ancora in uso, BaseController minimo, data/identity.json azzerato a scheletro
+ *      (salvo titolare ed email, chiesti qui: la Privacy Policy li vuole),
  *      site.ts/nav.ts riscritti. L'identità del sito resta servita dall'Engine (GET /identity).
  *      "Che faccio" (vetrina delle funzionalità Engine) NON viene cancellata: resta una rotta
  *      viva (fuori menu, /che-faccio) da consultare mentre costruisci il tuo sito — il pezzo
@@ -29,8 +30,11 @@
  *      figlio privato) e sfoltisce .github/SECURITY.md dell'header di reporting
  *      vulnerabilità (email dell'autore del template), tenendo features+checklist.
  *   8. Esegue i controlli statici disponibili (lint/tsc/i18n/cicli) come gate.
- *   9. Auto-cancella questo setup.mjs.
- *   10. Fa un commit locale "init <Nome>".
+ *   9. Fa un commit locale "init <Nome>".
+ *
+ * Lo script RESTA nel repo dopo la cerimonia: cancellarlo produrrebbe un conflitto modify/delete a
+ * ogni merge dal template che lo tocca. Un secondo lancio riconosce l'eject fatto (README.md
+ * assente) e non fa nulla.
  */
 
 import { readFileSync, writeFileSync, existsSync, renameSync, rmSync } from 'fs';
@@ -199,39 +203,28 @@ export function withApi(loaderFn: (ctx: ContentLoaderContext, api: ApiService) =
 // pages / nav.ts: rotte, menu e sitemap si aggiornano da soli.
 // A poche pagine un oggetto piatto come questo basta; se il progetto cresce,
 // dividilo in più file (uno per area tematica, sotto pages/) e assemblalo
-// qui con lo spread — pattern descritto in AGENTS.md § "Aggiungere una pagina".
+// qui con lo spread (es. ...AppPages esportato da pages/app.pages.ts).
 export const PageType = {
     Home: 'home',
     // Vetrina Engine tenuta viva dall'eject (fuori menu: nessun addPage in nav.ts).
     // Cancellala pure insieme a pages/che-faccio/ quando non ti serve più da consultare.
     CheFaccio: 'che-faccio',
+    PrivacyPolicy: 'legal.privacy',
 } as const;
 export type PageType = (typeof PageType)[keyof typeof PageType];
 
-// Struttura del sito: opzioni globali, pagine e menu. Identità ed estetica
-// (nome, versione, lingue, descrizione, tema) vivono in global-settings.json.
+// Struttura del sito: pagine e slot. Identità ed estetica stanno in global-settings.json.
 //
-// LOGIN SPENTO di default, coerente con Security.Token.SecretKey vuota.
-// Per attivarlo: valorizza la SecretKey (>=32 char), poi qui aggiungi
-// PageType.Login + la sua pagina in pages e imposta loginPage: PageType.Login
-// (login solo per il redirect auth, fuori dall'header). Per mostrarlo anche in
-// navbar usa la forma estesa: loginPage: { page: PageType.Login, showInHeader: true }.
-// I pezzi pronti (pagina login, app-login-form, app-user-nav) sono gia' nel
-// progetto: vanno solo ricablati.
+// LOGIN spento (Features in global-settings.json). Per accenderlo: Features.Login (riservato) o
+// PublicLogin (in navbar), poi PageType.Login + la sua pagina in pages e loginPage: PageType.Login.
 //
-// PAGINE LEGALI SPENTE di default: nessun cookie di progetto + isWebApp:false = il sito non ha
-// nulla da far scegliere, quindi niente cookie-banner e nessuna Cookie Policy obbligatoria (si
-// disattiva da sola). Per attivarle: PageType.PrivacyPolicy/CookiePolicy/... + un array
-// legalPages (vedi STANDARD_LEGAL_PAGES in siteBuilder.ts per i default delle 5 standard) +
-// cookiePolicy: PageType.CookiePolicy, sul modello di pages/policy/ nel repo del template
-// (policy.component + legal.pages.ts) — ricetta completa in AGENTS.md § "Aggiungere una policy legale".
-// Comportamento di navbar/footer/header/pannello: decisione del design system attivo, non un flag
-// qui accanto — dichiara solo gli scostamenti dal default (riferimento completo in
-// frontend/README.md §"Preset di Design System"/§"Ruoli di Pagina"). \`emptyDesignSystem\` è il punto
-// di partenza più neutro: nessun campo forzato, estendilo con \`extendDesignSystem\` invece di
-// scriverne uno da zero.
+// PAGINE LEGALI (\`legal\`): uno slot per pagina, valorizzato con un PageType qui sopra. Privacy
+// obbligatoria; \`cookie\` obbligatorio con cookie o PWA; termsOfService/legalNotice/accessibility a scelta.
+//
+// Aspetto di navbar/footer/pannello: design system attivo. \`emptyDesignSystem\` è il più neutro,
+// estendilo con \`extendDesignSystem\`.
 const designSystem = extendDesignSystem(emptyDesignSystem, {
-    fixedTopHeader: true, // default: false — qui la navbar resta fissa in alto allo scroll
+    navbar: { fissa: true }, // default: false — qui la navbar resta fissa in alto allo scroll
     // Ruolo custom \`senzaNavbar\`: si registra scrivendo la sua chiave qui, nessuna dichiarazione
     // a parte — usalo su una pagina con \`layout: { role: 'senzaNavbar' }\`.
     ruoloPagina: {
@@ -241,6 +234,9 @@ const designSystem = extendDesignSystem(emptyDesignSystem, {
 
 export const ContestoSito = buildSite({
     homePage: PageType.Home,
+    legal: {
+        privacy: PageType.PrivacyPolicy,
+    },
 
     shell: {
         designSystem,
@@ -258,7 +254,7 @@ export const ContestoSito = buildSite({
         },
         {
             // Path PER-LINGUA a scopo dimostrativo (BasePageInput.path come oggetto, non solo
-            // prefissato) — vedi frontend/README.md §"Pagine & rotte". Volutamente fuori da
+            // prefissato): lo switch lingua e la sitemap seguono da soli. Volutamente fuori da
             // nav.ts: si raggiunge solo digitando l'URL, non compare in nessun menu.
             path: { it: 'che-faccio', en: 'what-i-do' },
             title: 'cheFaccioNav',
@@ -274,53 +270,12 @@ export const ContestoSito = buildSite({
 
 const MINIMAL_NAV_TS = `import type { ShellNavResolver } from './core/engine/shell-nav';
 
-// Navigazione di header/footer: risolta a runtime (ShellNavService), non a build time come
-// site.ts — può restare così com'è (sincrona, vuota) o diventare async se un domani ti serve
-// un menu che dipende da un'API (es. per utente loggato). Popolala con addPage / addLink /
-// addGroup quando aggiungi voci — riferimento completo in frontend/README.md
-// §"Navigazione Multilivello".
+// Menu di header/footer, risolti a runtime (anche async, es. per utente loggato): addPage/addLink/addGroup.
+// footer assente di proposito: vale quello di serie dell'Engine (dati societari, P.IVA, contatti, social).
 export const navResolver: ShellNavResolver = {
     header: (_h) => {
     },
-    footer: (_f) => {
-    },
 };
-`;
-
-// policy.component.ts resta (l'Engine lo importa per path fisso da legal-pages.ts, anche a
-// legalPages vuoto) e legge solo legalPageConfig() da qui: il file resta, LegalPages/legalPagesDecl
-// si svuotano (coerente con "PAGINE LEGALI SPENTE di default" in MINIMAL_SITE_TS) invece di sparire.
-const MINIMAL_LEGAL_PAGES_TS = `import { type LegalPageSpec } from '../../core/engine/siteBuilder';
-
-// Pagine legali SPENTE di default: nessuna voce qui sotto, nessuna pagina legale creata (vedi
-// site.ts). Per attivarle: aggiungi l'ID a LegalPages e la voce a legalPagesDecl (spread da
-// STANDARD_LEGAL_PAGES per le 5 standard, esportato da core/engine/siteBuilder.ts), poi in
-// site.ts valorizza legalPages + cookiePolicy — ricetta completa in AGENTS.md
-// § "Aggiungere una policy legale extra".
-export const LegalPages = {} as const;
-export type LegalPageId = (typeof LegalPages)[keyof typeof LegalPages];
-export const legalPagesDecl: LegalPageSpec[] = [];
-
-/** Config per pagina legale: data di "ultimo aggiornamento" (opzionale, assente = nessuna riga) +
- *  i 4 flag di app-identity-render. Valorizzala per ogni voce che aggiungi a LegalPages sopra. */
-export interface LegalPageConfig {
-    updated?: Date;
-    showCompanyDetails: boolean;
-    showLegalDetails: boolean;
-    showContacts: boolean;
-    showOpeningHours: boolean;
-}
-export const legalPages: Partial<Record<LegalPageId, LegalPageConfig>> = {};
-
-/** Default per un \`pageType\` assente da \`legalPages\`: societari + contatti, nessuna data. */
-const DEFAULT_LEGAL_PAGE_CONFIG: LegalPageConfig = {
-    showCompanyDetails: true, showLegalDetails: false, showContacts: true, showOpeningHours: false,
-};
-
-/** Config della pagina legale per \`pageType\`, o il default se assente da \`legalPages\`. */
-export function legalPageConfig(pageType: string): LegalPageConfig {
-    return legalPages[pageType as LegalPageId] ?? DEFAULT_LEGAL_PAGE_CONFIG;
-}
 `;
 
 const MINIMAL_HOME_TS = `import { Component } from '@angular/core';
@@ -364,17 +319,18 @@ public class BaseController : EngineApiController
 }
 `;
 
-// identity.json azzerato a scheletro: il figlio lo riempie (o lo lascia così → /identity
-// risponde null e footer/pagine legali/JSON-LD si nascondono da soli). Lo schema (engine,
-// in Engine/Models/Identity/) dà validazione e autocomplete su questo file.
-const MINIMAL_IDENTITY_JSON = `{
+// identity.json azzerato a scheletro, salvo titolare ed email chiesti alla cerimonia: la Privacy Policy
+// composta dall'Engine li vuole, e senza il build si ferma. Il resto il figlio lo riempie o lo lascia vuoto
+// (footer e JSON-LD nascondono i campi assenti). Lo schema (engine, in Engine/Models/Identity/) dà
+// validazione e autocomplete su questo file.
+const minimalIdentityJson = (titolare, email) => `{
     "$schema": "../Engine/Models/Identity/identity.schema.json",
     "personal": false,
-    "ragioneSociale": "",
+    "ragioneSociale": ${JSON.stringify(titolare)},
     "partitaIva": "",
     "codiceFiscale": "",
     "sedeLegale": { "via": "", "civico": "", "cap": "", "citta": "", "provincia": "", "nazione": "" },
-    "contatti": { "telefono": "", "email": "", "pec": "" },
+    "contatti": { "telefono": "", "email": ${JSON.stringify(email)}, "pec": "" },
     "datiSocietari": { "registroImprese": "", "numeroRea": "", "codiceSdi": "" },
     "social": [],
     "currency": "EUR",
@@ -384,7 +340,7 @@ const MINIMAL_IDENTITY_JSON = `{
 
 // ── Eject: da template a progetto ────────────────────────────────────────────
 
-function ejectDemo() {
+function ejectDemo(titolare, email) {
     console.log('\n  Rimozione demo (template → progetto)...');
     const fe = join(ROOT, 'frontend/src');
     const be = join(ROOT, 'backend');
@@ -392,7 +348,6 @@ function ejectDemo() {
     // Riscrittura dei file "di partenza" (dominio del figlio).
     writeNew(join(fe, 'app/site.ts'), MINIMAL_SITE_TS);
     writeNew(join(fe, 'app/nav.ts'), MINIMAL_NAV_TS);
-    writeNew(join(fe, 'app/pages/policy/legal.pages.ts'), MINIMAL_LEGAL_PAGES_TS);
     writeNew(join(fe, 'app/pages/home/home.component.ts'), MINIMAL_HOME_TS);
     writeNew(join(fe, 'app/pages/home/home.component.html'), MINIMAL_HOME_HTML);
     // addon i18n: non azzerato a {} come gli altri file demo-only, perché "che faccio" (tenuta
@@ -404,13 +359,13 @@ function ejectDemo() {
 
     // L'identità è servita dall'Engine (GET /identity): qui resta solo il dato, azzerato a scheletro.
     // La galleria social era una demo (store + SiteService + social.json) → brucia per intero.
-    writeNew(join(be, 'data/identity.json'), MINIMAL_IDENTITY_JSON);
+    writeNew(join(be, 'data/identity.json'), minimalIdentityJson(titolare, email));
     rmSync(join(be, 'Services/SiteService.cs'), { force: true });
     rmSync(join(be, 'Store/IContentStore.cs'), { force: true });
     rmSync(join(be, 'Store/FileContentStore.cs'), { force: true });
     rmSync(join(be, 'data/social.json'), { force: true });
     console.log('  ✓  bruciati: SiteService, IContentStore/FileContentStore, data/social.json');
-    console.log('  ✓  azzerato a scheletro: backend/data/identity.json');
+    console.log('  ✓  azzerato a scheletro, con titolare ed email: backend/data/identity.json');
 
     // Program.cs: via le registrazioni dello store/SiteService demo.
     stripDemoBlocks(join(be, 'Program.cs'), 'cs', 'Program.cs');
@@ -499,6 +454,20 @@ async function main() {
     console.log(' Setup progetto da template Br1WebEngine');
     console.log('──────────────────────────────────────────\n');
 
+    // Eject già fatto (il README vetrina è l'unico file che la cerimonia toglie e nessun merge riporta):
+    // niente da rifare, e soprattutto niente cerimonia distruttiva ripetuta.
+    if (!existsSync(join(ROOT, 'README.md'))) {
+        console.log('  =  Progetto già inizializzato (cerimonia fatta): niente da fare.\n');
+        return;
+    }
+
+    // Il driver `merge=ours` di .gitattributes (file interamente del figlio) non è built-in in git:
+    // senza questa config i file protetti andrebbero in conflitto a ogni merge dal template.
+    try {
+        execSync('git config merge.ours.driver true', { cwd: ROOT, stdio: 'ignore' });
+        console.log('  ✓  git config merge.ours.driver true (i file merge=ours restano del progetto ai merge dal template)');
+    } catch { /* repo non ancora inizializzato o git assente: lo dice QUICKSTART */ }
+
     const rawName = process.argv.slice(2).join(' ').trim() || await ask('Nome del progetto (es. MercatinoApp): ');
 
     if (!rawName) {
@@ -519,16 +488,16 @@ async function main() {
     // L'identità (nome, versione, lingue, config di sito) vive qui ed è versionabile dal figlio.
     editFile(
         join(ROOT, 'global-settings.json'),
-        // Primo "name" del file = project.name.
-        src => src.replace(/("name"\s*:\s*)"[^"]*"/, `$1${JSON.stringify(displayName)}`)
+        // Primo "name" del file = project.name. Features tutto spento: il figlio accende a mano ciò che
+        // usa (il backend non parte se una funzione accesa non ha la sua configurazione).
+        src => src
+            .replace(/("name"\s*:\s*)"[^"]*"/, `$1${JSON.stringify(displayName)}`)
+            .replace(/("Features"\s*:\s*)\{[^}]*\}/, '$1{ "Login": false, "PublicLogin": false, "Mail": false, "ErrorReporting": false, "Forms": false }')
     );
 
-    // ── 2. global-settings.local.json: pubblicazione + API key generata (gitignored) ──
-    // Porte, dominio, CORS e le chiavi vivono SOLO qui, fuori dal repo.
-    // SecretKey resta VUOTA: il login è spento finché non la si valorizza (≥32 char) —
-    // attivarlo deve essere una scelta esplicita, non un effetto collaterale del setup.
-    // CryptoSecret invece si genera SEMPRE (come ApiConfig.Keys): è indipendente dal login, serve al
-    // servizio di cifratura generico dell'engine (EngineCrypto) fin da subito.
+    // ── 2. global-settings.local.json: pubblicazione + chiavi generate (gitignored) ──
+    // Tutte le chiavi si generano SEMPRE: la SecretKey è il requisito del login, non l'interruttore
+    // (Features, spento di default).
     const localPath = join(ROOT, 'global-settings.local.json');
     if (existsSync(localPath)) {
         console.log('  =  global-settings.local.json già presente — non sovrascritto');
@@ -543,12 +512,11 @@ async function main() {
                 },
                 CorsOrigins: [],
                 BehindProxy: false,
-                Token: { SecretKey: '' },
-                CryptoSecret: randomBytes(32).toString('base64'),
+                Token: { SecretKey: randomBytes(48).toString('base64') },
             },
         };
         writeFileSync(localPath, JSON.stringify(local, null, 2) + '\n', 'utf-8');
-        console.log('  ✓  creato global-settings.local.json (porte/deploy + API key e CryptoSecret generati; login spento: SecretKey vuota)');
+        console.log('  ✓  creato global-settings.local.json (porte/deploy + chiavi generate; login spento finché non lo accendi in Features)');
     }
 
     // ── 3. Nomi npm "app" → slug del prodotto ────────────────────────────
@@ -584,7 +552,7 @@ async function main() {
     console.log('──────────────────────────────────────────');
     console.log(' Rimuove la demo (Social + galleria social + home svuotata + addon + backend minimo,');
     console.log(' identity.json azzerato),');
-    console.log(' elimina il README vetrina, esegue i controlli, AUTO-CANCELLA setup.mjs');
+    console.log(' elimina il README vetrina, esegue i controlli');
     console.log(` e fa un commit locale "init ${displayName}".`);
     const answer = (await ask('\n  Procedo? [s/N]: ')).toLowerCase();
 
@@ -594,7 +562,14 @@ async function main() {
         return;
     }
 
-    ejectDemo();
+    // Titolare del trattamento: la Privacy Policy di serie lo mostra, e senza nome e recapito il build si ferma.
+    console.log('\n  La Privacy Policy vuole il titolare del trattamento (finisce in backend/data/identity.json).');
+    const titolare = (await ask('  Ragione sociale, o nome e cognome: ')).trim();
+    const email = (await ask('  Email di contatto del titolare: ')).trim();
+    if (!titolare || !email) {
+        console.warn('  ⚠  Titolare o email vuoti: il build si fermerà finché non li scrivi in backend/data/identity.json.');
+    }
+    ejectDemo(titolare, email);
 
     // README vetrina: il template stesso dice "nel figlio si elimina solo questo README".
     rmSync(join(ROOT, 'README.md'), { force: true });
@@ -622,23 +597,14 @@ async function main() {
         process.exit(1);
     }
 
-    // ── Commit "init" + auto-rimozione dello script ─────────────────────
-    // Lo script esce dal versionamento con `git rm --cached`: entra UNA sola volta
-    // nel commit di init (come rimozione) e il file fisico si cancella DOPO il commit.
-    // Cancellare lo script mentre gira è sicuro: Node lo ha già letto in memoria.
-    // (Il commit mostrerà comunque la rimozione di setup.mjs: il figlio conserva la
-    //  storia del template per i merge, quindi non si può nascondere del tutto.)
-    const selfPath = fileURLToPath(import.meta.url);
+    // ── Commit "init" ────────────────────────────────────────────────────
+    // setup.mjs resta tracciato: è Scaffold e al merge dal template si aggiorna come il resto.
     try {
         execSync('git add -A', { cwd: ROOT, stdio: 'inherit' });
-        try {
-            execSync('git rm --cached --quiet -- setup.mjs', { cwd: ROOT, stdio: 'ignore' });
-        } catch { /* già non tracciato: ok */ }
         execSync(`git commit -m ${JSON.stringify(`init ${displayName}`)}`, { cwd: ROOT, stdio: 'inherit' });
-        rmSync(selfPath, { force: true });
-        console.log(`\n  ✅  Progetto inizializzato — commit "init ${displayName}" creato, setup.mjs rimosso. Buon lavoro!\n`);
+        console.log(`\n  ✅  Progetto inizializzato — commit "init ${displayName}" creato. Buon lavoro!\n`);
     } catch {
-        console.warn('\n  ⚠  Commit non riuscito (git assente o niente da committare): setup.mjs lasciato sul posto, committa a mano.\n');
+        console.warn('\n  ⚠  Commit non riuscito (git assente o niente da committare): committa a mano.\n');
     }
 }
 

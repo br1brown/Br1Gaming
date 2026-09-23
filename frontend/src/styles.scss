@@ -1,6 +1,6 @@
-// Punto di partenza degli stili del progetto. Le FONDAMENTA dell'Engine (token, ponte Bootstrap,
-// layout, a11y, e i CSS di terze parti) sono caricate automaticamente da angular.json →
-// src/styles/engine/base.scss, non compaiono qui. Qui il progetto figlio sceglie gli stili
+// Punto di partenza degli stili del progetto. Le FONDAMENTA dell'Engine (Bootstrap compilato col
+// tema, token, layout, a11y, e i CSS di terze parti) sono caricate automaticamente da angular.json →
+// src/styles/engine/bootstrap.scss e base.scss, non compaiono qui. Qui il progetto figlio sceglie gli stili
 // OPZIONALI dell'Engine e aggiunge i propri (in questo file o in src/styles/app/).
 
 // ── ENGINE opzionale ─────────────────────────────────────────────────────────
@@ -10,8 +10,9 @@
 
 // ── PROGETTO (tuo) ───────────────────────────────────────────────────────────
 // I tuoi stili globali e i tuoi partial (sotto src/styles/app/, importati con
-// @use 'app/...'). Per riusare gli strumenti dell'Engine (breakpoint, colori):
-//   @use 'engine/base/lib' as lib;   →  lib.$bp-md, lib.shade(var(--bs-primary), 12%)
+// @use 'app/...'). Colori: classi e variabili di Bootstrap (.btn-primary, .text-body-secondary,
+// var(--bs-primary), var(--bs-border-color)), già compilate col tema. Breakpoint dell'Engine:
+//   @use 'engine/base/lib' as lib;   →  @media (min-width: lib.$bp-md) { ... }
 // @use 'app/example';
 @use 'app/skeuo';
 

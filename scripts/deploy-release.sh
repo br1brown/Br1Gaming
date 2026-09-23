@@ -129,7 +129,7 @@ source "${ROOT}/scripts/lib/br1-config.sh"
 # lasciandolo vuoto il guard sotto ferma il deploy finché non lo imposti (niente 421 al dominio reale).
 if [[ ! -f global-settings.local.json ]]; then
     if br1_ensure_local_secrets; then
-        warn "global-settings.local.json non c'era: creato con SecretKey/ApiConfig.Keys/CryptoSecret generati e frontend.hostname VUOTO. Imposta il tuo dominio (e la porta se hai altri progetti sulla stessa VPS): il deploy si ferma finché il dominio è vuoto — di proposito."
+        warn "global-settings.local.json non c'era: creato con SecretKey/ApiConfig.Keys generati e frontend.hostname VUOTO. Imposta il tuo dominio (e la porta se hai altri progetti sulla stessa VPS): il deploy si ferma finché il dominio è vuoto — di proposito."
     else
         fail "Creazione automatica di global-settings.local.json fallita"
     fi
@@ -170,6 +170,11 @@ fi
 if [[ "$DEPLOY_FRONTEND" == true && -z "${FRONTEND_BASE_URL:-}" ]]; then
     fail "frontend.hostname non impostato in global-settings.local.json: il sito risponderebbe 421 al dominio reale. Imposta es. \"frontend\": { \"hostname\": \"miodominio.it\" } (stesso dominio del repository variable FRONTEND_BASE_URL usato dalla CI)."
 fi
+# Un bind mount Docker su un file assente crea una DIRECTORY con quel nome: l'SSR troverebbe
+# security-headers.override.json "esistente" ma illeggibile e ignorerebbe la CSP del progetto in silenzio.
+if [[ -d security-headers.override.json ]]; then
+    fail "security-headers.override.json e una directory (creata da un mount Docker su file assente): rimuovila e rimetti il file del progetto, o un file vuoto {} se non estendi la CSP."
+fi
 if (( ERRORS > 0 )); then
     echo
     echo -e "  ${RED}ERR${RESET} Correggi la configurazione in global-settings.json prima di pubblicare" >&2
@@ -209,22 +214,41 @@ _secret_errs="$(mktemp)"
 if node --input-type=module --eval "
 import { readFileSync } from 'fs';
 const s = JSON.parse(readFileSync('${BR1_SETTINGS_FILE}','utf-8'));
-const DEV = 'dev-only-change-me-chiave-di-sviluppo-min-32-byte';
-const sk = String(s.Security?.Token?.SecretKey ?? '').trim();
+// Segnaposto dell'esempio letto dal file stesso (se c'è), così resta allineato a quello.
+let EXAMPLE = 'INCOLLA-QUI-openssl-rand-base64-48';
+try { EXAMPLE = JSON.parse(readFileSync('global-settings.local.example.json','utf-8')).Security?.Token?.SecretKey || EXAMPLE; } catch {}
+// Stessa regola del backend all'avvio, e come lui solo col login acceso: chiave presa così com'è (niente trim), almeno 32 byte UTF-8.
+const sk = String(s.Security?.Token?.SecretKey ?? '');
+const feat = s.Features || {};
+const loginOn = feat.Login === true || feat.PublicLogin === true;
 const keys = Array.isArray(s.Security?.ApiConfig?.Keys) ? s.Security.ApiConfig.Keys : [];
-const cryptoSecret = String(s.Security?.CryptoSecret ?? '').trim();
 const errs = [];
-if (sk) {
-  if (sk === DEV) errs.push('Security.Token.SecretKey e ancora il segreto di sviluppo. Generane uno: openssl rand -base64 48');
-  else if (sk.length < 32) errs.push('Security.Token.SecretKey e troppo corta (<32 caratteri). Generane una robusta: openssl rand -base64 48');
+if (sk && loginOn) {
+  if (sk !== sk.trim()) errs.push('Security.Token.SecretKey ha spazi o a capo all\'inizio o alla fine: il backend la rifiuta. Toglili.');
+  else if (sk === EXAMPLE) errs.push('Security.Token.SecretKey e ancora il segnaposto dell\'esempio. Generane uno: openssl rand -base64 48');
+  else if (Buffer.byteLength(sk, 'utf8') < 32) errs.push('Security.Token.SecretKey e troppo corta (<32 byte UTF-8). Generane una robusta: openssl rand -base64 48');
 }
 if (keys.length === 0) errs.push('Security.ApiConfig.Keys e vuoto: il frontend non puo autenticarsi col backend.');
-for (const k of keys) {
+// Segnaposto dell'example: INCOLLA-QUI-… è lungo abbastanza da passare i minimi, quindi va rifiutato per nome.
+const placeholder = v => /^INCOLLA-QUI-/i.test(String(v ?? ''));
+if (placeholder(sk)) errs.push('Security.Token.SecretKey e ancora il segnaposto dell\'esempio. Generane uno: openssl rand -base64 48');
+keys.forEach((k, i) => {
   if (k === 'frontend') errs.push('Security.ApiConfig.Keys contiene la chiave segnaposto \"frontend\". Sostituiscila: openssl rand -base64 32');
-  else if (String(k).length < 32) errs.push('Security.ApiConfig.Keys contiene una chiave troppo corta (<32 caratteri): ' + k);
+  else if (placeholder(k)) errs.push('Security.ApiConfig.Keys[' + i + '] e ancora il segnaposto dell\'esempio (pubblico nel repo). Sostituiscila: openssl rand -base64 32');
+  else if (String(k).length < 32) errs.push('Security.ApiConfig.Keys[' + i + '] e troppo corta (<32 caratteri). Generane una: openssl rand -base64 32');
+});
+if (feat.Mail === true && placeholder(s.Mail?.Password)) errs.push('Mail.Password e ancora il segnaposto dell\'esempio.');
+const host = String(s.frontend?.hostname ?? '').trim().toLowerCase();
+if (host === 'miodominio.it' || host === 'example.com') errs.push('frontend.hostname e ancora il segnaposto dell\'esempio (' + host + '): il sito risponderebbe 421 al dominio vero. Imposta il tuo dominio.');
+// Una funzione accesa in Features (global-settings.json) deve avere la sua configurazione: stesso controllo del backend all'avvio.
+const has = v => String(v ?? '').trim() !== '';
+for (const [name, configured, what, on] of [
+  ['Login', has(sk), 'Security.Token.SecretKey', loginOn],
+  ['Mail', has(s.Mail?.Host) && has(s.Mail?.FromAddress), 'Mail.Host e Mail.FromAddress', feat.Mail === true],
+  ['ErrorReporting', has(s.ErrorReporting?.WebhookUrl), 'ErrorReporting.WebhookUrl', feat.ErrorReporting === true],
+]) {
+  if (on && !configured) errs.push('Features.' + name + ' e acceso ma manca ' + what + ' in global-settings.local.json.');
 }
-if (cryptoSecret === 'INCOLLA-QUI-openssl-rand-base64-32') errs.push('Security.CryptoSecret e ancora il segnaposto dell\'esempio. Generane uno: openssl rand -base64 32');
-else if (cryptoSecret && cryptoSecret.length < 32) errs.push('Security.CryptoSecret e troppo corta (<32 caratteri). Generane una robusta: openssl rand -base64 32');
 if (errs.length) { console.error(errs.join('\n')); process.exit(1); }
 " 2>"$_secret_errs"; then
     ok "Segreti di produzione validi"

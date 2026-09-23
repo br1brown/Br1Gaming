@@ -1,7 +1,7 @@
 import { ConsentCategory, type CookieConfig } from "../engine/services/cookie/cookie-type";
 
 /** Registro UNICO dell'archiviazione client (cookie + Web Storage): una riga qui attiva toggle nel
- *  banner GDPR, tipizzazione di set/get/remove, riga in {{cookieList}} e pulizia alla revoca. */
+ *  banner GDPR, tipizzazione di set/get/remove, riga nell'elenco cookie della Cookie Policy e pulizia alla revoca. */
 export const COOKIE_MAP = {
     'storyPlayerState': { category: ConsentCategory.Technical, descriptionKey: 'gamingCookieDescStoryPlayerState' },
     'duceNonDuceRecord': { category: ConsentCategory.Technical, descriptionKey: 'gamingCookieDescDuceNonDuceRecord' },

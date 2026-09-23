@@ -41,7 +41,7 @@ global-settings.local.json
 # Backup dei volumi dati prodotti da scripts/backup.sh
 /backups/
 
-# Font custom (customFont del design system attivo, vedi core/engine/design-system-presets.ts):
+# Font custom (font.principale / font.aggiuntivi del design system attivo):
 # il file va accanto a global-settings.json (vedi FONTS_DIR in DOCKER_README.md), ma è quasi
 # sempre a licenza — non si committa. La cartella resta nel repo solo come segnaposto.
 /fonts/*
@@ -56,6 +56,7 @@ global-settings.local.json
 ehthumbs.db
 Thumbs.db
 frontend/public/
+frontend/src/styles/engine/generated/
 # environment.ts è generato da generate-statics MA resta committato di proposito
 # (non ignorato): il generatore importa site.ts → environment.ts, quindi serve un
 # "seed" per farlo partire (chicken-and-egg). Si rigenera identico, niente rumore in git.

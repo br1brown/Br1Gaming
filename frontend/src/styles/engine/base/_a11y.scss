@@ -1,7 +1,4 @@
-/* WCAG 2.1 SC 1.4.3 — Forced Colors (Windows High Contrast Mode).
-   In questo contesto il browser sovrascrive colori custom con system colors.
-   Garantiamo che focus ring e link usino i token di sistema corretti invece
-   dei nostri hex, che verrebbero forzati a valori imprevedibili. */
+/* Alto contrasto di Windows: focus e link sui colori di sistema, non sui nostri. */
 @media (forced-colors: active) {
     :focus-visible {
         outline-color: Highlight;
@@ -38,7 +35,7 @@
     z-index: var(--z-skip-link);
     padding: 0.5rem 1.5rem;
     background: var(--colorPrimary, #212529);
-    color: #fff;
+    color: var(--colorPrimaryText, #fff);
     border-radius: 0.375rem;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     text-decoration: none;
@@ -66,11 +63,7 @@
     min-height: 2.75rem;
 }
 
-/* Icona che cambia glifo in base allo stato (es. speech: altoparlante/stop, senza etichetta
-   visibile): i glifi Font Awesome hanno larghezze diverse (verificato: fa-volume-high 25px,
-   fa-stop 15px a fs-5), quindi senza un box fisso il bottone-icona cambia dimensione al cambio
-   di stato. Scoped all'icona, non alla label: la label può arrivare da fuori il componente e
-   troncarla rischierebbe di nascondere informazione vera, quindi lì il bottone può crescere. */
+/* Box fisso per icone che cambiano glifo (larghezze Font Awesome diverse): il bottone non cambia misura. */
 .icon-fixed {
     display: inline-flex;
     justify-content: center;

@@ -79,6 +79,9 @@
   <data name="error_decoding" xml:space="preserve">
     <value>Decoding error</value>
   </data>
+  <data name="error_invalid_image" xml:space="preserve">
+    <value>The image is damaged or its structure is not valid.</value>
+  </data>
   <data name="error_invalid_parameters" xml:space="preserve">
     <value>Invalid or missing parameters</value>
   </data>

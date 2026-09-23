@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Fatti dell'installazione (hosting, CDN, reverse proxy, log del server)",
+  "description": "Un file per server, indicato da frontend.hostingInfo in global-settings.local.json. La Privacy Policy genera da qui la sezione 'Dati di navigazione'. I campi in radice descrivono il server del sito; 'backend' quello delle API, se gira altrove. Ogni campo è facoltativo: se manca, la frase corrispondente non compare.",
+  "type": "object",
+  "additionalProperties": false,
+  "definitions": {
+    "fornitore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fornitore"],
+      "properties": {
+        "fornitore": { "type": "string", "minLength": 1, "description": "Ragione sociale del fornitore (es. 'OVH SAS').", "examples": ["OVH SAS", "Hetzner Online GmbH"] },
+        "paese": { "type": "string", "pattern": "^[A-Z]{2}$", "description": "Paese dei server, codice ISO 3166-1 alpha-2 (es. 'FR'). Dentro l'Unione europea o lo Spazio economico europeo il testo lo dice da sé; fuori serve 'garanzie'.", "examples": ["FR", "DE", "IT"] },
+        "garanzie": { "enum": ["adeguatezza", "clausole-standard"], "description": "Base del trasferimento fuori dallo Spazio economico europeo: decisione di adeguatezza della Commissione (art. 45 GDPR) o clausole contrattuali standard (art. 46 GDPR). Obbligatoria se 'paese' è fuori dallo SEE." }
+      }
+    },
+    "log": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tipo"],
+      "properties": {
+        "tipo": { "enum": ["accessi", "errori", "applicazione"], "description": "accessi = ogni richiesta (reverse proxy); errori = solo le richieste che generano un errore o un avviso; applicazione = log delle applicazioni del sito (senza IP: vi finiscono per esempio gli accessi all'area riservata col nome utente)." },
+        "campi": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["ip", "dataOra", "url", "metodo", "stato", "dimensione", "referrer", "userAgent"] },
+          "description": "Dati salvati per ogni richiesta; il testo elenca l'unione dei campi dei log accessi ed errori. Se nessuno di quei log li dichiara, elenco generico (IP, URL, orario, metodo, dimensione, stato, ambiente dell'utente)."
+        },
+        "conservazioneGiorni": { "type": "integer", "minimum": 1, "maximum": 3650, "description": "Per quanti giorni al massimo il log resta sul server, se una rotazione a tempo lo garantisce (es. logrotate di Nginx). Un multiplo di 7 da 14 in su si legge in settimane. Assente = log a dimensione limitata, sovrascritti a rotazione (i log dei container Docker)." },
+        "ipAnonimizzato": { "type": "boolean", "description": "true se l'IP è salvato troncato o anonimizzato." }
+      }
+    },
+    "server": {
+      "hosting": { "$ref": "#/definitions/fornitore", "description": "Fornitore del server, responsabile del trattamento (art. 28 GDPR)." },
+      "cdn": {
+        "description": "CDN o proxy esterno davanti al server (es. Cloudflare), elencato come responsabile del trattamento. false = nessuno: come l'assenza, nel testo non compare.",
+        "oneOf": [{ "const": false }, { "$ref": "#/definitions/fornitore" }]
+      },
+      "reverseProxy": { "type": "boolean", "description": "Le richieste passano da un reverse proxy del server (es. Nginx) che scrive i log." },
+      "log": { "type": "array", "items": { "$ref": "#/definitions/log" }, "description": "Log del server, reverse proxy compreso: uno per tipo." }
+    }
+  },
+  "properties": {
+    "$schema": { "type": "string" },
+    "hosting": { "$ref": "#/definitions/server/hosting" },
+    "cdn": { "$ref": "#/definitions/server/cdn" },
+    "reverseProxy": { "$ref": "#/definitions/server/reverseProxy" },
+    "log": { "$ref": "#/definitions/server/log" },
+    "backend": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Server delle API, se il backend gira su un server diverso da quello del sito: stessi campi della radice.",
+      "properties": {
+        "hosting": { "$ref": "#/definitions/server/hosting" },
+        "cdn": { "$ref": "#/definitions/server/cdn" },
+        "reverseProxy": { "$ref": "#/definitions/server/reverseProxy" },
+        "log": { "$ref": "#/definitions/server/log" }
+      }
+    }
+  }
+}

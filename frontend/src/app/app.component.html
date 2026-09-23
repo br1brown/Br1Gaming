@@ -23,7 +23,7 @@
     } @else {
         <div class="row">
             <div [class]="contentWidthClass" class="mb-3">
-                <app-breadcrumb [forceShow]="breadcrumbOverride()" />
+                <app-breadcrumb [show]="showBreadcrumb()" />
             </div>
             @if (showPanel()) {
                 <div [class]="contentWidthClass" class="shadow rounded content-panel"

@@ -4,11 +4,12 @@
  *  strutturalmente dal test "raggiungibile ⇔ censito" in `design-system-presets.spec.ts`. Copre
  *  comunque l'invariante che conta per il ramo SystemFont: ogni key/indice dichiarato risolve a un
  *  file, ogni altra combinazione (key ignota, indice fuori range, path traversal) mai. */
+import '@angular/compiler'; // site.ts porta con sé librerie Angular compilate in parziale
 import { describe, it, expect, vi } from 'vitest';
 
-// SystemFont.Roboto/0 è un percorso reale del catalogo di sistema — preso da SYSTEM_FONTS
-// (font-system.ts) così un domani un refactor dei percorsi non slega silenziosamente il mock da
-// quello vero. SystemFont.NotoSerif/0 è deliberatamente ASSENTE da knownFiles, vedi test dedicato.
+// Percorso scritto a mano, uguale a `SYSTEM_FONTS[SystemFont.Roboto].faces[0].file` (font-system.ts):
+// se il catalogo cambia percorso, il mock non lo riconosce e il primo test fallisce con 404 invece di
+// passare in silenzio. SystemFont.NotoSerif/0 è deliberatamente ASSENTE da knownFiles, vedi test dedicato.
 const ROBOTO_REGULAR_PATH = '/usr/share/fonts/roboto/Roboto-Regular.ttf';
 const knownFiles = new Set([ROBOTO_REGULAR_PATH]);
 

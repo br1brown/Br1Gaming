@@ -1,7 +1,9 @@
 import { ImgBuilderService, TextBlockSpec } from '../services/img-builder.service';
 import { FontMetrics } from '../services/font-metrics';
 import { loadServerFontMetrics } from './server-font-metrics';
-import { customFontServerStack } from './custom-font-detect';
+import { serverStackForChoice } from './custom-font-detect';
+import { ContestoSito } from '../../../site';
+import { choiceKey, SystemFont, type FontChoice } from '../font-system';
 
 // Lato server le metriche vengono dai font reali installati (fallback alle tabelle se non leggibili).
 FontMetrics.configure(loadServerFontMetrics);
@@ -21,8 +23,8 @@ export interface PreviewSvgOptions {
     width?: number;
     /** Altezza canvas SVG finale. */
     height?: number;
-    /** Font-family globale usato nei text node SVG. */
-    fontFamily?: string;
+    /** Font dei testi: disegna l'SVG ed è quello con cui si misura. Default il font del sito. */
+    font?: FontChoice;
     /** Font-size del titolo principale. */
     titleFontSize?: number;
     /** Font-size della subline. */
@@ -52,10 +54,9 @@ export interface TitleBadgeOptions {
     subtitle?: string;
     /** Colore di sfondo del pill; il testo riceve automaticamente il contrasto WCAG. */
     bgColor: string;
-    /** Font-family da usare per questo badge (default: `customFontServerStack`, il font attivo del
-     *  sito già corretto per il rendering server) — override per `DesignSystemPreset.
-     *  ogTextTransform`, vedi `og-preview.ts`. */
-    fontFamily?: string;
+    /** Font del badge: disegna il testo ed è quello con cui si misura. Default il font del sito;
+     *  diverso con `DesignSystemPreset.og.testo`. */
+    font?: FontChoice;
     /** Override del font-size (default: FONT_PRIMARY). */
     fontSize?: number;
     /** Font-size della subline (default: ~55% di fontSize). */
@@ -115,8 +116,20 @@ export class PreviewBuilder {
     // LOGICA PREVIEW SVG
     // =========================================================
 
+    /** Il font del sito (`font.principale`), o Liberation se il design system non ne sceglie uno. */
+    static fontPrincipale(): FontChoice {
+        return ContestoSito.config.aspetto.font.principale ?? SystemFont.Liberation;
+    }
+
+    /** Misura nel font `font`: lo stesso che disegna il testo, o il testo esce dal suo contenitore. */
+    private static measureIn(font: FontChoice): (text: string, fontSizePx: number, bold: boolean) => number {
+        const key = choiceKey(font);
+        return (text, fontSizePx, bold) => FontMetrics.measure(text, fontSizePx, bold, key);
+    }
+
     /** Risolve tutte le opzioni della preview applicando normalizzazione e fallback ai token del Design System. */
     static resolvePreviewBuilder(opts: PreviewSvgOptions) {
+        const font = opts.font ?? this.fontPrincipale();
         const textColor = opts.textColor ?? ImgBuilderService.getReadableTextColor(opts.bgColor);
         return {
             title: ImgBuilderService.normalizeWhitespace(opts.title),
@@ -127,7 +140,8 @@ export class PreviewBuilder {
             mutedTextColor: ImgBuilderService.mutedTextColor(textColor, opts.bgColor, this.OPACITY_TEXT_SECONDARY),
             width: Math.max(1, Math.ceil(opts.width ?? this.CANVAS_WIDTH)),
             height: Math.max(1, Math.ceil(opts.height ?? this.CANVAS_HEIGHT)),
-            fontFamily: opts.fontFamily ?? customFontServerStack,
+            font,
+            fontFamily: serverStackForChoice(font),
             titleFontSize: opts.titleFontSize ?? this.FONT_PRIMARY,
             subtitleFontSize: opts.subtitleFontSize ?? this.FONT_SECONDARY,
             faviconSize: opts.faviconSize ?? this.FAVICON_SIZE,
@@ -168,8 +182,9 @@ export class PreviewBuilder {
         const blocks: TextBlockSpec[] = [
             { text: r.title, baseFontSize: r.titleFontSize, lineHeight: r.titleLineHeight, maxLines: this.MAX_TITLE_LINES, bold: true },
         ];
+        const measure = this.measureIn(r.font);
         const titleFit = ImgBuilderService.fitTextBlocks(blocks, maxWidthPx, availableTitleHeight, 0, {
-            minScale: 1, measureFn: FontMetrics.measure,
+            minScale: 1, measureFn: measure,
         }).blocks[0];
 
         let topY = contentTop;
@@ -186,7 +201,7 @@ export class PreviewBuilder {
         let subtitleEl = '';
         if (hasSubtitle) {
             topY += subtitleGap;
-            const measureSub = (t: string) => FontMetrics.measure(t, r.subtitleFontSize, false);
+            const measureSub = (t: string) => measure(t, r.subtitleFontSize, false);
             const subtitleLine = ImgBuilderService.wrapText(r.subtitle, maxWidthPx, r.subtitleFontSize, measureSub, 1)[0];
             subtitleEl =
                 `<text x="${leftX}" y="${topY + r.subtitleFontSize}" font-family="${esc(r.fontFamily)}" font-size="${r.subtitleFontSize}" font-weight="400" fill="${esc(r.mutedTextColor)}" text-anchor="start">${esc(subtitleLine)}</text>`;
@@ -209,6 +224,7 @@ export class PreviewBuilder {
     /** Costruisce il pill/badge SVG sopra l'immagine. */
     static buildTitleBadge(opts: TitleBadgeOptions): string {
         const fontSize = opts.fontSize ?? this.FONT_PRIMARY;
+        const font = opts.font ?? this.fontPrincipale();
         const pill = ImgBuilderService.buildPill({
             text: opts.title,
             subtitle: opts.subtitle,
@@ -218,14 +234,14 @@ export class PreviewBuilder {
             anchorCenterY: opts.anchorCenterY,
             fontSize,
             subtitleFontSize: opts.subtitleFontSize,
-            fontFamily: opts.fontFamily ?? customFontServerStack,
+            fontFamily: serverStackForChoice(font),
             lineHeight: this.LINE_HEIGHT,
             maxLines: this.MAX_BADGE_LINES,
             hPadL: opts.hPadL,
             hPadR: opts.hPadR,
             vPad: opts.vPad,
             fillOpacity: opts.fillOpacity ?? this.OPACITY_OVERLAY,
-            measureFn: FontMetrics.measure,
+            measureFn: this.measureIn(font),
         });
 
         return `<?xml version="1.0" encoding="UTF-8"?>` +

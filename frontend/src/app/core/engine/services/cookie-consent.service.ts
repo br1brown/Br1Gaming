@@ -47,6 +47,10 @@ export function buildPhysicalCookieKey(rawKey: CookieKey | EngineCookieKey, conf
         return null;
     }
 
+    // Cookie di un provider terzo (`provider` valorizzato): il nome lo decide lui (`_ga`), non noi.
+    // Prefissarlo darebbe in Cookie Policy un cookie che non esiste e alla revoca cancellerebbe quello sbagliato.
+    if (cfg.provider) return rawKey;
+
     // Sanitizzazione sicura (sottobanco): rimuove qualsiasi carattere che non sia
     // alfanumerico, trattino o underscore per evitare problemi nel parser nativo
     const safeKey = rawKey.replace(/[^a-zA-Z0-9_-]/g, '');
@@ -58,10 +62,9 @@ export function buildPhysicalCookieKey(rawKey: CookieKey | EngineCookieKey, conf
 @Injectable({ providedIn: 'root' })
 export class CookieConsentService {
     public static readonly NGSW_WORKER = 'ngsw-worker.js';
-    /** Durata della memoria del consenso: 180 giorni. Oltre questa soglia il Garante Privacy
-     *  (Linee guida cookie 2021, confermate nell'aggiornamento 2024-25) richiede di riproporre
-     *  il banner — più corta del Max-Age di default di `set()` (1 anno), usato per i cookie
-     *  applicativi generici che non sono soggetti a questo vincolo. */
+    /** Memoria del consenso: 180 giorni. Le Linee guida cookie del Garante (2021) vietano di riproporre
+     *  il banner prima di 6 mesi; allo scadere è ammesso. Più corta del Max-Age di default di `set()` (1
+     *  anno), che vale per i cookie applicativi non soggetti a questo vincolo. */
     private static readonly CONSENT_MAX_AGE_SECONDS = 60 * 60 * 24 * 180;
 
     private readonly document = inject(DOCUMENT);
@@ -118,6 +121,14 @@ export class CookieConsentService {
     readonly technicalOptionalAccepted = this._technicalOptionalAccepted.asReadonly();
     readonly analyticsAccepted = this._analyticsAccepted.asReadonly();
     readonly profilingAccepted = this._profilingAccepted.asReadonly();
+
+    /** Categorie spente per Global Privacy Control: segnale attivo, categoria in uso e non accettata.
+     *  Un consenso esplicito già salvato prevale sul segnale (`applyGpcOptOut`): quella categoria è
+     *  accesa e qui risulta `false`. */
+    readonly gpcOptedOut = computed(() => ({
+        analytics: this.gpcSignaled && this.isAnalyticsNeeded() && !this._analyticsAccepted(),
+        profiling: this.gpcSignaled && this.isProfilingNeeded() && !this._profilingAccepted(),
+    }));
 
     /** True se l'utente ha interagito con il banner (ora o in sessioni precedenti).
      *  Sola lettura: si modifica solo via accept/reject/saveSelected/reopen. */
@@ -257,8 +268,8 @@ export class CookieConsentService {
     }
 
     /**
-     * Salva le scelte per categoria, poi applica i side effect.
-     * Include log per dimostrare la conformità in caso di audit (Accountability GDPR).
+     * Salva le scelte per categoria, poi applica i side effect. Scrive anche `consent_log`: l'ultima
+     * scelta salvata sul dispositivo (categorie, data, versione del sito), non un registro lato server.
      */
     private persistConsent(): void {
         if (!this.isBrowser) return;
@@ -412,6 +423,17 @@ export class CookieConsentService {
             // Best-effort: una chiave non censita qui è innocua, risolviamo il nome in silenzio.
             const fullKey = config ? buildPhysicalCookieKey(key, config) ?? (key as string) : (key as string);
             this.document.cookie = `${fullKey}=; Max-Age=0${this.cookieSecurityAttributes()}`;
+            // Un SDK terzo scrive di solito con `Domain=.dominio.tld`: senza lo stesso Domain la
+            // cancellazione non lo tocca. Best-effort sul dominio corrente e sui suoi genitori; il gate
+            // vero resta non caricare l'SDK prima del consenso.
+            if (config?.provider) {
+                const parts = (this.document.location?.hostname ?? '').split('.');
+                for (let i = 0; i < parts.length - 1; i++) {
+                    const domain = parts.slice(i).join('.');
+                    this.document.cookie = `${fullKey}=; Max-Age=0; Path=/; Domain=${domain}${this.cookieSecurityAttributes()}`;
+                    this.document.cookie = `${fullKey}=; Max-Age=0; Path=/; Domain=.${domain}${this.cookieSecurityAttributes()}`;
+                }
+            }
         } else {
             this.removeWebStorage(key as string, medium, config?.match);
         }
@@ -458,7 +480,7 @@ export class CookieConsentService {
     /**
      * Rimuove fisicamente dal browser tutte le voci gestite (cookie + Web Storage) la cui categoria
      * è attualmente rifiutata dall'utente. Sono ignorate: le memorie del consenso e il Web Storage
-     * essenziale del motore (consent_log, bearerToken), per non perdere prova del consenso e sessione.
+     * essenziale del motore (consent_log, bearerToken), per non perdere l'ultima scelta salvata e la sessione.
      */
     private clearRevokedCookies(): void {
         if (!this.isBrowser) return;
@@ -490,7 +512,7 @@ export class CookieConsentService {
                 // Snapshot delle chiavi: removeItem muta l'indice dello Storage durante il ciclo.
                 // Le chiavi ESSENZIALI del motore (consent_log, bearerToken) sono saltate SEMPRE: un
                 // prefisso del progetto non può conoscerle né distinguerle, ma cancellarle vuol dire
-                // perdere la prova del consenso o la sessione. Sono protette a monte in
+                // perdere l'ultima scelta di consenso salvata o la sessione. Sono protette a monte in
                 // clearRevokedCookies per le loro voci; qui va difeso anche il match collaterale.
                 for (const k of Object.keys(store)) {
                     if (k.startsWith(rawKey) && !(ESSENTIAL_ENGINE_STORAGE_KEYS as readonly string[]).includes(k)) {

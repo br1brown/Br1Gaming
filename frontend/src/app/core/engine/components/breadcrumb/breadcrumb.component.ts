@@ -10,15 +10,14 @@ import { BREADCRUMB_SEPARATORE } from '../../design-system-presets';
 
 /** Voce visualizzata dal template: stessa forma per una voce vera del trail e per il segnaposto di
  *  troncamento (`ellipsis: true`, `label`/`path` inutilizzati) — niente unione discriminata, il
- *  template legge `item.ellipsis`/`item.label`/`item.path` senza narrowing, e niente più stringa
+ *  template legge `item.ellipsis`/`item.label`/`item.path` senza narrowing, e nessuna stringa
  *  magica (`label === '...'`) da confrontare per riconoscerlo. */
 type DisplayedBreadcrumbItem = BreadcrumbItem & { ellipsis?: boolean };
 
 /** Percorso Home → ... → pagina corrente, da `BreadcrumbService` (stessa fonte del JSON-LD
- *  `BreadcrumbList` in `PageMetaService`, le due gerarchie non possono divergere). Visibilità
- *  di default "intelligente": compare da solo oltre un livello reale (Home + pagina corrente),
- *  `forceShow` sovrascrive in entrambe le direzioni. L'ultimo elemento non è mai un link, anche
- *  quando porta un `path` (usato invece dal JSON-LD). */
+ *  `BreadcrumbList` in `PageMetaService`, le due gerarchie non possono divergere). Compare se
+ *  `show` è acceso, mai sulla home; oltre `breadcrumb.maxVoci` voci diventa "Home … penultimo
+ *  ultimo". L'ultimo elemento non è mai un link, anche quando porta un `path` (usato invece dal JSON-LD). */
 @Component({
     selector: 'app-breadcrumb',
     imports: [RouterLink, TranslatePipe],
@@ -31,13 +30,12 @@ export class BreadcrumbComponent {
     private readonly breadcrumb = inject(BreadcrumbService);
     private readonly pageMeta = inject(PageMetaService);
 
-    /** Override esplicito di visibilità da `ruoloPagina.<ruolo>.showBreadcrumb` (via lo shell).
-     *  `null`/assente → default intelligente (vedi sopra). */
-    readonly forceShow = input<boolean | null>(null);
+    /** Visibilità decisa dallo shell: `breadcrumb.show` del design system, spento dal ruolo della pagina se lo chiede. */
+    readonly show = input<boolean>(false);
 
-    /** Separatore fra le voci, deciso dal design system attivo — `DesignSystemPreset.breadcrumbStile`
-     *  (default `'traccia'`, il carattere storico `/`). */
-    readonly separator = BREADCRUMB_SEPARATORE[ContestoSito.config.breadcrumbStile];
+    /** Separatore fra le voci, deciso dal design system attivo — `DesignSystemPreset.breadcrumb.stile`
+     *  (default `'traccia'`, cioè `/`). */
+    readonly separator = BREADCRUMB_SEPARATORE[ContestoSito.config.aspetto.breadcrumb.stile];
 
     readonly items = computed<BreadcrumbItem[]>(() => {
         const type = this.pageMeta.currentPageType();
@@ -51,7 +49,7 @@ export class BreadcrumbComponent {
 
     readonly displayedItems = computed<DisplayedBreadcrumbItem[]>(() => {
         const all = this.items();
-        const maxItems = ContestoSito.config.breadcrumbMaxItems;
+        const maxItems = ContestoSito.config.aspetto.breadcrumb.maxVoci;
         if (maxItems !== 'none' && all.length > maxItems) {
             return [
                 all[0],
@@ -66,6 +64,6 @@ export class BreadcrumbComponent {
     readonly visible = computed(() => {
         const type = this.pageMeta.currentPageType();
         const isNotHome = type != null && type !== ContestoSito.config.homePage;
-        return (this.forceShow() ?? true) && isNotHome;
+        return this.show() && isNotHome;
     });
 }

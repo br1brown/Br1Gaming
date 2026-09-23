@@ -1,7 +1,6 @@
 using System.Globalization;
 using Backend.Delivery;
 using Backend.Notifications;
-using Backend.Security;
 using Backend.Sitemap;
 using Backend.Tasks;
 using Microsoft.AspNetCore.Authorization;
@@ -43,9 +42,6 @@ public abstract class EngineApiController : ControllerBase
 
     /// <summary>Invalida la cache sitemap (<c>Sitemap.NotifyChangedAsync()</c>); no-op silenzioso finché <c>Frontend.Origin</c> non è configurato.</summary>
     protected SitemapNotifier Sitemap => HttpContext.RequestServices.GetRequiredService<SitemapNotifier>();
-
-    /// <summary>Cifratura AES-GCM. Risolta on-demand (non nel costruttore): <see cref="EngineCrypto"/> lancia se <c>Security.CryptoSecret</c> è vuota, e costruirla sempre farebbe fallire anche le azioni che non cifrano nulla.</summary>
-    protected IEngineCrypto Crypto => HttpContext.RequestServices.GetRequiredService<IEngineCrypto>();
 
     /// <summary>connectionId della SSE del chiamante (header X-Connection-Id) o null; targeta "questa scheda" senza un parametro nelle firme degli endpoint.</summary>
     protected string? ConnectionId

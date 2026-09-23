@@ -1,7 +1,6 @@
 import { emptyDesignSystem, extendDesignSystem, type DesignSystemFactory } from '../../../../core/engine/design-system-presets';
 
-/** Preset condiviso "Aria": tutto segue l'OS, nessun campo forzato — il caso più permissivo,
- *  equivale a non scegliere nessun design system. Nessun `defaultFont` di proposito: niente
- *  self-hosting, il sito resta sui font dell'OS, coerente con "nessuna scelta imposta" fino in
- *  fondo. */
+/** Preset pronto "Aria": nessun campo, solo i default dell'Engine — tono dall'OS, pannello chiaro,
+ *  font di sistema (niente self-hosting). Equivale a non scegliere nessun design system; si estende
+ *  con `extendDesignSystem` o si copia in un file di progetto. */
 export const ariaDesignSystem: DesignSystemFactory = extendDesignSystem(emptyDesignSystem, {});

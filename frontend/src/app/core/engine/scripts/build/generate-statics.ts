@@ -1,4 +1,4 @@
-/** Sincronizza i file statici (index.html, environment.ts, manifest, robots.txt, theme-init.js) con
+/** Sincronizza i file statici (index.html, environment.ts, manifest, robots.txt, theme-init.js, palette Sass) con
  *  global-settings.json/site.ts. Eseguire con `npm run generate:statics` (già nei pre-hook build/dev). */
 
 // Necessario: carica il JIT compiler di Angular così i decoratori @Injectable
@@ -7,9 +7,13 @@ import '@angular/compiler';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'fs';
 import { join } from 'path';
 import { ContestoSito } from '../../../../site';
-import { AppearanceService } from '../../services/appearance.service';
-import { MUTEZZA_SECONDARIO_FATTORE, SEPARAZIONE_SUPERFICI_FATTORE } from '../../design-system-presets';
+import { AppearanceService, siteOverrides, type PaletteTokens } from '../../services/appearance.service';
+import { buildThemeScss, paletteDegenerata } from './theme-scss';
 import { fingerprintIdentitySections } from '../config/config-fingerprint';
+import { readFeaturesStrict } from '../config/features';
+import { ensureLocalSettings } from '../config/local-settings';
+import { checkControllerIdentity, checkLegalFolders, listLegalFiles } from './legal-check';
+import { activeLegalPartials } from '../../legal/legal-pages';
 import { deepMergeSettings } from '../config/settings-merge';
 import { getLastModifiedDate } from '../config/last-modified';
 import type { GlobalSettings } from '../../global-settings.types';
@@ -51,13 +55,25 @@ function readProjectSettings(): GlobalSettings {
         join(ROOT, '../global-settings.local.json'),
         join(ROOT, 'global-settings.local.json'),
     ];
+    // Copia di sviluppo del repository (il file base sta nella root, non nel container) senza `.local`:
+    // lo si genera qui, con le chiavi, invece di chiedere di lanciare setup.mjs. Il login demo e il
+    // proxy del dev server vogliono quelle chiavi; il backend fa lo stesso al suo avvio.
+    if (existsSync(join(ROOT, '../global-settings.json')) && !localCandidates.some(existsSync)) {
+        ensureLocalSettings(localCandidates[0]);
+        console.log('[statics] global-settings.local.json creato accanto a global-settings.json, con API key e SecretKey generate (gitignored).');
+    }
     for (const p of localCandidates) {
+        let local: Record<string, unknown>;
         try {
-            if (existsSync(p)) {
-                const local = JSON.parse(readFileSync(p, 'utf-8')) as Record<string, unknown>;
-                return deepMergeSettings(base as unknown as Record<string, unknown>, local) as GlobalSettings;
-            }
-        } catch { /* file illeggibile: ignora l'override, resta il solo base */ }
+            if (!existsSync(p)) continue;
+            local = JSON.parse(readFileSync(p, 'utf-8')) as Record<string, unknown>;
+        } catch { continue; /* file illeggibile: ignora l'override, resta il solo base */ }
+        // Il build Docker legge il solo file base (BR1_PROJECT_JSON): Features nel .local
+        // funzionerebbe in locale e dividerebbe frontend e backend in produzione.
+        if (Object.keys(local).some(k => k.toLowerCase() === 'features')) {
+            throw new Error('[statics] Features sta in global-settings.local.json: va solo in global-settings.json.');
+        }
+        return deepMergeSettings(base as unknown as Record<string, unknown>, local) as GlobalSettings;
     }
     return base;
 }
@@ -68,8 +84,15 @@ const _settings = readProjectSettings();
 const CONFIG_FINGERPRINT = fingerprintIdentitySections(_settings);
 const _fileLoc = _settings.Localization ?? {};
 const _fileProject = _settings.project ?? {};
-// Solo identità MINIMA finisce in environment.ts: aspetto/comportamento è migrato in site.ts
-// (struttura o DesignSystemPreset), filtrato via qui anche se un vecchio JSON lo contiene ancora.
+// Features decide login e sezioni della Privacy Policy. Lettura rigorosa: una forma che il backend
+// leggerebbe diversamente (chiave in minuscolo, "true" come stringa, chiave ignota) ferma il build.
+const FEATURES = readFeaturesStrict(_settings as Record<string, unknown>);
+// Login acceso senza una pagina di login: il backend lo attiverebbe, ma nessuno potrebbe usarlo.
+if (FEATURES.login && !ContestoSito.hasLoginPageSlot) {
+    throw new Error('[statics] Features.Login/PublicLogin è acceso ma site.ts non valorizza loginPage.');
+}
+// Solo identità MINIMA finisce in environment.ts: aspetto e comportamento stanno in site.ts
+// (struttura o design system); ogni altra chiave di `site` nel JSON resta fuori.
 const SITE_CONFIG = _settings.site ?? {};
 const SITE_AESTHETIC_KEYS = ['description', 'colorTema'];
 
@@ -77,23 +100,40 @@ const SITE_AESTHETIC_KEYS = ['description', 'colorTema'];
 const APP_NAME = _fileProject.name || 'App';
 const APP_VERSION = _fileProject.version || '1.0.0';
 const COLOR_TEMA = SITE_CONFIG.colorTema ?? '#888888';
-// Gli override colore sono una proposta del design system attivo (site.ts), letta da
+// Validato qui, non solo in siteBuilder (che legge l'environment.ts del giro precedente): un valore non esadecimale
+// arriverebbe a computePalette e uscirebbe come `#NaNNaNNaN` in _theme.scss, con un errore Sass senza spiegazione.
+if (!/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(COLOR_TEMA)) {
+    throw new Error(`[statics] site.colorTema "${COLOR_TEMA}" non è un colore esadecimale (#rgb o #rrggbb) in global-settings.json.`);
+}
+// Gli override colore sono una proposta del design system attivo (site.ts), letti da
 // ContestoSito.config senza rischio di staleness (site.ts non passa da environment.ts, a
-// differenza di COLOR_TEMA/SITE_CONFIG sopra). Stesso set di campi di AppearanceService._overrides
-// (client)/app.config.server.ts/og-preview.ts: le quattro fonti devono restare sincronizzate.
-const COLOR_OVERRIDES = {
-    secondary: ContestoSito.config.colorSecondary,
-    background: ContestoSito.config.colorBackground,
-    text: ContestoSito.config.colorText,
-    info: ContestoSito.config.colorInfo,
-    customPalette: ContestoSito.config.customPalette,
-    backgroundVividness: ContestoSito.config.backgroundVividness,
-    mutezzaSecondarioFattore: MUTEZZA_SECONDARIO_FATTORE[ContestoSito.config.mutezzaSecondario],
-    separazioneSuperficiFattore: SEPARAZIONE_SUPERFICI_FATTORE[ContestoSito.config.separazioneSuperfici],
-};
-// Tono forzato — GIÀ risolto da siteBuilder.ts (shell.forceThemeTone in site.ts, diretto o via un
-// shell.designSystem che lo preveda).
-const FORCE_THEME_TONE: 'light' | 'dark' | undefined = ContestoSito.config.forceThemeTone;
+// differenza di COLOR_TEMA/SITE_CONFIG sopra).
+const COLOR_OVERRIDES = siteOverrides();
+// Tono forzato dal design system attivo (`tono.forza`), già risolto da siteBuilder.ts.
+const FORCE_THEME_TONE: 'light' | 'dark' | undefined = ContestoSito.config.aspetto.tono.forza;
+
+/** Palette del build (manifest e tema Sass), calcolata una volta. I ripieghi di contrasto del motore colore
+ *  (un `console.warn` per token) qui si contano e si stampano in una riga sola: venti avvisi uguali nascondono il
+ *  caso in cui la palette è degenerata, che invece ferma il build (`paletteDegenerata`). */
+let _palette: PaletteTokens | undefined;
+function buildPalette(): PaletteTokens {
+    if (_palette) return _palette;
+    const warn = console.warn;
+    const ripieghi = new Map<string, number>();
+    console.warn = (...args: unknown[]): void => {
+        const fn = /\[AppearanceService\] (\w+)/.exec(args.map(String).join(' '))?.[1];
+        if (fn) ripieghi.set(fn, (ripieghi.get(fn) ?? 0) + 1); else warn(...args);
+    };
+    try { _palette = AppearanceService.computePalette(COLOR_TEMA, COLOR_OVERRIDES); } finally { console.warn = warn; }
+    const degenerata = paletteDegenerata(_palette, COLOR_TEMA);
+    if (degenerata) throw new Error(`[statics] ${degenerata}`);
+    if (ripieghi.size > 0) {
+        const totale = [...ripieghi.values()].reduce((a, b) => a + b, 0);
+        warn(`[statics] Palette: ${totale} ripieghi di contrasto su nero/bianco (${[...ripieghi].map(([fn, n]) => `${fn} ×${n}`).join(', ')}): ` +
+            'i colori restano leggibili (≥4.5:1) ma perdono la tinta del brand. Brand o superfici troppo vicini alla luminanza media.');
+    }
+    return _palette;
+}
 
 // PWA on/off: guida i TRIGGER di installabilità (manifest, <link rel="manifest">, meta
 // mobile-web-app-*). La de-registrazione runtime del SW è gestita da cookie-consent.service.ts;
@@ -105,24 +145,36 @@ const _normLang = (tag: unknown): string | null => {
     try { return new Intl.Locale(tag.trim()).language ?? null; } catch { return null; }
 };
 
-// Lingue di build dai codici dichiarati in global-settings.json (Localization): le leggono i
-// consumatori sincroni a module-load (routing per-lingua, fallback di pickLocaleText, shell
-// statica). Gli stessi codici alimentano la cultura runtime derivata via Intl (LocalizationService);
-// l'SSR riscrive comunque lang/meta per richiesta.
+// Lingue di build (Localization): servono a chi le legge al caricamento del modulo (routing, fallback).
 const _defaultRaw   = _fileLoc.DefaultLanguage;
 const _supportedRaw = _fileLoc.SupportedLanguages;
 
 const DEFAULT_LANG = _normLang(_defaultRaw) ?? 'it';
-// `?? [DEFAULT_LANG]` da solo copre solo null/undefined: uno `SupportedLanguages: []` esplicito (mai
-// validato a runtime, lo schema JSON lo vieta solo sulla carta) lo attraverserebbe intatto, producendo
-// AVAILABLE_LANGS=[] → routing.ts/siteBuilder.ts costruiscono zero rotte/sitemap dal build in poi,
-// senza errore. Stesso guard di scripts/test/i18n-check.sh: fallback su array vuoto O dopo la
-// normalizzazione (tag tutti malformati filtrati via) se il risultato resta vuoto.
+// Anche un `SupportedLanguages: []` o tutto malformato ricade sulla lingua di default: zero lingue = zero rotte.
 const _normalizedSupported = (_supportedRaw && _supportedRaw.length > 0 ? _supportedRaw : [DEFAULT_LANG])
     .map(_normLang)
     .filter((l): l is string => l !== null)
     .filter((v, i, a) => a.indexOf(v) === i); // deduplication
 const AVAILABLE_LANGS = _normalizedSupported.length > 0 ? _normalizedSupported : [DEFAULT_LANG];
+
+// Pagine legali: cartelle assets/legal/<pagina>/<parte>/<lingua>.md (intro, outro, parti della ricetta),
+// verificate sulle stesse lingue che il sito serve (AVAILABLE_LANGS, scritte in environment.ts).
+const LEGAL_DIR = join(ROOT, 'src', 'assets', 'legal');
+const LEGAL_PAGES = ContestoSito.config.legalPages.filter(s => ContestoSito.getLegalPage(s.page) != null);
+const legalErrors = checkLegalFolders(
+    LEGAL_DIR,
+    LEGAL_PAGES,
+    AVAILABLE_LANGS,
+    activeLegalPartials(FEATURES, ContestoSito.config.cookiePolicy != null),
+);
+// La Privacy composta dall'Engine mostra il titolare dall'identità; con un testo `markdown` lo scrive il testo stesso.
+const privacySpec = LEGAL_PAGES.find(s => s.slot === 'privacy');
+if (privacySpec != null && privacySpec.markdown == null) legalErrors.push(...checkControllerIdentity(join(ROOT, '..', 'backend')));
+if (legalErrors.length) {
+    throw new Error(`[statics] Pagine legali non valide:\n${legalErrors.join('\n')}`);
+}
+// Scritto in environment.ts: il resolver chiede solo i file che esistono.
+const LEGAL_FILES = listLegalFiles(LEGAL_DIR, LEGAL_PAGES);
 
 // description: mappa per-lingua { it, en, ... } (accetta anche una stringa singola,
 // normalizzata sulla lingua default). environment.ts riceve la mappa; i file statici
@@ -153,6 +205,8 @@ const MANIFEST = join(ROOT, 'public', 'manifest.webmanifest');
 const ROBOTS = join(ROOT, 'public', 'robots.txt');
 
 const THEME_INIT = join(ROOT, 'public', 'theme-init.js');
+// Letto da styles/engine/bootstrap.scss e base.scss: generato a ogni build, quindi gitignored.
+const THEME_SCSS = join(ROOT, 'src', 'styles', 'engine', 'generated', '_theme.scss');
 
 // Rimuove lo slash finale per evitare doppi slash negli URL generati
 const BASE_URL = (process.env['FRONTEND_BASE_URL'] || 'https://example.com').replace(/\/$/, '');
@@ -255,17 +309,25 @@ function updateIndexHtml(): void {
         ['property', 'og:image', defaultImageUrl],
     ];
 
-    // Genera il file TS con identità, lingue e config di sito per il frontend (invece di esporre
-    // JSON nel meta tag). Sorgente: global-settings.json (project / Localization / site). Le lingue
-    // qui sono il seed di build (shell, fallback pickLocaleText, pagina cookie); la cultura runtime
-    // (nomi nativi, giorni, formati) la deriva il frontend via Intl.
+    // environment.ts: identità, lingue e config di sito da global-settings.json (seed di build).
     const generatedTsPath = join(ROOT, 'src', 'environments', 'environment.ts');
     const generatedTsContent = `// FILE GENERATO AUTOMATICAMENTE DA scripts/build/generate-statics.ts
-// Non modificare manualmente. Sorgente di verità: global-settings.json (sezioni project / Localization / site)
+// Non modificare manualmente. Sorgente di verità: global-settings.json (sezioni project / Localization / site / Features)
 
 export interface AppSiteConfig {
     description?: Record<string, string>;
     colorTema?: string;
+}
+
+/** Funzioni opzionali accese in global-settings.json (§ Features). */
+export interface AppFeatures {
+    /** Login attivo, riservato o pubblico. */
+    login: boolean;
+    /** Login pubblico: link in navbar e sezione nella Privacy Policy. */
+    publicLogin: boolean;
+    mail: boolean;
+    errorReporting: boolean;
+    forms: boolean;
 }
 
 export interface AppEnvironment {
@@ -274,11 +336,11 @@ export interface AppEnvironment {
     defaultLang: string;
     availableLanguages: string[];
     config: AppSiteConfig;
-    /** Impronta di project/Localization/site al momento della generazione (vedi
-     *  core/engine/scripts/config/config-fingerprint.ts). server.ts la confronta con quella
-     *  ricalcolata al boot per accorgersi se global-settings.json è cambiato da allora
-     *  senza rilanciare generate:statics (es. \`ng serve\` lanciato senza i pre-hook npm). */
+    features: AppFeatures;
+    /** Impronta della config alla generazione: server.ts la confronta al boot per scoprire un global-settings.json non rigenerato. */
     configFingerprint: string;
+    /** File presenti per pagina legale (cartella → nomi senza lingua): il resolver carica solo questi. */
+    legalFiles: Record<string, string[]>;
 }
 
 export const environment: AppEnvironment = {
@@ -287,7 +349,9 @@ export const environment: AppEnvironment = {
     defaultLang: '${DEFAULT_LANG}',
     availableLanguages: ${JSON.stringify(AVAILABLE_LANGS)},
     config: ${JSON.stringify(SITE_CONFIG_OUT, null, 8).replace(/\n/g, '\n    ')},
-    configFingerprint: ${JSON.stringify(CONFIG_FINGERPRINT)}
+    features: ${JSON.stringify(FEATURES)},
+    configFingerprint: ${JSON.stringify(CONFIG_FINGERPRINT)},
+    legalFiles: ${JSON.stringify(LEGAL_FILES)}
 };
 `;
     writeFileSync(generatedTsPath, generatedTsContent, 'utf8');
@@ -304,10 +368,7 @@ export const environment: AppEnvironment = {
         '<link rel="icon">'
     );
 
-    // Apple Touch Icon: SEMPRE presente, indipendentemente da IS_WEBAPP. "Aggiungi a Home"
-    // su iOS/Safari funziona anche senza manifest/Service Worker — un sito non-PWA con questo
-    // link ottiene comunque un'icona vera in home invece del placeholder (screenshot della
-    // pagina) che Safari userebbe altrimenti.
+    // Apple Touch Icon sempre, anche senza PWA: "Aggiungi a Home" su iOS la usa comunque.
     html = replaceTag(
         html,
         /<link rel="apple-touch-icon"[^>]*>/,
@@ -315,10 +376,7 @@ export const environment: AppEnvironment = {
         '<link rel="apple-touch-icon">'
     );
 
-    // theme-init.js DEVE essere referenziato con path ASSOLUTO: lo <script> sta prima
-    // di <base href>, quindi un path relativo risolverebbe contro la rotta corrente
-    // (es. /sezione/theme-init.js → 404) sulle pagine annidate. Forzato qui così è
-    // deterministico e sopravvive a un'eventuale reintroduzione del path relativo.
+    // Path assoluto: lo <script> sta prima di <base href>, un path relativo darebbe 404 sulle pagine annidate.
     html = replaceTag(
         html,
         /<script\s+src="\/?theme-init\.js"><\/script>/,
@@ -326,10 +384,7 @@ export const environment: AppEnvironment = {
         '<script theme-init>'
     );
 
-    // ── Blocco PWA deterministico ────────────────────────────────────────────
-    // Trigger di installabilità in un blocco delimitato da marker, rigenerato per intero: con
-    // IS_WEBAPP iniettati, altrimenti rimossi. Solo marker nudi (PWA:START/END) nell'HTML servito,
-    // nessun path di build o nome di flag di config nel sorgente pubblico.
+    // ── Blocco PWA fra marker nudi, rigenerato intero: pieno con IS_WEBAPP, vuoto altrimenti ──
     const pwaBlock = IS_WEBAPP
         ? '\n    ' + [
             '<meta name="mobile-web-app-capable" content="yes">',
@@ -365,7 +420,7 @@ function updateManifest(): void {
         return;
     }
 
-    const palette = AppearanceService.computePalette(COLOR_TEMA, COLOR_OVERRIDES);
+    const palette = buildPalette();
 
     const manifest: Record<string, unknown> = {
         name: APP_NAME,
@@ -415,10 +470,7 @@ function updateManifest(): void {
 // ── Generazione robots.txt ────────────────────────────────────────────────
 
 function updateRobots(): void {
-    // Le pagine protette (`requiresAuth`) non sono elencate come `Disallow`: un robots.txt è
-    // pubblico, enumerarle ne rivelerebbe i path. La non-indicizzazione è affidata a runtime al
-    // server SSR con `X-Robots-Tag: noindex`, che vale anche per i crawler che ignorano
-    // robots.txt. SEO_NOINDEX (staging) serve un robots.txt dinamico `Disallow: /` a runtime.
+    // Pagine protette non elencate (ne rivelerebbe i path): le esclude l'SSR con X-Robots-Tag: noindex.
     const lines = ['User-agent: *', 'Allow: /', '', `Sitemap: ${BASE_URL}/sitemap.xml`];
 
     writeFileSync(ROBOTS, lines.join('\n') + '\n', 'utf8');
@@ -430,27 +482,31 @@ function updateRobots(): void {
 // ── Generazione theme-init.js (anti-flash tema, pre-idratazione) ───────────
 
 function updateThemeInit(): void {
-    // Script anti-flash: imposta data-bs-theme/data-theme-tone su <html> prima che Bootstrap carichi
-    // qualsiasi stile, eseguito sincrono nel <head>. Esterno (non inline): coperto da script-src
-    // 'self' in CSP, niente hash/nonce. public/ è gitignored: va materializzato qui o mancherebbe
-    // su un checkout pulito. Tono forzato = valore baked-in, niente matchMedia da ascoltare.
+    // Anti-flash: il tono su <html> prima del primo paint (file esterno: basta script-src 'self' in CSP).
     const script = FORCE_THEME_TONE
         ? `(function () {
-    var el = document.documentElement;
-    el.setAttribute('data-bs-theme', '${FORCE_THEME_TONE}');
-    el.setAttribute('data-theme-tone', '${FORCE_THEME_TONE}');
+    document.documentElement.setAttribute('data-bs-theme', '${FORCE_THEME_TONE}');
 }());
 `
         : `(function () {
     var t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    var el = document.documentElement;
-    el.setAttribute('data-bs-theme', t);
-    el.setAttribute('data-theme-tone', t);
+    document.documentElement.setAttribute('data-bs-theme', t);
 }());
 `;
 
     writeFileSync(THEME_INIT, script, 'utf8');
     console.log('[statics] theme-init.js aggiornato');
+}
+
+// ── Generazione palette Sass (tema compilato dentro Bootstrap) ──────────────
+
+function updateThemeScss(): void {
+    // Brand e design system sono noti in build (global-settings.json + site.ts): la palette si
+    // calcola qui una volta e Bootstrap si compila coi colori veri, niente CSS iniettato a runtime.
+    const palette = buildPalette();
+    mkdirSync(join(THEME_SCSS, '..'), { recursive: true });
+    writeFileSync(THEME_SCSS, buildThemeScss(palette, ContestoSito.config), 'utf8');
+    console.log('[statics] palette Sass aggiornata');
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────
@@ -466,6 +522,7 @@ function main(): void {
     updateRobots();
 
     updateThemeInit();
+    updateThemeScss();
 }
 
 main();

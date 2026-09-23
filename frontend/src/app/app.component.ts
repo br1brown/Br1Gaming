@@ -23,7 +23,9 @@ import { TranslatePipe } from './core/engine/pipes/translate.pipe';
 /** Chiave TransferState della chrome risolta: l'SSR la serializza, il client la rilegge come valore iniziale del signal, così il primo render combacia con l'HTML SSR senza flash navbar/pannello. */
 const ROUTE_CHROME_STATE_KEY = makeStateKey<RouteChrome>(CHROME_DATA_KEY);
 
-/** Shell principale dell'app: non decide quali pagine esistono, consuma le route già trasformate e reagisce alla chrome della pagina attiva (100% decisa dal design system, vedi `RouteChrome`). */
+const aspetto = ContestoSito.config.aspetto;
+
+/** Shell principale dell'app: non decide quali pagine esistono, consuma le route già trasformate e reagisce alla chrome della pagina attiva (decisa dal design system e dal ruolo della pagina, vedi `RouteChrome`). */
 @Component({
     selector: 'app-root',
     imports: [RouterOutlet, NavbarComponent, FooterComponent, SmokeEffectComponent, BackToTopComponent, CookieBannerComponent, BreadcrumbComponent, TranslatePipe],
@@ -38,12 +40,11 @@ export class AppComponent {
     readonly theme = inject(AppearanceService);
     readonly pageMeta = inject(PageMetaService);
 
-    readonly smoke = ContestoSito.config.smoke;
+    readonly smoke = aspetto.smoke;
 
-    /** Classi Bootstrap della colonna contenuti (breadcrumb-row/pannello), decise dal design
-     *  system attivo — `DesignSystemPreset.contentWidth` (default `'ampio'`, il comportamento
-     *  storico). Vedi `CONTENT_WIDTH_CLASSES` in `design-system-presets.ts`. */
-    readonly contentWidthClass = CONTENT_WIDTH_CLASSES[ContestoSito.config.contentWidth];
+    /** Classi Bootstrap della colonna del breadcrumb e del pannello, da `DesignSystemPreset.larghezza`
+     *  (default `'ampio'`). Senza pannello la pagina usa tutta la riga (`col-12`). */
+    readonly contentWidthClass = CONTENT_WIDTH_CLASSES[aspetto.larghezza];
 
     /** Chrome risolta della rotta attiva. `initialValue` = chrome serializzata dall'SSR: il primo render client usa gli stessi flag dell'HTML SSR, niente sfarfallio prima del primo NavigationEnd. */
     private readonly routeChrome = onNavigationEnd(
@@ -51,9 +52,9 @@ export class AppComponent {
         this.transferState.get(ROUTE_CHROME_STATE_KEY, {} as RouteChrome)
     );
 
-    // Il ruolo vince SEMPRE sul default globale, in entrambe le direzioni (stesso autore, il design
-    // system: non ha senso che il globale blocchi il ruolo). Ruolo non mappato → default globale.
-    readonly showPanel = computed(() => this.routeChrome().showPanel ?? ContestoSito.config.showPanel);
+    // Ogni parte della chrome: accesa solo se il design system risolto la tiene accesa, e il ruolo
+    // della pagina attiva può solo spegnerla (`false`); ruolo che non la nomina → segue il design system.
+    readonly showPanel = computed(() => aspetto.pannello && (this.routeChrome().showPanel ?? true));
 
     // Vista full-bleed del ruolo della pagina attiva (SpecRuoloPagina.fitViewport, deciso dal design
     // system attivo): lo shell rende il <main> senza container/padding e senza pannello, e
@@ -61,24 +62,18 @@ export class AppComponent {
     // showPanel.
     readonly fitViewport = computed(() => this.routeChrome().fitViewport ?? false);
 
-    // Stesso principio di showPanel sopra: il ruolo vince sempre, in entrambe le direzioni.
-    readonly showNavbar = computed(() => this.routeChrome().showNav ?? ContestoSito.config.showNav);
+    readonly showNavbar = computed(() => aspetto.navbar.show && (this.routeChrome().showNav ?? true));
 
-    readonly showFooter = computed(() => this.routeChrome().showFooter ?? ContestoSito.config.showFooter);
+    readonly showFooter = computed(() => aspetto.footer.show && (this.routeChrome().showFooter ?? true));
 
-    // Stesso principio di showPanel sopra: il ruolo vince sempre. Passato a NavbarComponent — QUALE
-    // icona resta ShellNavService.brandIcon (dato, non chrome), risolto da NavbarComponent stessa.
-    readonly showBrandIcon = computed(() => this.routeChrome().showBrandIcon ?? ContestoSito.config.showBrandIcon);
+    // Passato a NavbarComponent — QUALE icona resta ShellNavService.brandIcon (dato, non chrome),
+    // risolto da NavbarComponent stessa.
+    readonly showBrandIcon = computed(() => aspetto.navbar.icona && (this.routeChrome().showBrandIcon ?? true));
 
-    // Stesso principio: il ruolo vince sempre. In sua assenza, `null` (default globale acceso) fa
-    // scattare l'euristica intelligente del breadcrumb (vedi BreadcrumbComponent); `false` (default
-    // globale spento) lo nasconde senza euristica.
-    readonly breadcrumbOverride = computed(() =>
-        this.routeChrome().showBreadcrumb ?? (ContestoSito.config.showBreadcrumb ? null : false));
+    readonly showBreadcrumb = computed(() => aspetto.breadcrumb.show && (this.routeChrome().showBreadcrumb ?? true));
 
-    // `smoke.enable` (globale, design system) fa da gate primario, senza eccezioni per ruolo.
-    // Il `ruoloPagina.showSmoke` del ruolo attivo vince sul default intelligente (pannello sì,
-    // full-bleed no), permettendo eccezioni (es. forzare lo smoke su un ruolo full-bleed).
+    // Stesso gate su `smoke.enable`; un ruolo che non nomina `showSmoke` ha lo smoke dove c'è il
+    // pannello e la vista non è full-bleed.
     // Nota: prefers-reduced-motion è delegata internamente allo SmokeEffectComponent per non rompere l'idratazione.
     readonly showSmoke = computed(() =>
         this.smoke.enable &&

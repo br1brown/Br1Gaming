@@ -1,6 +1,5 @@
 import { isDevMode, type Type } from '@angular/core';
 import type { PageType } from '../../site';
-import { ContestoSito } from '../../site';
 import { applyPathParams } from './siteBuilder';
 import type { Identity } from './dto/identity.dto';
 import { FooterField, FooterFieldDeps, FooterEntry, FooterGroupChild, FooterItemKind, resolveFooterField } from './footer-content';
@@ -227,11 +226,8 @@ export interface FooterSectionBuilder {
     addPage: NavSectionBuilder['addPage'];
     addLink: NavSectionBuilder['addLink'];
     addGroup: (label: string, configure: (group: FooterGroupBuilder) => void, options?: NavItemOptions) => void;
-    /** Disattiva la fascia "small print" automatica in fondo al footer (le pagine legali di
-     *  `config.legalPages`, oggi renderizzate incondizionatamente da `footer.component.html`).
-     *  Serve solo a chi piazza le pagine legali a mano in un gruppo custom (`addPage(spec.pageType)`
-     *  su `ContestoSito.config.legalPages`, la stessa fonte della fascia automatica) — senza
-     *  chiamarla la fascia resta quella di sempre, invariata per chi non tocca nulla. */
+    /** Disattiva la fascia "small print" delle pagine legali in fondo al footer: per chi le mette a mano
+     *  in un gruppo custom (`addPage(spec.page)` su `ContestoSito.config.legalPages`), senza doppioni. */
     hideLegalStrip: () => void;
 }
 
@@ -321,11 +317,9 @@ export function defaultFooterResolver(f: FooterSectionBuilder, ctx: ShellNavCont
         g.addField(FooterField.Pec);
         g.addField(FooterField.OpeningHours);
     });
-    // I social non sono un FooterField: identity.social è un array, quindi si itera invece di un
-    // singolo addField. Gruppo a sé (non annidato sopra) per restare fedele al layout storico.
-    // Rispetta footerIdentita ('essenziale' li nasconde).
+    // I social sono un array, non un FooterField: si iterano. Chi non li vuole compone il suo footer.
     const social = ctx.identity?.social;
-    if (ContestoSito.config.footerIdentita === 'esteso' && Array.isArray(social) && social.length > 0) {
+    if (Array.isArray(social) && social.length > 0) {
         f.addGroup('socialAzienda', g => {
             for (const s of social) {
                 if (hasText(s?.url)) g.addSocialLink(s.url, s.name);

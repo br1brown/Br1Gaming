@@ -1,55 +1,60 @@
-/* Stampa (Ctrl+P / menu del browser — nessun bottone dedicato nel template, deliberatamente:
-   i browser espongono già la stampa in modo prominente, un bottone lo replicherebbe soltanto).
-   Ogni pagina, presente e futura — anche una che il progetto figlio scrive da sé domani (es. un
-   articolo, se il figlio è una testata) — nasce già stampabile bene: questo file è globale, non
-   per-pagina, quindi vale automaticamente ovunque. In stampa deve restare SOLO il contenuto
-   della pagina instradata, più il minimo indispensabile di contesto legale (la riga di
-   copyright del footer). Via: navbar, FAB fissi (back-to-top/cookie-banner), sfondo smoke, tema
-   scuro, identità visiva del pannello-card, pensata per lo schermo. È anche il "formato
-   alternativo" richiamato dalla Dichiarazione di Accessibilità: stampa il contenuto live così
-   com'è, non un PDF statico da tenere allineato a mano al Markdown. */
+/* Stampa di ogni pagina: resta solo il contenuto più la riga di copyright (è anche il "formato alternativo"
+   della Dichiarazione di Accessibilità). */
 @media print {
-    /* Il tema (chiaro/scuro) è un vezzo per lo schermo: su carta vogliamo SEMPRE nero su bianco,
-       a prescindere dal tema attivo. Senza questo reset, un utente in tema scuro stamperebbe con
-       lo sfondo scuro di `body` (--colorBase, base.scss) — spreco di inchiostro/toner, e comunque
-       non garantito: molti browser NON stampano i background-color di default, quindi il testo
-       chiaro pensato per un fondo scuro sparirebbe su carta bianca. Va su html/body (non solo su
-       .content-panel sotto): copre anche le pagine senza pannello o full-bleed (ruoli con
-       roleChrome.showPanel:false o fitViewport:true, deciso dal design system attivo), che il
-       pannello non ce l'hanno. color-scheme:light
-       allinea anche i controlli nativi del browser (checkbox, ecc.) allo stesso registro. */
+    /* Sempre nero su bianco: molti browser non stampano gli sfondi, e il testo chiaro del tono scuro
+       sparirebbe. I token di testo e superficie valgono nero/bianco su <html> e in ogni sottoalbero con
+       un suo tono (pannello, card, overlay): titoli, pannello e card seguono. Colori d'accento,
+       emphasis e bordi restano quelli del tono. */
+    :root,
+    [data-bs-theme] {
+        color-scheme: light;
+        --bs-body-color: #000;
+        --bs-body-color-rgb: 0, 0, 0;
+        --bs-emphasis-color: #000;
+        --bs-emphasis-color-rgb: 0, 0, 0;
+        --bs-heading-color: #000;
+        --bs-secondary-color: #444;
+        --bs-secondary-color-rgb: 68, 68, 68;
+        --bs-link-color: #000;
+        --bs-link-color-rgb: 0, 0, 0;
+        --bs-link-hover-color: #000;
+        --bs-link-hover-color-rgb: 0, 0, 0;
+        --bs-body-bg: #fff;
+        --bs-body-bg-rgb: 255, 255, 255;
+        --bs-secondary-bg: #fff;
+        --bs-secondary-bg-rgb: 255, 255, 255;
+        --bs-tertiary-bg: #fff;
+        --bs-tertiary-bg-rgb: 255, 255, 255;
+        --colorBase: #fff;
+        --colorSurface: #fff;
+        --colorSurfaceHover: #fff;
+        --colorMutedBg: #fff;
+        --colorSubtleBg: #fff;
+        --colorSurfaceText: #000;
+        --colorHeading: #000;
+        --colorMutedText: #444;
+        --colorLink: #000;
+    }
+
     html,
     body {
         background: #fff !important;
         color: #000 !important;
-        color-scheme: light !important;
     }
 
-    /* Chrome della shell: mai utile su carta, spesso composta da elementi position:fixed che in
-       stampa duplicherebbero su ogni pagina o si sovrapporrebbero al contenuto. */
+    /* Chrome della shell: fissa, su carta si ripeterebbe o coprirebbe il contenuto. */
     app-back-to-top,
     app-cookie-banner,
     app-smoke-effect {
         display: none !important;
     }
 
-    /* app-navbar applica `d-block` come host class (vedi navbar.component.ts): l'utility
-       Bootstrap `.d-block { display: block !important; }` ha specificità di classe (0,1,0),
-       più alta del solo selettore di tag (0,0,1) — a parità di !important vincerebbe lei, non
-       il display:none qui sotto, e la navbar resterebbe visibile in stampa. Il selettore
-       composito tag.d-block pareggia la specificità (0,1,1) e la batte. Se in futuro cambia la
-       classe host del componente, aggiorna questo selettore di conseguenza. */
+    /* tag.d-block: la classe host .d-block (!important) batterebbe il solo selettore di tag. */
     app-navbar.d-block {
         display: none !important;
     }
 
-    /* app-footer NON è chrome pura come la navbar: porta la riga di ragione sociale/copyright,
-       informazione legittima su un documento stampato — quindi non si nasconde del tutto, si
-       SEMPLIFICA. Via l'identità estesa (indirizzo/social/orari, con relativo accordion — un
-       controllo interattivo non ha senso su carta) e il menu di navigazione (link non
-       cliccabili, già ridondanti col contenuto): resta solo il blocco finale "© anno · ragione
-       sociale". Sfondo/bordo colorati dal tema (.theme-bg, come navbar) si azzerano allo
-       stesso nero-su-bianco forzato su html/body sopra. */
+    /* Footer ridotto alla riga "© anno · ragione sociale": via identità estesa e menu. */
     .site-footer {
         background: transparent !important;
         color: inherit !important;
@@ -62,18 +67,13 @@
         }
     }
 
-    /* #main-content porta il gutter dello schermo (.container-fluid/.py-4, applicati via class
-       binding in app.component.html): in stampa i margini di pagina del browser bastano da soli. */
+    /* I margini di pagina del browser bastano: via il gutter dello schermo. */
     #main-content {
         padding: 0 !important;
         max-width: none !important;
     }
 
-    /* .content-panel è una card pensata per lo schermo: sfondo/bordo/ombra/raggio dal tema
-       corrente (colore/testo già azzerati sopra da html/body, che il pannello eredita). Qui
-       resta solo da togliere l'identità "da card" e i vincoli di griglia (col-lg-10/offset-lg-1,
-       legati a un breakpoint che in stampa non ha senso) per arrivare a piena larghezza. Il
-       contenuto (children) resta intoccato: cambia solo il contenitore che lo ospita. */
+    /* Il pannello perde l'aspetto da card e i vincoli di griglia: piena larghezza. */
     .content-panel {
         width: 100% !important;
         max-width: 100% !important;

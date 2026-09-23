@@ -44,6 +44,9 @@ public class AppBlobStore : FileBlobStore
     /// <summary>Non delega a <see cref="FileBlobStore.ReplaceAsync"/>: quella salva PRIMA di cancellare, quindi il controllo di proprietà va anticipato qui sul vecchio slug — altrimenti un tentativo non autorizzato lascerebbe comunque un nuovo blob orfano salvato prima del 403.</summary>
     public override async Task<string> ReplaceAsync(string oldSlug, Stream content, string extension, CancellationToken cancellationToken = default)
     {
+        // Slug inesistente: 404, non un blob nuovo con un 200 (EnsureAuthorized passerebbe: nessun proprietario).
+        if (await GetInfoAsync(oldSlug, cancellationToken) is null)
+            throw new NotFoundException("blob");
         await EnsureAuthorizedAsync(oldSlug, cancellationToken);
         var newSlug = await SaveAsync(content, extension, cancellationToken);
         await MarkDeletedAndDeleteAsync(oldSlug, cancellationToken);

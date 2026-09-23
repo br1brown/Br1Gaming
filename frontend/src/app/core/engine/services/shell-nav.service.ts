@@ -176,8 +176,7 @@ export class ShellNavService {
      *  invece di `NavSectionBuilder`, i gruppi accettano anche campi Identity/testo libero/social —
      *  vedi `shell-nav.ts`), quindi non condivide `resolveHeaderInto` oltre alla stessa guardia di
      *  generazione e allo stesso schema try/catch. Un progetto senza `resolver.footer` non ottiene
-     *  un footer vuoto: `defaultFooterResolver` (societari/legali/contatti/orari/social, lo storico
-     *  `app-identity-render`) copre l'assenza — stesso meccanismo di un resolver di progetto, mai
+     *  un footer vuoto: `defaultFooterResolver` (societari/legali/contatti/orari/social) copre l'assenza — stesso meccanismo di un resolver di progetto, mai
      *  attivo insieme a uno personalizzato, che lo rimpiazza per intero definendo `footer` in nav.ts. */
     private async resolveFooterInto(lang: string, generation: number): Promise<void> {
         const isCurrent = () => generation === this.generation;

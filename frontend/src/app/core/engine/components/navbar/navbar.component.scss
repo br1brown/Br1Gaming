@@ -117,8 +117,8 @@
 
 /* Bootstrap dà a .nav-link (classe presente insieme a .language-toggle, vedi HTML) un colore
    proprio (--bs-nav-link-color), non il nostro --colorNavText: senza questo override il testo
-   esce nel colore di default Bootstrap invece di ereditare quello (chiaro) della navbar, stesso
-   bug e stessa causa già risolti sopra per .navbar-toggler. */
+   esce nel colore di default Bootstrap invece di ereditare quello della navbar, come per
+   .navbar-toggler sopra. */
 .language-toggle {
     color: inherit;
     font-size: 0.85rem;
@@ -184,10 +184,9 @@
        media query: lo scoping Angular aggiunge un attributo a ogni selettore del component CSS,
        alzando ".navbar-toggler" a specificità pari a ".navbar-expand-md .navbar-toggler" di
        Bootstrap (quella che nasconde il toggler a desktop) — a parità di specificità vince chi è
-       dichiarato dopo nel bundle finale, e il nostro CSS viene iniettato dopo bootstrap.min.css.
-       display:inline-flex avrebbe quindi tenuto il toggler visibile anche a desktop (bug
-       verificato: "Menu" compariva nello screenshot a 1280px). Dentro questa media query invece
-       non c'è alcuna regola nostra a >=md, quindi zero competizione — Bootstrap vince senza sforzo. */
+       dichiarato dopo nel bundle finale, e il nostro CSS viene iniettato dopo quello di Bootstrap.
+       Fuori da questa media query display:inline-flex terrebbe il toggler visibile anche a
+       desktop; qui dentro nessuna regola nostra vale a >=md, e il display:none di Bootstrap resta. */
     .navbar-toggler {
         display: inline-flex;
         align-items: center;

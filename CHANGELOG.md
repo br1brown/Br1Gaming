@@ -2,6 +2,262 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Audit dell'Engine intero: API key sempre richiesta, DoS a basso costo chiusi, cookie di terzi, deploy e release
+
+Correzioni da una revisione completa (backend, server SSR, runtime Angular, scaffold), eseguita e non solo letta. Nessuna funzione nuova.
+
+**Backend**
+- **`RequireLogin` esige davvero API key e JWT**: la policy richiede il claim `ApiKeyValidated` di `ApiKeyHandler`; prima un Bearer da solo passava su upload, delete e `/me/data` (ASP.NET fonde i principal e "autenticato" valeva con uno dei due schemi). Senza `X-Api-Key` ora 403.
+- **`BehindProxy` fida anche loopback**: nginx sulla stessa macchina (`127.0.0.1`) non finiva nelle reti fidate e il rate limiter metteva tutti i visitatori in un bucket solo.
+- **`?webopt=true` con tetto di concorrenza** (una decodifica per core): il limite sui megapixel proteggeva la singola richiesta, non la somma; quattro richieste parallele su un PNG da 36 MP portavano il processo a 900 MB.
+- **Segnalazioni d'errore su coda propria** (`ErrorReportQueue` + `ErrorReportDispatcher`, 256 voci, 4 invii paralleli, drop della più vecchia): prima condividevano l'unico worker seriale con import, consegne ed email, e un webhook lento più tre `ui-fault` ritardavano tutto di quindici secondi. Payload dal browser troncato (`message` 1000, `exceptionType` 200) e `path` accettato solo relativo.
+- **Blob**: estensione dell'upload validata (1–16 alfanumerici, altrimenti 400: prima una da 300 caratteri dava un 500 col path assoluto nel report); `PUT` su slug inesistente → 404 (prima creava un blob nuovo con 200); copia interrotta → file parziale rimosso. Header di sicurezza applicati anche ai 429 (il blocco sta ora prima del rate limiter); CORS ammette `X-Connection-Id`.
+- **Pacchetti**: EF Core Sqlite/Design 9.0.20 (la 9.0.9 portava `SQLitePCLRaw` con avviso High), JwtBearer 9.0.20, SkiaSharp 3.119.4. `dotnet list package --vulnerable` pulito.
+
+**Server SSR**
+- `/cdn-cgi/asset`: l'`id` entra nel nome del file di cache solo se innocuo, altrimenti il suo hash (come og-preview), più guardia che il file resti in `cacheDir`; `id` non stringa → 400. La mappa degli asset è senza prototipo (`constructor`/`__proto__` davano 500).
+- Proxy `/api`: se il backend cade a header già inviati la risposta al client viene chiusa (prima restava appesa fino al suo timeout); gli stream SSE non subiscono `PROXY_TIMEOUT_MS`, che è un timeout di inattività.
+- L'host canonico di `FRONTEND_BASE_URL` entra sempre in `allowedHosts`: con `www.` nel base URL e `frontend.hostname` senza, ogni richiesta finiva 301 → 421.
+- `TRUST_PROXY` interpretato (`true`/`false`, numero, lista): la stringa `true` faceva lanciare Express all'avvio, con exit code 0.
+- og:image: il fallback sulla favicon esce `no-store` (prima `immutable` per un anno: un errore transitorio faceva cachare ai crawler la favicon come anteprima).
+- `@angular/*` 21.2.24 (`platform-server` 21.2.20 aveva un avviso High: XSS in SSR e SSRF). `npm audit` pulito.
+
+**Runtime Angular**
+- `NotificationService` passa titoli e messaggi a SweetAlert2 come testo (`titleText`/`text`), non come HTML: un `message` di notifica o un `detail` del backend non può più iniettare markup nei toast e nelle modali.
+- Cookie di terza parte (`provider` valorizzato): nome fisico = nome reale (`_ga`), non `analytics__ga`; la Cookie Policy elencava un cookie inesistente e la revoca cancellava quello sbagliato. La cancellazione prova anche i `Domain` del sito e dei suoi genitori (best-effort: il gate resta non caricare l'SDK prima del consenso).
+- Un 401 su una chiamata con `Authorization` cancella il token nel client: dopo la revoca lato server (`DELETE /me/data`, logout con effetto sul server) navbar e guard non restano convinti di una sessione che non c'è più.
+- `requiresAuth` su una pagina contenitore vale per i figli (SSR spento, fuori sitemap, noindex): prima il guard c'era ma i figli restavano server-rendered e indicizzabili.
+- Upload: l'`<input type="file">` è `visually-hidden`, non `d-none`: raggiungibile da tastiera. Meta `robots` di una pagina indicizzabile ripristinato al valore di `index.html` invece di rimosso.
+- `notify.interact` tolto dal README: non esiste. `core/services/cookie-registry.ts` e `pages/error/error.component.ts` aggiunti ai file a contratto fisso: l'Engine li importa per path.
+
+**Scaffold, deploy, release**
+- I guard del deploy rifiutano i segnaposto dell'example (`INCOLLA-QUI-…` in API key, `SecretKey`, `Mail.Password`; `frontend.hostname` `miodominio.it`/`example.com`): la API key dell'example è lunga 34 caratteri e passava il minimo di 32. La chiave troppo corta non viene più stampata nel messaggio. Un `security-headers.override.json` che è una directory (bind mount su file assente) ferma il deploy.
+- Il bundle di release porta anche `security-headers.override.json`, `scripts/backup.sh` e `hosting-info.example.json`; la release parte solo se «Controlli Automatici di Tutto» è verde sul commit del tag (`actions: read`).
+- `docker compose up --build -d` "a mano" non è mai stato equivalente a `deploy.sh` (il compose non fonde il `.local`): QUICKSTART e DOCKER_README lo dicono.
+- `identity.json` demo neutra (Esempio S.r.l., `info@esempio.it`) al posto del testo volgare, e il pre-lancio avvisa finché è quella.
+- `.gitattributes merge=ours` funziona solo con `git config merge.ours.driver true`: lo imposta `setup.mjs` e lo dice QUICKSTART. `setup.mjs` non si auto-cancella più (ogni merge dal template che lo toccava andava in conflitto modify/delete) ed è idempotente: a eject fatto non fa nulla.
+- La sezione «Template vivo» (nascita, merge, chi possiede cosa, contratto fisso) è in AGENTS.md, che nel figlio resta; il README, che l'eject toglie, rimanda lì. `i18n-check` descritto per quel che fa (simmetria fra lingue).
+
+**Al merge**: un client che chiamava gli endpoint protetti col solo Bearer deve mandare anche `X-Api-Key` (il frontend del template lo fa già via proxy). Chi ha `TRUST_PROXY=true` in ambiente ora ottiene il booleano. Un figlio con `setup.mjs` già cancellato dall'eject lo riprende dal template al merge (modify/delete: `git checkout template/main -- setup.mjs`), e da lì il conflitto non si ripresenta. Chi aveva registrato cookie di terza parte con `provider` vede il nome reale in Cookie Policy. `IErrorReportingService` non cambia; chi accodava segnalazioni proprie su `BackgroundQueue` può passare a `ErrorReportQueue`.
+
+### Revisione del tema compilato e della conformità legale: revoca della sessione, fatti legali ridotti, palette degenerata, `.local` generato in sviluppo
+
+Correzioni alle criticità emerse rivedendo la release precedente. Nessuna nuova funzione: chiusure di ciò che era promesso a metà.
+
+- **`DELETE /me/data` revoca la sessione** (`Engine/Security/SessionRevocation.cs`). Prima il JWT restava valido fino a scadenza e il CHANGELOG delegava al client lo scarto del token: un upload con il vecchio token registrava di nuovo l'id reale. Ora, dopo `EraseAsync`, ogni token della stessa sessione (claim `session`) emesso prima (claim `loginTime`, scritto da `AuthService`) è respinto con `401` dal middleware JWT (`JwtBearerEvents.OnTokenValidated`). Interfaccia `ISessionRevocation`, default `MemorySessionRevocation` registrato con `TryAddSingleton` (`IMemoryCache`, una voce per la durata di un token, `Security.Token.ExpirationSeconds`): vive nel backend, quindi vale con frontend su un altro server e dietro reverse proxy; un riavvio lo perde e due istanze del backend non si vedono, lì un progetto registra la propria implementazione in `Program.cs`, come per `IIdentityStore`. Il payload di sessione deve restare deterministico per utente: è già il contratto (solo dati identificativi) e ora è anche la chiave della revoca.
+- **`GET /me/data` esporta anche lo storico**: `{ "data": { "upload": [...], "storico": [{ "slug", "caricato", "caricatoIl", "cancellatoIl", "cancellato" }] } }`. Prima solo gli slug ancora presenti, mentre la `DELETE` anonimizzava anche chi aveva caricato e cancellato cosa e quando: ciò che si considera dato personale da cancellare si deve poter esportare (art. 15). Nuovo `BlobOwnershipRegistry.GetHistoryAsync` e record `BlobHistoryEntry`.
+- **Fatti legali ridotti a ciò che l'informativa scrive** (`LegalFacts`, `computeLegalFacts`): `/internal/legal-facts` e il `TransferState` di ogni pagina rispondevano con `limiteRichieste.attivo` (cioè "il rate limiting è spento", che il testo non dice mai), la finestra dei login anche a login spento e i campi dei log applicativi che il testo non usa. Ora `limiteRichiesteSecondi` è un solo numero (la finestra più lunga, quella dei login solo col login acceso) o `null` se spento, e dei log applicativi restano tipo e conservazione. `renderNavigationData(facts, t, lang)` perde il parametro `loginAttivo` (già deciso lato server). Corretta anche la frase "IP reso anonimo": ora vale se lo è in ogni log che l'IP lo salva, non in ogni log.
+- **Palette degenerata ferma il build** (`paletteDegenerata` in `scripts/build/theme-scss.ts`, usata da `generate:statics`): con superfici `fusione` (o `sfondo`/`vividezza` alti) e un brand a luminanza media le cinque superfici collassavano su un colore solo e testo, link e fill del primario finivano tutti sul bianco o sul nero, con una ventina di `console.warn` e nessun errore. Ora il build si ferma con un errore che nomina brand e superfici; i ripieghi di contrasto residui escono in una riga aggregata invece che uno per token. `site.colorTema` è validato prima di calcolare la palette (prima un valore non esadecimale produceva `#NaNNaNNaN` in `_theme.scss` e un errore Sass senza spiegazione). Testo del CHANGELOG precedente e del README corretto: 4.8:1 è l'obiettivo, 4.5:1 (AA) la garanzia nei ripieghi.
+- **`npm test` a mano** ha il pre-hook `pretest` (`generate:statics`): su un checkout pulito mancava `generated/_theme.scss` e Sass falliva.
+- **`global-settings.local.json` generato da sé in sviluppo**: su un clone fresco `cd backend && dotnet run` si fermava, perché il template ha `Features.PublicLogin` acceso per la demo e senza `SecretKey` il login non parte; il proxy del dev server, a sua volta, vuole la API key. Ora, nella copia di sviluppo del repository (file base nella root, non nel container), il primo che parte fra `generate:statics` (`scripts/config/local-settings.ts`) e il backend in Development (`Engine/LocalSettingsFile.cs`) scrive il file con le stesse chiavi generate di `setup.mjs`, e l'altro lo trova. In Docker e negli altri ambienti niente cambia: il file non si crea e un login acceso senza `SecretKey` ferma l'avvio come prima.
+- `global-settings.types.ts` rigenerato dallo schema (solo il commento di `SecretKey`, la CI lo segnalava).
+
+**Al merge**: `AppPersonalDataStore.ExportAsync` e `BlobOwnershipRegistry` (Dominio) cambiano nel template: chi li ha personalizzati riprende `GetHistoryAsync` e la chiave `storico` se vuole l'export completo, altrimenti tiene i suoi. Codice di progetto che leggeva `LegalFacts.limiteRichieste` o chiamava `renderNavigationData` con quattro argomenti si adegua. Un design system che oggi produce la raffica di avvisi sulla palette ora ferma `generate:statics`: cambia brand o superfici come dice il messaggio.
+
+### Tema compilato in build: Bootstrap da sorgente, contrasto garantito per tono
+
+Prima i colori arrivavano a runtime: `AppearanceService.buildThemeStyleTag()` iniettava un `<style id="theme-init">` con le variabili dei due toni e l'Engine ridichiarava a mano parte delle variabili di Bootstrap (bottoni, hover, subtle). Ora il tema è compilato in build e a runtime non si scrive CSS di colore.
+
+- `npm run generate:statics` (pre-hook di `start`, `start:docker`, `dev`, `build` e ora anche `watch`) calcola la palette da `site.colorTema` e dal design system attivo e scrive `src/styles/engine/generated/_theme.scss` (solo dati Sass, gitignored). `src/styles/engine/bootstrap.scss` compila Bootstrap 5.3 da sorgente con quei valori; `angular.json` carica quel file al posto di `bootstrap.min.css`.
+- L'Engine calcola solo gli input che Bootstrap si aspetta già validi (primary, link, testo, titoli, superfici, bordo, navbar), tarati WCAG sulle superfici reali; Bootstrap deriva il resto (subtle/emphasis, hover/active dei bottoni, testo sopra i fill con `color-contrast`, focus, stati attivi).
+- Una chiave mancante in `_theme.scss` ferma Sass con un errore esplicito (`lib.required`), mai un ripiego sul blu di Bootstrap; se il file manca del tutto, l'errore indica `npm run generate:statics`.
+- Il tono è solo l'attributo `data-bs-theme` (su `<html>` e sul pannello, da `tono.pannello`). I token sono emessi dentro `[data-bs-theme="light"]`/`[data-bs-theme="dark"]`: un sottoalbero col proprio tono (pannello chiaro in pagina scura) riceve i suoi valori, compresi focus ring, immagini di checkbox/radio/switch e cursore del range. Gli overlay CDK (menu contestuale, lightbox) prendono il tono della pagina, non quello del pannello.
+- `bootstrap` fissato a `~5.3.3` (era `^5.3.3`): la compilazione da sorgente dipende dai nomi interni di Bootstrap.
+- CI: `generate:statics` gira prima di lint, tipi e test; `tsc-check.sh` e `theme-check.sh` lo lanciano da sé.
+- **Garanzie di contrasto (WCAG 2.1)**:
+  - testo, titoli, link, testo secondario e `--colorPrimaryFg` (≥4.8:1) tarati su tutte e cinque le superfici del tono (base, card, surface-hover, muted, subtle/tertiary); bordo della superficie ≥3:1. Con superfici così vivide che nessun colore reggerebbe su tutte, lo scarto fra le superfici si riduce fino a farle coincidere;
+  - `*-text-emphasis` di ogni colore di tema regge 4.5:1 sul proprio subtle e su tutte le superfici (ripiego su nero o bianco; se neanche quello basta, `@warn` in build con colore e tono);
+  - polarità reale per tono: con superfici vivide il tono "scuro" di un brand chiaro ha fondo chiaro e usa le derivazioni per fondo chiaro, compresi bordo traslucido (cornice del pannello, dropdown, modali) e hover dei link;
+  - testo navbar ≥4.5:1 sullo sfondo navbar; il bordo navbar è decorativo;
+  - success/info/warning/danger come testo usano la variante emphasis (`.text-info` sul bianco faceva 1.6:1); i bordi `.border-success/-info/-warning/-danger` restano il colore pieno;
+  - stampa: testo, titoli, pannello e card neri su bianco con qualunque tono a schermo, link compresi;
+  - skip-link: `--colorPrimaryText` su `--colorPrimary`.
+- `--colorInfo`/`--colorInfoText` sempre emessi: l'`info` di `colori.palette` se c'è, altrimenti quello di Bootstrap.
+- `AppearanceService`: `colorTemaText()`/`colorPrimaryText()`/`colorSecondaryText()` coincidono con le variabili CSS omonime (tono chiaro); nuovi statici `getFillTextColor` (stesso algoritmo di `color-contrast()` di Bootstrap) e `computePaletteCached`; nuovo `siteOverrides(cfg)`, unica fonte degli override del design system per client, SSR, og:image e build.
+
+Nomi CSS e API cambiati:
+
+| Prima | Ora |
+|---|---|
+| `--color<Nome>Lt` / `--color<Nome>Dk` | `--color<Nome>`, valorizzato dentro `[data-bs-theme]` |
+| `--colorPrimaryRgb`, `--colorSecondaryRgb` | `--bs-primary-rgb`, `--bs-secondary-rgb` |
+| `--colorHeadingRgb` | `--bs-emphasis-color-rgb` |
+| `--colorSurfaceTextRgb*` | `--bs-body-color-rgb` |
+| `--colorLinkRgb*` | `--bs-link-color-rgb` |
+| `--colorPrimaryFgRgb` | `--colorPrimaryFg` o `.text-primary` |
+| `--colorPrimaryBgSubtle` / `--colorPrimaryBorderSubtle` / `--colorPrimaryTextEmphasis` (idem Secondary) | `--bs-primary-bg-subtle` / `--bs-primary-border-subtle` / `--bs-primary-text-emphasis` (idem secondary) |
+| `--hoverBg`, `--hoverBorder`, `--activeBg`, `--activeBorder` | nessuno: hover e active li compila Bootstrap |
+| `--bs-btn-*` ridichiarate a mano | classi Bootstrap (`.btn-primary`, `.btn-outline-*`…) |
+| `.panel-light`/`.panel-dark` fissano i colori | il pannello prende i colori dal suo `data-bs-theme`; le due classi restano solo come aggancio |
+| `--colorLink: currentColor` nel pannello | i link hanno il colore link del tono anche nel pannello |
+| attributo `data-theme-tone`, `data-bs-theme` sulla navbar | nessuno: il tono è `data-bs-theme` su `<html>` e sul pannello |
+| `AppearanceService.buildThemeStyleTag()`, `<style id="theme-init">`, `hexToRgbTriplet`, `lib.shade` | nessuno |
+| `PaletteTokens`: triple RGB, testi sopra i fill, `subtlePrimary/Secondary/Info`, `colorInfoLt/Dk` | `colorInfo` campo unico; il resto lo deriva Bootstrap |
+
+**Al merge**: `ng serve` lanciato a mano richiede prima `npm run generate:statics` (`npm run dev`/`start` lo fanno da sé); cambiare design system o `colorTema` con il server acceso richiede un riavvio. Negli stili di progetto sostituisci i nomi della tabella (cerca `Lt`, `Dk`, `Rgb`, `--hover`, `--active`, `--bs-btn-`, `data-theme-tone`). Ordine dei nomi da usare: classi Bootstrap, poi variabili `--bs-*`, poi i token `--color*` dell'Engine per i ruoli che Bootstrap non ha (`--colorSurface`, `--colorSurfaceHover`, `--colorNavBg/Text/Border`, `--colorTema`/`--colorTemaText`, `--colorPrimaryFg`, `--color<Nome>`/`--color<Nome>Text`). `--tone-<colore>-*` e `--tone-form-*` sono interni.
+
+### Design system a gruppi e configurazione risolta `config.aspetto`
+
+`DesignSystemPreset` passa da una trentina di campi piatti a gruppi per area, e `SiteConfig` perde i campi piatti dell'aspetto: il design system risolto (default compresi) sta in `ContestoSito.config.aspetto` (anche `inject(SITE_CONFIG).aspetto`), con gli stessi gruppi e nomi del preset. Un nome vecchio è un errore di `tsc`, senza messaggio di migrazione.
+
+| Prima (`DesignSystemPreset` e `SiteConfig`) | Ora |
+|---|---|
+| `forceThemeTone`, `panelSurface` | `tono.forza`, `tono.pannello` |
+| `superfici`, `colorBackground` | `colori.superfici`, `colori.sfondo` |
+| `colorSecondary`, `colorInfo`, `customPalette` | `colori.palette.secondary`, `colori.palette.info`, altri nomi in `colori.palette` |
+| `pageFade: false` | `movimento: 'fermo'` |
+| `movimento` (durata) + `pulsazioneAttiva` | `movimento` (`'fermo'`\|`'scatto'`\|`'svelto'`\|`'morbido'`) |
+| `showNav`, `fixedTopHeader`, `navSurface`, `showBrandIcon` | `navbar.show`, `navbar.fissa`, `navbar.superficie`, `navbar.icona` |
+| `showFooter` | `footer.show` |
+| `showBreadcrumb`, `breadcrumbStile`, `breadcrumbMaxItems` | `breadcrumb.show`, `breadcrumb.stile`, `breadcrumb.maxVoci` |
+| `backToTopSoglia`, `cookieReopenStile` | `fab.tornaSuSoglia`, `fab.cookie` |
+| `contentWidth` | `larghezza` |
+| `lightboxBordiArrotondati` | `lightboxArrotondato` |
+| `defaultFont`, `addonFonts` | `font.principale`, `font.aggiuntivi` (anche in `resolveFonts({ principale, aggiuntivi })`) |
+| `ogImagePlain` | `og.soloSfondo` |
+| `ogTextTransform` (riceveva `defaultFont`) | `og.testo` (riceve `font`) |
+| `ContestoSito.config.<campo>` (≈30 campi piatti dell'aspetto) | `ContestoSito.config.aspetto.<gruppo>.<campo>` |
+| `BreadcrumbComponent` input `forceShow` (tri-stato) | input `show: boolean` (default `false`) |
+
+- **Rimossi senza sostituto**: `colorText`, `separazioneSuperfici`, `mutezzaSecondario`, `hoverIntensity` (hover e active li deriva Bootstrap), `footerIdentita` (i social del footer di serie compaiono se l'identità li ha; per toglierli si compone il footer in `nav.ts`). Da `SiteConfig` spariscono anche `backgroundVividness` e `designSystem`; restano fuori da `aspetto` `colorTema`, `fonts`, `customFontsCatalog`, `errorChrome`, `appName`, `showNotifications`, `showLoginInHeader`, `legalPages`, `cookiePolicy`.
+- **Derivati in `aspetto`**: `aspetto.pannello` (da `colori.superfici`), `aspetto.transizioni` (vero tranne con `'fermo'`), `aspetto.pulsazione` (`'assente'`|`'lieve'`|`'marcata'`), `aspetto.colori.vividezza`; `aspetto.smoke` è nella forma risolta. Facoltativi solo `tono.forza`, `colori.sfondo`, `font.principale`, `og.testo`.
+- **`movimento: 'fermo'`** spegne anche le View Transitions fra pagine (prima sempre attive), i fade d'ingresso (anche nei ruoli), le aperture (0s) e l'alone dei toggle attivi.
+- **Patch**: dentro un gruppo si fonde campo per campo con la base, anche per `colori.palette` e per ogni ruolo di `ruoloPagina`; `undefined` significa "non specificato" e lascia il valore della base; `font.aggiuntivi` sostituisce quello della base; una voce di palette ereditata non si toglie. Un campo sbagliato o un valore fuori elenco è errore di `tsc` anche nella patch-funzione `(risolto) => patch`.
+- **Validazione più stretta** (`validateDesignSystemPreset`, a ogni resolve in `buildSite` e in `generate:statics`, messaggi in italiano): valori fuori elenco con l'elenco ammesso, booleani non booleani, `og.testo` non funzione, `smoke.opacity` non finita o fuori 0–1, campi sconosciuti (radice, gruppo, ruolo), `ruoloPagina.naked`, font non validi (`font.principale` stringa che non è una voce di `SystemFont`; in `CustomFontDef`: `faces[].file` solo nome file `.ttf/.otf/.woff/.woff2`, `weight` 400 o 700, `family` senza `" \ ; { } < >` né a capo).
+- **Nomi in `colori.palette` solo camelCase ASCII** (`^[a-z][a-zA-Z0-9]*$`): `oroChiaro` sì, `oro-chiaro`/`OroChiaro`/`rosé` no. Rifiutati anche i colori di tema di Bootstrap tranne `secondary` e `info`, i nomi della mappa `$colors`, i nomi che collidono con classi Bootstrap (`sm`, `center`, `bgPrimary`…), con variabili `--bs-*` esistenti (`borderWidth`…) o con i 22 token del tema (`surface`, `navBg`…), i suffissi `-rgb`/`-subtle`/`-emphasis`, due voci che producono la stessa classe o lo stesso token. Le classi restano in kebab-case (`oroChiaro` → `.btn-oro-chiaro`), le variabili in PascalCase (`--colorOroChiaro`).
+- **Ruoli di pagina: un ruolo può solo spegnere** (breaking). Prima il ruolo vinceva sul design system in entrambe le direzioni; ora conta il design system risolto e un ruolo che non nomina un campo lo segue. Un ruolo non accende più ciò che il design system lascia spento: `showBreadcrumb: true` senza `breadcrumb.show: true`, `showPanel` con superfici senza pannello (`distinte`, `tenue`, `fusione`), `pageFade` con `movimento: 'fermo'`, `showSmoke` senza `smoke.enable`, `showNav`/`showFooter`/`showBrandIcon` con il gruppo spento. `fitViewport` resta deciso dal ruolo.
+- **`naked`**: pagina nuda anche senza breadcrumb né smoke; non si personalizza (`ruoloPagina.naked` è un errore di validazione).
+- **Preset condivisi di proprietà Engine**: `components/shared/design-systems/engine/` (aria, carta, giorno, notte, lanterna, ombra, lavagna, muro) al merge segue il template; per personalizzarli si estendono con `extendDesignSystem` o si copiano in un file di progetto.
+
+**Al merge**: riscrivi i design system di progetto con i gruppi della tabella (anche nella patch-funzione); nomi di palette kebab → camelCase; codice che leggeva `ContestoSito.config.<campo>` dell'aspetto → `ContestoSito.config.aspetto.<gruppo>.<campo>`; `<app-breadcrumb [forceShow]>` → `[show]`. Un ruolo che accendeva breadcrumb, pannello, smoke o fade contro il design system va accompagnato dall'accensione nel design system (poi gli altri ruoli la spengono). Se avevi modificato un preset in `design-systems/engine/`, sposta le modifiche in un tuo design system che lo estende.
+
+### og:image e font: misura del testo nel font che lo disegna
+
+- Le larghezze dei caratteri (a capo e dimensione del badge) si leggono dai font reali in TTF, OTF, WOFF e WOFF2 (cmap formato 4 o 12) per ASCII, Latin-1, Latin Extended-A e `– — ‘ ’ ‚ “ ” „ • … €`, per ogni font di sistema e ogni font custom del catalogo (`font.principale`, `font.aggiuntivi`). Prima: solo il font custom attivo, solo la prima faccia. Il testo si misura nel font che lo disegna, compreso quello scelto da `og.testo` (prima si misurava sempre nel font del sito).
+- Testo misurato e disegnato in NFC; i caratteri invisibili contano zero. Un carattere fuori tabella conta come la sua lettera base, altrimenti un em pieno: nel dubbio il testo va a capo invece di uscire dal badge.
+- Grassetto: rapporto reale se `faces` dichiara una faccia 700, altrimenti la stima del grassetto sintetico di fontconfig; il regular si misura dalla faccia più vicina a 400 in stile normale, qualunque sia l'ordine di `faces`.
+- Fallback: tabelle integrate (solo ASCII) senza font di sistema installati (dev fuori dal container) o con un font illeggibile; un font custom illeggibile si misura come Liberation. Decompressione WOFF/WOFF2 con tetto a 32 MB.
+- Log all'avvio: una riga informativa se nessun font di sistema è installato, altrimenti un warn per ogni font che ripiega; file custom assente → riga informativa, corrotto → warn col motivo. Metriche lette una volta per processo: sostituito un file in `fonts/`, riavvia il server.
+- `og.testo` accetta come `font` qualunque `SystemFont` o un font custom del catalogo (confronto per `key`); prima solo il font del sito o una voce di `addonFonts`. Un valore non valido si ignora con un avviso nel log, una volta per valore distinto.
+- API: `PreviewSvgOptions.fontFamily` e `TitleBadgeOptions.fontFamily` (stringa) → `font` (`FontChoice`); nuovo `PreviewBuilder.fontPrincipale()`; `FontMetrics.measure` accetta la `key` del font; `customFontServerStack` (da `custom-font-detect.ts`) e `customFontWebStack` rimosse; `systemUiFonts` non più esportata; nuove `closestFace()` e `choiceKey()` in `font-system.ts`.
+
+**Al merge**: codice di progetto che passava `fontFamily` a `PreviewBuilder` passa `font`; chi importava `customFontServerStack`, `customFontWebStack` o `systemUiFonts` usa `serverStackForChoice`/`resolveFonts`.
+
+### Editor Markdown (`MarkdownEditorComponent`)
+
+- Nuovo componente Engine `app-markdown-editor` (`core/engine/components/markdown-editor/`): campo di form per un testo che poi passa da `| markdown`, con `[(ngModel)]` o `formControlName` e stato disabled. Input: `inputId` (per `<label for>`), `ariaLabel`, `placeholder`, `rows` (default 8), `labels` (`MarkdownEditorLabels`, stessa forma di `UploadFormComponent.labels`).
+- Colora la scrittura con il lexer della pipeline che renderà il testo (`MarkdownPipe.lex()`) e con la stessa regola sugli URL non sicuri; anteprima con l'output reale della `MarkdownPipe`.
+- Barra accessibile (`role="toolbar"`, un solo Tab stop, frecce/Home/Fine): annulla, ripeti, grassetto, corsivo, titolo, sottotitolo, elenchi puntato e numerato, link, anteprima. Scorciatoie Ctrl/Cmd+Z, Y (o Maiusc+Z), B, I, K.
+- Invio negli elenchi continua, risale di livello o chiude l'elenco e rinumera gli elenchi numerati; cronologia propria (una parola per passo, massimo 200 passi).
+- Etichette nelle chiavi `mdEditor*` di `basic.*.json`, sovrascrivibili in `addon.*.json`.
+
+Additivo, niente da fare al merge.
+
+### Un solo caricamento del contenuto per pagina
+
+`PageBaseComponent` rieseguiva il caricamento del contenuto nel browser con un `resource()` anche al montaggio della pagina, oltre al resolver del router: ogni pagina con `contentLoader` (e ogni pagina legale) scaricava il contenuto due volte. Il `resource()` è rimosso: il contenuto arriva solo dal resolver (`contentByResolve`), in SSR, all'idratazione e a ogni navigazione. Il cambio lingua naviga alla rotta dell'altra lingua (nuova istanza, il resolver riparte) e il cambio di un parametro fa rieseguire il resolver.
+
+**Al merge**: niente da fare, salvo codice di progetto che si appoggiava al ricaricamento del componente fuori dal router (non previsto dal contratto).
+
+### Conformità legale: pagine legali dell'Engine, `Features`, cookie banner, Privacy Policy, dati personali
+
+- **Pagine legali rifatte (breaking, `site.ts`)**. La sezione `legal` funziona come `homePage`/`loginPage`: uno slot per pagina standard (`privacy`, `cookie`, `termsOfService`, `legalNotice`, `accessibility`), valorizzato con un `PageType` del progetto (nome libero) o con `{ page, updated: Date }`. Rotta (`/policy/<segmento>`, per lingua: vedi sotto), titolo e markdown li decide lo slot.
+  - `privacy` obbligatorio; `cookie` obbligatorio con voci in `COOKIE_MAP` o `isWebApp: true`, e senza cookie la pagina non viene creata anche con lo slot valorizzato; slot assente = pagina non creata.
+  - `updated` (formattata in UTC) compare sotto il titolo e finisce in `og:updated_time` e `dateModified`.
+  - Pagine in più in `legal.extra` (`page`, `path`, `titleKey`, `descriptionKey`, `markdown`, `updated?`), chiavi i18n in `addon.*.json`, testo in un file per lingua `assets/legal/<markdown>.<lingua>.md`.
+  - **Markdown sostitutivo**: `markdown: 'nome'` nella forma oggetto di uno slot standard fa della pagina il file `assets/legal/<nome>.<lingua>.md` (es. la Privacy Policy del proprio legale), senza parti, dati di navigazione generati, stato di accessibilità né identità; rotta, titolo, data e footer restano dell'Engine, e nella Cookie Policy anche l'elenco cookie (dopo il testo) e il pannello delle preferenze. `markdown` è un nome di file `[A-Za-z0-9_-]`, unico fra le pagine legali senza distinzione di maiuscole.
+  - Una pagina dichiarata a mano in `pages` con lo stesso `PageType` vince: l'Engine non la crea né ne carica i testi.
+  - Spariscono le chiavi `legalPages` e `cookiePolicy` di `site.ts` (in `SiteConfig` restano, derivate dagli slot), `STANDARD_LEGAL_PAGES`, `LegalPageConfig` con i 4 interruttori per pagina e `pages/policy/legal.pages.ts`. Le voci di `SiteConfig.legalPages` (`LegalPageSpec`) hanno `page` al posto di `pageType`.
+
+  **Al merge**: dichiara gli ID legali nel `PageType` (la demo usa `legal.privacy`, `legal.cookie`, `legal.tos`, `legal.notice`, `legal.accessibility`), sostituisci `legalPages`/`cookiePolicy` con la sezione `legal`, cancella `pages/policy/legal.pages.ts`; in `nav.ts` un `spec.pageType` su `ContestoSito.config.legalPages` diventa `spec.page`.
+- **`Features` in `global-settings.json` (breaking per chi ha login, mail o webhook)**. Committato e senza segreti, cinque booleani, voce assente = spenta:
+  ```json
+  "Features": { "Login": false, "PublicLogin": false, "Mail": false, "ErrorReporting": false, "Forms": false }
+  ```
+  - **Il flag è l'interruttore, la configurazione nel `.local` il requisito.** Configurazione presente con flag spento = funzione spenta; flag acceso senza configurazione = il backend non parte (`FeaturesOptions`).
+  - **`Login`**: login riservato agli amministratori (pagina noindex e fuori sitemap, niente link in navbar, niente sezione nella Privacy Policy). **`PublicLogin`**: link in navbar e parte `login` della Privacy Policy; vince su `Login`. Sostituisce `loginPage: { page, showInHeader }`: `loginPage` torna un `PageType` nudo (`LoginPageConfig` rimosso). Entrambi spenti = pagina di login non creata.
+  - **`Mail`** richiede `Mail.Host` + `Mail.FromAddress`; **`ErrorReporting`** richiede `ErrorReporting.WebhookUrl`; **`Forms`** accende solo la parte `form` della Privacy Policy.
+  - Frontend: flag compilati in `environment.features`. `ClientErrorReportingService` (errori del browser verso il backend) è registrato solo con `Features.ErrorReporting` acceso; prima era sempre registrato.
+  - Backend: `SecurityOptions.LoginEnabled` riflette i flag, `HasSecretKey` dice solo se la chiave c'è. `IEngineMailer.IsEnabled`/`IErrorReportingService.IsEnabled` = flag acceso e configurazione presente. Mailer spento → invio diretto 503 (`MailNotConfiguredException`, `error_mail_disabled`); `DeliveryService` non accoda email e registra il mancato recapito.
+  - **`Security.Token.SecretKey`** (con login acceso): almeno 32 byte UTF-8, niente spazi o a capo iniziali o finali (rifiutata, non tolta in silenzio), diversa dal segnaposto di `global-settings.local.example.json`. Stessa regola nel backend all'avvio e negli script di deploy, che prima toglievano gli spazi e contavano caratteri.
+  - **Frontend e backend non possono credere cose diverse**:
+    - `generate:statics` si ferma su chiavi sconosciute o con maiuscole diverse, valori non booleani, `Features` nel `.local`, login acceso senza `loginPage` in `site.ts`;
+    - `br1_load_config` (deploy) si ferma se il `.local` contiene `Features` o se base e `.local` uniti hanno chiavi che differiscono solo per le maiuscole (il backend non le distingue);
+    - il server SSR (`server.mjs` avviato come processo principale, non `ng serve`) rilegge `Features` dal file montato come lo legge il backend ed esce con codice 1 se non coincide con quello compilato;
+    - il backend non parte con un flag acceso senza la sua configurazione, con una `SecretKey` non valida, o con qualunque chiave `Features`/`Features:*` da variabili d'ambiente o riga di comando, qualunque sia il valore;
+    - `deploy.sh` e `deploy-release.sh` ripetono i controlli prima di pubblicare.
+  - I controlli di avvio del server SSR (compreso `assertRequiredEnv`) escono con codice 1: prima il gestore globale di `@angular/ssr` li intercettava e il processo usciva con 0.
+  - `setup.mjs` genera `SecretKey` e `ApiConfig.Keys` e mette tutti i `Features` a `false`; senza `.local` (CI) `br1_load_config` genera valori usa-e-getta per le funzioni accese.
+  - Credenziali demo di `AccountService` rifiutate in ogni ambiente tranne Development (prima solo in Production: Staging le accettava).
+
+  **Al merge**: aggiungi `Features` con ciò che usi (login in navbar → `PublicLogin`, altrimenti `Login`; `Mail`/`ErrorReporting` se avevi la loro sezione nel `.local`, che senza flag resta inerte; `Forms` se il sito raccoglie dati da form); togli `Features` dal `.local` e da ogni variabile d'ambiente `Features__*`; porta `loginPage` alla forma nuda; codice di progetto che leggeva `LoginEnabled` come "c'è la chiave" passa a `HasSecretKey`; controlla che la `SecretKey` non abbia spazi ai bordi; in Staging servono credenziali vere in `AccountService`.
+- **`Security.CryptoSecret` e `IEngineCrypto` rimossi** (`EngineCrypto`, la proprietà `Crypto` di `EngineApiController`, la chiave nello schema, nell'esempio `.local`, in `setup.mjs` e negli script di deploy): l'unico uso dell'Engine era l'export dei dati personali, ora in chiaro (sotto).
+
+  **Al merge**: togli `Security.CryptoSecret` dal `.local` (lo schema non la prevede più); il codice di progetto che usava `Crypto`/`IEngineCrypto` porta una propria implementazione.
+- **Markdown legali a pezzi, senza segnaposto (breaking per chi ha markdown legali propri)**. Ogni pagina è una cartella `assets/legal/<slug>/` con una sottocartella per parte, che contiene solo i file di lingua: `<slug>/<parte>/<lingua>.md` (es. `privacy/intro/it.md`, `privacy/login/en.md`). Le parti si concatenano in ordine fisso:
+  - `intro` (obbligatoria, apre con `# Titolo`; BOM e righe vuote iniziali tollerati);
+  - nella Privacy, ambito e dati di navigazione generati dall'Engine (sotto);
+  - l'elenco cookie per categoria (solo Cookie Policy);
+  - le parti per funzione, presenti solo se la funzione è attiva: nella privacy `login` (`Features.PublicLogin`), `form`, `mail`, `errorReporting` (`Features.Forms`/`Mail`/`ErrorReporting`), `analytics`, `profiling` (voci di quella categoria in `COOKIE_MAP`), `cookiePolicy` (la Cookie Policy esiste); nella cookie `tracking` (Analytics o Profilazione);
+  - nella Dichiarazione di accessibilità, lo stato di conformità (sotto);
+  - `outro` (facoltativa); nella Cookie Policy poi pannello preferenze e guida ai browser;
+  - sempre ultima, la sezione identità resa dall'Engine; senza dati d'identità non compare, titolo compreso.
+
+  Una variante facoltativa `<slug>/<parte>/off/<lingua>.md` (es. `privacy/mail/off/it.md`) prende il posto della parte a funzione spenta. Le pagine `extra` sono un file per lingua (sopra), senza parti né identità. Spariscono tutti i tag (`{{companyProfile}}`, `{{ragioneSociale}}`, `{{partitaIva}}`, `{{codiceFiscale}}`, `{{cookieList}}`, `{{cookieCategories}}`).
+  - **Controlli di build** (`legal-check` in `generate:statics`): cartella o file dal nome non previsto; `intro` mancante in una lingua o che non apre con `# `; parte mancante per una funzione accesa; file facoltativo (`outro`, `off`, parte a funzione spenta) presente in una lingua del sito ma non in tutte; file `markdown` mancante in una lingua o che non apre con `# `; link `policy:` a uno slot che non esiste; con la Privacy composta, un titolare senza nome o recapito in `backend/data/identity.json` (`ragioneSociale` o `titolareDelTrattamento.nome`, più email, PEC o telefono). Il resto di `assets/legal/` (altri Markdown, allegati, cartelle) è del progetto e il build non lo guarda. Ignorati i file che iniziano con un punto, `Thumbs.db`, `desktop.ini`, `*~`, `*.swp`, `*.bak`. Lingue controllate = quelle servite dal sito.
+  - **Caricamento**: il build scrive in `environment.legalFiles` quali file esistono per pagina e il resolver chiede solo quelli; i testi letti in SSR passano al browser in `TransferState` e l'idratazione non li riscarica. L'SSR del build servito legge da disco, `ng serve` via HTTP; `/assets/legal/*` è protetto dal path traversal. Un file aggiunto dopo l'ultimo `generate:statics` non si vede fino al riavvio.
+
+  **Al merge**: i markdown standard del template arrivano nelle cartelle nuove; un figlio con testi propri li sposta in `<slug>/intro/<lingua>.md` (più `<slug>/outro/<lingua>.md` se serve), porta il testo di una pagina `extra` in `<markdown>.<lingua>.md`, cancella i vecchi file sciolti (`privacy.it.md`, `TOS.en.md`…), che non vengono più letti e che nessun controllo segnala (un proprio testo del legale si tiene dichiarandolo: `privacy: { page, markdown: 'privacy' }`), apre l'intro con `# Titolo`, divide le parti condizionali in `<slug>/<parte>/<lingua>.md` e toglie segnaposto e rimandi ai recapiti (ora sezione finale).
+- **Dichiarazione di accessibilità senza segnaposto**. I segnaposto editoriali `_[…]_` spariscono, insieme al testo sul regime della Pubblica Amministrazione (Legge 4/2004, AgID). Lo stato di conformità lo scrive l'Engine (`AccessibilityStatementComponent`, chiavi `acc*` di `basic.*.json`) dai contenuti non accessibili noti dichiarati nello slot: `accessibility: { page, updated?, nonAccessibili: [{ descrizioneKey, motivo, alternativaKey? }] }`, testi in `addon.*.json`. Senza voci il testo pieno (progettato per WCAG 2.1 AA, European Accessibility Act), con voci il testo sulle criticità seguito dall'elenco. `accessibility/intro/` tiene titolo e una frase, `accessibility/outro/` redazione e segnalazioni.
+
+  **Al merge**: i testi scritti nei segnaposto vanno in `accessibility/intro/`/`outro/` o diventano voci di `nonAccessibili`.
+- **Identità delle pagine legali per pagina (breaking per chi usava `app-identity-render`)**. La sezione in coda mostra i campi che servono a quella pagina, fissati nella ricetta (`LegalRecipe.identity: { titleKey, fields: FooterField[] }`): Privacy e Cookie il titolare (art. 13 GDPR), Termini identità e contatti del gestore, Note legali l'identità completa (REA, capitale, liquidazione), Accessibilità i soli contatti. Prima ogni pagina mostrava tutto, capitale sociale compreso. `app-identity-render` e `hasIdentityContent` sono rimossi: `PolicyComponent` risolve i campi con `resolveFooterFields` (nuovo, in `footer-content.ts`) e li elenca con un `@for`, contatti coi componenti del footer.
+- **Link nei testi legali**. Il GDPR è linkato su EUR-Lex nella lingua del file; il reclamo nella Privacy Policy si rivolge all'autorità di controllo del Paese dell'utente (art. 77 GDPR) invece di linkare il Garante italiano anche nella versione inglese. I rimandi alla Cookie Policy sono link: `[Cookie Policy](policy:cookie)` si risolve nel percorso dello slot nella lingua corrente (resta testo se la pagina non esiste; uno slot sbagliato ferma il build).
+
+  **Al merge**: testi legali propri con link a pagine in un'altra lingua vanno riallineati allo stesso criterio.
+- **Dati di navigazione dai fatti dell'installazione**. La sezione "Dati di navigazione" della Privacy la genera l'Engine (`renderNavigationData`, chiavi `nav*` di `basic.*.json`) da un file JSON per server, indicato da `frontend.hostingInfo` in `global-settings.local.json` (relativo alla cartella di `global-settings.json` o assoluto; schema `core/engine/legal/hosting-info.schema.json`, esempio `hosting-info.example.json`): fornitore e paese dell'hosting, CDN, reverse proxy, log (accessi, errori, applicazione) con i campi salvati e la conservazione reale (in giorni dove una rotazione a tempo la garantisce, altrimenti "a dimensione limitata, a rotazione", come i log dei container), e una sezione `backend` per il server delle API se gira altrove. Dalla configurazione l'Engine aggiunge l'ambito (il sito coperto, da `frontend.hostname`) e per quanto l'IP resta in memoria per il limite di richieste (la finestra più lunga di `Security.ApiConfig.RateLimiting`, quella dei login solo col login acceso; la frase sparisce con `Enabled: false`). Le soglie non entrano nel testo, né una CDN dichiarata assente. Ogni campo è facoltativo; un paese fuori dallo SEE vuole le garanzie del trasferimento. L'SSR lo legge e valida all'avvio (indicato ma assente o non valido = non parte), `br1_load_config` lo risolve e il compose lo monta in `/app/hosting-info.json` (`HOSTING_INFO_PATH`, `/dev/null` se non configurato). `privacy/intro/` tiene solo titolo e premessa: il titolo "Dati trattati e finalità" lo scrive l'Engine.
+
+  **Al merge**: togli dai tuoi `privacy/intro/<lingua>.md` il titolo "Dati trattati e finalità" e la sezione "Dati di navigazione" (li genera l'Engine) e, in produzione, crea il file del server e indicalo in `frontend.hostingInfo`.
+- **Dati di navigazione anche senza SSR**. `TransferState` porta i fatti alla pagina solo se questa è stata renderizzata dal server: sulle pagine `requiresAuth` (mai renderizzate dal server) non arrivano mai, e se una di quelle è la prima della sessione la Privacy aperta da lì mostrava il testo generico anche con `frontend.hostingInfo` configurato. `computeLegalFacts()` (`server-env.ts`) è ora la fonte unica, condivisa dal provider Angular e dal nuovo endpoint `/internal/legal-facts`: `PolicyComponent`, quando i fatti dal provider sono `null`, lo interroga una volta sola prima di ricadere sul testo generico.
+- **Privacy Policy sul modello dell'informativa del Garante**. Dati di navigazione con la formulazione del Garante (acquisiti dai sistemi preposti al funzionamento del sito, impliciti nei protocolli di Internet: IP, URI/URL, orario, metodo, dimensione e stato della risposta, ambiente dell'utente); legittimo interesse concreto per ogni trattamento che lo usa (difesa da abusi e attacchi, protezione degli account, correzione degli errori); conservazione per criterio (log tecnici a dimensione limitata e rotazione, salvo accertamento di reati), perché i log del server, reverse proxy compreso, contengono l'IP; i diritti aggiungono tempi di risposta e verifica dell'identità (art. 12), il caso dei dati non riferibili a una persona (art. 11) e il ricorso all'autorità giudiziaria (art. 79).
+
+  **Al merge**: se hai un reverse proxy (Nginx registra l'IP di serie), dichiara i suoi log e la loro durata nel file di `frontend.hostingInfo`.
+- **`PolicyComponent` nell'Engine**: da `pages/policy/` a `core/engine/pages/policy/`, perché porta la composizione delle pagine legali (dati di navigazione, stato di accessibilità, identità, link `policy:`).
+
+  **Al merge**: cancella `pages/policy/` dal progetto (la versione del template sta sotto l'Engine).
+- **Path delle pagine legali per lingua**. Come il `path` delle pagine: di serie `termini`/`terms` e `accessibilita`/`accessibility` (prima fissi in italiano anche sotto `/en/`), `privacy`, `cookie` e `legal` uguali ovunque. Slot in forma oggetto e voci `extra` accettano `path` come stringa o `{ lingua: segmento }`, fuso sopra quello dell'Engine; una lingua che nessuno nomina usa il segmento inglese. Le URL inglesi `/en/policy/termini` e `/en/policy/accessibilita` diventano `/en/policy/terms` e `/en/policy/accessibility` (pagine `noindex`: link interni e sitemap seguono da soli).
+- **Cookie banner**:
+  - Rifiuta, Accetta e Salva scelte sono tutti `btn-primary`, con pari evidenza come chiedono le Linee guida cookie del Garante del 10/06/2021 (prima con una sola categoria Accetta era verde e Rifiuta aveva solo il bordo).
+  - Aggiunta la X di chiusura, che equivale a Rifiuta tutto, con la frase che lo spiega in `introBannerCookie`, ora sempre il testo del banner (`testoBannerCookie` rimossa).
+  - Lo switch dei tecnici non obbligatori parte spento: uno switch già attivo non è consenso valido (sentenza CGUE Planet49).
+  - GPC rifiuta solo Analytics e Profilazione, mai i tecnici, e non sovrascrive una scelta già salvata. L'avviso GPC compare solo per le categorie che il segnale tiene davvero spente e nomina solo quelle (nuove chiavi `gpcRilevatoAnalyticsBannerCookie`, `gpcRilevatoProfilazioneBannerCookie`).
+  - `bearerToken` compare nella Cookie Policy anche con il login riservato.
+- **Privacy Policy** (`assets/legal/privacy/`) riscritta secondo l'art. 13 GDPR, con solo i trattamenti che l'Engine di serie fa davvero:
+  - titolo e premessa (`intro`); dati di navigazione e limite di richieste li genera l'Engine (sopra);
+  - login, form, email, segnalazioni errori, statistiche e profilazione (una parte ciascuno, con base giuridica e conferimento);
+  - titolare, hosting e fornitori delle funzioni attive come responsabili del trattamento (art. 28), nessuna decisione automatizzata, diritti, reclamo all'autorità di controllo del Paese dell'utente e ricorso al giudice (`outro`).
+
+  Prima dichiarava di non raccogliere dati personali. **Un figlio aggiunge a mano solo il resto**: fornitori extra-UE, contenuti incorporati, trattamenti propri del dominio.
+- **`GET /me/data`** restituisce JSON leggibile, `{ "data": { "upload": ["slug", …] } }` o `{ "data": null }`, invece del blob cifrato con `Security.CryptoSecret` che l'interessato non poteva aprire (artt. 15.3 e 20 GDPR); riservatezza affidata a HTTPS e login.
+- **`DELETE /me/data`**: in un'unica transazione sostituisce l'id dell'utente nel registro `BlobOwnership` (proprietario e autore delle cancellazioni) con un id `anonimo-<guid>`, uno per cancellazione, poi cancella l'account (`AccountService.DeleteAccountAsync`). I file restano e la Privacy Policy lo dice. Il JWT resta valido fino a scadenza e un upload fatto con quel token registrerebbe di nuovo l'id reale: il client scarta il token alla risposta 204 (il frontend del template non chiama `/me/data`; chi lo espone gestisce il logout).
+- **Upload senza posizione**: upload e sostituzione (`POST /blob/up`, `PUT /blob/{slug}`) passano da `ImageLocationScrubber`, senza ricodifica (pixel, profilo ICC e orientamento intatti):
+  - JPEG: svuota il GPS dell'EXIF; scarta XMP ed XMP esteso, APP13 (Photoshop/IPTC) e APP2 MPF; tronca ciò che segue l'immagine principale (video Motion Photo, immagini secondarie, gain map Ultra HDR);
+  - PNG: svuota il GPS dell'`eXIf`; scarta i chunk di testo con XMP o profili raw exif/xmp/iptc; tronca dopo IEND;
+  - WebP: svuota il GPS dell'EXIF; scarta il chunk XMP (e il flag in VP8X); tronca oltre il RIFF;
+  - resta il resto dell'EXIF (seriale del dispositivo, proprietario, data di scatto); HEIC, AVIF, TIFF e ogni altro formato passano invariati;
+  - un file riconosciuto come JPEG, PNG o WebP la cui struttura non si legge fino in fondo è rifiutato con 400 `error_invalid_image` e non viene salvato; oltre ~2 GB → 413.
+
+  **Al merge**: un client che carica immagini gestisce il 400 `error_invalid_image`; gli upload già presenti non vengono ripuliti.
+- **`setup.mjs`**: il figlio nasce con `legal: { privacy }`, col footer di serie dell'Engine (P.IVA, dati societari, social), che prima veniva sostituito da un resolver vuoto, con tutti i `Features` spenti e la `SecretKey` già generata.
+- **Testi e chiavi i18n**:
+  - descrizione di `consent_log`: ultima scelta salvata sul dispositivo, non un registro probatorio;
+  - descrizione della categoria Analytics: tolto "anonima";
+  - GPC presentato come rifiuto, non come "non vendere";
+  - rimosse da `basic.*.json`: `testoBannerCookie`, `privacyPolicyTitolo`, `privacyPolicyIntestazione`, `cookiePolicyTitolo`, `cookiePolicyIntestazione`, `datiPersonaliPolicy`, `sicurezzaPolicy`, `cosaSonoCookie`, `comeLiUsiamoCookie`, `controlloCookie`, `modifichePolicy`, `nomeListaCookie`, `categoriaListaCookie`, `descrizioneListaCookie`; aggiunte `gestoreSitoPolicy`, `gpcRilevatoAnalyticsBannerCookie`, `gpcRilevatoProfilazioneBannerCookie` e, nei `.resx` del backend, `error_invalid_image`.
+
+  **Al merge**: le sovrascritture in `addon.*.json` delle chiavi rimosse restano orfane: toglile.
+- **`.github`**: eliminato `copilot-instructions.md` (regole Azure estranee al progetto); template di PR e issue e `SECURITY.md` citano `Features.Login`/`Features.PublicLogin` al posto di `LoginEnabled`.
+
 ### Configurazione Media e Notifiche (global-settings.json)
 
 Rimosse configurazioni hardcoded da backend e frontend.

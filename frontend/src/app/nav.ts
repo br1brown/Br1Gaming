@@ -50,11 +50,10 @@ export const navResolver: ShellNavResolver = {
     },
 
     // Le pagine legali sono gestite automaticamente da `footer.component` in una fascia
-    // dedicata ("small prints") derivata da `legalPages` di site.ts — vedi `FooterLinkRowComponent`.
+    // dedicata ("small prints") derivata da `legal` di site.ts — vedi `FooterLinkRowComponent`.
     // Definire questa proprietà RIMPIAZZA per intero il footer di default dell'Engine
-    // (`defaultFooterResolver`, societari/legali/contatti/orari/social) — questo sito non ha un
-    // `identity.json` configurato, quindi quel default non mostrerebbe comunque nulla: nessuna
-    // perdita nel tenere solo il link GitHub.
+    // (`defaultFooterResolver`, societari/legali/contatti/orari/social): scelta deliberata di
+    // tenerlo minimale (solo link GitHub), anche ora che `data/identity.json` esiste.
     footer: (f) => {
         f.addLink('githubDesc', 'https://github.com/br1brown/Br1Gaming');
     },

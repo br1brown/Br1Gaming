@@ -1,5 +1,5 @@
 import { Pipe, PipeTransform } from '@angular/core';
-import { Renderer, marked, type Tokens } from 'marked';
+import { Renderer, marked, type Tokens, type TokensList } from 'marked';
 import { isSafeLinkUrl, isSafeImageUrl } from './markdown-url-safety';
 
 /** Renderer sicuro: blocca l'HTML grezzo (renderer.html) e neutralizza gli URL non sicuri
@@ -37,5 +37,11 @@ export class MarkdownPipe implements PipeTransform {
     static render(value: string): string {
         if (!value) return '';
         return marked.parse(value, MARKDOWN_OPTIONS) as string;
+    }
+
+    /** Token del lexer con le STESSE opzioni di `render`: ciò che qui è un titolo, un grassetto o un
+     *  link è esattamente ciò che `render` renderà come tale (usato da `MarkdownEditorComponent`). */
+    static lex(value: string): TokensList {
+        return marked.lexer(value ?? '', MARKDOWN_OPTIONS);
     }
 }

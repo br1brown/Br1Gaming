@@ -87,7 +87,7 @@ function toAngularRoute(page: InternalSitePage, lang: string): Route {
         data: {
             ...page.data,       // data liberi del figlio (site.ts) — diventano @Input() via withComponentInputBinding.
             pageType: page.pageType, // identità stabile della pagina — letto da guard/resolver/PageBaseComponent.
-            lang,                // LA riga chiave di tutta la migrazione: da qui PageBaseComponent sincronizza TranslateService.
+            lang,                // lingua della rotta: da qui PageBaseComponent sincronizza TranslateService.
         }
     };
 
@@ -101,10 +101,9 @@ function toAngularRoute(page: InternalSitePage, lang: string): Route {
             ...route.data,
             pageType: page.pageType,
             lang, // ripetuto: qui route.data viene RISCRITTO per intero, non è un duplicato accidentale.
-            // pageFade: valore per-ruolo (page.pageFade, già risolto in normalizeSitePage come
-            // ruoloPagina.<ruolo>.pageFade), col default globale (config.pageFade) SOLO quando il
-            // ruolo non lo mappa — il ruolo vince sempre, in entrambe le direzioni.
-            pageFade: page.pageFade ?? ContestoSito.config.pageFade,
+            // pageFade: acceso solo con le transizioni del design system (config.aspetto.transizioni);
+            // il ruolo (page.pageFade, da ruoloPagina.<ruolo>.pageFade) può solo spegnerlo.
+            pageFade: ContestoSito.config.aspetto.transizioni && (page.pageFade ?? true),
             // CHROME_DATA_KEY: i flag di layout (showNav/showFooter/fitViewport...) letti SOLO dalla
             // shell (app.component, fuori dal <router-outlet>) via snapshot — mai spacchettati qui.
             [CHROME_DATA_KEY]: page.chrome,
@@ -138,10 +137,9 @@ function buildErrorRoutes(): Routes {
         });
     }
 
-    // pageFade delle rotte di errore: stessa risoluzione per-ruolo di ogni altra pagina (vedi
-    // route.data.pageFade più sotto in toAngularRoute), qui applicato a errorChrome.pageFade
-    // (ruoloPagina.error) invece che a page.pageFade — nessuna pagina della DSL a leggere qui.
-    const errorPageFade = ContestoSito.config.errorChrome.pageFade ?? ContestoSito.config.pageFade;
+    // pageFade delle rotte di errore: stessa regola di ogni altra pagina (route.data.pageFade in
+    // toAngularRoute), col ruolo 'error' (errorChrome) al posto di page.pageFade.
+    const errorPageFade = ContestoSito.config.aspetto.transizioni && (ContestoSito.config.errorChrome.pageFade ?? true);
 
     routes.push(
         {

@@ -55,13 +55,15 @@ internal sealed class DeliveryService : IDeliveryService
 {
     private readonly INotificationStream _stream;
     private readonly IEmailQueue _email;
+    private readonly IEngineMailer _mailer;
     private readonly ILogger<DeliveryService> _logger;
 
     /// <summary>Inietta lo stream notifiche, la coda email e il logger.</summary>
-    public DeliveryService(INotificationStream stream, IEmailQueue email, ILogger<DeliveryService> logger)
+    public DeliveryService(INotificationStream stream, IEmailQueue email, IEngineMailer mailer, ILogger<DeliveryService> logger)
     {
         _stream = stream;
         _email = email;
+        _mailer = mailer;
         _logger = logger;
     }
 
@@ -103,10 +105,12 @@ internal sealed class DeliveryService : IDeliveryService
             Payload = new { message = message.Body, icon = message.Icon }
         });
 
-    /// <summary>Accoda l'email; senza indirizzo l'esito andrebbe perso in silenzio, quindi lo si registra.</summary>
+    /// <summary>Accoda l'email; senza indirizzo o col mailer spento l'esito andrebbe perso in silenzio, quindi lo si registra.</summary>
     private void SendEmail(DeliveryMessage message)
     {
-        if (!string.IsNullOrWhiteSpace(message.Email))
+        if (!_mailer.IsEnabled)
+            _logger.LogWarning("Esito non consegnato: nessuna connessione realtime e invio email spento (target {Target}).", message.Target);
+        else if (!string.IsNullOrWhiteSpace(message.Email))
             _email.TryEnqueue(new EmailMessage
             {
                 To = new[] { message.Email },

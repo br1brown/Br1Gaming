@@ -1,6 +1,6 @@
 namespace Backend.Models;
 
-/// <summary>503: invio richiesto ma il mailer non è configurato (sezione Mail assente/incompleta).</summary>
+/// <summary>503: invio richiesto ma il mailer è spento (flag <c>Features.Mail</c> spento, o sezione Mail assente/incompleta).</summary>
 public sealed class MailNotConfiguredException : ApiException
 {
     /// <summary>Crea l'eccezione con chiave <c>error_mail_disabled</c> e status 503.</summary>

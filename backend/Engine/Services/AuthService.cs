@@ -27,7 +27,8 @@ public class AuthService
         var claims = new List<Claim>
         {
             new(ClaimTypes.Role, SecurityDefaults.AuthenticatedRole),
-            new("loginTime", DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString())
+            // Istante di emissione: SessionRevocation respinge i token emessi prima di una revoca.
+            new(SessionRevocation.LoginTimeClaimType, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture))
         };
 
         if (additionalClaims != null)

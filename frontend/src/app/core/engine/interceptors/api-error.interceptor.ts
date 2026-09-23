@@ -2,6 +2,7 @@ import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { catchError, throwError } from 'rxjs';
 import { NotificationService } from '../services/notification.service';
+import { TokenService } from '../services/token.service';
 import { API_NOTIFY, ApiError, extractProblemDetails } from '../services/base-api.service';
 
 /**
@@ -27,9 +28,15 @@ export const apiErrorInterceptor: HttpInterceptorFn = (req, next) => {
     if (mode === null) return next(req);
 
     const notify = inject(NotificationService);
+    const token = inject(TokenService);
     return next(req).pipe(
         catchError((error: unknown) => {
             if (!(error instanceof HttpErrorResponse)) return throwError(() => error);
+
+            // Il server ha respinto il nostro token (revocato dopo DELETE /me/data o un logout con
+            // effetto sul server, scaduto): tenerlo lascerebbe navbar e guard convinti di una sessione
+            // che non c'è più, con una modale a ogni chiamata. Via subito, in ogni scheda.
+            if (error.status === 401 && req.headers.has('Authorization')) token.clear();
 
             const problem = extractProblemDetails(error.error);
             if (mode) {

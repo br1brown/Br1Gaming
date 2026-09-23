@@ -27,14 +27,15 @@ public class SecurityOptions
     /// </summary>
     public TokenOptions Token { get; set; } = new();
 
-    /// <summary>Chiave per <see cref="Security.EngineCrypto"/>, volutamente separata da <see cref="TokenOptions.SecretKey"/> (mai riusare la stessa chiave per firmare JWT e cifrare dati).</summary>
-    public string CryptoSecret { get; set; } = "";
-
     /// <summary>Se true, attiva ForwardedHeaders per ricostruire l'IP reale da X-Forwarded-For/Proto; se false il rate limiter usa RemoteIpAddress diretto.</summary>
     public bool BehindProxy { get; set; }
 
-    /// <summary>Se il login JWT è attivo: dipende esclusivamente da <see cref="TokenOptions.SecretKey"/> non vuota.</summary>
-    public bool LoginEnabled => !string.IsNullOrWhiteSpace(Token.SecretKey);
+    /// <summary><see cref="TokenOptions.SecretKey"/> valorizzata: requisito del login, non l'interruttore.</summary>
+    public bool HasSecretKey => !string.IsNullOrWhiteSpace(Token.SecretKey);
+
+    /// <summary>Se il login JWT è attivo: lo decide <c>Features.Login</c>/<c>PublicLogin</c> all'avvio
+    /// (Program.cs), non la sola chiave. Setter interno: non si legge dal JSON.</summary>
+    public bool LoginEnabled { get; internal set; }
 }
 
 /// <summary>
@@ -52,7 +53,7 @@ public class TokenOptions
     /// </summary>
     public int ExpirationSeconds { get; set; } = 3000;
 
-    /// <summary>Costruisce la chiave simmetrica per JWT. Lancia se <see cref="SecretKey"/> è vuota o più corta di 32 byte (HMAC-SHA256): non viene espansa automaticamente, per non mascherare segreti deboli con l'entropia originale.</summary>
+    /// <summary>Costruisce la chiave simmetrica per JWT. Lancia se <see cref="SecretKey"/> è vuota, ha spazi iniziali/finali o è più corta di 32 byte UTF-8 (HMAC-SHA256): non viene espansa automaticamente, per non mascherare segreti deboli con l'entropia originale.</summary>
     public SymmetricSecurityKey GetSigningKey()
     {
         if (string.IsNullOrEmpty(SecretKey))
@@ -60,11 +61,15 @@ public class TokenOptions
                 "GetSigningKey() chiamato con SecretKey vuota. " +
                 "Verificare SecurityOptions.LoginEnabled prima di chiamare questo metodo.");
 
+        if (SecretKey != SecretKey.Trim())
+            throw new InvalidOperationException(
+                "Security.Token.SecretKey inizia o finisce con spazi o a capo: toglierli in global-settings.local.json.");
+
         var keyBytes = Encoding.UTF8.GetBytes(SecretKey);
         if (keyBytes.Length < 32)
             throw new InvalidOperationException(
                 $"Security.Token.SecretKey troppo corta ({keyBytes.Length} byte). " +
-                "HMAC-SHA256 richiede almeno 32 byte: configurare una chiave piu' lunga in global-settings.json.");
+                "HMAC-SHA256 richiede almeno 32 byte: configurare una chiave piu' lunga in global-settings.local.json.");
 
         return new SymmetricSecurityKey(keyBytes);
     }

@@ -44,6 +44,11 @@ public class FileBlobStore
     {
         if (content is null || string.IsNullOrEmpty(extension))
             throw new InvalidParametersException();
+        // L'estensione arriva dal nome file del client: solo lettere e cifre, corta. Altrimenti finisce
+        // nel nome su disco e nello slug (backslash, virgolette) o fa saltare il filesystem
+        // (PathTooLongException → 500 col path assoluto nel report d'errore).
+        if (!ExtensionPattern.IsMatch(extension))
+            throw new InvalidParametersException();
 
         Directory.CreateDirectory(UploadsPath);
 
@@ -56,11 +61,25 @@ public class FileBlobStore
         if (!filePath.StartsWith(UploadsPath, StringComparison.Ordinal))
             throw new InvalidParametersException();
 
-        await using var destination = File.Create(filePath);
-        await content.CopyToAsync(destination, cancellationToken);
+        try
+        {
+            await using var destination = File.Create(filePath);
+            await content.CopyToAsync(destination, cancellationToken);
+        }
+        catch
+        {
+            // Copia interrotta (client che abortisce, disco pieno): senza riga nel registro lo sweep
+            // non lo toccherebbe mai. Via subito, poi l'errore risale.
+            try { File.Delete(filePath); } catch { /* best effort */ }
+            throw;
+        }
 
         return slug;
     }
+
+    /// <summary>Estensione ammessa in <see cref="SaveAsync"/>: punto facoltativo, 1–16 alfanumerici.</summary>
+    private static readonly System.Text.RegularExpressions.Regex ExtensionPattern =
+        new(@"^\.?[A-Za-z0-9]{1,16}$", System.Text.RegularExpressions.RegexOptions.Compiled);
 
     /// <summary>Metadati del blob (per servirlo / costruire l'ETag), o <c>null</c> se non valido/assente.</summary>
     public virtual Task<BlobInfo?> GetInfoAsync(string slug, CancellationToken cancellationToken = default)

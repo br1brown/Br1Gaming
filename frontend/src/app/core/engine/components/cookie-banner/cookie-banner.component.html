@@ -26,15 +26,21 @@
          role="region"
          [attr.aria-label]="'titoloPannelloCookie' | translate"
          aria-live="polite">
-        <div class="cookie-banner__shell cookie-banner__shell--detailed surface-elevated align-items-center mx-auto">
-            <div class="cookie-banner__content">
+        <div class="cookie-banner__shell cookie-banner__shell--detailed surface-elevated align-items-center mx-auto position-relative">
+            <!-- X di chiusura (Linee guida cookie Garante 10/06/2021): chiude mantenendo i default,
+                 cioè equivale a Rifiuta tutto. -->
+            <button class="btn btn-link text-reset position-absolute top-0 end-0 m-1 p-2 lh-1"
+                    type="button"
+                    (click)="reject()"
+                    [attr.aria-label]="'chiudiAzione' | translate">
+                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
+            <div class="cookie-banner__content pe-4">
                 <div class="cookie-banner__text" [innerHTML]="bannerText() | markdownLite"></div>
                 <div class="mt-3">
                     <ng-container [ngTemplateOutlet]="categoryToggles"></ng-container>
                 </div>
             </div>
-            <!-- Rifiuta/Accetta tutto: stesso stile outline-secondary, pari peso visivo (vedi
-                 template #consentActions). Solo Salva scelte resta btn-success. -->
             <div class="cookie-banner__actions d-flex flex-column-reverse flex-md-row flex-wrap gap-3 justify-content-md-end">
                 <ng-container [ngTemplateOutlet]="consentActions"></ng-container>
             </div>
@@ -52,21 +58,15 @@
 
 <!-- Toggle per categoria — condivisi da banner e pannello. -->
 <ng-template #categoryToggles>
-    <!-- Conferma visibile del Global Privacy Control onorato — richiesta dalle normative USA
-         (CA/CO/CT) che lo riconoscono come Universal Opt-Out Mechanism: non basta rispettarlo,
-         va anche mostrato che è stato rispettato. Solo se c'è almeno una categoria non tecnica
-         su cui il segnale può aver inciso. -->
-    @if (cookieConsent.gpcSignaled && hasDetailedCategories()) {
+    <!-- GPC onorato va anche mostrato (normative USA CA/CO/CT, Universal Opt-Out Mechanism): nomina
+         solo le categorie non tecniche che il segnale tiene spente, nessun avviso se l'utente le ha accettate. -->
+    @if (gpcNoticeKey(); as gpcKey) {
         <p class="small text-success mb-0" role="status">
-            <i class="fa-solid fa-shield-halved me-1" aria-hidden="true"></i>{{ 'gpcRilevatoBannerCookie' | translate }}
+            <i class="fa-solid fa-shield-halved me-1" aria-hidden="true"></i>{{ gpcKey | translate }}
         </p>
     }
-    <!-- Categoria Technical (sessione, memorie del consenso, eventuali voci di progetto in
-         COOKIE_MAP con questa categoria): esente da consenso per legge (art. 122 Codice Privacy /
-         art. 5.3 ePrivacy), quindi solo dichiarata — badge fisso, nessuno switch. Uno switch che
-         finge di poterli rifiutare sarebbe o bugiardo (non si spegne nulla) o, se onorato,
-         romperebbe il sito: entrambi peggio del non mostrarli affatto. Un cookie tecnico ma
-         facoltativo va in TechnicalOptional (riga sotto), non qui. -->
+    <!-- Technical: esente da consenso (art. 122 Codice Privacy / 5.3 ePrivacy), solo dichiarata con un
+         badge fisso. Uno switch mentirebbe o romperebbe il sito; un tecnico facoltativo va in TechnicalOptional. -->
     @if (cookieConsent.hasTechnicalCategory()) {
         <hr class="mt-0 mb-0">
         <div class="d-flex align-items-center gap-3">
@@ -81,10 +81,8 @@
             <span class="badge px-3 py-1 rounded-pill text-uppercase bg-secondary-subtle text-secondary-emphasis flex-shrink-0" style="letter-spacing: 0.5px; font-size: 0.75rem;">{{ 'obbligatorioBannerCookie' | translate }}</span>
         </div>
     }
-    <!-- Categoria TechnicalOptional: il Service Worker/PWA built-in, più gli eventuali cookie
-         tecnici di progetto in COOKIE_MAP con questa categoria — tutti condividono questo unico
-         switch/bucket, esattamente come Analytics/Profiling. Non strettamente necessaria a
-         erogare il servizio richiesto (diversamente da Technical sopra), resta a consenso esplicito. -->
+    <!-- TechnicalOptional: Service Worker/PWA più i cookie di progetto della stessa categoria, un solo
+         switch. Non indispensabile al servizio richiesto, quindi a consenso esplicito. -->
     @if (cookieConsent.isTechnicalOptionalNeeded()) {
         <hr class="mt-0 mb-0">
         <div class="d-flex align-items-center gap-3">
@@ -150,30 +148,21 @@
     }
 </ng-template>
 
-<!-- Azioni — condivise da banner e pannello, sempre tutte e tre: qui il consenso copre
-     TechnicalOptional (Service Worker/PWA built-in + eventuali cookie di progetto nella stessa
-     categoria) insieme ad Analytics/Profiling — Technical (badge fisso, esente per legge) non è
-     mai in gioco. Le etichette dicono sempre "tutto/tutti", a prescindere dal numero di categorie
-     attive (vedi rejectLabel/acceptLabel nel component).
-     Rifiuta e Accetta condividono LO STESSO stile (outline-secondary): pari peso visivo richiesto
-     da EDPB/Garante — un "Accetta" pieno/verde contro un "Rifiuta" in outline nudgerebbe l'utente
-     verso il consenso (dark pattern). Solo "Salva scelte" resta evidenziato: non è un'alternativa
-     accetta/rifiuta, conferma qualunque combinazione l'utente abbia scelto (anche tutta negativa). -->
+<!-- Azioni condivise da banner e pannello. Stesso stile (btn-primary) per tutte: pari evidenza richiesta
+     dalle Linee guida cookie del Garante (10/06/2021) ed EDPB, un "Accetta" più marcato sarebbe un dark pattern. -->
 <ng-template #consentActions>
-    <button class="btn btn-outline-secondary fw-semibold text-nowrap rounded-pill flex-fill"
+    <button class="btn btn-primary fw-semibold text-nowrap rounded-pill flex-fill"
             type="button"
             (click)="reject()">
         {{ rejectLabel() }}
     </button>
-    <button class="btn fw-semibold text-nowrap rounded-pill flex-fill"
-            [class.btn-outline-secondary]="hasDetailedCategories()"
-            [class.btn-success]="!hasDetailedCategories()"
+    <button class="btn btn-primary fw-semibold text-nowrap rounded-pill flex-fill"
             type="button"
             (click)="accept()">
         {{ acceptLabel() }}
     </button>
     @if (hasDetailedCategories()) {
-        <button class="btn btn-success fw-semibold text-nowrap rounded-pill flex-fill"
+        <button class="btn btn-primary fw-semibold text-nowrap rounded-pill flex-fill"
                 type="button"
                 (click)="saveSelected()">
             {{ 'salvaBannerCookie' | translate }}

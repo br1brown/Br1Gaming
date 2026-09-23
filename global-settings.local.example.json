@@ -1,10 +1,11 @@
 {
   "$schema": "./global-settings.schema.json",
-  "_nota": "Copia questo file in 'global-settings.local.json' (gitignorato). Qui vivono PUBBLICAZIONE e SEGRETI del singolo ambiente di deploy: porte, dominio, CORS, reverse proxy e le chiavi (SecretKey JWT, ApiConfig.Keys, CryptoSecret). scripts/deploy.sh lo fonde sopra global-settings.json (merge profondo; gli array sostituiscono). L'identità del progetto (nome, versione, lingue, config di sito) sta invece in global-settings.json, che è committabile. Genera i segreti con: openssl rand -base64 48 (SecretKey) e openssl rand -base64 32 (ApiConfig.Keys, CryptoSecret — quest'ultima già generata da setup.mjs, non derivarla da SecretKey). Tieni solo le chiavi che ti servono.",
+  "_nota": "Copia questo file in 'global-settings.local.json' (gitignorato). Qui vivono PUBBLICAZIONE e SEGRETI del singolo ambiente di deploy: porte, dominio, CORS, reverse proxy e le chiavi (SecretKey JWT, ApiConfig.Keys). scripts/deploy.sh lo fonde sopra global-settings.json (merge profondo; gli array sostituiscono). L'identità del progetto (nome, versione, lingue, config di sito) sta invece in global-settings.json, che è committabile. Genera i segreti con: openssl rand -base64 48 (SecretKey) e openssl rand -base64 32 (ApiConfig.Keys). Tieni solo le chiavi che ti servono. Features (Login/PublicLogin/Mail/ErrorReporting/Forms) non va qui: sta solo in global-settings.json. I blocchi Mail ed ErrorReporting restano inerti finché il loro flag è spento.",
 
   "frontend": {
     "hostname": "miodominio.it",
-    "port": 3000
+    "port": 3000,
+    "hostingInfo": ""
   },
   "backend": {
     "public": false,
@@ -18,8 +19,7 @@
     "BehindProxy": true,
     "Token": {
       "SecretKey": "INCOLLA-QUI-openssl-rand-base64-48"
-    },
-    "CryptoSecret": "INCOLLA-QUI-openssl-rand-base64-32"
+    }
   },
   "Mail": {
     "Host": "ssl0.ovh.net",

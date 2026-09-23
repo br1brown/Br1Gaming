@@ -3,7 +3,7 @@
 # tsc-check.sh  —  Type-check del frontend via build di produzione
 #
 # Esegue `ng build --configuration production` sul progetto Angular — la
-# STESSA configurazione del job CI ("Compila frontend"), non tsc --noEmit
+# STESSA configurazione del passo CI "Build produzione (ng build)", non tsc --noEmit
 # puro. Motivo: tsc --noEmit compila solo i file .ts e non controlla i
 # binding nei template (es. un input tipizzato come [appAssetWidth] con
 # valore fuori whitelist) — quegli errori passano dal compilatore Angular
@@ -50,6 +50,12 @@ if [[ ! -f "$NG_BIN" ]]; then
 fi
 
 cd "$FRONTEND_DIR"
+
+# Il binario ng salta i pre-hook npm: il tema Sass (generated/_theme.scss) e gli statici si generano qui.
+if ! npm run --silent generate:statics; then
+    echo -e "  ${RED}ERR${RESET} generate:statics fallito" >&2
+    exit 1
+fi
 
 BUILD_LOG="$(mktemp)"
 trap 'rm -f "$BUILD_LOG"' EXIT

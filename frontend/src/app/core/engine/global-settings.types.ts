@@ -43,6 +43,10 @@ export interface GlobalSettings {
      * Porta esposta dal container frontend sull'host Docker. La porta interna del container Node SSR è sempre 3000; questa è la porta del mapping host:container.
      */
     port?: number;
+    /**
+     * Percorso del file con i fatti dell'installazione (hosting, CDN, reverse proxy, log del server), relativo alla cartella di global-settings.json o assoluto (es. '../hosting.json'). Un file per server, condiviso dai siti che ci girano; schema in frontend/src/app/core/engine/legal/hosting-info.schema.json. La Privacy Policy genera da qui la sezione 'Dati di navigazione'. Vive nel .local perché dipende da dove pubblichi. Assente = testo generico; indicato ma mancante o non valido = il frontend non parte.
+     */
+    hostingInfo?: string;
   };
   /**
    * Configurazione dell'esposizione del container backend. Il backend è normalmente interno alla rete Docker; abilitare 'public' solo per API pubbliche o deploy separato.
@@ -71,6 +75,31 @@ export interface GlobalSettings {
      * @minItems 1
      */
     SupportedLanguages?: [string, ...string[]];
+  };
+  /**
+   * Funzioni opzionali dell'Engine accese dal progetto. Committato e senza segreti; voce assente = spenta. Il flag è l'interruttore, la configurazione in global-settings.local.json il requisito: configurazione presente con flag spento = funzione spenta, flag acceso senza configurazione = il backend non parte. Ogni flag vale per frontend e backend insieme: il frontend lo legge a compilazione (login, navbar, sezioni della Privacy Policy), il backend all'avvio (endpoint di login, invio email, segnalazione errori). Valori: true o false senza virgolette; qualunque altra forma ferma il build. Solo in questo file: né in global-settings.local.json né in variabili d'ambiente.
+   */
+  Features?: {
+    /**
+     * Login riservato (amministratori): la pagina indicata da loginPage in site.ts esiste ma non è linkata in navbar, e la Privacy Policy non ne parla. Richiede Security.Token.SecretKey.
+     */
+    Login?: boolean;
+    /**
+     * Login pubblico: link di login in navbar e sezione dedicata nella Privacy Policy. Vince su Login, che non serve accendere. Richiede Security.Token.SecretKey.
+     */
+    PublicLogin?: boolean;
+    /**
+     * Invio email. Richiede Mail.Host e Mail.FromAddress. Accende la sezione dedicata della Privacy Policy.
+     */
+    Mail?: boolean;
+    /**
+     * Segnalazione errori via webhook. Richiede ErrorReporting.WebhookUrl. Accende la sezione dedicata della Privacy Policy.
+     */
+    ErrorReporting?: boolean;
+    /**
+     * Il sito raccoglie dati personali tramite form (contatti, newsletter, prenotazioni...). Accende la sezione dedicata della Privacy Policy.
+     */
+    Forms?: boolean;
   };
   /**
    * Sicurezza specifica del progetto: chiavi API, origini CORS, reverse proxy e token JWT. Gli header di sicurezza fissi (uguali per ogni progetto) vivono in security-headers.json, file del template che il progetto figlio non gestisce.
@@ -131,11 +160,11 @@ export interface GlobalSettings {
      */
     BehindProxy?: boolean;
     /**
-     * Configurazione JWT per il sistema di login. Il login si attiva automaticamente quando SecretKey è valorizzata (>=32 caratteri); lasciare SecretKey vuota per disabilitarlo.
+     * Configurazione JWT del login. La SecretKey è il requisito, l'interruttore è Features.Login/PublicLogin (global-settings.json): chiave presente con login spento = login spento; login acceso senza chiave = il backend non parte.
      */
     Token?: {
       /**
-       * Chiave segreta per firmare i JWT. Deve essere lunga almeno 32 caratteri in produzione. Lasciare vuota per disabilitare il login.
+       * Chiave segreta per firmare i JWT: almeno 32 byte UTF-8, senza spazi o a capo ai bordi, diversa dal segnaposto dell'esempio. Requisito di Features.Login/PublicLogin; setup.mjs la genera già.
        */
       SecretKey?: string;
       /**
@@ -143,13 +172,9 @@ export interface GlobalSettings {
        */
       ExpirationSeconds?: number;
     };
-    /**
-     * Chiave segreta per il servizio di cifratura generico dell'engine (EngineCrypto, AES-256-GCM) — usata ad es. dall'export dati personali (GET /me/data). Volutamente separata da Token.SecretKey: non va derivata da essa né riusata altrove. setup.mjs la genera già alla nascita del progetto, indipendentemente dal login. Rigenerarla con: openssl rand -base64 32.
-     */
-    CryptoSecret?: string;
   };
   /**
-   * Configurazione SMTP del mailer dell'engine (EngineMailer). Contiene SEGRETI (password) → vive in global-settings.local.json. Si attiva come il login: senza Host e FromAddress il mailer resta spento e ogni invio risponde 503. Volutamente generica (SMTP standard): lo stesso codice spedisce con OVH, Brevo, Mailgun, Amazon SES, Gmail o un relay locale cambiando solo questi valori. Per non finire in spam, FromAddress deve stare sul tuo dominio e vanno configurati i record DNS SPF/DKIM/DMARC.
+   * Configurazione SMTP del mailer dell'engine (EngineMailer). Contiene SEGRETI (password) → vive in global-settings.local.json. Requisito di Features.Mail: il mailer è acceso solo con Features.Mail e Host+FromAddress presenti; spento, ogni invio risponde 503. Features.Mail acceso senza Host/FromAddress = il backend non parte. Volutamente generica (SMTP standard): lo stesso codice spedisce con OVH, Brevo, Mailgun, Amazon SES, Gmail o un relay locale cambiando solo questi valori. Per non finire in spam, FromAddress deve stare sul tuo dominio e vanno configurati i record DNS SPF/DKIM/DMARC.
    */
   Mail?: {
     /**
@@ -194,16 +219,16 @@ export interface GlobalSettings {
     VerifyRecipientDomain?: boolean;
   };
   /**
-   * Segnalazione errori dell'engine (IErrorReportingService): un POST JSON verso un webhook esterno per ogni eccezione non applicativa o applicativa con status >=500. Non contiene segreti in senso stretto ma vive comunque in global-settings.local.json perché è pubblicazione/ambiente, non identità del progetto. Volutamente senza SDK di terze parti: un webhook HTTP generico, non l'endpoint proprietario di un vendor. Spento di default (WebhookUrl vuoto).
+   * Segnalazione errori dell'engine (IErrorReportingService): un POST JSON verso un webhook esterno per ogni eccezione non applicativa o applicativa con status >=500. Non contiene segreti in senso stretto ma vive comunque in global-settings.local.json perché è pubblicazione/ambiente, non identità del progetto. Volutamente senza SDK di terze parti: un webhook HTTP generico, non l'endpoint proprietario di un vendor. Requisito di Features.ErrorReporting: attivo solo con il flag acceso e WebhookUrl valorizzato.
    */
   ErrorReporting?: {
     /**
-     * URL del webhook a cui inviare la segnalazione (POST JSON: message, exceptionType, statusCode, path, method, stackTrace troncato, timestamp). Vuoto = spento, nessuna chiamata uscente.
+     * URL del webhook a cui inviare la segnalazione (POST JSON: message, exceptionType, statusCode, path, method, stackTrace troncato, timestamp). Vuoto con Features.ErrorReporting spento = nessuna chiamata uscente; vuoto con il flag acceso = il backend non parte.
      */
     WebhookUrl?: string;
   };
   /**
-   * Qualità della variante web-ottimizzata di un blob immagine (EngineBlobController.webopt). Le DIMENSIONI richiedibili non sono qui: sono una whitelist fissa dell'Engine (`ALLOWED_WIDTHS` in `asset-config.ts`, rispecchiata lato C# in `EngineBlobController.AllowedWebOptSizes`) — non una scelta per-progetto.
+   * Qualità della variante web-ottimizzata di un blob immagine (EngineBlobController.webopt). Le DIMENSIONI richiedibili non sono qui: sono una whitelist fissa dell'Engine (`ALLOWED_WIDTHS` in `frontend/src/app/core/engine/asset-config.ts`, rispecchiata lato C# in `EngineBlobController.AllowedWebOptSizes`) — non una scelta per-progetto, sono le stesse larghezze per qualunque sito.
    */
   Media?: {
     /**
@@ -225,7 +250,7 @@ export interface GlobalSettings {
     ReconnectDelaySeconds?: number;
   };
   /**
-   * Identità ed estetica MINIMA del sito (committabile, del progetto). Iniettata nel frontend al build via environment.ts. Tutto ciò che è aspetto/comportamento (showNav, showFooter, showPanel, fixedTopHeader, panelSurface, forceThemeTone, ogImagePlain, superfici, ruoloPagina, i quattro override colore, l'effetto smoke) non è un campo di questo file: è decisione del design system attivo (`DesignSystemPreset`, scelto o esteso in site.ts via `shell.designSystem`). `shell` stesso resta minimo (solo `designSystem`/`showNotifications`); `isWebApp` e il `showInHeader` di `loginPage` sono campi propri di site.ts, non di `shell` né del design system. Il menu di header/footer e l'icona di brand sono dato risolto a runtime in nav.ts.
+   * Identità ed estetica MINIMA del sito (committabile, del progetto). Iniettata nel frontend al build via environment.ts. Qui c'è un solo colore, `colorTema` (il brand). Tutto il resto dell'aspetto (tono, superfici e pannello, palette, navbar, footer, breadcrumb, movimento, font, og:image, effetto smoke, comportamento per ruolo di pagina) non è un campo di questo file: lo decide il design system attivo (`DesignSystemPreset`), scelto o esteso in site.ts e passato a `shell.designSystem`. `shell` ha solo `designSystem` e `showNotifications`; `isWebApp` è un campo proprio di site.ts; il link di login in navbar lo decide Features.PublicLogin. Il menu di header/footer e l'icona di brand sono dato risolto a runtime in nav.ts.
    */
   site?: {
     /**
@@ -240,12 +265,18 @@ export interface GlobalSettings {
     colorTema?: string;
   };
   /**
-   * Valori liberi letti da entrambi i progetti senza toccare script/codice infrastrutturale: backend
-   * via `IConfiguration["Custom:Chiave"]`, Node SSR via `getBr1Settings().Custom`, browser via
-   * `inject(APP_CUSTOM)` (TransferState). Committabile e visibile al client: niente segreti qui.
-   * ```json
-   * "Custom": { "FeatureFlags": { "NuovaFunzione": true }, "MaxUploadMb": 10 }
-   * ```
+   * Valori aggiuntivi liberi, leggibili da entrambi i progetti senza modificare script o codice infrastrutturale.
+   *
+   * - Backend (ASP.NET Core): ogni chiave è disponibile tramite IConfiguration["Custom:TuaChiave"] o IConfiguration["Custom:Sezione:SottoChiave"]. Supporta oggetti annidati arbitrari.
+   * - Frontend Node SSR: disponibile tramite getBr1Settings().Custom in server-env.ts.
+   * - Browser Angular: disponibile tramite inject(APP_CUSTOM) (l'SSR la serializza in TransferState e il browser la rilegge in idratazione). NON metterci segreti: è committabile e ora visibile al client.
+   *
+   * Esempio:
+   *   "Custom": {
+   *     "FeatureFlags": { "NuovaFunzione": true },
+   *     "Analytics": { "TrackingId": "UA-XXXXX" },
+   *     "MaxUploadMb": 10
+   *   }
    */
   Custom?: {
     [k: string]: unknown;

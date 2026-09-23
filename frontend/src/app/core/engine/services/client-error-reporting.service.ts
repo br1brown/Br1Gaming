@@ -2,8 +2,9 @@ import { ErrorHandler, Injectable, PLATFORM_ID, inject, isDevMode } from '@angul
 import { isPlatformBrowser } from '@angular/common';
 import { BaseApiService } from './base-api.service';
 
-/** `ErrorHandler` globale. Estende `BaseApiService` invece di passare da un `ApiService` di
- *  progetto, per restare nell'Engine. App zoneless: `ErrorHandler` da solo
+/** `ErrorHandler` globale, registrato in app.config.ts solo con `Features.ErrorReporting` acceso.
+ *  Estende `BaseApiService` invece di passare da un `ApiService` di progetto, per restare
+ *  nell'Engine. App zoneless: `ErrorHandler` da solo
  *  intercetta solo gli errori nell'esecuzione che Angular traccia (template/`effect`/HttpClient) —
  *  un `setTimeout` nudo o un listener DOM a mano gli sfuggirebbe (verificato), da cui i listener
  *  `window` `error`/`unhandledrejection` sotto, in aggiunta e senza doppioni con quelli. */

@@ -9,7 +9,7 @@
    intorno — proprio il difetto opposto già corretto sopra, solo sui pochi
    gruppi anziché sul singolo. Con molte colonne (denso, tipo Comune) il
    minimo leggibile (160px) resta l'unico vincolo che conta: superata la
-   soglia si va a capo esattamente come prima, `1fr` non cambia quel caso. */
+   soglia si va a capo, `1fr` non cambia quel caso. */
 .footer-nav-groups {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));

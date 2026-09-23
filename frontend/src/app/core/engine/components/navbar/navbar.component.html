@@ -1,6 +1,5 @@
 <nav #navEl class="navbar navbar-expand-md theme-bg" [class.fixed-top]="fixTop" [class.navbar-menu-open]="menuOpen()"
      [style.--nav-height.px]="navHeight()"
-     [attr.data-bs-theme]="theme.themeTone()"
      [attr.aria-label]="'principaleNav' | translate">
     <div class="container-fluid" #containerFluidEl>
         <!-- Brand solo se c'è una home (slot homePage): senza home niente brand, non un testo morto. -->
@@ -93,7 +92,7 @@
              il selettore non c'è (single-lingua), altrimenti eredita la spinta a destra già data
              dal ms-auto del selettore che lo precede. Su mobile, da aperto, #navbar-menu diventa
              un overlay a schermo intero (position:fixed, vedi scss) che parte SOTTO questa riga:
-             non è più in flusso, quindi non fa crescere .container-fluid né sposta toggler/brand/
+             esce dal flusso, quindi non fa crescere .container-fluid né sposta toggler/brand/
              selettore lingua di un pixel — tutti e tre restano semplici item flex, senza bisogno
              di posizionamento assoluto. -->
         @if (menuItems().length > 0 || hasAuthPage) {

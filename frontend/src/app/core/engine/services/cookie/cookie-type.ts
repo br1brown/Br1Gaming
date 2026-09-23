@@ -103,8 +103,8 @@ export const ENGINE_COOKIE_MAP = {
         category: ConsentCategory.TechnicalOptional,
         descriptionKey: 'swDescrizioneListaCookie',
     },
-    /** localStorage. Log della scelta di consenso (accountability GDPR). Scritto da CookieConsentService.
-     *  ESSENZIALE → elencato in policy ma mai cancellato dalla revoca. */
+    /** localStorage. Ultima scelta di consenso salvata sul dispositivo (categorie, data, versione del
+     *  sito). Scritto da CookieConsentService. ESSENZIALE → elencato in policy ma mai cancellato dalla revoca. */
     consent_log: {
         category: ConsentCategory.Technical,
         storage: 'local',
@@ -123,5 +123,5 @@ export const ENGINE_COOKIE_MAP = {
 export type EngineCookieKey = keyof typeof ENGINE_COOKIE_MAP;
 
 /** Chiavi delle voci essenziali del motore su Web Storage: elencate in policy ma MAI cancellate
- *  alla revoca (prova del consenso + autenticazione). */
+ *  alla revoca (ultima scelta di consenso + autenticazione). */
 export const ESSENTIAL_ENGINE_STORAGE_KEYS = ['consent_log', 'bearerToken'] as const;

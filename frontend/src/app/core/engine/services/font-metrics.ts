@@ -4,13 +4,13 @@ import { ContestoSito } from '../../../site';
 /**
  * Misura della larghezza del testo senza canvas/DOM, per il layer server (Sharp/SSR) dove non
  * esiste `ctx.measureText`. Le metriche reali le deriva a runtime `server/server-font-metrics.ts`
- * parsando i TTF veri; questo file resta privo di dipendenze node e le tabelle `FONT_METRICS` sotto
- * sono solo lo SNAPSHOT DI FALLBACK usato su qualsiasi intoppo del loader (file non leggibile,
- * numeri implausibili) — non più l'unica fonte.
- * Le tabelle `advance` (unità/1000 em) sono estratte dai font reali installati nel container con lo
- * stesso parser TTF, non inventate. Per rigenerarle dopo un aggiornamento pacchetti Alpine: leggere
- * `head.unitsPerEm`+`cmap`+`hmtx` con un parser TTF (es. fonttools) e scalare `advance·1000/unitsPerEm`.
- * `fallbackAdvance` copre i code point fuori tabella; `boldFactor` = rapporto medio bold/regular.
+ * dai file font (TTF/OTF/WOFF/WOFF2); questo file resta privo di dipendenze node e le tabelle
+ * `FONT_METRICS` sotto sono lo SNAPSHOT DI FALLBACK, usato fuori dal container (font di sistema non
+ * installati) e su qualsiasi intoppo del loader (file non leggibile, numeri implausibili).
+ * Le tabelle `advance` (unità/1000 em, ASCII 32–126) sono estratte dai font installati nel container,
+ * non inventate. Per rigenerarle dopo un aggiornamento pacchetti Alpine: leggere
+ * `head.unitsPerEm`+`cmap`+`hmtx` (es. fonttools) e scalare `advance·1000/unitsPerEm`.
+ * `fallbackAdvance` (un em) copre i code point fuori tabella; `boldFactor` = rapporto medio bold/regular.
  * Limite noto: solo advance per-glifo, niente kerning/ligature.
  */
 
@@ -200,35 +200,48 @@ const JETBRAINS_MONO_ADVANCE: Readonly<Record<number, number>> = {
     120: 600, 121: 600, 122: 600, 123: 600, 124: 600, 125: 600, 126: 600,
 };
 
-/** Snapshot di fallback per ogni font di sistema. Chiavi = enum `SystemFont` (a prova di typo).
- *  Usato quando il loader runtime non può leggere i font reali (vedi nota di testa). Tabelle
- *  `advance` estratte dai file font installati — tutte e 11, non solo i 4 Sans originali. */
+/** Snapshot di fallback per ognuno degli 11 font di sistema. Chiavi = enum `SystemFont` (a prova
+ *  di typo). Usato quando il loader runtime non può leggere i font reali (vedi nota di testa).
+ *  Un carattere fuori tabella vale un em (`fallbackAdvance: 1000`): misurare in eccesso manda a capo
+ *  prima, misurare in difetto fa uscire il testo dal badge. */
 export const FONT_METRICS: Record<SystemFont, FontMetric> = {
-    [SystemFont.Liberation]: { advance: LIBERATION_ADVANCE, fallbackAdvance: 556, boldFactor: 1.051 },
-    [SystemFont.Roboto]: { advance: ROBOTO_ADVANCE, fallbackAdvance: 570, boldFactor: 1.014 },
-    [SystemFont.DejaVu]: { advance: DEJAVU_ADVANCE, fallbackAdvance: 612, boldFactor: 1.125 },
-    [SystemFont.Noto]: { advance: NOTO_ADVANCE, fallbackAdvance: 605, boldFactor: 1.060 },
-    [SystemFont.NotoSerif]: { advance: NOTO_SERIF_ADVANCE, fallbackAdvance: 577, boldFactor: 1.061 },
-    [SystemFont.LiberationSerif]: { advance: LIBERATION_SERIF_ADVANCE, fallbackAdvance: 500, boldFactor: 1.061 },
-    [SystemFont.LiberationMono]: { advance: LIBERATION_MONO_ADVANCE, fallbackAdvance: 600, boldFactor: 1 },
-    [SystemFont.DejaVuSerif]: { advance: DEJAVU_SERIF_ADVANCE, fallbackAdvance: 602, boldFactor: 1.089 },
-    [SystemFont.DejaVuMono]: { advance: DEJAVU_MONO_ADVANCE, fallbackAdvance: 602, boldFactor: 1 },
-    [SystemFont.OpenSans]: { advance: OPENSANS_ADVANCE, fallbackAdvance: 602, boldFactor: 1.069 },
-    [SystemFont.JetBrainsMono]: { advance: JETBRAINS_MONO_ADVANCE, fallbackAdvance: 600, boldFactor: 1 },
+    [SystemFont.Liberation]: { advance: LIBERATION_ADVANCE, fallbackAdvance: 1000, boldFactor: 1.051 },
+    [SystemFont.Roboto]: { advance: ROBOTO_ADVANCE, fallbackAdvance: 1000, boldFactor: 1.014 },
+    [SystemFont.DejaVu]: { advance: DEJAVU_ADVANCE, fallbackAdvance: 1000, boldFactor: 1.125 },
+    [SystemFont.Noto]: { advance: NOTO_ADVANCE, fallbackAdvance: 1000, boldFactor: 1.060 },
+    [SystemFont.NotoSerif]: { advance: NOTO_SERIF_ADVANCE, fallbackAdvance: 1000, boldFactor: 1.061 },
+    [SystemFont.LiberationSerif]: { advance: LIBERATION_SERIF_ADVANCE, fallbackAdvance: 1000, boldFactor: 1.061 },
+    [SystemFont.LiberationMono]: { advance: LIBERATION_MONO_ADVANCE, fallbackAdvance: 1000, boldFactor: 1 },
+    [SystemFont.DejaVuSerif]: { advance: DEJAVU_SERIF_ADVANCE, fallbackAdvance: 1000, boldFactor: 1.089 },
+    [SystemFont.DejaVuMono]: { advance: DEJAVU_MONO_ADVANCE, fallbackAdvance: 1000, boldFactor: 1 },
+    [SystemFont.OpenSans]: { advance: OPENSANS_ADVANCE, fallbackAdvance: 1000, boldFactor: 1.069 },
+    [SystemFont.JetBrainsMono]: { advance: JETBRAINS_MONO_ADVANCE, fallbackAdvance: 1000, boldFactor: 1 },
 };
 
-/** Chiave di lookup nelle metriche: un `SystemFont` di catalogo o `ContestoSito.config.fonts.custom.family`.
+/** Chiave di lookup nelle metriche: un `SystemFont` o la `key` di un `CustomFontDef` del catalogo.
  *  `ContestoSito.config.fonts.serverKey` è di questo tipo. */
 export type ServerFontKey = SystemFont | string;
 
-/** Loader (lato server) che deriva le metriche dai font realmente installati/montati, incluso
- *  l'eventuale custom (`ContestoSito.config.fonts.custom`). Iniettato via `FontMetrics.configure`; assente
- *  fuori dal server → si usano le tabelle `FONT_METRICS` (tutte e 11 le voci di `SystemFont`). */
+/** Loader (lato server) che deriva le metriche dai font realmente installati/montati, inclusi i
+ *  font custom del catalogo (`ContestoSito.config.customFontsCatalog`, per `key`). Iniettato via
+ *  `FontMetrics.configure`; assente fuori dal server → si usano le tabelle `FONT_METRICS`. */
 export type ServerMetricsLoader = () => Record<string, FontMetric>;
 
-/** Loader registrato dal layer server, e cache delle metriche risolte (una volta per processo). */
+/** Loader registrato dal layer server, e cache delle metriche risolte: una volta per processo, quindi
+ *  un font custom sostituito sul volume `fonts/` si misura col file nuovo solo dopo un riavvio. */
 let metricsLoader: ServerMetricsLoader | null = null;
 let activeMetrics: Record<string, FontMetric> | null = null;
+
+/** Caratteri disegnati senza larghezza propria: zero-width space/joiner/non-joiner, marcatori di
+ *  direzione, word joiner, BOM, selettori di variante, accenti combinanti che NFC non compone. */
+const ZERO_WIDTH = /^[\u200B-\u200F\u2060\uFEFF\uFE00-\uFE0F\u0300-\u036F]$/;
+
+/** Code point della lettera base di `ch` (primo code point della decomposizione NFD), o -1 se `ch`
+ *  non si decompone. */
+function baseLetter(ch: string): number {
+    const base = ch.normalize('NFD').codePointAt(0)!;
+    return base === ch.codePointAt(0) ? -1 : base;
+}
 
 export class FontMetrics {
     /** Registra il loader che legge le metriche dai font reali (chiamato una volta dal layer server all'avvio). Gira pigro al primo `measure`, cade su `FONT_METRICS` se i font non sono leggibili. */
@@ -248,11 +261,19 @@ export class FontMetrics {
         return activeMetrics;
     }
 
-    /** Larghezza in pixel del testo, con le metriche del font server effettivo (`ContestoSito.config.fonts.serverKey`); ripiega su Liberation se non risolte. Niente parametro `font`: la scelta vive solo nel design system, stesso font che genera l'SVG. Firma compatibile con `FitOptions.measureFn`. */
-    static measure(text: string, fontSizePx: number, bold = false): number {
-        const m = FontMetrics.resolve()[ContestoSito.config.fonts.serverKey] ?? FONT_METRICS[SystemFont.Liberation];
+    /** Larghezza in pixel del testo nel font `fontKey` (default il font del sito): va misurato lo
+     *  stesso font che poi disegna l'SVG, o il testo esce dal suo contenitore. Ripiega su Liberation se non risolto.
+     *  Il testo si misura in NFC (`e` + accento combinante = `é`); i caratteri senza larghezza
+     *  (`ZERO_WIDTH`) valgono 0; un carattere fuori tabella vale la sua lettera base se ne ha una
+     *  (`ǎ` → `a`), altrimenti `fallbackAdvance`. */
+    static measure(text: string, fontSizePx: number, bold = false, fontKey: string = ContestoSito.config.fonts.serverKey): number {
+        const m = FontMetrics.resolve()[fontKey] ?? FONT_METRICS[SystemFont.Liberation];
         let units = 0;
-        for (const ch of text) units += m.advance?.[ch.codePointAt(0)!] ?? m.fallbackAdvance;
+        for (const ch of text.normalize('NFC')) {
+            const cp = ch.codePointAt(0)!;
+            if (ZERO_WIDTH.test(ch)) continue;
+            units += m.advance?.[cp] ?? m.advance?.[baseLetter(ch)] ?? m.fallbackAdvance;
+        }
         const px = (units * fontSizePx) / 1000;
         return bold ? px * m.boldFactor : px;
     }

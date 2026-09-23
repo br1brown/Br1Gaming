@@ -1,0 +1,75 @@
+<div class="md-editor">
+    <!-- Un solo punto di Tab per la barra: le frecce spostano il focus fra i bottoni (tabindex mobile). -->
+    <div #toolbarEl
+         class="d-flex flex-wrap align-items-center gap-1 mb-2"
+         role="toolbar"
+         [attr.aria-label]="'mdEditorToolbar' | translate"
+         [attr.aria-controls]="previewing() ? null : inputId()">
+        @for (button of toolbar; track button.command) {
+            @if (button.groupStart) {
+                <span class="vr mx-1" aria-hidden="true"></span>
+            }
+            <!-- mousedown senza default: il clic non toglie il focus (e la selezione) alla textarea -->
+            <button type="button"
+                    class="btn btn-sm btn-outline-secondary"
+                    [disabled]="isCommandDisabled(button.command)"
+                    [attr.tabindex]="tabStop() === $index ? 0 : -1"
+                    [attr.aria-label]="button.labelKey | translate"
+                    [attr.aria-keyshortcuts]="button.keyshortcuts ?? null"
+                    [title]="(button.labelKey | translate) + (button.shortcut ? ' (' + button.shortcut + ')' : '')"
+                    (focus)="onToolbarFocus($index)"
+                    (keydown)="onToolbarKeydown($event)"
+                    (mousedown)="$event.preventDefault()"
+                    (click)="run(button.command)">
+                <i class="icon-fixed" [class]="button.icon" aria-hidden="true"></i>
+                <span class="d-none d-md-inline ms-1">{{ button.labelKey | translate }}</span>
+            </button>
+        }
+        <!-- Etichetta fissa: lo stato lo dice aria-pressed -->
+        <button type="button"
+                class="btn btn-sm btn-outline-primary ms-auto"
+                [disabled]="disabled()"
+                [attr.tabindex]="tabStop() === previewIndex ? 0 : -1"
+                [attr.aria-pressed]="previewing()"
+                [attr.aria-controls]="previewing() ? previewId() : inputId()"
+                (focus)="onToolbarFocus(previewIndex)"
+                (keydown)="onToolbarKeydown($event)"
+                (click)="togglePreview()">
+            <i class="icon-fixed fa-solid fa-eye" aria-hidden="true"></i>
+            <span class="ms-1">{{ 'mdEditorPreview' | translate }}</span>
+        </button>
+    </div>
+
+    @if (previewing()) {
+        <div class="md-editor-box md-editor-preview"
+             role="region"
+             [id]="previewId()"
+             [attr.aria-label]="'mdEditorPreview' | translate"
+             [style.--md-rows]="rows()">
+            @if (value().trim()) {
+                <div [innerHTML]="value() | markdown"></div>
+            } @else {
+                <p class="text-body-secondary mb-0">{{ 'mdEditorEmptyPreview' | translate }}</p>
+            }
+        </div>
+    } @else {
+        <!-- Due strati nella stessa cella di griglia: sotto il testo colorato (solo visivo), sopra la
+             textarea vera con testo trasparente. Stessa metrica per entrambi, quindi il cursore cade
+             sempre sul carattere colorato; l'altezza la dà lo strato colorato, la textarea lo segue. -->
+        <div class="md-editor-box md-editor-field" [class.md-editor-disabled]="disabled()" [style.--md-rows]="rows()">
+            <pre class="md-editor-layer md-editor-highlight" aria-hidden="true" [innerHTML]="highlighted()"></pre>
+            <textarea #area
+                      class="md-editor-layer md-editor-input"
+                      spellcheck="true"
+                      [id]="inputId()"
+                      [attr.aria-label]="ariaLabel()"
+                      [placeholder]="placeholder()"
+                      [disabled]="disabled()"
+                      [value]="value()"
+                      (beforeinput)="onBeforeInput($event)"
+                      (input)="onInput($event)"
+                      (keydown)="onKeydown($event)"
+                      (blur)="onBlur()"></textarea>
+        </div>
+    }
+</div>

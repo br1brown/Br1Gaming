@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.DependencyInjection;
 using Backend.Diagnostics;
 
 namespace Backend.Controllers;
@@ -9,13 +8,24 @@ namespace Backend.Controllers;
 public sealed class EngineClientErrorController : EngineApiController
 {
     private readonly IErrorReportingService _errorReporting;
+    private readonly ErrorReportQueue _reports;
 
     /// <inheritdoc cref="EngineClientErrorController"/>
-    public EngineClientErrorController(IErrorReportingService errorReporting, ILogger<EngineClientErrorController> logger)
+    public EngineClientErrorController(IErrorReportingService errorReporting, ErrorReportQueue reports, ILogger<EngineClientErrorController> logger)
         : base(logger)
     {
         _errorReporting = errorReporting;
+        _reports = reports;
     }
+
+    /// <summary>Tronca un campo del browser: il payload è di chiunque abbia la API key, e il webhook lo rende nel canale degli alert.</summary>
+    private static string? Clip(string? value, int max) =>
+        value is { Length: > 0 } && value.Length > max ? value[..max] + "… (troncato)" : value;
+
+    /// <summary>Solo un pathname relativo (<c>/pagina</c>): un URL assoluto o con schema diventerebbe un link cliccabile nel canale degli alert.</summary>
+    private static string? SafePath(string? path) =>
+        path is not null && path.StartsWith('/') && !path.StartsWith("//", StringComparison.Ordinal) && !path.Contains("://", StringComparison.Ordinal)
+            ? Clip(path, 500) : null;
 
     /// <summary>Accoda la segnalazione. Risponde sempre 202 (anche a payload incompleto o webhook spento): chi chiama ha già avuto un errore, non deve vederne un secondo per averlo segnalato.</summary>
     [HttpPost]
@@ -29,14 +39,13 @@ public sealed class EngineClientErrorController : EngineApiController
 
             var errorReport = new ErrorReport
             {
-                Message = string.IsNullOrWhiteSpace(report.Message) ? "(nessun messaggio)" : report.Message,
-                ExceptionType = string.IsNullOrWhiteSpace(report.ExceptionType) ? "ClientError" : report.ExceptionType,
-                Path = report.Path,
+                Message = string.IsNullOrWhiteSpace(report.Message) ? "(nessun messaggio)" : Clip(report.Message, 1000)!,
+                ExceptionType = string.IsNullOrWhiteSpace(report.ExceptionType) ? "ClientError" : Clip(report.ExceptionType, 200)!,
+                Path = SafePath(report.Path),
                 StackTrace = stackTrace,
                 Source = "client",
             };
-            BackgroundQueue.TryEnqueue((services, ct) =>
-                services.GetRequiredService<IErrorReportingService>().ReportAsync(errorReport, ct));
+            _reports.Enqueue(errorReport);
         }
 
         return Accepted();

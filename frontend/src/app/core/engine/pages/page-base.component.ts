@@ -1,25 +1,19 @@
-import { computed, Directive, effect, HostBinding, inject, input, PLATFORM_ID, resource, untracked } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { map } from 'rxjs';
+import { computed, Directive, effect, HostBinding, inject, input, untracked } from '@angular/core';
+import { Router } from '@angular/router';
 import { ApiService } from '../../services/api.service';
-import { ApiError } from '../services/base-api.service';
 import { AssetService } from '../services/asset.service';
 import { NotificationService } from '../services/notification.service';
 import { TranslateService } from '../services/translate.service';
 import { PageMetaService } from '../services/page-meta.service';
 import { PageType } from '../../../site';
-import { ContentResolver, ResolvedPage } from './content.resolver';
+import type { ResolvedPage } from './content.resolver';
 
 /** Base comune per tutte le pagine. Il generic T è il tipo del contenuto caricato dal resolver
  *  (`class ArticoloComponent extends PageBaseComponent<ArticoloDTO>`): `pageContent()` è già
  *  tipizzato come T | null, nessun cast nei figli. I meta SEO si aggiornano via effect(). */
 @Directive()
 export abstract class PageBaseComponent<T> {
-    private readonly contentResolverService = inject(ContentResolver);
     private readonly pageMeta = inject(PageMetaService);
-    private readonly platformId = inject(PLATFORM_ID);
     readonly translate = inject(TranslateService);
     readonly api = inject(ApiService);
     readonly asset = inject(AssetService);
@@ -49,45 +43,9 @@ export abstract class PageBaseComponent<T> {
         return this.fadeAllowed && this.pageFadeEnabled();
     }
 
-    /** TUTTI i `:segmenti` della rotta corrente, come `route.paramMap` — reattivo anche entro la
-     *  stessa istanza componente (una rotta parametrica riusa l'istanza al cambio di un solo
-     *  segmento, senza ricreazione): senza questo, il ricaricato sotto perderebbe i parametri dopo
-     *  la prima navigazione. Stessa forma di `contentLoaderResolver`. */
-    private readonly activatedRoute = inject(ActivatedRoute);
-    private readonly routeParams = toSignal(
-        this.activatedRoute.paramMap.pipe(map(pm => Object.fromEntries(pm.keys.map(key => [key, pm.get(key)!])))),
-        { initialValue: Object.fromEntries(this.activatedRoute.snapshot.paramMap.keys.map(key => [key, this.activatedRoute.snapshot.paramMap.get(key)!])) }
-    );
-
-    /** Ricarica del contenuto al cambio lingua (browser). `resource()` gestisce da solo la cancellazione delle richieste obsolete (l'ultima params vince). SSR: params torna undefined, nessuna fetch, il primo contenuto arriva da `contentByResolve`. */
-    private readonly contentResource = resource<ResolvedPage<T> | null, { pageType: PageType; lang: string; params: Record<string, string> } | undefined>({
-        params: () => isPlatformBrowser(this.platformId)
-            // this.lang() (l'input di route, sincrono) e NON this.translate.currentLang(): quest'ultimo
-            // si aggiorna in modo asincrono (l'effect sotto attende setLanguage()), this.lang() è già
-            // corretto nello stesso istante — niente fetch nella lingua vecchia al mount della pagina.
-            ? { pageType: this.pageType(), lang: this.lang(), params: this.routeParams() }
-            : undefined, // SSR: nessuna fetch qui, il primo contenuto arriva da contentByResolve (resolver del router).
-        // Ricaricato client (cambio lingua): non passa dal resolver del router, quindi un 404
-        // (un parametro diventato invalido) non può tornare come UrlTree — l'unica via è navigare
-        // esplicitamente. Stesso trattamento di contentLoaderResolver: solo il 404 dirotta, ogni
-        // altro errore resta silenzioso (apiErrorInterceptor ha già avvisato l'utente).
-        loader: ({ params }) => this.contentResolverService.loadResolved(params.pageType, params.lang, params.params)
-            .catch(error => {
-                if (error instanceof ApiError && error.status === 404) {
-                    void this.engineRouter.navigateByUrl('/error/404');
-                    return null;
-                }
-                throw error;
-            }) as Promise<ResolvedPage<T> | null>,
-        defaultValue: null,
-    });
-
-    /**
-     * Contenuto risolto della pagina: il ricaricato dal browser (resource) quando c'è, altrimenti
-     * quello del resolver del router. Così SSR / primo render usano `contentByResolve`, e dopo
-     * l'idratazione il valore si aggiorna ad ogni cambio lingua.
-     */
-    private readonly _resolved = computed(() => this.contentResource.value() ?? this.contentByResolve());
+    /** Contenuto risolto dal resolver del router: SSR, idratazione, cambio lingua (naviga alla rotta
+     *  dell'altra lingua, quindi nuova istanza) e cambio parametri (il router riesegue il resolver). */
+    private readonly _resolved = computed(() => this.contentByResolve());
 
     /** Contenuto sempre aggiornato della pagina corrente, tipizzato come T. */
     protected readonly pageContent = computed<T | null>(() =>
@@ -104,9 +62,8 @@ export abstract class PageBaseComponent<T> {
     }
 
     /** Data ISO (YYYY-MM-DD) di ultimo aggiornamento REALE del contenuto, per `og:updated_time` e
-     *  `dateModified` JSON-LD — diversa dalla data di build/deploy, che l'Engine già gestisce da sé.
-     *  Default `null`: quasi nessuna pagina ne ha una vera. Override dove esiste (es. PolicyComponent,
-     *  dalla data dichiarata in legal.pages.ts). */
+     *  `dateModified` JSON-LD (non la data di build). Default `null`; override dove esiste (es.
+     *  PolicyComponent, dalla sezione `legal` di site.ts). */
     protected pageUpdatedOn(): string | null {
         return null;
     }
