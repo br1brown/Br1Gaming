@@ -19,7 +19,6 @@
   "Security": {
     "BehindProxy": true
   },
-  "Features": { "Login": false, "PublicLogin": true, "Mail": false, "ErrorReporting": false, "Forms": false },
   "Custom": {
     "MapboxToken": ""
   }
