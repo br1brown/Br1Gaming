@@ -31,18 +31,17 @@ export interface AppEnvironment {
 }
 
 export const environment: AppEnvironment = {
-    appName: "App",
-    version: "1.0.0",
+    appName: "Br1Gaming",
+    version: "2.5.1",
     defaultLang: 'it',
-    availableLanguages: ["it","en"],
+    availableLanguages: ["it"],
     config: {
-            "colorTema": "#131e55",
+            "colorTema": "#add8e6",
             "description": {
-                    "it": "Template di base che serve per fare vedere le funzionalità base",
-                    "en": "Base template showcasing the core building blocks"
+                    "it": "Generatori ignoranti, avventure interattive, universo Br1."
             }
     },
-    features: {"login":true,"publicLogin":true,"mail":false,"errorReporting":false,"forms":false},
-    configFingerprint: "e0a079a8bf9a",
-    legalFiles: {"privacy":["analytics","cookiePolicy","errorReporting","form","intro","login","mail","outro","profiling"],"cookie":["intro","tracking"],"TOS":["intro"],"legal":["intro","outro"],"accessibility":["intro","outro"]}
+    features: {"login":false,"publicLogin":false,"mail":false,"errorReporting":false,"forms":false},
+    configFingerprint: "abad7ce3c5e4",
+    legalFiles: {"privacy":["analytics","cookiePolicy","errorReporting","form","intro","login","mail","outro","profiling"],"cookie":["intro","tracking"]}
 };
