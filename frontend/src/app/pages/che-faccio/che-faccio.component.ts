@@ -34,6 +34,7 @@ import { WhatsappContactComponent, WhatsappContactConfig } from '../../core/engi
 import { TelegramContactComponent } from '../../core/engine/components/telegram-contact/telegram-contact.component';
 import { SocialLinkComponent } from '../../core/engine/components/social-link/social-link.component';
 import { UploadFormComponent } from '../../core/engine/components/upload-form/upload-form.component';
+import { MarkdownEditorComponent } from '../../core/engine/components/markdown-editor/markdown-editor.component';
 
 /**
  * "Che faccio" (`/che-faccio`, `/en/what-i-do`): la vetrina completa delle funzionalità
@@ -45,6 +46,7 @@ import { UploadFormComponent } from '../../core/engine/components/upload-form/up
     imports: [
         TranslatePipe,
         FormsModule,
+        MarkdownEditorComponent,
         ContextMenuDirective,
         QrRenderDirective,
         ImgRenderDirective,
@@ -205,11 +207,14 @@ export class CheFaccioComponent extends PageBaseComponent<void> {
     // --- Snippet di codice per la colonna destra di ogni sezione ---
     readonly snippets = {
         markdown:
-`<!-- Pipe nel template -->
+`<!-- Editor: barra, colori e anteprima dalla stessa pipeline -->
+<app-markdown-editor [(ngModel)]="content" />
+
+<!-- Pipe nel template -->
 <div [innerHTML]="content | markdown"></div>
 
 <!-- Import nel componente -->
-imports: [MarkdownPipe]`,
+imports: [MarkdownEditorComponent, FormsModule, MarkdownPipe]`,
 
         imgRender:
 `// Config

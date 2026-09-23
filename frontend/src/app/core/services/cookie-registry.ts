@@ -1,7 +1,7 @@
 import type { CookieConfig } from "../engine/services/cookie/cookie-type";
 
 /** Registro UNICO dell'archiviazione client (cookie + Web Storage): una riga qui attiva toggle nel
- *  banner GDPR, tipizzazione di set/get/remove, riga in {{cookieList}} e pulizia alla revoca. */
+ *  banner GDPR, tipizzazione di set/get/remove, riga nell'elenco cookie della Cookie Policy e pulizia alla revoca. */
 export const COOKIE_MAP = {
     // Esempi — scommenta e adatta (la chiave è il nome raw della voce):
     // '_ga':            { category: ConsentCategory.Analytics, descriptionKey: 'cookieDescGa', provider: 'Google Analytics' }, // cookie di terza parte

@@ -1,12 +1,12 @@
 /** Font System (Engine): catalogo, tipi, risoluzione. La scelta vive nel design system attivo
- *  (`DesignSystemPreset.defaultFont`/`addonFonts`), non in un file a parte. Un solo meccanismo per
+ *  (`DesignSystemPreset.font.principale`/`font.aggiuntivi`), non in un file a parte. Un solo meccanismo per
  *  ogni font: `FontChoice` è sempre self-hosted via @font-face, stesso file che il rendering
  *  server delle OG image usa per nome via fontconfig. */
 
 /** Percorso radice dei font di sistema nel container, installati da `apk add font-roboto font-noto font-liberation font-dejavu font-opensans font-jetbrains-mono` (Dockerfile). Verificato contro il contenuto reale dei pacchetti Alpine, non un percorso indovinato. */
 const FONTS_ROOT = '/usr/share/fonts';
 
-/** Catalogo dei font di sistema — enum, non stringhe magiche. 11 voci: quasi ogni pacchetto Alpine porta famiglia Sans+Serif+Mono complete. Nunito/Inter scartati: Alpine li impacchetta solo come font variabili, senza le 4 facce statiche regular/bold/italic/bold-italic che `SystemFontFace` richiede. */
+/** Catalogo dei font di sistema — enum, non stringhe magiche. 11 voci: quasi ogni pacchetto Alpine porta famiglia Sans+Serif+Mono complete. Ammessi solo font con le 4 facce statiche regular/bold/italic/bold-italic che `SystemFontDef` richiede: un pacchetto Alpine che porta solo il font variabile (es. Nunito, Inter) non può entrare. */
 export enum SystemFont {
     Roboto = 'Roboto',
     Noto = 'Noto',
@@ -192,23 +192,16 @@ export function systemFontServerStack(key: SystemFont): string {
     return stackServer(`"${def.family}"`, def.generic);
 }
 
-/** Stack CSS per una `family` di font custom arbitraria — stesso generic-family neutro di
- *  `systemFontWebStack`, nessun `generic` dichiarabile per un font custom (stessa scelta di
- *  `familyAndGenericFor` sotto). Solo BROWSER: per il rendering server vedi
- *  `customFontServerFamilyStack`. */
-export function customFontWebStack(family: string): string {
-    return stack(`"${family}"`, 'sans-serif');
-}
-
-/** Come `customFontWebStack`, ma per il rendering SERVER (fontconfig/Pango) — vedi `stackServer`.
- *  Usata da `custom-font-detect.ts` per costruire lo stack server di QUALUNQUE `CustomFontDef`, non
- *  solo quello attivo del sito. */
+/** Stack CSS per il rendering SERVER (fontconfig/Pango, vedi `stackServer`) di una `family` di font
+ *  custom arbitraria: generic-family neutro `sans-serif`, nessun `generic` dichiarabile per un font
+ *  custom (stessa scelta di `familyAndGenericFor` sotto). Usata da `custom-font-detect.ts` per
+ *  QUALUNQUE `CustomFontDef`, non solo quello attivo del sito. */
 export function customFontServerFamilyStack(family: string): string {
     return stackServer(`"${family}"`, 'sans-serif');
 }
 
-/** L'unico stack "di sistema" rimasto — nessun self-hosting, nessuna opinione: quello che l'OS
- *  del visitatore offre di default. Usato SOLO quando un design system non imposta `defaultFont`
+/** Stack dei font dell'OS del visitatore — nessun self-hosting, nessuna opinione: quello che l'OS
+ *  offre di default. Usato SOLO quando un design system non imposta `font.principale`
  *  (es. `aria.design-system.ts`, di proposito). */
 const SYSTEM_UI_STACK = stack('system-ui, "Segoe UI", Arial');
 
@@ -226,32 +219,44 @@ export interface CustomFontFace {
     style: 'normal' | 'italic';
 }
 
-/** Font caricato dal progetto: stessa forma e stesso endpoint del catalogo di sistema. Un `CustomFontDef` è un `FontChoice` a tutti gli effetti, scritto come `defaultFont` o come voce di `addonFonts` — stesso oggetto, cambia solo dove lo scrivi. */
+/** Font caricato dal progetto: stessa forma e stesso endpoint del catalogo di sistema. Un `CustomFontDef` è un `FontChoice` a tutti gli effetti, scritto come `font.principale` o come voce di `font.aggiuntivi` — stesso oggetto, cambia solo dove lo scrivi. */
 export interface CustomFontDef {
     /** Chiave con cui è esposto — vedi `CUSTOM_FONT_KEY_PATTERN`. Non può coincidere con una voce
      *  di `SystemFont` (validato): l'endpoint disambigua provando prima il catalogo di sistema. */
     key: string;
     /** Nome CSS della font-family. */
     family: string;
-    /** Almeno una faccia (di solito la sola regular — il browser sintetizza bold/italic
-     *  mancanti). Pesi/stili duplicati non hanno senso, ma non sono validati: l'ultimo vince
-     *  nel lookup per indice, comportamento CSS normale su `@font-face` duplicate. */
+    /** Almeno una faccia (di solito la sola regular — browser e fontconfig sintetizzano bold/italic
+     *  mancanti). Pesi/stili duplicati non hanno senso, ma non sono validati: nel browser vince
+     *  l'ultima `@font-face` duplicata, lato server (metriche og, `fc-scan`) la prima (`closestFace`). */
     faces: readonly CustomFontFace[];
 }
 
-/** Una scelta di font — usata sia per `defaultFont` (il font del sito) sia per ogni voce di
- *  `addonFonts` (un font aggiuntivo, servito ma non necessariamente attivo): una voce di
+/** La faccia di `faces` più vicina al peso `weight` fra quelle a stile normale (fra tutte, se
+ *  nessuna è normale; a parità vince la prima): quella che fontconfig usa per disegnare quel peso.
+ *  `undefined` solo su lista vuota. */
+export function closestFace<F extends { weight: number; style: 'normal' | 'italic' }>(faces: readonly F[], weight: number): F | undefined {
+    const normal = faces.filter(f => f.style === 'normal');
+    let best: F | undefined;
+    for (const face of normal.length > 0 ? normal : faces) {
+        if (!best || Math.abs(face.weight - weight) < Math.abs(best.weight - weight)) best = face;
+    }
+    return best;
+}
+
+/** Una scelta di font — usata sia per `font.principale` (il font del sito) sia per ogni voce di
+ *  `font.aggiuntivi` (un font aggiuntivo, servito ma non necessariamente attivo): una voce di
  *  `SystemFont`, oppure un `CustomFontDef` PIENO (key/family/faces), scritto direttamente — non
  *  una `string` che rimanda altrove. Niente indirezione da tenere allineata: il font custom è
  *  l'oggetto stesso, in qualunque dei due punti lo scrivi. */
 export type FontChoice = SystemFont | CustomFontDef;
 
 /** Key di una `FontChoice` — il valore dell'enum per un `SystemFont`, `.key` per un `CustomFontDef`. */
-function choiceKey(choice: FontChoice): string {
+export function choiceKey(choice: FontChoice): string {
     return typeof choice === 'string' ? choice : choice.key;
 }
 
-/** `CustomFontVar` di una voce di `addonFonts`, in entrambe le forme di `FontChoice`. */
+/** `CustomFontVar` di una voce di `font.aggiuntivi`, in entrambe le forme di `FontChoice`. */
 function addonVar(entry: FontChoice): CustomFontVar {
     const key = choiceKey(entry);
     const family = typeof entry === 'string' ? SYSTEM_FONTS[entry].family : entry.family;
@@ -283,8 +288,8 @@ function fontFormatFor(fileName: string): FontFaceSource['format'] {
     return 'truetype';
 }
 
-/** Un font custom raggiungibile da SCSS di progetto indipendentemente da `defaultFont` — un
- *  `--fontFamily-<key>` per ogni voce di `addonFonts`, scelta o no come font attivo del sito. */
+/** Un font custom raggiungibile da SCSS di progetto indipendentemente da `font.principale` — un
+ *  `--fontFamily-<key>` per ogni voce di `font.aggiuntivi`, scelta o no come font attivo del sito. */
 export interface CustomFontVar {
     key: string;
     family: string;
@@ -293,14 +298,14 @@ export interface CustomFontVar {
 }
 
 /** Input di `resolveFonts` sotto — assemblato in `buildFinalConfig` (`siteBuilder.ts`) dai campi
- *  `defaultFont`/`addonFonts` del design system attivo. */
+ *  `font.principale`/`font.aggiuntivi` del design system attivo. */
 export interface AppFontConfig {
     /** Font del sito, un solo campo per tutto (nessuna distinzione titoli/corpo — chi la vuole la
      *  scrive in CSS, vedi `CustomFontDef`). Assente: font puro di sistema (`systemUiFonts()`). */
-    defaultFont?: FontChoice;
+    principale?: FontChoice;
     /** Font aggiuntivi disponibili per QUESTO sito — self-hosted come gli 11 di sistema, stesso
      *  endpoint, mai attivi di per sé (registrarne uno qui non lo rende il font del sito). */
-    addonFonts?: readonly FontChoice[];
+    aggiuntivi?: readonly FontChoice[];
 }
 
 /** Output di `resolveFonts`: quello che i consumer (AppearanceService, server.ts, PreviewBuilder,
@@ -315,15 +320,15 @@ export interface ResolvedFonts {
      *  davvero per il file). */
     serverStack: string;
     /** Key del font attivo, per le metriche server: il valore di `SystemFont`, o `.key` del
-     *  `CustomFontDef` attivo (`choiceKey()` di `defaultFont`). */
+     *  `CustomFontDef` attivo (`choiceKey()` di `font.principale`). */
     serverKey: string;
-    /** Sorgenti `@font-face` da iniettare: il font attivo PIÙ ogni voce di `addonFonts`
+    /** Sorgenti `@font-face` da iniettare: il font attivo PIÙ ogni voce di `font.aggiuntivi`
      *  registrata — anche quelle non scelte come font del sito, per restare raggiungibili da SCSS
      *  di progetto (vedi `customFontVars`). Deduplicate per chiave. Vuoto solo se non c'è alcuna
-     *  scelta e nessun `addonFonts` (font puro di sistema, es. `aria`). */
+     *  scelta e nessun `font.aggiuntivi` (font puro di sistema, es. `aria`). */
     fontFaces: readonly FontFaceSource[];
-    /** Un `--fontFamily-<key>` per ogni voce di `addonFonts` — sempre presente, scelta o no come
-     *  font attivo via `defaultFont`. */
+    /** Un `--fontFamily-<key>` per ogni voce di `font.aggiuntivi` — sempre presente, scelta o no come
+     *  font attivo via `font.principale`. */
     customFontVars: readonly CustomFontVar[];
 }
 
@@ -363,7 +368,7 @@ function familyAndGenericFor(
     }
     const def = customByKey.get(key);
     // Nessun generic dichiarabile per un font custom (il progetto non lo specifica): sans-serif,
-    // fallback neutro — stesso comportamento del vecchio `customFont` singolo.
+    // fallback neutro.
     return def ? { family: def.family, generic: 'sans-serif' } : null;
 }
 
@@ -371,18 +376,18 @@ function familyAndGenericFor(
  *  dichiarati esistano davvero è compito del layer server (`custom-font-detect.ts`/
  *  `system-font.ts`, con `fileExists` a runtime, non a costruzione). */
 export function resolveFonts(config: AppFontConfig): ResolvedFonts {
-    const addonFonts = config.addonFonts ?? [];
+    const aggiuntivi = config.aggiuntivi ?? [];
     const customByKey = new Map(
-        addonFonts.filter((c): c is CustomFontDef => typeof c !== 'string').map(c => [c.key, c])
+        aggiuntivi.filter((c): c is CustomFontDef => typeof c !== 'string').map(c => [c.key, c])
     );
 
-    const defaultChoice = config.defaultFont;
-    if (defaultChoice == null) return systemUiFonts(addonFonts);
+    const defaultChoice = config.principale;
+    if (defaultChoice == null) return systemUiFonts(aggiuntivi);
 
-    // Un defaultFont custom è un CustomFontDef scritto DIRETTAMENTE qui, non una key che rimanda
-    // ad addonFonts — lo si registra comunque nella mappa di lookup locale, cosicché facesFor()/
+    // Un `font.principale` custom è un CustomFontDef scritto DIRETTAMENTE qui, non una key che rimanda
+    // ad `font.aggiuntivi` — lo si registra comunque nella mappa di lookup locale, cosicché facesFor()/
     // familyAndGenericFor() (che lavorano per key, indifferenti a dove una definizione è stata
-    // dichiarata) lo risolvano esattamente come farebbero per una voce di addonFonts.
+    // dichiarata) lo risolvano esattamente come farebbero per una voce di `font.aggiuntivi`.
     if (typeof defaultChoice !== 'string') customByKey.set(defaultChoice.key, defaultChoice);
     const defaultKey = choiceKey(defaultChoice);
 
@@ -390,10 +395,10 @@ export function resolveFonts(config: AppFontConfig): ResolvedFonts {
     const webStack = resolved ? stack(`"${resolved.family}"`, resolved.generic) : SYSTEM_UI_STACK;
     // Mai riusare webStack per il server: porterebbe con sé il fallback emoji, che su Sharp/librsvg
     // corrompe le cifre (vedi commento di `stackServer`). "system-ui" non è comunque un nome
-    // fontconfig valido: nessun defaultFont configurato → stesso fallback di systemUiFonts() sotto.
+    // fontconfig valido: nessun `font.principale` configurato → stesso fallback di systemUiFonts() sotto.
     const serverStack = resolved ? stackServer(`"${resolved.family}"`, resolved.generic) : stackServer('"Liberation Sans"');
 
-    // fontFaces: il font scelto, PIÙ ogni addonFonts registrato (SystemFont o custom) — anche le
+    // fontFaces: il font scelto, PIÙ ogni `font.aggiuntivi` registrato (SystemFont o custom) — anche le
     // voci "secondarie" mai scelte come font del sito restano servite e raggiungibili da SCSS
     // (customFontVars sotto). Dedup per key: la stessa chiave non compare due volte.
     const included = new Set<string>();
@@ -404,32 +409,32 @@ export function resolveFonts(config: AppFontConfig): ResolvedFonts {
         fontFaces.push(...facesFor(key, customByKey));
     };
     include(defaultKey);
-    for (const c of addonFonts) include(choiceKey(c));
+    for (const c of aggiuntivi) include(choiceKey(c));
 
     return {
         webStack,
         serverStack,
         serverKey: defaultKey,
         fontFaces,
-        customFontVars: addonFonts.map(addonVar),
+        customFontVars: aggiuntivi.map(addonVar),
     };
 }
 
 /** Stack "nessuna scelta" — vedi `SYSTEM_UI_STACK` sopra. Usato da `resolveFonts()` quando il
- *  design system attivo non imposta `defaultFont`: l'unico caso in cui il sito resta sui font
- *  dell'OS, di proposito. Eventuali `addonFonts` dichiarati (ma non scelti in `defaultFont`)
+ *  design system attivo non imposta `font.principale`: l'unico caso in cui il sito resta sui font
+ *  dell'OS, di proposito. Eventuali `font.aggiuntivi` dichiarati (ma non scelti in `font.principale`)
  *  restano comunque serviti/raggiungibili da SCSS anche in questo caso — "nessuna opinione sul
  *  font" non vuol dire "nessun font disponibile". */
-export function systemUiFonts(addonFonts: readonly FontChoice[] = []): ResolvedFonts {
+function systemUiFonts(aggiuntivi: readonly FontChoice[] = []): ResolvedFonts {
     const customByKey = new Map(
-        addonFonts.filter((c): c is CustomFontDef => typeof c !== 'string').map(c => [c.key, c])
+        aggiuntivi.filter((c): c is CustomFontDef => typeof c !== 'string').map(c => [c.key, c])
     );
-    const fontFaces = addonFonts.flatMap(c => facesFor(choiceKey(c), customByKey));
+    const fontFaces = aggiuntivi.flatMap(c => facesFor(choiceKey(c), customByKey));
     return {
         webStack: SYSTEM_UI_STACK,
         serverStack: stackServer('"Liberation Sans"'),
         serverKey: SystemFont.Liberation,
         fontFaces,
-        customFontVars: addonFonts.map(addonVar),
+        customFontVars: aggiuntivi.map(addonVar),
     };
 }

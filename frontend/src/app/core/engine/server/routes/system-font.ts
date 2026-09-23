@@ -6,7 +6,7 @@ import { ContestoSito } from '../../../../site';
 import { customFontFacePath } from '../custom-font-detect';
 
 /** MIME per le estensioni font di progetto ammesse (gli 11 di `SYSTEM_FONTS` sono sempre `.ttf`,
- *  noto a priori — questa mappa serve solo ai font custom (`defaultFont` o `addonFonts`), che un
+ *  noto a priori — questa mappa serve solo ai font custom (`font.principale` o `font.aggiuntivi`), che un
  *  progetto può caricare in qualunque di questi formati). */
 const FONT_CONTENT_TYPE: Record<string, string> = {
     '.woff2': 'font/woff2',
@@ -16,7 +16,7 @@ const FONT_CONTENT_TYPE: Record<string, string> = {
 };
 
 /** Endpoint `/cdn-cgi/font/:key/:index` — serve i file reali di un font, di sistema (`SYSTEM_FONTS`)
- *  o custom di progetto (`customFontsCatalog`, incluse le voci "secondarie" di `addonFonts`), per
+ *  o custom di progetto (`customFontsCatalog`, incluse le voci "secondarie" di `font.aggiuntivi`), per
  *  il `@font-face` self-hosted. `:key` prova prima `SystemFont`, poi il catalogo custom; qualunque
  *  altra stringa è 404. `:index` è la posizione nell'array `faces` risolto, mai un nome file
  *  dall'esterno: nessun path traversal per costruzione. Un font di sistema assente è un'immagine

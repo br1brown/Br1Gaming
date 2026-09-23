@@ -26,6 +26,10 @@ public static class SecurityDefaults
 	/// <summary>Tipo del claim col payload di sessione, vedi <c>SessionPayload</c>.</summary>
 	public const string SessionClaimType = "session";
 
+	/// <summary>Claim emesso da <see cref="ApiKeyHandler"/> quando la API key è valida: la policy <see cref="RequireLoginPolicy"/> lo esige,
+	/// così un JWT da solo non basta (i due schemi fondono i principal e "autenticato" varrebbe con uno solo dei due).</summary>
+	public const string ApiKeyValidatedClaimType = "ApiKeyValidated";
+
 	/// <summary>Policy di rate limiting sull'endpoint di login.</summary>
 	public const string LoginRateLimitPolicy = "login";
 }
@@ -67,7 +71,7 @@ public class ApiKeyHandler : AuthenticationHandler<ApiKeySchemeOptions>
 		// Identità minima: certifica solo il client, non un utente. Il JWT Bearer (se attivo)
 		// aggiunge l'identità utente in seguito.
 		var identity = new ClaimsIdentity(Scheme.Name);
-		identity.AddClaim(new Claim("ApiKeyValidated", "true"));
+		identity.AddClaim(new Claim(SecurityDefaults.ApiKeyValidatedClaimType, "true"));
 		var principal = new ClaimsPrincipal(identity);
 		var authTicket = new AuthenticationTicket(principal, Scheme.Name);
 

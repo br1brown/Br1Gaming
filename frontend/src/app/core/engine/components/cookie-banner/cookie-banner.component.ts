@@ -25,12 +25,12 @@ export class CookieBannerComponent {
         return ContestoSito.config.cookiePolicy != null && this.pagemeta.currentPageType() === ContestoSito.config.cookiePolicy;
     });
 
-    /** `'discreto'` (default, storico): FAB di riapertura più piccolo/trasparente del `.fab`
+    /** `'discreto'` (default): FAB di riapertura più piccolo/trasparente del `.fab`
      *  standard. `'standard'`: stessa dimensione/opacità di `.fab` (es. `back-to-top`) — il LATO
      *  resta comunque opposto a `back-to-top` in entrambi i casi, apposta: stessa area di
      *  `inset-inline-end` raddoppierebbe la probabilità di sovrapporsi a un controllo di pagina.
-     *  `DesignSystemPreset.cookieReopenStile`. */
-    readonly reopenStandard = ContestoSito.config.cookieReopenStile === 'standard';
+     *  `DesignSystemPreset.fab.cookie`. */
+    readonly reopenStandard = ContestoSito.config.aspetto.fab.cookie === 'standard';
 
     /**
      * Modalità pannello: invece del banner fisso in overlay, rende gli stessi controlli di consenso
@@ -39,10 +39,10 @@ export class CookieBannerComponent {
      */
     readonly panelMode = input<boolean>(false);
 
-    /** Stato locale dei pending — inizializzati dal consenso già salvato, o attivi di default alla prima
-     *  apertura per TechnicalOptional (`pendingTechnicalOptional`: PWA built-in + eventuali cookie
-     *  di progetto nella stessa categoria, vedi CookieConsentService.isTechnicalOptionalNeeded). */
-    readonly pendingTechnicalOptional = signal(this.cookieConsent.responded() ? this.cookieConsent.technicalOptionalAccepted() : true);
+    /** Stato locale dei pending — inizializzati dal consenso già salvato, spenti alla prima apertura:
+     *  TechnicalOptional è a consenso come Analytics/Profiling, e uno switch pre-attivato non è
+     *  consenso valido (CGUE Planet49, C-673/17). */
+    readonly pendingTechnicalOptional = signal(this.cookieConsent.technicalOptionalAccepted());
     readonly pendingAnalytics = signal(this.cookieConsent.analyticsAccepted());
     readonly pendingProfiling = signal(this.cookieConsent.profilingAccepted());
 
@@ -50,10 +50,9 @@ export class CookieBannerComponent {
     readonly justSaved = signal(false);
 
     constructor() {
-        // In modalità pannello (sempre visibile) i toggle devono riflettere il consenso salvato:
-        // se cambia altrove (es. l'utente accetta dal banner fisso), riallineiamo i pending. Solo dopo
-        // che l'utente ha risposto — prima vale il default del field init (tecnici on) — e senza
-        // interferire con le modifiche in corso: `accepted*` cambia solo al salvataggio, non ai toggle.
+        // In modalità pannello i toggle seguono il consenso salvato anche se cambia altrove (banner fisso).
+        // Solo dopo una risposta (prima vale il default: tutto spento); `accepted*` cambia solo al
+        // salvataggio, quindi le modifiche in corso non vengono toccate.
         effect(() => {
             if (!this.panelMode() || !this.cookieConsent.responded()) return;
             this.pendingTechnicalOptional.set(this.cookieConsent.technicalOptionalAccepted());
@@ -63,9 +62,8 @@ export class CookieBannerComponent {
     }
 
     /** True se c'è almeno una categoria soggetta a consenso (TechnicalOptional/Analytics/Profiling):
-     *  decide se mostrare "Salva scelte". Stessa formula di `CookieConsentService.isNeeded()` — prima
-     *  mancava `isTechnicalOptionalNeeded()`, e un sito con solo quella categoria mostrava 2 pulsanti
-     *  senza Salva: il toggle si poteva flippare ma Accetta/Rifiuta tutto lo sovrascriveva comunque. */
+     *  decide se mostrare "Salva scelte". Stessa formula di `CookieConsentService.isNeeded()`: anche un
+     *  sito con la sola TechnicalOptional ha il suo Salva, accanto ad Accetta/Rifiuta tutto. */
     readonly hasDetailedCategories = computed(() =>
         this.cookieConsent.isTechnicalOptionalNeeded() || this.cookieConsent.isAnalyticsNeeded() || this.cookieConsent.isProfilingNeeded()
     );
@@ -75,13 +73,22 @@ export class CookieBannerComponent {
     readonly rejectLabel = computed(() => this.translate.translate('rifiutaTuttiBannerCookie'));
     readonly acceptLabel = computed(() => this.translate.translate('accettaTuttiBannerCookie'));
 
+    /** Chiave dell'avviso GPC: nomina solo le categorie che il segnale tiene davvero spente
+     *  (`gpcOptedOut`); null se nessuna, e l'avviso non compare. */
+    readonly gpcNoticeKey = computed(() => {
+        const { analytics, profiling } = this.cookieConsent.gpcOptedOut();
+        if (analytics && profiling) return 'gpcRilevatoBannerCookie';
+        if (analytics) return 'gpcRilevatoAnalyticsBannerCookie';
+        if (profiling) return 'gpcRilevatoProfilazioneBannerCookie';
+        return null;
+    });
+
     readonly bannerText = computed(() => {
         // La pagina Cookie Policy è quella valorizzata in `cookiePolicy` (site.ts), non un
         // PageType nominato qui: l'Engine resta agnostico ai nomi.
         const cookiePage = ContestoSito.config.cookiePolicy;
         const path = (cookiePage != null ? ContestoSito.getPath(cookiePage, this.translate.currentLang()) : null) ?? '';
-        const key = this.hasDetailedCategories() ? 'introBannerCookie' : 'testoBannerCookie';
-        return this.translate.translate(key, path);
+        return this.translate.translate('introBannerCookie', path);
     });
 
     reopen(): void {

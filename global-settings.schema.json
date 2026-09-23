@@ -52,6 +52,11 @@
           "default": 3000,
           "minimum": 1,
           "maximum": 65535
+        },
+        "hostingInfo": {
+          "type": "string",
+          "description": "Percorso del file con i fatti dell'installazione (hosting, CDN, reverse proxy, log del server), relativo alla cartella di global-settings.json o assoluto (es. '../hosting.json'). Un file per server, condiviso dai siti che ci girano; schema in frontend/src/app/core/engine/legal/hosting-info.schema.json. La Privacy Policy genera da qui la sezione 'Dati di navigazione'. Vive nel .local perché dipende da dove pubblichi. Assente = testo generico; indicato ma mancante o non valido = il frontend non parte.",
+          "examples": ["../hosting.json", "/etc/br1/hosting.json"]
         }
       }
     },
@@ -89,6 +94,18 @@
           "minItems": 1,
           "examples": [["it"], ["it", "en"]]
         }
+      }
+    },
+    "Features": {
+      "type": "object",
+      "description": "Funzioni opzionali dell'Engine accese dal progetto. Committato e senza segreti; voce assente = spenta. Il flag è l'interruttore, la configurazione in global-settings.local.json il requisito: configurazione presente con flag spento = funzione spenta, flag acceso senza configurazione = il backend non parte. Ogni flag vale per frontend e backend insieme: il frontend lo legge a compilazione (login, navbar, sezioni della Privacy Policy), il backend all'avvio (endpoint di login, invio email, segnalazione errori). Valori: true o false senza virgolette; qualunque altra forma ferma il build. Solo in questo file: né in global-settings.local.json né in variabili d'ambiente.",
+      "additionalProperties": false,
+      "properties": {
+        "Login": { "type": "boolean", "default": false, "description": "Login riservato (amministratori): la pagina indicata da loginPage in site.ts esiste ma non è linkata in navbar, e la Privacy Policy non ne parla. Richiede Security.Token.SecretKey." },
+        "PublicLogin": { "type": "boolean", "default": false, "description": "Login pubblico: link di login in navbar e sezione dedicata nella Privacy Policy. Vince su Login, che non serve accendere. Richiede Security.Token.SecretKey." },
+        "Mail": { "type": "boolean", "default": false, "description": "Invio email. Richiede Mail.Host e Mail.FromAddress. Accende la sezione dedicata della Privacy Policy." },
+        "ErrorReporting": { "type": "boolean", "default": false, "description": "Segnalazione errori via webhook. Richiede ErrorReporting.WebhookUrl. Accende la sezione dedicata della Privacy Policy." },
+        "Forms": { "type": "boolean", "default": false, "description": "Il sito raccoglie dati personali tramite form (contatti, newsletter, prenotazioni...). Accende la sezione dedicata della Privacy Policy." }
       }
     },
     "Security": {
@@ -153,12 +170,12 @@
         },
         "Token": {
           "type": "object",
-          "description": "Configurazione JWT per il sistema di login. Il login si attiva automaticamente quando SecretKey è valorizzata (>=32 caratteri); lasciare SecretKey vuota per disabilitarlo.",
+          "description": "Configurazione JWT del login. La SecretKey è il requisito, l'interruttore è Features.Login/PublicLogin (global-settings.json): chiave presente con login spento = login spento; login acceso senza chiave = il backend non parte.",
           "additionalProperties": false,
           "properties": {
             "SecretKey": {
               "type": "string",
-              "description": "Chiave segreta per firmare i JWT. Deve essere lunga almeno 32 caratteri in produzione. Lasciare vuota per disabilitare il login.",
+              "description": "Chiave segreta per firmare i JWT: almeno 32 byte UTF-8, senza spazi o a capo ai bordi, diversa dal segnaposto dell'esempio. Requisito di Features.Login/PublicLogin; setup.mjs la genera già.",
               "examples": ["", "supersecretjwtkeyatleast32characters"]
             },
             "ExpirationSeconds": {
@@ -168,17 +185,12 @@
               "minimum": 60
             }
           }
-        },
-        "CryptoSecret": {
-          "type": "string",
-          "description": "Chiave segreta per il servizio di cifratura generico dell'engine (EngineCrypto, AES-256-GCM) — usata ad es. dall'export dati personali (GET /me/data). Volutamente separata da Token.SecretKey: non va derivata da essa né riusata altrove. setup.mjs la genera già alla nascita del progetto, indipendentemente dal login. Rigenerarla con: openssl rand -base64 32.",
-          "examples": ["", "supersecretcryptokeyatleast32characters"]
         }
       }
     },
     "Mail": {
       "type": "object",
-      "description": "Configurazione SMTP del mailer dell'engine (EngineMailer). Contiene SEGRETI (password) → vive in global-settings.local.json. Si attiva come il login: senza Host e FromAddress il mailer resta spento e ogni invio risponde 503. Volutamente generica (SMTP standard): lo stesso codice spedisce con OVH, Brevo, Mailgun, Amazon SES, Gmail o un relay locale cambiando solo questi valori. Per non finire in spam, FromAddress deve stare sul tuo dominio e vanno configurati i record DNS SPF/DKIM/DMARC.",
+      "description": "Configurazione SMTP del mailer dell'engine (EngineMailer). Contiene SEGRETI (password) → vive in global-settings.local.json. Requisito di Features.Mail: il mailer è acceso solo con Features.Mail e Host+FromAddress presenti; spento, ogni invio risponde 503. Features.Mail acceso senza Host/FromAddress = il backend non parte. Volutamente generica (SMTP standard): lo stesso codice spedisce con OVH, Brevo, Mailgun, Amazon SES, Gmail o un relay locale cambiando solo questi valori. Per non finire in spam, FromAddress deve stare sul tuo dominio e vanno configurati i record DNS SPF/DKIM/DMARC.",
       "additionalProperties": false,
       "properties": {
         "Host": {
@@ -239,12 +251,12 @@
     },
     "ErrorReporting": {
       "type": "object",
-      "description": "Segnalazione errori dell'engine (IErrorReportingService): un POST JSON verso un webhook esterno per ogni eccezione non applicativa o applicativa con status >=500. Non contiene segreti in senso stretto ma vive comunque in global-settings.local.json perché è pubblicazione/ambiente, non identità del progetto. Volutamente senza SDK di terze parti: un webhook HTTP generico, non l'endpoint proprietario di un vendor. Spento di default (WebhookUrl vuoto).",
+      "description": "Segnalazione errori dell'engine (IErrorReportingService): un POST JSON verso un webhook esterno per ogni eccezione non applicativa o applicativa con status >=500. Non contiene segreti in senso stretto ma vive comunque in global-settings.local.json perché è pubblicazione/ambiente, non identità del progetto. Volutamente senza SDK di terze parti: un webhook HTTP generico, non l'endpoint proprietario di un vendor. Requisito di Features.ErrorReporting: attivo solo con il flag acceso e WebhookUrl valorizzato.",
       "additionalProperties": false,
       "properties": {
         "WebhookUrl": {
           "type": "string",
-          "description": "URL del webhook a cui inviare la segnalazione (POST JSON: message, exceptionType, statusCode, path, method, stackTrace troncato, timestamp). Vuoto = spento, nessuna chiamata uscente.",
+          "description": "URL del webhook a cui inviare la segnalazione (POST JSON: message, exceptionType, statusCode, path, method, stackTrace troncato, timestamp). Vuoto con Features.ErrorReporting spento = nessuna chiamata uscente; vuoto con il flag acceso = il backend non parte.",
           "examples": ["", "https://esempio.tld/webhook/errori"]
         }
       }
@@ -284,7 +296,7 @@
     },
     "site": {
       "type": "object",
-      "description": "Identità ed estetica MINIMA del sito (committabile, del progetto). Iniettata nel frontend al build via environment.ts. Tutto ciò che è aspetto/comportamento (showNav, showFooter, showPanel, fixedTopHeader, panelSurface, forceThemeTone, ogImagePlain, superfici, ruoloPagina, i quattro override colore, l'effetto smoke) non è un campo di questo file: è decisione del design system attivo (`DesignSystemPreset`, scelto o esteso in site.ts via `shell.designSystem`). `shell` stesso resta minimo (solo `designSystem`/`showNotifications`); `isWebApp` e il `showInHeader` di `loginPage` sono campi propri di site.ts, non di `shell` né del design system. Il menu di header/footer e l'icona di brand sono dato risolto a runtime in nav.ts.",
+      "description": "Identità ed estetica MINIMA del sito (committabile, del progetto). Iniettata nel frontend al build via environment.ts. Qui c'è un solo colore, `colorTema` (il brand). Tutto il resto dell'aspetto (tono, superfici e pannello, palette, navbar, footer, breadcrumb, movimento, font, og:image, effetto smoke, comportamento per ruolo di pagina) non è un campo di questo file: lo decide il design system attivo (`DesignSystemPreset`), scelto o esteso in site.ts e passato a `shell.designSystem`. `shell` ha solo `designSystem` e `showNotifications`; `isWebApp` è un campo proprio di site.ts; il link di login in navbar lo decide Features.PublicLogin. Il menu di header/footer e l'icona di brand sono dato risolto a runtime in nav.ts.",
       "additionalProperties": false,
       "properties": {
         "description": {

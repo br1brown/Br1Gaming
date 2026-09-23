@@ -61,11 +61,26 @@ function buildProxy(): RequestHandler {
                 else proxyReq.removeHeader('x-forwarded-proto');
                 if (host) proxyReq.setHeader('x-forwarded-host', host);
                 else proxyReq.removeHeader('x-forwarded-host');
+
+                // Stream SSE: proxyTimeout è un timeout di inattività sulla risposta, e un canale di
+                // notifiche è inattivo per definizione fra un evento e l'altro. Senza questo, con un
+                // heartbeat del backend più lungo del timeout il proxy taglierebbe lo stream.
+                if ((r.headers['accept'] ?? '').includes('text/event-stream')) proxyReq.setTimeout(0);
+            },
+            proxyRes: (proxyRes, _req, res) => {
+                // Il backend chiude a metà (crash, timeout idle): http-proxy fa solo pipe, e senza
+                // questo la risposta al client resterebbe aperta finché non scade il suo timeout.
+                const drop = () => { if (!res.writableEnded) res.destroy(); };
+                proxyRes.on('aborted', drop);
+                proxyRes.on('error', drop);
             },
             error: (err, _req, res) => {
                 const response = res as Response;
                 console.error('[proxy /api]', `requestId=${response.locals?.['requestId']}`, err);
-                if (!response.headersSent) {
+                if (response.headersSent) {
+                    // Header già partiti: niente 502 possibile, ma nemmeno una risposta appesa.
+                    response.destroy();
+                } else {
                     // ECONNRESET/ETIMEDOUT = timeout reale → 504. ECONNREFUSED/ENOTFOUND/EHOSTUNREACH
                     // = backend non raggiungibile → 502 Bad Gateway (non un timeout).
                     const code = (err as NodeJS.ErrnoException).code;

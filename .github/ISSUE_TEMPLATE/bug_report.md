@@ -29,4 +29,4 @@ Se applicabile, aggiungi screenshot o log della console per aiutare a spiegare i
  - Versione Node/Angular: [es. Node 22, Angular 21]
 
 **Contesto aggiuntivo**
-Aggiungi qui qualsiasi altro contesto sul problema. Succede solo con `LoginEnabled: true`? Rompe l'idratazione (Hydration) dell'SSR?
+Aggiungi qui qualsiasi altro contesto sul problema. Succede solo con il login acceso (`Features.Login` o `Features.PublicLogin` in `global-settings.json`)? Rompe l'idratazione (Hydration) dell'SSR?

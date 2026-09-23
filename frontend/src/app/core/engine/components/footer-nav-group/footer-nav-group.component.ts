@@ -7,8 +7,8 @@ import { OpeningHoursComponent } from '../opening-hours/opening-hours.component'
 import { FooterGroupChild, footerLeafKey } from '../../shell-nav';
 
 /** Gruppo del footer reso ricorsivamente: intestazione + lista dei figli — link/pagina, sottogruppo
- *  (`level` incrementato, indentazione crescente), valore `Identity`/testo libero (stesso
- *  vocabolario visivo di `app-identity-render`), orari, social esplicito, o un componente proprio
+ *  (`level` incrementato, indentazione crescente), valore `Identity`/testo libero, orari, social
+ *  esplicito, o un componente proprio
  *  del progetto (`addCustom`, via `NgComponentOutlet`). Liste statiche, nessuna interazione. */
 @Component({
     selector: 'app-footer-nav-group',

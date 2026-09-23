@@ -85,6 +85,8 @@ run_test() {
 # Ordine: statici prima (veloci, nessun server), live dopo (richiedono BASE_URL).
 # i18n e tsc prima di a11y/lighthouse perché fallire su un errore di tipo
 # o una chiave mancante è più veloce e informativo di un errore a runtime.
+# tsc-check e theme-check lanciano da sé generate:statics (tema Sass, statici):
+# nessun passo di generazione da ordinare qui.
 #
 # Aggiungi --required ai test che DEVONO girare; senza flag sono opzionali.
 run_test "Lint"                 "${SCRIPT_DIR}/lint-check.sh"

@@ -1,12 +1,14 @@
 /** Configurazione dell'ambiente Node SSR, letta una volta al boot: unica sorgente per server.ts e app.config.server.ts. Sezioni lazy (l'import non legge env var, così la route extraction non le richiede); validazione in server.ts, non qui. */
 
 import { readFileSync, existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import type { GlobalSettings } from '../global-settings.types';
 import { deepMergeSettings } from '../scripts/config/settings-merge';
 import type { CspOverride } from './csp';
 import type { PermissionsPolicyOverride } from './permissions-policy';
+import { parseHostingInfo, type HostingInfo, type LegalFacts } from '../legal/hosting-info';
+import { environment } from '../../../../environments/environment';
 
 // ── Lettura global-settings.json (+ override global-settings.local.json) ──────────────
 // GLOBAL_SETTINGS_PATH (Docker) → cwd → ../cwd (dev locale). In dev i segreti stanno in
@@ -145,9 +147,49 @@ function br1(): Br1Json {
     return (_br1 ??= loadBr1Settings()) as Br1Json;
 }
 
+/** File dei fatti dell'installazione: HOSTING_INFO_PATH (Docker: lo monta il deploy, `/dev/null` se non
+ *  configurato) oppure `frontend.hostingInfo` relativo alla cartella di global-settings.json (dev locale).
+ *  File vuoto o percorso non configurato = null; file mancante o non valido = errore. */
+function loadHostingInfo(): HostingInfo | null {
+    const configured = br1().frontend?.hostingInfo?.trim();
+    const settingsDir = [process.env['GLOBAL_SETTINGS_PATH'], resolve(process.cwd(), 'global-settings.json'), resolve(process.cwd(), '../global-settings.json')]
+        .find((p): p is string => Boolean(p) && existsSync(p!));
+    const file = process.env['HOSTING_INFO_PATH']
+        || (configured ? resolve(settingsDir ? dirname(settingsDir) : process.cwd(), configured) : '');
+    if (!file) return null;
+    if (!existsSync(file)) throw new Error(`[br1-engine] frontend.hostingInfo: il file ${file} non esiste.`);
+    const text = readFileSync(file, 'utf-8').trim();
+    if (!text) return null;
+    let raw: unknown;
+    try { raw = JSON.parse(text); } catch { throw new Error(`[br1-engine] ${file}: JSON non valido.`); }
+    return parseHostingInfo(raw, file);
+}
+
+let _hostingInfo: HostingInfo | null | undefined;
+
 /** Accesso diretto all'intero global-settings.json (tipizzato) — utile per leggere Custom.*  */
 export function getBr1Settings(): GlobalSettings {
     return (_br1 ??= loadBr1Settings()) as GlobalSettings;
+}
+
+/** Fatti per la Privacy Policy (installazione, sito coperto, finestra del rate limiting): stessa fonte per
+ *  il provider Angular (SSR di ogni pagina) e per l'endpoint di scorta (`/internal/legal-facts`), che il
+ *  browser interroga solo quando una pagina caricata senza SSR (`requiresAuth`) non gliel'ha già passata.
+ *  Già ridotti a ciò che il testo scrive (vedi `LegalFacts`): il limite spento è `null`, non "spento", e la finestra
+ *  dei login entra solo col login acceso, fusa in un solo numero. Calcolati una volta: la configurazione non cambia
+ *  a processo avviato. */
+let _legalFacts: LegalFacts | undefined;
+export function computeLegalFacts(): LegalFacts {
+    return (_legalFacts ??= (() => {
+        const rl = getBr1Settings().Security?.ApiConfig?.RateLimiting;
+        const attivo = rl?.Enabled ?? true;
+        const finestra = Math.max(rl?.Global?.WindowSeconds ?? 60, environment.features.login ? rl?.Login?.WindowSeconds ?? 60 : 0);
+        return {
+            installazione: serverEnv.hostingInfo,
+            sito: serverEnv.site.baseUrl || null,
+            limiteRichiesteSecondi: attivo ? finestra : null,
+        };
+    })());
 }
 
 // ── Interfacce ────────────────────────────────────────────────────────────────
@@ -164,8 +206,8 @@ export interface BackendEnv {
 export interface NodeServerEnv {
     /** Porta di ascolto. Impostata da PORT (default: 3000). */
     readonly port: number;
-    /** Valore per Express `trust proxy`. Impostato da TRUST_PROXY. */
-    readonly trustProxy: string;
+    /** Valore per Express `trust proxy`. Impostato da TRUST_PROXY: `true`/`false`, un numero di hop, o una lista di reti/nomi. */
+    readonly trustProxy: boolean | number | string;
     /** Timeout ms per le chiamate proxy al backend. Impostato da PROXY_TIMEOUT_MS (default: 30000). */
     readonly proxyTimeout: number;
     /** Host autorizzati per le richieste SSR. Impostato da NG_ALLOWED_HOSTS (lista separata
@@ -224,6 +266,9 @@ export interface ServerEnv {
     readonly server: NodeServerEnv;
     readonly site: SiteEnv;
     readonly security: SecurityEnv;
+    /** Fatti dell'installazione per le pagine legali (file di `frontend.hostingInfo`); null se non configurato.
+     *  Lancia se il file configurato manca o non rispetta lo schema: server.ts lo controlla all'avvio. */
+    readonly hostingInfo: HostingInfo | null;
 }
 
 // ── Helper ────────────────────────────────────────────────────────────────────
@@ -243,13 +288,30 @@ const parseBool = (value: string | undefined): boolean =>
  *  Il fallback a host locali espliciti permette lo sviluppo locale senza configurazione aggiuntiva. */
 const LOCAL_DEV_HOSTS: readonly string[] = ['localhost', '127.0.0.1', '[::1]'];
 
-/** Parsa la lista host separata da virgole; se vuota (né NG_ALLOWED_HOSTS né frontend.hostname), ripiega su LOCAL_DEV_HOSTS. */
-const parseAllowedHosts = (value: string | undefined): readonly string[] => {
+/** Parsa la lista host separata da virgole; se vuota (né NG_ALLOWED_HOSTS né frontend.hostname), ripiega su LOCAL_DEV_HOSTS.
+ *  L'host canonico di `FRONTEND_BASE_URL` (es. `www.dominio.it` con `frontend.hostname` senza www) entra sempre:
+ *  altrimenti ogni richiesta finirebbe 301 verso un host che il server stesso rifiuta con 421. */
+const parseAllowedHosts = (value: string | undefined, baseUrl?: string): readonly string[] => {
     const hosts = (value ?? '')
         .split(',')
         .map((host) => host.trim())
         .filter((host) => host.length > 0);
-    return hosts.length > 0 ? hosts : LOCAL_DEV_HOSTS;
+    const list = hosts.length > 0 ? hosts : [...LOCAL_DEV_HOSTS];
+    try {
+        const canonical = baseUrl ? new URL(baseUrl).hostname.toLowerCase() : '';
+        if (canonical && !list.some(h => h.toLowerCase() === canonical)) list.push(canonical);
+    } catch { /* baseUrl malformato: nessun canonico, nessun redirect */ }
+    return list;
+};
+
+/** `TRUST_PROXY` come lo vuole Express: `'true'`/`'false'` booleani, un numero di hop, altrimenti la lista di reti/nomi.
+ *  Una stringa `'true'` passata tale quale farebbe lanciare Express (`invalid IP address: true`) all'avvio. */
+const parseTrustProxy = (value: string | undefined): boolean | number | string => {
+    const v = (value ?? '').trim();
+    if (!v) return 'loopback, linklocal, uniquelocal';
+    if (/^(true|false)$/i.test(v)) return v.toLowerCase() === 'true';
+    if (/^\d+$/.test(v)) return Number(v);
+    return v;
 };
 
 // ── Configurazione lazy per sezione ──────────────────────────────────────────
@@ -275,9 +337,9 @@ export const serverEnv: ServerEnv = {
         const hostname = br1().frontend?.hostname ?? '';
         return _server ??= {
             port:         parsePositiveInt(process.env['PORT'], br1().frontend?.port ?? 3000),
-            trustProxy:   process.env['TRUST_PROXY'] ?? 'loopback, linklocal, uniquelocal',
+            trustProxy:   parseTrustProxy(process.env['TRUST_PROXY']),
             proxyTimeout: parsePositiveInt(process.env['PROXY_TIMEOUT_MS'], 30_000),
-            allowedHosts: parseAllowedHosts(process.env['NG_ALLOWED_HOSTS'] || hostname),
+            allowedHosts: parseAllowedHosts(process.env['NG_ALLOWED_HOSTS'] || hostname, process.env['FRONTEND_BASE_URL']),
         };
     },
     get site(): SiteEnv {
@@ -291,6 +353,10 @@ export const serverEnv: ServerEnv = {
             fontsDir:            process.env['FONTS_DIR'] || resolve(process.cwd(), 'fonts'),
             webOptQuality:       media?.WebOptQuality ?? 85,
         };
+    },
+    get hostingInfo(): HostingInfo | null {
+        if (_hostingInfo === undefined) _hostingInfo = loadHostingInfo();
+        return _hostingInfo;
     },
     get security(): SecurityEnv {
         const loaded = (_securityHeaders ??= loadSecurityHeaders());

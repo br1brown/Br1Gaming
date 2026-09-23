@@ -17,6 +17,7 @@
     },
     "colorTema": "#131e55"
   },
+  "Features": { "Login": false, "PublicLogin": true, "Mail": false, "ErrorReporting": false, "Forms": false },
   "Custom": {
     "esempio": "valore di progetto leggibile anche dal browser via APP_CUSTOM"
   }

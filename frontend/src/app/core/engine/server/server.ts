@@ -11,6 +11,7 @@ import {
 } from '@angular/ssr/node';
 import { serverEnv, assertRequiredEnv, getBr1Settings } from './server-env';
 import { fingerprintIdentitySections } from '../scripts/config/config-fingerprint';
+import { readFeaturesLikeBackend } from '../scripts/config/features';
 import { environment } from '../../../../environments/environment';
 import { API_PREFIX } from '../asset-config';
 import { browserDistFolder } from './server-paths';
@@ -25,6 +26,7 @@ import { apiProxyHandler } from './routes/api-proxy';
 import { cdnAssetHandler } from './routes/cdn-asset';
 import { ogPreviewHandler } from './routes/og-preview';
 import { dynamicSitemapHandler, revalidateSitemapHandler, dynamicAuditPathsHandler, dynamicLlmsTxtHandler } from './routes/dynamic-sitemap';
+import { legalFactsHandler } from './routes/legal-facts';
 import { securityTxtHandler } from './routes/dynamic-security-txt';
 import { systemFontHandler } from './routes/system-font';
 
@@ -53,7 +55,7 @@ const canonicalHost: string | null = (() => {
 if (environment.configFingerprint !== fingerprintIdentitySections(getBr1Settings())) {
     console.warn(
         '[br1-engine] src/environments/environment.ts sembra disallineato da global-settings.json ' +
-        '(project/Localization/site). Esegui `npm run generate:statics` (già incluso in ' +
+        '(project/Localization/site/Features). Esegui `npm run generate:statics` (già incluso in ' +
         '`npm run dev`/`start`/`build`: capita solo lanciando `ng serve` direttamente).'
     );
 }
@@ -257,6 +259,9 @@ app.post('/internal/revalidate-sitemap', revalidateSitemapHandler);
 /** Path dinamici per audit live (Pa11y / Lighthouse). */
 app.get('/internal/dynamic-audit-paths', dynamicAuditPathsHandler);
 
+/** Fatti per la Privacy Policy: scorta per il browser sulle pagine senza SSR (vedi routes/legal-facts.ts). */
+app.get('/internal/legal-facts', legalFactsHandler);
+
 /** Sicurezza: nega l'accesso diretto alla cartella file per forzare l'uso della CDN via ID */
 app.use('/assets/files', (_req, res) => { res.status(404).end(); });
 
@@ -397,7 +402,29 @@ app.use(async (request: Request, response: Response, next) => {
 
 /** Avvio del server se il file è eseguito come modulo principale (node server.mjs) */
 if (isMainModule(import.meta.url)) {
-    assertRequiredEnv();
+    // Controlli di avvio: un errore qui chiude il processo con codice 1. Un throw nudo lo
+    // intercetterebbe il gestore globale di @angular/ssr, che logga e lascia uscire con 0.
+    try {
+        assertRequiredEnv();
+        // Features compilato (environment.ts) contro quello del file montato, letto come lo legge il
+        // backend: se divergono (Features nel .local, chiave in minuscolo, "true" come stringa, build
+        // vecchio) il backend farebbe cose che navbar e Privacy Policy non dicono. Meglio non partire.
+        const runtimeFeatures = readFeaturesLikeBackend(getBr1Settings() as Record<string, unknown>);
+        // Fatti dell'installazione per la Privacy Policy: un file indicato ma assente o sbagliato ferma l'avvio.
+        if (serverEnv.hostingInfo === null) {
+            console.warn('[frontend] frontend.hostingInfo non configurato: la Privacy Policy usa il testo generico sui dati di navigazione.');
+        }
+        if (JSON.stringify(runtimeFeatures) !== JSON.stringify(environment.features)) {
+            throw new Error(
+                '[br1-engine] Features del file montato non coincide con quello compilato nel frontend: ' +
+                `compilato ${JSON.stringify(environment.features)}, montato ${JSON.stringify(runtimeFeatures)}. ` +
+                'Features va solo in global-settings.json (non nel .local), poi va ricompilato il frontend.'
+            );
+        }
+    } catch (error) {
+        console.error(error instanceof Error ? error.message : error);
+        process.exit(1);
+    }
 
     // Pulizia periodica della cache immagini
     pruneImageCache();

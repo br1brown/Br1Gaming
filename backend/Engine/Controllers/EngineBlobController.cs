@@ -116,8 +116,19 @@ public sealed class EngineBlobController : EngineApiController
             // per gli altri richiedenti ancora connessi in attesa dello stesso Task.
             var content = await _weboptCache.GetOrCreateAsync($"{slug}:{resolvedSize}", async () =>
             {
-                using var imageStream = await _blobs.OpenReadAsync(slug, CancellationToken.None) ?? throw new NotFoundException("blob");
-                return ResizeImageForWeb(imageStream, resolvedSize, _media.WebOptQuality).FileContents;
+                // Il tetto di 40 MP vale per la singola decodifica; questo per la somma: ogni decodifica
+                // alloca ~4 byte/pixel e N slug × 11 size richiesti in parallelo da chiunque passi dal
+                // proxy SSR farebbero cadere il container. Le eccedenti aspettano il loro turno.
+                await ResizeSlots.WaitAsync(CancellationToken.None);
+                try
+                {
+                    using var imageStream = await _blobs.OpenReadAsync(slug, CancellationToken.None) ?? throw new NotFoundException("blob");
+                    return ResizeImageForWeb(imageStream, resolvedSize, _media.WebOptQuality).FileContents;
+                }
+                finally
+                {
+                    ResizeSlots.Release();
+                }
             });
             return File(content, "image/webp");
         }
@@ -173,7 +184,7 @@ public sealed class EngineBlobController : EngineApiController
             throw new PayloadTooLargeException();
 
         var extension = Path.GetExtension(file.FileName);
-        await using var source = file.OpenReadStream();
+        await using var source = await OpenScrubbedAsync(file, ct);
         var slug = await _blobs.SaveAsync(source, extension, ct);
 
         Logger.LogInformation("Blob caricato: {Slug}", slug);
@@ -197,11 +208,32 @@ public sealed class EngineBlobController : EngineApiController
             throw new PayloadTooLargeException();
 
         var extension = Path.GetExtension(file.FileName);
-        await using var source = file.OpenReadStream();
+        await using var source = await OpenScrubbedAsync(file, ct);
         var newSlug = await _blobs.ReplaceAsync(slug, source, extension, ct);
 
         Logger.LogInformation("Blob sostituito: {OldSlug} → {NewSlug}", slug, newSlug);
         return Ok(new { slug = newSlug });
+    }
+
+    /// <summary>Il contenuto da salvare: JPEG/PNG/WebP letti in memoria e ripuliti dalla posizione (<see cref="ImageLocationScrubber"/>),
+    /// ogni altro file lo stream dell'upload così com'è. Un JPEG/PNG/WebP illeggibile è rifiutato, mai salvato.</summary>
+    private static async Task<Stream> OpenScrubbedAsync(IFormFile file, CancellationToken ct)
+    {
+        var header = new byte[ImageLocationScrubber.HeaderLength];
+        int read;
+        await using (var probe = file.OpenReadStream())
+            read = await probe.ReadAtLeastAsync(header, header.Length, throwOnEndOfStream: false, ct);
+        if (!ImageLocationScrubber.IsSupported(header.AsSpan(0, read)))
+            return file.OpenReadStream();
+
+        // Oltre Array.MaxLength (~2 GB) un array .NET non si alloca: un'immagine così è rifiutata come troppo grande.
+        if (file.Length > Array.MaxLength)
+            throw new PayloadTooLargeException();
+        var buffer = new byte[file.Length];
+        await using (var input = file.OpenReadStream())
+            await input.ReadExactlyAsync(buffer, ct);
+        var scrubbed = ImageLocationScrubber.Scrub(buffer); // InvalidImageException (400) se la struttura non si legge
+        return new MemoryStream(scrubbed.Array!, scrubbed.Offset, scrubbed.Count, writable: false);
     }
 
     /// <summary>Cancella il blob dello <c>slug</c>. Richiede API key + JWT.</summary>
@@ -215,6 +247,9 @@ public sealed class EngineBlobController : EngineApiController
         Logger.LogInformation("Blob cancellato: {Slug}", slug);
         return NoContent();
     }
+
+    /// <summary>Decodifiche <c>webopt</c> in corso al massimo: una per core. Statico: vale per tutte le istanze del controller.</summary>
+    private static readonly SemaphoreSlim ResizeSlots = new(Math.Max(1, Environment.ProcessorCount));
 
     /// <summary>
     /// Dato uno stream immagine, restituisce un <see cref="FileContentResult"/> con il lato più lungo

@@ -7,7 +7,6 @@ using Microsoft.Extensions.Localization;
 using Backend;
 using Backend.Diagnostics;
 using Backend.Models;
-using Backend.Tasks;
 
 namespace Backend.Security;
 
@@ -18,21 +17,21 @@ public class ApiExceptionHandler : IExceptionHandler
     private readonly IStringLocalizer<SharedResource> _localizer;
     private readonly ILogger<ApiExceptionHandler> _logger;
     private readonly IErrorReportingService _errorReporting;
-    private readonly IBackgroundTaskQueue _backgroundQueue;
+    private readonly ErrorReportQueue _reports;
 
-    /// <summary>Inietta i servizi Problem Details, localizzazione, logging, error reporting e coda background.</summary>
+    /// <summary>Inietta i servizi Problem Details, localizzazione, logging, error reporting e la sua coda dedicata.</summary>
     public ApiExceptionHandler(
         IProblemDetailsService problemDetails,
         IStringLocalizer<SharedResource> localizer,
         ILogger<ApiExceptionHandler> logger,
         IErrorReportingService errorReporting,
-        IBackgroundTaskQueue backgroundQueue)
+        ErrorReportQueue reports)
     {
         _problemDetails = problemDetails;
         _localizer = localizer;
         _logger = logger;
         _errorReporting = errorReporting;
-        _backgroundQueue = backgroundQueue;
+        _reports = reports;
     }
 
     /// <summary>Merita una segnalazione: un bug vero, o un'<see cref="ApiException"/> con status ≥500. Un 4xx applicativo è traffico normale (altrimenti ogni 404 di un bot manderebbe un alert).</summary>
@@ -60,8 +59,7 @@ public class ApiExceptionHandler : IExceptionHandler
                 Method = httpContext.Request.Method,
                 StackTrace = exception.StackTrace,
             };
-            _backgroundQueue.TryEnqueue((services, ct) =>
-                services.GetRequiredService<IErrorReportingService>().ReportAsync(report, ct));
+            _reports.Enqueue(report);
         }
 
         if (exception is not ApiException apiEx)

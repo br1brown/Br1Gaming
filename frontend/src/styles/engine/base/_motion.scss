@@ -1,21 +1,27 @@
 /* page-fade — fade-in d'ingresso del contenuto di pagina. La classe `.page-fade` è applicata
-   sull'host della pagina da PageBaseComponent (@HostBinding), gated dal flag pageFade (config sito).
-   Sta in `base` (sempre caricato): senza questo CSS la classe messa dall'host binding sarebbe inerte.
-   Si somma alla crossfade globale del router (withViewTransitions). */
+   sull'host della pagina da PageBaseComponent (@HostBinding) se la rotta ha `pageFade`: di serie
+   `aspetto.transizioni` (spento con `movimento: 'fermo'`), per ruolo `ruoloPagina.<ruolo>.pageFade`.
+   Sta in `base` (sempre caricato): senza questo CSS la classe messa dall'host binding sarebbe inerte. */
 
 @keyframes pageFade {
     from { opacity: 0; }
     to   { opacity: 1; }
 }
 
-/* Durata decisa dal design system attivo (`DesignSystemPreset.movimento`, default 'svelto' — 0.25s
-   qui sotto resta il fallback se `--movimentoPagina` non è ancora iniettata, vedi AppearanceService). */
+/* Durata da `movimento` del design system (0.25s se la variabile manca). */
 .page-fade {
     animation: pageFade var(--movimentoPagina, 0.25s) ease-out;
 }
 
+/* Transizione del router: la dissolvenza incrociata del browser, con la durata di `movimento`. */
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation-duration: var(--movimentoPagina, 0.25s);
+}
+
 /* WCAG 2.2 — niente movimento se l'utente preferisce ridurlo. Guardia engine-side, così è
-   garantita per ogni figlio senza che debba ricordarsene. */
+   garantita per ogni figlio senza che debba ricordarsene (per le view transition c'è già la
+   guardia in _a11y.scss). */
 @media (prefers-reduced-motion: reduce) {
     .page-fade { animation: none; }
 }

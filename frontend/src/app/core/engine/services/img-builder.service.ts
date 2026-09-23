@@ -1014,9 +1014,11 @@ export class ImgBuilderService {
         return text.length * fontSize * 0.55;
     }
 
-    /** Normalizza i ritorni a capo e comprime gli spazi multipli. */
+    /** Porta il testo in NFC (`e` + accento combinante → `é`, la forma che si misura e si disegna),
+     *  normalizza i ritorni a capo e comprime gli spazi multipli. */
     static normalizeWhitespace(text: string): string {
         return text
+            .normalize('NFC')
             .replace(/\r\n/g, '\n')
             .split('\n')
             .map(riga => riga.replace(/\s+/g, ' ').trim())

@@ -7,18 +7,38 @@ import type { SiteRenderMode } from './core/engine/siteBuilder';
 import { SSR_BACKEND_ORIGIN, SSR_API_KEY } from './core/engine/services/base-api.service';
 import { LEGAL_FILE_READER } from './core/engine/pages/content.resolver';
 import { SSR_PREVIEW_ENCRYPT_FN, SSR_FRONTEND_ORIGIN } from './core/engine/services/page-meta.service';
-import { AppearanceService } from './core/engine/services/appearance.service';
-import { MUTEZZA_SECONDARIO_FATTORE, SEPARAZIONE_SUPERFICI_FATTORE } from './core/engine/design-system-presets';
-import { serverEnv, getBr1Settings } from './core/engine/server/server-env';
+import { AppearanceService, siteOverrides } from './core/engine/services/appearance.service';
+import { serverEnv, getBr1Settings, computeLegalFacts } from './core/engine/server/server-env';
 import { PreviewCrypto } from './core/engine/server/preview-crypto.server';
 import { LOCALE_CONFIG, LOCALE_STATE_KEY, type LocaleConfig } from './core/engine/services/translate.service';
 import { APP_CUSTOM, CUSTOM_STATE_KEY, type AppCustom } from './core/engine/app-custom';
+import { LEGAL_FACTS, LEGAL_FACTS_STATE_KEY, type LegalFacts } from './core/engine/legal/hosting-info';
 import { fileURLToPath } from 'node:url';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 
 const serverDistFolder = dirname(fileURLToPath(import.meta.url));
 const browserDistFolder = resolve(serverDistFolder, '../browser');
+const legalDistFolder = join(browserDistFolder, 'assets', 'legal');
+/** Testi legali su disco: vero nel build servito (produzione, `serve:ssr`), falso in `ng serve`. */
+const legalOnDisk = existsSync(legalDistFolder);
+
+/** Legge un testo legale dal build (`file` relativo ad `assets/legal`, es. `privacy/intro/it.md`): null se il file non c'è o se il percorso
+ *  risolto uscirebbe dalla cartella legale. */
+async function readLegalFile(file: string): Promise<string | null> {
+    const path = resolve(legalDistFolder, file);
+    if (!path.startsWith(legalDistFolder + sep)) return null;
+    try {
+        return await readFile(path, 'utf-8');
+    } catch (err) {
+        // ENOENT: testo facoltativo assente (outro, variante `off/`), non un errore.
+        if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+            console.warn(`[LEGAL_FILE_READER] Lettura fallita per assets/legal/${file}`, err);
+        }
+        return null;
+    }
+}
 
 /** Funzione utility: pulisce i percorsi delle rotte per Angular (es: trasforma "/home" in "home") */
 const toAngularServerPath = (path: string): string =>
@@ -62,27 +82,18 @@ const serverConfig: ApplicationConfig = {
             },
         }, provideAppInitializer(() => {
             const doc = inject(DOCUMENT);
-            // Stesso nonce del provider CSP_NONCE sopra: qui serve esplicito perché il tag è
-            // creato via DOM nativo (doc.createElement), non via Renderer2 — Angular applica il
-            // nonce in automatico solo agli elementi che crea lui (es. gli <style> di encapsulation).
-            const cspNonce = inject(CSP_NONCE, { optional: true });
-            const { colorTema, colorSecondary, colorBackground, colorText, colorInfo, customPalette, forceThemeTone, navSurface, backgroundVividness, mutezzaSecondario, separazioneSuperfici } = ContestoSito.config;
-            const overrides = {
-                secondary: colorSecondary, background: colorBackground, text: colorText, info: colorInfo, customPalette, backgroundVividness,
-                mutezzaSecondarioFattore: MUTEZZA_SECONDARIO_FATTORE[mutezzaSecondario],
-                separazioneSuperficiFattore: SEPARAZIONE_SUPERFICI_FATTORE[separazioneSuperfici],
-            };
-            const palette = AppearanceService.computePalette(colorTema, overrides);
-            const tone = forceThemeTone ?? palette.naturalTone;
-
-            // Attributi Bootstrap dark/light su <html>
+            // Il CSS del tema è compilato in build per [data-bs-theme]: qui basta l'attributo del tono
+            // iniziale (forzato, o naturale del brand: prefers-color-scheme non arriva al server).
+            // Nel browser theme-init.js lo corregge sulla preferenza OS prima del primo paint.
+            const { colorTema, aspetto } = ContestoSito.config;
+            const palette = AppearanceService.computePaletteCached(colorTema, siteOverrides());
+            const tone = aspetto.tono.forza ?? palette.naturalTone;
             doc.documentElement.setAttribute('data-bs-theme', tone);
-            doc.documentElement.setAttribute('data-theme-tone', tone);
 
             // <meta name="theme-color">: un solo meta senza media se il tono è forzato (coerente
             // col resto della pagina), altrimenti light + dark per la barra del browser / PWA.
-            const themeColorEntries: readonly [string | null, string][] = forceThemeTone
-                ? [[null, forceThemeTone === 'light' ? palette.colorBaseLt : palette.colorBaseDk]]
+            const themeColorEntries: readonly [string | null, string][] = aspetto.tono.forza
+                ? [[null, aspetto.tono.forza === 'light' ? palette.colorBaseLt : palette.colorBaseDk]]
                 : [
                     ['(prefers-color-scheme:light)', palette.colorBaseLt],
                     ['(prefers-color-scheme:dark)', palette.colorBaseDk],
@@ -94,17 +105,6 @@ const serverConfig: ApplicationConfig = {
                 meta.setAttribute('content', content);
                 doc.head.appendChild(meta);
             }
-
-            // <style id="theme-init"> con CSS vars per entrambi i toni (o uno solo se forzato):
-            // iniettato prima di qualsiasi render component così Bootstrap legge le variabili
-            // correttamente.
-            const style = doc.createElement('style');
-            style.setAttribute('id', 'theme-init');
-            if (cspNonce) style.setAttribute('nonce', cspNonce);
-            const styleHtml = AppearanceService.buildThemeStyleTag(colorTema, overrides, forceThemeTone, navSurface);
-            const openTag = '<style id="theme-init">';
-            style.textContent = styleHtml.substring(openTag.length, styleHtml.length - '</style>'.length);
-            doc.head.appendChild(style);
         }), {
             provide: SSR_PREVIEW_ENCRYPT_FN,
             useFactory: () => (p: Record<string, string>) => PreviewCrypto.encrypt(p),
@@ -113,21 +113,9 @@ const serverConfig: ApplicationConfig = {
             useValue: serverEnv.site.baseUrl,
         }, {
             provide: LEGAL_FILE_READER,
-            useValue: async (slug: string, lang: string): Promise<string | null> => {
-                try {
-                    return await readFile(
-                        join(browserDistFolder, 'assets', 'legal', `${slug}.${lang}.md`),
-                        'utf-8'
-                    );
-                } catch (err) {
-                    // ENOENT è atteso in `ng serve` (nessun dist/browser): il resolver
-                    // ricade su HTTP, quindi non è un errore. Logghiamo solo il resto.
-                    if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
-                        console.warn(`[LEGAL_FILE_READER] Lettura fallita per assets/legal/${slug}.${lang}.md`, err);
-                    }
-                    return null;
-                }
-            },
+            // Cartella presente (build servito): il disco fa fede, un file assente è assente, niente HTTP.
+            // Cartella assente (`ng serve`, nessun dist/browser): nessun lettore, il resolver usa l'HTTP.
+            useValue: legalOnDisk ? readLegalFile : null,
         }, {
             provide: LOCALE_CONFIG,
             useFactory: (transferState: TransferState): LocaleConfig => {
@@ -161,10 +149,17 @@ const serverConfig: ApplicationConfig = {
                 return (raw && typeof raw === 'object') ? raw as AppCustom : {};
             },
         },
-        // Serializza `Custom` in TransferState per il browser. L'app-initializer forza il set:
-        // il solo useFactory è lazy e senza un consumer non girerebbe.
+        // Fatti per la Privacy Policy: stessa funzione di `/internal/legal-facts` (server.ts), il fallback che il
+        // browser interroga quando una pagina senza SSR (`requiresAuth`) non gliel'ha già passata in TransferState.
+        {
+            provide: LEGAL_FACTS,
+            useFactory: (): LegalFacts => computeLegalFacts(),
+        },
+        // Serializza `Custom` e i fatti dell'installazione in TransferState per il browser. L'app-initializer
+        // forza il set: il solo useFactory è lazy e senza un consumer non girerebbe.
         provideAppInitializer(() => {
             inject(TransferState).set(CUSTOM_STATE_KEY, inject(APP_CUSTOM));
+            inject(TransferState).set(LEGAL_FACTS_STATE_KEY, inject(LEGAL_FACTS));
         })]
 };
 

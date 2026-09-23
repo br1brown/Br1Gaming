@@ -1,48 +1,40 @@
 {
   "$schema": "../Engine/Models/Identity/identity.schema.json",
   "personal": false,
-  "ragioneSociale": "Truffa SRL - Non Solo Una Truffa S.r.l.",
+  "ragioneSociale": "Esempio S.r.l.",
   "partitaIva": "IT12345678901",
   "codiceFiscale": "12345678901",
   "sedeLegale": {
-    "via": {
-      "it": "Via Le Mani Dal Culo 69",
-      "en": "Get Your Hands Off My Ass Street"
-    },
-    "civico": "420",
-    "cap": "97010",
-    "citta": "Vergate sul Membro",
-    "provincia": "RG (Ragusa)",
-    "nazione": "AE"
+    "via": { "it": "Via Roma", "en": "Roma Street" },
+    "civico": "1",
+    "cap": "00100",
+    "citta": "Roma",
+    "provincia": "RM",
+    "nazione": "IT"
   },
   "contatti": {
-    "telefono": "+39 000 000 0000",
-    "email": "info@nonrispondiamo.mai",
-    "pec": "vaffanculo@pec.truffa"
+    "telefono": "+39 06 0000 0000",
+    "email": "info@esempio.it",
+    "pec": "esempio@pec.esempio.it"
   },
   "datiSocietari": {
-    "registroImprese": "Camera di Commercio di 'Fatti i Cazzi Tuoi' - Ragusa",
-    "numeroRea": "RG-694201337",
-    "capitaleSociale": 4.20,
-    "capitaleInteramenteVersato": false,
-    "isSocioUnico": true,
-    "inLiquidazione": true,
-    "codiceSdi": "FREGATENE69"
+    "registroImprese": "Camera di Commercio di Roma",
+    "numeroRea": "RM-1234567",
+    "capitaleSociale": 10000,
+    "capitaleInteramenteVersato": true,
+    "isSocioUnico": false,
+    "inLiquidazione": false,
+    "codiceSdi": "0000000"
   },
   "social": [
-    { "url": "https://www.linkedin.com/company/non-solo-una-truffa", "name": "LinkedIn — Il Furbetto" },
-    { "url": "https://www.linkedin.com/company/truffa-holding", "name": { "it": "LinkedIn — la Holding", "en": "LinkedIn — the Holding" } },
-    "https://wa.me/390000000000",
-    "https://www.facebook.com/nonsolounatruffa"
+    { "url": "https://www.linkedin.com/company/esempio", "name": "LinkedIn" },
+    "https://www.facebook.com/esempio"
   ],
   "currency": "EUR",
-  "rappresentanteLegale": {
-    "it": "Amministratore unico e solo coglione: Mario 'il Furbetto' Rossi",
-    "en": "Sole director and only idiot: Mario 'The Dodgy One' Rossi"
-  },
+  "rappresentanteLegale": { "it": "Amministratore unico: Mario Rossi", "en": "Sole director: Mario Rossi" },
   "metadatiAggiuntivi": {},
   "extra": {
-    "foundingDate": "2020-04-20",
-    "slogan": "Non solo una truffa."
+    "foundingDate": "2020-01-01",
+    "slogan": "Un esempio da sostituire con i dati veri."
   }
 }

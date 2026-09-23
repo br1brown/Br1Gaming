@@ -57,6 +57,9 @@ export const SSR_FRONTEND_ORIGIN =
 /** Gestisce l'aggiornamento dinamico del titolo della pagina e dei meta tag. */
 @Injectable({ providedIn: 'root' })
 export class PageMetaService {
+    /** Direttive robots di una pagina indicizzabile: le stesse di `index.html`. */
+    static readonly ROBOTS_DEFAULT = 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1';
+
     private readonly title = inject(Title);
     private readonly meta = inject(Meta);
     private readonly document = inject(DOCUMENT);
@@ -102,7 +105,9 @@ export class PageMetaService {
         if (noindex) {
             this.meta.updateTag({ name: 'robots', content: 'noindex, nofollow' });
         } else {
-            this.meta.removeTag('name="robots"');
+            // Il meta di base di index.html (max-image-preview ecc.) va ripristinato, non rimosso:
+            // il primo setPageMeta in SSR arriva prima che un crawler lo veda.
+            this.meta.updateTag({ name: 'robots', content: PageMetaService.ROBOTS_DEFAULT });
         }
 
         // Aggiorna i tag per i social (Open Graph e Twitter)
@@ -161,7 +166,7 @@ export class PageMetaService {
             if (imgId?.blobGuid) payload['blobGuid'] = imgId.blobGuid;
             else if (imgId?.id) payload['id'] = imgId.id;
             const hasImage = !!(imgId?.blobGuid || imgId?.id);
-            if (ContestoSito.config.ogImagePlain) payload['plain'] = 'true';
+            if (ContestoSito.config.aspetto.og.soloSfondo) payload['plain'] = 'true';
             // version nel payload: l'IV di PreviewCrypto è deterministico sul payload (URL stabili e
             // cacheable), quindi senza questo campo un bump di versione non cambierebbe mai l'URL
             // esposto ai crawler social, che non ri-scansionerebbero mai l'immagine dopo un redesign

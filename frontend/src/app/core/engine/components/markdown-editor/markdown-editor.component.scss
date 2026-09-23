@@ -1,0 +1,101 @@
+:host {
+    display: block;
+}
+
+.md-editor-box {
+    --md-line: 1.6;
+    --md-font-size: 0.9rem;
+    --md-pad-y: 0.5rem;
+    --md-pad-x: 0.75rem;
+    min-height: calc(var(--md-rows, 8) * var(--md-line) * var(--md-font-size) + 2 * var(--md-pad-y) + 2px);
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+    background-color: var(--bs-body-bg);
+    color: var(--bs-body-color);
+}
+
+.md-editor-preview {
+    padding: var(--md-pad-y) var(--md-pad-x);
+    overflow-wrap: break-word;
+}
+
+.md-editor-field {
+    display: grid;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+
+    /* Il focus sta sulla textarea trasparente: l'indicatore va sul riquadro che la contiene,
+       stesso anello dei .form-control. */
+    &:focus-within {
+        border-color: var(--focusRingColor);
+        box-shadow: 0 0 0 0.25rem var(--bs-focus-ring-color);
+    }
+}
+
+.md-editor-disabled {
+    background-color: var(--bs-secondary-bg);
+}
+
+/* Metrica IDENTICA fra i due strati: qualunque differenza (font, interlinea, padding, a capo)
+   sfaserebbe il cursore dal carattere colorato. Per lo stesso motivo gli stili dei token sotto
+   cambiano solo colore e decorazioni, mai la larghezza dei caratteri. */
+.md-editor-layer {
+    grid-area: 1 / 1;
+    margin: 0;
+    padding: var(--md-pad-y) var(--md-pad-x);
+    border: 0;
+    font-family: var(--bs-font-monospace);
+    font-size: var(--md-font-size);
+    line-height: var(--md-line);
+    letter-spacing: normal;
+    tab-size: 4;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    word-break: normal;
+}
+
+.md-editor-highlight {
+    overflow: hidden;
+    pointer-events: none;
+    color: inherit;
+}
+
+.md-editor-input {
+    display: block;
+    width: 100%;
+    min-height: 100%;
+    overflow: hidden;
+    resize: none;
+    background: transparent;
+    color: transparent;
+    caret-color: var(--bs-body-color);
+    outline: none;
+
+    &::placeholder {
+        color: var(--bs-secondary-color);
+    }
+
+    &::selection {
+        color: transparent;
+        background-color: color-mix(in srgb, var(--focusRingColor) 30%, transparent);
+    }
+
+    &:focus-visible {
+        outline: none;
+    }
+}
+
+/* Colori dei token: solo token del tema con contrasto garantito sulle superfici (primary-fg, link,
+   muted, emphasis), così restano leggibili con qualunque brand e tono. */
+.md-editor-highlight {
+    ::ng-deep {
+        .md-heading { color: var(--colorPrimaryFg); text-shadow: 0.02em 0 0 currentColor; }
+        .md-strong { color: var(--bs-emphasis-color); text-shadow: 0.03em 0 0 currentColor; }
+        .md-em { font-style: italic; }
+        .md-del { text-decoration: line-through; }
+        .md-link { color: var(--colorLink); text-decoration: underline; text-underline-offset: 0.15em; }
+        .md-code { background-color: var(--bs-tertiary-bg); border-radius: 0.2em; }
+        .md-marker { color: var(--bs-secondary-color); }
+        /* HTML grezzo: la pipeline lo toglie dall'output, qui si vede barrato. */
+        .md-discarded { color: var(--bs-secondary-color); text-decoration: line-through; }
+    }
+}

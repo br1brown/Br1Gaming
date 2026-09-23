@@ -37,6 +37,16 @@ public class DecodingException : ApiException
     }
 }
 
+/// <summary>Errore 400: file riconosciuto come JPEG, PNG o WebP la cui struttura non si legge fino in fondo; rifiutato perché i metadati di posizione non sarebbero rimovibili con certezza.</summary>
+public class InvalidImageException : ApiException
+{
+    /// <summary>Crea l'eccezione con chiave <c>error_invalid_image</c> e status 400.</summary>
+    public InvalidImageException()
+        : base("error_invalid_image", 400)
+    {
+    }
+}
+
 /// <summary>Errore 400: parametro obbligatorio assente o che non rispetta le regole di validazione.</summary>
 public class InvalidParametersException : ApiException
 {

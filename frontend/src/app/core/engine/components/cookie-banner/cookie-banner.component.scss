@@ -4,7 +4,7 @@ app-cookie-banner .cookie-reopen-btn {
     position: fixed;
     bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
     /* inset-inline-start, non left: resta al bordo "inizio riga" anche in RTL — SEMPRE, in
-       entrambi gli stili (`cookieReopenStile`): il lato opposto a back-to-top (inset-inline-end)
+       entrambi gli stili (`fab.cookie`): il lato opposto a back-to-top (inset-inline-end)
        dimezza la probabilità che il FAB finisca sopra un controllo di pagina, indipendentemente
        da quanto è grande/visibile. */
     inset-inline-start: 0.75rem;
@@ -14,8 +14,8 @@ app-cookie-banner .cookie-reopen-btn {
     padding: 0;
 }
 
-/* `'discreto'` (default, storico) — più piccolo/trasparente del `.fab` standard (back-to-top):
-   sopra il minimo WCAG 2.5.8 (24×24px). `'standard'` (DesignSystemPreset.cookieReopenStile,
+/* `'discreto'` (default) — più piccolo/trasparente del `.fab` standard (back-to-top):
+   sopra il minimo WCAG 2.5.8 (24×24px). `'standard'` (DesignSystemPreset.fab.cookie,
    .cookie-reopen-btn--standard) non ha override qui sotto: eredita dimensione/opacità da `.fab`. */
 app-cookie-banner .cookie-reopen-btn:not(.cookie-reopen-btn--standard) {
     opacity: 0.55;
@@ -30,7 +30,6 @@ app-cookie-banner .cookie-reopen-btn:not(.cookie-reopen-btn--standard) {
 }
 
 app-cookie-banner .cookie-banner {
-    --colorLink: currentColor;
     position: fixed;
     bottom: 0;
     left: 0;

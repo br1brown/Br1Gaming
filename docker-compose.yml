@@ -38,6 +38,8 @@ services:
       # indicizzabile (default di produzione). Per una copia di staging che NON deve finire su
       # Google:  export SEO_NOINDEX=true; ./scripts/deploy.sh
       SEO_NOINDEX: "${SEO_NOINDEX:-}"
+      # Fatti dell'installazione per la Privacy Policy (frontend.hostingInfo nel .local, risolto dal deploy).
+      HOSTING_INFO_PATH: /app/hosting-info.json
     ports:
       - "${FRONTEND_PORT:?ERRORE: impostare frontend.port in global-settings.json}:3000"
     volumes:
@@ -46,10 +48,13 @@ services:
       # Estensioni CSP del progetto figlio (committabile, non un segreto) — vedi frontend/README.md
       # §"Estendere la CSP". Solo il frontend la legge: il backend ignora Content-Security-Policy.
       - ./security-headers.override.json:/app/security-headers.override.json:ro
-      # Font custom opzionale: se ./fonts contiene un file font (woff2/woff/ttf/otf), diventa il
-      # font di default del sito (vedi custom-font-detect.ts). Cartella assente/vuota = nessun
-      # cambiamento — Docker la crea vuota da sola se BR1_FONTS_DIR non esiste sull'host.
+      # File dei font del progetto (woff2/woff/ttf/otf), usati dai font che il design system dichiara
+      # per nome di file; cartella assente = nessun font di progetto (Docker la crea vuota da sola
+      # se BR1_FONTS_DIR non esiste sull'host).
       - ${BR1_FONTS_DIR:-./fonts}:/app/fonts:ro
+      # File dei fatti dell'installazione, condiviso dai siti dello stesso server; non configurato =
+      # /dev/null, letto come vuoto (Privacy Policy col testo generico).
+      - ${BR1_HOSTING_INFO:-/dev/null}:/app/hosting-info.json:ro
     depends_on:
       backend:
         condition: service_healthy

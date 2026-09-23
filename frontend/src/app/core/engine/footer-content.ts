@@ -14,8 +14,7 @@ export enum FooterField {
     PartitaIva,
     CodiceFiscale,
     /** P.IVA e Codice Fiscale, un campo solo: se coincidono (caso comune, ditta individuale) una
-     *  riga sola "Codice Fiscale / P.IVA", altrimenti le due righe separate — stessa dedup di
-     *  `app-identity-render`. Alternativa ad usare `PartitaIva`/`CodiceFiscale` separati: la scelta
+     *  riga sola "Codice Fiscale / P.IVA", altrimenti le due righe separate. Alternativa ad usare `PartitaIva`/`CodiceFiscale` separati: la scelta
      *  è del progetto, non c'è una combinazione "giusta" a priori. */
     PartitaIvaCodiceFiscale,
     RegistroImprese,
@@ -38,8 +37,7 @@ export enum FooterField {
 /** Trattamento visivo di un valore testuale: testo semplice, monospace "da codice" (P.IVA, REA...),
  *  o badge (booleani). Un canale di contatto cliccabile (telefono/email/pec) non è un `itemKind`:
  *  è una foglia `kind: 'custom'` che delega a `app-phone-contact`/`app-mail-contact`/
- *  `app-pec-contact` (`contactComponentLeaf`) — stesso componente già usato da
- *  `identity-render.component.ts`, non un `<a>` reinventato qui con la propria icona/colore. */
+ *  `app-pec-contact` (`contactComponentLeaf`), non un `<a>` reinventato qui con la propria icona/colore. */
 export type FooterItemKind = 'text' | 'code' | 'badge';
 
 /** Foglia risolta dentro un gruppo del footer: link/pagina, valore mappato o libero, orari, social esplicito, o un sottogruppo annidato. Discriminata su `kind` per evitare ambiguità fra varianti con campi opzionali condivisi. */
@@ -64,9 +62,8 @@ export interface FooterFieldDeps {
     localization: LocalizationService;
 }
 
-/** Chiave i18n della label per ciascun `FooterField` — le stesse chiavi già usate da
- *  `identity-render.component.ts`, cosicché il blocco automatico e i campi dichiarati a mano in
- *  `nav.ts` mostrino sempre la stessa etichetta. */
+/** Chiave i18n della label per ciascun `FooterField`: footer automatico, campi dichiarati a mano in `nav.ts`
+ *  e sezione identità delle pagine legali mostrano sempre la stessa etichetta. */
 const FOOTER_FIELD_LABEL_KEYS: Record<FooterField, string> = {
     [FooterField.RagioneSociale]: 'ragioneSocialeAzienda',
     [FooterField.PartitaIva]: 'partitaIvaAzienda',
@@ -95,7 +92,7 @@ function valueLeaf(label: string, value: string | null | undefined, itemKind: Fo
     return hasText(value) ? { kind: 'value', label, value: value.trim(), itemKind, itemClass } : null;
 }
 
-/** Contatto cliccabile (telefono/email/pec): foglia `kind: 'custom'` che delega allo stesso componente di `identity-render.component.ts`, non un `<a>` reinventato con propria icona/colore — un `<a class="link-body-emphasis">` scritto a mano aveva già causato un bug di contrasto reale (`--bs-emphasis-color !important` batteva `color: inherit`). */
+/** Contatto cliccabile (telefono/email/pec): foglia `kind: 'custom'` che delega ad `app-phone-contact`/`app-mail-contact`/`app-pec-contact`, non un `<a>` reinventato con propria icona/colore — un `<a class="link-body-emphasis">` scritto a mano aveva già causato un bug di contrasto reale (`--bs-emphasis-color !important` batteva `color: inherit`). */
 function contactComponentLeaf(
     component: Type<unknown>,
     value: string | null | undefined,
@@ -141,14 +138,23 @@ function arr(leaf: FooterGroupChild | null): FooterGroupChild[] {
 
 /** `LegalRole` (titolare del trattamento / DPO) in zero, una o due foglie: il nome come testo
  *  semplice, l'email come contatto cliccabile (`contactComponentLeaf`, stesso componente di
- *  `FooterField.Email`) — stessa etichetta per entrambe, stesso trattamento a due righe che aveva
- *  `identity-render.component.ts` (nome nella colonna informativa, email come badge cliccabile a
- *  parte). Prima di questo fix l'email non veniva mai resa: nessun `FooterField` la esponeva. */
+ *  `FooterField.Email`), stessa etichetta per entrambe. */
 function legalRoleLeaves(label: string, role: { nome?: string; email?: string } | undefined, itemClass?: string): FooterGroupChild[] {
     return [
         valueLeaf(label, role?.nome, 'text', itemClass),
         contactComponentLeaf(MailContactComponent, role?.email, label, 'config', itemClass),
     ].filter((leaf): leaf is FooterGroupChild => leaf !== null);
+}
+
+/** Valori e contatti dei `FooterField` dati, nell'ordine: un campo non valorizzato non produce voci (es. la
+ *  sezione identità in coda alle pagine legali). */
+export function resolveFooterFields(
+    fields: readonly FooterField[], identity: Identity | null, deps: FooterFieldDeps,
+): Extract<FooterGroupChild, { kind: 'value' | 'custom' }>[] {
+    if (!identity) return [];
+    return fields
+        .flatMap(field => resolveFooterField(field, identity, deps))
+        .filter((leaf): leaf is Extract<FooterGroupChild, { kind: 'value' | 'custom' }> => leaf.kind === 'value' || leaf.kind === 'custom');
 }
 
 /** Risolve un `FooterField` sull'`Identity` in zero, una o due foglie (solo `PartitaIvaCodiceFiscale` può produrne due). Array vuoto = campo non valorizzato, il gruppo che lo contiene lo scarta. */
@@ -180,7 +186,7 @@ export function resolveFooterField(field: FooterField, identity: Identity, deps:
         case FooterField.CapitaleSociale: return arr(valueLeaf(label, formatCurrency(ds?.capitaleSociale, identity.currency, deps.localization), 'text', itemClass));
         case FooterField.CapitaleVersato: return arr(boolLeaf(label, ds?.capitaleInteramenteVersato, deps.translate, itemClass));
         case FooterField.SocioUnico: return arr(boolLeaf(label, ds?.isSocioUnico, deps.translate, itemClass));
-        // Flag "negativo": essere in liquidazione è un campanello → Sì in warning (stessa scelta di identity-render).
+        // Flag "negativo": essere in liquidazione è un campanello → Sì in warning.
         case FooterField.InLiquidazione: return arr(boolLeaf(label, ds?.inLiquidazione, deps.translate, itemClass, { onTrue: 'warning', onFalse: 'secondary' }));
         case FooterField.SedeLegale: return arr(valueLeaf(label, formatAddress(identity.sedeLegale, deps.localization), 'text', itemClass));
         case FooterField.Telefono: return arr(contactComponentLeaf(PhoneContactComponent, identity.contatti?.telefono, label, 'number', itemClass));

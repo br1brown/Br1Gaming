@@ -4,13 +4,12 @@ import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import sharp, { type OverlayOptions } from 'sharp';
 import { ContestoSito } from '../../../../site';
-import { AppearanceService, type PaletteTokens } from '../../services/appearance.service';
-import { MUTEZZA_SECONDARIO_FATTORE, SEPARAZIONE_SUPERFICI_FATTORE } from '../../design-system-presets';
+import { AppearanceService, siteOverrides, type PaletteTokens } from '../../services/appearance.service';
 import { ImgBuilderService } from '../../services/img-builder.service';
 import { PreviewCrypto } from '../preview-crypto.server';
 import { PreviewBuilder } from '../preview-builder';
-import { SystemFont } from '../../font-system';
-import { customFontServerStack, serverStackForChoice, validateOgFontOverride } from '../custom-font-detect';
+import { choiceKey, SystemFont, type FontChoice } from '../../font-system';
+import { validateOgFontOverride } from '../custom-font-detect';
 import { cacheDir } from '../server-paths';
 import { resolveAssetPath } from '../asset-mapping';
 import { AssetHandler } from '../asset-handler';
@@ -22,16 +21,7 @@ import { fileExists } from '../fs-utils';
 /** Palette multi-colore del sito: deterministica da config statica, calcolata una sola volta al
  *  load del modulo invece che ad ogni richiesta (anche sui cache-hit). Rispecchia sempre gli
  *  override colore del design system attivo, come il resto del sito — nessuna via neutra separata. */
-const sitePalette: PaletteTokens = AppearanceService.computePalette(ContestoSito.config.colorTema, {
-    secondary: ContestoSito.config.colorSecondary,
-    background: ContestoSito.config.colorBackground,
-    text: ContestoSito.config.colorText,
-    info: ContestoSito.config.colorInfo,
-    customPalette: ContestoSito.config.customPalette,
-    backgroundVividness: ContestoSito.config.backgroundVividness,
-    mutezzaSecondarioFattore: MUTEZZA_SECONDARIO_FATTORE[ContestoSito.config.mutezzaSecondario],
-    separazioneSuperficiFattore: SEPARAZIONE_SUPERFICI_FATTORE[ContestoSito.config.separazioneSuperfici],
-});
+const sitePalette: PaletteTokens = AppearanceService.computePaletteCached(ContestoSito.config.colorTema, siteOverrides());
 
 /** Sfondo card sul colore brand nudo (`colorTema`, invariato da eventuali override della palette):
  *  il testo overlay ne deriva nero/bianco per il contrasto migliore (resolvePreviewBuilder/buildPill,
@@ -44,6 +34,18 @@ function normalizeAndTruncate(text: string, max: number): string {
     if (normalized.length <= max) return normalized;
     if (max <= 1) return normalized.slice(0, max);
     return normalized.slice(0, max - 1).trim() + '…';
+}
+
+/** Font non validi già segnalati da `og.testo`, per chiave: un avviso per valore distinto e per
+ *  processo, non uno per richiesta og. */
+const warnedOgFonts = new Set<string>();
+
+/** Segnala (una volta per valore) un font di `og.testo` né `SystemFont` né custom del catalogo. */
+function warnInvalidOgFont(font: FontChoice): void {
+    const key = typeof font === 'string' ? font : `${font?.key}`;
+    if (warnedOgFonts.has(key)) return;
+    warnedOgFonts.add(key);
+    console.warn(`[og-preview] og.testo: font "${key}" non valido (né un SystemFont né un font custom del catalogo): uso il font del sito.`);
 }
 
 /** Endpoint Social Preview: genera al volo l'immagine Open Graph / Twitter Card. */
@@ -70,53 +72,54 @@ export async function ogPreviewHandler(req: Request, res: Response): Promise<voi
         const { appName } = ContestoSito.config;
         const effectiveTitle = title || appName;
 
-        // DesignSystemPreset.ogTextTransform — personalizzazione facoltativa di testo/font SOLO per
+        // DesignSystemPreset.og.testo — personalizzazione facoltativa di testo/font SOLO per
         // questa immagine (assente = invariato). Il font restituito è validato prima di fidarsene
-        // (deve essere defaultFont o una voce già registrata in addonFonts): un valore non valido
-        // si ignora, mai un crash — ripiega sul font di default.
-        let ogTitle = effectiveTitle, ogSubtitle = subtitle, fontFamily = customFontServerStack;
-        const transform = ContestoSito.config.ogTextTransform;
+        // (un qualunque `SystemFont`, o un font custom del catalogo: `font.principale`/`font.aggiuntivi`):
+        // un valore non valido si ignora, mai un crash — ripiega sul font del sito.
+        let ogTitle = effectiveTitle, ogSubtitle = subtitle, font: FontChoice = PreviewBuilder.fontPrincipale();
+        const transform = ContestoSito.config.aspetto.og.testo;
         if (transform) {
             const result = transform({
                 title: effectiveTitle, subtitle,
-                defaultFont: ContestoSito.config.defaultFont ?? SystemFont.Liberation,
+                font: ContestoSito.config.aspetto.font.principale ?? SystemFont.Liberation,
             });
             ogTitle = result.title;
             ogSubtitle = result.subtitle;
             if (result.font !== undefined) {
                 const validated = validateOgFontOverride(result.font);
                 if (validated) {
-                    fontFamily = serverStackForChoice(validated);
+                    font = validated;
                 } else {
-                    console.warn('[og-preview] ogTextTransform: font restituito non valido (né defaultFont né una voce di addonFonts) — ignorato.');
+                    warnInvalidOgFont(result.font);
                 }
             }
         }
 
         // Campi distinti: quale dei due sistemi è in uso emerge da quale è valorizzato (blobGuid
         // vince su entrambi) — stessa forma di OgImageRef in siteBuilder.ts.
-        if (id || blobGuid) { await renderPreviewWithImage(res, { id, blobGuid }, ogTitle, ogSubtitle, plain, fontFamily); return; }
-        await renderPreviewText(res, ogTitle, ogSubtitle, fontFamily);
+        if (id || blobGuid) { await renderPreviewWithImage(res, { id, blobGuid }, ogTitle, ogSubtitle, plain, font); return; }
+        await renderPreviewText(res, ogTitle, ogSubtitle, font);
     } catch (err) {
         console.error('[Preview Error]:', err);
         // Fallback alla favicon statica in caso di errore
         if (!res.headersSent) {
             try {
                 const faviconPath = await resolveAssetPath('favIcon');
-                if (faviconPath) { AssetHandler.serveImage(res, faviconPath); return; }
+                // no-store: un errore transitorio non deve far cachare ai crawler social la favicon
+                // come og:image di questa pagina per un anno (serveImage la marca immutable).
+                if (faviconPath) { res.setHeader('Cache-Control', 'no-store'); res.sendFile(faviconPath); return; }
             } catch { /* best-effort: si cade sul 500 */ }
             res.status(500).send('Error generating preview');
         }
     }
 }
 
-/** Variante testuale: genera l'anteprima in SVG. `fontFamily` di default resta `customFontServerStack`
- *  (comportamento invariato); un valore esplicito arriva da `DesignSystemPreset.ogTextTransform`. */
-async function renderPreviewText(res: Response, title: string, subtitle: string, fontFamily: string = customFontServerStack): Promise<void> {
+/** Variante testuale: genera l'anteprima in SVG, nel font del sito o in quello di `og.testo`. */
+async function renderPreviewText(res: Response, title: string, subtitle: string, font: FontChoice): Promise<void> {
     const { version } = ContestoSito.config;
-    const r = PreviewBuilder.resolvePreviewBuilder({ title, subtitle, bgColor: cardBgColor, fontFamily });
+    const r = PreviewBuilder.resolvePreviewBuilder({ title, subtitle, bgColor: cardBgColor, font });
 
-    const keyData = JSON.stringify({ version, ...r });
+    const keyData = JSON.stringify({ version, ...r, font: choiceKey(font) });
     const hash = createHash('sha1').update(keyData).digest('hex').slice(0, 16);
     // PNG per bordi netti e compatibilità crawler social
     const cacheKey = `preview_${hash}.png`;
@@ -152,7 +155,7 @@ type PreviewImageRef = { id: string; blobGuid: string };
 
 /** Risolve il riferimento in una sorgente: `blobGuid` recupera i byte dal backend (un contenuto
  *  dinamico porta così la propria immagine senza registrarla a build time), con fallback
- *  all'originale solo sulla convenzione di default. `id` resta l'asset statico di sempre. */
+ *  all'originale solo sulla convenzione di default. `id` resta l'asset statico. */
 async function resolveImageSource(ref: PreviewImageRef): Promise<ImageSource | null> {
     if (ref.blobGuid) {
         const override = ContestoSito.config.resolveBlobImageUrl;
@@ -165,12 +168,9 @@ async function resolveImageSource(ref: PreviewImageRef): Promise<ImageSource | n
     return path ? { kind: 'path', path } : null;
 }
 
-/** Variante con immagine: sfondo, favicon e badge titolo. `fontFamily` di default resta
- *  `customFontServerStack` (comportamento invariato); un valore esplicito arriva da
- *  `DesignSystemPreset.ogTextTransform`. */
+/** Variante con immagine: sfondo, favicon e badge titolo, nel font del sito o in quello di `og.testo`. */
 async function renderPreviewWithImage(
-    res: Response, ref: PreviewImageRef, title: string, subtitle: string, plain?: boolean,
-    fontFamily: string = customFontServerStack,
+    res: Response, ref: PreviewImageRef, title: string, subtitle: string, plain: boolean, font: FontChoice,
 ): Promise<void> {
     const source = await resolveImageSource(ref);
     if (!source) { res.status(404).send('Asset not found'); return; }
@@ -187,9 +187,8 @@ async function renderPreviewWithImage(
     const normalizedTitle = normalizeAndTruncate(title, 100);
     const normalizedSubtitle = normalizeAndTruncate(subtitle, 150);
     const { version } = ContestoSito.config;
-    // fontFamily nell'hash: due font diversi per lo stesso titolo non devono mai collidere sulla
-    // stessa immagine in cache (rilevante solo da quando fontFamily può variare, vedi sopra).
-    const hash = createHash('sha1').update(JSON.stringify({ version, ref, title: normalizedTitle, subtitle: normalizedSubtitle, plain: !!plain, fontFamily })).digest('hex').slice(0, 16);
+    // Il font nell'hash: due font diversi per lo stesso titolo non collidono sulla stessa immagine in cache.
+    const hash = createHash('sha1').update(JSON.stringify({ version, ref, title: normalizedTitle, subtitle: normalizedSubtitle, plain, font: choiceKey(font) })).digest('hex').slice(0, 16);
     // JPEG per massima compatibilità con le piattaforme social
     const cacheKey = `preview_img_${hash}.jpg`;
     const cacheFile = join(cacheDir, cacheKey);
@@ -253,7 +252,7 @@ async function renderPreviewWithImage(
                         subtitle: normalizedSubtitle || undefined,
                         bgColor: cardBgColor,
                         fontSize: 48,
-                        fontFamily,
+                        font,
                     });
                     composites.push({ input: Buffer.from(badgeSvg, 'utf-8'), left: 0, top: 0 });
                 }
@@ -275,7 +274,7 @@ async function renderPreviewWithImage(
         // Formato che sharp non decodifica (es. BMP non passato per webopt, file corrotto): una
         // card testuale con titolo/sottotitolo già noti comunica più di un'icona muta o di un 500.
         console.warn('[Preview] Immagine non rasterizzabile, fallback a preview testuale:', err);
-        await renderPreviewText(res, title, subtitle, fontFamily);
+        await renderPreviewText(res, title, subtitle, font);
         return;
     }
     AssetHandler.serveImage(res, cacheFile);

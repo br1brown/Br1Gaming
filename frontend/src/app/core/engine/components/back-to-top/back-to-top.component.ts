@@ -5,7 +5,7 @@ import { ContestoSito } from '../../../../site';
 import { BACK_TO_TOP_SOGLIA_PX } from '../../design-system-presets';
 
 /** Bottone "torna su": visibile oltre la soglia di scroll decisa dal design system attivo
- *  (`DesignSystemPreset.backToTopSoglia`, default `'standard'` = 300px). Aspetto da utility globali
+ *  (`DesignSystemPreset.fab.tornaSuSoglia`, default `'standard'` = 300px). Aspetto da utility globali
  *  (`.fab` + `.surface-elevated`), si adatta light/dark senza variabili componente. */
 @Component({
   selector: 'app-back-to-top',
@@ -19,7 +19,7 @@ export class BackToTopComponent {
 
   readonly isVisible = signal(false);
   private rafId: number | null = null;
-  private readonly soglia = BACK_TO_TOP_SOGLIA_PX[ContestoSito.config.backToTopSoglia];
+  private readonly soglia = BACK_TO_TOP_SOGLIA_PX[ContestoSito.config.aspetto.fab.tornaSuSoglia];
 
   constructor() {
     // Annulla il frame in volo allo smontaggio: evita un set() su componente distrutto.

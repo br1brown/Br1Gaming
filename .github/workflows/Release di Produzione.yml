@@ -35,6 +35,7 @@ on:
 permissions:
   contents: write
   packages: write
+  actions: read   # gate: la release parte solo se «Controlli Automatici di Tutto» è verde sul commit del tag
 
 # Un solo run per tag: un ri-push dello stesso tag annulla il precedente.
 concurrency:
@@ -55,6 +56,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: ".nvmrc"
+
+      # «Ciò che gira è ciò che è passato dai controlli»: senza questo gate un tag su un commit mai
+      # verificato (o rosso) diventerebbe comunque un'immagine di produzione.
+      - name: Verifica che la CI sia verde sul commit del tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHA="$(git rev-parse HEAD)"
+          RUNS="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "Controlli Automatici di Tutto.yml" --commit "$SHA" --status success --json databaseId --jq 'length')"
+          if [ "${RUNS:-0}" -eq 0 ]; then
+            echo "::error::Nessun run verde di «Controlli Automatici di Tutto» sul commit ${SHA}: tagga un commit di main già verificato (o aspetta che la CI finisca) prima di pubblicare."
+            exit 1
+          fi
 
       # Ricava versione, nomi immagine (GHCR vuole tutto minuscolo) e valida il dominio.
       # BR1_PROJECT_JSON è il global-settings.json committato minificato: stessa fonte che
@@ -158,6 +172,10 @@ jobs:
           # VPS si lancia con ./deploy-release.sh (la libreria resta in scripts/lib/, come attesa).
           cp scripts/deploy-release.sh "${BUNDLE_DIR}/"
           cp scripts/lib/br1-config.sh "${BUNDLE_DIR}/scripts/lib/"
+          # File di progetto che il compose monta e la doc dà per presenti sulla VPS: senza,
+          # Docker creerebbe una directory al posto dell'override CSP e il backup non esisterebbe.
+          cp scripts/backup.sh hosting-info.example.json "${BUNDLE_DIR}/"
+          [ -f security-headers.override.json ] && cp security-headers.override.json "${BUNDLE_DIR}/"
           # Fissa nel bundle il tag e le immagini di QUESTA release, così sulla VPS basta
           # lanciare ./deploy-release.sh senza dover ricordare la versione.
           cat > "${BUNDLE_DIR}/release.env" <<EOF

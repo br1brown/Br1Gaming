@@ -1,0 +1,11 @@
+{
+  "$schema": "./frontend/src/app/core/engine/legal/hosting-info.schema.json",
+  "hosting": { "fornitore": "OVH SAS", "paese": "FR" },
+  "cdn": false,
+  "reverseProxy": true,
+  "log": [
+    { "tipo": "accessi", "campi": ["ip", "dataOra", "url", "metodo", "stato", "dimensione", "referrer", "userAgent"], "conservazioneGiorni": 35 },
+    { "tipo": "errori", "campi": ["ip", "dataOra", "url", "referrer"], "conservazioneGiorni": 77 },
+    { "tipo": "applicazione" }
+  ]
+}

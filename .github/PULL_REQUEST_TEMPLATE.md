@@ -20,5 +20,5 @@
 
 ## Testing
 <!--- Per favore descrivi i test che hai eseguito per verificare i tuoi cambiamenti. -->
-- [ ] Ho testato le API sia con `LoginEnabled: true` che `false`.
+- [ ] Ho testato le API sia con il login acceso (`Features.Login` o `Features.PublicLogin` in `global-settings.json`) sia spento.
 - [ ] Ho verificato che il frontend compili correttamente con il supporto SSR (`npm run build`).

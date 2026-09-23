@@ -6,8 +6,8 @@
    il dropdown vulnerabile a contenuti di pagina con z-index positivo. Questa regola
    crea un contesto di stacking sulla navbar (--z-navbar-static, scala in _tokens.scss)
    così il dropdown galleggia sopra il contenuto qualunque z-index abbiano gli elementi
-   dei progetti figli — un valore letterale basso (100, usato qui prima) sarebbe stato
-   battuto da qualunque z-index positivo ragionevole in un progetto figlio.
+   dei progetti figli: un valore basso (es. 100) lo batterebbe qualunque z-index positivo
+   ragionevole di un progetto figlio.
    fixed-top (z-index: 1030) e sticky-top (z-index: 1020) sono esclusi: Bootstrap li
    gestisce già con valori più alti. */
 .navbar:not(.fixed-top):not(.sticky-top) {
@@ -17,7 +17,7 @@
 /* Il dropdown desktop usa gli stessi colori della navbar,
    mantenendo l'ombra per dare senso di elevazione. */
 /* Raggio/ombra decisi dal design system attivo (`DesignSystemPreset.elevazione`, default
-   'sospesa' — i valori qui sotto restano il fallback, vedi AppearanceService). */
+   'sospesa' — i valori qui sotto restano il fallback). */
 .navbar .dropdown-menu {
     margin-top: 0.35rem;
     border-radius: var(--elevazioneRaggio, 0.85rem);
@@ -32,8 +32,7 @@
    cliccabile, es. stato vuoto "Nessuna notifica" nel notification-bell) è la
    sorella Bootstrap di .dropdown-item con lo stesso --bs-dropdown-link-color di
    default — va coperta allo stesso modo, altrimenti resta scura anche su
-   dropdown scuri (bug verificato: contrasto ~1.2:1 invece di ereditare il
-   bianco del tema). */
+   dropdown scuri (contrasto ~1.2:1 invece del testo navbar). */
 .navbar .dropdown-item,
 .navbar .dropdown-item-text {
     position: relative;
@@ -41,21 +40,18 @@
     line-height: 1.35;
     font-weight: 500;
     color: inherit;
-    /* Bug verificato: `.dropdown-item` eredita `white-space: nowrap` da Bootstrap — per
-       un'etichetta breve statica va bene, ma una lunga (dinamica dal backend, o solo un
-       progetto figlio con nomi verbosi) sforava il pannello invece di andare a capo (nessun
-       `max-width` sotto la fermava, essendo shrink-to-fit). Stessa regola già applicata a
-       `.submenu-panel .dropdown-item` (_submenu.scss) — qui estesa a QUALUNQUE dropdown della
-       navbar, non solo ai flyout annidati. */
+    /* `.dropdown-item` ha `white-space: nowrap` da Bootstrap: un'etichetta lunga (dinamica dal
+       backend, o un progetto figlio con nomi verbosi) sforerebbe il pannello invece di andare a
+       capo (shrink-to-fit, nessun `max-width` la ferma). Stessa regola di
+       `.submenu-panel .dropdown-item` (_submenu.scss), qui per QUALUNQUE dropdown della navbar. */
     white-space: normal;
     overflow-wrap: break-word;
 }
 
 /* Il tint di sfondo (hover + focus da tastiera) è un feedback in più, non il solo indicatore di
    focus: quello resta l'anello globale (:focus-visible in _base.scss, --focusRingColor/Width/
-   Offset). Prima qui c'era un outline:none che lo sovrascriveva (residuo del reset Bootstrap sul
-   dropdown-item) — un item raggiunto da tastiera diventava indistinguibile dagli altri, solo un
-   10% di tint su sfondo già scuro, sotto la soglia di percepibilità per molti utenti (WCAG 2.4.7). */
+   Offset). Qui nessun outline:none: il solo 10% di tint su sfondo già scuro è sotto la soglia di
+   percepibilità per molti utenti (WCAG 2.4.7). */
 .navbar .dropdown-item:hover,
 .navbar .dropdown-item:focus-visible {
     background-color: color-mix(in srgb, currentColor 10%, transparent);
@@ -135,7 +131,7 @@
         max-height: var(--dropdown-max-height, 80vh);
         overflow-y: auto;
         overflow-x: hidden;
-        /* Bug verificato: `width: auto` con `white-space: normal` (sopra) non "riempie" lo spazio
+        /* `width: auto` con `white-space: normal` (sopra) non "riempie" lo spazio
            disponibile per ridurre le righe — lo shrink-to-fit del browser collassa al MINIMO che
            basta al contenuto (qui il floor di Bootstrap, `--bs-dropdown-min-width: 10rem`), poi
            avvolge il testo lungo su molte righe corte invece di poche righe larghe, anche quando a
@@ -149,11 +145,11 @@
         max-width: min(28rem, 90vw);
     }
 
-    /* Bug verificato: un flyout di 2° livello (.submenu-panel, `left: 100%` — _submenu.scss) deve
-       sconfinare oltre il bordo destro di QUESTO pannello, ma `overflow-x: hidden` sopra lo
-       clippava (appariva "non aprirsi") — e anche da clippato, il suo ingombro verticale finiva
-       comunque nello scrollable-overflow del contenitore, aggiungendo uno scroll indesiderato
-       anche quando le voci di 1° livello ci starebbero tutte. Overflow-x/y non possono valere
+    /* Un flyout di 2° livello (.submenu-panel, `left: 100%` — _submenu.scss) deve sconfinare
+       oltre il bordo destro di QUESTO pannello, ma `overflow-x: hidden` sopra lo taglierebbe
+       (sembrerebbe "non aprirsi") e il suo ingombro verticale finirebbe comunque nello
+       scrollable-overflow del contenitore, con uno scroll indesiderato anche quando le voci di
+       1° livello ci stanno tutte. Overflow-x/y non possono valere
        "clip di lato, libero sull'altro" sullo stesso elemento (la spec forza l'altro asse ad
        `auto` quando uno dei due non è `visible`): quando un discendente è aperto (hover/focus/
        `.expanded`, anche annidato più in profondità — `:has()` scava a qualunque livello),

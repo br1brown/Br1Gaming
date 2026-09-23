@@ -42,7 +42,7 @@ export const appPagesDecl: SitePageInput[] = [
         otherSEO: { ogImage: { id: 'img4k' } },
         component: () => import('./che-faccio/che-faccio.component').then(m => m.CheFaccioComponent),
         // Ruolo CUSTOM 'vetrina' (registrato in demo.design-system.ts con la sua chiave in ruoloPagina):
-        // niente breadcrumb solo qui, in contrasto col resto del sito (showBreadcrumb: true globale).
+        // niente breadcrumb solo qui, in contrasto col resto del sito (breadcrumb.show: true nel design system della demo).
         layout: { role: 'vetrina' },
     },
     {

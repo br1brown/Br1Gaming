@@ -1,42 +1,36 @@
-/* Design token del tema (--color*), scala z-index, ombre — impostati a runtime da
- * AppearanceService. Non usare colori hardcoded nei componenti. Riferimento completo dei
- * token: frontend/README.md § Tema e Sistema di Colori.
- * I valori qui in :root sono i fallback pre-idratazione/no-JS (priorità: inline style
- * AppearanceService > <style id="theme-init"> per-request > questi). */
-:root {
-    --fontFamily: inherit;
-    --colorTema: #212529;
-    --colorBase: #1a1d20;
-    --colorPrimary: #141619;
-    --colorPrimaryRgb: 20, 22, 25;
-    --colorPrimaryText: #ffffff;
-    --colorLink: #141619;
-    --colorSurface: #1e2124;
-    --colorSurfaceHover: #24282c;
-    --colorSurfaceBorder: #2e3338;
-    --colorSurfaceText: #e9ecef;
+@use 'lib';
+@use '../generated/theme'; // generato da `npm run generate:statics` (pre-hook di start/dev/build/watch)
 
-    /* Focus tokens (WCAG 2.4.7/2.4.11). --focusRingColor usa --colorLink: stesso token tone-adaptive, coerenza cromatica e contrasto garantito. */
-    --focusRingColor: var(--colorLink, #141619);
+/* Token non di colore: i colori del tema (--color*, --bs-*) li compila engine/bootstrap.scss dalla
+ * palette del design system. Non usare colori hardcoded nei componenti. */
+
+/* Font del design system: @font-face e stack, noti in build come la palette. */
+@each $face in theme.$theme-font-faces {
+    @font-face {
+        font-family: lib.required($face, 'family');
+        src: url(lib.required($face, 'url')) format(lib.required($face, 'format'));
+        font-weight: lib.required($face, 'weight');
+        font-style: lib.required($face, 'style');
+        font-display: swap;
+    }
+}
+
+:root {
+    /* Movimento, elevazione, pulsazione, raggio lightbox, font (DesignSystemPreset). */
+    @each $name, $value in theme.$theme-static {
+        --#{$name}: #{$value};
+    }
+    --bs-body-font-family: var(--fontFamily);
+
+    /* Focus tokens (WCAG 2.4.7/2.4.11). Il colore (--focusRingColor) segue il link del tono corrente. */
     --focusRingWidth: 3px;
     --focusRingOffset: 2px;
-    /* Bootstrap body-color-rgb — usato da utility rgba() di Bootstrap 5.3 */
-    --bs-body-color-rgb: 233, 236, 239;
-    /* Link lt/dk fallback — AppearanceService sovrascrive questi a runtime */
-    --colorLinkLt: #141619;
-    --colorLinkDk: #a8b4c8;
-    --colorNavBg: #212529;
-    --colorNavText: #ffffff;
 
-    /* Scala z-index del template, incastrata nei vuoti di quella Bootstrap. Vedi frontend/README.md § z-index. */
+    /* Scala z-index del template, incastrata nei vuoti di quella Bootstrap. */
     --z-navbar-static: 1020; /* sticky-top Bootstrap: dropdown navbar quando non è fixed/sticky */
     --z-cookie-banner: 1040;
     --z-fab: 1035;
     --z-mobile-nav-overlay: 1045; /* livello offcanvas: il pannello mobile navbar deve coprire il cookie banner */
     --z-skip-link: 1095;
     --z-cdk-overlay: 1100;
-
-    /* Ombre di elevazione condivise (.surface-elevated, .fab): stato di riposo e stato attivo. */
-    --shadowElevated: 0 10px 24px rgba(0, 0, 0, 0.18);
-    --shadowElevatedHover: 0 14px 28px rgba(0, 0, 0, 0.24);
 }

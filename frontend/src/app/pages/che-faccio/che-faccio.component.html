@@ -80,12 +80,11 @@
                             <p class="text-muted small mb-3">{{ 'markdownLabDesc' | translate }}</p>
 
                             <label class="form-label" for="markdownInput">{{ 'markdownInputLabel' | translate }}</label>
-                            <textarea class="form-control"
-                                      id="markdownInput" rows="6"
-                                      [(ngModel)]="markdownInput"
-                                      (ngModelChange)="onMarkdownChange()"
-                                      (keydown.control.enter)="renderMarkdown()"
-                                      [placeholder]="translate.translate('markdownPlaceholder')"></textarea>
+                            <app-markdown-editor inputId="markdownInput" [rows]="6"
+                                                 [(ngModel)]="markdownInput"
+                                                 (ngModelChange)="onMarkdownChange()"
+                                                 (keydown.control.enter)="renderMarkdown()"
+                                                 [placeholder]="translate.translate('markdownPlaceholder')" />
 
                             <div class="mt-2 d-flex flex-wrap gap-2 align-items-center">
                                 <button class="btn btn-sm btn-outline-secondary" (click)="setPreset('base')">

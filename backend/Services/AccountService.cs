@@ -15,7 +15,7 @@ public class AccountService
     private readonly IHostEnvironment _env;
     private readonly ILogger<AccountService> _logger;
 
-    /// <summary>Inizializza con l'ambiente host (fail-closed sulle credenziali demo in Production) e il logger.</summary>
+    /// <summary>Inizializza con l'ambiente host (fail-closed sulle credenziali demo fuori da Development) e il logger.</summary>
     public AccountService(IHostEnvironment env, ILogger<AccountService> logger)
     {
         _env = env;
@@ -33,13 +33,14 @@ public class AccountService
         const string validUsername = "admin";
         const string validPassword = "Password1!";
 
-        // Fail-closed: in Production le credenziali demo del template sono disabilitate per sicurezza.
-        // Se un progetto accende il login (valorizzando SecretKey) ma dimentica di sostituire questa
-        // verifica, la porta resta chiusa invece di aprirsi con una password pubblica nel repo. Quando
-        // il figlio cambia le costanti qui sopra, la condizione si spegne da sé (sono compile-time).
-        if (_env.IsProduction() && validUsername == "admin" && validPassword == "Password1!")
+        // Fail-closed: le credenziali demo del template valgono solo in Development (Staging e ogni altro
+        // ambiente inclusi nel blocco). Se un progetto accende il login (Features.Login/PublicLogin) ma
+        // dimentica di sostituire questa verifica, la porta resta chiusa invece di aprirsi con una password
+        // pubblica nel repo. Quando il figlio cambia le costanti qui sopra, la condizione si spegne da sé
+        // (sono compile-time).
+        if (!_env.IsDevelopment() && validUsername == "admin" && validPassword == "Password1!")
         {
-            _logger.LogError("Login demo del template ancora attivo in Production: credenziali non sostituite in AccountService. Login rifiutato (fail-closed).");
+            _logger.LogError("Login demo del template attivo fuori da Development ({Environment}): credenziali non sostituite in AccountService. Login rifiutato (fail-closed).", _env.EnvironmentName);
             throw new UnauthorizedException();
         }
 

@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
-import { join } from 'node:path';
+import { join, resolve, sep } from 'node:path';
+import { createHash } from 'node:crypto';
 import sharp from 'sharp';
 import { ContestoSito } from '../../../../site';
 import { ALLOWED_WIDTHS } from '../../asset-config';
@@ -22,8 +23,8 @@ const SHARP_TIMEOUT = { seconds: 15 };
  *  perché cache/CDN intermedie non servano la variante sbagliata a un client diverso. */
 export async function cdnAssetHandler(req: Request, res: Response): Promise<void> {
     try {
-        const id = req.query['id'] as string;
-        if (!id) { res.status(400).send('Missing id'); return; }
+        const id = req.query['id'];
+        if (typeof id !== 'string' || !id) { res.status(400).send('Missing id'); return; }
 
         const absolutePath = await resolveAssetPath(id);
         let sharpSource: string | Buffer | null = absolutePath;
@@ -67,9 +68,14 @@ export async function cdnAssetHandler(req: Request, res: Response): Promise<void
         const originalWidth = metadata.width || 0;
         const finalWidth = originalWidth < requestedWidth ? originalWidth : requestedWidth;
 
-        /** Chiave cache basata su ID e dimensione: identifica univocamente la miniatura generata */
-        const cacheKey = `${id}_w${finalWidth}.${format}`;
+        /** Chiave cache basata su ID e dimensione: identifica univocamente la miniatura generata.
+         *  L'id è del client (anche un GUID di blob, o ciò che `resolveBlobImageUrl` accetta): nel nome
+         *  del file entra solo se innocuo, altrimenti il suo hash, come fa og-preview. Un `../` nell'id
+         *  non deve poter scrivere fuori da cacheDir. */
+        const safeId = /^[A-Za-z0-9._-]{1,128}$/.test(id) && !id.startsWith('.') ? id : createHash('sha1').update(id).digest('hex');
+        const cacheKey = `${safeId}_w${finalWidth}.${format}`;
         const cacheFile = join(cacheDir, cacheKey);
+        if (!resolve(cacheFile).startsWith(resolve(cacheDir) + sep)) { res.status(400).send('Invalid id'); return; }
 
         /** Se la miniatura esiste già in cache, la serve istantaneamente */
         if (await fileExists(cacheFile)) { recordCacheHit(); AssetHandler.serveImage(res, cacheFile); return; }

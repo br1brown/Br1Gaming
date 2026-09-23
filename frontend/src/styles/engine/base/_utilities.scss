@@ -6,13 +6,7 @@ code {
     background-color: transparent;
 }
 
-/* Schermi piccoli. -0.02px per restare strettamente sotto lib.$bp-md (768px).
-   overflow-x: clip (non hidden): per spec, "hidden" su un solo asse forza
-   l'altro asse (qui overflow-y) da visible ad auto, trasformando il container
-   in uno scroll-box che clippa verticalmente qualunque figlio assoluto che
-   sporga oltre la sua altezza — es. il dropdown lingua standalone della navbar
-   quando si apre. "clip" evita la promozione dell'altro asse: stesso effetto
-   anti-bleed orizzontale, senza tagliare i dropdown verticali. */
+/* Sotto md. overflow-x: clip, non hidden: hidden renderebbe scrollabile l'asse y e taglierebbe i dropdown. */
 @media only screen and (max-width: #{lib.$bp-md - 0.02px}) {
     .container-fluid {
         overflow-x: clip;
@@ -41,13 +35,7 @@ code {
     .zoom-on-hover:hover { transform: scale(1.5); }
 }
 
-/* Surface elevata — utility per overlay che galleggiano sopra la pagina
-   (cookie banner, context menu, FAB, modali custom future). Volutamente
-   NEUTRA: usa --bs-body-bg invece del colore tema, così gli overlay non
-   raddoppiano il "weight" del colore principale, e il primary resta
-   percepito come accento riservato alle CTA. L'inner ring + ombra danno
-   la sensazione di elevazione contro il body. Si adatta light/dark grazie
-   alle variabili Bootstrap. */
+/* Superficie elevata per overlay (cookie banner, menu contestuale...): neutra, il colore brand resta alle CTA. */
 .surface-elevated {
     background-color: var(--bs-body-bg);
     color: var(--bs-body-color);
@@ -55,14 +43,7 @@ code {
                 0 0 0 1px color-mix(in srgb, currentColor 22%, transparent);
 }
 
-/* FAB — Floating Action Button condiviso (back-to-top, cookie-reopen, ecc.).
-   Layout/shape sono delegati alle utility Bootstrap nell'HTML:
-     rounded-circle d-flex align-items-center justify-content-center fs-5
-   Qui restano solo proprietà che Bootstrap non copre: dimensione fissa,
-   ombra con inner ring theme-aware, opacità di riposo, hover/focus state.
-   L'inner ring usa currentColor così funziona su sfondi scuri o chiari:
-   chi monta il .fab garantisce un `color` con buon contrasto rispetto al
-   `background-color` (es. .theme-bg usa --colorTemaText, garantito 4.5:1 su --colorTema). */
+/* FAB condiviso (back-to-top, cookie): forma dalle utility Bootstrap, qui solo misura, ombra e stati. */
 .fab {
     width: 3rem;
     height: 3rem;
@@ -107,15 +88,9 @@ code {
     cursor: zoom-in;
 }
 
-/* Alone che pulsa, per bottoni toggle mentre l'azione è in corso (es. lettura vocale attiva):
-   un'onda che si propaga verso l'esterno finché resta attivo, poi si ferma. Colore brand fisso
-   (come il badge delle notifiche) perché qui serve richiamare l'attenzione, non solo eleganza —
-   currentColor sarebbe passato inosservato su un bottone outline-secondary grigio. Va applicata
-   via classe esplicita sul componente (es. [class.pulse-live]="isSpeaking()"), non sull'attributo
-   aria-pressed: più bottoni toggle nell'app (like-action) lo usano senza voler pulsare. */
-/* Intensità decisa dal design system attivo (`DesignSystemPreset.pulsazioneAttiva`, default
-   'lieve' — i valori storici qui sotto restano il fallback). `animation-name` diventa `none`
-   per `'assente'`: `--pulsazioneNome` lo sostituisce di peso, vedi AppearanceService. */
+/* Alone pulsante per un'azione in corso (es. lettura vocale), colore brand; si applica con una classe esplicita. */
+/* Intensità da `aspetto.pulsazione`, derivata da `movimento` ('lieve' di serie, 'marcata' con 'morbido';
+   i valori qui sotto il fallback); con `movimento: 'fermo'` `--pulsazioneNome` vale `none` e l'alone sparisce. */
 .pulse-live {
     animation-name: var(--pulsazioneNome, pulseLive);
     animation-duration: 1.5s;

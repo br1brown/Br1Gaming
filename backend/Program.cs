@@ -50,6 +50,10 @@ builder.Configuration.AddJsonFile("global-settings.json", optional: true, reload
 // global-settings.local.json: override coi SEGRETI (ApiConfig.Keys, Token) — gitignored.
 // In dev è la sorgente di verità dei segreti. In prod/Docker questo file non esiste 
 // (i segreti sono iniettati o montati direttamente sul file base).
+// In Development, se manca nella root del repository, lo si genera con le chiavi (come setup.mjs):
+// il login demo del template è acceso e senza SecretKey il server non partirebbe.
+if (LocalSettingsFile.EnsureForDevelopment(builder.Environment) is { } createdLocal)
+    Console.WriteLine($"[backend] creato {createdLocal} con API key e SecretKey generate (gitignored).");
 builder.Configuration.AddJsonFile(
     Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "global-settings.local.json")),
     optional: true, reloadOnChange: false);
@@ -96,6 +100,31 @@ var localization = builder.Configuration
 var mail = builder.Configuration
     .GetSection("Mail")
     .Get<MailOptions>() ?? new MailOptions();
+// Features (global-settings.json) è l'interruttore, la configurazione il requisito. Solo da file JSON: il frontend lo
+// compila da global-settings.json, e una variabile d'ambiente accenderebbe qui ciò che navbar e privacy ignorano. Il
+// .local non si distingue qui (è JSON anche lui): Features lì lo rifiutano generate:statics e il deploy.
+// Qualunque chiave Features:* in una fonte non JSON ferma l'avvio, qualunque sia il valore.
+var featuresOutsideJson = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+foreach (var provider in ((IConfigurationRoot)builder.Configuration).Providers)
+{
+    if (provider is Microsoft.Extensions.Configuration.Json.JsonConfigurationProvider)
+        continue;
+    if (provider.TryGet("Features", out _))
+        featuresOutsideJson.Add("Features");
+    foreach (var key in provider.GetChildKeys(Array.Empty<string>(), "Features"))
+        featuresOutsideJson.Add($"Features:{key}");
+}
+if (featuresOutsideJson.Count > 0)
+    throw new InvalidOperationException(
+        $"{string.Join(", ", featuresOutsideJson)} arriva da variabili d'ambiente o riga di comando: Features va solo in global-settings.json, letto anche dal frontend.");
+var features = builder.Configuration.GetSection("Features").Get<FeaturesOptions>() ?? new FeaturesOptions();
+features.EnsureRequirements(
+    security,
+    mail,
+    builder.Configuration.GetSection("ErrorReporting").Get<ErrorReportingOptions>() ?? new ErrorReportingOptions());
+security.LoginEnabled = features.LoginActive;
+builder.Services.PostConfigure<SecurityOptions>(o => o.LoginEnabled = features.LoginActive);
+builder.Services.Configure<FeaturesOptions>(builder.Configuration.GetSection("Features"));
 
 // ── SERVIZI APPLICATIVI ─────────────────────────────────────────────
 // AuthService: infrastruttura JWT; AccountService/AppPersonalDataStore: account utenti e dati
@@ -136,10 +165,8 @@ builder.Services.AddSingleton(_ => new BoundedByteCache("BLOB_WEBOPT_CACHE_MAX_M
 // l'identità da più fonti (override ComposeIdentityAsync in Store/AppIdentityStore.cs).
 builder.Services.AddSingleton<IIdentityStore, AppIdentityStore>();
 
-// Mailer: il sender (IEngineMailer) più coda + worker di invio in background. Accodare e
-// rispondere subito evita di bloccare la richiesta HTTP sull'I/O SMTP; l'invio (con retry)
-// avviene in EmailSenderHostedService. Attivo solo se configurato (vedi MailOptions.IsConfigured).
-// ILookupClient: resolver DNS (singleton, con cache) usato dal check MX opzionale del mailer.
+// Mailer: sender + coda + worker (EmailSenderHostedService, con retry), così la richiesta HTTP non
+// aspetta l'SMTP. Attivo solo con Features.Mail. ILookupClient: DNS con cache per il check MX opzionale.
 builder.Services.AddSingleton<ILookupClient>(
     new LookupClient(new LookupClientOptions { Timeout = TimeSpan.FromSeconds(5), UseCache = true }));
 builder.Services.AddSingleton<IEngineMailer, EngineMailer>();
@@ -148,13 +175,17 @@ builder.Services.AddSingleton<IEmailQueue>(sp => sp.GetRequiredService<ChannelEm
 builder.Services.AddHostedService<EmailSenderHostedService>();
 
 // Error reporting: un POST JSON verso un webhook esterno per ogni eccezione non applicativa o
-// applicativa con status ≥500 (vedi ApiExceptionHandler.ShouldReport). Spento di default
-// (ErrorReporting.WebhookUrl vuoto): nessuna chiamata HTTP uscente finché non lo configuri.
+// applicativa con status ≥500 (vedi ApiExceptionHandler.ShouldReport). Lo accende Features.ErrorReporting,
+// ErrorReporting.WebhookUrl è il requisito: a flag spento nessuna chiamata HTTP uscente.
 // Nessun pacchetto NuGet aggiuntivo: solo HttpClient tipizzato via IHttpClientFactory.
 builder.Services.AddHttpClient<IErrorReportingService, EngineErrorReporting>(client =>
 {
     client.Timeout = TimeSpan.FromSeconds(5);
 });
+// Coda e worker propri delle segnalazioni: un webhook lento non ferma i task di dominio, e un
+// visitatore che spara /diagnostics/ui-fault non riempie la coda dei lavori veri.
+builder.Services.AddSingleton<ErrorReportQueue>();
+builder.Services.AddHostedService<ErrorReportDispatcher>();
 
 // Invalidazione on-demand della cache di sitemap.xml sul frontend Node SSR: un POST verso
 // Frontend.Origin dopo ogni scrittura che cambia un catalogo dietro dynamicParams. Spento di
@@ -259,15 +290,14 @@ if (app.Services.GetRequiredService<FileBlobStore>() is AppBlobStore appBlobStor
 }
 
 // ── MAILER ──────────────────────────────────────────────────────────
-// Il mailer è un singleton in DI (IEngineMailer). Come il login si attiva solo se configurato:
-// senza una sezione "Mail" valida IsEnabled resta false e ogni invio risponde 503. Qui si
-// traccia solo lo stato all'avvio (nessun segreto nei log).
+// Spento (Features.Mail o sezione "Mail" mancante) ogni invio risponde 503. Qui solo lo stato
+// all'avvio, nessun segreto nei log.
 app.Logger.LogInformation("Mailer {State}.",
-    app.Services.GetRequiredService<IEngineMailer>().IsEnabled ? $"attivo (SMTP {mail.Host}:{mail.Port})" : "non configurato");
+    app.Services.GetRequiredService<IEngineMailer>().IsEnabled ? $"attivo (SMTP {mail.Host}:{mail.Port})" : "spento");
 
 // ── ERROR REPORTING ─────────────────────────────────────────────────
 app.Logger.LogInformation("Error reporting {State}.",
-    app.Services.GetRequiredService<IErrorReportingService>().IsEnabled ? "attivo" : "non configurato");
+    app.Services.GetRequiredService<IErrorReportingService>().IsEnabled ? "attivo" : "spento");
 
 // ── SITEMAP NOTIFIER ────────────────────────────────────────────────
 app.Logger.LogInformation("Invalidazione cache sitemap sul frontend {State}.",

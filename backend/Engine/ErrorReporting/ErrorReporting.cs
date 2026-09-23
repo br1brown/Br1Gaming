@@ -50,7 +50,7 @@ public sealed record ClientErrorReport
 /// <summary>Segnalazione errori dell'Engine (singleton): webhook HTTP generico, non un sostituto di un vero APM. Chiamato solo per bug veri o status ≥500, mai per un 4xx applicativo; accodato su <c>IBackgroundTaskQueue</c>, mai atteso nella risposta HTTP.</summary>
 public interface IErrorReportingService
 {
-    /// <summary>Se un webhook è configurato.</summary>
+    /// <summary>True quando <c>Features.ErrorReporting</c> è acceso e la configurazione (<c>ErrorReporting.WebhookUrl</c>) è presente.</summary>
     bool IsEnabled { get; }
 
     /// <summary>Invia la segnalazione al webhook; non lancia mai (un fallimento viene solo loggato).</summary>

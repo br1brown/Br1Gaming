@@ -10,6 +10,9 @@
 
 # File interamente del figlio: il merge dal template non li tocca mai.
 # Il figlio li riscrive da zero ad ogni progetto.
+# `ours` NON è un driver built-in di git: serve `git config merge.ours.driver true` nel clone
+# (lo fa setup.mjs; per un altro clone del figlio va rilanciato a mano), altrimenti questi file
+# vanno in conflitto come tutti gli altri.
 frontend/src/assets/i18n/addon.*.json merge=ours
 frontend/src/assets/mapping.json merge=ours
 frontend/src/app/core/services/api.service.ts merge=ours

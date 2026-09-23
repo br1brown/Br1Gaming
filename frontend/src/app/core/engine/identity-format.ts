@@ -2,9 +2,8 @@ import type { Address, OpeningInterval } from './dto/identity.dto';
 import { DAY_ORDER } from './dto/identity.dto';
 import type { LocalizationService } from './services/localization.service';
 
-/** Formattazione pura dei campi `Identity`, estratta da `identity-render.component.ts` perché ha
- *  un secondo consumer (`footer-content.ts`): un solo posto per "come si formatta un indirizzo/una
- *  valuta", così il blocco automatico e quello dichiarato a mano in `nav.ts` restano allineati. */
+/** Formattazione pura dei campi `Identity`: un solo posto per "come si formatta un indirizzo/una valuta",
+ *  usato da `footer-content.ts` per footer e sezione identità delle pagine legali. */
 
 export function hasText(value: string | null | undefined): value is string {
     return typeof value === 'string' && value.trim().length > 0;
@@ -27,8 +26,7 @@ export function isValidOpeningInterval(it: OpeningInterval | null | undefined): 
     return !!it && DAY_ORDER.includes(it.day) && isHm(it.opens) && isHm(it.closes);
 }
 
-/** Tono Bootstrap del badge (suffisso di `text-bg-*`/`border-*`) — condiviso fra `app-identity-render`
- *  e i `FooterField` booleani risolti in `footer-content.ts`: stesso vocabolario di stile in entrambi. */
+/** Tono Bootstrap del badge (suffisso di `text-bg-*`/`border-*`) dei `FooterField` booleani risolti in `footer-content.ts`. */
 export type BadgeTone = 'success' | 'secondary' | 'warning' | 'danger' | 'info' | 'primary';
 
 function isNonEmptyString(value: unknown): value is string {

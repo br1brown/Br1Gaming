@@ -20,7 +20,7 @@ public sealed record MailAttachment(string FileName, byte[] Content, string? Con
 /// <summary>Unico punto d'invio email dell'Engine, iniettato in DI come singleton.</summary>
 public interface IEngineMailer
 {
-    /// <summary>Se l'invio è configurato e utilizzabile.</summary>
+    /// <summary>True quando <c>Features.Mail</c> è acceso e la configurazione (<c>Mail.Host</c>, <c>Mail.FromAddress</c>) è presente.</summary>
     bool IsEnabled { get; }
 
     /// <summary>Se l'indirizzo è parsabile e ha un dominio.</summary>
@@ -47,19 +47,21 @@ public interface IEngineMailer
 internal sealed class EngineMailer : IEngineMailer
 {
     private readonly MailOptions _options;
+    private readonly bool _enabled;
     private readonly ILookupClient _dns;
     private readonly ILogger<EngineMailer> _logger;
 
-    /// <summary>Inietta le opzioni Mail (sezione <c>Mail</c>), il resolver DNS e il logger.</summary>
-    public EngineMailer(IOptions<MailOptions> options, ILookupClient dns, ILogger<EngineMailer> logger)
+    /// <summary>Inietta le opzioni Mail (sezione <c>Mail</c>), l'interruttore <c>Features.Mail</c>, il resolver DNS e il logger.</summary>
+    public EngineMailer(IOptions<MailOptions> options, IOptions<FeaturesOptions> features, ILookupClient dns, ILogger<EngineMailer> logger)
     {
         _options = options.Value;
+        _enabled = features.Value.Mail && _options.IsConfigured;
         _dns = dns;
         _logger = logger;
     }
 
     /// <inheritdoc />
-    public bool IsEnabled => _options.IsConfigured;
+    public bool IsEnabled => _enabled;
 
     /// <inheritdoc />
     public bool IsValidAddress(string? address) => TryParseStrict(address, out _);
@@ -144,7 +146,7 @@ internal sealed class EngineMailer : IEngineMailer
     public async Task SendAsync(EmailMessage message, CancellationToken cancellationToken = default)
     {
         var options = _options;
-        if (!options.IsConfigured)
+        if (!_enabled)
             throw new MailNotConfiguredException();
 
         if (message.To is null || message.To.Count == 0)

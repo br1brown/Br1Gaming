@@ -4,8 +4,8 @@ import { cartaDesignSystem } from './engine/carta.design-system';
 /** Il design system di QUESTA demo: estende `cartaDesignSystem` con le scelte che la
  *  distinguono — navbar fissa, breadcrumb sempre visibile, smoke decorativo. */
 export const demoDesignSystem: DesignSystemFactory = extendDesignSystem(cartaDesignSystem, {
-    fixedTopHeader: true,
-    showBreadcrumb: true,
+    navbar: { fissa: true },
+    breadcrumb: { show: true },
     smoke: {
         enable: true,
         color: '#b5d9ff',

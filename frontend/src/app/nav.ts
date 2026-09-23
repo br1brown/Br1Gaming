@@ -22,10 +22,8 @@ export const navResolver: ShellNavResolver = {
         h.addPage(PageType.Social);
     },
 
-    // Le pagine legali sono gestite automaticamente da `footer.component` in una fascia "small
-    // prints" derivata da `legalPages` di site.ts. Ogni `addGroup` qui diventa una colonna (link,
-    // campi identità con `addField`, testo con `addText`). Definirlo qui RIMPIAZZA per intero il
-    // footer "di serie" (`defaultFooterResolver`): non convivono, o l'uno o l'altro.
+    // Pagine legali: fascia automatica dalla sezione `legal` di site.ts. Ogni `addGroup` è una colonna
+    // (`addField` per l'identità, `addText` per testo). Definirlo qui RIMPIAZZA il footer di serie.
     footer: (f, ctx) => {
         f.addGroup('footerProgettoAzienda', g => {
             g.addField(FooterField.RagioneSociale);

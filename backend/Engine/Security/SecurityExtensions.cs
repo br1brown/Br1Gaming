@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Localization;
 using Microsoft.IdentityModel.Tokens;
 using Backend;
@@ -44,7 +45,7 @@ public static class SecurityExtensions
                     options.ValidKeys = new HashSet<string>(security.ApiConfig.Keys, StringComparer.Ordinal);
                 });
 
-        // ── JWT BEARER (condizionale) ── Registrato solo se Security.Token.SecretKey è valorizzata.
+        // ── JWT BEARER (condizionale) ── Registrato solo col login acceso (Features.Login/PublicLogin).
         if (security.LoginEnabled)
         {
             authBuilder.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
@@ -64,7 +65,24 @@ public static class SecurityExtensions
                     // Scaduto e' scaduto, nessun margine di grazia.
                     ClockSkew = TimeSpan.Zero
                 };
+                // Un token firmato e non scaduto può essere stato revocato (account cancellato con
+                // DELETE /me/data): dopo la firma si chiede a SessionRevocation, e un token emesso
+                // prima della revoca è respinto come uno scaduto (401), non resta valido fino a scadenza.
+                options.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = context =>
+                    {
+                        var revocation = context.HttpContext.RequestServices.GetRequiredService<ISessionRevocation>();
+                        if (context.Principal is not null && revocation.IsRevoked(context.Principal))
+                            context.Fail("Sessione revocata: l'account è stato cancellato dopo l'emissione del token.");
+                        return Task.CompletedTask;
+                    }
+                };
             });
+            // Registro delle revoche: default in memoria (IMemoryCache), usato qui e da EngineDataPrivacyController.
+            // TryAdd: un progetto con più istanze registra la propria ISessionRevocation in Program.cs e vince.
+            services.AddMemoryCache();
+            services.TryAddSingleton<ISessionRevocation, MemorySessionRevocation>();
         }
 
         // ── AUTORIZZAZIONE ── Policy "RequireLogin", usata via [Authorize(Policy = "RequireLogin")].
@@ -81,6 +99,9 @@ public static class SecurityExtensions
                 policyBuilder.AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme);
 
             policyBuilder.RequireAuthenticatedUser();
+            // API key E JWT, non uno dei due: ASP.NET fonde i principal degli schemi elencati e
+            // RequireAuthenticatedUser passa appena uno riesce. Il claim lo emette solo ApiKeyHandler.
+            policyBuilder.RequireClaim(SecurityDefaults.ApiKeyValidatedClaimType, "true");
             // Il token JWT deve avere il ruolo "Authenticated" (emesso da AuthService).
             // Se LoginEnabled e' false, nessun JWT handler esiste e questo requisito
             // non puo' mai essere soddisfatto: ProtectedController resta inaccessibile.
@@ -111,7 +132,7 @@ public static class SecurityExtensions
 				// Retry-After e' esposto esplicitamente perche' il browser non puo' leggerlo
 				// senza WithExposedHeaders, anche se e' gia' presente nella risposta.
 				policy.AllowAnyMethod()
-                    .WithHeaders("Content-Type", "Authorization", SecurityDefaults.ApiKeyHeaderName, "Accept-Language")
+                    .WithHeaders("Content-Type", "Authorization", SecurityDefaults.ApiKeyHeaderName, "Accept-Language", "X-Connection-Id")
                     .WithExposedHeaders("Retry-After");
             });
         });
@@ -197,12 +218,6 @@ public static class SecurityExtensions
             configureRateLimiting?.Invoke(options);
         });
 
-        // ── CIFRATURA GENERICA ── Servizio AES-GCM per chi deve cifrare un payload (es. export dati
-        // personali). Indipendente da LoginEnabled (chiave da Security.CryptoSecret). Costruito
-        // pigramente da DI: l'eccezione per chiave mancante emerge solo quando qualcosa risolve
-        // IEngineCrypto, non prima, così un controller che non la usa in un ramo non fallisce a vuoto.
-        services.AddSingleton<IEngineCrypto, EngineCrypto>();
-
         // ── GESTIONE ERRORI CENTRALIZZATA ── ApiException → ProblemDetails (RFC 9457).
         services.AddProblemDetails(options =>
         {
@@ -242,10 +257,14 @@ public static class SecurityExtensions
                     | ForwardedHeaders.XForwardedProto
             };
 
-            // Trusted solo da reti private RFC 1918 (range Docker).
+            // Trusted solo da reti private RFC 1918 (range Docker) e da loopback: il reverse proxy
+            // sulla stessa macchina (nginx → 127.0.0.1:5000) è il deploy non-Docker più comune, e senza
+            // X-Forwarded-For letto il rate limiter metterebbe tutti i visitatori in un solo bucket.
             // IP pubblici → X-Forwarded-For ignorato → rate limiter vede l'IP reale.
             fwdOptions.KnownNetworks.Clear();
             fwdOptions.KnownProxies.Clear();
+            fwdOptions.KnownProxies.Add(System.Net.IPAddress.Loopback);
+            fwdOptions.KnownProxies.Add(System.Net.IPAddress.IPv6Loopback);
             fwdOptions.KnownNetworks.Add(new IPNetwork(System.Net.IPAddress.Parse("10.0.0.0"), 8));
             fwdOptions.KnownNetworks.Add(new IPNetwork(System.Net.IPAddress.Parse("172.16.0.0"), 12));
             fwdOptions.KnownNetworks.Add(new IPNetwork(System.Net.IPAddress.Parse("192.168.0.0"), 16));
@@ -265,14 +284,8 @@ public static class SecurityExtensions
         app.UseExceptionHandler();
         app.UseStatusCodePages();
 
-        // Rate limiting per IP del client.
-        // 500 req/min globali, 5 req/min su login (default — configurabili in Security.ApiConfig.RateLimiting).
-        // Sta subito dopo l'exception handler (fail fast): se un client sta abusando,
-        // viene bloccato subito senza sprecare risorse sui middleware successivi.
-        app.UseRateLimiter();
-
         // Header di sicurezza da security-headers.json, condivisi col frontend SSR: applicati anche
-        // qui perché quando backend.public è attivo il backend diventa raggiungibile dal browser
+        // qui, PRIMA del rate limiter così li porta anche il 429 di OnRejected, perché quando backend.public è attivo il backend diventa raggiungibile dal browser
         // a prescindere dal reverse proxy. CSP esclusa: il backend serve solo JSON, dove non ha effetto.
         if (security.Headers.Count > 0)
         {
@@ -295,6 +308,12 @@ public static class SecurityExtensions
                 await next();
             });
         }
+
+        // Rate limiting per IP del client.
+        // 500 req/min globali, 5 req/min su login (default — configurabili in Security.ApiConfig.RateLimiting).
+        // Sta subito dopo l'exception handler (fail fast): se un client sta abusando,
+        // viene bloccato subito senza sprecare risorse sui middleware successivi.
+        app.UseRateLimiter();
 
         app.UseHsts();
 

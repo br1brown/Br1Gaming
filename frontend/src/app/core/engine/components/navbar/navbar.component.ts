@@ -5,7 +5,6 @@ import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { injectCurrentUrl, mergeRouteParams } from '../../routing';
 import { isDesktopViewport } from '../../breakpoints';
-import { AppearanceService } from '../../services/appearance.service';
 import { TranslateService } from '../../services/translate.service';
 import { LocalizationService } from '../../services/localization.service';
 import { PageMetaService } from '../../services/page-meta.service';
@@ -39,7 +38,6 @@ const MAX_RECOMMENDED_TOP_LEVEL_ITEMS = 6;
 })
 /** Barra di navigazione principale, configurata interamente da `site.ts` (via `ContestoSito`). Non modificare questo file: personalizza site.ts e user-nav.component.ts (dominio a contratto fisso). */
 export class NavbarComponent {
-    readonly theme = inject(AppearanceService);
     readonly translate = inject(TranslateService);
     private readonly localization = inject(LocalizationService);
     private readonly pageMeta = inject(PageMetaService);
@@ -69,13 +67,12 @@ export class NavbarComponent {
      *  sloggato (nessun token), quindi anche i bot vedono solo le voci pubbliche — coerente con
      *  `requiresAuth` che già forza quelle pagine fuori da sitemap/SSR. */
     readonly menuItems = computed(() => filterNavByAuth(this.rawMenuItems(), this.tokenService.isLoggedIn()));
-    readonly fixTop = ContestoSito.config.fixedTopHeader;
-    /** Se comparire — decisione del design system per il ruolo della rotta attiva, passata da
-     *  `AppComponent` (`RouteChrome.showBrandIcon ?? ContestoSito.config.showBrandIcon`), stesso
-     *  schema di `BreadcrumbComponent.forceShow`. QUALE icona resta un'altra fonte (sotto). */
+    readonly fixTop = ContestoSito.config.aspetto.navbar.fissa;
+    /** Se comparire — calcolato da `AppComponent` (`aspetto.navbar.icona && (RouteChrome.showBrandIcon ?? true)`):
+     *  il ruolo della rotta può solo spegnerla. QUALE icona resta un'altra fonte (sotto). */
     readonly showBrandIcon = input<boolean>(true);
     /** Valore per `[appAsset]`, o `null` se `showBrandIcon()` è spento: chiave mapping.json o GUID
-     *  blob (`ShellNavResolver.brandIcon`, assente → `favIcon` di sempre). */
+     *  blob (`ShellNavResolver.brandIcon`, assente → `favIcon`). */
     readonly brandIconAsset = computed<string | null>(() => this.showBrandIcon() ? this.shellNav.brandIcon() : null);
     /** Mostra il campanellino delle notifiche realtime (shell.showNotifications, default false). */
     readonly showNotifications = ContestoSito.config.showNotifications;

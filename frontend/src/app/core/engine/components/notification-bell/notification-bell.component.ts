@@ -34,10 +34,10 @@ export class NotificationBellComponent {
     /** Storico, dal più recente al meno recente (il servizio lo tiene in ordine di arrivo). */
     readonly items = computed(() => [...this.stream.notifications()].reverse());
 
-    /** `'numero'` (default, storico): badge con conteggio. `'puntino'`: solo un indicatore, senza
+    /** `'numero'` (default): badge con conteggio. `'puntino'`: solo un indicatore, senza
      *  numero — `bellLabel()` sotto resta comunque accessibile in entrambi i casi (il conteggio
      *  non sparisce per chi usa uno screen reader). `DesignSystemPreset.badgeNotifiche`. */
-    readonly badgeNumero = ContestoSito.config.badgeNotifiche === 'numero';
+    readonly badgeNumero = ContestoSito.config.aspetto.badgeNotifiche === 'numero';
 
     /** Nome accessibile del pulsante: include il numero di non lette per gli screen reader. */
     readonly bellLabel = computed(() => {

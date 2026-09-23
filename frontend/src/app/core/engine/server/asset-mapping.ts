@@ -7,7 +7,7 @@ import { fileExists } from './fs-utils';
 type RawEntry = string | { file: string;[key: string]: unknown };
 
 /** Dizionario ID -> NomeFile reale per nascondere i percorsi fisici agli utenti. */
-const assetMapping: Record<string, string> = {};
+const assetMapping: Record<string, string> = Object.create(null) as Record<string, string>; // senza prototipo: `constructor`/`__proto__` non risolvono a funzioni
 
 /**
  * Scansiona vari percorsi per caricare il mapping degli asset (fondamentale per l'engine).

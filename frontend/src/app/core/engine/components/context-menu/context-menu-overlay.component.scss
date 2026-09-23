@@ -5,9 +5,8 @@
 /* bg/color/box-shadow vengono dalla utility .surface-elevated nell'HTML.
    Posizionamento e z-index sono di CDK Overlay (pane + container): qui solo l'aspetto. */
 /* Raggio/durata decisi dal design system attivo (`DesignSystemPreset.elevazione`/`movimento`,
-   default 'sospesa'/'svelto' — i valori qui sotto restano il fallback, vedi AppearanceService). */
+   default 'sospesa'/'svelto' — i valori qui sotto restano il fallback). */
 .context-menu {
-    --colorLink: currentColor;
     border-radius: var(--elevazioneRaggio, 8px);
     min-width: 160px;
     max-width: min(22rem, calc(100vw - 1rem));

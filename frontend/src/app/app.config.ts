@@ -22,6 +22,7 @@ import { SHELL_NAV_RESOLVER, ShellNavService } from './core/engine/services/shel
 import { navResolver } from './nav';
 import { LOCALE_CONFIG, LOCALE_STATE_KEY, type LocaleConfig } from './core/engine/services/translate.service';
 import { APP_CUSTOM, CUSTOM_STATE_KEY, type AppCustom } from './core/engine/app-custom';
+import { LEGAL_FACTS, LEGAL_FACTS_STATE_KEY, type LegalFacts } from './core/engine/legal/hosting-info';
 import { API_PREFIX } from './core/engine/asset-config';
 import { environment } from '../environments/environment';
 
@@ -44,11 +45,9 @@ export const appConfig: ApplicationConfig = {
                 scrollPositionRestoration: 'enabled',
                 anchorScrolling: 'enabled'
             }),
-            // Transizioni di pagina (View Transitions API). Progressive enhancement + off sotto
-            // prefers-reduced-motion (base/_a11y.scss). skipInitialTransition: il primo load non è
-            // una transizione "tra pagine" — senza, cross-fade dallo stato-shell non risolto →
-            // sfarfallio su home full-bleed.
-            withViewTransitions({ skipInitialTransition: true })
+            // Transizioni di pagina (View Transitions API), solo con `aspetto.transizioni` del design
+            // system attivo; la durata la dà `movimento`. skipInitialTransition: il primo load non è un cambio pagina.
+            ...(ContestoSito.config.aspetto.transizioni ? [withViewTransitions({ skipInitialTransition: true })] : [])
         ),
 
         // HttpClient con supporto fetch (migliore performance/compatibilità) e l'interceptor
@@ -87,10 +86,12 @@ export const appConfig: ApplicationConfig = {
             enabled: !isDevMode() && ContestoSito.config.isWebApp && isTechnicalOptionalConsentGiven(),
             registrationStrategy: 'registerWhenStable:30000'
         }),
-        // Segnala al backend (diagnostics/ui-fault → IErrorReportingService) ogni eccezione JS non
-        // gestita nel browser. No-op di rete finché il webhook non è configurato (§ ErrorReporting
-        // in global-settings.local.json) e comunque spento in sviluppo — vedi il servizio.
-        { provide: ErrorHandler, useClass: ClientErrorReportingService },
+        // Con `Features.ErrorReporting` acceso segnala al backend (diagnostics/ui-fault →
+        // IErrorReportingService) ogni eccezione JS non gestita nel browser, mai in sviluppo. Spento,
+        // resta l'ErrorHandler di Angular: solo console, nessuna chiamata che il backend scarterebbe.
+        ...(environment.features.errorReporting
+            ? [{ provide: ErrorHandler, useClass: ClientErrorReportingService }]
+            : []),
         {
             provide: SSR_API_PREFIX,
             useValue: API_PREFIX,
@@ -135,6 +136,12 @@ export const appConfig: ApplicationConfig = {
             provide: APP_CUSTOM,
             useFactory: (transferState: TransferState): AppCustom =>
                 transferState.hasKey(CUSTOM_STATE_KEY) ? transferState.get(CUSTOM_STATE_KEY, {}) : {},
+            deps: [TransferState],
+        },
+        {
+            // Fatti per la Privacy Policy passati dall'SSR; senza SSR restano null (testo generico).
+            provide: LEGAL_FACTS,
+            useFactory: (transferState: TransferState): LegalFacts | null => transferState.get(LEGAL_FACTS_STATE_KEY, null),
             deps: [TransferState],
         },
     ]

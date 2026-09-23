@@ -39,11 +39,17 @@ jobs:
               - "global-settings.json"
               - "global-settings.schema.json"
               - ".nvmrc"
+              # titolare della Privacy Policy, controllato da generate:statics
+              - "backend/data/identity.json"
+              - "scripts/test/**"
+              - ".github/workflows/Controlli Automatici di Tutto.yml"
             i18n:
               - "frontend/src/assets/i18n/**"
               - "global-settings.json"
             infra:
               - "docker-compose*.yml"
+              - "security-headers*.json"
+              - "docker/**"
               - "scripts/lib/**"
               - "scripts/test/**"
               - ".github/workflows/Controlli Automatici di Tutto.yml"
@@ -117,18 +123,7 @@ jobs:
             exit 1
           fi
 
-      - name: Analisi Lint
-        run: bash scripts/test/lint-check.sh
-
-      - name: Controllo dei tipi
-        run: bash scripts/test/tsc-check.sh
-
-      - name: Dipendenze circolari
-        run: bash scripts/test/circular-deps-check.sh
-
-      - name: Tema/design-system (Vitest)
-        run: bash scripts/test/theme-check.sh
-
+      # Prima di ogni passo che compila: tema Sass (generated/_theme.scss), environment.ts e statici.
       - name: Genera risorse statiche
         working-directory: frontend
         run: npm run generate:statics
@@ -140,6 +135,18 @@ jobs:
             git --no-pager diff -- frontend/src/environments/environment.ts
             exit 1
           fi
+
+      - name: Analisi Lint
+        run: bash scripts/test/lint-check.sh
+
+      - name: Controllo dei tipi
+        run: bash scripts/test/tsc-check.sh
+
+      - name: Dipendenze circolari
+        run: bash scripts/test/circular-deps-check.sh
+
+      - name: Tema/design-system (Vitest)
+        run: bash scripts/test/theme-check.sh
 
       - name: Invarianti SiteBuilder
         run: bash scripts/test/site-builder-check.sh

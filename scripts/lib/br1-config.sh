@@ -22,7 +22,7 @@
 #   FRONTEND_BASE_URL     https://<hostname> (se impostato)
 #   NG_ALLOWED_HOSTS      hostname consentito
 #   BEHIND_PROXY          yes|no (da Security.BehindProxy)
-#   BR1_PROJECT_JSON      global-settings.json minificato (project/Localization/site/Custom, NO segreti),
+#   BR1_PROJECT_JSON      global-settings.json minificato (project/Localization/site/Features/Custom, NO segreti),
 #                         build arg per iniettare l'identità e la config nel bundle frontend
 #
 # Path RELATIVI di proposito: Node li risolve dalla cwd (la root del repo) e
@@ -31,7 +31,7 @@
 # =============================================================================
 
 # br1_ensure_local_secrets — se manca global-settings.local.json, lo crea da zero GENERANDO
-# i segreti (SecretKey/ApiConfig.Keys/CryptoSecret) ma lasciando VUOTI i valori che sono decisioni
+# i segreti (SecretKey/ApiConfig.Keys) ma lasciando VUOTI i valori che sono decisioni
 # dell'ambiente (frontend.hostname su tutti). Poi lascia proseguire il deploy.
 #
 # Da chiamare ESPLICITAMENTE dagli script di pubblicazione (scripts/deploy.sh/deploy-release.sh),
@@ -42,7 +42,7 @@
 # per comodità. Il dominio invece è una scelta consapevole: se lo riempissimo con un finto
 # 'miodominio.it' il fail-closed sui valori vuoti (hostname mancante ⇒ deploy fermo, niente 421
 # al dominio reale) perderebbe senso. Così le chiavi nascono pronte, ma sul dominio il guard del
-# chiamante ti blocca finché non lo imposti tu. Niente sezione Mail: il mailer resta spento finché
+# chiamante ti blocca finché non lo imposti tu. Niente sezione Mail: il mailer resta spento (anche per Features.Mail) finché
 # non la aggiungi (nessun host finto). La porta ha un default sensato (3000): cambiala se hai già
 # un altro progetto su quella porta.
 #
@@ -55,7 +55,7 @@ import { randomBytes } from 'crypto';
 const b64 = n => randomBytes(n).toString('base64');
 const cfg = {
   '\$schema': './global-settings.schema.json',
-  _nota: 'Creato in automatico alla pubblicazione: le CHIAVI sono già generate. DEVI impostare frontend.hostname (il tuo dominio) — finché è vuoto il deploy si ferma di proposito (niente dominio reale, niente 421). Cambia frontend.port se hai altri progetti sulla stessa VPS. Aggiungi una sezione Mail se ti serve l\'invio email.',
+  _nota: 'Creato in automatico alla pubblicazione: le CHIAVI sono già generate. DEVI impostare frontend.hostname (il tuo dominio) — finché è vuoto il deploy si ferma di proposito (niente dominio reale, niente 421). Cambia frontend.port se hai altri progetti sulla stessa VPS. Per l\'invio email aggiungi una sezione Mail e accendi Features.Mail in global-settings.json.',
   frontend: { hostname: '', port: 3000 },
   backend: { public: false, publicPort: null },
   Security: {
@@ -63,7 +63,6 @@ const cfg = {
     CorsOrigins: [],
     BehindProxy: true,
     Token: { SecretKey: b64(48) },
-    CryptoSecret: b64(32),
   },
 };
 writeFileSync('global-settings.local.json', JSON.stringify(cfg, null, 2) + '\n');
@@ -74,20 +73,36 @@ writeFileSync('global-settings.local.json', JSON.stringify(cfg, null, 2) + '\n')
 br1_load_config() {
     local effective="./.br1-settings.effective.json"
 
-    # Config EFFETTIVA = global-settings.json + override opzionale global-settings.local.json,
-    # con un ApiKey EFFIMERO generato se manca. Il file .local è gitignorato: ci metti i SEGRETI
-    # REALI di produzione; senza .local (CI, primo avvio) lo stack parte comunque perché qui
-    # generiamo una Security.ApiConfig.Keys usa-e-getta — così git resta senza segreti ma il template
-    # parte subito. SecretKey NON viene toccata: lasciarla vuota disabilita il login (scelta del
-    # progetto). Il merge è profondo (gli array si sostituiscono).
+    # Config EFFETTIVA = global-settings.json + .local (merge profondo, array sostituiti). Senza .local
+    # (CI, primo avvio) genera valori usa-e-getta: ApiKey sempre, e la configurazione delle funzioni
+    # accese in Features. Così git resta senza segreti e lo stack parte comunque.
+    # Rifiuta Features nel .local (il build del frontend legge solo il file base: frontend e backend
+    # si dividerebbero, stessa regola di generate-statics) e chiavi che differiscono solo per le
+    # maiuscole nello stesso oggetto: .NET legge la configurazione senza distinguerle e si fermerebbe
+    # all'avvio con un errore di chiave duplicata.
     node --input-type=module --eval "
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { randomBytes } from 'crypto';
 const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
 const merge = (a, b) => { if (!isObj(a) || !isObj(b)) return b === undefined ? a : b; const o = { ...a }; for (const k of Object.keys(b)) o[k] = isObj(o[k]) && isObj(b[k]) ? merge(o[k], b[k]) : b[k]; return o; };
+const fail = msg => { console.error('[br1-config] ' + msg); process.exit(1); };
 let cfg = JSON.parse(readFileSync('global-settings.json', 'utf-8'));
-if (existsSync('global-settings.local.json'))
-    cfg = merge(cfg, JSON.parse(readFileSync('global-settings.local.json', 'utf-8')));
+if (existsSync('global-settings.local.json')) {
+    const local = JSON.parse(readFileSync('global-settings.local.json', 'utf-8'));
+    if (isObj(local) && Object.keys(local).some(k => k.toLowerCase() === 'features'))
+        fail('Features sta in global-settings.local.json: va solo in global-settings.json.');
+    cfg = merge(cfg, local);
+}
+const caseDup = (o, path) => {
+    if (!isObj(o)) return;
+    const seen = new Map();
+    for (const k of Object.keys(o)) {
+        const lk = k.toLowerCase();
+        if (seen.has(lk)) fail('chiavi ' + path + seen.get(lk) + ' e ' + path + k + ' differiscono solo per le maiuscole (base + .local): il backend non le distingue. Tienine una sola, con la grafia di global-settings.json.');
+        seen.set(lk, k);
+        caseDup(o[k], path + k + '.');
+    }
+};
 // ApiKey effimero se assente: backend e SSR devono averne uno coincidente (montano lo stesso
 // file), altrimenti il frontend va in crash all'avvio (assertRequiredEnv su Security.ApiConfig.Keys[0]).
 cfg.Security = isObj(cfg.Security) ? cfg.Security : {};
@@ -95,6 +110,20 @@ cfg.Security.ApiConfig = isObj(cfg.Security.ApiConfig) ? cfg.Security.ApiConfig 
 const keys = cfg.Security.ApiConfig.Keys;
 if (!Array.isArray(keys) || keys.length === 0 || !keys[0])
     cfg.Security.ApiConfig.Keys = [randomBytes(32).toString('base64')];
+// Senza .local (CI, primo avvio) le funzioni dichiarate in Features non hanno la loro configurazione
+// e il backend non partirebbe: valori usa-e-getta, come l'ApiKey. Mail e webhook puntano a indirizzi
+// che non consegnano nulla. Al deploy .local esiste sempre (br1_ensure_local_secrets) e qui non si tocca.
+if (!existsSync('global-settings.local.json')) {
+    const f = isObj(cfg.Features) ? cfg.Features : {};
+    if ((f.Login || f.PublicLogin) && !cfg.Security.Token?.SecretKey)
+        cfg.Security.Token = { ...(cfg.Security.Token || {}), SecretKey: randomBytes(48).toString('base64') };
+    if (f.Mail && !(cfg.Mail?.Host && cfg.Mail?.FromAddress))
+        cfg.Mail = { ...(cfg.Mail || {}), Host: '127.0.0.1', FromAddress: 'ci@example.invalid' };
+    if (f.ErrorReporting && !cfg.ErrorReporting?.WebhookUrl)
+        cfg.ErrorReporting = { ...(cfg.ErrorReporting || {}), WebhookUrl: 'http://127.0.0.1:9/ci' };
+}
+// Dopo le chiavi aggiunte sopra: un 'security' minuscolo nel .local accanto al 'Security' creato qui è un doppione.
+caseDup(cfg, '');
 writeFileSync('.br1-settings.effective.json', JSON.stringify(cfg, null, 2) + '\n');
 " || return 1
 
@@ -107,9 +136,11 @@ writeFileSync('.br1-settings.effective.json', JSON.stringify(cfg, null, 2) + '\n
         export "${_line%%=*}=${_line#*=}"
     done < <(BR1_EFFECTIVE="$effective" node --input-type=module --eval "
 import { readFileSync } from 'fs';
+import { resolve } from 'path';
 const s = JSON.parse(readFileSync(process.env.BR1_EFFECTIVE, 'utf-8'));
 const slugify = n => String(n).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+\$/g, '');
 const h = (s.frontend?.hostname || '').trim();
+const hosting = (s.frontend?.hostingInfo || '').trim();
 const langs = Array.isArray(s.Localization?.SupportedLanguages) ? s.Localization.SupportedLanguages : [];
 process.stdout.write([
     'COMPOSE_PROJECT_NAME=' + slugify(s.project?.name || 'app'),
@@ -119,10 +150,19 @@ process.stdout.write([
     'FRONTEND_BASE_URL=' + (h ? 'https://' + h : ''),
     'NG_ALLOWED_HOSTS=' + h,
     'BEHIND_PROXY=' + (s.Security?.BehindProxy ? 'yes' : 'no'),
+    // frontend.hostingInfo è relativo alla root del progetto (dove gira il deploy): assoluto per il mount.
+    'BR1_HOSTING_INFO=' + (hosting ? resolve(hosting) : ''),
 ].join('\n') + '\n');
 ")
 
-    # Config di PROGETTO (project/Localization/site/Custom) minificata per il build del frontend.
+    # Un file dei fatti dell'installazione indicato ma assente: meglio fermarsi qui che far montare a
+    # Docker una cartella vuota al suo posto.
+    if [[ -n "${BR1_HOSTING_INFO:-}" && ! -f "$BR1_HOSTING_INFO" ]]; then
+        echo "frontend.hostingInfo punta a $BR1_HOSTING_INFO, che non esiste." >&2
+        return 1
+    fi
+
+    # Config di PROGETTO (project/Localization/site/Features/Custom) minificata per il build del frontend.
     # È global-settings.json grezzo: NON contiene segreti (quelli sono in .local, non qui),
     # quindi è sicuro passarlo come build ARG. generate-statics lo legge da BR1_PROJECT_JSON.
     export BR1_PROJECT_JSON="$(node --input-type=module --eval "
@@ -137,7 +177,7 @@ process.stdout.write(JSON.stringify(JSON.parse(readFileSync('global-settings.jso
 # controllo vive in un solo posto invece di essere duplicato come il guard sui segreti.
 #
 # Non bloccante di proposito: sono stati finali legittimi in alcuni casi (es. identity.json vuoto
-# fa sparire footer/legal da solo, vedi README) — il chiamante decide come mostrarli (qui niente
+# fa sparire da solo i dati d'identità da footer e pagine legali) — il chiamante decide come mostrarli (qui niente
 # colori/UI, solo testo grezzo) e non li tratta mai come errori.
 #
 # check_identity=0 in deploy-release.sh: modello artifact-based, niente sorgente sulla VPS,
@@ -158,13 +198,17 @@ if (process.env.CHECK_IDENTITY === '1') {
   if (existsSync(identityPath)) {
     try {
       const id = JSON.parse(readFileSync(identityPath, 'utf-8'));
-      const empty = !id.personal
-        && !String(id.ragioneSociale || '').trim()
-        && !String(id.partitaIva || '').trim()
-        && !String(id.contatti?.email || '').trim()
-        && (!Array.isArray(id.social) || id.social.length === 0);
-      if (empty) {
-        warns.push('backend/data/identity.json e ancora lo scheletro vuoto (post-eject): footer, pagine legali e JSON-LD restano vuoti finche non lo compili — se e una scelta consapevole, ignora.');
+      // Stessa regola del build (checkControllerIdentity), che nel build Docker del solo frontend non gira.
+      const filled = v => typeof v === 'string' ? v.trim() !== '' : !!v && typeof v === 'object' && Object.values(v).some(x => typeof x === 'string' && x.trim() !== '');
+      const tit = id.titolareDelTrattamento || {};
+      const c = id.contatti || {};
+      // L'identità di esempio del template (Esempio S.r.l., @esempio.it) non è un'identità: un figlio che
+      // tiene la demo e cambia solo project.name la pubblicherebbe in footer, pagine legali e JSON-LD.
+      if (/esempio\.it$/i.test(String(c.email || '')) || /^Esempio S\.r\.l\./i.test(String(id.ragioneSociale || ''))) {
+        warns.push('backend/data/identity.json e ancora l identita di esempio del template (Esempio S.r.l., @esempio.it): finirebbe in footer, pagine legali, JSON-LD e security.txt. Sostituiscila con i dati veri.');
+      }
+      if (!(filled(id.ragioneSociale) || filled(tit.nome)) || ![c.email, c.pec, c.telefono, tit.email].some(filled)) {
+        warns.push('backend/data/identity.json non ha nome e recapito del titolare del trattamento: la Privacy Policy composta dall Engine resta senza titolare (il build locale e la CI si fermano). Se la Privacy e un tuo testo (markdown nello slot), ignora.');
       }
     } catch {}
   }

@@ -57,7 +57,7 @@ export class NotificationService {
         return this.swalPromise ??= import('sweetalert2/dist/sweetalert2.esm.js').then(module => module.default);
     }
 
-    /** SwAl pre-configurato col tema: theme light/dark segue `themeTone`, bottoni Bootstrap (success/outline-secondary/danger, `buttonsStyling: false`). Ricreato ad ogni call per restare reattivo a cambi di themeTone. */
+    /** SwAl pre-configurato col tema: theme light/dark segue `themeTone` (i colori del popup vengono dal ponte `--swal2-*` → token brand in `_bootstrap-theme.scss`), bottoni Bootstrap (success/outline-secondary/danger, `buttonsStyling: false`). Ricreato ad ogni call per restare reattivo a cambi di themeTone. */
     private loadThemedSwal(): Promise<SwalType> | null {
         const base = this.loadSwal();
         if (!base) return null;
@@ -81,7 +81,8 @@ export class NotificationService {
         const swal = this.loadThemedSwal();
         if (swal) {
             void swal.then(Swal =>
-                Swal.fire(this.translate.translate('ottimoStato') + '!', message, 'success').then(() => onClose?.())
+                // titleText/text, mai title/html: SweetAlert2 non sanifica, e il messaggio può venire dal backend o da una notifica.
+                Swal.fire({ titleText: this.translate.translate('ottimoStato') + '!', text: message, icon: 'success' }).then(() => onClose?.())
             );
         } else if (isPlatformBrowser(this.platformId)) {
             window.alert(message);
@@ -94,7 +95,7 @@ export class NotificationService {
         if (swal) {
             void swal.then(Swal => {
                 Swal.close();
-                void Swal.fire(title, message, 'error');
+                void Swal.fire({ titleText: title, text: message, icon: 'error' });
             });
         } else if (isPlatformBrowser(this.platformId)) {
             window.alert(`${title}\n${message}`);
@@ -118,7 +119,7 @@ export class NotificationService {
         }
         const Swal = await swal;
         await Swal.fire({
-            title,
+            titleText: title,
             text: text || undefined,
             icon: opts?.icon,
             confirmButtonText: opts?.confirmText ?? this.translate.translate('chiudiAzione'),
@@ -132,7 +133,7 @@ export class NotificationService {
     openLoading(message?: string): void {
         void this.loadThemedSwal()?.then(Swal =>
             Swal.fire({
-                title: message ?? this.translate.translate('caricamentoStato'),
+                titleText: message ?? this.translate.translate('caricamentoStato'),
                 allowOutsideClick: false,
                 didOpen: () => Swal.showLoading()
             })
@@ -177,7 +178,7 @@ export class NotificationService {
 
         const Swal = await swal;
         const result = await Swal.fire({
-            title,
+            titleText: title,
             text,
             icon: options?.icon ?? 'question',
             showCancelButton: true,
@@ -203,7 +204,7 @@ export class NotificationService {
 
         const Swal = await swal;
         const result = await Swal.fire({
-            title,
+            titleText: title,
             text,
             icon: options?.icon ?? 'question',
             showDenyButton: true,
@@ -234,7 +235,7 @@ export class NotificationService {
 
         const Swal = await swal;
         const result = await Swal.fire({
-            title,
+            titleText: title,
             input: 'text',
             inputLabel,
             inputPlaceholder: inputLabel,
@@ -300,7 +301,7 @@ export class NotificationService {
                     });
                 }
             });
-            void Toast.fire({ icon, title: message }).then(result => {
+            void Toast.fire({ icon, titleText: message }).then(result => {
                 if (result.isConfirmed) action?.run();              // click sul bottone d'azione
             });
         });
@@ -335,7 +336,7 @@ export class NotificationService {
                     ul.appendChild(li);
                 });
                 return Swal.fire({
-                    title,
+                    titleText: title,
                     html: ul,
                     icon: 'warning',
                     confirmButtonText: this.translate.translate('chiudiAzione'),

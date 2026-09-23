@@ -4,14 +4,11 @@
 #
 # Esegue `ng test` (builder @angular/build:unit-test, runner Vitest, ambiente
 # jsdom — nessun browser reale necessario): `extendDesignSystem` (merge, catene
-# di extend, ruoli custom, interruttore master, risoluzione font), con fixture
-# sintetiche (src/app/tests/design-system-presets.spec.ts) — mai il contenuto
-# di un design system specifico (editabile a piacere) né il contrasto WCAG di
-# una palette, già coperto dal vivo da scripts/test/live-audit.mjs (Pa11y).
-#
-# Prima di questo script, la stessa verifica viveva SOLO in uno script
-# manuale rieseguito a mano ogni volta che qualcuno toccava il motore colore —
-# nessuna regressione automatica.
+# di extend, ruoli custom, leva spenta dal design system che nessun ruolo
+# riaccende, risoluzione font), con fixture sintetiche
+# (src/app/tests/design-system-presets.spec.ts) — mai il contenuto di un design
+# system specifico (editabile a piacere) né il contrasto WCAG di una palette,
+# coperto dal vivo da scripts/test/live-audit.mjs (Pa11y).
 #
 # Utilizzo:
 #   ./theme-check.sh
@@ -47,6 +44,12 @@ if [[ ! -f "$NG_BIN" ]]; then
 fi
 
 cd "$FRONTEND_DIR"
+
+# Il binario ng salta i pre-hook npm: il tema Sass (generated/_theme.scss) e gli statici si generano qui.
+if ! npm run --silent generate:statics; then
+    echo -e "  ${RED}ERR${RESET} generate:statics fallito" >&2
+    exit 1
+fi
 
 TEST_LOG="$(mktemp)"
 trap 'rm -f "$TEST_LOG"' EXIT

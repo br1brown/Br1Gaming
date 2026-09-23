@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildSite, type SiteDefinition, type LeafPageInput } from '../core/engine/siteBuilder';
 import {
-    extendDesignSystem, emptyDesignSystem, validateDesignSystemPreset, SMOKE_INTENSITY,
+    extendDesignSystem, emptyDesignSystem, validateDesignSystemPreset, superficiConPannello, SMOKE_INTENSITY,
     type DesignSystemPreset,
 } from '../core/engine/design-system-presets';
 import { SystemFont, isSystemFont, resolveFonts, type CustomFontDef, type FontChoice } from '../core/engine/font-system';
@@ -18,8 +18,7 @@ function minimalSite(shell: SiteDefinition['shell']): SiteDefinition {
     return {
         homePage: 'app.home' as never,
         loginPage: null,
-        legalPages: [{ pageType: 'legal.cookie' as never, path: 'cookie', titleKey: 't', descriptionKey: 'd', markdownSlug: 'cookie' }],
-        cookiePolicy: 'legal.cookie' as never,
+        legal: { privacy: 'legal.privacy' as never },
         shell,
         pages: () => [
             { path: '', pageType: 'app.home' as never, title: 'Home', component: dummyComponent, layout: { role: 'default' } },
@@ -34,8 +33,7 @@ function richSite(shell: SiteDefinition['shell']): SiteDefinition {
     return {
         homePage: 'app.home' as never,
         loginPage: null,
-        legalPages: [{ pageType: 'legal.cookie' as never, path: 'cookie', titleKey: 't', descriptionKey: 'd', markdownSlug: 'cookie' }],
-        cookiePolicy: 'legal.cookie' as never,
+        legal: { privacy: 'legal.privacy' as never },
         shell,
         pages: () => [
             { path: '', pageType: 'app.home' as never, title: 'Home', component: dummyComponent, layout: { role: 'default' } },
@@ -46,10 +44,10 @@ function richSite(shell: SiteDefinition['shell']): SiteDefinition {
     };
 }
 
-describe("Interruttore master su showNav/showFooter/showPanel/showBreadcrumb/pageFade — il globale esplicito 'false' vince sempre sul ruolo", () => {
-    it("un ruolo che tenta di riportare a true un campo bloccato dal master resta comunque false", () => {
+describe("Spento dal design system risolto (default compresi) = spento ovunque: un ruolo può solo spegnere", () => {
+    it("un ruolo che tenta di riaccendere un campo spento dal design system resta comunque false", () => {
         const designSystem = extendDesignSystem(emptyDesignSystem, {
-            superfici: 'distinte', // master su showPanel: 'distinte' (a differenza di 'foglio') lo blocca a false
+            colori: { superfici: 'distinte' }, // niente pannello: 'distinte' (a differenza di 'foglio') lo blocca a false
             ruoloPagina: { legal: { showPanel: true } }, // tentativo di riaccenderlo
         });
         const site = buildSite(richSite({ designSystem }));
@@ -57,19 +55,18 @@ describe("Interruttore master su showNav/showFooter/showPanel/showBreadcrumb/pag
         expect(legal && 'chrome' in legal ? legal.chrome.showPanel : undefined).toBe(false);
     });
 
-    it("senza un master esplicito (campo globale assente, non false), il ruolo resta libero di accenderlo — nessuna regressione", () => {
-        // showBreadcrumb globale non toccato: resta undefined, non false — il master non scatta.
+    it("con il campo del design system assente vale il suo default: breadcrumb.show assente (false) vincola anche il ruolo che lo accende", () => {
         const designSystem = extendDesignSystem(emptyDesignSystem, {
             ruoloPagina: { error: { showBreadcrumb: true } },
         });
         const site = buildSite(richSite({ designSystem }));
         const errorPage = site.pages.find(p => p.path === 'errore');
-        expect(errorPage && 'chrome' in errorPage ? errorPage.chrome.showBreadcrumb : undefined).toBe(true);
+        expect(errorPage && 'chrome' in errorPage ? errorPage.chrome.showBreadcrumb : undefined).toBe(false);
     });
 
     it("un ruolo resta libero di SPEGNERE un campo che il globale lascia acceso (direzione mai bloccata)", () => {
         const designSystem = extendDesignSystem(emptyDesignSystem, {
-            showNav: true,
+            navbar: { show: true },
             ruoloPagina: { legal: { showNav: false } }, // spegne, non accende: sempre permesso
         });
         const site = buildSite(richSite({ designSystem }));
@@ -77,76 +74,79 @@ describe("Interruttore master su showNav/showFooter/showPanel/showBreadcrumb/pag
         expect(legal && 'chrome' in legal ? legal.chrome.showNav : undefined).toBe(false);
     });
 
-    it("'naked' resta SEMPRE senza nav/footer/pannello, qualunque design system", () => {
-        const designSystem = extendDesignSystem(emptyDesignSystem, { showNav: true, showFooter: true, superfici: 'foglio' });
+    it("'naked' resta SEMPRE senza nav/footer/pannello/breadcrumb/smoke, qualunque design system", () => {
+        const designSystem = extendDesignSystem(emptyDesignSystem, {
+            navbar: { show: true }, footer: { show: true }, colori: { superfici: 'foglio' },
+            breadcrumb: { show: true }, smoke: { enable: true, color: '#ffffff' },
+        });
         const site = buildSite(richSite({ designSystem }));
         const naked = site.pages.find(p => p.path === 'immersivo');
         expect(naked && 'chrome' in naked ? naked.chrome : undefined).toEqual(
-            expect.objectContaining({ showNav: false, showPanel: false, showFooter: false })
+            expect.objectContaining({ showNav: false, showPanel: false, showFooter: false, showBreadcrumb: false, showSmoke: false })
         );
     });
 });
 
 describe("superfici — 5 valori, ognuno una coppia (vividezza, pannello) già decisa: nessuna combinazione senza senso rappresentabile", () => {
-    it("assente (default storico): backgroundVividness neutra, pannello acceso — identico a 'foglio'", () => {
+    it("assente (default): vividezza neutra, pannello acceso — identico a 'foglio'", () => {
         const site = buildSite(minimalSite({ designSystem: emptyDesignSystem }));
-        expect(site.config.backgroundVividness).toBe(0);
-        expect(site.config.showPanel).toBe(true);
+        expect(site.config.aspetto.colori.vividezza).toBe(0);
+        expect(site.config.aspetto.pannello).toBe(true);
     });
 
-    it("'foglio': backgroundVividness neutra, pannello acceso — mai diverge dall'assenza del campo", () => {
-        const designSystem = extendDesignSystem(emptyDesignSystem, { superfici: 'foglio' });
+    it("'foglio': vividezza neutra, pannello acceso — mai diverge dall'assenza del campo", () => {
+        const designSystem = extendDesignSystem(emptyDesignSystem, { colori: { superfici: 'foglio' } });
         const site = buildSite(minimalSite({ designSystem }));
-        expect(site.config.backgroundVividness).toBe(0);
-        expect(site.config.showPanel).toBe(true);
+        expect(site.config.aspetto.colori.vividezza).toBe(0);
+        expect(site.config.aspetto.pannello).toBe(true);
     });
 
-    it("'distinte': backgroundVividness neutra, pannello spento", () => {
-        const designSystem = extendDesignSystem(emptyDesignSystem, { superfici: 'distinte' });
+    it("'distinte': vividezza neutra, pannello spento", () => {
+        const designSystem = extendDesignSystem(emptyDesignSystem, { colori: { superfici: 'distinte' } });
         const site = buildSite(minimalSite({ designSystem }));
-        expect(site.config.backgroundVividness).toBe(0);
-        expect(site.config.showPanel).toBe(false);
+        expect(site.config.aspetto.colori.vividezza).toBe(0);
+        expect(site.config.aspetto.pannello).toBe(false);
     });
 
-    it("'tenue': backgroundVividness a metà strada, pannello spento", () => {
-        const designSystem = extendDesignSystem(emptyDesignSystem, { superfici: 'tenue' });
+    it("'tenue': vividezza a metà strada, pannello spento", () => {
+        const designSystem = extendDesignSystem(emptyDesignSystem, { colori: { superfici: 'tenue' } });
         const site = buildSite(minimalSite({ designSystem }));
-        expect(site.config.backgroundVividness).toBe(0.5);
-        expect(site.config.showPanel).toBe(false);
+        expect(site.config.aspetto.colori.vividezza).toBe(0.5);
+        expect(site.config.aspetto.pannello).toBe(false);
     });
 
-    it("'tenue-flotting': backgroundVividness a metà strada, pannello acceso", () => {
-        const designSystem = extendDesignSystem(emptyDesignSystem, { superfici: 'tenue-flotting' });
+    it("'tenue-flottante': vividezza a metà strada, pannello acceso", () => {
+        const designSystem = extendDesignSystem(emptyDesignSystem, { colori: { superfici: 'tenue-flottante' } });
         const site = buildSite(minimalSite({ designSystem }));
-        expect(site.config.backgroundVividness).toBe(0.5);
-        expect(site.config.showPanel).toBe(true);
+        expect(site.config.aspetto.colori.vividezza).toBe(0.5);
+        expect(site.config.aspetto.pannello).toBe(true);
     });
 
-    it("'fusione': backgroundVividness piena, pannello spento", () => {
-        const designSystem = extendDesignSystem(emptyDesignSystem, { superfici: 'fusione' });
+    it("'fusione': vividezza piena, pannello spento", () => {
+        const designSystem = extendDesignSystem(emptyDesignSystem, { colori: { superfici: 'fusione' } });
         const site = buildSite(minimalSite({ designSystem }));
-        expect(site.config.backgroundVividness).toBe(1);
-        expect(site.config.showPanel).toBe(false);
+        expect(site.config.aspetto.colori.vividezza).toBe(1);
+        expect(site.config.aspetto.pannello).toBe(false);
     });
 
-    it("'fusione' non ha una variante \"flotting\": showPanel resta false anche se un ruolo prova a riaccenderlo (master-lock)", () => {
+    it("'fusione' non ha una variante \"flotting\": showPanel resta false anche se un ruolo prova a riaccenderlo (spento dal design system)", () => {
         const designSystem = extendDesignSystem(emptyDesignSystem, {
-            superfici: 'fusione',
+            colori: { superfici: 'fusione' },
             ruoloPagina: { legal: { showPanel: true } }, // tentativo di riaccenderlo, come 'muro'
         });
         const site = buildSite(richSite({ designSystem }));
-        expect(site.config.showPanel).toBe(false);
+        expect(site.config.aspetto.pannello).toBe(false);
         const legal = site.pages.find(p => p.path === 'chi-siamo');
         expect(legal && 'chrome' in legal ? legal.chrome.showPanel : undefined).toBe(false);
     });
 
-    it("'tenue-flotting' NON blocca il ruolo: un ruolo può ancora spegnere il pannello (direzione mai bloccata)", () => {
+    it("'tenue-flottante' NON blocca il ruolo: un ruolo può ancora spegnere il pannello (direzione mai bloccata)", () => {
         const designSystem = extendDesignSystem(emptyDesignSystem, {
-            superfici: 'tenue-flotting',
+            colori: { superfici: 'tenue-flottante' },
             ruoloPagina: { legal: { showPanel: false } },
         });
         const site = buildSite(richSite({ designSystem }));
-        expect(site.config.showPanel).toBe(true);
+        expect(site.config.aspetto.pannello).toBe(true);
         const legal = site.pages.find(p => p.path === 'chi-siamo');
         expect(legal && 'chrome' in legal ? legal.chrome.showPanel : undefined).toBe(false);
     });
@@ -158,7 +158,7 @@ describe("smoke.intensita — risolve nei numeri grezzi di SMOKE_INTENSITY, mai 
             smoke: { enable: true, color: '#b5d9ff' },
         });
         const site = buildSite(minimalSite({ designSystem }));
-        expect(site.config.smoke).toEqual({
+        expect(site.config.aspetto.smoke).toEqual({
             enable: true, color: '#b5d9ff', opacity: 0.5, ...SMOKE_INTENSITY.pulviscolo,
         });
     });
@@ -168,61 +168,61 @@ describe("smoke.intensita — risolve nei numeri grezzi di SMOKE_INTENSITY, mai 
             smoke: { enable: true, color: '#1f40ff', opacity: 0.4, intensita },
         });
         const site = buildSite(minimalSite({ designSystem }));
-        expect(site.config.smoke).toEqual({
+        expect(site.config.aspetto.smoke).toEqual({
             enable: true, color: '#1f40ff', opacity: 0.4, ...SMOKE_INTENSITY[intensita],
         });
     });
 
     it('smoke assente: effetto disattivato, stessi numeri di pulviscolo sotto (mai NaN/undefined)', () => {
         const site = buildSite(minimalSite({ designSystem: emptyDesignSystem }));
-        expect(site.config.smoke).toEqual({
+        expect(site.config.aspetto.smoke).toEqual({
             enable: false, color: '#ffffff', opacity: 0.5, ...SMOKE_INTENSITY.pulviscolo,
         });
     });
 });
 
 describe('DesignSystemPreset — fuzz strutturale via buildSite()', () => {
-    const FORCE_TONE: (DesignSystemPreset['forceThemeTone'])[] = [undefined, 'light', 'dark'];
-    const PANEL_SURFACE: (DesignSystemPreset['panelSurface'])[] = [undefined, 'light', 'dark', 'auto'];
-    const NAV_SURFACE: (DesignSystemPreset['navSurface'])[] = [undefined, 'brand', 'body'];
-    const SUPERFICI: (DesignSystemPreset['superfici'])[] = [
-        undefined, 'foglio', 'distinte', 'tenue', 'tenue-flotting', 'fusione',
+    type Tono = NonNullable<DesignSystemPreset['tono']>;
+    type Superfici = NonNullable<DesignSystemPreset['colori']>['superfici'];
+    const FORZA: Tono['forza'][] = [undefined, 'light', 'dark'];
+    const PANNELLO: Tono['pannello'][] = [undefined, 'light', 'dark', 'auto'];
+    const SUPERFICIE_NAV: NonNullable<DesignSystemPreset['navbar']>['superficie'][] = [undefined, 'brand', 'body'];
+    const SUPERFICI: Superfici[] = [
+        undefined, 'foglio', 'distinte', 'tenue', 'tenue-flottante', 'fusione',
     ];
     const SMOKE_INTENSITIES: NonNullable<DesignSystemPreset['smoke']>['intensita'][] = ['pulviscolo', 'bruma', 'nebbia'];
     const BOOL3 = [undefined, true, false];
-    /** Pannello implicito in `superfici` — stessa mappa di `superficiShowsPanel` (siteBuilder.ts),
-     *  ridichiarata qui perché privata a quel modulo: nessun caso senza senso da rappresentare. */
-    const superficiShowsPanel = (s: DesignSystemPreset['superfici']): boolean =>
-        !(s === 'distinte' || s === 'tenue' || s === 'fusione');
-
     let n = 0;
-    for (const forceThemeTone of FORCE_TONE) {
-        for (const panelSurface of PANEL_SURFACE) {
-            for (const navSurface of NAV_SURFACE) {
-                for (const fixedTopHeader of BOOL3) {
+    for (const forza of FORZA) {
+        for (const pannello of PANNELLO) {
+            for (const superficie of SUPERFICIE_NAV) {
+                for (const fissa of BOOL3) {
                     n++;
                     if (n % 3 !== 0) continue; // campione, non l'esplosione cartesiana completa
                     const superfici = SUPERFICI[n % SUPERFICI.length];
                     const preset: DesignSystemPreset = {
-                        forceThemeTone, panelSurface, navSurface, fixedTopHeader, superfici,
-                        pageFade: n % 2 === 0,
-                        showBreadcrumb: n % 3 === 0,
-                        showNav: n % 5 !== 0,
-                        showFooter: n % 7 !== 0,
+                        tono: { forza, pannello },
+                        navbar: { superficie, fissa, show: n % 5 !== 0 },
+                        colori: {
+                            superfici,
+                            palette: { testColor: '#' + (n * 12345 % 0xffffff).toString(16).padStart(6, '0') },
+                        },
+                        movimento: n % 2 === 0 ? 'svelto' : 'fermo',
+                        breadcrumb: { show: n % 3 === 0 },
+                        footer: { show: n % 7 !== 0 },
                         ruoloPagina: {
                             default: { showPanel: n % 6 === 0 },
                             legal: { showPanel: true, showSmoke: false },
                             error: { fitViewport: n % 8 === 0 },
                         },
-                        customPalette: { testColor: '#' + (n * 12345 % 0xffffff).toString(16).padStart(6, '0') },
                         smoke: { enable: n % 2 === 0, color: '#b5d9ff', opacity: 0.5, intensita: SMOKE_INTENSITIES[n % SMOKE_INTENSITIES.length] },
                     };
                     const caseN = n;
-                    it(`#${caseN} fT=${forceThemeTone} pS=${panelSurface} nS=${navSurface} fTH=${fixedTopHeader} sup=${superfici}: risolve senza perdere campi`, () => {
+                    it(`#${caseN} forza=${forza} pannello=${pannello} superficie=${superficie} fissa=${fissa} sup=${superfici}: risolve senza perdere campi`, () => {
                         expect(() => validateDesignSystemPreset(`fuzz-${caseN}`, preset)).not.toThrow();
                         const site = buildSite(minimalSite({ designSystem: () => preset }));
-                        expect(site.config.showPanel).toBe(superficiShowsPanel(superfici));
-                        expect(site.config.smoke.enable).toBe(preset.smoke!.enable);
+                        expect(site.config.aspetto.pannello).toBe(superficiConPannello(superfici));
+                        expect(site.config.aspetto.smoke.enable).toBe(preset.smoke!.enable);
                         expect(site.config.errorChrome).toEqual({ showPanel: false, ...preset.ruoloPagina!.error });
                     });
                 }
@@ -233,13 +233,18 @@ describe('DesignSystemPreset — fuzz strutturale via buildSite()', () => {
 
 describe('validateDesignSystemPreset — preset deliberatamente rotti vengono sempre rifiutati', () => {
     it('colore hex non valido', () => {
-        expect(() => validateDesignSystemPreset('bad', { colorSecondary: 'notahex' })).toThrow();
+        expect(() => validateDesignSystemPreset('bad', { colori: { palette: { secondary: 'notahex' } } })).toThrow();
+        expect(() => validateDesignSystemPreset('bad', { colori: { sfondo: 'notahex' } })).toThrow();
     });
-    it('etichetta customPalette riservata (collide con un token di sistema)', () => {
-        expect(() => validateDesignSystemPreset('bad', { customPalette: { primary: '#ff0000' } })).toThrow();
+    it('nome di palette riservato (collide con un token di sistema o con una classe Bootstrap)', () => {
+        expect(() => validateDesignSystemPreset('bad', { colori: { palette: { primary: '#ff0000' } } })).toThrow();
+        expect(() => validateDesignSystemPreset('bad', { colori: { palette: { success: '#ff0000' } } })).toThrow();
     });
-    it("etichetta customPalette \"info\" riservata (collide con --colorInfoText, stessa famiglia di 'infotext')", () => {
-        expect(() => validateDesignSystemPreset('bad', { customPalette: { info: '#ff0000' } })).toThrow();
+    it('secondary e info nella palette rimpiazzano quelli di Bootstrap, non sono colori nuovi', () => {
+        const preset: DesignSystemPreset = { colori: { palette: { secondary: '#00aaff', info: '#33ccff', oro: '#d4af37' } } };
+        expect(() => validateDesignSystemPreset('ok', preset)).not.toThrow();
+        const site = buildSite(minimalSite({ designSystem: () => preset }));
+        expect(site.config.aspetto.colori.palette).toEqual({ secondary: '#00aaff', info: '#33ccff', oro: '#d4af37' });
     });
     it('smoke.opacity fuori range', () => {
         expect(() => validateDesignSystemPreset('bad', {
@@ -255,23 +260,25 @@ describe('validateDesignSystemPreset — preset deliberatamente rotti vengono se
 
 describe('DesignSystemPreset — siti "mimati" realistici (combinazioni multi-leva)', () => {
     const MIMICKED_SITES: Record<string, DesignSystemPreset> = {
-        'saas-dashboard': { forceThemeTone: 'dark', panelSurface: 'dark', navSurface: 'body', fixedTopHeader: true, pageFade: false, ruoloPagina: { error: { fitViewport: true } } },
-        'editorial-magazine': { panelSurface: 'light', showBreadcrumb: true, ruoloPagina: { legal: { showBreadcrumb: true }, default: { showBreadcrumb: false } } },
-        'agency-portfolio-fullbleed': { navSurface: 'body', ruoloPagina: { default: { fitViewport: true, showFooter: false }, legal: { fitViewport: false, showFooter: true } } },
-        'institutional-gov': { forceThemeTone: 'light', showBreadcrumb: true, pageFade: false, customPalette: { istituzionale: '#004b8d' } },
-        'minimal-single-pager': { showNav: false, showFooter: false, ruoloPagina: { default: { showPanel: false } } },
-        'dark-only-app': { forceThemeTone: 'dark', panelSurface: 'auto', smoke: { enable: true, color: '#222244', opacity: 0.3, intensita: 'pulviscolo' } },
-        'ecommerce-accent-panel': { forceThemeTone: 'light', panelSurface: 'dark', navSurface: 'brand', customPalette: { sale: '#c0392b', shipping: '#27ae60' } },
+        'saas-dashboard': { tono: { forza: 'dark', pannello: 'dark' }, navbar: { superficie: 'body', fissa: true }, movimento: 'fermo', ruoloPagina: { error: { fitViewport: true } } },
+        'editorial-magazine': { tono: { pannello: 'light' }, breadcrumb: { show: true }, ruoloPagina: { legal: { showBreadcrumb: true }, default: { showBreadcrumb: false } } },
+        'agency-portfolio-fullbleed': { navbar: { superficie: 'body' }, ruoloPagina: { default: { fitViewport: true, showFooter: false }, legal: { fitViewport: false, showFooter: true } } },
+        'institutional-gov': { tono: { forza: 'light' }, breadcrumb: { show: true }, movimento: 'fermo', colori: { palette: { istituzionale: '#004b8d' } } },
+        'minimal-single-pager': { navbar: { show: false }, footer: { show: false }, ruoloPagina: { default: { showPanel: false } } },
+        'dark-only-app': { tono: { forza: 'dark', pannello: 'auto' }, smoke: { enable: true, color: '#222244', opacity: 0.3, intensita: 'pulviscolo' } },
+        'ecommerce-accent-panel': { tono: { forza: 'light', pannello: 'dark' }, navbar: { superficie: 'brand' }, colori: { palette: { sale: '#c0392b', shipping: '#27ae60' } } },
         'kitchen-sink-everything-on': {
-            forceThemeTone: 'dark', panelSurface: 'light', navSurface: 'body', fixedTopHeader: true, pageFade: false, showBreadcrumb: true,
-            showNav: true, showFooter: true, superfici: 'foglio',
+            tono: { forza: 'dark', pannello: 'light' }, navbar: { superficie: 'body', fissa: true, show: true },
+            movimento: 'fermo', breadcrumb: { show: true }, footer: { show: true },
             ruoloPagina: {
                 default: { showPanel: false, fitViewport: false, showSmoke: true, showBreadcrumb: false },
                 legal: { showPanel: true, showSmoke: false, showBreadcrumb: true, pageFade: true },
                 error: { fitViewport: true, showNav: false, showFooter: false },
             },
-            customPalette: { a: '#111111', b: '#222222', c: '#333333', d: '#444444', e: '#555555' },
-            colorSecondary: '#00aaff', colorBackground: '#101020', colorText: '#eeeeee', colorInfo: '#33ccff',
+            colori: {
+                superfici: 'foglio', sfondo: '#101020',
+                palette: { secondary: '#00aaff', info: '#33ccff', a: '#111111', b: '#222222', c: '#333333', d: '#444444', e: '#555555' },
+            },
             smoke: { enable: true, color: '#ffffff88', opacity: 0.6, intensita: 'nebbia' },
         },
     };
@@ -291,13 +298,14 @@ describe('DesignSystemPreset — siti "mimati" realistici (combinazioni multi-le
 
 describe('extendDesignSystem — catene di estensione (estendere un\'estensione)', () => {
     it('una catena a due livelli non perde campi dei livelli precedenti', () => {
-        const level1 = extendDesignSystem(emptyDesignSystem, { customPalette: { l1: '#abcdef' } });
-        const level2 = extendDesignSystem(level1, { customPalette: { l2: '#fedcba' }, ruoloPagina: { legal: { showSmoke: true } } });
+        const level1 = extendDesignSystem(emptyDesignSystem, { colori: { superfici: 'tenue', palette: { l1: '#abcdef' } } });
+        const level2 = extendDesignSystem(level1, { colori: { palette: { l2: '#fedcba' } }, ruoloPagina: { legal: { showSmoke: true } } });
         const resolved = level2();
-        expect(resolved.customPalette?.['l1']).toBe('#abcdef');
-        expect(resolved.customPalette?.['l2']).toBe('#fedcba');
+        expect(resolved.colori?.superfici).toBe('tenue');
+        expect(resolved.colori?.palette?.['l1']).toBe('#abcdef');
+        expect(resolved.colori?.palette?.['l2']).toBe('#fedcba');
         const site = buildSite(minimalSite({ designSystem: () => resolved }));
-        expect(site.config.customPalette['l1']).toBe('#abcdef');
+        expect(site.config.aspetto.colori.palette['l1']).toBe('#abcdef');
     });
 });
 
@@ -316,6 +324,7 @@ describe('PageRole — ruoli custom registrati con la loro chiave in ruoloPagina
 
     it("un ruolo custom registrato con la sua chiave in ruoloPagina si comporta come dichiarato", () => {
         const designSystem = extendDesignSystem(emptyDesignSystem, {
+            breadcrumb: { show: true },
             ruoloPagina: { synthetic: { showBreadcrumb: true } },
         });
         const site = buildSite(siteConRuoloCustom(designSystem));
@@ -334,12 +343,12 @@ describe('PageRole — ruoli custom registrati con la loro chiave in ruoloPagina
         const site = buildSite(siteConRuoloCustom(designSystem));
         const home = site.pages.find(p => p.path === '');
         expect(home && 'chrome' in home ? home.chrome.showPanel : 'MISSING').toBeUndefined();
-        expect(site.config.showPanel).toBe(true); // il default globale che il consumer applicherebbe
+        expect(site.config.aspetto.pannello).toBe(true); // il default globale che il consumer applicherebbe
     });
 
-    it("un ruolo custom sopravvive a extendDesignSystem anche se il patch successivo non lo tocca — bug verificato: mergeDesignSystemPreset fondeva ruoloPagina solo su default/legal/error, perdendo in silenzio qualunque altro ruolo del base", () => {
+    it("un ruolo custom sopravvive a extendDesignSystem anche se il patch successivo non lo tocca (mergeDesignSystemPreset fonde ogni ruolo del base, non solo default/legal/error)", () => {
         const base = extendDesignSystem(emptyDesignSystem, { ruoloPagina: { synthetic: { showBreadcrumb: true } } });
-        const extended = extendDesignSystem(base, { customPalette: { accento: '#334455' } });
+        const extended = extendDesignSystem(base, { colori: { palette: { accento: '#334455' } } });
         expect(extended().ruoloPagina?.['synthetic']?.showBreadcrumb).toBe(true);
     });
 
@@ -384,6 +393,8 @@ describe('PageRole — ruoli custom registrati con la loro chiave in ruoloPagina
 
     it("default/error/legal in ruoloPagina si comportano come qualunque altro ruolo — error eredita comunque ERROR_CHROME_DEFAULT sotto", () => {
         const designSystem = extendDesignSystem(emptyDesignSystem, {
+            breadcrumb: { show: true }, // accesi nel design system: i ruoli sotto possono tenerli
+            smoke: { enable: true, color: '#ffffff' },
             ruoloPagina: {
                 default: { showBreadcrumb: true },
                 error: { showBreadcrumb: true }, // non tocca showPanel: deve restare quello di ERROR_CHROME_DEFAULT (false)
@@ -399,7 +410,7 @@ describe('PageRole — ruoli custom registrati con la loro chiave in ruoloPagina
     });
 });
 
-describe('Font — defaultFont/addonFonts del design system, risolti in site.config.fonts', () => {
+describe('Font — font.principale/font.aggiuntivi del design system, risolti in site.config.fonts', () => {
     it('nessun design system attivo: cade sui default di sistema (nessun self-hosting), nessun custom', () => {
         const site = buildSite(minimalSite({}));
         expect(site.config.fonts.serverKey).toBe(SystemFont.Liberation);
@@ -408,9 +419,11 @@ describe('Font — defaultFont/addonFonts del design system, risolti in site.con
         expect(site.config.customFontsCatalog).toEqual([]);
     });
 
-    it('un design system che dichiara defaultFont (SystemFont) lo propaga in site.config.fonts, STESSO font web e server', () => {
+    it('un design system che dichiara font.principale (SystemFont) lo propaga in site.config.fonts, STESSO font web e server', () => {
         const designSystem = extendDesignSystem(emptyDesignSystem, {
-            defaultFont: SystemFont.NotoSerif,
+            font: {
+                principale: SystemFont.NotoSerif,
+            },
         });
         const site = buildSite(minimalSite({ designSystem }));
         expect(site.config.fonts.webStack).toContain('Noto Serif');
@@ -420,18 +433,22 @@ describe('Font — defaultFont/addonFonts del design system, risolti in site.con
         expect(site.config.fonts.fontFaces.every(f => f.family === 'Noto Serif' && f.format === 'truetype')).toBe(true);
     });
 
-    it('defaultFont uguale alla key di un addonFonts registrato: dedup, solo 4 @font-face (non 8)', () => {
+    it('font.principale uguale alla key di un font.aggiuntivi registrato: dedup, solo 4 @font-face (non 8)', () => {
         const designSystem = extendDesignSystem(emptyDesignSystem, {
-            defaultFont: SystemFont.Roboto,
-            addonFonts: [SystemFont.Roboto],
+            font: {
+                principale: SystemFont.Roboto,
+                aggiuntivi: [SystemFont.Roboto],
+            },
         });
         const site = buildSite(minimalSite({ designSystem }));
         expect(site.config.fonts.fontFaces).toHaveLength(4);
     });
 
-    it('defaultFont custom è un CustomFontDef scritto DIRETTAMENTE (non una key che rimanda ad addonFonts) — stesso meccanismo di un SystemFont, non un ramo a parte', () => {
+    it('font.principale custom è un CustomFontDef scritto DIRETTAMENTE (non una key che rimanda a font.aggiuntivi) — stesso meccanismo di un SystemFont, non un ramo a parte', () => {
         const designSystem = extendDesignSystem(emptyDesignSystem, {
-            defaultFont: { key: 'marlboro', family: 'Marlboro', faces: [{ file: 'Marlboro.woff2', weight: 400, style: 'normal' }] },
+            font: {
+                principale: { key: 'marlboro', family: 'Marlboro', faces: [{ file: 'Marlboro.woff2', weight: 400, style: 'normal' }] },
+            },
         });
         const site = buildSite(minimalSite({ designSystem }));
         expect(site.config.fonts.webStack.startsWith('"Marlboro"')).toBe(true);
@@ -439,16 +456,18 @@ describe('Font — defaultFont/addonFonts del design system, risolti in site.con
         expect(site.config.fonts.serverKey).toBe('marlboro');
         expect(site.config.fonts.fontFaces).toHaveLength(1);
         expect(site.config.fonts.fontFaces[0]).toMatchObject({ family: 'Marlboro', url: '/cdn-cgi/font/marlboro/0', format: 'woff2' });
-        // Nessuna CSS var per il custom scelto come defaultFont — non serve, è già --fontFamily. Nessun addonFonts dichiarato.
+        // Nessuna CSS var per il custom scelto come font.principale — non serve, è già --fontFamily. Nessun font.aggiuntivi dichiarato.
         expect(site.config.fonts.customFontVars).toEqual([]);
         // Ma resta nel catalogo grezzo: system-font.ts/custom-font-detect.ts lo trovano per key.
         expect(site.config.customFontsCatalog).toEqual([{ key: 'marlboro', family: 'Marlboro', faces: [{ file: 'Marlboro.woff2', weight: 400, style: 'normal' }] }]);
     });
 
-    it('registrare un addonFonts senza sceglierlo in defaultFont NON lo rende attivo — solo servito/raggiungibile da SCSS (nessun default implicito)', () => {
+    it('registrare un font.aggiuntivi senza sceglierlo in font.principale NON lo rende attivo — solo servito/raggiungibile da SCSS (nessun default implicito)', () => {
         const designSystem = extendDesignSystem(emptyDesignSystem, {
-            defaultFont: SystemFont.Roboto,
-            addonFonts: [{ key: 'accento', family: 'Accento', faces: [{ file: 'Accento.ttf', weight: 400, style: 'normal' }] }],
+            font: {
+                principale: SystemFont.Roboto,
+                aggiuntivi: [{ key: 'accento', family: 'Accento', faces: [{ file: 'Accento.ttf', weight: 400, style: 'normal' }] }],
+            },
         });
         const site = buildSite(minimalSite({ designSystem }));
         expect(site.config.fonts.webStack).toContain('Roboto');
@@ -457,10 +476,12 @@ describe('Font — defaultFont/addonFonts del design system, risolti in site.con
         expect(site.config.fonts.customFontVars).toEqual([{ key: 'accento', family: 'Accento', cssVar: '--fontFamily-accento' }]);
     });
 
-    it('una voce SystemFont in addonFonts è servita/raggiungibile da SCSS senza essere il defaultFont attivo — family/faces colmate dal catalogo, nessuna ridichiarazione', () => {
+    it('una voce SystemFont in font.aggiuntivi è servita/raggiungibile da SCSS senza essere il font.principale attivo — family/faces colmate dal catalogo, nessuna ridichiarazione', () => {
         const designSystem = extendDesignSystem(emptyDesignSystem, {
-            defaultFont: SystemFont.Liberation,
-            addonFonts: [SystemFont.Roboto],
+            font: {
+                principale: SystemFont.Liberation,
+                aggiuntivi: [SystemFont.Roboto],
+            },
         });
         const site = buildSite(minimalSite({ designSystem }));
         expect(site.config.fonts.webStack).toContain('Liberation Sans'); // il font attivo resta Liberation
@@ -471,12 +492,14 @@ describe('Font — defaultFont/addonFonts del design system, risolti in site.con
         expect(site.config.customFontsCatalog).toEqual([]); // nessuna voce CustomFontDef: il catalogo grezzo resta vuoto
     });
 
-    it('addonFonts può mescolare una voce SystemFont e una CustomFontDef nello stesso array', () => {
+    it('font.aggiuntivi può mescolare una voce SystemFont e una CustomFontDef nello stesso array', () => {
         const designSystem = extendDesignSystem(emptyDesignSystem, {
-            addonFonts: [
-                SystemFont.DejaVuMono,
-                { key: 'brand', family: 'MiaFontBrand', faces: [{ file: 'MiaFontBrand.woff2', weight: 400, style: 'normal' }] },
-            ],
+            font: {
+                aggiuntivi: [
+                    SystemFont.DejaVuMono,
+                    { key: 'brand', family: 'MiaFontBrand', faces: [{ file: 'MiaFontBrand.woff2', weight: 400, style: 'normal' }] },
+                ],
+            },
         });
         const site = buildSite(minimalSite({ designSystem }));
         expect(site.config.fonts.customFontVars).toEqual([
@@ -488,46 +511,50 @@ describe('Font — defaultFont/addonFonts del design system, risolti in site.con
         ]);
     });
 
-    it('defaultFont custom E un addonFonts custom con key diverse convivono nel catalogo grezzo', () => {
+    it('font.principale custom E un font.aggiuntivi custom con key diverse convivono nel catalogo grezzo', () => {
         const designSystem = extendDesignSystem(emptyDesignSystem, {
-            defaultFont: { key: 'brand', family: 'MiaFontBrand', faces: [{ file: 'MiaFontBrand.woff2', weight: 400, style: 'normal' }] },
-            addonFonts: [{ key: 'accento', family: 'MiaFontAccento', faces: [{ file: 'MiaFontAccento.woff2', weight: 400, style: 'normal' }] }],
+            font: {
+                principale: { key: 'brand', family: 'MiaFontBrand', faces: [{ file: 'MiaFontBrand.woff2', weight: 400, style: 'normal' }] },
+                aggiuntivi: [{ key: 'accento', family: 'MiaFontAccento', faces: [{ file: 'MiaFontAccento.woff2', weight: 400, style: 'normal' }] }],
+            },
         });
         const site = buildSite(minimalSite({ designSystem }));
         expect(site.config.customFontsCatalog.map(c => c.key).sort()).toEqual(['accento', 'brand']);
         expect(site.config.fonts.fontFaces).toHaveLength(2); // una faccia per ciascuno
     });
 
-    it('validateDesignSystemPreset rifiuta una voce SystemFont duplicata in addonFonts, e una collisione fra voce SystemFont e CustomFontDef con la stessa key', () => {
-        expect(() => extendDesignSystem(emptyDesignSystem, { addonFonts: [SystemFont.Roboto, SystemFont.Roboto] })())
+    it('validateDesignSystemPreset rifiuta una voce SystemFont duplicata in font.aggiuntivi, e una collisione fra voce SystemFont e CustomFontDef con la stessa key', () => {
+        expect(() => extendDesignSystem(emptyDesignSystem, { font: { aggiuntivi: [SystemFont.Roboto, SystemFont.Roboto] } })())
             .toThrow(/duplicata/);
-        expect(() => extendDesignSystem(emptyDesignSystem, { addonFonts: [
+        expect(() => extendDesignSystem(emptyDesignSystem, { font: { aggiuntivi: [
             SystemFont.Roboto,
             { key: 'Roboto', family: 'X', faces: [{ file: 'x.ttf', weight: 400, style: 'normal' }] },
-        ] })()).toThrow(/coincide con una voce di SystemFont/);
+        ] } })()).toThrow(/coincide con una voce di SystemFont/);
     });
 
-    it('validateDesignSystemPreset rifiuta una key non valida, una collisione con SystemFont, key duplicate — su addonFonts e su defaultFont indipendentemente', () => {
-        expect(() => extendDesignSystem(emptyDesignSystem, { addonFonts: [{ key: 'ha spazi', family: 'X', faces: [{ file: 'x.ttf', weight: 400, style: 'normal' }] }] })())
+    it('validateDesignSystemPreset rifiuta una key non valida, una collisione con SystemFont, key duplicate — su font.aggiuntivi e su font.principale indipendentemente', () => {
+        expect(() => extendDesignSystem(emptyDesignSystem, { font: { aggiuntivi: [{ key: 'ha spazi', family: 'X', faces: [{ file: 'x.ttf', weight: 400, style: 'normal' }] }] } })())
             .toThrow(/non valida/);
-        expect(() => extendDesignSystem(emptyDesignSystem, { addonFonts: [{ key: 'Roboto', family: 'X', faces: [{ file: 'x.ttf', weight: 400, style: 'normal' }] }] })())
+        expect(() => extendDesignSystem(emptyDesignSystem, { font: { aggiuntivi: [{ key: 'Roboto', family: 'X', faces: [{ file: 'x.ttf', weight: 400, style: 'normal' }] }] } })())
             .toThrow(/coincide con una voce di SystemFont/);
-        expect(() => extendDesignSystem(emptyDesignSystem, { addonFonts: [
+        expect(() => extendDesignSystem(emptyDesignSystem, { font: { aggiuntivi: [
             { key: 'dup', family: 'X', faces: [{ file: 'x.ttf', weight: 400, style: 'normal' }] },
             { key: 'dup', family: 'Y', faces: [{ file: 'y.ttf', weight: 400, style: 'normal' }] },
-        ] })()).toThrow(/duplicata/);
-        expect(() => extendDesignSystem(emptyDesignSystem, { defaultFont: { key: 'ha spazi', family: 'X', faces: [{ file: 'x.ttf', weight: 400, style: 'normal' }] } })())
+        ] } })()).toThrow(/duplicata/);
+        expect(() => extendDesignSystem(emptyDesignSystem, { font: { principale: { key: 'ha spazi', family: 'X', faces: [{ file: 'x.ttf', weight: 400, style: 'normal' }] } } })())
             .toThrow(/non valida/);
-        expect(() => extendDesignSystem(emptyDesignSystem, { defaultFont: { key: 'Roboto', family: 'X', faces: [{ file: 'x.ttf', weight: 400, style: 'normal' }] } })())
+        expect(() => extendDesignSystem(emptyDesignSystem, { font: { principale: { key: 'Roboto', family: 'X', faces: [{ file: 'x.ttf', weight: 400, style: 'normal' }] } } })())
             .toThrow(/coincide con una voce di SystemFont/);
-        expect(() => extendDesignSystem(emptyDesignSystem, { defaultFont: { key: 'brand', family: 'X', faces: [] } })())
+        expect(() => extendDesignSystem(emptyDesignSystem, { font: { principale: { key: 'brand', family: 'X', faces: [] } } })())
             .toThrow(/nessuna faccia dichiarata/);
     });
 
-    it('la stessa key in defaultFont custom e in un addonFonts custom NON è un errore (campi indipendenti, nessuna verifica incrociata)', () => {
+    it('la stessa key in font.principale custom e in un font.aggiuntivi custom NON è un errore (campi indipendenti, nessuna verifica incrociata)', () => {
         const designSystem = extendDesignSystem(emptyDesignSystem, {
-            defaultFont: { key: 'brand', family: 'MiaFontBrand', faces: [{ file: 'MiaFontBrand.woff2', weight: 400, style: 'normal' }] },
-            addonFonts: [{ key: 'brand', family: 'MiaFontBrand', faces: [{ file: 'MiaFontBrand.woff2', weight: 400, style: 'normal' }] }],
+            font: {
+                principale: { key: 'brand', family: 'MiaFontBrand', faces: [{ file: 'MiaFontBrand.woff2', weight: 400, style: 'normal' }] },
+                aggiuntivi: [{ key: 'brand', family: 'MiaFontBrand', faces: [{ file: 'MiaFontBrand.woff2', weight: 400, style: 'normal' }] }],
+            },
         });
         expect(() => designSystem()).not.toThrow();
     });
@@ -535,11 +562,11 @@ describe('Font — defaultFont/addonFonts del design system, risolti in site.con
     it('font e ruoloPagina nello stesso patch convivono (campi indipendenti, nessuna collisione)', () => {
         const designSystem = extendDesignSystem(emptyDesignSystem, {
             ruoloPagina: { vetrina: { showBreadcrumb: false } },
-            defaultFont: { key: 'marlboro', family: 'Marlboro', faces: [{ file: 'Marlboro.woff2', weight: 400, style: 'normal' }] },
+            font: { principale: { key: 'marlboro', family: 'Marlboro', faces: [{ file: 'Marlboro.woff2', weight: 400, style: 'normal' }] } },
         });
         const resolved = designSystem();
         expect(resolved.ruoloPagina?.['vetrina']?.showBreadcrumb).toBe(false);
-        expect(resolved.defaultFont).toEqual({ key: 'marlboro', family: 'Marlboro', faces: [{ file: 'Marlboro.woff2', weight: 400, style: 'normal' }] });
+        expect(resolved.font?.principale).toEqual({ key: 'marlboro', family: 'Marlboro', faces: [{ file: 'Marlboro.woff2', weight: 400, style: 'normal' }] });
     });
 });
 
@@ -556,13 +583,13 @@ describe('Font — proprietà "raggiungibile ⇔ censito": ogni URL di fontFaces
         faces: Array.from({ length: faceCount }, (_, i) => ({ file: `${key}-${i}.woff2`, weight: 400, style: 'normal' })),
     });
 
-    // Combinazioni: defaultFont assente/SystemFont/custom, incrociato con addonFonts di lunghezza e
+    // Combinazioni: principale assente/SystemFont/custom, incrociato con aggiuntivi di lunghezza e
     // composizione diverse (SystemFont, custom, entrambi, vuoto) — campionate, non il prodotto
     // cartesiano completo, stesso stile del fuzz-test sopra.
-    const DEFAULTS: (FontChoice | undefined)[] = [
+    const PRINCIPALI: (FontChoice | undefined)[] = [
         undefined, SystemFont.Roboto, SystemFont.DejaVuMono, custom('d1', 1), custom('d2', 3),
     ];
-    const ADDON_SETS: FontChoice[][] = [
+    const AGGIUNTIVI: FontChoice[][] = [
         [],
         [SystemFont.Noto],
         [custom('a1', 1)],
@@ -571,18 +598,18 @@ describe('Font — proprietà "raggiungibile ⇔ censito": ogni URL di fontFaces
     ];
 
     let n = 0;
-    for (const defaultFont of DEFAULTS) {
-        for (const addonFonts of ADDON_SETS) {
+    for (const principale of PRINCIPALI) {
+        for (const aggiuntivi of AGGIUNTIVI) {
             n++;
-            const label = `#${n} defaultFont=${defaultFont == null ? 'assente' : typeof defaultFont === 'string' ? defaultFont : defaultFont.key} addonFonts=[${addonFonts.map(a => typeof a === 'string' ? a : a.key).join(',')}]`;
+            const label = `#${n} principale=${principale == null ? 'assente' : typeof principale === 'string' ? principale : principale.key} aggiuntivi=[${aggiuntivi.map(a => typeof a === 'string' ? a : a.key).join(',')}]`;
             it(label, () => {
-                const resolved = resolveFonts({ defaultFont, addonFonts });
+                const resolved = resolveFonts({ principale, aggiuntivi });
 
                 // Catalogo custom atteso — stessa regola di assemblaggio di siteBuilder.ts:
-                // defaultFont (se custom) + le voci custom di addonFonts, per key.
+                // principale (se custom) + le voci custom di aggiuntivi, per key.
                 const customByKey = new Map<string, CustomFontDef>();
-                if (defaultFont != null && typeof defaultFont !== 'string') customByKey.set(defaultFont.key, defaultFont);
-                for (const a of addonFonts) if (typeof a !== 'string') customByKey.set(a.key, a);
+                if (principale != null && typeof principale !== 'string') customByKey.set(principale.key, principale);
+                for (const a of aggiuntivi) if (typeof a !== 'string') customByKey.set(a.key, a);
 
                 // 1) Ogni URL generato risolve DAVVERO a una faccia dichiarata (SystemFont entro le
                 //    sue 4 facce, o una key del catalogo custom entro il suo array faces).
@@ -611,50 +638,37 @@ describe('Font — proprietà "raggiungibile ⇔ censito": ogni URL di fontFaces
     }
 });
 
-describe('Nuove leve delegate al design system (movimento/elevazione/contentWidth/breadcrumbStile/mutezzaSecondario/hoverIntensity/separazioneSuperfici/footerIdentita/backToTopSoglia/cookieReopenStile/badgeNotifiche/pulsazioneAttiva)', () => {
-    it('nessun design system attivo: tutte cadono sul default storico', () => {
+describe('Leve delegate al design system (movimento/elevazione/larghezza/breadcrumb/fab/badgeNotifiche)', () => {
+    it('nessun design system attivo: tutte cadono sul loro default', () => {
         const site = buildSite(minimalSite({}));
-        expect(site.config.movimento).toBe('svelto');
-        expect(site.config.elevazione).toBe('sospesa');
-        expect(site.config.contentWidth).toBe('ampio');
-        expect(site.config.breadcrumbStile).toBe('traccia');
-        expect(site.config.mutezzaSecondario).toBe('standard');
-        expect(site.config.hoverIntensity).toBe('standard');
-        expect(site.config.separazioneSuperfici).toBe('classica');
-        expect(site.config.footerIdentita).toBe('esteso');
-        expect(site.config.backToTopSoglia).toBe('standard');
-        expect(site.config.cookieReopenStile).toBe('discreto');
-        expect(site.config.badgeNotifiche).toBe('numero');
-        expect(site.config.pulsazioneAttiva).toBe('lieve');
+        expect(site.config.aspetto.movimento).toBe('svelto');
+        expect(site.config.aspetto.elevazione).toBe('sospesa');
+        expect(site.config.aspetto.larghezza).toBe('ampio');
+        expect(site.config.aspetto.breadcrumb.stile).toBe('traccia');
+        expect(site.config.aspetto.fab.tornaSuSoglia).toBe('standard');
+        expect(site.config.aspetto.fab.cookie).toBe('discreto');
+        expect(site.config.aspetto.badgeNotifiche).toBe('numero');
+        expect(site.config.aspetto.pulsazione).toBe('lieve');
     });
 
     it('un design system che le imposta tutte le vede propagate senza perdite', () => {
         const designSystem = extendDesignSystem(emptyDesignSystem, {
-            movimento: 'scatto',
+            movimento: 'fermo',
             elevazione: 'flottante',
-            contentWidth: 'pieno',
-            breadcrumbStile: 'freccia',
-            mutezzaSecondario: 'satura',
-            hoverIntensity: 'decisa',
-            separazioneSuperfici: 'marcata',
-            footerIdentita: 'essenziale',
-            backToTopSoglia: 'tardiva',
-            cookieReopenStile: 'standard',
+            larghezza: 'pieno',
+            breadcrumb: { stile: 'freccia' },
+            fab: { tornaSuSoglia: 'tardiva', cookie: 'standard' },
             badgeNotifiche: 'puntino',
-            pulsazioneAttiva: 'assente',
         });
         const site = buildSite(minimalSite({ designSystem }));
-        expect(site.config.movimento).toBe('scatto');
-        expect(site.config.elevazione).toBe('flottante');
-        expect(site.config.contentWidth).toBe('pieno');
-        expect(site.config.breadcrumbStile).toBe('freccia');
-        expect(site.config.mutezzaSecondario).toBe('satura');
-        expect(site.config.hoverIntensity).toBe('decisa');
-        expect(site.config.separazioneSuperfici).toBe('marcata');
-        expect(site.config.footerIdentita).toBe('essenziale');
-        expect(site.config.backToTopSoglia).toBe('tardiva');
-        expect(site.config.cookieReopenStile).toBe('standard');
-        expect(site.config.badgeNotifiche).toBe('puntino');
-        expect(site.config.pulsazioneAttiva).toBe('assente');
+        expect(site.config.aspetto.movimento).toBe('fermo');
+        expect(site.config.aspetto.transizioni).toBe(false);
+        expect(site.config.aspetto.elevazione).toBe('flottante');
+        expect(site.config.aspetto.larghezza).toBe('pieno');
+        expect(site.config.aspetto.breadcrumb.stile).toBe('freccia');
+        expect(site.config.aspetto.fab.tornaSuSoglia).toBe('tardiva');
+        expect(site.config.aspetto.fab.cookie).toBe('standard');
+        expect(site.config.aspetto.badgeNotifiche).toBe('puntino');
+        expect(site.config.aspetto.pulsazione).toBe('assente');
     });
 });
