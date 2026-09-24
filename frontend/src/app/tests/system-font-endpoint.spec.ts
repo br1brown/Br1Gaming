@@ -1,9 +1,8 @@
 /** Copre `systemFontHandler` DAL VIVO (funzione reale) con `node:fs` mockato — CI-safe fuori da un
  *  container Alpine. `vi.mock` non funziona su import relativi in `ng test` (solo su specificatori
- *  bare come `node:fs`), quindi il ramo custom dell'endpoint non è esercitato qui: lo è dal vivo e
- *  strutturalmente dal test "raggiungibile ⇔ censito" in `design-system-presets.spec.ts`. Copre
- *  comunque l'invariante che conta per il ramo SystemFont: ogni key/indice dichiarato risolve a un
- *  file, ogni altra combinazione (key ignota, indice fuori range, path traversal) mai. */
+ *  bare come `node:fs`), quindi il ramo custom dell'endpoint non è esercitato qui: solo dal vivo.
+ *  Copre comunque l'invariante che conta per il ramo SystemFont: ogni key/indice dichiarato risolve
+ *  a un file, ogni altra combinazione (key ignota, indice fuori range, path traversal) mai. */
 import '@angular/compiler'; // site.ts porta con sé librerie Angular compilate in parziale
 import { describe, it, expect, vi } from 'vitest';
 

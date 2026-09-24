@@ -85,7 +85,7 @@ run_test() {
 # Ordine: statici prima (veloci, nessun server), live dopo (richiedono BASE_URL).
 # i18n e tsc prima di a11y/lighthouse perché fallire su un errore di tipo
 # o una chiave mancante è più veloce e informativo di un errore a runtime.
-# tsc-check e theme-check lanciano da sé generate:statics (tema Sass, statici):
+# tsc-check e system-font-check lanciano da sé generate:statics (tema Sass, statici):
 # nessun passo di generazione da ordinare qui.
 #
 # Aggiungi --required ai test che DEVONO girare; senza flag sono opzionali.
@@ -94,7 +94,7 @@ run_test "Completezza i18n"     "${SCRIPT_DIR}/i18n-check.sh"
 run_test "TypeScript"           "${SCRIPT_DIR}/tsc-check.sh"
 run_test "Dipendenze cicliche"  "${SCRIPT_DIR}/circular-deps-check.sh"
 run_test "Invarianti SiteBuilder" "${SCRIPT_DIR}/site-builder-check.sh"
-run_test "Tema/design-system (Vitest)" "${SCRIPT_DIR}/theme-check.sh"
+run_test "Endpoint system-font (Vitest)" "${SCRIPT_DIR}/system-font-check.sh"
 run_test "Audit live (Pa11y + Lighthouse)" "${SCRIPT_DIR}/live-test.sh" "${BASE_URL}"
 
 echo

@@ -46,7 +46,7 @@ Documenti: nel figlio sparisce un file e uno soltanto, questo README, perché è
 - **Frontend:** `cd frontend && npm install && npm run start` — **Backend:** `cd backend && dotnet run` (`/health` anonimo; senza `Security.ApiConfig.Keys` nel `.local`, ogni chiamata risponde `401`). Il template ha `Features.PublicLogin` acceso per la demo, che vuole la `SecretKey` nel `.local`: se il file manca, lo crea con chiavi generate il primo che parte fra `generate:statics` e il backend (solo Development), come `node setup.mjs`.
 - **Tema e file generati:** `start`, `dev`, `build` e `watch` eseguono prima `npm run generate:statics`, che compila il tema (`src/styles/engine/generated/_theme.scss`) e l'elenco dei testi legali. `ng serve` lanciato a mano vuole prima `npm run generate:statics`. Il tema si compila all'avvio: dopo aver cambiato design system, `site.colorTema` o i file in `src/assets/legal/` con il dev server acceso, riavvialo.
 - **Nuovo progetto figlio:** `node setup.mjs "Nome Progetto"`.
-- **Qualità (gate = CI, GitHub Actions):** lint, i18n, tsc, dipendenze circolari, meccanismo dei design system (`theme-check.sh`), invarianti SiteBuilder, audit live Pa11y+Lighthouse, `npm audit`, vulnerabilità NuGet, gitleaks, CodeQL. In locale on-demand: `./scripts/test/run-all.sh`. Niente hook pre-push: non re-introdurlo. I test unitari sono privati di ogni progetto.
+- **Qualità (gate = CI, GitHub Actions):** lint, i18n, tsc, dipendenze circolari, endpoint system-font (`system-font-check.sh`), invarianti SiteBuilder, audit live Pa11y+Lighthouse, `npm audit`, vulnerabilità NuGet, gitleaks, CodeQL. In locale on-demand: `./scripts/test/run-all.sh`. Niente hook pre-push: non re-introdurlo. I test unitari sono privati di ogni progetto.
 
 ## Commit
 
@@ -119,7 +119,7 @@ Da sapere scrivendo codice o testi:
 - Il resto lo genera l'Engine: nella Privacy i dati di navigazione, dai fatti dell'installazione (`frontend.hostingInfo` nel `.local`, un file JSON per server, schema `core/engine/legal/hosting-info.schema.json`); nella Dichiarazione di accessibilità lo stato di conformità, da `nonAccessibili`; in coda a ogni pagina la sezione identità, da `data/identity.json`. Non riscriverli nel Markdown.
 - `markdown` nello slot di una pagina standard la sostituisce con un testo tuo (es. quello del tuo legale): la pagina è quel file, senza niente di generato, salvo elenco cookie e pannello delle preferenze nella Cookie Policy. Una voce `extra` è sempre un file così, con chiavi i18n in `addon.<lang>.json` (mai `basic.<lang>.json`, quello è Engine).
 - Link fra pagine legali col nome dello slot: `[Cookie Policy](policy:cookie)`. La pagina lo risolve nel percorso della lingua corrente; uno slot scritto male ferma il build.
-- `generate:statics` ferma il build su nomi non previsti dentro le cartelle delle pagine, parti o lingue mancanti, `intro` o file `markdown` che non aprono con `# `, e, con la Privacy composta, su un titolare senza nome o recapito in `backend/data/identity.json`. Il resto di `assets/legal/` (altri Markdown, PDF, cartelle) è tuo. L'elenco dei file entra nel build: dopo averne aggiunto o tolto uno, riavvia il dev server.
+- `generate:statics` ferma il build su nomi non previsti dentro le cartelle delle pagine, parti o lingue mancanti, `intro` o file `markdown` che non aprono con `# `. Il resto di `assets/legal/` (altri Markdown, PDF, cartelle) è tuo. L'elenco dei file entra nel build: dopo averne aggiunto o tolto uno, riavvia il dev server. Un titolare senza nome o recapito in `backend/data/identity.json` non ferma più il build: l'identità può arrivare da un `IIdentityStore` dinamico che il frontend non vede a build-time (vedi "Sostituire un servizio dell'Engine" sotto) — senza dati, la sezione identità della Privacy Policy composta dall'Engine semplicemente non compare, titolo compreso, finché non è valorizzata a runtime.
 - I fatti che alimentano i dati di navigazione (`LegalFacts`) sono **pubblici**: viaggiano nel `TransferState` di ogni pagina renderizzata dal server e su `/internal/legal-facts`, senza autenticazione. Per questo l'SSR li riduce a ciò che il testo scrive, prima di passarli: il limite di richieste è un solo numero di secondi o `null` se spento (mai "attivo: false"), la finestra dei login entra solo col login acceso, dei log applicativi restano tipo e conservazione. Se aggiungi un fatto a `computeLegalFacts`, chiediti se lo scriveresti nell'informativa: se no, non va lì.
 
 Ordine della pagina, slot per slot, controlli e fatti dell'installazione: [frontend/README.md](frontend/README.md) «Pagine legali (`legal`)».
@@ -143,6 +143,19 @@ getArticolo(id: string): Promise<Articolo> {
   return this.api_get<Articolo>(`articolo/${encodeURIComponent(id)}`);   // { silent: true } per UI d'errore tua
 }
 ```
+
+#### Modulo che raccoglie dati personali (contatto, richiesta, candidatura…)
+Non c'è un componente Engine per un form generico (troppo variabile da progetto a progetto: campi, validazione, endpoint): resta un componente di progetto che chiama `ApiService`, come un endpoint qualsiasi. Ciò che l'Engine offre è la parte `form` della Privacy Policy (`Features.Forms`, vedi sopra); ciò che resta al progetto, e che il Garante privacy chiede esplicitamente (informativa "in corrispondenza" della raccolta, non solo raggiungibile da un'altra pagina), è nel modulo stesso:
+```html
+<!-- Link diretto alla Privacy, non un URL grezzo, vicino al pulsante di invio -->
+<p class="form-text">
+  {{ 'formPrivacyNota' | translate }}
+  <a [appPage]="PageType.PrivacyPolicy">{{ 'privacyPolicyMenu' | translate }}</a>
+</p>
+<label class="form-label" for="email">Email <span aria-hidden="true">*</span></label>
+<input id="email" class="form-control" required />   <!-- required = campo obbligatorio, indicalo anche visivamente -->
+```
+Due cose, non di più: un link diretto alla Privacy Policy vicino al modulo (chiave `formPrivacyNota` in `addon.<lang>.json`, es. "Inviando il modulo accetti il trattamento dei dati descritto nella"), e i campi obbligatori marcati (asterisco o etichetta esplicita) — coerenti con `privacy/form/it.md`, che dichiara già "necessario per rispondere alla tua richiesta: senza, non possiamo darle seguito". Se il modulo raccoglie dati oltre quelli strettamente necessari a rispondere (es. una preferenza di marketing), quello è un consenso a parte, non la base giuridica "esecuzione della richiesta" del testo di serie: serve una checkbox propria, non pre-spuntata (stesso principio della newsletter, sotto).
 
 #### Caricare file da un form (upload)
 Due pezzi separati, Engine + Dominio — vedi la regola d'oro in cima al file. `UploadFormComponent` (Engine, `core/engine/components/upload-form/`) è un componente UI puro: gestisce click/drag-and-drop, validazione (`accept`, `maxSize`, `multiple`) ed emette `File[]`, mai un upload. L'upload vero — verso `POST /blob/up`, che richiede login — sta al chiamante, tramite `ApiService.uploadBlob`/`.uploadBlobs` (Dominio):
@@ -196,10 +209,11 @@ Mai `localStorage`/`sessionStorage` diretti (lo vieta una regola ESLint, eccetto
 3. `cookie-registry.ts` (**Dominio**) — censisci `_ga`/`_gid` ecc.: categoria `Analytics` (GA4) o `Profiling` (Ads/remarketing) — sono due consensi distinti anche per Google.
 4. Un `effect()` di progetto (**Dominio**, es. `core/services/analytics.service.ts`) che chiama `gtag('consent','update', {...})` sui signal `analyticsAccepted()`/`profilingAccepted()` di `CookieConsentService` — stesso pattern di gating della ricetta sopra.
 
-#### AI Act e newsletter — promemoria, non feature dell'Engine
-Il template non porta nessuno dei due (niente chatbot, niente generazione IA, niente newsletter): diventano rilevanti se il progetto figlio li aggiunge.
+#### AI Act, newsletter e vendita online — promemoria, non feature dell'Engine
+Il template non porta nessuno dei tre (niente chatbot, niente generazione IA, niente newsletter, nessun carrello): diventano rilevanti solo se il progetto figlio li aggiunge, e in quel caso portano obblighi che l'Engine non può indovinare da sé.
 - **Chatbot/contenuti IA** (obbligo dal 2 agosto 2026): avviso esplicito al primo messaggio ("Stai parlando con un sistema di IA"); contenuti generati senza revisione editoriale umana → etichettatura visibile.
 - **Newsletter/marketing**: l'iscrizione NON passa da `ConsentCategory`/`CookieConsentService` (quello gestisce storage/tracciamento lato browser) — serve una checkbox propria, non pre-spuntata, separata da un eventuale consenso alla profilazione degli iscritti.
+- **Vendita di beni/servizi online** (Codice del Consumo, artt. 49 e seguenti — contratti a distanza): informazioni precontrattuali obbligatorie prima dell'ordine, e **diritto di recesso** di 14 giorni — va fornito anche il **modulo tipo di recesso** (Allegato I, Parte B), non solo descritto il diritto (art. 49, comma 1, lett. h): pattern già pronto nella ricetta "Pagine legali" sopra, voce `extra` con `PageType.WithdrawalPolicy` e `markdown` col testo del modulo. Verificane il dettaglio con un legale. Il link alla piattaforma ODR (Reg. UE 524/2013) **non è più richiesto** (abrogato dal Reg. UE 2024/3228, piattaforma dismessa dal 20/7/2025): se il tuo TOS ce l'ha da prima, va tolto.
 
 #### Leggere `global-settings.json` tipizzato
 Il tipo `GlobalSettings` è generato dallo schema (sorgente unica), non scritto a mano. Dopo aver toccato `global-settings.schema.json`, rigeneralo; un typo di chiave diventa errore a `tsc`.
@@ -499,6 +513,7 @@ Vince l'ultima registrazione:
 // Program.cs, blocco "── SERVIZI APPLICATIVI ──" — es. l'identità da un DB invece che da identity.json
 builder.Services.AddSingleton<IIdentityStore, DbIdentityStore>();
 ```
+Sostituendo `IIdentityStore`: nessun controllo di build dipende più da `backend/data/identity.json` — l'identità è sempre e solo runtime, da `GET /identity`, qualunque sia lo store. Il file resta il default (`FileIdentityStore`), non un requisito del build.
 
 #### Esportare e cancellare i dati personali
 `GET`/`DELETE /me/data` esistono già (protetti da login, export in JSON leggibile) e il punto da riempire pure: `Store/AppPersonalDataStore.cs`, l'unica `IPersonalDataStore` del sito (già registrata in `Program.cs`, non un export per controller di dominio). Aggreghi lì i tuoi store:
