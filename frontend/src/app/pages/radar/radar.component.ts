@@ -6,6 +6,7 @@ import { APP_CUSTOM } from '../../core/engine/app-custom';
 import { AppearanceService } from '../../core/engine/services/appearance.service';
 import { CookieConsentService } from '../../core/engine/services/cookie-consent.service';
 import type { Map as MbMap, Marker as MbMarker } from 'mapbox-gl';
+import type { Feature, Polygon } from 'geojson';
 
 const SEARCH_LIMIT = 25;
 
@@ -55,7 +56,7 @@ export class RadarComponent extends PageBaseComponent<void> implements OnDestroy
     private lastPos: [number, number] | null = null;   // ultima posizione nota [lon, lat]
     private appliedTone: 'light' | 'dark' | null = null;   // tono dello stile mappa attualmente applicato
     /** Poligono del cerchio di portata: centro = posizione della ricerca, raggio = chiesa più lontana. */
-    private rangeCircle: GeoJSON.Feature<GeoJSON.Polygon> | null = null;
+    private rangeCircle: Feature<Polygon> | null = null;
 
     constructor() {
         super();
@@ -291,7 +292,7 @@ export class RadarComponent extends PageBaseComponent<void> implements OnDestroy
      * Approssimazione equirettangolare (64 vertici): più che sufficiente su scala
      * di quartiere, evita di portarsi dietro una libreria turf per un cerchio.
      */
-    private static circleFeature(lon: number, lat: number, radiusM: number): GeoJSON.Feature<GeoJSON.Polygon> {
+    private static circleFeature(lon: number, lat: number, radiusM: number): Feature<Polygon> {
         const dLat = (radiusM / 6371000) * (180 / Math.PI);
         const dLon = dLat / Math.cos(lat * Math.PI / 180);
         const ring: [number, number][] = [];
