@@ -1,13 +1,11 @@
 name: Controlli Automatici di Tutto
 
 on:
+  # `branches:` qui è statico (non legge il branch di default a runtime): il filtro vero è
+  # nell'`if` dei job di ingresso, via `github.event.repository.default_branch` — così vale sia
+  # per `main` che per `master`. Branch di sessione (claude/**, ecc.) fuori, via pull_request.
   push:
-    # main sempre; fix/** anche in push diretto (branch di consolidamento pre-merge, es. dopo
-    # aver unito più branch da verificare prima di mergiare in main) — i branch di sessione
-    # (claude/**, ecc.) restano fuori, coperti solo da pull_request qui sotto se ne apri una.
-    branches: [main, "fix/**"]
   pull_request:
-    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
@@ -17,6 +15,11 @@ jobs:
   changes:
     name: Rileva file cambiati (per gating live-tests)
     runs-on: ubuntu-latest
+    if: >-
+      (github.event_name == 'push' &&
+       (github.ref_name == github.event.repository.default_branch || startsWith(github.ref_name, 'fix/'))) ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.base.ref == github.event.repository.default_branch)
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
@@ -145,8 +148,8 @@ jobs:
       - name: Dipendenze circolari
         run: bash scripts/test/circular-deps-check.sh
 
-      - name: Tema/design-system (Vitest)
-        run: bash scripts/test/theme-check.sh
+      - name: Endpoint system-font (Vitest)
+        run: bash scripts/test/system-font-check.sh
 
       - name: Invarianti SiteBuilder
         run: bash scripts/test/site-builder-check.sh
@@ -190,6 +193,11 @@ jobs:
   security-scan:
     name: Sicurezza — secret scanning (gitleaks)
     runs-on: ubuntu-latest
+    if: >-
+      (github.event_name == 'push' &&
+       (github.ref_name == github.event.repository.default_branch || startsWith(github.ref_name, 'fix/'))) ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.base.ref == github.event.repository.default_branch)
     steps:
       - uses: actions/checkout@v5
 
@@ -226,7 +234,7 @@ jobs:
       (needs.backend.result == 'success' || needs.backend.result == 'skipped') &&
       (needs.frontend.result == 'success' || needs.frontend.result == 'skipped') &&
       (needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.infra == 'true') &&
-      (github.ref == 'refs/heads/main' || github.event_name == 'pull_request')
+      (github.ref == format('refs/heads/{0}', github.event.repository.default_branch) || github.event_name == 'pull_request')
     steps:
       - uses: actions/checkout@v5
 

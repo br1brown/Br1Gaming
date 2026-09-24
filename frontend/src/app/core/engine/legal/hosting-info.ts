@@ -137,16 +137,47 @@ export function parseHostingInfo(raw: unknown, source: string): HostingInfo {
 
 type Translate = (key: string, ...args: unknown[]) => string;
 
-/** Parte della Privacy Policy generata dall'Engine, in Markdown: ambito (il sito coperto) e sezione "Dati di navigazione",
- *  dai fatti di installazione e configurazione e dalle chiavi `nav*` di `basic.*.json`. Senza fatti d'installazione:
- *  elenco dei dati tipico e conservazione per criterio. */
+/** Log non applicativi (accessi/errori) del sito e del backend: quelli che "Dati di navigazione" e il
+ *  riepilogo in cima usano per calcolare cosa salva il server e per quanto. */
+function logsEssenziali(info: HostingInfo | null): readonly LogServer[] {
+    return [...(info?.log ?? []), ...(info?.backend?.log ?? [])].filter(l => l.tipo !== 'applicazione');
+}
+
+/** Conservazione più lunga fra i log dichiarati (solo quelli con una durata: i log a rotazione non
+ *  la dichiarano), o `null` senza log con `conservazioneGiorni`. */
+function maxConservazioneGiorni(logs: readonly LogServer[]): number | null {
+    return logs.reduce<number | null>((max, l) =>
+        l.conservazioneGiorni != null && (max == null || l.conservazioneGiorni > max) ? l.conservazioneGiorni : max, null);
+}
+
+const unitaFmt = (lang: string, valore: number, unit: 'day' | 'week' | 'second' | 'minute' | 'hour') =>
+    new Intl.NumberFormat(lang, { style: 'unit', unit, unitDisplay: 'long' }).format(valore);
+const giorniFmt = (lang: string, g: number) => g >= 14 && g % 7 === 0 ? unitaFmt(lang, g / 7, 'week') : unitaFmt(lang, g, 'day');
+
+/** Riepilogo "in sintesi" della Privacy Policy, in linguaggio semplice: informativa a strati sulla stessa
+ *  pagina, prima dell'intro. Usa solo i fatti che `renderNavigationData` spiega per esteso subito dopo
+ *  (quali dati in breve, la conservazione massima dichiarata, se l'IP serve anche al rate limiting):
+ *  mai un'affermazione che il resto della pagina non ripeta. Senza fatti d'installazione resta generico. */
+export function renderNavigationSummary(facts: LegalFacts | null, t: Translate, lang: string): string {
+    const logs = logsEssenziali(facts?.installazione ?? null);
+    const maxGiorni = maxConservazioneGiorni(logs);
+    const limite = facts?.limiteRichiesteSecondi ?? null;
+    const conservazione = maxGiorni != null ? t('navSintesiConservazione', giorniFmt(lang, maxGiorni)) : t('navSintesiConservazioneGenerica');
+    return [
+        t('navSintesi', conservazione),
+        limite !== null ? t('navSintesiLimite') : '',
+        t('navSintesiDettagli'),
+    ].filter(Boolean).join(' ');
+}
+
+/** Parte della Privacy Policy generata dall'Engine, in Markdown: ambito (il sito coperto) e sezione "Dati
+ *  di navigazione", dai fatti di installazione e configurazione e dalle chiavi `nav*` di `basic.*.json`.
+ *  Senza fatti d'installazione: elenco dei dati tipico e conservazione per criterio. */
 export function renderNavigationData(facts: LegalFacts | null, t: Translate, lang: string): string {
     const info = facts?.installazione ?? null;
     const list = (items: string[]) => new Intl.ListFormat(lang, { type: 'conjunction' }).format(items);
-    const unita = (valore: number, unit: 'day' | 'week' | 'second' | 'minute' | 'hour') =>
-        new Intl.NumberFormat(lang, { style: 'unit', unit, unitDisplay: 'long' }).format(valore);
-    const giorni = (g: number) => g >= 14 && g % 7 === 0 ? unita(g / 7, 'week') : unita(g, 'day');
-    const secondi = (s: number) => s % 3600 === 0 ? unita(s / 3600, 'hour') : s % 60 === 0 ? unita(s / 60, 'minute') : unita(s, 'second');
+    const secondi = (s: number) => s % 3600 === 0 ? unitaFmt(lang, s / 3600, 'hour') : s % 60 === 0 ? unitaFmt(lang, s / 60, 'minute') : unitaFmt(lang, s, 'second');
+    const giorni = (g: number) => giorniFmt(lang, g);
     const luogo = (f: FornitoreInfrastruttura): string => {
         if (!f.paese) return '';
         const nome = new Intl.DisplayNames(lang, { type: 'region' }).of(f.paese) ?? f.paese;
@@ -155,18 +186,31 @@ export function renderNavigationData(facts: LegalFacts | null, t: Translate, lan
         return t('navLuogoExtra', nome, t(f.garanzie === 'adeguatezza' ? 'navGaranziaAdeguatezza' : 'navGaranziaClausole'));
     };
     const chiaveLog: Record<TipoLog, string> = { accessi: 'navLogAccessi', errori: 'navLogErrori', applicazione: 'navLogApplicazione' };
+    // Log con la stessa conservazione (stessa durata, o entrambi a rotazione) si nominano insieme, con la
+    // frase di durata una volta sola, invece di ripeterla per ogni tipo: una formulazione unitaria, non un
+    // elenco di frasi quasi identiche.
+    const raggruppaConservazione = (log: readonly LogServer[]): string[] => {
+        const gruppi = new Map<string, TipoLog[]>();
+        for (const l of log) {
+            const chiave = l.conservazioneGiorni != null ? `g${l.conservazioneGiorni}` : 'rotazione';
+            (gruppi.get(chiave) ?? gruppi.set(chiave, []).get(chiave)!).push(l.tipo);
+        }
+        return [...gruppi.entries()].map(([chiave, tipi]) => {
+            const durata = chiave === 'rotazione' ? t('navLogRotazione') : t('navLogDurata', giorni(Number(chiave.slice(1))));
+            return `${list(tipi.map(tp => t(chiaveLog[tp])))} ${durata}`;
+        });
+    };
     /** Conservazione, hosting e CDN di un server, come voci di elenco. */
     const voci = (s: ServerInfo, criterio: boolean): string[] => [
         ...(s.log?.length
-            ? [t('navConservazione', list(s.log.map(l => `${t(chiaveLog[l.tipo])} ${l.conservazioneGiorni != null
-                ? t('navLogDurata', giorni(l.conservazioneGiorni)) : t('navLogRotazione')}`)))]
+            ? [t('navConservazione', list(raggruppaConservazione(s.log)))]
             : criterio ? [t('navConservazioneCriterio')] : []),
         ...(s.hosting ? [t('navHosting', s.hosting.fornitore, luogo(s.hosting))] : []),
         ...(s.cdn ? [t('navCdn', s.cdn.fornitore, luogo(s.cdn))] : []),
     ];
 
     // Dati salvati: quelli dichiarati dai log del sito, o l'elenco tipico del Garante.
-    const logs = [...(info?.log ?? []), ...(info?.backend?.log ?? [])].filter(l => l.tipo !== 'applicazione');
+    const logs = logsEssenziali(info);
     const dichiarati = new Set(logs.flatMap(l => l.campi ?? []));
     // "IP reso anonimo" solo se lo è in ogni log che l'IP lo salva (senza `campi` = elenco generico, IP compreso).
     const conIp = logs.filter(l => !l.campi || l.campi.includes('ip'));
@@ -187,6 +231,7 @@ export function renderNavigationData(facts: LegalFacts | null, t: Translate, lan
     const backend = info?.backend;
     // Un URL del sito malformato (senza schema) toglie solo la frase sull'ambito, non la pagina.
     const host = (() => { try { return facts?.sito ? new URL(facts.sito).host : null; } catch { return null; } })();
+
     const parti = [
         ...(host ? [t('navAmbito', `[${host}](${facts!.sito})`)] : []),
         `## ${t('navSezione')}`,

@@ -208,7 +208,7 @@ Come funziona `scripts/deploy.sh`, in breve:
 2. **Swap**: se il preflight è verde, e in nessun altro caso, `docker compose up -d --wait` sostituisce i container di produzione (immagini riusate dalla cache, ricontrollo salute sulle porte reali). È un blue/green leggero: zero-downtime se la nuova build parte male.
 3. **Porte**: se una porta è occupata da un altro progetto, `scripts/deploy.sh` lo **segnala** soltanto e prosegue (è Docker a riportare l'eventuale errore di bind). Nessun container viene fermato automaticamente.
 
-La suite di qualità (lint, i18n, type checking, dipendenze circolari, accessibilità WCAG, Lighthouse) non è rieseguita da `scripts/deploy.sh`: gira in CI (push a `main` e `fix/**`, pull request). In locale, on-demand: `./scripts/test/run-all.sh`.
+La suite di qualità (lint, i18n, type checking, dipendenze circolari, accessibilità WCAG, Lighthouse) non è rieseguita da `scripts/deploy.sh`: gira in CI (push al branch di default del repo e a `fix/**`, pull request). In locale, on-demand: `./scripts/test/run-all.sh`.
 
 ## Test pubblico dietro reverse proxy
 

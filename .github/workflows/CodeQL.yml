@@ -3,13 +3,11 @@ name: CodeQL
 # Analisi statica di sicurezza (SAST) via CodeQL per frontend e backend.
 
 on:
+  # `branches:` qui è statico (non legge il branch di default a runtime): il filtro vero è
+  # nell'`if` del job "analyze", via `github.event.repository.default_branch` — così vale sia
+  # per `main` che per `master`. Branch di sessione (claude/**, ecc.) fuori, via pull_request.
   push:
-    # main sempre; fix/** anche in push diretto (branch di consolidamento pre-merge, es. dopo
-    # aver unito più branch da verificare prima di mergiare in main) — i branch di sessione
-    # (claude/**, ecc.) restano fuori, coperti solo da pull_request qui sotto se ne apri una.
-    branches: [main, "fix/**"]
   pull_request:
-    branches: [main]
   schedule:
     # Scansione periodica settimanale
     - cron: "17 4 * * 1"
@@ -22,6 +20,12 @@ jobs:
   analyze:
     name: CodeQL — analisi statica di sicurezza (${{ matrix.language }})
     runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'push' &&
+       (github.ref_name == github.event.repository.default_branch || startsWith(github.ref_name, 'fix/'))) ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.base.ref == github.event.repository.default_branch)
     permissions:
       contents: read
       actions: read

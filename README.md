@@ -219,7 +219,7 @@ Sono segnaposto i dati demo (`backend/data/social.json`, galleria social) e le c
 
 ## 🧪 Test Suite Automatica
 
-Sette controlli di qualità, zero da ricordare a mano: la CI (GitHub Actions) li esegue da sé sui push a `main` e `fix/**` e sulle pull request, solo per le parti toccate (backend, frontend, traduzioni, infrastruttura).
+Sette controlli di qualità, zero da ricordare a mano: la CI (GitHub Actions) li esegue da sé sui push al branch di default del repo (es. `main`, `master`: letto a runtime da `github.event.repository.default_branch`, nessun nome cablato) e a `fix/**`, e sulle pull request verso il branch di default — solo per le parti toccate (backend, frontend, traduzioni, infrastruttura).
 
 | Controllo | Cosa verifica |
 | :--- | :--- |
@@ -227,7 +227,7 @@ Sette controlli di qualità, zero da ricordare a mano: la CI (GitHub Actions) li
 | `i18n-check.sh` | Chiavi di traduzione presenti in una lingua e assenti nelle altre (simmetria dei cataloghi `basic` e `addon`; l'uso delle chiavi non è controllato) |
 | `tsc-check.sh` | Errori TypeScript (type safety) |
 | `circular-deps-check.sh` | Dipendenze circolari tra moduli |
-| `theme-check.sh` | Meccanismo dei design system (fusione di `extendDesignSystem`, ruoli che spengono e non riaccendono, font), con fixture sintetiche: mai il contenuto di un design system né il contrasto di una palette, che verifica l'audit live |
+| `system-font-check.sh` | Endpoint system-font dal vivo (reachability e adversarial: key/indice invalidi, path traversal) |
 | `site-builder-check.sh` | Invarianti statiche di SiteBuilder (audit paths, copertura sitemap) |
 | `live-test.sh` | Conformità WCAG (Pa11y) + budget performance/best-practices/SEO (Lighthouse), un browser condiviso |
 
@@ -236,7 +236,7 @@ Sette controlli di qualità, zero da ricordare a mano: la CI (GitHub Actions) li
 > C'è un'asimmetria frontend/backend, dichiarata esplicitamente qui: tutti e sette i controlli sopra sono frontend. Il backend .NET ha, in CI, la build Release e la scansione vulnerabilità NuGet (§ Supply chain sotto); niente lint (`dotnet format`/analyzer) né test automatico. Nella solution non c'è un progetto di test (`*.Tests.csproj`): se il progetto figlio ne aggiunge uno, il gate CI dei test backend va costruito da zero, perché non esiste un binario da attivare.
 
 Dove e come girano:
-- **In CI:** in automatico sui push a `main` e `fix/**` e sulle pull request, per le parti toccate; gli audit live girano su `main` e sulle pull request (`.github/workflows/`). È il gate ufficiale.
+- **In CI:** in automatico sui push al branch di default e a `fix/**` e sulle pull request, per le parti toccate; gli audit live girano sul branch di default e sulle pull request (`.github/workflows/`). È il gate ufficiale.
 - **On-demand, in locale:** `./scripts/test/run-all.sh` dalla root del progetto (l'audit live Pa11y/Lighthouse gira soltanto se è attivo un server da testare).
 
 > Nota sul deploy: due modelli di pubblicazione convivono. In produzione si usa il modello artifact-based: la CI builda le immagini a ogni tag e le pubblica su GHCR, la VPS le scarica e basta (niente `git pull`, niente build in loco). Vedi [RELEASE.md](RELEASE.md). Il modello source-based `scripts/deploy.sh` (build sulla macchina, poi swap se e quando i container diventano sani via HEALTHCHECK) resta comodo per test e sviluppo locale, ma è sconsigliato in produzione. La suite di test completa resta demandata alla CI. Vedi [DOCKER_README.md](DOCKER_README.md).

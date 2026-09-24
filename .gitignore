@@ -63,3 +63,4 @@ frontend/src/styles/engine/generated/
 .claude
 lh-report-*.json
 frontend/.a11y-run-*.cjs
+.github/copilot-instructions.md

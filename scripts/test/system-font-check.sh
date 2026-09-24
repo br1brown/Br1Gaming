@@ -1,17 +1,16 @@
 #!/usr/bin/env bash
 # =============================================================================
-# theme-check.sh  —  Test automatici del meccanismo dei design system (Vitest)
+# system-font-check.sh  —  Test automatici sull'endpoint system-font (Vitest)
 #
 # Esegue `ng test` (builder @angular/build:unit-test, runner Vitest, ambiente
-# jsdom — nessun browser reale necessario): `extendDesignSystem` (merge, catene
-# di extend, ruoli custom, leva spenta dal design system che nessun ruolo
-# riaccende, risoluzione font), con fixture sintetiche
-# (src/app/tests/design-system-presets.spec.ts) — mai il contenuto di un design
-# system specifico (editabile a piacere) né il contrasto WCAG di una palette,
-# coperto dal vivo da scripts/test/live-audit.mjs (Pa11y).
+# jsdom — nessun browser reale necessario): copre `systemFontHandler` dal vivo
+# (src/app/tests/system-font-endpoint.spec.ts) — reachability e adversarial
+# (key/indice invalidi, path traversal, file assente su disco), mai il
+# contenuto di un design system specifico né il contrasto WCAG di una
+# palette, coperto dal vivo da scripts/test/live-audit.mjs (Pa11y).
 #
 # Utilizzo:
-#   ./theme-check.sh
+#   ./system-font-check.sh
 #
 # Exit code:
 #   0  Tutti i test superati
@@ -34,7 +33,7 @@ NG_BIN="${FRONTEND_DIR}/node_modules/@angular/cli/bin/ng.js"
 source "${SCRIPT_DIR}/../lib/gh-summary.sh"
 
 if ! command -v node >/dev/null 2>&1; then
-    echo "  WARN Node.js non trovato — test tema/design-system saltati"
+    echo "  WARN Node.js non trovato — test endpoint system-font saltati"
     exit 2
 fi
 
@@ -55,12 +54,12 @@ TEST_LOG="$(mktemp)"
 trap 'rm -f "$TEST_LOG"' EXIT
 
 if node "$NG_BIN" test 2>&1 | tee "$TEST_LOG"; then
-    echo -e "  ${GREEN}OK${RESET} Test tema/design-system superati"
-    gh_summary_append "### 🎨 Tema/design-system (Vitest)
+    echo -e "  ${GREEN}OK${RESET} Test endpoint system-font superati"
+    gh_summary_append "### 🔤 Endpoint system-font (Vitest)
 ✅ Test superati"
 else
-    echo -e "  ${RED}ERR${RESET} Uno o più test tema/design-system falliti" >&2
-    gh_summary_append "### 🎨 Tema/design-system (Vitest)
+    echo -e "  ${RED}ERR${RESET} Uno o più test endpoint system-font falliti" >&2
+    gh_summary_append "### 🔤 Endpoint system-font (Vitest)
 ❌ Uno o più test falliti
 
 <details><summary>Dettaglio (ultime 80 righe)</summary>
