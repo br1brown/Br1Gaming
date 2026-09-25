@@ -1,5 +1,9 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { TranslateService } from '../../services/translate.service';
+import { LocalizationService } from '../../services/localization.service';
+import { BusyIconComponent } from '../busy-icon/busy-icon.component';
+
+let nextUploadFormId = 0;
 
 /** Override opzionale dei testi del form. */
 export interface UploadFormLabels {
@@ -24,11 +28,18 @@ export interface UploadFormLabels {
 /** Form di selezione file con supporto click e drag-and-drop. */
 @Component({
     selector: 'app-upload-form',
-    imports: [],
+    imports: [BusyIconComponent],
     templateUrl: './upload-form.component.html',
+    styleUrl: './upload-form.component.scss',
 })
 export class UploadFormComponent {
     private readonly translate = inject(TranslateService);
+    private readonly localization = inject(LocalizationService);
+
+    /** Id del messaggio d'errore di validazione, collegato all'input (aria-describedby). */
+    protected readonly errorId = `upload-form-error-${nextUploadFormId++}`;
+    /** Oltre questo numero di file la lista scorre (e diventa raggiungibile da tastiera per scorrerla). */
+    protected readonly scrollAfter = 6;
 
     /** Emesso quando l'utente conferma la selezione (preme il bottone). */
     readonly filesConfirmed = output<File[]>();
@@ -158,6 +169,14 @@ export class UploadFormComponent {
             }
             return p === fileMime;
         });
+    }
+
+    /** Peso leggibile nella lingua corrente (B / kB / MB), dalle unità di Intl. */
+    protected fileSize(bytes: number): string {
+        const f = this.localization.formatter;
+        if (bytes < 1024) return f.number(bytes, { style: 'unit', unit: 'byte', unitDisplay: 'short' });
+        if (bytes < 1024 * 1024) return f.number(bytes / 1024, { style: 'unit', unit: 'kilobyte', unitDisplay: 'short', maximumFractionDigits: 0 });
+        return f.number(bytes / (1024 * 1024), { style: 'unit', unit: 'megabyte', unitDisplay: 'short', maximumFractionDigits: 1 });
     }
 
     protected onSubmit(): void {

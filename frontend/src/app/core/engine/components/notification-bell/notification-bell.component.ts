@@ -1,32 +1,41 @@
 import { Component, ElementRef, computed, inject, signal } from '@angular/core';
 import { TranslatePipe } from '../../pipes/translate.pipe';
+import { EmptyStateComponent } from '../empty-state/empty-state.component';
+import { injectDismiss } from '../../dismiss';
 import { TranslateService } from '../../services/translate.service';
 import { NotificationStreamService, type StreamNotification } from '../../services/notification-stream.service';
 import { ContestoSito } from '../../../../site';
 
-/** Campanellino delle notifiche realtime nella navbar, mostrato quando `shell.showNotifications`
- *  è attivo. Iniettarlo attiva {@link NotificationStreamService} (stream SSE + storico dal server);
- *  lo stato vive nel servizio, qui si rende soltanto. A11y: nome pulsante con conteggio non lette,
- *  `aria-live` sugli arrivi dal vivo, `Esc` chiude il pannello. */
+/** Campanellino delle notifiche realtime nella navbar. Iniettarlo attiva
+ *  {@link NotificationStreamService} (stream SSE + storico); lo stato vive nel servizio, qui si
+ *  rende soltanto. `Esc` e il click fuori chiudono il pannello (`injectDismiss`) e ridanno il focus. */
 @Component({
     selector: 'app-notification-bell',
-    imports: [TranslatePipe],
+    imports: [TranslatePipe, EmptyStateComponent],
     templateUrl: './notification-bell.component.html',
     styleUrl: './notification-bell.component.scss',
     host: {
         class: 'dropdown notification-bell',
         '[class.show]': 'open()',
-        '(document:click)': 'onDocumentClick($event)',
-        '(keydown.escape)': 'onEscape()',
     }
 })
 export class NotificationBellComponent {
     private readonly stream = inject(NotificationStreamService);
     private readonly translate = inject(TranslateService);
-    private readonly elRef = inject(ElementRef);
+    private readonly elRef = inject<ElementRef<HTMLElement>>(ElementRef);
 
     /** Stato di apertura del pannello. */
     readonly open = signal(false);
+    /** Id del pannello, per `aria-controls` sul campanellino. */
+    protected readonly panelId = 'notification-bell-panel';
+
+    constructor() {
+        injectDismiss({
+            open: this.open,
+            close: () => this.open.set(false),
+            returnFocus: () => this.elRef.nativeElement.querySelector<HTMLElement>('.notification-bell-toggle'),
+        });
+    }
     /** Contatore non lette (badge). */
     readonly unread = this.stream.unread;
     /** Testo dell'ultima notifica dal vivo, per la regione aria-live. */
@@ -50,14 +59,6 @@ export class NotificationBellComponent {
     toggle(): void {
         this.open.update(v => !v);
         if (this.open()) this.stream.markAllRead();
-    }
-
-    onEscape(): void {
-        this.open.set(false);
-    }
-
-    onDocumentClick(event: MouseEvent): void {
-        if (!this.elRef.nativeElement.contains(event.target)) this.open.set(false);
     }
 
     /** Icona FontAwesome in base all'eventuale `icon` nel payload del toast. */

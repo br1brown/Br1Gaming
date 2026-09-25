@@ -1,18 +1,16 @@
-<button class="btn btn-outline-secondary btn-touch d-inline-flex align-items-center justify-content-center gap-2"
+<!-- Stesso schema per ogni bottone azione: .btn-touch (target di tocco, contenuto centrato),
+     glifo che diventa spinner durante il lavoro (BusyIconComponent), disabled + aria-busy nel mentre. -->
+<button class="btn btn-outline-secondary btn-touch"
         type="button"
         [class.w-100]="fullWidth()"
         [class.active]="liked()"
+        [attr.aria-pressed]="liked()"
         [disabled]="loading()"
         [attr.aria-busy]="loading() || null"
-        [attr.aria-pressed]="liked()"
         [attr.title]="showLabel() ? null : displayLabel()"
         [attr.aria-label]="showLabel() ? null : displayLabel()"
         (click)="onClick()">
-    @if (loading()) {
-        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
-    } @else {
-        <i class="fa-solid fa-heart fs-5" aria-hidden="true"></i>
-    }
+    <app-busy-icon glyph="fa-solid fa-heart" [busy]="loading()" />
     @if (showLabel()) {
         <span>{{ displayLabel() }}</span>
     }

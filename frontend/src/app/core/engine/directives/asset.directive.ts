@@ -1,12 +1,12 @@
-import { computed, Directive, inject, input } from '@angular/core';
+import { computed, Directive, inject, input, signal } from '@angular/core';
 import { AssetService } from '../services/asset.service';
 import { ALLOWED_WIDTHS, type AssetWidth } from '../asset-config';
 import { LightboxActivatable } from './lightbox-activatable';
 import type { LightboxSource } from '../components/image-lightbox/image-lightbox-overlay.component';
+import { BROKEN_IMAGE_PLACEHOLDER } from './img-fallback.directive';
 
-/** Collega reattivamente l'ID di un asset al `src` di tag multimediali (img, video, iframe, ecc.);
- *  su `<img>` aggiunge anche `decoding="async"`, `loading="lazy"` (se non priority) e srcset/sizes
- *  responsive. */
+/** Su un `<img>` rotto (asset cancellato, blob scaduto) mostra un segnaposto neutro invece dell'icona
+ *  rotta del browser, o nulla se l'immagine è decorativa (`alt=""`). */
 @Directive({
     selector: 'img[appAsset], video[appAsset], audio[appAsset], source[appAsset], iframe[appAsset], embed[appAsset]',
     standalone: true,
@@ -17,6 +17,9 @@ import type { LightboxSource } from '../components/image-lightbox/image-lightbox
         '[attr.decoding]': 'decoding()',
         '[attr.loading]': 'loading()',
         '[attr.fetchpriority]': 'fetchPriority()',
+        '[class.asset-broken]': 'isBroken()',
+        '[class.asset-broken--decorative]': 'isBroken() && isDecorative()',
+        '(error)': 'onError()',
     },
 })
 export class AssetDirective extends LightboxActivatable {
@@ -36,18 +39,35 @@ export class AssetDirective extends LightboxActivatable {
     readonly appAssetLightbox = input(false);
 
     protected lightboxEnabled(): boolean {
-        return this.isImg && this.appAssetLightbox();
+        return this.isImg && this.appAssetLightbox() && !this.isBroken();
     }
 
     protected lightboxSource(): LightboxSource | null {
         return { assetId: this.appAsset() };
     }
 
-    protected readonly src = computed(() => this.asset.getUrl(this.appAsset(), this.appAssetWidth()));
+    /** Id dell'asset il cui file non si è caricato: legato all'id, così un cambio di `appAsset`
+     *  riprova il file nuovo invece di restare sul segnaposto. */
+    private readonly brokenId = signal<string | null>(null);
+    protected readonly isBroken = computed(() => this.isImg && this.brokenId() === this.appAsset());
+
+    protected onError(): void {
+        if (this.isImg) this.brokenId.set(this.appAsset());
+    }
+
+    /** Immagine decorativa (`alt=""`): rotta, sparisce invece di mostrare il segnaposto — un logo di
+     *  contorno mancante non deve diventare una cornice vuota in navbar. */
+    protected isDecorative(): boolean {
+        return this.isImg && this.hostEl.getAttribute('alt') === '';
+    }
+
+    protected readonly src = computed(() => this.isBroken()
+        ? BROKEN_IMAGE_PLACEHOLDER
+        : this.asset.getUrl(this.appAsset(), this.appAssetWidth()));
 
     /** srcset responsive: solo su <img>, solo se `appAssetSizes` è valorizzato e la width non è fissata. */
     protected readonly srcset = computed(() => {
-        if (!this.isImg || !this.appAssetSizes() || this.appAssetWidth() != null) return null;
+        if (this.isBroken() || !this.isImg || !this.appAssetSizes() || this.appAssetWidth() != null) return null;
         const id = this.appAsset();
         return ALLOWED_WIDTHS.map(w => `${this.asset.getUrl(id, w)} ${w}w`).join(', ');
     });

@@ -13,9 +13,13 @@ export class TokenService implements OnDestroy {
     // Riferimento al timer per il logout automatico alla scadenza del token
     private expirationTimer: ReturnType<typeof setTimeout> | null = null;
 
+    private readonly _expiresAt = signal<number | null>(null);
+
     // Esposizione pubblica dei dati in sola lettura
     readonly token = this._token.asReadonly();
     readonly isLoggedIn = computed(() => this._token() !== null);
+    /** Scadenza del token (`exp`, ms): per chi deve avvisare prima che scada (SessionExpiryNoticeService). `null` senza sessione. */
+    readonly expiresAt = this._expiresAt.asReadonly();
 
     /** Rilegge il payload di sessione dal claim "session" del JWT, tipizzato dal progetto (`tokenService.session<SessionInfo>()`, rispecchia il record C#). Reattivo: legge il signal del token. */
     session<T>(): T | null {
@@ -30,10 +34,6 @@ export class TokenService implements OnDestroy {
         }
     }
 
-    /**
-     * Salva il token, ne verifica la validità e avvia il timer di scadenza.
-     * @param token Stringa JWT ricevuta dal backend.
-     */
     store(token: string): boolean {
         const expiration = this.getExpirationTime(token);
 
@@ -44,11 +44,10 @@ export class TokenService implements OnDestroy {
         }
 
         this._token.set(token);
+        this._expiresAt.set(expiration);
 
-        // sessionStorage: il login resta al refresh, sparisce alla chiusura tab. Unico accesso
-        // diretto al Web Storage fuori da CookieConsentService (allowlist ESLint): eccezione
-        // deliberata, accoppiarlo al consenso reintrodurrebbe il ciclo api→base-api→auth→api —
-        // comunque censito in ENGINE_COOKIE_MAP, compare in policy ed è escluso dalla pulizia.
+        // sessionStorage diretto (eccezione ESLint deliberata): accoppiarlo al consenso
+        // reintrodurrebbe il ciclo api→base-api→auth→api; censito comunque in ENGINE_COOKIE_MAP.
         if (this.isBrowser) sessionStorage.setItem('bearerToken', token);
 
         this.scheduleExpiration(expiration);
@@ -58,6 +57,7 @@ export class TokenService implements OnDestroy {
     /** Rimuove il token, pulisce i timer e svuota il SessionStorage. */
     clear(): void {
         this._token.set(null);
+        this._expiresAt.set(null);
         if (this.expirationTimer !== null) {
             clearTimeout(this.expirationTimer);
             this.expirationTimer = null;
@@ -77,10 +77,7 @@ export class TokenService implements OnDestroy {
         this.clear();
     }
 
-    /**
-     * Pianifica il logout automatico.
-     * Gestisce anche il limite massimo di setTimeout di JS (circa 24 giorni).
-     */
+    /** Pianifica il logout automatico, ricorsivo per superare il limite di `setTimeout` a 32 bit (~24 giorni). */
     private scheduleExpiration(expiration: number): void {
         if (!this.isBrowser) return; // I timer di scadenza non servono in SSR
         if (this.expirationTimer !== null) clearTimeout(this.expirationTimer);
@@ -101,20 +98,12 @@ export class TokenService implements OnDestroy {
         }, nextDelay);
     }
 
-    /**
-     * Decodifica il payload del JWT (Base64) per estrarre il campo 'exp'.
-     * @returns Timestamp di scadenza in millisecondi o null.
-     */
     private getExpirationTime(token: string): number | null {
         const payload = this.decodePayload(token) as { exp?: unknown } | null;
         // Il campo 'exp' nei JWT è solitamente in secondi, lo convertiamo in ms
         return payload && typeof payload.exp === 'number' ? payload.exp * 1000 : null;
     }
 
-    /**
-     * Decodifica il payload (parte centrale) di un JWT da Base64URL a oggetto.
-     * @returns L'oggetto del payload, o null se il token è malformato.
-     */
     private decodePayload(token: string): Record<string, unknown> | null {
         const payloadSegment = token.split('.')[1];
         if (!payloadSegment) return null;

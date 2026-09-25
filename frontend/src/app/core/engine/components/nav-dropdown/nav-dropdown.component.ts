@@ -13,6 +13,9 @@ const DROPDOWN_VIEWPORT_MARGIN = 16;
  *  visibili + indicazione che continua) che un pannello schiacciato a un dito di altezza. */
 const DROPDOWN_MIN_HEIGHT = 160;
 
+/** Id progressivi dei pannelli, per `aria-controls` (stesso ordine in SSR e nel browser). */
+let nextDropdownId = 0;
+
 @Component({
     selector: 'app-nav-dropdown',
     standalone: true,
@@ -26,6 +29,8 @@ export class NavDropdownComponent {
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
     readonly item = input.required<NavLink & { children: NavLink[] }>();
+    /** Id del pannello, collegato al toggle con `aria-controls`. */
+    protected readonly menuId = `nav-dropdown-${nextDropdownId++}`;
     readonly open = input(false);
 
     readonly toggle = output<void>();

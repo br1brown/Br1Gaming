@@ -1,19 +1,37 @@
-/* icon.component.scss — Icona "badge" generica (ex .social-icon).
-   Colore di sfondo sovrascrivibile a runtime via [style.background-color]. */
+/* Icona "badge" (pastiglia con glifo): misure dai token (--iconBadgeSize/--iconSize-md); senza colore
+   brand è in negativo sul tema, con un colore brand il glifo lo sceglie IconComponent per contrasto. */
 
 .icon {
-    color: #fff;
-    background-color: #333;
-    width: 54px;
-    height: 54px;
-    margin: 6px;
-    font-size: 1.375rem;
+    color: var(--bs-body-bg);
+    background-color: var(--bs-emphasis-color);
+    width: var(--iconBadgeSize);
+    height: var(--iconBadgeSize);
+    font-size: var(--iconSize-md);
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    flex: 0 0 auto;
     overflow: hidden;
-    transition: transform 0.2s, opacity 0.2s;
-    will-change: transform;
+    /* Anello sottile sul colore del testo: il disco resta percepibile anche quando il suo colore
+       coincide con la superficie (badge bianchi nel tono chiaro, neri nel tono scuro), senza toccare
+       il colore del brand. Inset: non cambia la misura del target. */
+    box-shadow: inset 0 0 0 1px var(--bs-border-color-translucent);
+    transition: transform var(--movimentoMicro, 0.15s), opacity var(--movimentoMicro, 0.15s);
+}
+
+/* --- Composizione (validata da IconMode) --- */
+/* Disco: il glifo stesso è la pastiglia (colore del brand, a tutta misura); dietro, un cerchio più
+   piccolo del disco riempie solo il ritaglio col colore del marchio — non sporge mai dal bordo. */
+.icon--mode-disc {
+    font-size: var(--iconBadgeSize);
+    background: radial-gradient(circle closest-side, var(--icon-inner, #fff) 0 88%, transparent 89%);
+}
+
+/* Logo a colori come immagine (es. la "G" di Google): centrato, con respiro dal bordo. */
+.icon--image {
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 55%;
 }
 
 /* --- Forma / disposizione (validata da IconShape) --- */
@@ -21,25 +39,23 @@
     border-radius: 50%;
 }
 .icon--rounded {
-    border-radius: 0.5rem;
+    border-radius: var(--bs-border-radius-lg);
 }
 .icon--square {
     border-radius: 0;
 }
 
 /* --- Effetto hover (validato da IconAnimation) --- */
-.icon--anim-lift:hover {
-    opacity: 0.85;
-    transform: translateY(-3px);
-}
-.icon--anim-shake:hover {
-    animation: icon-shake 0.5s infinite;
-}
-
-@keyframes icon-shake {
-    0%, 30%, 50%, 70%, 100% { transform: translate(1px, 1px) rotate(0deg); }
-    10%, 40%, 60%, 90% { transform: translate(-1px, -2px) rotate(-1deg); }
-    20%, 80% { transform: translate(-3px, 0px) rotate(1deg); }
+/* Solo dove un puntatore può passare sopra: su touch l'hover "si incolla" al tap e il badge
+   resterebbe sollevato o tremante finché non si tocca altrove. */
+@media (hover: hover) {
+    .icon--anim-lift:hover {
+        opacity: 0.85;
+        transform: translateY(-3px);
+    }
+    .icon--anim-shake:hover {
+        animation: shake 0.5s infinite;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {

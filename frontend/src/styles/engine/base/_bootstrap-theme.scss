@@ -22,6 +22,14 @@
     }
 }
 
+/* Il colore pieno (danger/success) come testo dei messaggi di validazione scende sotto 4.5:1: usa
+   l'emphasis, ridefinito anche su [data-bs-theme] perché le custom property non si ricalcolano da sole sul pannello. */
+:root,
+[data-bs-theme] {
+    --bs-form-invalid-color: var(--bs-danger-text-emphasis);
+    --bs-form-valid-color: var(--bs-success-text-emphasis);
+}
+
 /* Di serie una .card ha lo sfondo della pagina: qui è un pannello tema, ovunque stia (anche in un overlay). */
 .card {
     --bs-card-bg: var(--colorSurface);
@@ -45,12 +53,18 @@
     color: var(--colorNavText);
 }
 
+/* Stesso distacco visivo della navbar (sotto), qui sopra: senza, il footer è un cambio di colore
+   piatto attaccato al contenuto, non una fascia con un suo peso. */
+.site-footer.theme-bg {
+    box-shadow: var(--shadowBarUp);
+}
+
 /* Il brand della navbar di serie usa il colore dei titoli, spesso illeggibile su --colorNavBg. Globale e non
    nello stile del componente: sulle rotte solo client lo <style> scoped può arrivare senza nonce CSP. */
 .navbar.theme-bg {
     --bs-navbar-brand-color: var(--colorNavText);
     --bs-navbar-brand-hover-color: var(--colorNavText);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    box-shadow: var(--shadowBarDown);
 }
 
 .dropdown-menu .dropdown-item.theme-bg:hover {

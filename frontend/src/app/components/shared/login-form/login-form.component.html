@@ -1,4 +1,4 @@
-<form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="text-start" autocomplete="on">
+<form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="text-start" autocomplete="on" novalidate>
 
     <div class="form-floating mb-3">
         <input id="login-username"
@@ -7,11 +7,15 @@
                formControlName="username"
                autocomplete="username"
                placeholder="Username"
-               [class.is-invalid]="loginForm.controls.username.touched && loginForm.controls.username.invalid" />
+               required
+               appFieldError="login-username-error" />
         <label for="login-username">{{ 'loginUsernameLabel' | translate }}</label>
 
-        @if (loginForm.controls.username.touched && loginForm.controls.username.hasError('required')) {
-        <div class="invalid-feedback">{{ 'loginUsernameObbligatorio' | translate }}</div>
+        @if (loginForm.controls.username.touched && loginForm.controls.username.invalid) {
+        <div id="login-username-error" class="invalid-feedback">
+            <i class="fa-solid fa-circle-exclamation me-1" aria-hidden="true"></i>
+            {{ 'loginUsernameObbligatorio' | translate }}
+        </div>
         }
     </div>
 
@@ -22,16 +26,15 @@
                formControlName="password"
                autocomplete="current-password"
                placeholder="Password"
-               [class.is-invalid]="loginForm.controls.password.touched && loginForm.controls.password.invalid" />
+               required
+               appFieldError="login-password-error" />
         <label for="login-password">{{ 'loginPasswordLabel' | translate }}</label>
 
-        @if (loginForm.controls.password.touched) {
-        @if (loginForm.controls.password.hasError('required')) {
-        <div class="invalid-feedback">{{ 'loginPasswordObbligatoria' | translate }}</div>
-        }
-        @if (loginForm.controls.password.hasError('minlength')) {
-        <div class="invalid-feedback">{{ 'loginPasswordMinLength' | translate }}</div>
-        }
+        @if (loginForm.controls.password.touched && loginForm.controls.password.invalid) {
+        <div id="login-password-error" class="invalid-feedback">
+            <i class="fa-solid fa-circle-exclamation me-1" aria-hidden="true"></i>
+            {{ (loginForm.controls.password.hasError('required') ? 'loginPasswordObbligatoria' : 'loginPasswordMinLength') | translate }}
+        </div>
         }
     </div>
 
@@ -44,10 +47,9 @@
 
     <button type="submit"
             class="btn btn-primary w-100 py-2 mt-2"
-            [disabled]="isLoading()">
-        @if (isLoading()) {
-        <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
-        }
+            [disabled]="isLoading()"
+            [attr.aria-busy]="isLoading() || null">
+        <app-busy-icon [busy]="isLoading()" />
         {{ (isLoading() ? 'loginCaricamento' : 'loginAzione') | translate }}
     </button>
 </form>

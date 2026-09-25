@@ -1,8 +1,10 @@
 <div class="text-start">
 
-    <label class="d-block border rounded-3 p-4 text-center mb-3 cursor-pointer"
-           [class.border-primary]="isDragging()"
-           [class.bg-primary-subtle]="isDragging()"
+    <!-- La dropzone è la <label> dell'input file: click, tastiera (Invio/Spazio sull'input) e
+         trascinamento sono tre vie allo stesso campo — il drag non è mai l'unica (WCAG 2.5.7). -->
+    <label class="upload-dropzone d-block p-4 text-center mb-2"
+           [class.upload-dropzone--active]="isDragging()"
+           [class.upload-dropzone--invalid]="!!errorMessage()"
            (dragover)="onDragOver($event)"
            (dragleave)="onDragLeave($event)"
            (drop)="onDrop($event)">
@@ -12,24 +14,45 @@
                [accept]="acceptAttr()"
                [multiple]="multiple()"
                [disabled]="isLoading()"
+               [attr.aria-invalid]="errorMessage() ? 'true' : null"
+               [attr.aria-describedby]="errorMessage() ? errorId : null"
                (change)="onFileSelected($event)" />
 
-        @if (selectedFiles(); as files) {
-            @if (files.length === 1) {
-                <i class="fa-solid fa-file-circle-check text-primary mb-2 d-block fs-4" aria-hidden="true"></i>
-                <span class="small text-body-secondary">{{ fileChosenLabel() }}</span>
-                <span class="d-block fw-semibold text-truncate">{{ files[0].name }}</span>
-            } @else if (files.length > 1) {
-                <i class="fa-solid fa-file-circle-check text-primary mb-2 d-block fs-4" aria-hidden="true"></i>
-                <span class="d-block fw-semibold">{{ multipleChosenLabel() }}</span>
-            } @else {
-                <i class="fa-solid fa-cloud-arrow-up text-body-tertiary mb-2 d-block fs-4" aria-hidden="true"></i>
-                <span class="small text-body-secondary">{{ dropzoneText() }}</span>
-            }
+        @if (selectedFiles().length === 0) {
+            <i class="fa-solid fa-cloud-arrow-up text-body-tertiary mb-2 d-block icon-lg" aria-hidden="true"></i>
+            <span class="small text-body-secondary">{{ dropzoneText() }}</span>
+        } @else {
+            <i class="fa-solid fa-file-circle-check text-primary mb-2 d-block icon-lg" aria-hidden="true"></i>
+            <span class="small text-body-secondary">
+                {{ selectedFiles().length === 1 ? fileChosenLabel() : multipleChosenLabel() }}
+            </span>
         }
     </label>
 
-    @if (externalError() || errorMessage(); as msg) {
+    <!-- Cosa è stato scelto, file per file (nome + peso): verificabile prima di inviare, anche con
+         tanti file — oltre una manciata la lista scorre invece di allungare il form. -->
+    @if (selectedFiles().length > 0) {
+        <ul class="upload-file-list list-unstyled small mb-3"
+            [attr.tabindex]="selectedFiles().length > scrollAfter ? 0 : null"
+            [attr.aria-label]="selectedFiles().length === 1 ? fileChosenLabel() : multipleChosenLabel()">
+            @for (file of selectedFiles(); track $index) {
+                <li class="d-flex justify-content-between align-items-baseline gap-2">
+                    <span class="text-truncate fw-semibold" [attr.title]="file.name">{{ file.name }}</span>
+                    <span class="text-body-secondary flex-shrink-0">{{ fileSize(file.size) }}</span>
+                </li>
+            }
+        </ul>
+    }
+
+    <!-- Errore del campo (validazione): accanto al campo, collegato con aria-describedby. -->
+    @if (errorMessage(); as msg) {
+        <div [id]="errorId" class="invalid-feedback d-block mb-3" role="alert">
+            <i class="fa-solid fa-circle-exclamation me-1" aria-hidden="true"></i>{{ msg }}
+        </div>
+    }
+
+    <!-- Errore dell'invio (API, dal padre): a livello di form, non di campo. -->
+    @if (externalError(); as msg) {
         <div class="alert alert-danger py-2 px-3 small d-flex align-items-center gap-2 mb-3" role="alert">
             <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
             <span>{{ msg }}</span>
@@ -37,12 +60,11 @@
     }
 
     <button type="button"
-            class="btn btn-primary w-100 py-2"
+            class="btn btn-primary btn-touch w-100"
             [disabled]="isLoading()"
+            [attr.aria-busy]="isLoading() || null"
             (click)="onSubmit()">
-        @if (isLoading()) {
-            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
-        }
+        <app-busy-icon [busy]="isLoading()" />
         {{ isLoading() ? uploadingLabel() : submitLabel() }}
     </button>
 

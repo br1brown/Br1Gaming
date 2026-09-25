@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
-// Motore condiviso di audit live: Pa11y (WCAG 2.1 AA) e Lighthouse (performance/SEO).
+// Motore condiviso di audit live: Pa11y (WCAG 2.1 AA + target-size 2.5.8 via axeRules, mai `rules`: HTML_CodeSniffer non conosce quell'id) e Lighthouse (performance/SEO).
 // Uso: node live-audit.mjs BASE_URL [PATH ...]
 
 import { spawnSync } from 'node:child_process';
@@ -65,6 +65,18 @@ async function runPool(items, limit, worker) {
     return results;
 }
 
+/** Un giro di Pa11y per pagina, o due se `axeRules` è valorizzato: axe con quelle regole accese,
+ *  gli altri runner senza. Issue unite in un solo risultato, come se fosse stato un giro solo. */
+async function auditWithRunners(pa11y, url, { axeRules = [], runners = ['htmlcs'], ...options }) {
+    const others = runners.filter((r) => r !== 'axe');
+    if (axeRules.length === 0 || !runners.includes('axe') || others.length === 0) {
+        return pa11y(url, { ...options, runners, ...(runners.includes('axe') && axeRules.length ? { rules: axeRules } : {}) });
+    }
+    const withAxe = await pa11y(url, { ...options, runners: ['axe'], rules: axeRules });
+    const withOthers = await pa11y(url, { ...options, runners: others });
+    return { ...withAxe, issues: [...withAxe.issues, ...withOthers.issues] };
+}
+
 async function runA11ySweep(browser, baseUrl, paths, pa11yOptions) {
     const pa11y = await loadFrontendModule('pa11y');
     const cliReporter = await loadFrontendModule('pa11y/lib/reporters/cli');
@@ -74,7 +86,7 @@ async function runA11ySweep(browser, baseUrl, paths, pa11yOptions) {
     const concurrency = Math.max(1, Number(process.env.A11Y_CONCURRENCY) || 2);
 
     console.log('');
-    console.log(BOLD('══ Accessibilità (Pa11y — WCAG 2.1 AA) ══'));
+    console.log(BOLD('══ Accessibilità (Pa11y — WCAG 2.2 AA) ══'));
     log.info(`Concorrenza: ${concurrency} pagine in parallelo (A11Y_CONCURRENCY per cambiarla)`);
 
     async function auditPage(raw) {
@@ -85,16 +97,12 @@ async function runA11ySweep(browser, baseUrl, paths, pa11yOptions) {
         let reason = null;
         let detail;
         try {
-            const result = await pa11y(url, { ...pa11yOptions, browser, timeout });
-            // Solo gli 'error' bloccano il budget — i 'warning' (incluse le voci axe
-            // needsFurtherReview, capate a warning da levelCapWhenNeedsReview) sono sempre
-            // stampati (mai scartati in silenzio, a differenza del default di Pa11y) ma non
-            // fanno fallire la pagina: axe non può risolverli in automatico, serve una verifica
-            // umana caso per caso — vedi ENGINE.md.
+            const result = await auditWithRunners(pa11y, url, { ...pa11yOptions, browser, timeout });
+            // Solo gli 'error' bloccano il budget; i 'warning' (incluse le voci axe needsFurtherReview) sono sempre stampati, mai scartati in silenzio, ma non fanno fallire la pagina: servono a una verifica umana.
             const errors = result.issues.filter((i) => i.type === 'error');
             const warnings = result.issues.filter((i) => i.type !== 'error');
             if (errors.length === 0) {
-                out.push(`  ${paint('32', 'OK')} Nessuna violazione WCAG 2.1 AA — ${path}`);
+                out.push(`  ${paint('32', 'OK')} Nessuna violazione WCAG 2.2 AA — ${path}`);
                 if (warnings.length > 0) {
                     out.push(cliReporter.results({ ...result, issues: warnings }));
                     out.push(`  ${paint('33', 'WARN')} ${warnings.length} avviso/i da verificare a mano (non bloccante) — ${path}`);
@@ -102,9 +110,9 @@ async function runA11ySweep(browser, baseUrl, paths, pa11yOptions) {
                 detail = { ok: true, warnings: warnings.map((i) => `${i.message} — ${i.selector}`) };
             } else {
                 out.push(cliReporter.results(result));
-                out.push(`  ${paint('31', 'ERR')} Violazioni WCAG 2.1 AA — ${path}`);
+                out.push(`  ${paint('31', 'ERR')} Violazioni WCAG 2.2 AA — ${path}`);
                 failed = true;
-                reason = `${errors.length} violazione/i WCAG 2.1 AA`;
+                reason = `${errors.length} violazione/i WCAG 2.2 AA`;
                 detail = {
                     ok: false,
                     violations: errors.map((i) => `${i.message} — ${i.selector}`),
@@ -289,13 +297,13 @@ function buildRouteBlock(url, a11y, lighthouse) {
     } else if (a11y.notMeasured) {
         lines.push(`  ERR  Pa11y non misurato (${a11y.reason})`);
     } else if (a11y.ok) {
-        lines.push('  OK   Nessuna violazione WCAG 2.1 AA');
+        lines.push('  OK   Nessuna violazione WCAG 2.2 AA');
         if (a11y.warnings?.length > 0) {
             lines.push(`  WARN ${a11y.warnings.length} avviso/i da verificare a mano (non bloccante):`);
             for (const w of a11y.warnings) lines.push(`         - ${w}`);
         }
     } else {
-        lines.push(`  ERR  ${a11y.violations.length} violazione/i WCAG 2.1 AA:`);
+        lines.push(`  ERR  ${a11y.violations.length} violazione/i WCAG 2.2 AA:`);
         for (const v of a11y.violations) lines.push(`         - ${v}`);
         if (a11y.warnings?.length > 0) {
             lines.push(`  WARN ${a11y.warnings.length} avviso/i da verificare a mano (non bloccante):`);
@@ -351,7 +359,7 @@ function buildStepSummaryMarkdown(baseUrl, allRoutePaths, a11yPerPage, lighthous
             if (a11yFailed) {
                 detailLines.push(a11y.notMeasured
                     ? `**Pa11y** — non misurato (${a11y.reason})`
-                    : `**Pa11y** — ${a11y.violations.length} violazione/i WCAG 2.1 AA:\n${a11y.violations.map((v) => `  - ${v}`).join('\n')}`);
+                    : `**Pa11y** — ${a11y.violations.length} violazione/i WCAG 2.2 AA:\n${a11y.violations.map((v) => `  - ${v}`).join('\n')}`);
             }
             // Warning (incluse le voci axe needsFurtherReview): mai bloccanti, ma sempre visibili
             // qui — vanno verificate a mano caso per caso, non danno un verdetto automatico.
@@ -462,9 +470,9 @@ async function main() {
 
     console.log('');
     console.log(BOLD('══ Esito ══'));
-    if (a11yFailed) log.fail(`Pa11y: ${a11yResult.failures}/${a11yResult.total} pagina/e con violazioni WCAG 2.1 AA o non misurate`);
-    else if (a11yWarningCount > 0) log.warn(`Pa11y: ${a11yResult.total} pagina/e, nessuna violazione WCAG 2.1 AA — ${a11yWarningCount} avviso/i da verificare a mano (non bloccante, vedi sopra)`);
-    else log.ok(`Pa11y: ${a11yResult.total} pagina/e, nessuna violazione WCAG 2.1 AA`);
+    if (a11yFailed) log.fail(`Pa11y: ${a11yResult.failures}/${a11yResult.total} pagina/e con violazioni WCAG 2.2 AA o non misurate`);
+    else if (a11yWarningCount > 0) log.warn(`Pa11y: ${a11yResult.total} pagina/e, nessuna violazione WCAG 2.2 AA — ${a11yWarningCount} avviso/i da verificare a mano (non bloccante, vedi sopra)`);
+    else log.ok(`Pa11y: ${a11yResult.total} pagina/e, nessuna violazione WCAG 2.2 AA`);
     if (lighthouseFailed) log.fail(`Lighthouse: ${lighthouseResult.failures}/${lighthouseResult.total} pagina/e sotto il budget o non misurate`);
     else log.ok(`Lighthouse: ${lighthouseResult.total} pagina/e, tutti i budget rispettati`);
 

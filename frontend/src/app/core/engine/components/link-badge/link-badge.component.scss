@@ -1,0 +1,13 @@
+/* Variante 'button': pillola piena col colore del brand (o, senza, in negativo sul tema come la
+   pastiglia di IconComponent); il testo lo sceglie LinkBadgeComponent per il contrasto. */
+.link-badge--button {
+    background-color: var(--bs-emphasis-color);
+    color: var(--bs-body-bg);
+    min-height: var(--touchTarget);
+}
+
+/* Nella pillola il glifo non ha una pastiglia propria: niente cerchio pieno, solo il glifo. */
+.link-badge--button app-icon ::ng-deep .icon {
+    color: inherit;
+    background-color: transparent;
+}

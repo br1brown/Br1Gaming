@@ -2,6 +2,91 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Navbar: aggancio sticky con soglia, chiusura di dropdown/menu condivisa, menu mobile `inert`
+
+La navbar `fissa` restava `position: fixed` anche quando cresceva (zoom alto, più righe): sempre sopra il contenuto, arrivando a coprirlo — un problema di leggibilità (WCAG 1.4.10 reflow, 2.4.11 focus non ostruito), non solo estetico. La chiusura di dropdown e menu mobile duplicava inoltre lo stesso listener (`document:click`/`document:keydown.escape`) in più componenti, senza gestire la sovrapposizione: un dropdown aperto dentro il menu mobile, Escape doveva chiudere solo lui, non tutto insieme.
+
+- **Sticky con soglia**: `navbar.fissa` (nome invariato) usa ora `position: sticky`, non più `fixed-top`; oltre `MAX_STICKY_VIEWPORT_SHARE` (20% dell'altezza visibile) la barra torna nel flusso invece di continuare a coprire il contenuto sottostante.
+- **`injectDismiss`** (nuovo, `core/engine/dismiss.ts`): pila di pannelli per `Document`, un solo listener `keydown`/`click` condiviso invece di uno per componente. Escape chiude solo il pannello più in cima alla pila — un dropdown dentro il menu mobile si chiude da solo, il menu resta aperto — e ridà il focus al trigger (`preventScroll`, con uno `scrollIntoView` solo se il trigger è davvero fuori schermo). Sostituisce i listener scritti a mano in navbar e nel campanello notifiche.
+- **`NavMenuState`** (nuovo, provider component-scoped su `NavbarComponent`): un contatore che richiude gli accordion `nav-submenu` annidati quando la navbar chiude tutto; consumato con `{ optional: true }`, un submenu fuori da una navbar continua a funzionare da solo.
+- Il menu mobile aperto rende `inert` i fratelli dello shell (contenuto pagina, footer) e sposta il focus sulla prima voce: prima il focus restava raggiungibile dietro l'overlay.
+- `<header>` semantico introdotto attorno a `<nav>`. L'overflow "Altro" ora sottrae il padding reale di `.shell-line` invece di un valore stimato.
+
+**Al merge**: nessuno, `navbar.fissa` ha lo stesso nome e lo stesso significato di prima.
+
+### Nuovi componenti di stato: caricamento, vuoto, avanzamento pagina, offline
+
+Quattro situazioni ricorrenti (un'azione in corso, una lista vuota, una navigazione lenta, la rete che cade) avevano ciascuna un markup scritto a mano in ogni punto che le incontrava — o, per la navigazione lenta, nessun segnale affatto: con `contentLoader` risolto prima del cambio pagina, un clic su una rotta con un'API lenta non dava alcun feedback finché la nuova pagina non appariva di colpo.
+
+- **`BusyIconComponent`** (`core/engine/components/busy-icon/`): stesso box fisso per il glifo e lo spinner (`[busy]`), evita il riflusso quando i due si alternano. Riusato dagli otto componenti azione (copy/share/speech/download/print/pdf/like) più login-form e upload-form, al posto di un `@if(loading){spinner}@else{icona}` ripetuto in ognuno.
+- **`EmptyStateComponent`** (`core/engine/components/empty-state/`): icona+titolo+testo+azione proiettata, `role="status"`, variante compatta per contesti stretti (es. dentro un dropdown) — applica la regola "mai un'area bianca" già in AGENTS.md al caso, prima scoperto, della lista vuota.
+- **`NavProgressComponent`** (nuovo, montato in `app.component.html`): barra di avanzamento sottile durante la navigazione, soglia 150ms (una navigazione più rapida non la mostra, niente flicker), `aria-busy` su `<main>`, rispetta `prefers-reduced-motion`, gestisce `NavigationCancel`/`NavigationError`.
+- **`OfflineBannerComponent`** (nuovo, montato in `app.component.html`): fascia "Sei offline"/"Connessione ripristinata" dagli eventi browser `online`/`offline`, sempre presente nel DOM con `role="status"` (l'annuncio allo screen reader non dipende dal momento in cui compare), icona+testo — mai il solo colore (WCAG 1.4.1). Scrive `--bottomBarOffset` per non far finire back-to-top e il pulsante di riapertura cookie sotto la fascia.
+- Offline (l'utente non ha rete) e backend irraggiungibile (voce sotto sulla pagina di errore) restano distinti: l'interceptor HTTP non mostra più una modale ridondante quando uno dei due lo dice già da sé.
+
+**Al merge**: additivo, nessuna azione richiesta.
+
+### Pagina di errore: offline, servizio non disponibile, e un "Riprova" vero
+
+La pagina d'errore era generica (un solo messaggio per qualunque codice) e non distingueva "non c'è rete" da "il backend è giù": due situazioni con causa e rimedio diversi meritano un testo diverso, e la seconda un modo per ritentare senza ricaricare la pagina intera a mano.
+
+- `ErrorComponent` (`pages/error/`) distingue ora `offline` (status 0, `navigator.onLine === false`) da `502`/`503`/`504` ("servizio non disponibile", stesso messaggio per i tre: per l'utente è un caso solo, non "gateway non valido" — coerente con `overrideKeysFor` dell'interceptor). Bottone "Riprova" che rilancia il resolver della rotta originale, letta da un query param `retry` validato (deve iniziare per `/`, non `//`: niente redirect fuori sito via query param manomesso).
+- La lingua della rotta d'errore (che non è per-lingua, quindi senza `route.data.lang`) si deduce dal primo segmento dell'URL.
+- Nuove chiavi i18n `erroreOffline*`/`erroreIrraggiungibile*`/`erroreServizio*`/`riprovaAzione` in `basic.*.json`.
+- **`SsrBackendUnconfiguredError`** (nuova sottoclasse di `ApiError`, `base-api.service.ts`): un SSR senza `BACKEND_ORIGIN` configurato (CI, `ng serve` senza backend) lanciava un `ApiError(0, ...)` indistinguibile da un vero errore di rete — i resolver lo trattavano come "servizio non disponibile" e redirigevano a `/error/offline` anche quando non c'era nessun problema di disponibilità reale, solo un ambiente senza backend. Ora è un caso a parte, escluso esplicitamente da `content.resolver.ts`.
+- **`proxy.gateway-error.cjs`** (nuovo, dev): con backend spento o lento, il proxy di `ng serve` rispondeva 500 generico di Vite; ora risponde 502/504 con lo stesso schema del proxy SSR di produzione — la pagina d'errore vista in sviluppo è la stessa vista dall'utente reale.
+
+**Al merge**: nessuno.
+
+### Scadenza della sessione: un avviso, non un silenzio
+
+`TokenService` scartava il token scaduto senza dirlo a nessuno: una pagina `requiresAuth` restava con contenuto vecchio in vista finché l'utente non ci cliccava sopra e scopriva il redirect al login.
+
+- **`SessionExpiryNoticeService`** (nuovo, attivato una volta nell'app initializer): un toast 2 minuti prima della scadenza (nessun avviso se la vita residua è già sotto quella soglia: un token di sviluppo breve, o una sessione ripristinata all'ultimo, non lo mostra), un secondo toast alla scadenza effettiva con lo stesso redirect al login già usato dal guard (`returnPageType`/`reason: 'auth'`), così il login riporta alla pagina di partenza. Un logout volontario (token tolto prima della scadenza) non genera nulla.
+- Nuove chiavi `sessioneScadeTraAvviso`/`sessioneScadutaAvviso`.
+
+**Al merge**: additivo.
+
+### Form: errore visibile solo dopo il tocco, segnaposto per un'immagine rotta
+
+- **`FieldErrorDirective`** (nuova, `[appFieldError]`): collega `.is-invalid`/`aria-invalid`/`aria-describedby` allo stato reale del controllo (`NgControl`), visibile solo quando il campo è stato toccato o il form inviato (WCAG 3.3.1/4.1.2) — prima ogni form gestiva `[class.is-invalid]` a mano, con lo stesso rischio di mostrare un errore su un campo appena apparso. `login-form.component.html` adottata come primo consumer.
+- **`ImgFallbackDirective`** (nuova, `img[appImgFallback]`): su un `<img src>` diretto, un fallimento di carico mostra un segnaposto (SVG inline, `data:` — non può fallire a sua volta) invece dell'icona rotta del browser; niente segnaposto su un'immagine decorativa (`alt=""`), stessa regola di `AssetDirective`.
+- `UploadFormComponent`: lista dei file scelti (nome+peso, scrollabile oltre 6), errore di campo distinto da errore di form, dropzone ora un `<label>` (click, tastiera, drag: WCAG 2.5.7, tre vie di attivazione).
+- `LinkBadgeComponent`: `target="_blank"` ora solo per un vero link `http(s)` — prima ogni badge apriva in nuova scheda anche per `mailto:`/`tel:`, falso ("si apre in una nuova scheda" non era vero per quei link).
+
+**Al merge**: additivo.
+
+### Icone social: pastiglie fedeli alle linee guida dei brand
+
+Ogni pastiglia social era monocolore (sfondo = colore brand, glifo bianco o nero per contrasto): per diversi brand è visivamente sbagliato rispetto alle linee guida ufficiali (es. il sorriso di Amazon non va su arancio pieno, la "G" di Google è vietata in un colore diverso dall'originale).
+
+- `SOCIAL_MAP` (`social-link.component.ts`) passa da `{icon, color}` a `{icon, color, fg, mode, image}`, con la fonte (e la data di verifica) annotata voce per voce. `mode: 'disc'` per i loghi già "disco col marchio ritagliato" (Telegram, Spotify, GitHub, Skype: in `glyph` risulterebbero in negativo); `image` per un logo che va sempre a colori (Google). `IconComponent`/`LinkBadgeComponent` guadagnano `mode`/`image` (additivi) per propagare la stessa composizione.
+- Nuova `brandColors()` esportata, riusata da `whatsapp-contact`/`telegram-contact` per non duplicare i colori brand.
+- **Fix**: `IconComponent` e `LinkBadgeComponent` calcolavano ciascuno per sé "quale testo è leggibile su questo sfondo", con due regex diverse — quella di `LinkBadgeComponent` accettava solo l'hex a 6 cifre, non a 3, fallendo in silenzio (nessun calcolo di contrasto) su un colore corto. Unificato in `readableForegroundColor` (esportata da `icon.component.ts`), usata da entrambi.
+
+**Al merge**: additivo, nessun rename di input esistenti.
+
+### Tema: densità regolabile, ombra delle barre agganciate, contrasto rinforzato
+
+- **Nuovo asse `densita`** (`'compatta' | 'normale' | 'ariosa'`, default `'normale'`, gruppo `aspetto` del design system): governa il respiro di `<main>`, `.content-panel`, `.shell-line` — prima fisso.
+- **`elevazione` estesa** con `ombraBarraGiu`/`ombraBarraSu` (→ `--shadowBarDown`/`--shadowBarUp`): le barre agganciate a un bordo (navbar sotto, footer/fasce in fondo sopra) derivano l'ombra dallo stesso asse delle superfici sollevate, non più un valore fisso.
+- **Contrasto**: `--bs-form-invalid-color`/`--bs-form-valid-color` mappati sull'emphasis (il pieno danger/success scende sotto 4.5:1 come testo); nuove regole `forced-colors: active` per bordi/contorni dove badge/FAB/superfici elevate perdono il confine quando Windows high-contrast azzera sfondi e ombre; gating `(hover: hover)` su `.fab:hover`/`.shake-on-hover`/`.zoom-on-hover` per non lasciare lo stato hover "incollato" su touch.
+- **Fallback font metric-matched** (CLS): `@font-face` locale con `ascent/descent/line-gap-override`/`size-adjust` calcolati dai font reali installati, `null` (nessun fallback scritto) se non calcolabile — comportamento invariato in quel caso.
+- Token derivati direttamente da Bootstrap (`--space-*`, `--fs-sm`, `--z-navbar`/`--z-cookie-banner`/`--z-mobile-nav-overlay`) invece di essere ricopiati a mano in `_tokens.scss`: elimina un rischio di divergenza reale, non solo teorico.
+- Preload della faccia regolare del font principale (`<link rel="preload" as="font">`, generato/rigenerato a ogni build): anticipa il FOUT di `font-display: swap`.
+- **Fix**: il fallback CSS di `box-shadow` sul dropdown navbar (`var(--shadowElevated, ...)`) non corrispondeva più al default effettivo — si vedeva solo se il custom property fosse mancato.
+- **Fix**: `--larghezzaColonne` (rientro del pannello contenuti) si derivava con una regex sulla stringa di classi Bootstrap (`offset-lg-N`), con fallback silenzioso a `0` se il pattern non avesse combaciato — in contrasto con la regola "una chiave sbagliata ferma il build" applicata altrove nello stesso file. Sostituito con un campo esplicito, `CONTENT_WIDTH_OFFSET_LG`.
+
+**Al merge**: additivo.
+
+### Piccole correzioni
+
+- **Footer, doppio rimpicciolimento**: la riga "small print" (copyright + tagline) fissava `--fs-xs` (12px) sul contenitore E portava anche la classe Bootstrap `small` (0.875em, relativa) sui singoli paragrafi — le due si moltiplicavano a 10.5px. Tolto il `small` ridondante.
+- **Falso allarme i18n**: `ShellNavService` calcola il testo di default del footer chiamando `translate()` prima che `setInitialLanguage()` carichi il primo catalogo (ordine dell'app initializer) — ogni chiave, in quell'istante, risultava "non trovata" e finiva loggata come tale a ogni avvio. `TranslateService.translate()` non avvisa più se il catalogo è ancora vuoto, solo se una chiave manca da un catalogo davvero caricato.
+- **API deprecata**: `api-error.interceptor.ts` usava `router.getCurrentNavigation()`, deprecato dalla 20.2 (il repo è su Angular 21.2) in favore del signal `currentNavigation` — stessa identica semantica (non-null durante la navigazione, null da idle).
+
+**Al merge**: nessuno.
+
 ### Audit dell'Engine intero: API key sempre richiesta, DoS a basso costo chiusi, cookie di terzi, deploy e release
 
 Correzioni da una revisione completa (backend, server SSR, runtime Angular, scaffold), eseguita e non solo letta. Nessuna funzione nuova.

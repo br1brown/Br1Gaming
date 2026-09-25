@@ -88,10 +88,10 @@
                 <summary class="card-body d-flex align-items-center gap-3 p-4 user-select-none">
                     <div class="bg-body-tertiary rounded p-3 d-flex align-items-center justify-content-center flex-shrink-0">
                         @switch (group.category) {
-                            @case (ConsentCategory.Technical) { <i class="fa-solid fa-shield-halved text-success fs-5" aria-hidden="true"></i> }
-                            @case (ConsentCategory.TechnicalOptional) { <i class="fa-solid fa-puzzle-piece text-body-secondary fs-5" aria-hidden="true"></i> }
-                            @case (ConsentCategory.Analytics) { <i class="fa-solid fa-chart-line text-info fs-5" aria-hidden="true"></i> }
-                            @case (ConsentCategory.Profiling) { <i class="fa-solid fa-user-gear text-warning fs-5" aria-hidden="true"></i> }
+                            @case (ConsentCategory.Technical) { <i class="fa-solid fa-shield-halved text-success icon-md" aria-hidden="true"></i> }
+                            @case (ConsentCategory.TechnicalOptional) { <i class="fa-solid fa-puzzle-piece text-body-secondary icon-md" aria-hidden="true"></i> }
+                            @case (ConsentCategory.Analytics) { <i class="fa-solid fa-chart-line text-info icon-md" aria-hidden="true"></i> }
+                            @case (ConsentCategory.Profiling) { <i class="fa-solid fa-user-gear text-warning icon-md" aria-hidden="true"></i> }
                         }
                     </div>
                     <div class="flex-grow-1 min-w-0">
@@ -108,7 +108,7 @@
                         <div class="list-group-item px-4 py-3">
                             <div class="d-flex align-items-center gap-2 flex-wrap">
                                 <code>{{ cookie.name }}</code>
-                                <span class="badge px-3 py-1 rounded-pill text-uppercase bg-secondary-subtle text-secondary-emphasis" style="letter-spacing: 0.5px; font-size: 0.75rem;">
+                                <span class="badge text-label rounded-pill text-uppercase bg-secondary-subtle text-secondary-emphasis">
                                     @switch (cookie.medium) {
                                         @case ('local') { <i class="fa-solid fa-database me-1" aria-hidden="true"></i> }
                                         @case ('session') { <i class="fa-solid fa-hourglass-half me-1" aria-hidden="true"></i> }

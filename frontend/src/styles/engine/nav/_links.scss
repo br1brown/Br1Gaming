@@ -1,9 +1,6 @@
 /* nav/_links.scss — Link, stato attivo e trigger dropdown della navigazione.
-
-   Globale (non scoped) perche' le classi usate (`.nav-link`, `.nav-dropdown-toggle`,
-   `.dropdown-item`) compaiono in componenti standalone separati: con la view
-   encapsulation di Angular gli stili scoped sul contenitore non raggiungerebbero
-   le classi rese dai figli. */
+   Globale (non scoped): le classi (.nav-link, .nav-dropdown-toggle, .dropdown-item) sono rese da
+   componenti standalone separati, e la view encapsulation di Angular non farebbe arrivare stili scoped ai figli. */
 
 footer a {
     color: inherit;
@@ -16,6 +13,17 @@ footer a {
     display: inline-flex;
     align-items: center;
     text-decoration: none;
+    /* Target di tocco su ogni larghezza, non solo sotto md: un tablet o un laptop touch in riga
+       desktop si usa comunque col dito. */
+    min-height: var(--touchTarget);
+}
+
+/* Link esterno: la freccia dice a chi vede quello che il testo nascosto dice allo screen reader
+   ("apre una nuova scheda"). Più piccola del testo e allineata alla sua altezza x. */
+.nav-external-icon {
+    font-size: 0.7em;
+    margin-inline-start: var(--space-1);
+    opacity: 0.75;
 }
 
 .nav-link.active,
@@ -43,17 +51,17 @@ footer a {
     cursor: pointer;
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
-    // Target touch minimo (WCAG 2.5.5 / best practice mobile), sempre — non solo sotto md: un
-    // touchscreen che riporta ≥md di larghezza CSS (tablet, laptop touch) è comunque a dito, non
-    // solo i viewport "mobile" in senso stretto. Copre language-toggle e notification-bell-toggle,
-    // entrambi icon-only, oltre ai trigger di nav-dropdown.component.
-    min-height: 2.75rem;
+    gap: var(--space-2);
+    // Target touch minimo sempre, non solo sotto md: un touchscreen ≥md di larghezza CSS (tablet,
+    // laptop touch) è comunque a dito. Copre language-toggle e notification-bell-toggle icon-only.
+    min-height: var(--touchTarget);
 }
 
+/* currentColor e non --focusRingColor: il toggle sta su --colorNavBg (spesso il brand), dove il colore
+   link del tono può non staccarsi; il testo della navbar invece è già garantito su quello sfondo. */
 .nav-dropdown-toggle:focus-visible {
-    outline: 2px solid currentColor;
-    outline-offset: 2px;
+    outline: var(--focusRingWidth) solid currentColor;
+    outline-offset: var(--focusRingOffset);
 }
 
 .nav-dropdown-caret {
@@ -64,7 +72,7 @@ footer a {
     border-bottom: 2px solid currentColor;
     transform: rotate(45deg) translateY(-0.08rem);
     transform-origin: center;
-    transition: transform 0.2s ease;
+    transition: transform var(--movimentoMicro, 0.15s) ease;
 }
 
 .dropdown.show > .nav-dropdown-toggle .nav-dropdown-caret {

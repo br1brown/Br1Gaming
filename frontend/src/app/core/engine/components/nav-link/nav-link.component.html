@@ -5,6 +5,7 @@
        rel="noopener noreferrer"
        (click)="onClick()">
         {{ link().label | translate }}
+        <i class="fa-solid fa-arrow-up-right-from-square nav-external-icon" aria-hidden="true"></i>
         <span class="visually-hidden"> ({{ 'apreNuovaSchedaNav' | translate }})</span>
     </a>
 } @else if (isActive()) {

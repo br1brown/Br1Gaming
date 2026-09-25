@@ -6,20 +6,21 @@
                     @if (item.ellipsis) {
                         <span class="app-breadcrumb__ellipsis" aria-hidden="true">...</span>
                     } @else if (item.path && !last) {
-                        <a [routerLink]="item.path" class="app-breadcrumb__link" [class.is-home]="first">
+                        <a [routerLink]="item.path" class="app-breadcrumb__link" [class.is-home]="first" [attr.title]="first ? item.label : null">
                             @if (first) {
                                 <i class="fa-solid fa-house" aria-hidden="true"></i>
                                 <span class="visually-hidden">{{ item.label }}</span>
                             } @else {
-                                <span class="app-breadcrumb__text">{{ item.label }}</span>
+                                <!-- title: la voce può essere troncata (max-width), il testo pieno resta a portata di mouse. -->
+                                <span class="app-breadcrumb__text" [attr.title]="item.label">{{ item.label }}</span>
                             }
                         </a>
                     } @else if (last) {
                         <span class="app-breadcrumb__current" aria-current="page">
-                            <span class="app-breadcrumb__text">{{ item.label }}</span>
+                            <span class="app-breadcrumb__text" [attr.title]="item.label">{{ item.label }}</span>
                         </span>
                     } @else {
-                        <span class="app-breadcrumb__fake-path">{{ item.label }}</span>
+                        <span class="app-breadcrumb__fake-path"><span class="app-breadcrumb__text" [attr.title]="item.label">{{ item.label }}</span></span>
                     }
                     @if (!last) {
                         <span class="app-breadcrumb__sep" aria-hidden="true">{{ separator }}</span>

@@ -1,5 +1,6 @@
 import { Component, input, inject } from '@angular/core';
 import { BaseActionComponent } from '../base/base-action.component';
+import { BusyIconComponent } from '../busy-icon/busy-icon.component';
 import { ShareResult, ShareService, shareResultNotice } from '../../services/share.service';
 
 /** Dati che il componente sa condividere autonomamente. */
@@ -8,7 +9,7 @@ type ShareInput = string | Blob | HTMLCanvasElement;
 @Component({
     selector: 'app-share-action',
     standalone: true,
-    imports: [],
+    imports: [BusyIconComponent],
     templateUrl: './share-action.component.html',
 })
 export class ShareActionComponent extends BaseActionComponent {
@@ -16,10 +17,8 @@ export class ShareActionComponent extends BaseActionComponent {
 
     protected readonly defaultLabelKey = 'condividiAzione';
 
-    /**
-     * Restituisce il dato da condividere (sync o async). Il componente smista da solo verso
-     * shareText/shareBlob/shareCanvas: il chiamante non tocca mai ShareService.
-     */
+    /** Restituisce il dato da condividere (sync o async): il componente smista da solo verso
+     *  shareText/shareBlob/shareCanvas, il chiamante non tocca mai ShareService. */
     readonly action = input.required<() => ShareInput | Promise<ShareInput>>();
 
     /** Titolo passato alla Web Share API. */

@@ -2,16 +2,10 @@
 
 /* ── Override Bootstrap dropdown nel contesto navbar ─────────────── */
 
-/* Senza fixed-top/sticky-top Bootstrap non assegna z-index alla navbar, lasciando
-   il dropdown vulnerabile a contenuti di pagina con z-index positivo. Questa regola
-   crea un contesto di stacking sulla navbar (--z-navbar-static, scala in _tokens.scss)
-   così il dropdown galleggia sopra il contenuto qualunque z-index abbiano gli elementi
-   dei progetti figli: un valore basso (es. 100) lo batterebbe qualunque z-index positivo
-   ragionevole di un progetto figlio.
-   fixed-top (z-index: 1030) e sticky-top (z-index: 1020) sono esclusi: Bootstrap li
-   gestisce già con valori più alti. */
-.navbar:not(.fixed-top):not(.sticky-top) {
-    z-index: var(--z-navbar-static, 1020);
+/* Bootstrap non assegna z-index alla navbar: senza un proprio contesto di stacking, il dropdown
+   sarebbe vulnerabile a un z-index positivo di pagina; lo stesso livello lo eredita l'host quando è agganciata. */
+.navbar {
+    z-index: var(--z-navbar, 1020);
 }
 
 /* Il dropdown desktop usa gli stessi colori della navbar,
@@ -19,39 +13,36 @@
 /* Raggio/ombra decisi dal design system attivo (`DesignSystemPreset.elevazione`, default
    'sospesa' — i valori qui sotto restano il fallback). */
 .navbar .dropdown-menu {
-    margin-top: 0.35rem;
+    margin-top: var(--space-1);
     border-radius: var(--elevazioneRaggio, 0.85rem);
     background-color: var(--colorNavBg);
     color: var(--colorNavText);
     border-color: var(--colorNavBorder);
-    box-shadow: var(--shadowElevated, 0 6px 20px rgba(0, 0, 0, 0.14)), 0 0 0 1px var(--colorNavBorder);
+    box-shadow: var(--shadowElevated, 0 10px 24px rgba(0, 0, 0, 0.18)), 0 0 0 1px var(--colorNavBorder);
 }
 
-/* Colore e padding degli item: Bootstrap userebbe --bs-dropdown-link-color
-   (spesso blu); qui ereditiamo dal tema. .dropdown-item-text (testo statico non
-   cliccabile, es. stato vuoto "Nessuna notifica" nel notification-bell) è la
-   sorella Bootstrap di .dropdown-item con lo stesso --bs-dropdown-link-color di
-   default — va coperta allo stesso modo, altrimenti resta scura anche su
-   dropdown scuri (contrasto ~1.2:1 invece del testo navbar). */
+/* .dropdown-item-text (testo statico non cliccabile, es. lo stato vuoto del notification-bell)
+   condivide con .dropdown-item lo stesso --bs-dropdown-link-color di Bootstrap: senza la stessa copertura resta scura anche su dropdown scuri. */
 .navbar .dropdown-item,
 .navbar .dropdown-item-text {
     position: relative;
-    padding: 0.7rem 1rem;
-    line-height: 1.35;
+    /* Altezza dal target di tocco, non dal padding: la riga resta ≥44px con qualunque interlinea,
+       e il padding verticale serve solo alle etichette che vanno a capo. */
+    display: flex;
+    align-items: center;
+    min-height: var(--touchTarget);
+    padding: var(--space-2) var(--space-3);
+    line-height: var(--lh-tight);
     font-weight: 500;
     color: inherit;
-    /* `.dropdown-item` ha `white-space: nowrap` da Bootstrap: un'etichetta lunga (dinamica dal
-       backend, o un progetto figlio con nomi verbosi) sforerebbe il pannello invece di andare a
-       capo (shrink-to-fit, nessun `max-width` la ferma). Stessa regola di
-       `.submenu-panel .dropdown-item` (_submenu.scss), qui per QUALUNQUE dropdown della navbar. */
+    /* Bootstrap dà a .dropdown-item white-space: nowrap: un'etichetta lunga (dinamica, o un nome
+       verboso di progetto) sforerebbe il pannello invece di andare a capo, senza un max-width a fermarla. */
     white-space: normal;
     overflow-wrap: break-word;
 }
 
-/* Il tint di sfondo (hover + focus da tastiera) è un feedback in più, non il solo indicatore di
-   focus: quello resta l'anello globale (:focus-visible in _base.scss, --focusRingColor/Width/
-   Offset). Qui nessun outline:none: il solo 10% di tint su sfondo già scuro è sotto la soglia di
-   percepibilità per molti utenti (WCAG 2.4.7). */
+/* Il tint di sfondo è un feedback in più, non il solo indicatore di focus: da solo (10% su sfondo
+   già scuro) è sotto la soglia di percepibilità per molti utenti (WCAG 2.4.7), quindi l'anello globale resta, nessun outline:none. */
 .navbar .dropdown-item:hover,
 .navbar .dropdown-item:focus-visible {
     background-color: color-mix(in srgb, currentColor 10%, transparent);
@@ -65,18 +56,18 @@
     background-color: color-mix(in srgb, currentColor 18%, transparent);
     color: inherit;
     font-weight: 700;
-    padding-left: 1.35rem;
+    padding-inline-start: calc(var(--space-3) + var(--space-2));
 }
 
 .navbar .dropdown-item.active::before,
 .navbar .nav-current-link.dropdown-item::before {
     content: '';
     position: absolute;
-    left: 0.7rem;
-    top: 0.55rem;
-    bottom: 0.55rem;
+    inset-inline-start: var(--space-2);
+    top: var(--space-2);
+    bottom: var(--space-2);
     width: 0.22rem;
-    border-radius: 999px;
+    border-radius: var(--bs-border-radius-pill);
     background-color: currentColor;
 }
 
@@ -123,39 +114,20 @@
         animation: navDropdownEnter var(--movimentoPannello, 0.15s) ease both;
     }
 
-    /* Tetto d'altezza calcolato da NavDropdownComponent.updateMaxHeight() (spazio libero reale
-       sotto il bottone, non un vh fisso): un gruppo di 1° livello con tanti figli scrolla al
-       proprio interno invece di sforare il fondo pagina — stessa convenzione del submenu
-       (--submenu-max-height in _submenu.scss), stesso fallback 80vh prima del primo calcolo JS. */
+    /* Tetto d'altezza da NavDropdownComponent.updateMaxHeight() (spazio libero reale, non un vh
+       fisso): un gruppo con tanti figli scrolla al proprio interno invece di sforare il fondo pagina; 80vh è solo il fallback prima del calcolo JS. */
     .navbar .dropdown-menu {
         max-height: var(--dropdown-max-height, 80vh);
         overflow-y: auto;
         overflow-x: hidden;
-        /* `width: auto` con `white-space: normal` (sopra) non "riempie" lo spazio
-           disponibile per ridurre le righe — lo shrink-to-fit del browser collassa al MINIMO che
-           basta al contenuto (qui il floor di Bootstrap, `--bs-dropdown-min-width: 10rem`), poi
-           avvolge il testo lungo su molte righe corte invece di poche righe larghe, anche quando a
-           destra c'è ampio spazio libero. Serve alzare il floor (`min-width`), non solo il tetto
-           (`max-width`) — quest'ultimo da solo non basta. Valori PIÙ GENEROSI di quelli del flyout
-           (`.submenu-panel`, 11rem/20rem, _submenu.scss): quello deve restare stretto perché apre A
-           FIANCO di un altro pannello (spazio conteso in orizzontale); questo apre da solo sotto il
-           bottone, niente vincoli di affiancamento. Solo desktop: su mobile il pannello è statico a
-           piena larghezza (regola sotto), questi vincoli lo romperebbero. */
+        /* Shrink-to-fit collassa al floor di Bootstrap (--bs-dropdown-min-width) e avvolge il testo
+           su tante righe corte anche con spazio libero a destra: serve alzare il min-width, non solo il max-width; più largo del flyout .submenu-panel perché qui non c'è un pannello affiancato a contendere spazio. */
         min-width: min(18rem, 90vw);
         max-width: min(28rem, 90vw);
     }
 
-    /* Un flyout di 2° livello (.submenu-panel, `left: 100%` — _submenu.scss) deve sconfinare
-       oltre il bordo destro di QUESTO pannello, ma `overflow-x: hidden` sopra lo taglierebbe
-       (sembrerebbe "non aprirsi") e il suo ingombro verticale finirebbe comunque nello
-       scrollable-overflow del contenitore, con uno scroll indesiderato anche quando le voci di
-       1° livello ci stanno tutte. Overflow-x/y non possono valere
-       "clip di lato, libero sull'altro" sullo stesso elemento (la spec forza l'altro asse ad
-       `auto` quando uno dei due non è `visible`): quando un discendente è aperto (hover/focus/
-       `.expanded`, anche annidato più in profondità — `:has()` scava a qualunque livello),
-       il pannello passa tutto a `overflow: visible`, perdendo il proprio tetto/scroll SOLO in
-       quel momento — corretto: mentre un figlio è aperto lo spazio serve a lui, non a scrollare
-       il padre. */
+    /* Il flyout di 2° livello sconfinerebbe fuori da overflow-x: hidden, ma CSS non può clippare un
+       asse e lasciare libero l'altro sullo stesso elemento: quando un discendente è aperto (:has()) il pannello passa tutto a overflow: visible. */
     .navbar .dropdown-menu:has(.dropdown-submenu:hover, .dropdown-submenu:focus-within, .dropdown-submenu.expanded) {
         overflow: visible;
     }
@@ -172,17 +144,8 @@
 /* ── Responsive ───────────────────────────────────────────────────── */
 
 @media (max-width: #{lib.$bp-md - 0.02px}) {
-    .nav-link,
-    .nav-current-link {
-        min-height: 2.75rem;
-    }
-
-    /* Scoped a #navbar-menu: qui sotto è il pannello collassabile, dove il dropdown
-       deve espandersi in flusso come voce d'accordion. L'istanza standalone del
-       selettore lingua (fuori da #navbar-menu, quando non c'è altro da collassare —
-       vedi navbar.component.html) resta con l'overlay assoluto di default: da
-       static diventerebbe un blocco in flusso che spinge giù la pagina, "alzando"
-       la barra fissa invece di aprirsi sopra il contenuto. */
+    /* Scoped a #navbar-menu: il selettore lingua standalone (fuori da #navbar-menu quando non c'è
+       altro da collassare) deve restare overlay assoluto, altrimenti da static diventerebbe un blocco che spinge giù la pagina invece di aprirsi sopra il contenuto. */
     #navbar-menu .dropdown {
         display: block;
         width: 100%;
@@ -190,7 +153,7 @@
 
     #navbar-menu .nav-dropdown-toggle {
         width: 100%;
-        padding: 0.7rem 0.25rem 0.7rem 0;
+        padding: var(--space-2) var(--space-1) var(--space-2) 0;
         justify-content: space-between;
     }
 
@@ -198,7 +161,7 @@
     #navbar-menu .dropdown-menu {
         position: static;
         margin-top: 0;
-        padding: 0 0 0 0.95rem;
+        padding: 0 0 0 var(--space-3);
         border-radius: 0;
         border: none;
         box-shadow: none;
@@ -206,13 +169,11 @@
         color: inherit;
     }
 
-    /* Scoped a #navbar-menu come sopra: il dropdown lingua standalone resta col padding
-       normale (.navbar .dropdown-item base, riga 28) — da flusso d'accordion (qui) il
-       padding orizzontale è azzerato perché lo dà già il pannello; da overlay flottante
-       (lingua) serve invece, altrimenti il testo tocca il bordo della card. */
+    /* Scoped a #navbar-menu: qui il padding orizzontale è azzerato perché lo dà già il pannello in
+       flusso d'accordion; il dropdown lingua standalone (overlay flottante) lo tiene, altrimenti il testo tocca il bordo della card. */
     #navbar-menu .dropdown-item,
     #navbar-menu .dropdown-item-text {
-        padding: 0.5rem 0;
+        padding: var(--space-2) 0;
         font-weight: 400;
         white-space: normal;
     }
@@ -221,7 +182,7 @@
     #navbar-menu .nav-current-link.dropdown-item {
         background-color: transparent;
         font-weight: 700;
-        padding-left: 0;
+        padding-inline-start: 0;
     }
 
     #navbar-menu .dropdown-item.active::before,

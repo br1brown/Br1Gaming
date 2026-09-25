@@ -8,15 +8,19 @@ code {
 
 /* Sotto md. overflow-x: clip, non hidden: hidden renderebbe scrollabile l'asse y e taglierebbe i dropdown. */
 @media only screen and (max-width: #{lib.$bp-md - 0.02px}) {
-    .container-fluid {
+    .container-fluid,
+    .shell-line {
         overflow-x: clip;
     }
 }
 
-/* Effetto shake al passaggio */
-.shake-on-hover:hover {
-    animation: shake 0.5s;
-    animation-iteration-count: infinite;
+/* Effetti al passaggio del puntatore: solo dove un puntatore esiste (hover: hover). Su touch
+   l'hover "si incolla" al tap e l'elemento resterebbe nello stato hover finché non si tocca altrove. */
+@media (hover: hover) {
+    .shake-on-hover:hover {
+        animation: shake 0.5s;
+        animation-iteration-count: infinite;
+    }
 }
 
 @keyframes shake {
@@ -29,9 +33,9 @@ code {
 .carousel-item { height: 80vh; }
 .carousel-item img { height: 100%; object-fit: cover; width: 100%; }
 
-/* Zoom su schermi ampi */
-@media only screen and (min-width: #{lib.$bp-md}) {
-    .zoom-on-hover { transition: transform .2s; }
+/* Zoom su schermi ampi, con un puntatore */
+@media only screen and (min-width: #{lib.$bp-md}) and (hover: hover) {
+    .zoom-on-hover { transition: transform var(--movimentoMicro, 0.15s); }
     .zoom-on-hover:hover { transform: scale(1.5); }
 }
 
@@ -43,7 +47,8 @@ code {
                 0 0 0 1px color-mix(in srgb, currentColor 22%, transparent);
 }
 
-/* FAB condiviso (back-to-top, cookie): forma dalle utility Bootstrap, qui solo misura, ombra e stati. */
+/* FAB condiviso (back-to-top, cookie): forma dalle utility Bootstrap, qui solo misura, ombra e stati.
+   Sempre sopra il target di tocco (--touchTarget); più grande sotto md, dove si usa col pollice. */
 .fab {
     width: 3rem;
     height: 3rem;
@@ -51,14 +56,16 @@ code {
     cursor: pointer;
     box-shadow: var(--shadowElevated),
                 0 0 0 1px color-mix(in srgb, currentColor 38%, transparent);
-    transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+    transition: opacity var(--movimentoMicro, 0.15s), transform var(--movimentoMicro, 0.15s), box-shadow var(--movimentoMicro, 0.15s);
 }
 
-.fab:hover {
-    opacity: 1;
-    transform: translateY(-2px);
-    box-shadow: var(--shadowElevatedHover),
-                0 0 0 1px color-mix(in srgb, currentColor 48%, transparent);
+@media (hover: hover) {
+    .fab:hover {
+        opacity: 1;
+        transform: translateY(-2px);
+        box-shadow: var(--shadowElevatedHover),
+                    0 0 0 1px color-mix(in srgb, currentColor 48%, transparent);
+    }
 }
 
 /* Focus-ring marcato per navigazione tastiera (WCAG 2.4.7) */
@@ -106,3 +113,81 @@ code {
         box-shadow: 0 0 0 var(--pulsazioneSpread2, 8px) color-mix(in srgb, transparent var(--pulsazioneTrasparenza2, 55%), var(--colorPrimary));
     }
 }
+
+/* ── Icone ───────────────────────────────────────────────────────────
+   Taglie del glifo (Font Awesome) da token: sm dentro .btn-sm, md dentro .btn, lg per icone di stato. */
+.icon-sm { font-size: var(--iconSize-sm); }
+.icon-md { font-size: var(--iconSize-md); }
+.icon-lg { font-size: var(--iconSize-lg); }
+
+/* Etichetta in maiuscoletto (badge di stato, occhielli): spaziatura dal token condiviso. */
+.text-label { letter-spacing: var(--ls-wide); }
+
+/* ── Stati: attesa e vuoto ───────────────────────────────────────────
+   Globali, non nello stile del componente: sulle rotte solo client lo <style> scoped può arrivare
+   senza nonce CSP, e questi due stati devono vedersi sempre. */
+
+/* BusyIconComponent: glifo e spinner nello stesso box, così il bottone non cambia misura. */
+.busy-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: var(--iconSize-md);
+    height: var(--iconSize-md);
+    font-size: var(--iconSize-md);
+    line-height: 1;
+}
+.busy-icon--sm { width: var(--iconSize-sm); height: var(--iconSize-sm); font-size: var(--iconSize-sm); }
+.busy-icon--lg { width: var(--iconSize-lg); height: var(--iconSize-lg); font-size: var(--iconSize-lg); }
+.busy-icon--empty { display: none; }
+.busy-icon__spinner {
+    width: 0.85em;
+    height: 0.85em;
+    border-width: 0.15em;
+}
+
+/* EmptyStateComponent: messaggio centrato e sobrio, mai a tutta enfasi — è un'informazione, non un errore. */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-5) var(--space-3);
+    text-align: center;
+    color: var(--bs-secondary-color);
+}
+.empty-state__icon {
+    font-size: calc(var(--iconSize-lg) * 1.5);
+    opacity: 0.6;
+}
+.empty-state__title {
+    margin: 0;
+    font-weight: 600;
+    color: var(--bs-body-color);
+}
+.empty-state__text {
+    margin: 0;
+    max-width: 40ch;
+    font-size: var(--fs-sm);
+}
+.empty-state__actions:empty { display: none; }
+.empty-state__actions { margin-top: var(--space-2); }
+.empty-state--compact {
+    padding: var(--space-3);
+}
+.empty-state--compact .empty-state__icon { display: none; }
+
+/* Immagine il cui file non è raggiungibile (AssetDirective): segnaposto neutro sul fondo del tema,
+   invece dell'icona rotta del browser; l'alt resta. */
+img.asset-broken {
+    object-fit: contain;
+    background-color: var(--bs-secondary-bg);
+}
+
+img.asset-broken--decorative {
+    display: none;
+}
+
+/* Testo al gradino minimo della scala (--fs-xs): codici, slug, note a margine. */
+.text-xs { font-size: var(--fs-xs); }

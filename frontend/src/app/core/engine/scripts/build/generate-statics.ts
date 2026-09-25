@@ -398,6 +398,18 @@ export const environment: AppEnvironment = {
         'blocco PWA'
     );
 
+    // Preload della faccia regolare del font principale, per anticipare il FOUT di `font-display: swap`.
+    // Riconosciuto da data-statics, senza marker nel file: tolto e rimesso a ogni build.
+    html = html.replace(/[ \t]*<link rel="preload" as="font"[^>]*data-statics="font-preload"[^>]*>\n?/g, '');
+    const preloadFace = ContestoSito.config.fonts.fontFaces.find(f => f.weight === 400 && f.style === 'normal');
+    if (preloadFace) {
+        const FONT_MIME: Record<string, string> = { truetype: 'font/ttf', opentype: 'font/otf', woff: 'font/woff', woff2: 'font/woff2' };
+        const type = FONT_MIME[preloadFace.format];
+        // crossorigin anche same-origin: i font si scaricano in modalità CORS, senza l'attributo il
+        // preload non combacia con la richiesta del @font-face e il browser lo scarica due volte.
+        const tag = `<link rel="preload" as="font"${type ? ` type="${type}"` : ''} href="${escapeHtml(preloadFace.url)}" crossorigin data-statics="font-preload">`;
+        html = replaceTag(html, /<\/head>/, `    ${tag}\n</head>`, '</head>');
+    }
     writeFileSync(INDEX, html, 'utf8');
     console.log(`[statics] index.html aggiornato`);
 }

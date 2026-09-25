@@ -5,8 +5,11 @@ import { Directive, Signal, computed, input } from '@angular/core';
  *  href/glyph/color/displayLabel e delega il rendering a `LinkBadgeComponent`. */
 @Directive({
     host: {
-        '[class.d-inline-block]': '!fullWidth()',
-        '[class.d-block]': 'fullWidth()',
+        // Allineati al centro, non alla linea di base: un glifo grande (disco) o un logo immagine
+        // non deve spostare il link di qualche pixel rispetto ai vicini.
+        class: 'align-middle',
+        '[class.d-inline-flex]': '!fullWidth()',
+        '[class.d-flex]': 'fullWidth()',
     },
 })
 export abstract class BaseLinkComponent {
@@ -14,18 +17,14 @@ export abstract class BaseLinkComponent {
     readonly label = input<string>();
     /** Mostra la label testuale accanto all'icona. */
     readonly showLabel = input(false);
-    /**
-     * Mostra il CONTENUTO (numero, email, handle…) invece dell'etichetta — es. "xxx@pec.it" al posto
-     * di "PEC" (accessibilità: leggi il dato senza cliccare). Implica testo visibile anche con `showLabel` false.
-     */
+    /** Mostra il CONTENUTO invece dell'etichetta (es. "xxx@pec.it" invece di "PEC"): leggibile senza
+     *  cliccare. Implica testo visibile anche con `showLabel` false. */
     readonly showValue = input(false);
     /** Occupa tutta la larghezza del contenitore. */
     readonly fullWidth = input(false);
 
-    /**
-     * Override opzionale: se fornita, al click esegue questa funzione invece di navigare (es. modale
-     * mail). L'`href` resta come fallback per no-JS, click destro e "copia indirizzo link".
-     */
+    /** Override opzionale: se fornita, al click esegue questa funzione invece di navigare (es. modale
+     *  mail); `href` resta come fallback per no-JS, click destro e "copia indirizzo link". */
     readonly action = input<() => void | Promise<void>>();
 
     /** URL risolto da aprire. */
@@ -34,17 +33,20 @@ export abstract class BaseLinkComponent {
     abstract readonly glyph: Signal<string>;
     /** Colore brand della pastiglia (null = default del tema). */
     abstract readonly color: Signal<string | null>;
+    /** Colore del glifo sulla pastiglia, come lo prescrive il brand (es. l'aereo di Telegram è
+     *  bianco). `null` = lo sceglie `IconComponent` per contrasto: solo ripiego, per colori non censiti. */
+    readonly glyphColor: Signal<string | null> = computed(() => null);
+    /** Composizione glifo/pastiglia (`IconMode`): `disc` per i glifi che sono già un disco col
+     *  marchio ritagliato. */
+    readonly glyphMode: Signal<'glyph' | 'disc'> = computed(() => 'glyph');
+    /** Logo a colori al posto del glifo, per i marchi che vietano il monocromatico. */
+    readonly glyphImage: Signal<string | null> = computed(() => null);
     /** Label tradotta/derivata (es. "PEC"), usata anche come tooltip/aria. */
     abstract readonly displayLabel: Signal<string>;
     /** Contenuto leggibile (es. "xxx@pec.it", "+39…", handle). */
     abstract readonly content: Signal<string>;
 
-    /**
-     * Testo mostrato accanto all'icona, in base alle due flag:
-     *  - solo `showLabel`            → "Etichetta"
-     *  - solo `showValue`            → "valore"
-     *  - entrambe                    → "Etichetta: valore" (disambigua, es. PEC vs email)
-     */
+    /** Testo secondo le due flag; con entrambe "Etichetta: valore", per disambiguare (es. PEC vs email). */
     readonly displayText: Signal<string> = computed(() => {
         const label = this.displayLabel();
         if (!this.showValue()) return label;

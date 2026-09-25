@@ -1,29 +1,34 @@
 /* ── Footer: colonne di navigazione (gruppi) — griglia fluida ────────
-   auto-fit/minmax invece dei breakpoint Bootstrap fissi (col-lg-2), pensati
-   per il caso denso (tante colonne, tipo un Comune). Centratura come blocco,
-   sempre — anche con un solo gruppo: la larghezza piena, testata dal vivo,
-   restava a sinistra, sbilanciata e poco estetica.
-   `1fr` (non un tetto fisso tipo 240px) come massimo: con poche colonne (1-3,
-   il caso vetrina) le tracce si dividono lo spazio residuo del contenitore
-   invece di restare compresse alla larghezza minima con un mare di vuoto
-   intorno — proprio il difetto opposto già corretto sopra, solo sui pochi
-   gruppi anziché sul singolo. Con molte colonne (denso, tipo Comune) il
-   minimo leggibile (160px) resta l'unico vincolo che conta: superata la
-   soglia si va a capo, `1fr` non cambia quel caso. */
+   auto-fit/minmax(10rem, 1fr), non i breakpoint fissi di Bootstrap: con poche colonne il gruppo si
+   allarga a riempire lo spazio invece di restare compresso, sempre centrata anche con un solo gruppo per non lasciarlo sbilanciato a sinistra. */
 .footer-nav-groups {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
     justify-content: center;
-    gap: 1.5rem;
+    gap: var(--space-4) var(--space-5);
     text-align: start;
+}
+
+/* Titolo di colonna (livello 0): letter-spacing invece del solo maiuscolo/grassetto — il tocco
+   tipografico che distingue un'intestazione di sezione disegnata da una label piatta, a costo zero
+   (nessun colore nuovo) e via CSS puro. Stesso token delle etichette della navbar. */
+.footer-group-title {
+    letter-spacing: var(--ls-wide);
+}
+
+/* Riga "small print" (copyright + descrizione): sempre la più defilata del footer, come sulla
+   maggior parte dei siti — non allo stesso corpo/peso visivo delle colonne di link sopra. */
+.footer-fineprint {
+    font-size: var(--fs-xs);
+    opacity: 0.75;
 }
 
 /* ── Footer: sottogruppi annidati ────────────────────────────────────
    Liste statiche: la gerarchia è resa con indentazione e barra laterale. */
 .footer-subgroup {
-    margin-top: 0.5rem;
-    padding-left: 0.75rem;
-    border-left: 2px solid color-mix(in srgb, currentColor 18%, transparent);
+    margin-top: var(--space-2);
+    padding-inline-start: var(--space-3);
+    border-inline-start: 2px solid color-mix(in srgb, currentColor 18%, transparent);
 }
 
 .footer-subgroup-title {

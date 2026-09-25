@@ -4,29 +4,37 @@
 
 <app-back-to-top />
 <app-cookie-banner />
+<app-offline-banner />
 
 @if (showSmoke()) {
     <app-smoke-effect [config]="smoke" />
 }
 
+<!-- Figlio diretto di app-root: con `navbar.fissa` è l'host stesso ad agganciarsi in cima (sticky),
+     e dentro un contenitore si aggancerebbe solo per l'altezza di quel contenitore. Il landmark
+     <header> lo porta il componente. -->
 @if (showNavbar()) {
     <app-navbar [showBrandIcon]="showBrandIcon()" />
 }
+<!-- Avanzamento delle navigazioni (Engine): filo sotto la navbar mentre il resolver carica la pagina nuova. -->
+<app-nav-progress />
 
 <main id="main-content" tabindex="-1" class="flex-grow-1"
       [class.container-fluid]="!fitViewport()"
-      [class.py-4]="!fitViewport()"
       [class.fit-viewport]="fitViewport()">
     @if (fitViewport()) {
         <!-- Full-bleed: niente container/pannello; .fit-viewport (base.scss) fa riempire l'altezza. -->
         <router-outlet />
     } @else {
         <div class="row">
-            <div [class]="contentWidthClass" class="mb-3">
+            <!-- Lo spazio sotto il breadcrumb lo dà il breadcrumb stesso: nascosto (home, ruolo,
+                 design system) non lascia un vuoto sopra il pannello. Stessa colonna del contenuto
+                 sotto: quella del pannello (`larghezza`), o tutta la riga senza pannello. -->
+            <div [class]="showPanel() ? contentWidthClass : 'col-12'">
                 <app-breadcrumb [show]="showBreadcrumb()" />
             </div>
             @if (showPanel()) {
-                <div [class]="contentWidthClass" class="shadow rounded content-panel"
+                <div [class]="contentWidthClass" class="content-panel"
                      [class.panel-light]="theme.panelTone === 'light'"
                      [class.panel-dark]="theme.panelTone === 'dark'"
                      [attr.data-bs-theme]="theme.panelTone">

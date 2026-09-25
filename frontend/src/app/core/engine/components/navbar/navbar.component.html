@@ -1,7 +1,12 @@
-<nav #navEl class="navbar navbar-expand-md theme-bg" [class.fixed-top]="fixTop" [class.navbar-menu-open]="menuOpen()"
+<!-- <header>: il landmark "banner" per chi naviga per regioni con uno screen reader. Dentro il
+     componente, non nella shell: l'host resta figlio diretto di app-root, ed è lui ad agganciarsi
+     in cima (sticky, vedi `stuck` in navbar.component.ts) scorrendo lungo tutta la pagina. -->
+<header>
+<nav #navEl class="navbar navbar-expand-md theme-bg" [class.navbar-menu-open]="menuOpen()"
      [style.--nav-height.px]="navHeight()"
      [attr.aria-label]="'principaleNav' | translate">
-    <div class="container-fluid" #containerFluidEl>
+    <!-- .shell-line (_layout.scss): logo e voci partono sulla linea del contenuto, a ogni larghezza. -->
+    <div class="shell-line" #containerFluidEl>
         <!-- Brand solo se c'è una home (slot homePage): senza home niente brand, non un testo morto. -->
         @if (homePath() !== null) {
         @if (isRouteActive(homePath())) {
@@ -21,15 +26,12 @@
         }
         }
 
-        <div id="navbar-menu" class="collapse navbar-collapse" [class.show]="menuOpen()">
+        <div #menuEl id="navbar-menu" class="collapse navbar-collapse" [class.show]="menuOpen()">
             @if (menuItems().length > 0) {
             <ul #navListEl class="navbar-nav">
                 @for (item of menuItems(); track navLinkKey(item); let i = $index) {
-                <!-- inert + visibility:hidden (solo da md in su, vedi scss) sulle voci oltre
-                     visibleCount(): restano misurabili (offsetWidth reale) da recomputeOverflow()
-                     ma escono dal flusso e dalla tab-order — sono duplicate, interattive, dentro
-                     "Altro" qui sotto. Su mobile visibleCount() = tutte le voci, quindi non scatta
-                     mai: il pannello collassabile le mostra già tutte impilate. -->
+                <!-- Oltre visibleCount(): inert + visibility:hidden (solo da md, vedi scss) — restano
+                     misurabili da recomputeOverflow() ma duplicate, interattive, dentro "Altro". -->
                 @if (isGroup(item)) {
                 <li #navItemEl class="nav-item d-block d-md-flex align-items-md-center w-100 w-md-auto"
                     [class.nav-item-overflow]="i >= visibleCount()"
@@ -52,10 +54,8 @@
                 </li>
                 }
                 }
-                <!-- "Altro": raccoglie le voci che non entrano in riga (vedi recomputeOverflow in
-                     navbar.component.ts), invece di lasciarle uscire dalla viewport senza modo di
-                     raggiungerle. Stesso indice riusato per tutte le larghezze: quando l'insieme
-                     delle voci in overflow cambia, resta comunque "l'ultimo dropdown della riga". -->
+                <!-- "Altro": raccoglie le voci che non entrano in riga (recomputeOverflow), invece di
+                     lasciarle irraggiungibili fuori viewport. -->
                 @if (overflowMenuItems().length > 0) {
                 <li #altroToggleEl class="nav-item d-block d-md-flex align-items-md-center w-100 w-md-auto">
                     <app-nav-dropdown [item]="altroGroup()"
@@ -76,40 +76,26 @@
             }
         </div>
 
-        <!-- Selettore lingua: sempre fuori da #navbar-menu, su ogni breakpoint — cambiare lingua
-             non deve richiedere di aprire l'hamburger. Deve restare DOPO #navbar-menu nel DOM,
-             altrimenti (essendo #navbar-menu flex-grow:1 di Bootstrap) finirebbe sempre a sinistra
-             delle voci di menu invece che all'estrema destra. ms-auto lo tiene a destra anche
-             quando #navbar-menu è display:none (mobile, pannello chiuso) e quindi non spinge nulla
-             da solo. -->
+        <!-- Selettore lingua: sempre fuori da #navbar-menu (cambiare lingua non richiede l'hamburger),
+             ma DOPO nel DOM — prima di #navbar-menu (flex-grow:1) finirebbe a sinistra invece che a destra. -->
         @if (languages().length > 1) {
         <div #langWrapEl class="ms-auto">
             <ng-container [ngTemplateOutlet]="languagePicker"></ng-container>
         </div>
         }
 
-        <!-- Toggler: ultimo item della riga, subito dopo il selettore lingua — ms-auto solo se
-             il selettore non c'è (single-lingua), altrimenti eredita la spinta a destra già data
-             dal ms-auto del selettore che lo precede. Su mobile, da aperto, #navbar-menu diventa
-             un overlay a schermo intero (position:fixed, vedi scss) che parte SOTTO questa riga:
-             esce dal flusso, quindi non fa crescere .container-fluid né sposta toggler/brand/
-             selettore lingua di un pixel — tutti e tre restano semplici item flex, senza bisogno
-             di posizionamento assoluto. -->
+        <!-- Toggler: ultimo item della riga; ms-auto solo se il selettore lingua non c'è (altrimenti
+             eredita la spinta a destra dal suo ms-auto). -->
         @if (menuItems().length > 0 || hasAuthPage) {
-        <button class="navbar-toggler" type="button"
+        <button #togglerEl class="navbar-toggler" type="button"
                 [class.ms-auto]="languages().length <= 1"
                 (click)="toggleMenu()"
                 aria-controls="navbar-menu"
                 [attr.aria-expanded]="menuOpen()"
                 [attr.aria-label]="'toggleNav' | translate">
             <span class="navbar-toggler-icon"></span>
-            <!-- Etichetta "Menu" solo da chiuso: scopribilità del toggler senza appesantire.
-                 Da aperto sparisce del tutto (@if, non solo nascosta) — resta un quadratino
-                 con la sola X, più chiaro come intento "chiudi" di "X Chiudi" scritto assieme.
-                 Il bottone si restringe di conseguenza e la X si sposta di qualche pixel verso
-                 destra: normale (il bottone segue il proprio contenuto), non il salto strutturale
-                 già eliminato nelle sessioni precedenti (quello dipendeva da elementi ESTERNI al
-                 bottone — brand, pannello, selettore lingua — non dal suo stesso testo). -->
+            <!-- Etichetta "Menu" solo da chiuso (rimossa dal DOM, non solo nascosta, quando aperto):
+                 da aperto resta un quadratino con la sola X. -->
             @if (!menuOpen()) {
             <span class="navbar-toggler-label" aria-hidden="true">{{ 'menuLabelNav' | translate }}</span>
             }
@@ -117,13 +103,7 @@
         }
     </div>
 </nav>
-@if (fixTop) {
-<!-- Altezza misurata dal vero elemento (vedi navHeight in navbar.component.ts), non un valore
-     fisso: con tante voci di menu che vanno a capo su più righe (o nomi lingua lunghi, zoom del
-     testo del browser) l'altezza reale della navbar fixed varia, e uno spacer troppo basso
-     lascerebbe l'inizio della pagina coperto dalla navbar senza modo di recuperarlo scrollando. -->
-<div aria-hidden="true" [style.height.px]="navHeight()"></div>
-}
+</header>
 
 <!-- Selettore lingua: markup del dropdown, sempre montato fuori da #navbar-menu (vedi sopra). -->
 <ng-template #languagePicker>
@@ -133,6 +113,7 @@
                     class="nav-link nav-dropdown-toggle language-toggle"
                     [attr.aria-label]="('selezionaLinguaAzione' | translate) + ', ' + langName(translate.currentLang())"
                     aria-haspopup="true"
+                    aria-controls="navbar-language-menu"
                     [attr.aria-expanded]="langOpen()"
                     (click)="toggleLang()">
                 <span class="nav-dropdown-label">
@@ -141,7 +122,7 @@
                 </span>
                 <span class="nav-dropdown-caret" aria-hidden="true"></span>
             </button>
-            <ul class="dropdown-menu language-dropdown-menu list-unstyled"
+            <ul id="navbar-language-menu" class="dropdown-menu language-dropdown-menu list-unstyled"
                 [attr.aria-label]="'selezionaLinguaAzione' | translate"
                 [class.show]="langOpen()">
                 @for (lingua of languages(); track lingua) {

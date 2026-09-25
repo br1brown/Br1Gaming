@@ -15,8 +15,18 @@ safeRenderer.link = function (this: Renderer, token: Tokens.Link): string {
 
 const baseImage = safeRenderer.image.bind(safeRenderer);
 safeRenderer.image = function (this: Renderer, token: Tokens.Image): string {
-    // src non sicuro: l'immagine viene scartata.
-    return isSafeImageUrl(token.href ?? '') ? baseImage(token) : '';
+    // src non sicuro: l'immagine viene scartata. Sicuro: mai più larga del contenitore (`img-fluid`,
+    // un'immagine enorme non sfonda il layout su mobile) e caricata solo quando serve.
+    return isSafeImageUrl(token.href ?? '')
+        ? baseImage(token).replace('<img ', '<img class="img-fluid" loading="lazy" decoding="async" ')
+        : '';
+};
+
+// Tabelle con lo stile Bootstrap del resto del sito, dentro un contenitore che scorre in orizzontale
+// invece di allargare la pagina su mobile; `tabindex="0"`: chi usa la tastiera può scorrerla.
+const baseTable = safeRenderer.table.bind(safeRenderer);
+safeRenderer.table = function (this: Renderer, token: Tokens.Table): string {
+    return `<div class="table-responsive" tabindex="0">${baseTable(token).replace('<table>', '<table class="table table-sm">')}</div>`;
 };
 
 const MARKDOWN_OPTIONS = {

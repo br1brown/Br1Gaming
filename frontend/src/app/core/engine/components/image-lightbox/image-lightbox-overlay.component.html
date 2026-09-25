@@ -4,5 +4,13 @@
             (click)="closeRequested.emit()">
         <i class="fa-solid fa-xmark" aria-hidden="true"></i>
     </button>
-    <img [src]="src()" [alt]="alt()" class="image-lightbox-img">
+    @if (broken()) {
+        <!-- File non raggiungibile: un messaggio al posto dell'icona rotta del browser. -->
+        <div class="image-lightbox-missing" role="status">
+            <i class="fa-regular fa-image icon-lg" aria-hidden="true"></i>
+            <span>{{ 'immagineNonDisponibileStato' | translate }}</span>
+        </div>
+    } @else {
+        <img [src]="src()" [alt]="alt()" class="image-lightbox-img" (error)="broken.set(true)">
+    }
 </div>

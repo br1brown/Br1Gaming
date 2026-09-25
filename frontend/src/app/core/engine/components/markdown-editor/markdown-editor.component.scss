@@ -3,10 +3,11 @@
 }
 
 .md-editor-box {
-    --md-line: 1.6;
-    --md-font-size: 0.9rem;
-    --md-pad-y: 0.5rem;
-    --md-pad-x: 0.75rem;
+    /* Metrica dai token condivisi: uguale per i due strati (vedi .md-editor-layer). */
+    --md-line: var(--lh-relaxed);
+    --md-font-size: var(--fs-sm);
+    --md-pad-y: var(--space-2);
+    --md-pad-x: var(--space-3);
     min-height: calc(var(--md-rows, 8) * var(--md-line) * var(--md-font-size) + 2 * var(--md-pad-y) + 2px);
     border: 1px solid var(--bs-border-color);
     border-radius: var(--bs-border-radius);
@@ -21,7 +22,7 @@
 
 .md-editor-field {
     display: grid;
-    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    transition: border-color var(--movimentoMicro, 0.15s) ease-in-out, box-shadow var(--movimentoMicro, 0.15s) ease-in-out;
 
     /* Il focus sta sulla textarea trasparente: l'indicatore va sul riquadro che la contiene,
        stesso anello dei .form-control. */
@@ -97,5 +98,11 @@
         .md-marker { color: var(--bs-secondary-color); }
         /* HTML grezzo: la pipeline lo toglie dall'output, qui si vede barrato. */
         .md-discarded { color: var(--bs-secondary-color); text-decoration: line-through; }
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .md-editor-field {
+        transition: none;
     }
 }

@@ -1,11 +1,12 @@
 import { Component, computed, input, inject, OnDestroy } from '@angular/core';
 import { BaseActionComponent } from '../base/base-action.component';
+import { BusyIconComponent } from '../busy-icon/busy-icon.component';
 import { SpeechService } from '../../services/speech.service';
 
 @Component({
     selector: 'app-speech-action',
     standalone: true,
-    imports: [],
+    imports: [BusyIconComponent],
     templateUrl: './speech-action.component.html',
 })
 export class SpeechActionComponent extends BaseActionComponent implements OnDestroy {

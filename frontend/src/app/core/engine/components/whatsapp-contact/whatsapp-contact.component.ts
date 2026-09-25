@@ -1,6 +1,7 @@
 import { Component, Signal, computed, input } from '@angular/core';
 import { BaseContactComponent } from '../base/base-contact.component';
 import { LinkBadgeComponent } from '../link-badge/link-badge.component';
+import { brandColors } from '../social-link/social-link.component';
 import { ContactUrl } from '../utils/contact-url';
 
 export interface WhatsappContactConfig {
@@ -20,7 +21,9 @@ export class WhatsappContactComponent extends BaseContactComponent {
     protected readonly defaultLabelKey = 'whatsappAzione';
 
     readonly glyph: Signal<string> = computed(() => 'fa-brands fa-whatsapp');
-    readonly color: Signal<string | null> = computed(() => '#25D366');
+    readonly color: Signal<string | null> = computed(() => brandColors('whatsapp').color);
+    override readonly glyphColor: Signal<string | null> = computed(() => brandColors('whatsapp').fg);
+    override readonly glyphMode: Signal<'glyph' | 'disc'> = computed(() => brandColors('whatsapp').mode);
     readonly content: Signal<string> = computed(() => this.config().phone.trim());
     readonly href: Signal<string> = computed(() => {
         const { phone, text } = this.config();

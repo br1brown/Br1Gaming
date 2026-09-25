@@ -11,12 +11,8 @@ export interface ValidationResult {
     errors?: string[];
 }
 
-/**
- * Esito di un dialogo a tre vie {@link NotificationService.choose}:
- *  - `confirm` → bottone principale (es. "Salva")
- *  - `deny`    → rifiuto esplicito (es. "Non salvare"): scelta diversa dall'annullare
- *  - `cancel`  → annullato (bottone Annulla, ESC o clic fuori): l'utente non decide
- */
+/** Esito di {@link NotificationService.choose}: `confirm` = bottone principale, `deny` = rifiuto
+ *  esplicito (diverso da annullare), `cancel` = nessuna decisione (Annulla/ESC/clic fuori). */
 export type ConfirmChoice = 'confirm' | 'deny' | 'cancel';
 
 export interface ToastOptions {
@@ -36,11 +32,7 @@ export interface PromiseToastConfig<T> {
     error?: string;
 }
 
-/**
- * Notifiche utente via SweetAlert2.
- * Metodi: success(), error(), alert(), loading(), close(), promise(), confirm(), choose(), prompt(), toast(), toastOnce(), validationErrors(), handleApiError().
- * handleApiError() legge ProblemDetails (RFC 9457) dal backend o traduce il codice HTTP via i18n.
- */
+/** Notifiche utente via SweetAlert2; `handleApiError()` legge `ProblemDetails` (RFC 9457) dal backend o traduce lo status HTTP via i18n. */
 @Injectable({ providedIn: 'root' })
 export class NotificationService {
     private translate = inject(TranslateService);
@@ -102,11 +94,7 @@ export class NotificationService {
         }
     }
 
-    /**
-     * Dialogo generico a UN SOLO bottone (niente "Annulla"): titolo + testo + icona opzionale.
-     * Risolve quando l'utente chiude (bottone / ESC / clic fuori) → comodo come `await` e poi agisci
-     * (es. pausa di gioco: mostra "In pausa" e alla chiusura riprendi). Per esiti specifici usa success()/error().
-     */
+    /** Dialogo a un solo bottone: risolve alla chiusura (bottone/ESC/clic fuori), comodo per un `await` seguito da un'azione. Per esiti specifici usa `success()`/`error()`. */
     async alert(title: string, text = '', opts?: {
         icon?: 'success' | 'error' | 'info' | 'warning' | 'question';
         confirmText?: string;
@@ -307,11 +295,7 @@ export class NotificationService {
         });
     }
 
-    /**
-     * Come toast(), ma mostrato al massimo UNA volta per sessione per ciascun `key` (dedup interna).
-     * Per avvisi di sistema / hint che non devono ripetersi (es. "grafica alleggerita", suggerimenti onboarding),
-     * senza che il chiamante debba tenersi un flag.
-     */
+    /** Come `toast()`, ma mostrato al massimo una volta per sessione per `key` (dedup interna): avvisi di sistema che non devono ripetersi, senza un flag tenuto dal chiamante. */
     toastOnce(key: string, message: string, icon: 'success' | 'error' | 'info' | 'warning' = 'info', opts?: ToastOptions): void {
         if (this.shownOnceKeys.has(key)) return;
         this.shownOnceKeys.add(key);
@@ -381,9 +365,10 @@ export class NotificationService {
         // Altrimenti, componiamo il titolo "404: Pagina non trovata"
         if (!hasSpecificTitle) {
             errorInfo = this.translate.translate('erroreGenerico') + ' ' + httpStatus;
-        } else {
+        } else if (httpStatus !== 0) {
             errorInfo = httpStatus + ': ' + errorInfo;
         }
+        // Status 0 = nessuna risposta: non è un codice HTTP, "0:" davanti al titolo non direbbe niente.
 
         // Se il backend ha inviato un ProblemDetails valido, lo uniamo ai nostri fallback
         if (problem) {

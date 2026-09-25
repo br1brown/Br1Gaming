@@ -47,16 +47,16 @@ export abstract class PageBaseComponent<T> {
      *  dell'altra lingua, quindi nuova istanza) e cambio parametri (il router riesegue il resolver). */
     private readonly _resolved = computed(() => this.contentByResolve());
 
+    /** Titolo della pagina corrente, tradotto (lo stesso del `<title>` senza il nome del sito): per
+     *  l'`<h1>` di una pagina che non ne ha uno suo nel contenuto — ogni pagina ne dichiara uno. */
+    protected readonly pageTitle = this.pageMeta.resolvedTitle.asReadonly();
+
     /** Contenuto sempre aggiornato della pagina corrente, tipizzato come T. */
     protected readonly pageContent = computed<T | null>(() =>
         (this._resolved()?.content ?? null) as T | null
     );
 
-    /**
-     * URL canonico della pagina corrente (senza query/hash, con origin forzato a
-     * FRONTEND_BASE_URL in SSR). Espone alle pagine figlie solo "dove si è",
-     * senza dare loro accesso all'intero PageMetaService.
-     */
+    /** URL canonico della pagina corrente: esposto così le pagine figlie non hanno accesso all'intero PageMetaService. */
     protected getCurrentUrl(): string {
         return this.pageMeta.getCanonicalUrl();
     }
@@ -73,11 +73,9 @@ export abstract class PageBaseComponent<T> {
         // lingua della propria route (gira una volta per ogni nuova istanza pagina).
         effect(() => {
             const lang = this.lang();
-            // Guardia: senza, ogni navigazione rifetcherebbe i cataloghi i18n inutilmente. `untracked`:
-            // currentLang() va letto ma NON tracciato, altrimenti l'effect si rieseguirebbe ad ogni
-            // cambio lingua globale innescato da UN'ALTRA istanza pagina in navigazione/distruzione,
-            // rimettendo la vecchia route come lingua corrente mentre il resolver della nuova pagina
-            // sta ancora fetchando (race: i dati tornerebbero nella lingua sbagliata dopo lo switch).
+            // `untracked`: senza, il cambio lingua di un'ALTRA istanza pagina in transizione
+            // rieseguirebbe questo effect e rimetterebbe la lingua vecchia mentre il resolver
+            // della nuova pagina sta ancora fetchando (race sulla lingua dopo lo switch).
             if (lang !== untracked(() => this.translate.currentLang())) {
                 void this.translate.setLanguage(lang);
             }

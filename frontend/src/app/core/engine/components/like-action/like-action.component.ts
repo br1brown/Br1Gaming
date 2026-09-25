@@ -1,15 +1,13 @@
 import { Component, computed, input } from '@angular/core';
 import { BaseActionComponent } from '../base/base-action.component';
+import { BusyIconComponent } from '../busy-icon/busy-icon.component';
 
-/**
- * Bottone "mi piace": registra un apprezzamento tramite `action` (nessun contenuto
- * prodotto o trasformato, a differenza degli altri componenti azione). Stato piatto:
- * una volta `liked`, il click è no-op — niente "togli mi piace".
- */
+/** Bottone "mi piace": registra un apprezzamento tramite `action` (nessun contenuto prodotto o
+ *  trasformato). Stato piatto: una volta `liked`, il click è no-op — niente "togli mi piace". */
 @Component({
     selector: 'app-like-action',
     standalone: true,
-    imports: [],
+    imports: [BusyIconComponent],
     templateUrl: './like-action.component.html',
 })
 export class LikeActionComponent extends BaseActionComponent {

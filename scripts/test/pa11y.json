@@ -1,7 +1,13 @@
 {
   "standard": "WCAG2AA",
   "level": "error",
-  "runners": ["axe", "htmlcs"],
+  "runners": [
+    "axe",
+    "htmlcs"
+  ],
+  "axeRules": [
+    "target-size"
+  ],
   "levelCapWhenNeedsReview": "warning",
   "includeWarnings": true,
   "hideElements": ".swal2-container",

@@ -24,14 +24,31 @@
     border-radius: var(--lightboxRaggio, 4px);
 }
 
+/* Immagine non raggiungibile: una cornice con messaggio, sulle superfici del tema. */
+.image-lightbox-missing {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-width: min(20rem, 80vw);
+    min-height: 12rem;
+    padding: var(--space-5) var(--space-4);
+    border-radius: var(--lightboxRaggio, 4px);
+    background-color: var(--bs-body-bg);
+    color: var(--bs-secondary-color);
+    text-align: center;
+}
+
 /* Sempre dentro il bordo dell'immagine, mai fluttuante sopra: con poco spazio verticale
-   (immagine verticale, finestra bassa) finirebbe tagliato fuori dal viewport. */
+   (immagine verticale, finestra bassa) finirebbe tagliato fuori dal viewport. Misura = target di
+   tocco del sistema (WCAG 2.5.5). */
 .image-lightbox-close {
     position: absolute;
-    top: 0.5rem;
-    right: 0.5rem;
-    width: 2.5rem;
-    height: 2.5rem;
+    top: var(--space-2);
+    inset-inline-end: var(--space-2);
+    width: var(--touchTarget);
+    height: var(--touchTarget);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -39,9 +56,9 @@
     border-radius: 50%;
     background: rgba(0, 0, 0, 0.6);
     color: #fff;
-    font-size: 1.1rem;
+    font-size: var(--iconSize-md);
     cursor: pointer;
-    transition: background-color 0.12s ease;
+    transition: background-color var(--movimentoMicro, 0.15s) ease;
 }
 
 .image-lightbox-close:hover,
@@ -50,8 +67,11 @@
     outline: none;
 }
 
+/* Sopra una foto qualunque nessun colore singolo garantisce contrasto: anello a due toni (bianco
+   dentro, nero fuori, tecnica WCAG C40), con lo spessore del token di focus condiviso. */
 .image-lightbox-close:focus-visible {
-    box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.6);
+    box-shadow: 0 0 0 var(--focusRingWidth) #fff,
+                0 0 0 calc(var(--focusRingWidth) * 2) #000;
 }
 
 @media (prefers-reduced-motion: reduce) {

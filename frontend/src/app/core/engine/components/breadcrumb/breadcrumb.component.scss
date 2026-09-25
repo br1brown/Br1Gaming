@@ -1,7 +1,9 @@
 // Pillolina semi-trasparente con blur e troncamento — blur/alpha nel range "regular" del
 // Liquid Glass: più bassi si leggono come un bordo, non come vetro, su sfondi scuri.
 .app-breadcrumb {
-    font-size: 0.8125rem;
+    display: block;
+    margin-bottom: var(--space-3);
+    font-size: var(--fs-sm);
 
     ol {
         display: inline-flex;
@@ -9,12 +11,12 @@
         align-items: center;
         list-style: none;
         margin: 0;
-        padding: 0.35rem 1rem;
+        padding: var(--space-1) var(--space-3);
         background: rgba(var(--bs-body-color-rgb), 0.12);
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
         border: 1px solid rgba(var(--bs-body-color-rgb), 0.1);
-        border-radius: 50rem;
+        border-radius: var(--bs-border-radius-pill);
     }
 
     li {
@@ -28,13 +30,13 @@
     &__link {
         color: var(--bs-body-color);
         text-decoration: none;
-        transition: all 0.2s ease-in-out;
+        transition: text-shadow var(--movimentoMicro, 0.15s) ease-in-out;
         display: inline-flex;
         align-items: center;
         // Hit-slop: allarga l'area cliccabile senza toccare le dimensioni visive (padding
         // compensato da un margin negativo pari, così il layout della pillola resta identico).
-        padding: 0.35rem 0.25rem;
-        margin: -0.35rem -0.25rem;
+        padding: var(--space-1) var(--space-1);
+        margin: calc(-1 * var(--space-1));
 
         &:hover,
         &:focus-visible {
@@ -45,7 +47,7 @@
     }
 
     &__text {
-        max-width: 150px;
+        max-width: 9.5rem;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -61,7 +63,7 @@
         align-items: center;
 
         .app-breadcrumb__text {
-            max-width: 200px;
+            max-width: 12.5rem;
         }
     }
 
@@ -71,7 +73,7 @@
         opacity: 0.85;
         display: inline-flex;
         align-items: center;
-        padding: 0 0.2rem;
+        padding: 0 var(--space-1);
     }
 
     // Elemento intermedio senza path (finto percorso, es. "Policy")

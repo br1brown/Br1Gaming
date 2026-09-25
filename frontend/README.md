@@ -47,7 +47,7 @@ Prima di scrivere una riga, tieni a mente una linea di confine. Ciò che vive so
 | `components/shared/design-systems/engine/` | **Engine** (al merge vince il template) | Gli 8 preset condivisi di design system, pronti all'uso: si estendono con `extendDesignSystem` o si copiano in un file di progetto, senza modificarli (vedi «Preset di Design System: scegliere ed estendere») |
 | `site.ts` | Tuo | Il DSL del sito: assembla `PageType` dai file di area (`pages/*.pages.ts`), pagine, shell, design system attivo. È il primo file da guardare |
 | `nav.ts` | Tuo | Le voci di menu (navbar/footer), risolte a runtime da `ShellNavService` (Engine) tramite l'injection token `SHELL_NAV_RESOLVER`: lo implementi tu, l'Engine lo consuma |
-| `app.component.ts` / `.html` | Tuo (la **shell**) | Monta navbar, footer, cookie banner, back-to-top e smoke, e avvia `VersionCheckService.init()`. È il posto naturale per iniettare un servizio sempre attivo (es. `NotificationStreamService`) |
+| `app.component.ts` / `.html` | Tuo (la **shell**) | Monta navbar, footer, cookie banner, back-to-top e smoke, e avvia `VersionCheckService.init()`. È il posto naturale per iniettare un servizio sempre attivo (es. `NotificationStreamService`). `<app-navbar>` resta figlio diretto di `app-root`: è l'host ad agganciarsi in cima con `navbar.fissa` |
 | `components/shared/**` (tranne `design-systems/engine/`) | Tuo | I TUOI componenti riusabili, legati al dominio del progetto (una card di prodotto, un widget specifico), o un bottone/canale in più che estende una base dell'Engine. Esempi vivi: `login-form/` estende `BaseLoginFormComponent` (Engine) con uno username visibile, vedi «Personalizzare il Login»; `user-nav/` è Dominio a contratto fisso (`navbar.component.ts` lo importa per path e nome, il corpo è libero), vedi «Componenti Pronti all'Uso»; `design-systems/example.design-system.ts` estende il preset `muro` con `extendDesignSystem` e una palette propria, vedi «Preset di Design System: scegliere ed estendere» |
 | `core/services/**` | Tuo | `api.service.ts` (il client API che estendi con i tuoi endpoint), `auth.service.ts`, `cookie-registry.ts` (`COOKIE_MAP`) |
 | `core/dto/**` | Tuo | I contratti dati (`session.dto.ts`, `auth.dto.ts`) allineati a mano ai record C# |
@@ -114,8 +114,8 @@ Transizioni di pagina: i cambi pagina usano la View Transitions API del browser 
 Il progetto usa Bootstrap 5.3 come sistema di design principale: per layout, tipografia, form e componenti parti dalle classi Bootstrap, e tieni il CSS custom per ciò che Bootstrap non copre.
 
 Cosa va nel template HTML (classi Bootstrap):
-- Layout e spacing (`d-flex`, `align-items-center`, `mb-3`, `gap-2`, `p-4`)
-- Tipografia (`fw-bold`, `text-muted`, `small`, `h4`, `lead`)
+- Layout e spacing (`d-flex`, `align-items-center`, `mb-3`, `gap-2`, `p-4`): la scala di Bootstrap è la stessa dei token `--space-*` (sotto), quindi `.p-3` e `var(--space-3)` sono lo stesso gradino
+- Tipografia (`fw-bold`, `text-muted`, `small`, `h4`, `lead`): sotto il corpo esistono solo `.small` (`--fs-sm`) e `.text-xs` (`--fs-xs`)
 - Form (`form-control`, `form-label`, `is-invalid`, `invalid-feedback`)
 - Componenti (`card`, `alert`, `btn`, `spinner-border`, `badge`, `list-group`)
 - Responsive (`col-md-6`, `d-none d-lg-block`)
@@ -131,7 +131,7 @@ Riusare gli strumenti SCSS dell'Engine: grazie ai loadPaths (`angular.json → s
 @use 'engine/base/lib' as lib;
 @media (max-width: #{lib.$bp-md - 0.02px}) { /* mobile */ }  // breakpoint md condiviso
 ```
-`lib` espone strumenti Sass (`$bp-md`, la funzione `required()`), nessun CSS: importarlo non duplica nulla. Per i colori nei tuoi stili usi classi e variabili di Bootstrap (§«Usare il tema nel codice»).
+`lib` espone strumenti Sass (`$bp-sm`…`$bp-xxl`, la funzione `required()`), nessun CSS: importarlo non duplica nulla. Per i colori nei tuoi stili usi classi e variabili di Bootstrap (§«Usare il tema nel codice»).
 
 Nota: `src/styles/engine/` è riservato all'Engine e si aggiorna dal template, non modificarlo; i CSS di terze parti (FontAwesome, SweetAlert2) stanno in `angular.json → "styles"`, non con `@import`.
 
@@ -142,7 +142,31 @@ Cosa va nel file `.scss` del componente (ciò che Bootstrap non esprime):
 - Varianti di colore via `color-mix()` sulle variabili del tema (`--bs-*`, `--color*`)
 - Layout a griglia complesso (`grid-template-rows: 0fr → 1fr` per accordion)
 
-z-index e ombre: variabili, mai letterali. `base/_tokens.scss` definisce la scala z-index del template (`--z-cookie-banner`, `--z-fab`, `--z-skip-link`, `--z-cdk-overlay`), incastrata nei vuoti della scala Bootstrap così i widget persistenti restano sotto offcanvas e modali (che devono coprirli). Un nuovo elemento fisso usa una di queste variabili o ne aggiunge una alla scala, e resta coerente con l'ordine di sovrapposizione di Bootstrap. Stesso principio per le ombre di elevazione: `--shadowElevated` / `--shadowElevatedHover` (dal campo `elevazione` del design system).
+**Token di misura: variabili, mai letterali.** Oltre ai colori, `base/_tokens.scss` definisce le misure del sistema. Un componente (dell'Engine o tuo) non sceglie un numero "a occhio": prende il gradino.
+
+| Token | Valori | Per cosa |
+| :--- | :--- | :--- |
+| `--space-1` … `--space-5` | da `$spacers` (0.25 / 0.5 / 1 / 1.5 / 3rem) | Padding, gap, margini interni negli SCSS. Derivati in `bootstrap.scss` dalla mappa di Bootstrap, non ricopiati: `var(--space-3)` ≡ `.p-3` per costruzione. Nei template si usano le utility Bootstrap (`.p-N`, `.gap-N`, `.mb-5` fra sezioni) |
+| `--densitaRespiro`, `--densitaRespiroLargo` | da `densita` (1rem / 1.5rem con `normale`) | Respiro interno del pannello e distacco fra chrome e contenuto, sotto e da md. Generati dal design system, come `--movimento*` |
+| `--larghezzaShell` | da `larghezza` (80 / 90 / 100rem) | Larghezza massima dello shell: oltre, contenuto, navbar e footer si centrano. Senza pannello (superfici `distinte`/`tenue`/`fusione`, o spento dal ruolo) `<main>` aggiunge anche il respiro interno del pannello, sopra e ai lati: testo e breadcrumb partono alla stessa distanza da barra e bordo in entrambi i casi. Lo decide l'Engine (`_layout.scss`), non una classe nella shell |
+| `.shell-line` | classe | La linea del contenuto per il chrome: il contenitore di navbar e footer. Logo, voci, colonne del footer partono e finiscono dove il contenuto, a ogni larghezza: il testo del foglio o della pagina su mobile, il bordo della card (o il testo senza pannello) da md, più il rientro di `larghezza` da lg, fino a `--larghezzaShell`. Legge il design system del sito (`--superficiPannello`, `--larghezzaColonne`), non la pagina: la navbar non si sposta se un ruolo spegne il pannello |
+| `--fs-xs`, `--fs-sm` | 0.75rem; da `$font-size-sm` (0.875rem) | Sotto il corpo due soli gradini: `--fs-sm` derivato da Bootstrap (`.small`, `.btn-sm`), `--fs-xs` il minimo (fine-print, contatori), mai sotto. Il corpo è `--bs-body-font-size` |
+| `--lh-tight`, `--lh-relaxed` | da `$line-height-sm` (1.25); 1.65 | Interlinee oltre il corpo (`--bs-body-line-height`): stretta per titoli e controlli, larga per i testi lunghi |
+| `--ls-wide` | 0.04em | Maiuscoletto di etichette e intestazioni |
+| `--touchTarget` | 2.75rem (44px) | Minimo di ogni controllo cliccabile da solo (WCAG 2.5.5). Eccezione: toolbar dense `.btn-sm` (2.5.8, 24px) |
+| `--iconSize-sm/md/lg`, `--iconBadgeSize` | 1 / 1.25 / 1.5rem, = `--touchTarget` | Glifo in `.btn-sm` / in `.btn` / isolato; pastiglia di contatti e social |
+| `--radiusSheet` | 1.25rem | Bottom-sheet mobile, convenzione di piattaforma. La pillola è `--bs-border-radius-pill` di Bootstrap; raggio e ombra delle superfici sollevate sono `--elevazioneRaggio`/`--shadowElevated` del design system |
+| `--shadowBarDown`, `--shadowBarUp` | da `elevazione` | Ombre delle barre agganciate a un bordo (navbar sotto; footer, cookie bar e fascia offline sopra): stesso asse delle superfici sollevate, `piatta` le azzera quasi |
+
+Nei template, Bootstrap prima di tutto: layout, griglie, spazi fra sezioni (`.mb-5`), colonne strette per un modulo (`.row.justify-content-center` + `.col-lg-6`), stringhe lunghe (`.text-break`). L'Engine aggiunge solo le poche utility che Bootstrap non ha:
+
+| Classe | Cosa fa |
+| :--- | :--- |
+| `.btn-touch` | Bottone mai sotto `--touchTarget`, contenuto centrato con gap: bottoni icona, CTA a tutta larghezza dei form, chiusure |
+| `.icon-sm` / `.icon-md` / `.icon-lg` | Taglia del glifo Font Awesome dal token |
+| `.text-xs`, `.text-label` | Testo al gradino minimo (Bootstrap si ferma a `.small`); spaziatura del maiuscoletto |
+
+z-index e ombre: variabili, mai letterali. `base/_tokens.scss` definisce la scala z-index del template (`--z-cookie-banner`, `--z-fab`, `--z-skip-link`, `--z-cdk-overlay`), incastrata nei vuoti della scala Bootstrap così i widget persistenti restano sotto offcanvas e modali (che devono coprirli). Un nuovo elemento fisso usa una di queste variabili o ne aggiunge una alla scala, e resta coerente con l'ordine di sovrapposizione di Bootstrap. Stesso principio per le ombre di elevazione: `--shadowElevated` / `--shadowElevatedHover` (dal campo `elevazione` del design system), che valgono anche per il pannello contenuti.
 
 Componenti senza CSS: il file `.scss` di un componente nasce quando serve qualcosa fra i casi sopra. Il footer, ad esempio, è fatto di classi Bootstrap nel template e non ne ha uno.
 
@@ -232,6 +256,8 @@ Per l'URL canonico della pagina corrente (condivisioni, link assoluti, `<link re
 
 ## 🔐 Sistema di Autenticazione (JWT)
 
+**Scadenza della sessione.** Il JWT ha una durata (`Security.Token.ExpirationSeconds`) e allo scadere `TokenService` lo scarta. `SessionExpiryNoticeService` (Engine, attivato da `app.config.ts`) la rende visibile: un toast due minuti prima ("salva quello che stai facendo"), alla scadenza un toast chiaro e, se la pagina corrente è `requiresAuth`, lo stesso redirect al login del guard (con ritorno alla pagina). Un logout voluto non produce niente; con una vita residua sotto i due minuti l'avviso è saltato. Senza refresh token non c'è un "resta connesso": l'avviso in anticipo è la parte che salva il lavoro. Testi `sessioneScadeTraAvviso` (con `{0}` = minuti) e `sessioneScadutaAvviso`.
+
 Il login è opzionale e si accende in `Features` di `global-settings.json` (letto a compilazione e scritto in `environment.features`), con `Security.Token.SecretKey` (`global-settings.local.json`) come requisito:
 - `Features.Login`: login riservato agli amministratori. La pagina esiste ma non è linkata in navbar, e la Privacy Policy non ne parla.
 - `Features.PublicLogin`: login pubblico, con link in navbar e parte `login` nella Privacy Policy. Vince su `Login`, che non serve accendere.
@@ -301,6 +327,13 @@ Aggiungere un campo al profilo di sessione (es. `brandColor`) è un'unica modifi
 | `UserNavComponent` (**Dominio a contratto fisso**, `components/shared/user-nav/`) | `app-user-nav` | Area Login/Logout nella navbar. Il link di login compare con `Features.PublicLogin`; il logout, da loggati, compare in ogni caso. Gestisce il logout con modale di conferma. `navbar.component.ts` (Engine) lo importa per path e nome fisso: template e comportamento sono liberi, path/classe/selector no. Vedi «Dominio a contratto fisso» nel README radice. |
 | `UploadFormComponent` | `app-upload-form` | Componente "dumb" per drag-and-drop e selezione file (anche multipla via `[multiple]`). Emette `File[]` nativi e lascia la chiamata API al componente genitore. |
 | `MarkdownEditorComponent` (Engine, `core/engine/components/markdown-editor/`) | `app-markdown-editor` | Campo di form per contenuti resi da `MarkdownPipe`: barra con scorciatoie, scrittura colorata dallo stesso lexer, anteprima reale. Dettaglio in «Editor Markdown». |
+| `FieldErrorDirective` (Engine, `core/engine/directives/field-error.directive.ts`) | `[appFieldError]="id-errore"` | Su un campo di form: `.is-invalid`, `aria-invalid` e `aria-describedby` verso il messaggio, insieme e solo a campo toccato (o form inviato con `markAllAsTouched`). `[appFieldHint]` aggiunge l'id di un testo d'aiuto sempre letto. Il messaggio va mostrato con la stessa condizione (`touched && invalid`). |
+| `BusyIconComponent` (Engine) | `app-busy-icon` | Glifo di un bottone che diventa spinner nello stesso box (il bottone non cambia misura). Il bottone porta `[disabled]` e `[attr.aria-busy]`: è il pattern di ogni azione asincrona (bottoni azione, login, upload). |
+| `EmptyStateComponent` (Engine) | `app-empty-state` | Lista, ricerca o filtro senza risultati: icona, messaggio (`titleKey`), spiegazione (`descriptionKey`) e un'azione proiettata per uscirne. `[compact]` dentro dropdown e card piccole. |
+| `LoadingComponent` (Engine) | `app-loading` | Blocco di contenuto in attesa (`[loading]`): spinner con `role="status"`, poi il contenuto proiettato. Per un bottone si usa `BusyIconComponent`. |
+| `ImgFallbackDirective` (Engine) | `img[appImgFallback]` | Per un `<img>` con `src` diretto: segnaposto neutro se il file non si carica (`[appAsset]` lo fa già da sé). Un'immagine decorativa (`alt=""`) invece sparisce. |
+| `OfflineBannerComponent` (Engine) | `app-offline-banner` | Fascia fissa in fondo allo schermo quando la rete del browser cade ("Sei offline…"), che diventa "Connessione ripristinata" per pochi secondi al ritorno; `role="status"`, annunciata senza interrompere. Distinta dall'errore API (backend giù ≠ telefono senza rete). Finché è visibile scrive la propria altezza in `--bottomBarOffset` su `<html>`, che i FAB (torna su, cookie) sommano al loro `bottom` per non finire coperti. Montata dalla shell accanto al cookie banner; testi `offlineAvviso`/`offlineRipristinato`, sovrascrivibili in `addon.<lang>.json`. |
+| `NavProgressComponent` (Engine) | `app-nav-progress` | Filo di avanzamento di 3px sotto la navbar mentre una navigazione carica la pagina nuova (i contenuti si risolvono prima del cambio pagina: senza, un click su un'API lenta sembra non fare niente). Compare solo oltre 150ms, indeterminato, si completa a fine navigazione; `aria-busy` su `<main>` nel frattempo; fermo con `prefers-reduced-motion`. Montato dalla shell dopo la navbar. |
 
 ### Personalizzare il Login: `BaseLoginFormComponent`
 
@@ -358,6 +391,7 @@ Le rotte d'errore sono generate dall'Engine (`core/engine/routing.ts`):
 | :--- | :--- |
 | `**` (qualsiasi URL non riconosciuto) | redirect a `error/404` |
 | `error/:errorCode` | mostra `ErrorComponent` con quel codice |
+| `error/offline`, `error/502`, `error/503`, `error/504` | Problemi di **disponibilità** della pagina che stava caricando (`isAvailabilityError` in `content.resolver.ts`): il resolver dei contenuti ci arriva da sé, con l'URL da ritentare nel query param `retry` (solo path interni; in query e non nello state perché in SSR il redirect è un 302 HTTP e un reload lo perderebbe), e `ErrorComponent` offre un bottone **Riprova** che torna a quell'URL (rilancia il resolver); senza `retry` (pagina aperta da sé) resta solo "Torna alla home". Tre situazioni, distinte da ciò che il browser vede: status 0 senza rete → "Sei offline" (dispositivo); status 0 con la rete → "Server non raggiungibile" (il server del sito non risponde: hosting, DNS); 502/504 dal proxy SSR (backend irraggiungibile o in timeout) e 503 dal backend (manutenzione, saturo) → "Servizio non disponibile" (il sito risponde, il backend no). Un 500 resta fuori: è un bug, segnalato da `ErrorReporting`, non un "riprova". **Lato server**: con `BACKEND_ORIGIN` configurato l'SSR chiama il backend direttamente, e un backend irraggiungibile (status 0 sul server) è un 502 come per il proxy: 302 verso `error/502?retry=…`, servita con status HTTP 502 (`getSeoStatusForPath`); `error/offline` chiesta al server risponde 503 con `Retry-After: 60`. Senza `BACKEND_ORIGIN` (`npm run start`, estrazione rotte in CI) le chiamate SSR sono rifiutate con `SsrBackendUnconfiguredError`, che **non** è un problema di disponibilità: contenuto vuoto e il browser ricarica dopo l'idratazione, come prima. Con la PWA attiva `error/offline` è la pagina che si vede aprendo senza rete un URL non in cache: il service worker serve la shell, il resolver fallisce, si finisce qui invece che su una pagina vuota. Chiavi `erroreOffline*`, `erroreIrraggiungibile*`, `erroreServizio*`, `riprovaAzione`. |
 | `error` | redirect a `error/500` |
 | `error/401` | redirect alla pagina di login (`loginPage`), se configurata |
 
@@ -568,9 +602,10 @@ Ogni campo è facoltativo; il default è quello che vale senza design system. Og
 | `colori.sfondo` | hex | assente: dal brand | Tinta di sfondi e testo al posto del brand, contrasto garantito |
 | `colori.palette` | `Record<nome, hex>` | `{}` | `secondary`/`info` sostituiscono quelli di Bootstrap, ogni altro nome aggiunge un colore |
 | `movimento` | `'fermo'` / `'scatto'` / `'svelto'` / `'morbido'` | `'svelto'` | Transizione fra pagine, fade d'ingresso, animazioni di comparsa, alone dei toggle attivi |
-| `elevazione` | `'piatta'` / `'sospesa'` / `'flottante'` | `'sospesa'` | Ombra di dropdown, menu contestuale, cookie banner e FAB; raggio d'angolo di dropdown e menu contestuale |
+| `elevazione` | `'piatta'` / `'sospesa'` / `'flottante'` | `'sospesa'` | Ombra di dropdown, menu contestuale, cookie banner, FAB e delle barre (navbar, footer, fasce in fondo); raggio d'angolo di dropdown e menu contestuale |
+| `densita` | `'compatta'` / `'normale'` / `'ariosa'` | `'normale'` | Respiro fra chrome, pannello e contenuto: spazio interno del pannello e distacco da navbar, footer e bordi (sui gradini di `$spacers`: 0.5/1, 1/1.5, 1.5/3rem sotto e da md) |
 | `navbar.show` | `boolean` | `true` | `false`: nessuna navbar, su nessuna pagina |
-| `navbar.fissa` | `boolean` | `false` | Navbar fissa allo scroll |
+| `navbar.fissa` | `boolean` | `false` | Navbar agganciata in cima allo scroll (sticky); si sgancia da sola oltre un quinto dell'altezza visibile |
 | `navbar.superficie` | `'brand'` / `'body'` | `'brand'` | Sfondo di navbar e footer: immersivo di brand o uguale alla pagina |
 | `navbar.icona` | `boolean` | `true` | Icona di brand in navbar |
 | `footer.show` | `boolean` | `true` | `false`: nessun footer, su nessuna pagina |
@@ -664,22 +699,22 @@ Limiti:
 
 ### Chrome del sito: navbar, footer, breadcrumb, movimento
 
-**Navbar e footer.** `navbar.show: false` e `footer.show: false` li tolgono da ogni pagina. `navbar.fissa` fissa la navbar allo scroll. `navbar.superficie` decide lo sfondo di entrambi: `'brand'` è una superficie immersiva ricavata da `colorTema` (il brand pieno se è scuro, un pastello se è chiaro; nel tono scuro un quasi-nero tinto), riconoscibile a colpo d'occhio; `'body'` usa gli stessi valori dello sfondo pagina, senza cesura fra chrome e contenuto (serve ai design system a superficie unica come `muro`). `navbar.icona: false` toglie l'icona di brand; QUALE icona mostrare lo decide `brandIcon` in `nav.ts` (vedi «Navigazione Multilivello»).
+**Navbar e footer.** `navbar.show: false` e `footer.show: false` li tolgono da ogni pagina. `navbar.fissa` aggancia la navbar in cima allo scroll: è `position: sticky` sull'host `app-navbar`, quindi resta nel flusso e nessuna pagina deve riservarle spazio (niente margini da indovinare, vale per ogni ruolo e per `fitViewport`). Quando supererebbe un quinto dell'altezza visibile (zoom del browser, testo ingrandito, telefono in orizzontale, voci che vanno a capo) si sgancia e scorre con la pagina, per non togliere lettura (WCAG 1.4.10). Agganciata, focus da tastiera e ancore si fermano sotto di lei (`scroll-padding-top`, WCAG 2.4.11). Funziona perché `app-navbar` è figlio diretto di `app-root` nella shell: non avvolgerlo in un contenitore. `navbar.superficie` decide lo sfondo di entrambi: `'brand'` è una superficie immersiva ricavata da `colorTema` (il brand pieno se è scuro, un pastello se è chiaro; nel tono scuro un quasi-nero tinto), riconoscibile a colpo d'occhio; `'body'` usa gli stessi valori dello sfondo pagina, senza cesura fra chrome e contenuto (serve ai design system a superficie unica come `muro`). `navbar.icona: false` toglie l'icona di brand; QUALE icona mostrare lo decide `brandIcon` in `nav.ts` (vedi «Navigazione Multilivello»).
 
 **Breadcrumb.** Spento di default. Con `breadcrumb.show: true` compare su ogni pagina tranne la home, e un ruolo lo toglie dove non serve. `breadcrumb.stile` sceglie il separatore, `breadcrumb.maxVoci` la soglia oltre cui il percorso si accorcia. Il percorso e il suo override (`resolveBreadcrumb`) sono in «`app-breadcrumb`».
 
-**Movimento.** Un asse per ogni gesto animato: transizione fra pagine (dissolvenza incrociata, View Transitions), fade d'ingresso della pagina, animazioni di comparsa (dropdown, lightbox, menu), alone dei toggle attivi.
+**Movimento.** Un asse per ogni gesto animato, con tre durate: transizione e fade di pagina (`--movimentoPagina`), comparsa di un pannello — dropdown, lightbox, menu, cookie banner (`--movimentoPannello`), feedback di hover/press su un controllo già visibile — FAB, icone, caret, voci di menu (`--movimentoMicro`); più l'alone dei toggle attivi.
 
-| `movimento` | Pagina / comparsa | Alone |
+| `movimento` | Pagina / comparsa / micro | Alone |
 | :--- | :--- | :--- |
 | `'fermo'` | spente (0s), fade e transizioni spenti anche nei ruoli | spento |
-| `'scatto'` | 0.15s / 0.1s | lieve |
-| `'svelto'` (default) | 0.25s / 0.15s | lieve |
-| `'morbido'` | 0.45s / 0.28s | marcato |
+| `'scatto'` | 0.15s / 0.1s / 0.08s | lieve |
+| `'svelto'` (default) | 0.25s / 0.15s / 0.15s | lieve |
+| `'morbido'` | 0.45s / 0.28s / 0.2s | marcato |
 
-`prefers-reduced-motion` è rispettato a prescindere dal valore.
+`prefers-reduced-motion` è rispettato a prescindere dal valore. Una transizione nuova, dell'Engine o tua, usa una di queste tre variabili (mai una durata letterale) e ha la sua guardia `@media (prefers-reduced-motion: reduce) { … none }`: un solo idioma in tutto il codebase. Restano fuori solo gli effetti in loop scelti apposta (`.shake-on-hover`, `.pulse-live`), anch'essi spenti sotto reduced-motion.
 
-**Elevazione, larghezza, FAB.** `elevazione` dà l'ombra a dropdown, menu contestuale, cookie banner e FAB, e il raggio d'angolo a dropdown e menu contestuale (i FAB restano tondi). `larghezza` è la colonna di pannello e breadcrumb; senza pannello il contenuto occupa l'intera riga. `fab.tornaSuSoglia` sposta la comparsa di "torna su"; `fab.cookie` dimensiona il bottone che riporta il banner cookie, a sinistra, dal lato opposto a "torna su". `badgeNotifiche` e `lightboxArrotondato` completano la chrome.
+**Elevazione, larghezza, FAB.** `elevazione` dà l'ombra a pannello contenuti, dropdown, menu contestuale e FAB, e il raggio d'angolo a pannello, dropdown e menu contestuale (i FAB restano tondi; sotto md il pannello va a filo schermo, senza raggio). `larghezza` è la colonna di pannello e breadcrumb; senza pannello il contenuto occupa l'intera riga. `fab.tornaSuSoglia` sposta la comparsa di "torna su"; `fab.cookie` dimensiona il bottone che riporta il banner cookie, a sinistra, dal lato opposto a "torna su". `badgeNotifiche` e `lightboxArrotondato` completano la chrome.
 
 ```typescript
 export const istituzionale = extendDesignSystem(cartaDesignSystem, {
@@ -742,6 +777,10 @@ Per viste in cui lo scroll di pagina spezzerebbe l'esperienza (mappe, giochi, da
 Lato pagina serve una cosa: l'elemento radice del componente cresce con `flex-grow-1` (o `h-100`). L'Engine dà già `display: block` all'host di ogni pagina e, in full-bleed, costruisce la catena flex fino al viewport adattandosi a navbar, footer e orientamento, anche in SSR.
 
 ### Font: `SystemFont` + `font.aggiuntivi`
+
+`generate:statics` mette in `index.html` un `<link rel="preload" as="font">` per la sola faccia regolare del font principale (riconoscibile da `data-statics="font-preload"`, tolto e rimesso a ogni build): con `font-display: swap` il testo comparirebbe nel font di ripiego e salterebbe a quello vero appena scaricato; dichiararlo prima del CSS lo fa partire subito. Con un font di sistema puro (nessuna faccia) il tag non c'è.
+
+Lo stesso salto (FOUT) sposta anche le righe sotto (CLS), perché il font di ripiego e quello vero non occupano lo stesso spazio: `generate:statics` (`font-fallback-metrics.ts`) calcola, dai file font reali, una `@font-face` di fallback per `font.principale` — uno dei Liberation del catalogo (metric-compatibili con Arial/Helvetica/Courier), scalato con `size-adjust` e riproporzionato con `ascent-override`/`descent-override`/`line-gap-override` sulle proporzioni del font vero (stessa tecnica di strumenti come Fontaine, CSS Fonts Module Level 5) — e lo inserisce nello stack di `--fontFamily` subito dopo il font vero: `"Roboto", "Roboto Fallback", sans-serif, ...`. Il fallback resta lo stesso, sganciato dal peso/stile richiesto: una `@font-face` sola copre regular/bold/italic. Non calcolabile (font di sistema non installati, `font.principale` assente, già un Liberation, metriche implausibili) → nessuna `@font-face` in più, `--fontFamily` resta quello di sempre: `font-display: swap` da solo, come prima di questa leva. Riguarda solo `font.principale`: `font.aggiuntivi` non ha un punto d'uso garantito (mai attivo di per sé) su cui il salto sia certo.
 
 **`font.principale`** è il font dell'intero sito, corpo e titoli, web e og:image: una voce di `SystemFont` oppure un `CustomFontDef` scritto per intero lì dove si sceglie. Assente: il font di sistema del visitatore, senza self-hosting. Una stringa deve essere una voce vera di `SystemFont`.
 
@@ -863,7 +902,7 @@ export const editoriale = extendDesignSystem(cartaDesignSystem, {
 - `--tone-<colore>-*` e `--tone-form-*` sono meccanismo interno per tono: non usarli.
 - `.card` ha sfondo `--colorSurface` e bordo del tema: è il contenitore giusto per overlay e pannelli propri (vedi «Overlay/modali custom» in [AGENTS.md](../AGENTS.md)). SweetAlert2 prende i colori dal tema (`--swal2-*` in `_bootstrap-theme.scss`, ritoccabili negli stili di progetto).
 - Il pannello contenuti prende i colori dal suo `data-bs-theme` (da `tono.pannello`): sfondo `--colorSurface`, cornice `--bs-border-color-translucent`. `.panel-light` / `.panel-dark` sono agganci per stili tuoi, senza colori propri.
-- `engine/base/lib` (Sass) offre `$bp-md` e la funzione `required()`.
+- `engine/base/lib` (Sass) offre `$bp-sm`/`$bp-md`/`$bp-lg`/`$bp-xl`/`$bp-xxl` (gli stessi di Bootstrap, `md` è il confine mobile/desktop di navbar e menu) e la funzione `required()`. Da TS: `isViewportAtLeast('lg')` / `viewportAtLeastQuery('lg')` in `core/engine/breakpoints.ts`, che leggono le stesse soglie da `--bp-*`.
 
 **`AppearanceService`**, per chi disegna fuori dal CSS (canvas, QR, immagini, manifest): gli stessi colori da cui è compilato il CSS.
 
@@ -1814,6 +1853,8 @@ Limiti di profondità: oltre i 3 livelli, in sviluppo, un avviso di usabilità i
 
 Limite di voci di primo livello (Navbar Desktop): oltre le 6 voci dirette in `header` (la stessa soglia dell'avviso in console), la navbar desktop raccoglie le voci in eccesso in un dropdown finale "Altro", senza configurazione: l'Engine misura lo spazio disponibile a runtime (`ResizeObserver`) e sposta lì ciò che non entra nella riga. Sotto la soglia, o su mobile (dove il menu è impilato), nulla cambia.
 
+Tastiera e screen reader, senza configurazione: ogni dropdown e sottomenu dichiara il pannello che apre (`aria-controls`), Escape chiude **solo il livello aperto più di recente** e ridà il focus al suo bottone (dropdown dentro il menu mobile: prima il dropdown, poi il menu), il click fuori dalla navbar chiude i dropdown e richiude anche i sottomenu annidati. Il menu mobile è un pannello a tutto schermo: aprendolo il focus entra nella prima voce e il resto della pagina diventa `inert` (fuori da Tab e screen reader) finché non si chiude; allargando la finestra oltre md si chiude da solo. Lo stesso comportamento di chiusura (Escape a pila, click fuori, focus di ritorno) è disponibile per un pannello tuo con `injectDismiss({ open, close, returnFocus })` da `core/engine/dismiss.ts`; i pannelli su CDK Overlay (menu contestuale, lightbox) usano già quello di CDK.
+
 Voci visibili da loggato (`authOnly`): `addPage`/`addLink`/`addGroup` accettano un terzo parametro opzionale `{ authOnly: true }`: la voce (o, su `addGroup`, l'intero gruppo coi suoi figli) compare in navbar e footer per gli utenti loggati e sparisce per visitatori e bot (nessun link verso una pagina a cui non accederebbero). È il complemento lato menu di `requiresAuth` sulla pagina (vedi «Proteggere una Pagina»): quello protegge la rotta, questo nasconde la voce.
 
 ```typescript
@@ -2069,6 +2110,7 @@ La directive `PageDirective` traduce un `PageType` nel path corrispondente e lo 
 | Caratteristica | Dettaglio |
 | :--- | :--- |
 | Comportamento | Identico a `[routerLink]`: cambio pagina SPA, tastiera, clic destro "Apri in nuova scheda" |
+| `target` | Come su `[routerLink]`: `target="_blank"` apre in una nuova scheda invece di navigare in-app (è l'input di RouterLink, esposto dalla directive; senza, l'attributo veniva cancellato e il click intercettato) |
 | Fallback | Un `PageType` non registrato in `site.ts` porta a `/` con un avviso in console (in dev-mode; nessun errore a runtime né a compile-time: il `PageType` è un identificatore valido, manca la rotta). Un link che porta alla home senza motivo apparente di solito è un `PageType` dichiarato ma mai aggiunto a `pages`. |
 | `href` | Bindato esplicitamente: RouterLink come `hostDirective` non aggiorna il proprio `@HostBinding` via effect, e senza questo binding l'elemento avrebbe `href=null` e cursore testo invece di cursore link |
 | Tipo | `input.required<PageType>()`: errore TypeScript a compile-time se mancante |
@@ -2269,11 +2311,18 @@ Pulsante social con icona e colore del network. Deduce il network dall'URL (rege
 | `label` | `string` | Etichetta custom (default: nome network dedotto, o hostname) |
 | `showLabel` | `boolean` | Mostra testo accanto all'icona (default: `false`) |
 
-Network con branding integrato (30+): `facebook`, `instagram`, `twitter`, `linkedin`, `youtube`, `whatsapp`, `telegram`, `tiktok`, `spotify`, `discord`, `github`, `reddit`, `threads`, `google`, `snapchat`, `pinterest`, `tumblr`, `twitch`, `soundcloud`, `deezer`, `vimeo`, `dribbble`, `skype`, `mastodon`, `btc`, `amazon`, `airbnb`, `apple`, `android`, `yahoo`, `audible` e altri.
+Network con branding integrato (30+): `facebook`, `instagram`, `twitter` (X), `linkedin`, `youtube`, `whatsapp`, `telegram`, `tiktok`, `spotify`, `discord`, `github`, `reddit`, `threads`, `google`, `snapchat`, `pinterest`, `tumblr`, `twitch`, `soundcloud`, `deezer`, `vimeo`, `dribbble`, `mastodon`, `applemusic`, `btc`, `amazon`, `airbnb`, `apple`, `android`, `playstation`, `yahoo`, `audible`, `quora`, `tipeee`, `chrome`, `chromecast` (Google Cast); `skype`, `foursquare` e `itunes` restano per i link vecchi (servizi chiusi o rinominati).
+
+**Colori: dalle linee guida dei brand, non calcolati.** Ogni voce di `SOCIAL_MAP` (`social-link.component.ts`) dichiara lo sfondo della pastiglia (`color`) e il colore del marchio sopra (`fg`) come li prescrive il brand, con la fonte in commento (brand kit verificati il 2026-09-25): l'aereo di Telegram è bianco sul blu, le onde di Spotify nere sul verde, il robot Android verde su nero perché Google vieta il logo su fondo verde, il sorriso Amazon arancio su Squid Ink perché non va sull'arancio pieno. Tre casi particolari:
+- **Glifi "a disco"** (`mode: 'disc'`: Telegram, Spotify, GitHub, Skype): il glifo Font Awesome è già un disco col marchio ritagliato; prende il colore del brand a tutta pastiglia e il ritaglio si riempie di `fg`, come il logo vero (in pastiglia normale uscirebbe in negativo).
+- **Loghi solo a colori** (`image`: Google): la "G" monocromatica è vietata, la pastiglia bianca porta la G ufficiale a colori.
+- **Glifi scelti per la pastiglia tonda**: `facebook-f`, `linkedin-in`, `pinterest-p`, `vimeo-v`, `reddit-alien`, `x-twitter`, `btc` al posto delle varianti con cerchio o quadrato proprio.
+
+`brandColors(key)` espone gli stessi valori ai componenti contatto (WhatsApp, Telegram): una fonte sola. Un colore non censito (`color` senza `fg`, es. in un `app-link-badge` generico) ha il glifo nero o bianco scelto per contrasto.
 
 ### `app-link-badge`: Link a Badge con Icona
 
-Componente presentazionale di basso livello: un `<a>` (in nuova scheda) con icona-pastiglia (`app-icon`) e testo opzionale. È il template su cui poggiano le famiglie "Contatto" e social (`app-social-link`), che gli passano i dati senza logica propria. Usalo per un link "a badge" generico fuori da quelle famiglie.
+Componente presentazionale di basso livello: un `<a>` (in nuova scheda se è un link web, non per `mailto:`/`tel:`) con icona-pastiglia (`app-icon`) e testo opzionale. È il template su cui poggiano le famiglie "Contatto" e social (`app-social-link`), che gli passano i dati senza logica propria. Usalo per un link "a badge" generico fuori da quelle famiglie.
 
 ```html
 <app-link-badge [href]="'https://example.com'" glyph="fa-solid fa-link" [text]="'Sito'" [showText]="true" />
@@ -2283,7 +2332,10 @@ Componente presentazionale di basso livello: un `<a>` (in nuova scheda) con icon
 | :--- | :--- | :--- |
 | `href` | `string` (required) | URL di destinazione (in nuova scheda) |
 | `glyph` | `string` (required) | Classe FontAwesome dell'icona |
-| `color` | `string \| null` | Colore icona (`null` = tema) |
+| `color` | `string \| null` | Colore della pastiglia (`null` = tema) |
+| `glyphColor` | `string \| null` | Colore del marchio prescritto dal brand (`null` = nero o bianco per contrasto) |
+| `glyphMode` | `'glyph' \| 'disc'` | `'disc'` per i glifi che sono già un disco col marchio ritagliato |
+| `glyphImage` | `string \| null` | Logo a colori (URL/data URI) al posto del glifo, per i marchi che vietano il monocromatico |
 | `variant` | `'badge' \| 'button'` | `'badge'`: icona tonda + testo a fianco; `'button'`: pill button unico (default `'badge'`) |
 | `text` | `string` | Testo visibile accanto all'icona |
 | `showText` | `boolean` | Rende il testo (default `false`) |
@@ -2753,4 +2805,4 @@ npm run start
 ```
 Il proxy si collega da sé al backend .NET in esecuzione sulla porta di default.
 
-> Il proxy del dev server è configurato da `proxy.local.conf.cjs` (sviluppo locale, backend su `localhost:5000`) o `proxy.docker.conf.cjs` (dev in Docker, backend sul container). Entrambi leggono la `x-api-key` dalla sorgente unica `global-settings(.local).json` tramite il modulo condiviso `proxy.api-key.cjs`.
+> Il proxy del dev server è configurato da `proxy.local.conf.cjs` (sviluppo locale, backend su `localhost:5000`) o `proxy.docker.conf.cjs` (dev in Docker, backend sul container). Entrambi leggono la `x-api-key` dalla sorgente unica `global-settings(.local).json` tramite il modulo condiviso `proxy.api-key.cjs`, e con il backend spento o in timeout rispondono 502/504 come il proxy SSR di produzione (`proxy.gateway-error.cjs`, stessa mappatura di `api-proxy.ts`) invece del 500 di Vite: in sviluppo si vede la stessa pagina "Servizio non disponibile" dell'utente.

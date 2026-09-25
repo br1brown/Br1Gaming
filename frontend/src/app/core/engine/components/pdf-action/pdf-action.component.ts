@@ -1,5 +1,6 @@
 import { Component, computed, inject, input } from '@angular/core';
 import { BaseActionComponent } from '../base/base-action.component';
+import { BusyIconComponent } from '../busy-icon/busy-icon.component';
 import { ShareService } from '../../services/share.service';
 
 export interface PdfActionConfig {
@@ -7,14 +8,12 @@ export interface PdfActionConfig {
     openInTab: boolean;
 }
 
-/**
- * PDF action ibrida: `openInTab=true` apre il PDF in scheda (navigazione); `false` forza il download
- * come Blob via ShareService (`<a download>` non basta: i browser lo ignorano cross-origin).
- */
+/** PDF ibrida: `openInTab=true` apre in scheda; `false` forza il download come Blob via ShareService
+ *  (`<a download>` non basta, i browser lo ignorano cross-origin). */
 @Component({
     selector: 'app-pdf-action',
     standalone: true,
-    imports: [],
+    imports: [BusyIconComponent],
     templateUrl: './pdf-action.component.html',
 })
 export class PdfActionComponent extends BaseActionComponent {

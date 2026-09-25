@@ -102,9 +102,14 @@ export class TranslateService {
      * Es: translate("saluto", "Mario") → "Ciao {0}" diventa "Ciao Mario"
      */
     translate(key: string, ...args: unknown[]): string {
-        const template = this.translations()[key];
+        const catalog = this.translations();
+        const template = catalog[key];
         if (!template) {
-            if (key !== '' && this.availableLangs().length > 1 && isDevMode()) {
+            // Prima che setLanguage() carichi il primo catalogo, translations() è {}: ogni chiave
+            // risulterebbe "non trovata", falso allarme. Un catalogo caricato ma senza quella chiave è
+            // il solo caso da segnalare.
+            const loaded = Object.keys(catalog).length > 0;
+            if (key !== '' && loaded && this.availableLangs().length > 1 && isDevMode()) {
                 console.warn(`Translation key "${key}" not found`);
             }
             return key;

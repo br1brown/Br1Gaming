@@ -1,0 +1,27 @@
+/* Fascia di stato rete: fissa in fondo come il cookie banner (sotto di lui nella scala z). Il testo è
+   la notizia: niente rosso/verde a portarla da soli (WCAG 1.4.1), l'icona cambia insieme al testo. */
+.offline-banner {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: var(--z-fab);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-2) max(var(--space-3), env(safe-area-inset-right, 0px))
+             calc(env(safe-area-inset-bottom, 0px) + var(--space-2))
+             max(var(--space-3), env(safe-area-inset-left, 0px));
+    font-size: var(--fs-sm);
+    text-align: center;
+    box-shadow: var(--shadowBarUp);
+    border-radius: 0;
+}
+
+.offline-banner--ripristinato {
+    color: var(--bs-success-text-emphasis);
+}
+
+@media print {
+    .offline-banner { display: none !important; }
+}

@@ -13,27 +13,23 @@ interface DayRow {
     isToday: boolean;
 }
 
-/**
- * Rende gli orari (intervalli per-giorno) come tabella "alla Google": una riga per giorno con fasce
- * o "Chiuso", oggi in grassetto. Autonomo: si inietta la cultura da sé, si nasconde se non ci sono
- * fasce. "Oggi" risolto solo lato browser (afterNextRender): il fuso server ≠ visitatore sporcherebbe l'SSR.
- */
+/** Rende gli orari come tabella "alla Google": riga per giorno, oggi in grassetto. "Oggi" risolto
+ *  solo lato browser (afterNextRender): il fuso server ≠ visitatore sporcherebbe l'SSR. */
 @Component({
     selector: 'app-opening-hours',
     standalone: true,
     imports: [TranslatePipe, NgTemplateOutlet],
     templateUrl: './opening-hours.component.html',
-    // Accordion su <details> nativo (il progetto non bundla il JS di Bootstrap): stato via [open], niente
-    // .accordion-item/.accordion-button di BS (ridipingerebbero un rettangolo chiaro sul footer navy).
-    // th: si toglie grassetto/centrato di default del browser → il peso lo decide la riga (grassetto solo
-    // "oggi", per ereditarietà), l'allineamento eredita dalla tabella. Hover col currentColor: theme-safe.
+    // Accordion su <details> nativo (niente JS Bootstrap bundlato): mai .accordion-item/-button BS,
+    // ridipingerebbero un rettangolo chiaro sul footer navy. th sciolto dai default per farlo ereditare.
     styles: [`
         th { font-weight: inherit; text-align: inherit; }
         summary { cursor: pointer; list-style: none; }
         summary::-webkit-details-marker { display: none; }
         summary:hover { background-color: color-mix(in srgb, currentColor 8%, transparent); }
         details[open] .oh-caret { transform: rotate(180deg); }
-        @media (prefers-reduced-motion: no-preference) { .oh-caret { transition: transform .2s ease; } }
+        .oh-caret { transition: transform var(--movimentoMicro, 0.15s) ease; }
+        @media (prefers-reduced-motion: reduce) { .oh-caret { transition: none; } }
     `],
 })
 export class OpeningHoursComponent {
