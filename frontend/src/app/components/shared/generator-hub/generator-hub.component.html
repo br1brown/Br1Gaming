@@ -8,7 +8,7 @@
         }
     </div>
     } @else if (generators().length === 0) {
-    <p class="text-body-secondary">{{ 'hubNessunGeneratore' | translate }}</p>
+    <app-empty-state titleKey="hubNessunGeneratore" icon="fa-solid fa-dice" />
     } @else {
 
     <!-- Selettore categoria: il "mobiletto" del jukebox — un tasto per generatore, niente card ripetute. -->
@@ -57,12 +57,8 @@
         </div>
         }
 
-        <button type="button" class="btn-skeuo btn-skeuo-accent hub-lever" (click)="spin()" [disabled]="spinning()">
-            @if (spinning()) {
-            <span class="spinner-border spinner-border-sm" role="status"></span>
-            } @else {
-            <i class="fa-solid fa-arrow-rotate-right" aria-hidden="true"></i>
-            }
+        <button type="button" class="btn-skeuo btn-skeuo-accent hub-lever" (click)="spin()" [disabled]="spinning()" [attr.aria-busy]="spinning() || null">
+            <app-busy-icon glyph="fa-solid fa-arrow-rotate-right" [busy]="spinning()" />
             {{ (result() ? 'hubAncora' : 'hubGenera') | translate }}
         </button>
 

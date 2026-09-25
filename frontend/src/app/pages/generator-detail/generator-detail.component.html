@@ -48,13 +48,9 @@
         <div class="gen-card-tap">
             <img [src]="url" [appLightbox]="previewBlob()" [attr.alt]="result()?.text ?? gen.name" class="gen-card-tap__img rounded-4">
             @if (!recovered()) {
-            <button type="button" class="gen-card-tap__hint" (click)="generate(true)" [disabled]="loading()">
-                @if (loading()) {
-                <span class="spinner-border spinner-border-sm" role="status"></span>
-                } @else {
-                <i class="fa-solid fa-arrow-rotate-right" aria-hidden="true"></i>
+            <button type="button" class="gen-card-tap__hint" (click)="generate(true)" [disabled]="loading()" [attr.aria-busy]="loading() || null">
+                <app-busy-icon glyph="fa-solid fa-arrow-rotate-right" [busy]="loading()" />
                 {{ (result() ? 'ancora' : 'genera') | translate }}!
-                }
             </button>
             }
         </div>

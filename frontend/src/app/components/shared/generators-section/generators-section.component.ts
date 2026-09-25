@@ -1,4 +1,5 @@
 import { Component, computed, inject, input } from '@angular/core';
+import { EmptyStateComponent } from '../../../core/engine/components/empty-state/empty-state.component';
 import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
 import { CardGridComponent, CardEntry } from '../card-grid/card-grid.component';
 import { PageDirective } from '../../../core/engine/directives/page.directive';
@@ -13,7 +14,7 @@ import { PageType } from '../../../site';
  */
 @Component({
     selector: 'app-generators-section',
-    imports: [TranslatePipe, CardGridComponent, PageDirective],
+    imports: [EmptyStateComponent, TranslatePipe, CardGridComponent, PageDirective],
     templateUrl: './generators-section.component.html',
 })
 export class GeneratorsSectionComponent {

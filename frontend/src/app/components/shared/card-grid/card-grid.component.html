@@ -27,7 +27,7 @@
     <!-- Vuoto durante una ricerca = nessun match. Il vuoto "normale" (lista non caricata / senza
          elementi) lo gestisce la sezione che ospita la griglia, con un messaggio dedicato. -->
     @if (searching()) {
-    <p class="text-body-secondary mb-0">{{ 'cardGridNessunRisultato' | translate }}</p>
+    <app-empty-state class="col-12" [compact]="true" titleKey="cardGridNessunRisultato" icon="fa-solid fa-magnifying-glass" />
     }
     }
 </div>

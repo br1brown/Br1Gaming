@@ -14,9 +14,7 @@
 
     @if (groups(); as list) {
         @if (list.length === 0) {
-        <div class="alert alert-light border text-center py-5">
-            {{ 'condivisiVuota' | translate }}
-        </div>
+        <app-empty-state titleKey="condivisiVuota" icon="fa-regular fa-heart" />
         } @else {
             @for (group of list; track group.slug) {
             <section class="mb-5">

@@ -16,7 +16,7 @@
 </div>
 } @else {
 @if (cards().length === 0) {
-<p class="text-body-secondary">Nessun generatore disponibile.</p>
+<app-empty-state titleKey="hubNessunGeneratore" icon="fa-solid fa-dice" />
 }
 <app-card-grid [items]="cards()" [itemColClass]="itemColClass()" />
 }

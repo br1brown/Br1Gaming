@@ -1,4 +1,5 @@
 import { Component, computed, input, signal } from '@angular/core';
+import { EmptyStateComponent } from '../../../core/engine/components/empty-state/empty-state.component';
 import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
 import { ContentCardComponent } from '../content-card/content-card.component';
 import { PageType } from '../../../site';
@@ -31,7 +32,7 @@ function fold(text: string): string {
 @Component({
     selector: 'app-card-grid',
     standalone: true,
-    imports: [TranslatePipe, ContentCardComponent],
+    imports: [EmptyStateComponent, TranslatePipe, ContentCardComponent],
     templateUrl: './card-grid.component.html',
 })
 export class CardGridComponent {

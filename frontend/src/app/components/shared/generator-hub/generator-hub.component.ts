@@ -1,4 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { BusyIconComponent } from '../../../core/engine/components/busy-icon/busy-icon.component';
+import { EmptyStateComponent } from '../../../core/engine/components/empty-state/empty-state.component';
 import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
 import { MarkdownPipe } from '../../../core/engine/pipes/markdown.pipe';
 import { PageDirective } from '../../../core/engine/directives/page.directive';
@@ -17,7 +19,7 @@ import { PageType } from '../../../site';
 @Component({
     selector: 'app-generator-hub',
     standalone: true,
-    imports: [TranslatePipe, MarkdownPipe, PageDirective, AssetDirective],
+    imports: [BusyIconComponent, EmptyStateComponent, TranslatePipe, MarkdownPipe, PageDirective, AssetDirective],
     templateUrl: './generator-hub.component.html',
     styleUrl: './generator-hub.component.css',
 })

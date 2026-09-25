@@ -1,4 +1,5 @@
 import { Component, computed, effect, inject, input, PLATFORM_ID, signal } from '@angular/core';
+import { EmptyStateComponent } from '../../core/engine/components/empty-state/empty-state.component';
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { MarkdownPipe } from '../../core/engine/pipes/markdown.pipe';
@@ -51,7 +52,7 @@ interface PiaciutoGroup {
  */
 @Component({
     selector: 'app-piaciuti',
-    imports: [RouterLink, PageDirective, MarkdownPipe, TranslatePipe],
+    imports: [EmptyStateComponent, RouterLink, PageDirective, MarkdownPipe, TranslatePipe],
     templateUrl: './piaciuti.component.html',
     styles: [`
         /* position: relative è richiesto da .stretched-link (Bootstrap) sul bottone "Leggi tutto":

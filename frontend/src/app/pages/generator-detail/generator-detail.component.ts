@@ -1,4 +1,5 @@
 import { DOCUMENT } from '@angular/common';
+import { BusyIconComponent } from '../../core/engine/components/busy-icon/busy-icon.component';
 import { afterNextRender, Component, computed, effect, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { GeneratorInfo, GenerateResponse, GeneratorPageContent } from '../../core/dto/generator.dto';
@@ -23,7 +24,7 @@ import { VariantButtonsComponent } from '../../components/shared/variant-buttons
 
 @Component({
     selector: 'app-generator-detail',
-    imports: [
+    imports: [BusyIconComponent, 
         TranslatePipe,
         MarkdownPipe,
         AssetDirective,
