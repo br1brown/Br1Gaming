@@ -120,6 +120,9 @@ function getSeoStatusForPath(path: string): number | null {
         if (code >= 400 && code <= 599) return code;
     }
     if (normalized === '/error') return 500;
+    // Pagina "sei offline / server non raggiungibile" (ErrorComponent, raggiunta dal browser): se la
+    // chiede il server, l'unica risposta onesta è "adesso no, riprova" (503), non 404: la rotta esiste.
+    if (normalized === '/error/offline') return 503;
     return isKnownPagePath(normalized, knownPagePaths) ? null : 404;
 }
 
@@ -344,6 +347,9 @@ app.use(async (request: Request, response: Response, next) => {
 
         const seoStatus = getSeoStatusForPath(request.path);
         response.status(seoStatus ?? renderedResponse.status);
+        // 503 = "adesso no, riprova": Retry-After è l'indicazione che crawler e client si aspettano
+        // con quello status (RFC 9110 §10.2.3); per gli altri codici d'errore non è definito.
+        if (seoStatus === 503) response.setHeader('Retry-After', '60');
         response.setHeader('Cache-Control', 'no-cache');
 
         // Header noindex per pagine protette o escluse da SEO
@@ -374,16 +380,11 @@ app.use(async (request: Request, response: Response, next) => {
                 console.error('[SSR stream]', `requestId=${response.locals['requestId']}`, err);
                 response.destroy(err);
             });
-            // Propaga il nonce anche al bootstrap che avviene per intero nel browser (vedi
-            // injectCspNonceIntoAppRoot): senza, le rotte RenderMode.Client (jolly /error/**,
-            // pagine requiresAuth) e ogni navigazione client-side successiva perderebbero gli
-            // <style> di encapsulation, bloccati in silenzio da style-src-elem.
+            // Propaga il nonce al bootstrap client (RenderMode.Client, requiresAuth, navigazioni
+            // successive): senza, gli <style> di encapsulation restano bloccati da style-src-elem.
             if (nonce) {
                 const nonceStream = injectCspNonceIntoAppRoot(nonce);
-                // Stesso motivo dell'handler su `stream` sopra: senza, un errore qui (per quanto
-                // improbabile, sono solo operazioni sincrone su Buffer) è un 'error' non ascoltato
-                // su questo stream intermedio e fa crashare l'intero processo Node, non solo la
-                // richiesta corrente.
+                // Come per `stream` sopra: un errore qui non ascoltato farebbe crashare l'intero processo Node.
                 nonceStream.on('error', (err) => {
                     console.error('[SSR stream]', `requestId=${response.locals['requestId']}`, err);
                     response.destroy(err);

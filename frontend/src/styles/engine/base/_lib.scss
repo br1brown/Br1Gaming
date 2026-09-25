@@ -4,8 +4,14 @@
 
 @use 'sass:map';
 
-/// Breakpoint Bootstrap `md`. Fonte unica per le media query dell'Engine.
+/// Breakpoint Bootstrap (stessi valori di `$grid-breakpoints`: bootstrap.scss lo verifica a compile-time).
+/// Fonte unica per le media query dell'Engine; esportati anche come `--bp-*` su `html` (_base.scss)
+/// e letti da JS in `breakpoints.ts`. `md` è il confine mobile/desktop di navbar, dropdown e menu.
+$bp-sm: 576px;
 $bp-md: 768px;
+$bp-lg: 992px;
+$bp-xl: 1200px;
+$bp-xxl: 1400px;
 
 /// `map.get` per le chiavi di generated/_theme.scss (scritte da theme-scss.ts): una chiave assente
 /// ferma la compilazione invece di tornare null e lasciar ricadere in silenzio il default di Bootstrap.

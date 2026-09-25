@@ -1,7 +1,71 @@
-/* Contenuto sopra gli effetti di sfondo (smoke), sotto i dropdown della navbar: z-index minimo apposta. */
+@use 'lib';
+
+/* z-index: 1 tiene <main> sopra gli effetti smoke e sotto i dropdown della navbar; il padding non è
+   un valore fisso ma segue superficie/ruolo, così testo e breadcrumb si allineano con o senza pannello. */
 main#main-content {
     position: relative;
     z-index: 1;
+    width: 100%;
+    max-width: var(--larghezzaShell);
+    margin-inline: auto;
+    padding-block: calc(2 * var(--densitaRespiro));
+    padding-inline: var(--densitaRespiro);
+}
+
+@media (min-width: #{lib.$bp-md}) {
+    main#main-content {
+        padding-block: calc(2 * var(--densitaRespiroLargo));
+        padding-inline: calc(2 * var(--densitaRespiroLargo));
+    }
+}
+
+main#main-content:has(> .row > .content-panel) {
+    padding-block: var(--densitaRespiro);
+    padding-inline: 0;
+}
+
+@media (min-width: #{lib.$bp-md}) {
+    main#main-content:has(> .row > .content-panel) {
+        padding-block: var(--densitaRespiroLargo);
+        padding-inline: var(--densitaRespiroLargo);
+    }
+}
+
+/* La riga di <main> (breadcrumb + pannello o pagina) senza gutter di Bootstrap: gli scostamenti li
+   decide il padding di <main> qui sopra, non un ±12px di riga e colonne che si sommerebbe. Solo la
+   riga diretta: le .row dentro le pagine tengono il loro gutter. */
+#main-content > .row {
+    --bs-gutter-x: 0;
+}
+
+/* Breadcrumb sopra un foglio a filo schermo: rientra come il testo del foglio, invece di toccare il
+   bordo. Da md in su, sopra la card, resta allineato al bordo della card. */
+@media (max-width: #{lib.$bp-md - 0.02px}) {
+    main#main-content:has(> .row > .content-panel) > .row > :not(.content-panel) {
+        padding-inline: var(--densitaRespiro);
+    }
+}
+
+/* Linea del contenuto per navbar/footer: geometria letta dal design system (--superficiPannello/
+   --larghezzaColonne), non dalla pagina, così la navbar non si sposta cambiando pagina quando un ruolo spegne il pannello. */
+.shell-line {
+    --shellInline: var(--densitaRespiro);
+    width: 100%;
+    max-width: var(--larghezzaShell);
+    margin-inline: auto;
+    padding-inline: max(var(--shellInline), env(safe-area-inset-left, 0px)) max(var(--shellInline), env(safe-area-inset-right, 0px));
+}
+
+@media (min-width: #{lib.$bp-md}) {
+    .shell-line {
+        --shellInline: calc((2 - var(--superficiPannello, 1)) * var(--densitaRespiroLargo));
+    }
+}
+
+@media (min-width: #{lib.$bp-lg}) {
+    .shell-line {
+        padding-inline: calc(var(--shellInline) + (min(100%, var(--larghezzaShell)) - 2 * var(--densitaRespiroLargo)) * var(--larghezzaColonne, 0) / 12);
+    }
 }
 
 /* Vista full-bleed (fitViewport del ruolo): <main> colonna flex a bordi pieni, la pagina ne eredita
@@ -10,7 +74,7 @@ main#main-content {
     display: flex;
     flex-direction: column;
     width: 100%;
-    max-width: none;   /* annulla --shellMaxWidth del layout normale */
+    max-width: none;   /* annulla --larghezzaShell del layout normale */
     margin: 0;         /* niente centratura: full-bleed */
     padding: 0;        /* niente gutter laterale né spazio cookie-banner: vista immersiva edge-to-edge */
 }
@@ -31,11 +95,28 @@ main#main-content {
     display: block;
 }
 
-/* Pannello contenuti: i colori arrivano dal suo data-bs-theme (tono.pannello); .panel-light/-dark solo come aggancio.
-   Cornice discreta: il bordo del tema (≥3:1) serve ai controlli, non a un contenitore. */
+/* Pannello contenuti: colori dal suo data-bs-theme, bordo discreto (≥3:1, per i controlli non il
+   contenitore), raggio/ombra da `elevazione` e respiro interno da `densita`, come ogni altra superficie sollevata. */
 .content-panel {
     background-color: var(--colorSurface);
     border: 1px solid var(--bs-border-color-translucent);
-    padding: 10px;
+    border-radius: var(--elevazioneRaggio, 0.85rem);
+    box-shadow: var(--shadowElevated, 0 10px 24px rgba(0, 0, 0, 0.18));
+    padding: var(--densitaRespiro);
     color: var(--colorSurfaceText);
+}
+
+@media (min-width: #{lib.$bp-md}) {
+    .content-panel {
+        padding: var(--densitaRespiroLargo);
+    }
+}
+
+/* Sotto md il pannello occupa tutta la larghezza dello schermo (<main> non ha padding laterale, vedi
+   sopra): a filo, come un foglio, senza angoli arrotondati né bordi laterali contro il bordo del telefono. */
+@media (max-width: #{lib.$bp-md - 0.02px}) {
+    .content-panel {
+        border-radius: 0;
+        border-inline: 0;
+    }
 }

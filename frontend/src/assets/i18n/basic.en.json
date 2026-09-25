@@ -174,6 +174,9 @@
   "valoreInvalidoErrore": "The value entered is invalid.",
   "numeroPositivoErrore": "Please enter a positive number.",
   "caricamentoStato": "Loading...",
+  "nessunElementoStato": "Nothing here yet",
+  "nessunRisultatoStato": "No results",
+  "immagineNonDisponibileStato": "Image not available",
   "chiudiAzione": "Close",
   "confermaAzione": "Confirm",
   "confermatoStato": "Confirmed!",
@@ -287,5 +290,16 @@
   "mdEditorEmptyPreview": "Nothing to show: the text is empty.",
   "mdEditorBoldPlaceholder": "bold text",
   "mdEditorItalicPlaceholder": "italic text",
-  "mdEditorLinkPlaceholder": "link text"
+  "mdEditorLinkPlaceholder": "link text",
+  "offlineAvviso": "You're offline: some features are unavailable until the connection is back.",
+  "offlineRipristinato": "Connection restored.",
+  "erroreOfflineTitolo": "You're offline",
+  "erroreOfflineDescrizione": "This page needs a network connection. Check your connection and try again.",
+  "erroreIrraggiungibileTitolo": "Server unreachable",
+  "erroreIrraggiungibileDescrizione": "The site can't reach the server. Try again in a moment.",
+  "riprovaAzione": "Try again",
+  "erroreServizioTitolo": "Service unavailable",
+  "erroreServizioDescrizione": "The site is up, but the service providing its data isn't: it may be under maintenance or overloaded. Try again in a moment.",
+  "sessioneScadeTraAvviso": "Your session expires in {0} minutes: save what you are doing.",
+  "sessioneScadutaAvviso": "Session expired: sign in again to continue."
 }

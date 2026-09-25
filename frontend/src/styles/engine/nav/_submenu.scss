@@ -1,9 +1,7 @@
 @use 'engine/base/lib' as lib;
 
 /* ── Sottomenu multilivello (dal 2º livello in giù) ───────────────────
-   Il pannello `.submenu-panel` è anch'esso una `.dropdown-menu`, quindi
-   eredita colori/ombra dal tema. Trigger button `.submenu-toggle` reso
-   come riga del menu (eredita `.dropdown-item`) con caret laterale. */
+   .submenu-panel è anche .dropdown-menu (eredita colori/ombra dal tema); .submenu-toggle eredita .dropdown-item con caret laterale. */
 
 .submenu-toggle {
     border: 0;
@@ -14,7 +12,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.5rem;
+    gap: var(--space-2);
 }
 
 /* Breadcrumb: ogni gruppo-antenato che contiene la rotta corrente resta in
@@ -97,7 +95,7 @@
     }
 
     .submenu-toggle {
-        padding-inline: 0 0.25rem;
+        padding-inline: 0 var(--space-1);
     }
 
     /* Caret rivolto in basso, ruota verso l'alto quando il gruppo è aperto. */

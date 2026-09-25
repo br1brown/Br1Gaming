@@ -289,6 +289,32 @@ $_semantic-text: ();
     }
 }
 
+// ── Token di misura derivati da Bootstrap: un valore solo, il suo ─────────────────────────────
+// Bootstrap le espone solo come variabili Sass (compile-time): qui diventano custom property lette a
+// runtime da componenti/JS, e seguono da sole un $spacers o $zindex-* cambiato dal progetto.
+:root {
+    // Spazi: gli stessi gradini di .p-N/.gap-N — var(--space-3) ≡ .p-3. Lo 0 non serve come token.
+    @each $key, $value in $spacers {
+        @if $key != 0 {
+            --space-#{$key}: #{$value};
+        }
+    }
+    --fs-sm: #{$font-size-sm};       // .small, .btn-sm, .form-control-sm: microcopy, voci di menu
+    --lh-tight: #{$line-height-sm};
+    // Livelli z dei nostri overlay che coincidono con la scala di Bootstrap.
+    --z-navbar: #{$zindex-sticky};                    // navbar agganciata e suoi dropdown
+    --z-cookie-banner: #{$zindex-offcanvas-backdrop};
+    --z-mobile-nav-overlay: #{$zindex-offcanvas};     // pannello mobile: sopra il cookie banner
+}
+
+// I breakpoint di base/_lib.scss ($bp-*) servono ai partial che non caricano Bootstrap, e a JS: qui,
+// dove $grid-breakpoints è in scope, un valore diverso ferma la build invece di divergere in silenzio.
+@each $key, $expected in (sm: lib.$bp-sm, md: lib.$bp-md, lg: lib.$bp-lg, xl: lib.$bp-xl, xxl: lib.$bp-xxl) {
+    @if map.get($grid-breakpoints, $key) != $expected {
+        @error "base/_lib.scss: $bp-#{$key} (#{$expected}) non combacia con $grid-breakpoints.#{$key} (#{map.get($grid-breakpoints, $key)}) di Bootstrap.";
+    }
+}
+
 // ── Bottoni/badge per tono: Bootstrap li compila una volta, qui diventano custom property ereditate ──
 @function _btn-shift($fill, $shade-amount, $tint-amount) {
     @return if(color-contrast($fill) == $color-contrast-light, shade-color($fill, $shade-amount), tint-color($fill, $tint-amount));

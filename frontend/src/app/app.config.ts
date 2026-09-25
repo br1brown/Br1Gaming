@@ -11,6 +11,7 @@ import { provideRouter, withComponentInputBinding, withInMemoryScrolling, withVi
 import { routes } from './core/engine/routing';
 import { AuthService } from './core/services/auth.service';
 import { AppearanceService } from './core/engine/services/appearance.service';
+import { SessionExpiryNoticeService } from './core/engine/services/session-expiry-notice.service';
 import { TranslateService } from './core/engine/services/translate.service';
 import { SSR_API_PREFIX } from './core/engine/services/base-api.service';
 import { apiErrorInterceptor } from './core/engine/interceptors/api-error.interceptor';
@@ -64,6 +65,8 @@ export const appConfig: ApplicationConfig = {
             // Istanzia AppearanceService subito così il listener prefersReducedMotion
             // è attivo prima che i componenti inizino a leggerne il signal.
             inject(AppearanceService);
+            // Avvisi di scadenza della sessione (toast prima e alla scadenza, via dalle pagine riservate).
+            inject(SessionExpiryNoticeService);
 
             // I titoli delle pagine nelle route sono chiavi di traduzione
             // La lingua iniziale va quindi caricata prima che l'app cominci a usarli

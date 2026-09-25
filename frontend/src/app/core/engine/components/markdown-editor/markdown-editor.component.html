@@ -25,9 +25,9 @@
                 <span class="d-none d-md-inline ms-1">{{ button.labelKey | translate }}</span>
             </button>
         }
-        <!-- Etichetta fissa: lo stato lo dice aria-pressed -->
         <button type="button"
                 class="btn btn-sm btn-outline-primary ms-auto"
+                [class.active]="previewing()"
                 [disabled]="disabled()"
                 [attr.tabindex]="tabStop() === previewIndex ? 0 : -1"
                 [attr.aria-pressed]="previewing()"

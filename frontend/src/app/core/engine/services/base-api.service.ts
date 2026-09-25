@@ -6,10 +6,7 @@ import { TranslateService } from './translate.service';
 import { TokenService } from './token.service';
 import { NotificationConnection } from './notification-connection';
 
-/**
- * Interfaccia basata sullo standard RFC 9457 (Problem Details for HTTP APIs)
- * Molti framework moderni (ASP.NET Core, Spring, NestJS) usano questo formato.
- */
+/** RFC 9457 (Problem Details for HTTP APIs): formato usato da molti framework backend (ASP.NET Core, Spring, NestJS). */
 export interface ProblemDetails {
     type?: string;
     title?: string;
@@ -41,6 +38,12 @@ export function extractProblemDetails(body: unknown): ProblemDetails | null {
     return null;
 }
 
+/** Status che dicono "adesso no, riprova" e non "questa richiesta è sbagliata": 0 = nessuna risposta,
+ *  502/504 = backend irraggiungibile dietro il proxy SSR, 503 = il backend si dichiara non disponibile. */
+export function isAvailabilityError(status: number): boolean {
+    return status === 0 || status === 502 || status === 503 || status === 504;
+}
+
 /** Errore applicativo normalizzato: i wrapper (`api_get`, `api_post`...) ri-lanciano sempre `HttpErrorResponse` come `ApiError` (status + eventuali `ProblemDetails`), senza dipendere dai dettagli di trasporto Angular. `status === 0` = errore di rete/server irraggiungibile. */
 export class ApiError extends Error {
     constructor(
@@ -52,20 +55,21 @@ export class ApiError extends Error {
     }
 }
 
+/** Rifiuto immediato di una chiamata SSR senza `BACKEND_ORIGIN` configurato: nessuna richiesta è
+ *  partita, non è un problema di disponibilità — i resolver lo trattano come contenuto vuoto, mai come pagina d'errore. */
+export class SsrBackendUnconfiguredError extends ApiError {
+    constructor() {
+        super(0, null);
+        this.name = 'SsrBackendUnconfiguredError';
+    }
+}
+
 /** Opzioni per le singole chiamate API. */
 export interface ApiCallOptions {
-    /**
-     * Se `true`, l'`apiErrorInterceptor` salta la notifica automatica (modale/toast) e si limita
-     * a propagare un `ApiError`, lasciando che sia il chiamante a gestire l'errore con la propria
-     * UI (es. il form di login lo mostra inline). Default `false`: notifica automatica attiva.
-     */
+    /** `true`: l'interceptor salta la notifica automatica e propaga solo l'`ApiError`, per un chiamante con una UI d'errore propria (es. il login). Default `false`. */
     silent?: boolean;
 }
 
-/**
- * TOKEN DI INIEZIONE (Dependency Injection)
- * Utilizzati per configurare il comportamento del servizio in base all'ambiente (Browser vs SSR).
- */
 // URL assoluto del backend (usato solo lato server)
 export const SSR_BACKEND_ORIGIN = new InjectionToken<string>('SSR_BACKEND_ORIGIN');
 // Prefisso API (es. /api/v1)
@@ -73,11 +77,6 @@ export const SSR_API_PREFIX = new InjectionToken<string>('SSR_API_PREFIX');
 // Chiave segreta (usata solo lato server)
 export const SSR_API_KEY = new InjectionToken<string>('SSR_API_KEY');
 
-/**
- * CLASSE BASE PER I CLIENT HTTP
- * Centralizza la logica di comunicazione, la gestione degli header e degli errori.
- * Essendo abstract, non può essere istanziata direttamente ma va estesa.
- */
 export abstract class BaseApiService {
     // Dipendenze iniettate tramite la funzione inject() (Pattern Angular 14+).
     // NB: nessuna NotificationService qui — il client API è puro: fa la chiamata e propaga
@@ -89,10 +88,7 @@ export abstract class BaseApiService {
     // il campanellino è attivo). Così l'header X-Connection-Id parte solo se le notifiche servono.
     private readonly connection = inject(NotificationConnection);
 
-    /**
-     * Contesto HTTP che marca la richiesta come "gestita" per l'`apiErrorInterceptor`:
-     * normalizza l'errore in `ApiError` e notifica l'utente, salvo `silent`.
-     */
+    /** Contesto HTTP che marca la richiesta come "gestita": l'interceptor normalizza l'errore e notifica, salvo `silent`. */
     private apiContext(opts?: ApiCallOptions): HttpContext {
         return new HttpContext().set(API_NOTIFY, !opts?.silent);
     }
@@ -102,22 +98,13 @@ export abstract class BaseApiService {
     protected readonly apiProxyPrefix = inject(SSR_API_PREFIX, { optional: true }) ?? '/api';
     private readonly ssrApiKey = inject(SSR_API_KEY, { optional: true });
 
-    /**
-     * Ritorna true se siamo in SSR ma BACKEND_ORIGIN non è configurato (es. route extraction in CI).
-     * In questo caso non ha senso fare chiamate HTTP: falliamo subito silenziosamente
-     * così i .catch() nei resolver restituiscono dati vuoti senza bloccare il build.
-     */
+    /** True in SSR senza `BACKEND_ORIGIN` (es. estrazione rotte in CI): falliamo subito, così i `.catch()` dei resolver restituiscono dati vuoti senza bloccare il build. */
     private get ssrBackendUnconfigured(): boolean {
         // ssrOrigin è null in browser, stringa (anche '') in SSR.
         // La stringa vuota significa che BACKEND_ORIGIN non era settato al momento del boot.
         return this.ssrOrigin !== null && this.ssrOrigin !== undefined && !this.ssrOrigin;
     }
 
-    /**
-     * Determina l'endpoint finale della richiesta.
-     * Gestisce la differenza tra chiamate client-side (relative) e server-side (assolute).
-     * @param url - Il path relativo dell'endpoint (es. 'users')
-     */
     protected resolveUrl(url: string): string {
         const base = this.ssrOrigin ?? this.apiProxyPrefix;
         return BaseApiService.joinUrl(base, url);
@@ -138,7 +125,7 @@ export abstract class BaseApiService {
 
     /** Esegue una richiesta GET. */
     protected api_get<T>(url: string, params?: HttpParams, opts?: ApiCallOptions): Promise<T> {
-        if (this.ssrBackendUnconfigured) return Promise.reject(new ApiError(0, null));
+        if (this.ssrBackendUnconfigured) return Promise.reject(new SsrBackendUnconfiguredError());
         return firstValueFrom(
             this.http.get<T>(this.resolveUrl(url), {
                 headers: this.build_api_Headers(),
@@ -150,7 +137,7 @@ export abstract class BaseApiService {
 
     /** GET dati binari (immagini, PDF...): `responseType: 'blob'` non è compatibile con la firma generica di `api_get<T>`, quindi un metodo dedicato — ma stessa pipeline resolveUrl/header/interceptor. */
     protected api_get_blob(url: string, params?: HttpParams, opts?: ApiCallOptions): Promise<Blob> {
-        if (this.ssrBackendUnconfigured) return Promise.reject(new ApiError(0, null));
+        if (this.ssrBackendUnconfigured) return Promise.reject(new SsrBackendUnconfiguredError());
         return firstValueFrom(
             this.http.get(this.resolveUrl(url), {
                 headers: this.build_api_Headers(),
@@ -163,7 +150,7 @@ export abstract class BaseApiService {
 
     /** Esegue una richiesta POST inviando un body JSON. */
     protected api_post<T>(url: string, body: unknown, opts?: ApiCallOptions): Promise<T> {
-        if (this.ssrBackendUnconfigured) return Promise.reject(new ApiError(0, null));
+        if (this.ssrBackendUnconfigured) return Promise.reject(new SsrBackendUnconfiguredError());
         return firstValueFrom(
             this.http.post<T>(this.resolveUrl(url), body, {
                 headers: this.build_api_Headers(),
@@ -174,7 +161,7 @@ export abstract class BaseApiService {
 
     /** POST con `FormData` (upload multipart). Non imposta `Content-Type` a mano: Angular/browser lo fa da sé col boundary corretto, impostarlo a mano lo spezzerebbe. */
     protected api_post_form<T>(url: string, formData: FormData, opts?: ApiCallOptions): Promise<T> {
-        if (this.ssrBackendUnconfigured) return Promise.reject(new ApiError(0, null));
+        if (this.ssrBackendUnconfigured) return Promise.reject(new SsrBackendUnconfiguredError());
         return firstValueFrom(
             this.http.post<T>(this.resolveUrl(url), formData, {
                 headers: this.build_api_Headers(),
@@ -196,11 +183,6 @@ export abstract class BaseApiService {
 
     // ─── INFRASTRUTTURA E SICUREZZA ───────────────────────────────────────
 
-    /**
-     * Costruisce gli header per ogni richiesta.
-     * Gestisce dinamicamente: Lingua, API Key (solo SSR) e Token di Autenticazione.
-     * @param aggiunte - Eventuali header extra specifici per una singola chiamata.
-     */
     protected build_api_Headers(aggiunte?: { [key: string]: string }): HttpHeaders {
         let headers = new HttpHeaders()
             .set('Accept-Language', this.translate.currentLang());

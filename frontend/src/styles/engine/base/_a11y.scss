@@ -1,10 +1,26 @@
-/* Alto contrasto di Windows: focus e link sui colori di sistema, non sui nostri. */
+/* Alto contrasto di Windows: la modalità cancella sfondi e ombre forzando i bordi al colore di
+   sistema, quindi dove un confine o uno stato erano dati solo da sfondo/ombra serve un bordo o un contorno vero. */
 @media (forced-colors: active) {
     :focus-visible {
         outline-color: Highlight;
     }
     :where(a:not(.btn)) {
         color: LinkText;
+    }
+    /* !important: gli stili di componente (specificità più alta) tolgono il bordo per ragioni
+       visive (`border: none` sul FAB cookie e sul banner, dove l'anello è un'ombra) che qui non
+       valgono più: senza ombre, il bordo è l'unico confine rimasto. */
+    .icon,
+    .fab,
+    .surface-elevated,
+    .notification-bell-badge {
+        border: 1px solid CanvasText !important;
+    }
+    .navbar .dropdown-item.active,
+    .navbar .dropdown-item:hover,
+    .navbar .dropdown-item:focus-visible {
+        outline: 2px solid Highlight;
+        outline-offset: -2px;
     }
 }
 
@@ -33,11 +49,11 @@
     left: 50%;
     transform: translateX(-50%);
     z-index: var(--z-skip-link);
-    padding: 0.5rem 1.5rem;
+    padding: var(--space-2) var(--space-4);
     background: var(--colorPrimary, #212529);
     color: var(--colorPrimaryText, #fff);
-    border-radius: 0.375rem;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    border-radius: var(--bs-border-radius);
+    box-shadow: var(--shadowElevated);
     text-decoration: none;
     font-weight: 600;
 }
@@ -55,12 +71,15 @@
 }
 
 
-/* Touch target minimo 44px (WCAG 2.5.5 / 2.5.8) per i bottoni icona.
-   Unica regola condivisa: i componenti azione usano le classi Bootstrap
-   (btn btn-outline-secondary) + questa utility, senza CSS per-componente. */
+/* Touch target minimo 44px (WCAG 2.5.5/2.5.8) per ogni bottone usato da solo: regola condivisa via
+   classi Bootstrap (btn btn-*) + questa utility, mai misure per-componente. */
 .btn-touch {
-    min-width: 2.75rem;
-    min-height: 2.75rem;
+    min-width: var(--touchTarget);
+    min-height: var(--touchTarget);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
 }
 
 /* Box fisso per icone che cambiano glifo (larghezze Font Awesome diverse): il bottone non cambia misura. */

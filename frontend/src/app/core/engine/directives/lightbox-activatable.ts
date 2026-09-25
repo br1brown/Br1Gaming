@@ -2,12 +2,9 @@ import { Directive, ElementRef, HostBinding, HostListener, inject, Injector, PLA
 import { isPlatformBrowser } from '@angular/common';
 import type { LightboxSource } from '../components/image-lightbox/image-lightbox-overlay.component';
 
-/** Attivazione lightbox condivisa da `AssetDirective` (`appAssetLightbox`) e `LightboxDirective`
- *  (`appLightbox`): cursore/tabindex/role/click/tastiera per aprire `ImageLightboxService` — un fix
- *  d'accessibilità si applica a entrambe invece di essere ricopiato a mano. `ImageLightboxService`
- *  (CDK Overlay/Portal) è importato solo dentro `onLightboxActivate()`, mai in cima al file: questa
- *  directive resta montata anche dove il lightbox è spento (es. icona brand in navbar), un `import`
- *  statico trascinerebbe CDK Overlay (~65KB raw/16KB gzip) nel bundle eager per chiunque. */
+/** Attivazione lightbox condivisa da `AssetDirective` e `LightboxDirective`. `ImageLightboxService`
+ *  (CDK Overlay) si importa dinamicamente solo dentro `onLightboxActivate()`, mai in cima al file:
+ *  un `import` statico lo trascinerebbe nel bundle eager anche dove il lightbox resta spento. */
 @Directive()
 export abstract class LightboxActivatable {
     private readonly injector = inject(Injector);
@@ -34,10 +31,14 @@ export abstract class LightboxActivatable {
         return this.lightboxEnabled() ? 'button' : null;
     }
 
-    /** `role="button"` fa calcolare il nome accessibile con l'algoritmo generico (contenuto/
-     *  aria-label/aria-labelledby), non più quello specifico di `<img>` — `alt` da solo smette di
-     *  contare, anche se il DOM lo porta ancora. Specchiarlo qui è l'unico modo per non perdere il
-     *  nome accessibile quando l'affordance è attiva (rilevato da pa11y, WCAG2AA.4_1_2/H91.Img.Name). */
+    /** Dice a chi usa uno screen reader che il bottone apre un dialog, non un'azione sul posto. */
+    @HostBinding('attr.aria-haspopup')
+    protected get lightboxHasPopup(): string | null {
+        return this.lightboxEnabled() ? 'dialog' : null;
+    }
+
+    /** Con `role="button"` il nome accessibile si calcola con l'algoritmo generico, e `alt` da solo
+     *  smette di contare: lo specchiamo qui per non perderlo quando l'affordance è attiva. */
     @HostBinding('attr.aria-label')
     protected get lightboxAriaLabel(): string | null {
         return this.lightboxEnabled() ? this.hostEl.getAttribute('alt') : null;

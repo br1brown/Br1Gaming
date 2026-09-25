@@ -35,6 +35,9 @@ import { TelegramContactComponent } from '../../core/engine/components/telegram-
 import { SocialLinkComponent } from '../../core/engine/components/social-link/social-link.component';
 import { UploadFormComponent } from '../../core/engine/components/upload-form/upload-form.component';
 import { MarkdownEditorComponent } from '../../core/engine/components/markdown-editor/markdown-editor.component';
+import { ImgFallbackDirective } from '../../core/engine/directives/img-fallback.directive';
+import { EmptyStateComponent } from '../../core/engine/components/empty-state/empty-state.component';
+import { BusyIconComponent } from '../../core/engine/components/busy-icon/busy-icon.component';
 
 /**
  * "Che faccio" (`/che-faccio`, `/en/what-i-do`): la vetrina completa delle funzionalità
@@ -64,6 +67,9 @@ import { MarkdownEditorComponent } from '../../core/engine/components/markdown-e
         TelegramContactComponent,
         SocialLinkComponent,
         UploadFormComponent,
+        ImgFallbackDirective,
+        EmptyStateComponent,
+        BusyIconComponent,
     ],
     templateUrl: './che-faccio.component.html',
 })
@@ -154,6 +160,9 @@ export class CheFaccioComponent extends PageBaseComponent<void> {
     // <DEMO_BLOCK_START>
     socialFilter = '';
     readonly socialResult = signal('');
+    /** Chiamata in corso (bottone occupato) e risposta vuota (stato vuoto al posto del JSON). */
+    readonly socialLoading = signal(false);
+    readonly socialEmpty = signal(false);
     // <DEMO_BLOCK_END>
 
     // --- Upload (ApiService.uploadBlob/.uploadBlobs) ---
@@ -598,12 +607,20 @@ wa = { phone: '+39...', text: 'Ciao' };
 
     // <DEMO_BLOCK_START>
     async callSocialApi(): Promise<void> {
+        if (this.socialLoading()) return;
         const nomi = this.socialFilter.trim()
             ? this.socialFilter.split(',').map(s => s.trim()).filter(Boolean)
             : undefined;
 
-        const res = await this.api.getSocial(nomi);
-        this.socialResult.set(JSON.stringify(res, null, 2));
+        this.socialLoading.set(true);
+        try {
+            const res = await this.api.getSocial(nomi);
+            const empty = Object.keys(res ?? {}).length === 0;
+            this.socialEmpty.set(empty);
+            this.socialResult.set(empty ? '' : JSON.stringify(res, null, 2));
+        } finally {
+            this.socialLoading.set(false);
+        }
     }
     // <DEMO_BLOCK_END>
 

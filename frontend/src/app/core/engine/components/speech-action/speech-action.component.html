@@ -1,16 +1,17 @@
-<button class="btn btn-outline-secondary btn-touch d-inline-flex align-items-center justify-content-center gap-2"
+<!-- Stesso schema per ogni bottone azione: .btn-touch (target di tocco, contenuto centrato),
+     glifo che diventa spinner durante il lavoro (BusyIconComponent), disabled + aria-busy nel mentre. -->
+<button class="btn btn-outline-secondary btn-touch"
         type="button"
         [class.w-100]="fullWidth()"
         [class.active]="isSpeaking()"
         [class.pulse-live]="isSpeaking()"
         [attr.aria-pressed]="isSpeaking()"
+        [disabled]="loading()"
+        [attr.aria-busy]="loading() || null"
         [attr.title]="showLabel() ? null : displayLabel()"
         [attr.aria-label]="showLabel() ? null : displayLabel()"
         (click)="onClick()">
-    <i class="fa-solid fs-5 icon-fixed"
-       [class.fa-volume-high]="!isSpeaking()"
-       [class.fa-stop]="isSpeaking()"
-       aria-hidden="true"></i>
+    <app-busy-icon [glyph]="isSpeaking() ? 'fa-solid fa-stop' : 'fa-solid fa-volume-high'" [busy]="loading()" />
     @if (showLabel()) {
         <span>{{ displayLabel() }}</span>
     }

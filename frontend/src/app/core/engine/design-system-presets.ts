@@ -68,22 +68,42 @@ export interface SmokePreset {
 /** 3 velocità nominate per ogni gesto d'apertura/transizione (fade pagina, dropdown, lightbox): un solo asse invece di durate scelte indipendentemente per ognuno. Stesso principio di `superfici`/`smoke.intensita`. */
 export type Movimento = 'fermo' | 'scatto' | 'svelto' | 'morbido';
 
-/** Durate dietro ogni `Movimento`: `pannello` (dropdown, lightbox) sempre più rapido della `pagina`. */
-export const MOVIMENTO_DURATA: Record<Movimento, { pagina: string; pannello: string }> = {
-    fermo: { pagina: '0s', pannello: '0s' },
-    scatto: { pagina: '0.15s', pannello: '0.1s' },
-    svelto: { pagina: '0.25s', pannello: '0.15s' },
-    morbido: { pagina: '0.45s', pannello: '0.28s' },
+/** Durate dietro ogni `Movimento`, dalla più lunga alla più corta: `pagina` (fade di pagina),
+ *  `pannello` (un pannello che compare: dropdown, lightbox, banner), `micro` (feedback di hover/press
+ *  su un controllo già visibile). Mai `micro` > `pannello` > `pagina`. */
+export const MOVIMENTO_DURATA: Record<Movimento, { pagina: string; pannello: string; micro: string }> = {
+    fermo: { pagina: '0s', pannello: '0s', micro: '0s' },
+    scatto: { pagina: '0.15s', pannello: '0.1s', micro: '0.08s' },
+    svelto: { pagina: '0.25s', pannello: '0.15s', micro: '0.15s' },
+    morbido: { pagina: '0.45s', pannello: '0.28s', micro: '0.2s' },
 };
 
 /** 3 gradi di "quanto un pannello elevato si stacca dalla superficie sotto": ombra e raggio d'angolo scelti insieme, non separabili (stessa idea di `superfici`). */
 export type Elevazione = 'piatta' | 'sospesa' | 'flottante';
 
 /** Valori grezzi dietro ogni `Elevazione`, uso interno di `theme-scss.ts`. 'sospesa' è il default. */
-export const ELEVAZIONE_TIERS: Record<Elevazione, { ombra: string; ombraHover: string; raggio: string }> = {
-    piatta: { ombra: '0 1px 3px rgba(0, 0, 0, 0.10)', ombraHover: '0 2px 6px rgba(0, 0, 0, 0.14)', raggio: '0.35rem' },
-    sospesa: { ombra: '0 10px 24px rgba(0, 0, 0, 0.18)', ombraHover: '0 14px 28px rgba(0, 0, 0, 0.24)', raggio: '0.85rem' },
-    flottante: { ombra: '0 18px 40px rgba(0, 0, 0, 0.24)', ombraHover: '0 24px 52px rgba(0, 0, 0, 0.30)', raggio: '1.25rem' },
+export const ELEVAZIONE_TIERS: Record<Elevazione, { ombra: string; ombraHover: string; raggio: string; ombraBarraGiu: string; ombraBarraSu: string }> = {
+    piatta: { ombra: '0 1px 3px rgba(0, 0, 0, 0.10)', ombraHover: '0 2px 6px rgba(0, 0, 0, 0.14)', raggio: '0.35rem', ombraBarraGiu: '0 1px 2px rgba(0, 0, 0, 0.04)', ombraBarraSu: '0 -1px 2px rgba(0, 0, 0, 0.05)' },
+    sospesa: { ombra: '0 10px 24px rgba(0, 0, 0, 0.18)', ombraHover: '0 14px 28px rgba(0, 0, 0, 0.24)', raggio: '0.85rem', ombraBarraGiu: '0 4px 12px rgba(0, 0, 0, 0.06)', ombraBarraSu: '0 -4px 12px rgba(0, 0, 0, 0.08)' },
+    flottante: { ombra: '0 18px 40px rgba(0, 0, 0, 0.24)', ombraHover: '0 24px 52px rgba(0, 0, 0, 0.30)', raggio: '1.25rem', ombraBarraGiu: '0 6px 18px rgba(0, 0, 0, 0.10)', ombraBarraSu: '0 -6px 18px rgba(0, 0, 0, 0.12)' },
+};
+
+/** 3 gradi di respiro fra chrome, pannello e contenuto (spazio interno del pannello e distacco da
+ *  navbar, footer e bordi dello schermo), sui gradini di `$spacers` di Bootstrap: `respiro` sotto md,
+ *  `respiroLargo` da md in su. Stesso principio di `elevazione`: un asse nominato, non numeri sparsi. */
+export type Densita = 'compatta' | 'normale' | 'ariosa';
+export const DENSITA_TIERS: Record<Densita, { respiro: string; respiroLargo: string }> = {
+    compatta: { respiro: '0.5rem', respiroLargo: '1rem' },
+    normale: { respiro: '1rem', respiroLargo: '1.5rem' },
+    ariosa: { respiro: '1.5rem', respiroLargo: '3rem' },
+};
+
+/** Larghezza massima dello shell (contenuto, navbar e footer si centrano oltre) per `larghezza`: la
+ *  stessa scelta della colonna del pannello, portata agli schermi ultra-wide. */
+export const CONTENT_WIDTH_SHELL_MAX: Record<ContentWidth, string> = {
+    colonna: '80rem',
+    ampio: '90rem',
+    pieno: '100rem',
 };
 
 /** Larghezza della colonna del pannello contenuti e del breadcrumb sopra, dalla più stretta alla
@@ -96,6 +116,14 @@ export const CONTENT_WIDTH_CLASSES: Record<ContentWidth, string> = {
     colonna: 'col-12 col-lg-8 offset-lg-2',
     ampio: 'col-12 col-lg-10 offset-lg-1',
     pieno: 'col-12',
+};
+
+/** L'offset-lg-N di `CONTENT_WIDTH_CLASSES`, in colonne su 12: campo esplicito invece di re-derivarlo
+ *  dalla stringa di classi, così un `ContentWidth` nuovo non compila finché non lo valorizza qui. */
+export const CONTENT_WIDTH_OFFSET_LG: Record<ContentWidth, number> = {
+    colonna: 2,
+    ampio: 1,
+    pieno: 0,
 };
 
 /** 3 caratteri nominati per il separatore fra le voci del breadcrumb (`BreadcrumbComponent`). */
@@ -186,8 +214,10 @@ export interface DesignSystemPreset {
     /** Quanto si muove il sito: durata di transizione fra pagine, fade d'ingresso, aperture e alone dei
      *  toggle attivi. `'fermo'` li spegne ovunque, anche nei ruoli che li chiedono. Default `'svelto'`. */
     movimento?: Movimento;
-    /** Ombra di dropdown, menu contestuale, cookie banner e FAB; raggio d'angolo di dropdown e menu contestuale (i FAB restano tondi). Default `'sospesa'`. */
+    /** Ombra di dropdown, menu contestuale, cookie banner, FAB e delle barre (navbar, footer, fasce in fondo); raggio d'angolo di dropdown e menu contestuale (i FAB restano tondi). Default `'sospesa'`. */
     elevazione?: Elevazione;
+    /** Respiro fra chrome, pannello e contenuto: spazio interno del pannello e distacco da navbar, footer e bordi. Default `'normale'`. */
+    densita?: Densita;
     navbar?: {
         /** `false`: niente navbar su nessuna pagina, qualunque ruolo. Default `true`. */
         show?: boolean;
@@ -268,10 +298,8 @@ const COLORI_BASE_BOOTSTRAP = new Set([
     'black', 'white', 'gray', 'gray-dark',
 ]);
 
-/** Primo segmento dopo `.btn-`, `.btn-outline-`, `.alert-`, `.list-group-item-`, `.text-`, `.text-bg-`,
- *  `.bg-`, `.border-`, `.link-`, `.link-underline-`, `.focus-ring-` nelle classi di Bootstrap 5.3: un
- *  colore genera quelle classi col suo nome, e un nome che inizia con uno di questi segmenti finirebbe
- *  su classi di serie (`.btn-sm`, `.text-center`, `.border-top`, `.btn-outline-primary`...). */
+/** Segmenti dopo `.btn-`/`.text-`/`.bg-`/`.border-`/`.link-`/... in Bootstrap 5.3: un nome di palette
+ *  che inizia con uno di questi collide con una classe di serie (es. `.btn-sm`, `.border-top`). */
 const SEGMENTI_CLASSI_BOOTSTRAP = new Set([
     '0', '1', '2', '3', '4', '5', 'action', 'bg', 'black', 'body', 'bottom', 'break', 'capitalize',
     'center', 'check', 'close', 'danger', 'dark', 'decoration', 'dismissible', 'end', 'gradient',
@@ -433,6 +461,7 @@ const REGOLE_GRUPPI: { [G in Gruppo]: Record<keyof NonNullable<DesignSystemPrese
 const REGOLE_RADICE: Record<Exclude<keyof DesignSystemPreset, Gruppo>, RegolaCampo> = {
     movimento: valoriDi(MOVIMENTO_DURATA),
     elevazione: valoriDi(ELEVAZIONE_TIERS),
+    densita: valoriDi(DENSITA_TIERS),
     larghezza: valoriDi(CONTENT_WIDTH_CLASSES),
     badgeNotifiche: valoriDi<BadgeNotifiche>({ numero: 1, puntino: 1 }),
     lightboxArrotondato: 'boolean',
@@ -642,10 +671,8 @@ export type DesignSystemFactory = () => DesignSystemPreset;
 /** Punto di partenza minimo per `extendDesignSystem` — nessun campo forzato. Usato dai preset pronti e da chi parte da zero. */
 export const emptyDesignSystem: DesignSystemFactory = () => ({});
 
-/** Il design system attivo con ogni default applicato: stessi gruppi e nomi di `DesignSystemPreset`,
- *  più i pochi valori che ne discendono. È `ContestoSito.config.aspetto`. Ogni campo ha un valore,
- *  tranne quattro la cui assenza è essa stessa una scelta: `tono.forza` (segue l'OS), `colori.sfondo`
- *  (dal brand), `font.principale` (font di sistema), `og.testo` (testo e font del sito). */
+/** Design system con ogni default applicato (= `ContestoSito.config.aspetto`); ogni campo ha un
+ *  valore tranne quattro la cui assenza è essa stessa una scelta (`tono.forza`, `colori.sfondo`, `font.principale`, `og.testo`). */
 export interface Aspetto {
     tono: { forza?: 'light' | 'dark'; pannello: 'light' | 'dark' | 'auto' };
     colori: {
@@ -663,6 +690,7 @@ export interface Aspetto {
     /** Alone dei toggle attivi, dal movimento: spento da fermo, più ampio se morbido. */
     pulsazione: PulsazioneAttiva;
     elevazione: Elevazione;
+    densita: Densita;
     navbar: { show: boolean; fissa: boolean; superficie: 'brand' | 'body'; icona: boolean };
     footer: { show: boolean };
     breadcrumb: { show: boolean; stile: BreadcrumbStile; maxVoci: number | 'none' };
@@ -703,6 +731,7 @@ export function risolviAspetto(preset: DesignSystemPreset | undefined): Aspetto 
         transizioni: movimento !== 'fermo',
         pulsazione: movimento === 'fermo' ? 'assente' : movimento === 'morbido' ? 'marcata' : 'lieve',
         elevazione: p.elevazione ?? 'sospesa',
+        densita: p.densita ?? 'normale',
         navbar: {
             show: p.navbar?.show ?? true,
             fissa: p.navbar?.fissa ?? false,

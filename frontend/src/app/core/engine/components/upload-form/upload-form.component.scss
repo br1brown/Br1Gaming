@@ -1,0 +1,44 @@
+/* Dropzone: tratteggio a riposo, pieno durante il trascinamento — il cambio di stato non è
+   affidato al solo colore (WCAG 1.4.1). */
+.upload-dropzone {
+    cursor: pointer;
+    border: 2px dashed var(--bs-border-color);
+    border-radius: var(--bs-border-radius-lg);
+    transition: border-color var(--movimentoMicro, 0.15s) ease, background-color var(--movimentoMicro, 0.15s) ease;
+
+    &:hover {
+        border-color: var(--bs-primary);
+    }
+
+    /* L'input vero è .visually-hidden (clippato a 1px, e con lui l'anello di focus globale): il
+       focus da tastiera si mostra sul riquadro che lo contiene, come nel markdown editor. */
+    &:has(input:focus-visible) {
+        outline: var(--focusRingWidth) solid var(--focusRingColor);
+        outline-offset: var(--focusRingOffset);
+    }
+}
+
+.upload-dropzone--active {
+    border-style: solid;
+    border-color: var(--bs-primary);
+    background-color: var(--bs-primary-bg-subtle);
+}
+
+.upload-dropzone--invalid {
+    border-color: var(--bs-form-invalid-border-color);
+}
+
+.upload-file-list {
+    max-height: 12rem;
+    overflow-y: auto;
+
+    li + li {
+        margin-top: var(--space-1);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .upload-dropzone {
+        transition: none;
+    }
+}

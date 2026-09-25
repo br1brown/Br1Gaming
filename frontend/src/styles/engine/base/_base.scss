@@ -14,11 +14,18 @@
 
 html {
     position: relative;
+    /* Navbar agganciata in cima: --navOffset (scritto da NavbarComponent) evita che il browser porti
+       in vista un elemento focus/ancora lasciandolo nascosto sotto la barra (WCAG 2.4.11). */
+    scroll-padding-top: var(--navOffset, 0px);
     /* Viewport dinamico (dvh): su mobile segue le barre del browser, 100vh come ripiego. */
     min-height: 100vh;
     min-height: 100dvh;
-    /* Breakpoint `md` letto anche da JS (breakpoints.ts). */
+    /* Breakpoint letti anche da JS (breakpoints.ts). */
+    --bp-sm: #{lib.$bp-sm};
     --bp-md: #{lib.$bp-md};
+    --bp-lg: #{lib.$bp-lg};
+    --bp-xl: #{lib.$bp-xl};
+    --bp-xxl: #{lib.$bp-xxl};
 }
 
 body {

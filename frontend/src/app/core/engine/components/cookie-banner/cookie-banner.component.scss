@@ -2,30 +2,27 @@
 
 app-cookie-banner .cookie-reopen-btn {
     position: fixed;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
-    /* inset-inline-start, non left: resta al bordo "inizio riga" anche in RTL — SEMPRE, in
-       entrambi gli stili (`fab.cookie`): il lato opposto a back-to-top (inset-inline-end)
-       dimezza la probabilità che il FAB finisca sopra un controllo di pagina, indipendentemente
-       da quanto è grande/visibile. */
-    inset-inline-start: 0.75rem;
+    /* --bottomBarOffset: altezza di una fascia fissa in fondo (stato offline), 0 se non c'è. */
+    bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-3) + var(--bottomBarOffset, 0px));
+    /* inset-inline-start, non left: resta a "inizio riga" anche in RTL, lato opposto a back-to-top. */
+    inset-inline-start: var(--space-3);
     /* Scala z-index del template: vedi base.scss §variabili */
     z-index: var(--z-cookie-banner);
     border: none;
     padding: 0;
 }
 
-/* `'discreto'` (default) — più piccolo/trasparente del `.fab` standard (back-to-top):
-   sopra il minimo WCAG 2.5.8 (24×24px). `'standard'` (DesignSystemPreset.fab.cookie,
-   .cookie-reopen-btn--standard) non ha override qui sotto: eredita dimensione/opacità da `.fab`. */
+/* `'discreto'` (default): più piccolo/trasparente del `.fab` standard, ma mai sotto il target di
+   tocco (--touchTarget) — è l'aspetto a ridursi, non l'area cliccabile. */
 app-cookie-banner .cookie-reopen-btn:not(.cookie-reopen-btn--standard) {
     opacity: 0.55;
-    width: 2.5rem;
-    height: 2.5rem;
+    width: var(--touchTarget);
+    height: var(--touchTarget);
 }
 
 @media (max-width: #{lib.$bp-md - 0.02px}) {
     app-cookie-banner .cookie-reopen-btn {
-        bottom: calc(env(safe-area-inset-bottom, 0px) + 5rem);
+        bottom: calc(env(safe-area-inset-bottom, 0px) + 5rem + var(--bottomBarOffset, 0px));
     }
 }
 
@@ -78,27 +75,35 @@ app-cookie-banner .cookie-banner-modern {
     pointer-events: none;
 }
 
-/* Barra fissa full-width in fondo alla pagina (pattern standard "cookie bar",
-   non una card fluttuante centrata): nessun margine laterale, niente raggio. */
+/* Barra fissa full-width (pattern "cookie bar"): entra dal basso con la durata dei pannelli, come
+   una superficie che compare — non deve "scattare" in pagina. */
+@keyframes cookieBarEnter {
+    from { transform: translateY(100%); opacity: 0; }
+    to   { transform: translateY(0); opacity: 1; }
+}
+
+app-cookie-banner .cookie-banner:not(.cookie-banner--panel) .cookie-banner__shell {
+    animation: cookieBarEnter var(--movimentoPannello, 0.15s) ease-out both;
+}
 /* bg/color/box-shadow vengono dalla utility .surface-elevated nell'HTML */
 app-cookie-banner .cookie-banner-modern .cookie-banner__shell {
     pointer-events: auto;
     width: 100%;
     max-width: none;
-    padding: 1.25rem max(1.4rem, env(safe-area-inset-right, 0px)) 1.25rem max(1.4rem, env(safe-area-inset-left, 0px));
+    padding: var(--space-4) max(var(--space-4), env(safe-area-inset-right, 0px)) var(--space-4) max(var(--space-4), env(safe-area-inset-left, 0px));
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 1rem 1.25rem;
+    gap: var(--space-3) var(--space-4);
     border-radius: 0;
     /* .surface-elevated (nell'HTML) dà un'ombra pensata per una card isolata;
        qui la barra è agganciata al bordo schermo, quindi serve solo il distacco
-       dal contenuto sopra. */
-    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.08);
+       dal contenuto sopra: la stessa ombra di barra del footer. */
+    box-shadow: var(--shadowBarUp);
 }
 
 app-cookie-banner .cookie-banner-modern .cookie-banner__content {
-    font-size: clamp(1rem, 0.2vw + 0.96rem, 1.08rem);
-    line-height: 1.65;
+    font-size: var(--bs-body-font-size);
+    line-height: var(--lh-relaxed);
     max-width: 70ch;
 }
 
@@ -114,15 +119,12 @@ app-cookie-banner .cookie-banner-modern .cookie-banner__shell--detailed .cookie-
     max-width: none;
 }
 
-/* Accordion categorie cookie.
-   Trick CSS-only per animare apertura E chiusura: il <details> è un grid con
-   due righe (summary + content), il content row passa da 0fr a 1fr. I browser
-   antichi (no CSS Grid animabile) cadono in apertura/chiusura istantanea, ok. */
+/* Trick CSS-only per animare apertura E chiusura del <details>: grid a due righe, content da 0fr a 1fr. */
 app-cookie-banner .cookie-category {
     display: grid;
     grid-template-rows: auto 0fr;
-    transition: grid-template-rows 0.2s ease-out;
-    padding: 0.6rem 0;
+    transition: grid-template-rows var(--movimentoPannello, 0.15s) ease-out;
+    padding: var(--space-2) 0;
 }
 
 app-cookie-banner .cookie-category[open] {
@@ -153,7 +155,7 @@ app-cookie-banner .cookie-category summary::after {
     border-bottom: 1.5px solid currentColor;
     transform: rotate(-45deg);
     opacity: 0.6;
-    transition: transform 0.2s, opacity 0.2s;
+    transition: transform var(--movimentoMicro, 0.15s), opacity var(--movimentoMicro, 0.15s);
     flex-shrink: 0;
     margin-left: auto;
 }
@@ -166,32 +168,25 @@ app-cookie-banner .cookie-category[open] summary::after {
 @media (prefers-reduced-motion: reduce) {
     app-cookie-banner .cookie-category { transition: none; }
     app-cookie-banner .cookie-category summary::after { transition: none; }
+    app-cookie-banner .cookie-banner__shell { animation: none; }
 }
 
-/* Target di tap 44×44 (WCAG 2.5.5) sullo switch senza ingrandirlo visivamente:
-   il <label> avvolge solo l'input, non l'intera riga — la riga contiene anche
-   il <summary> dell'accordion, e un <label> più ampio farebbe scattare ANCHE
-   il consenso al tap sul testo (voluto solo espandere la descrizione). */
+/* Target di tap 44×44 sullo switch senza ingrandirlo: il <label> avvolge solo l'input, non l'intera
+   riga (che contiene anche il <summary> — un <label> più ampio farebbe scattare il consenso al tap sul testo). */
 app-cookie-banner .cookie-switch-hit {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 44px;
-    min-height: 44px;
+    min-width: var(--touchTarget);
+    min-height: var(--touchTarget);
     cursor: pointer;
 }
 
-/* Tipografia dei bottoni — min-height + padding + font-size custom non hanno
-   utility Bootstrap di pari valore; layout/forma (d-flex, rounded-pill) sono
-   nell'HTML. */
+/* Bottoni: taglia normale di Bootstrap + .btn-touch (altezza dal target di tocco) come ogni altra
+   CTA del sistema; qui solo un respiro orizzontale in più, perché sono pillole affiancate. */
 app-cookie-banner .cookie-banner-modern .cookie-banner__actions .btn {
-    min-height: 3rem;
-    padding: 0.75rem 1.25rem;
-    border-width: 1px;
-    font-size: 0.95rem;
+    padding-inline: var(--space-4);
 }
-
-
 
 @media (max-width: #{lib.$bp-md - 0.02px}) {
     app-cookie-banner .cookie-banner-modern {
@@ -200,8 +195,8 @@ app-cookie-banner .cookie-banner-modern .cookie-banner__actions .btn {
 
     app-cookie-banner .cookie-banner-modern .cookie-banner__shell {
         grid-template-columns: 1fr;
-        padding: 0.85rem max(1rem, env(safe-area-inset-right, 0px)) 0.85rem max(1rem, env(safe-area-inset-left, 0px));
-        gap: 0.75rem;
+        padding: var(--space-3) max(var(--space-3), env(safe-area-inset-right, 0px)) var(--space-3) max(var(--space-3), env(safe-area-inset-left, 0px));
+        gap: var(--space-3);
         border-radius: 0;
     }
 
@@ -210,15 +205,12 @@ app-cookie-banner .cookie-banner-modern .cookie-banner__actions .btn {
     app-cookie-banner .cookie-banner-modern .cookie-banner__actions {
         display: grid !important;
         grid-template-columns: 1fr 1fr;
-        gap: 0.5rem;
+        gap: var(--space-2);
     }
 
     app-cookie-banner .cookie-banner-modern .cookie-banner__actions .btn {
         width: 100%;
-        /* 2.75rem = 44px, target di tap minimo WCAG 2.5.5 */
-        min-height: 2.75rem;
-        padding: 0.5rem 0.75rem;
-        font-size: 0.875rem;
+        padding-inline: var(--space-3);
     }
 
     /* "Salva scelte" (3° bottone) → riga intera */

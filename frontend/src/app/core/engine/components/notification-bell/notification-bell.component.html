@@ -1,6 +1,7 @@
 <button type="button"
         class="nav-link nav-dropdown-toggle notification-bell-toggle"
         aria-haspopup="true"
+        [attr.aria-controls]="panelId"
         [attr.aria-expanded]="open()"
         [attr.aria-label]="bellLabel()"
         (click)="toggle()">
@@ -10,10 +11,10 @@
     }
 </button>
 
-<div class="dropdown-menu notification-bell-menu" [class.show]="open()"
+<div class="dropdown-menu notification-bell-menu" [class.show]="open()" [id]="panelId"
      role="region" [attr.aria-label]="'notificheTitolo' | translate">
     @if (items().length === 0) {
-    <span class="dropdown-item-text notification-bell-empty">{{ 'notificheVuote' | translate }}</span>
+    <app-empty-state class="notification-bell-empty" [compact]="true" titleKey="notificheVuote" />
     } @else {
     <ul class="list-unstyled mb-0">
         @for (notification of items(); track notification.id) {

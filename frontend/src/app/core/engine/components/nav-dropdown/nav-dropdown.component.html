@@ -2,13 +2,14 @@
     <button type="button"
             class="nav-link nav-dropdown-toggle"
             aria-haspopup="true"
+            [attr.aria-controls]="menuId"
             [attr.aria-expanded]="open()"
             [attr.aria-current]="isActive() ? 'location' : null"
             (click)="toggle.emit()">
         <span>{{ item().label | translate }}</span>
         <span class="nav-dropdown-caret" aria-hidden="true"></span>
     </button>
-    <ul class="dropdown-menu list-unstyled" [class.show]="open()">
+    <ul class="dropdown-menu list-unstyled" [id]="menuId" [class.show]="open()">
         @for (child of item().children; track navLinkKey(child)) {
             <li>
                 @if (isGroup(child)) {

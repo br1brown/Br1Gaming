@@ -1,11 +1,12 @@
 import { Component, input, inject } from '@angular/core';
 import { BaseActionComponent } from '../base/base-action.component';
+import { BusyIconComponent } from '../busy-icon/busy-icon.component';
 import { ShareService } from '../../services/share.service';
 
 @Component({
     selector: 'app-copy-action',
     standalone: true,
-    imports: [],
+    imports: [BusyIconComponent],
     templateUrl: './copy-action.component.html',
 })
 export class CopyActionComponent extends BaseActionComponent {

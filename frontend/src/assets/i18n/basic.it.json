@@ -174,6 +174,9 @@
   "valoreInvalidoErrore": "Il valore inserito non è valido.",
   "numeroPositivoErrore": "Inserisci un numero positivo.",
   "caricamentoStato": "Caricamento in corso...",
+  "nessunElementoStato": "Non c'è ancora niente qui",
+  "nessunRisultatoStato": "Nessun risultato",
+  "immagineNonDisponibileStato": "Immagine non disponibile",
   "chiudiAzione": "Chiudi",
   "confermaAzione": "Conferma",
   "confermatoStato": "Confermato!",
@@ -287,5 +290,16 @@
   "mdEditorEmptyPreview": "Niente da mostrare: il testo è vuoto.",
   "mdEditorBoldPlaceholder": "testo in grassetto",
   "mdEditorItalicPlaceholder": "testo in corsivo",
-  "mdEditorLinkPlaceholder": "testo del link"
+  "mdEditorLinkPlaceholder": "testo del link",
+  "offlineAvviso": "Sei offline: alcune funzioni non sono disponibili finché la connessione non torna.",
+  "offlineRipristinato": "Connessione ripristinata.",
+  "erroreOfflineTitolo": "Sei offline",
+  "erroreOfflineDescrizione": "Questa pagina ha bisogno della rete. Controlla la connessione e riprova.",
+  "erroreIrraggiungibileTitolo": "Server non raggiungibile",
+  "erroreIrraggiungibileDescrizione": "Il sito non riesce a contattare il server. Riprova tra poco.",
+  "riprovaAzione": "Riprova",
+  "erroreServizioTitolo": "Servizio non disponibile",
+  "erroreServizioDescrizione": "Il sito risponde, ma il servizio che fornisce i dati no: potrebbe essere in manutenzione o sovraccarico. Riprova tra poco.",
+  "sessioneScadeTraAvviso": "La sessione scade tra {0} minuti: salva quello che stai facendo.",
+  "sessioneScadutaAvviso": "Sessione scaduta: accedi di nuovo per continuare."
 }

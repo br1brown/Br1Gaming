@@ -3,7 +3,7 @@
     <div class="row g-4 align-items-center">
 
         <div class="col-lg-8">
-            <h1 class="display-5 fw-bold mb-2">{{ appName }}</h1>
+            <h1 class="display-6 fw-bold mb-2">{{ appName }}</h1>
             <p class="lead text-muted mb-3">{{ 'heroTagline' | translate }}</p>
             <div class="d-flex flex-wrap gap-2">
                 <span class="badge text-bg-primary">Angular 21</span>
@@ -17,8 +17,10 @@
             </div>
         </div>
 
-        <div class="col-lg-4 d-none d-lg-block">
-            <div class="row row-cols-2 g-3">
+        <!-- Numeri visibili a ogni larghezza, non solo da lg: sotto si dispongono in riga (4 affiancati
+             da sm, 2×2 sul telefono), accanto al titolo quando c'è posto. -->
+        <div class="col-lg-4">
+            <div class="row row-cols-2 row-cols-sm-4 row-cols-lg-2 g-3">
                 @for (stat of heroStats; track stat.label) {
                     <div class="col">
                         <div class="border border-primary-subtle rounded p-3 text-center bg-primary-subtle h-100 d-flex flex-column align-items-center justify-content-center gap-1">
@@ -34,7 +36,7 @@
 </section>
 
 <!-- ═════════════════════════════════ SEZIONE: STYLE GUIDE -->
-<!-- Componente Engine (core/engine/components/style-guide/), non demo Dominio: resta
-     anche dopo un `setup.mjs` "parti pulito" (eject), a differenza di tutto il resto di questa
-     pagina. Vedi la doc del componente per il perché. -->
+<!-- Componente Engine (core/engine/components/style-guide/), non demo Dominio: resta anche dopo
+     un `setup.mjs` "parti pulito" (eject), a differenza del resto della pagina, perché resta
+     consultabile anche da chi non è sviluppatore. -->
 <app-style-guide />

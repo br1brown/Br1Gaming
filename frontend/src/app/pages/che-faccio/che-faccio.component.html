@@ -1,3 +1,5 @@
+<h1 class="h3 fw-bold mb-4">{{ pageTitle() }}</h1>
+
 <!-- ═══════════════════════════════════════ SEZIONE: AZIONI -->
 <div class="d-flex align-items-center gap-2 mb-3 small fw-bold text-uppercase text-primary" aria-hidden="true">
     <i class="fa-solid fa-bolt-lightning"></i>
@@ -199,10 +201,7 @@
 </section>
 
 <!-- ═══════════════════════════════════════ SEZIONE: QR CODE -->
-<!-- Le sezioni sotto la piega usano @defer (hydrate on viewport): l'SSR le renderizza
-     comunque (SEO invariata), il browser le idrata solo quando entrano nel viewport
-     (richiede withIncrementalHydration in app.config.ts). In navigazione client,
-     senza SSR, caricano `on idle` mostrando brevemente il placeholder Bootstrap. -->
+<!-- Sotto la piega: @defer (hydrate on viewport) rimanda l'idratazione a quando entra nel viewport, l'SSR le renderizza comunque per la SEO. -->
 @defer (hydrate on viewport) {
 <div class="d-flex align-items-center gap-2 mb-3 small fw-bold text-uppercase text-primary" aria-hidden="true">
     <i class="fa-solid fa-qrcode"></i>
@@ -489,13 +488,18 @@
                         <input type="text" id="socialFilter" class="form-control"
                                [(ngModel)]="socialFilter"
                                [placeholder]="translate.translate('socialFilterLabel')">
-                        <button class="btn btn-outline-primary" (click)="callSocialApi()">
+                        <button class="btn btn-outline-primary" type="button" (click)="callSocialApi()"
+                                [disabled]="socialLoading()" [attr.aria-busy]="socialLoading() || null">
+                            <app-busy-icon [busy]="socialLoading()" size="sm" />
                             {{ 'cercaAzione' | translate }}
                         </button>
                     </div>
 
+                    @if (socialEmpty()) {
+                        <app-empty-state class="mb-3" [compact]="true" titleKey="nessunRisultatoStato" />
+                    }
                     @if (socialResult()) {
-                        <pre class="border rounded p-2 mb-3 overflow-auto bg-body-tertiary" style="max-height: 140px;"><code>{{ socialResult() }}</code></pre>
+                        <pre class="border rounded p-2 mb-3 overflow-auto bg-body-tertiary" style="max-height: 140px;" tabindex="0"><code>{{ socialResult() }}</code></pre>
                     }
                     <!-- <DEMO_BLOCK_END> -->
 
@@ -532,7 +536,7 @@
                             <div class="d-flex flex-column gap-2 mb-3">
                                 @for (item of uploadedItems(); track item.slug) {
                                     <div class="d-flex align-items-center gap-2 small">
-                                        <img [src]="api.getBlobUrl(item.slug)" [alt]="item.name"
+                                        <img [src]="api.getBlobUrl(item.slug)" [alt]="item.name" appImgFallback
                                              class="rounded border flex-shrink-0" style="width: 40px; height: 40px; object-fit: cover;">
                                         <div class="overflow-hidden">
                                             <div class="text-truncate">{{ item.name }}</div>

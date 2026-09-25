@@ -6,26 +6,33 @@
     --bs-navbar-toggler-border-color: color-mix(in srgb, var(--colorNavText, var(--colorTemaText)) 55%, transparent);
 }
 
-/* Con .fixed-top, <nav> ha il proprio z-index (1030, Bootstrap) e quindi il proprio contesto
-   di stacking: lo z-index del pannello overlay al suo interno (.navbar-collapse.show, sotto)
-   resta "intrappolato" in quel contesto — da fuori <nav> conta solo il suo 1030, non il 1045
-   interno. Il cookie banner (1040, fuori da <nav>) lo coprirebbe comunque. Quando il menu è
-   aperto, <nav> stesso sale allo stesso livello dell'overlay: così l'intero contesto (con il
-   pannello dentro) supera davvero il banner. Innocuo se <nav> non è .fixed-top (position:static
-   ignora z-index). */
+/* Contenitore della riga: la disposizione che Bootstrap dà a `.navbar > .container-fluid`, sulla
+   linea del contenuto (.shell-line) invece che a 12px dal bordo. */
+.navbar > .shell-line {
+    display: flex;
+    flex-wrap: inherit;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Navbar agganciata (`navbar.fissa`): sticky sull'host, non fixed sul <nav> — resta nel flusso,
+   nessuna pagina deve riservarle spazio o conoscerne l'altezza. */
+:host(.navbar-host--sticky) {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-navbar);
+}
+
+/* Menu mobile aperto: il pannello deve superare il cookie banner (1040); il suo z-index conta solo
+   nello stacking context degli antenati posizionati (<nav>, e l'host se agganciato), che salgono con lui. */
+:host(.navbar-host--sticky.navbar-host--menu-open),
 .navbar.navbar-menu-open {
     z-index: var(--z-mobile-nav-overlay, 1045);
 }
 
 
-/* ── Hamburger icon → X ─────────────────────────────────────────────
-   Bootstrap renderizza il toggler come un singolo SVG (tre linee) scelto
-   in base a data-bs-theme: statico, non morfabile. Lo ricostruiamo con
-   tre barre indipendenti — la centrale come background della span, alta e
-   bassa come ::before/::after — così all'apertura morfano in una X, che è
-   l'affordance "chiudi" universale (più chiara di una semplice rotazione).
-   Colore sempre brand via --colorNavText, a prescindere dal tono OS.
-   Tutto CSS, nessun JS, SSR-safe. */
+/* ── Hamburger icon → X ── Bootstrap sceglie l'SVG del toggler da data-bs-theme (statico, non
+   morfabile); qui tre barre CSS indipendenti morfano in X all'apertura, SSR-safe senza JS. */
 .navbar-toggler-icon {
     position: relative;
     width: 1.5em;
@@ -36,7 +43,8 @@
     background-repeat: no-repeat;
     background-position: center;
     background-size: 100% 0.12em;
-    transition: background-size 0.3s ease;
+    /* Il morph ☰→X annuncia l'apertura del pannello: stessa durata del pannello che compare. */
+    transition: background-size var(--movimentoPannello, 0.15s) ease;
 }
 
 /* Barre alta e bassa. */
@@ -49,7 +57,7 @@
     height: 0.12em;
     border-radius: 1px;
     background-color: var(--colorNavText, var(--colorTemaText));
-    transition: transform 0.3s ease;
+    transition: transform var(--movimentoPannello, 0.15s) ease;
 }
 
 .navbar-toggler-icon::before { top: 0.24em; }
@@ -73,9 +81,9 @@
 /* Etichetta "Menu" accanto all'icona, solo da chiuso (rimossa dal DOM da aperto, vedi HTML):
    scopribilità del toggler senza appesantire il quadratino con la sola X quando è aperto. */
 .navbar-toggler-label {
-    font-size: 0.85rem;
+    font-size: var(--fs-sm);
     font-weight: 600;
-    letter-spacing: 0.04em;
+    letter-spacing: var(--ls-wide);
 }
 
 .navbar .navbar-brand,
@@ -83,10 +91,8 @@
     color: inherit;
 }
 
-/* Bootstrap dà a .navbar-toggler un color proprio (--bs-navbar-color, non il nostro
-   --colorNavText) — l'icona lo ignora (usa --colorNavText direttamente sui suoi ::before/::after,
-   vedi sopra), ma .navbar-toggler-label (testo vero, eredita da qui) no: senza questo override
-   viene fuori nel colore di default Bootstrap, scuro anche su sfondo navy scuro. */
+/* Bootstrap dà a .navbar-toggler un color proprio (--bs-navbar-color): l'icona lo ignora, ma
+   .navbar-toggler-label lo erediterebbe, uscendo scuro anche su navy scuro. */
 .navbar-toggler {
     color: inherit;
 }
@@ -104,10 +110,14 @@
 
 /* ── Selettore lingua ─────────────────────────────────────────────── */
 
+/* min-width: posto riservato, così la barra non si ridispone quando il nome della lingua cambia
+   lunghezza. Il bottone sta sul lato destro del posto: il suo bordo cade sulla linea del contenuto
+   (.shell-line) invece di lasciare un vuoto variabile prima del bordo. */
 .language-picker {
     display: flex;
     align-items: center;
-    gap: 0.65rem;
+    justify-content: flex-end;
+    gap: var(--space-2);
     min-width: 8.5rem;
 }
 
@@ -115,22 +125,17 @@
     min-width: 5.5rem;
 }
 
-/* Bootstrap dà a .nav-link (classe presente insieme a .language-toggle, vedi HTML) un colore
-   proprio (--bs-nav-link-color), non il nostro --colorNavText: senza questo override il testo
-   esce nel colore di default Bootstrap invece di ereditare quello della navbar, come per
-   .navbar-toggler sopra. */
+/* .nav-link (con .language-toggle) porta un color proprio di Bootstrap: senza override il testo non
+   erediterebbe quello della navbar, come per .navbar-toggler sopra. */
 .language-toggle {
     color: inherit;
-    font-size: 0.85rem;
+    font-size: var(--fs-sm);
     font-weight: 600;
-    letter-spacing: 0.04em;
+    letter-spacing: var(--ls-wide);
 }
 
-/* Posizionato a destra: Bootstrap non lo fa senza Popper, lo gestiamo noi.
-   z-index sopra l'overlay del pannello mobile (--z-mobile-nav-overlay): il selettore lingua
-   resta cliccabile anche con il menu aperto (vedi HTML — è un item della riga superiore, fuori
-   da #navbar-menu), quindi il suo dropdown deve poter disegnarsi sopra il pannello full-screen,
-   non sotto — lo z-index Bootstrap di default (1000, --bs-dropdown-zindex) altrimenti perde. */
+/* Posizionato a destra a mano (niente Popper); z-index sopra l'overlay del pannello mobile, perché
+   il selettore lingua resta cliccabile (fuori da #navbar-menu) anche col menu aperto. */
 .language-dropdown-menu {
     z-index: calc(var(--z-mobile-nav-overlay, 1045) + 1);
     inset-inline-end: 0;
@@ -139,9 +144,9 @@
 }
 
 .language-link {
-    font-size: 0.85rem;
+    font-size: var(--fs-sm);
     font-weight: 600;
-    letter-spacing: 0.04em;
+    letter-spacing: var(--ls-wide);
 }
 
 @media (min-width: #{lib.$bp-md}) {
@@ -151,14 +156,11 @@
     }
 
     .navbar-collapse {
-        gap: 1rem;
+        gap: var(--space-3);
     }
 
-    /* Overflow "Altro" (vedi recomputeOverflow in navbar.component.ts): flex-shrink:0 così
-       .navbar-nav non viene MAI schiacciata dai fratelli (user-nav/lingua) nel calcolo automatico
-       del browser — la larghezza che il TS legge via offsetWidth deve essere quella vera, non una
-       già compressa. position:relative dà un contesto di posizionamento stabile alle voci in
-       overflow qui sotto (puramente per igiene: essendo invisibili e inert non è osservabile). */
+    /* flex-shrink:0: .navbar-nav non va mai schiacciata dai fratelli, altrimenti offsetWidth (letto
+       da recomputeOverflow) misurerebbe una larghezza già compressa. */
     .navbar-nav {
         flex-shrink: 0;
         position: relative;
@@ -176,25 +178,21 @@
 
 @media (max-width: #{lib.$bp-md - 0.02px}) {
     .user-nav-wrapper {
-        padding-top: 0.9rem;
+        padding-top: var(--space-3);
         border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
     }
 
-    /* Layout icona+etichetta (vedi .navbar-toggler-label sotto). SOLO qui sotto md, non fuori
-       media query: lo scoping Angular aggiunge un attributo a ogni selettore del component CSS,
-       alzando ".navbar-toggler" a specificità pari a ".navbar-expand-md .navbar-toggler" di
-       Bootstrap (quella che nasconde il toggler a desktop) — a parità di specificità vince chi è
-       dichiarato dopo nel bundle finale, e il nostro CSS viene iniettato dopo quello di Bootstrap.
-       Fuori da questa media query display:inline-flex terrebbe il toggler visibile anche a
-       desktop; qui dentro nessuna regola nostra vale a >=md, e il display:none di Bootstrap resta. */
+    /* Solo sotto md: fuori da questa media query, lo scoping Angular pareggerebbe la specificità con
+       ".navbar-expand-md .navbar-toggler" di Bootstrap e, iniettato dopo, terrebbe il toggler visibile
+       anche a desktop. */
     .navbar-toggler {
         display: inline-flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: var(--space-2);
         // Target touch minimo (WCAG 2.5.5 / best practice mobile): il padding/icona di default
         // di Bootstrap resta sotto i 44px.
-        min-height: 2.75rem;
-        min-width: 2.75rem;
+        min-height: var(--touchTarget);
+        min-width: var(--touchTarget);
         justify-content: center;
     }
 
@@ -204,19 +202,19 @@
         background-color: transparent;
     }
 
-    /* Pannello mobile come overlay a schermo intero (stile offcanvas) invece di un accordion
-       che si espande sotto la barra e spinge/scorre in un box con tetto calcolato:
-       #navbar-menu.show esce COMPLETAMENTE dal flusso (position:fixed), quindi non fa crescere
-       .container-fluid, e brand/selettore lingua/toggler (tutti prima di lui nel DOM, semplici
-       item flex — vedi HTML) restano fermi senza bisogno di alcun posizionamento assoluto o
-       calcolo compensativo. */
+    /* Pannello mobile come overlay a schermo intero (position:fixed): esce dal flusso, niente calcoli
+       compensativi su brand/toggler. Non agganciata: la riga superiore torna in cima aprendo il menu. */
+    :host(:not(.navbar-host--sticky)) .navbar.navbar-menu-open {
+        position: fixed;
+        top: 0;
+        inset-inline: 0;
+    }
+
     .navbar-collapse.show {
         position: fixed;
         /* Parte subito sotto la riga superiore (brand/lingua/toggler), che resta sempre
-           visibile e cliccabile sopra il pannello. --nav-height (navHeight in
-           navbar.component.ts) è l'altezza "a riposo" già misurata, e viene apposta congelata
-           mentre il pannello è aperto — qui sfruttiamo la stessa stabilità già usata per lo
-           spacer sotto la navbar fixed. */
+           visibile e cliccabile sopra il pannello: --nav-height è la sua altezza misurata
+           (navHeight in navbar.component.ts). */
         top: var(--nav-height, 3.5rem);
         left: 0;
         right: 0;
@@ -231,13 +229,13 @@
         overflow-y: auto;
         background-color: var(--colorNavBg);
         color: var(--colorNavText);
-        padding: 1.5rem max(1.25rem, env(safe-area-inset-right, 0px))
-                 calc(env(safe-area-inset-bottom, 0px) + 1.5rem)
-                 max(1.25rem, env(safe-area-inset-left, 0px));
+        padding: var(--space-4) max(var(--space-3), env(safe-area-inset-right, 0px))
+                 calc(env(safe-area-inset-bottom, 0px) + var(--space-4))
+                 max(var(--space-3), env(safe-area-inset-left, 0px));
     }
 
     .navbar-nav {
-        gap: 0.35rem;
+        gap: var(--space-1);
     }
 }
 

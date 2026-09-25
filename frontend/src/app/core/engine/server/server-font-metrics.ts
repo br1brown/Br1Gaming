@@ -5,14 +5,8 @@ import { closestFace, SystemFont, SYSTEM_FONTS } from '../font-system';
 import { ContestoSito } from '../../../site';
 import { customFontFacePath } from './custom-font-detect';
 
-/**
- * Loader runtime delle metriche font lato server: le deriva dai file font REALI (i `SYSTEM_FONTS`
- * installati nel container e i font custom del catalogo in `fonts/`), con un parser minimale
- * TTF/OTF/WOFF/WOFF2 (head/hhea/maxp/cmap formato 4 o 12/hmtx, no fontkit): un aggiornamento
- * pacchetti nel Dockerfile resta allineato senza rigenerare tabelle a mano. Ogni font è isolato in
- * try/catch + sanity-gate (`assertSane`): su qualunque intoppo ripiega sul suo snapshot in
- * `FONT_METRICS` (Liberation per un font custom), con una riga di log.
- */
+/** Deriva le metriche font dai file REALI installati nel container (parser minimale TTF/OTF/WOFF/WOFF2,
+ *  no fontkit), isolato font per font in try/catch + sanity-gate: su un intoppo ripiega sullo snapshot `FONT_METRICS`. */
 
 /** Code point delle lettere ASCII (A–Z, a–z): base per il rapporto bold/regular. */
 const LETTERS: number[] = [
@@ -34,9 +28,9 @@ interface ParsedFont {
     advanceForCp(cp: number): number | null;
 }
 
-/** Le tabelle che servono, già decompresse: buffer e offset di ciascuna. `hmtxStride` 2 = hmtx
- *  trasformato di WOFF2 (solo gli advance, dopo un byte di flag), 4 = hmtx normale. */
-interface FontTables {
+/** Tabelle decompresse: buffer e offset di ciascuna. `hmtxStride` 2 = hmtx trasformato WOFF2, 4 =
+ *  normale. Esportata: `font-fallback-metrics.ts` riusa lo stesso decoder binario. */
+export interface FontTables {
     b: Buffer;
     table: Record<string, number>;
     hmtxStart: number;
@@ -55,7 +49,7 @@ const WOFF2_TAGS = ['cmap', 'head', 'hhea', 'hmtx', 'maxp', 'name', 'OS/2', 'pos
     'just', 'lcar', 'mort', 'morx', 'opbd', 'prop', 'trak', 'Zapf', 'Silf', 'Glat', 'Gloc', 'Feat', 'Sill'];
 
 /** Tabelle di un TTF/OTF, di un WOFF (zlib per tabella) o di un WOFF2 (un unico flusso Brotli). */
-function readTables(b: Buffer): FontTables {
+export function readTables(b: Buffer): FontTables {
     const signature = b.toString('latin1', 0, 4);
     if (signature === 'wOFF') {
         const parts: Buffer[] = [];
@@ -260,13 +254,9 @@ function syntheticBoldFactor(regular: ParsedFont): number {
     return roundFactor((mean + 1 / 24) / mean);
 }
 
-/** Metriche di un font dalle sue facce (`SystemFontDef.faces` o `CustomFontDef.faces`): advance
- *  dalla faccia più vicina a 400 (quella che disegna il testo regular), `boldFactor` dalla faccia
- *  che disegna il grassetto. Il fattore si applica una volta sola, sopra gli advance regular:
- *  - una faccia 700 distinta → rapporto reale medio bold/regular sulle lettere;
- *  - nessuna faccia 700, o il suo file assente → grassetto sintetico di fontconfig;
- *  - l'unica faccia è già 700 → regular e bold escono dallo stesso file: fattore 1.
- *  `pathOf` risolve `face.file` in percorso assoluto. Lancia se la faccia regular non si legge. */
+/** Metriche di un font dalle sue facce: advance dalla faccia regular, `boldFactor` dal rapporto reale
+ *  con la faccia bold (sintetico se assente, 1 se coincidono con la regular). Lancia se la faccia
+ *  regular non si legge. */
 function buildMetric(
     faces: readonly { file: string; weight: number; style: 'normal' | 'italic' }[],
     pathOf: (file: string) => string,
@@ -312,11 +302,8 @@ function assertSane(m: FontMetric): void {
     if (m.boldFactor < 1 || m.boldFactor > 1.4) throw new Error(`metriche: boldFactor fuori range (${m.boldFactor})`);
 }
 
-/** Metriche per ogni `SYSTEM_FONTS` dai file reali (fallback per-font sullo snapshot `FONT_METRICS`),
- *  più ogni font custom del catalogo (fallback Liberation): `og.testo` può disegnare l'og:image con
- *  qualunque `SystemFont` o font custom del catalogo. Da passare a `FontMetrics.configure`, sincrono
- *  e una-tantum. Log: una riga sola se nessun font di sistema è installato (dev fuori dal
- *  container), altrimenti una riga per ogni font che ripiega sul fallback. */
+/** Metriche reali per ogni `SYSTEM_FONTS` e font custom del catalogo (fallback su `FONT_METRICS`/
+ *  Liberation se il file manca o non si legge); usato una volta da `FontMetrics.configure`. */
 export function loadServerFontMetrics(): Record<string, FontMetric> {
     const result: Record<string, FontMetric> = {};
     const systemKeys = Object.values(SystemFont) as SystemFont[];

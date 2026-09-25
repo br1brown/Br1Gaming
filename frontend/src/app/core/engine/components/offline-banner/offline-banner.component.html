@@ -1,0 +1,10 @@
+<!-- Regione live sempre presente (anche vuota): un role="status" che compare insieme al testo non
+     viene sempre annunciato; già nel DOM, il cambio di contenuto sì. -->
+<div class="offline-banner-region" role="status" aria-live="polite">
+    @if (stato(); as stato) {
+        <div #bannerEl class="offline-banner surface-elevated" [class.offline-banner--ripristinato]="stato === 'ripristinato'">
+            <i class="fa-solid" [class.fa-wifi]="stato === 'ripristinato'" [class.fa-plug-circle-xmark]="stato === 'offline'" aria-hidden="true"></i>
+            <span>{{ (stato === 'offline' ? 'offlineAvviso' : 'offlineRipristinato') | translate }}</span>
+        </div>
+    }
+</div>

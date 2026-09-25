@@ -1,11 +1,15 @@
 <!-- d-print-none: un bottone "stampa" non ha senso nel proprio stesso risultato stampato. -->
-<button class="btn btn-outline-secondary btn-touch d-inline-flex align-items-center justify-content-center gap-2 d-print-none"
+<!-- Stesso schema per ogni bottone azione: .btn-touch (target di tocco, contenuto centrato),
+     glifo che diventa spinner durante il lavoro (BusyIconComponent), disabled + aria-busy nel mentre. -->
+<button class="btn btn-outline-secondary btn-touch d-print-none"
         type="button"
         [class.w-100]="fullWidth()"
+        [disabled]="loading()"
+        [attr.aria-busy]="loading() || null"
         [attr.title]="showLabel() ? null : displayLabel()"
         [attr.aria-label]="showLabel() ? null : displayLabel()"
         (click)="onClick()">
-    <i class="fa-solid fa-print fs-5" aria-hidden="true"></i>
+    <app-busy-icon glyph="fa-solid fa-print" [busy]="loading()" />
     @if (showLabel()) {
         <span>{{ displayLabel() }}</span>
     }

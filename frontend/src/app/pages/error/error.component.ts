@@ -1,5 +1,8 @@
-import { Component, computed, effect, inject, input } from '@angular/core';
+import { Component, PLATFORM_ID, computed, effect, inject, input } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Title } from '@angular/platform-browser';
+import { isAvailabilityError, RETRY_QUERY_PARAM } from '../../core/engine/pages/content.resolver';
 import { TranslateService } from '../../core/engine/services/translate.service';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { PageDirective } from '../../core/engine/directives/page.directive';
@@ -8,11 +11,7 @@ import { injectCurrentUrl } from '../../core/engine/routing';
 import { detectLangFromPath } from '../../core/engine/siteBuilder';
 import { environment } from '../../../environments/environment';
 
-/**
- * Pagina di errore generica per qualsiasi codice HTTP. Il codice arriva come path param
- * (`error/:errorCode`) via input binding. Chiavi i18n `errore{codice}Titolo`/`Descrizione`
- * (fallback `erroreGenerico`/`erroreImprevisto`); un nuovo codice = aggiungi le sue chiavi negli i18n.
- */
+/** Pagina di errore generica per qualsiasi codice HTTP: un solo componente, chiavi i18n per codice. */
 @Component({
     selector: 'app-error',
     imports: [TranslatePipe, PageDirective],
@@ -22,12 +21,18 @@ import { environment } from '../../../environments/environment';
 export class ErrorComponent {
     private readonly translate = inject(TranslateService);
     private readonly titleService = inject(Title);
+    private readonly router = inject(Router);
+    private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+    /** URL interno da ritentare, dal query param messo dal resolver (`availabilityErrorPath`): solo un
+     *  path del sito (inizia con `/`, non `//`), mai un URL esterno — un link costruito a mano non
+     *  deve poter far navigare altrove. Assente se la pagina è stata aperta senza. */
+    readonly retryUrl: string | null = (() => {
+        const raw = inject(ActivatedRoute).snapshot.queryParamMap.get(RETRY_QUERY_PARAM);
+        return raw && raw.startsWith('/') && !raw.startsWith('//') ? raw : null;
+    })();
     private readonly url = injectCurrentUrl(); // signal reattivo, si aggiorna ad ogni navigazione (routing.ts).
 
-    // ErrorComponent omette l'ereditarietà da PageBaseComponent (niente pageType: una pagina d'errore non è una
-    // pagina registrata). La sua route (wildcard `**`/`error/:errorCode`) è UNICA, non una copia
-    // per lingua come le pagine vere — manca quindi il `route.data.lang`. L'opzione usata per
-    // dedurre la lingua sfrutta il PRIMO SEGMENTO dell'URL corrente (es. "/en/pagina-inesistente" → "en").
+    // Rotta d'errore unica (non per lingua): niente route.data.lang, la lingua si deduce dal primo segmento dell'URL.
     readonly lang = computed(() => detectLangFromPath(this.url(), environment.availableLanguages, environment.defaultLang));
 
     constructor() {
@@ -51,13 +56,25 @@ export class ErrorComponent {
     /** Pagina home dal contesto (slot `homePage`): il pulsante "torna alla home" compare solo se valorizzata. */
     protected readonly homePage = ContestoSito.config.homePage;
 
-    /** Codice errore HTTP, letto dalla route (param o data) tramite input binding. Predefinito: 404 */
+    /** Codice errore HTTP, letto dalla route (param o data) tramite input binding. Predefinito: 404.
+     *  `offline` → 0, lo status di una risposta mai arrivata. */
     readonly errorCode = input(404, {
         transform: (v: string | number) => {
+            if (v === 'offline') return 0;
             const n = Number(v);
             return isNaN(n) ? 404 : n;
         }
     });
+
+    /** Problema di disponibilità (rete, server del sito, backend) con un URL da ritentare: "Riprova"
+     *  è l'azione principale. Senza URL (pagina aperta o ricaricata da sé) non c'è niente da ritentare. */
+    readonly canRetry = computed(() => isAvailabilityError(this.errorCode()) && this.retryUrl !== null);
+
+    /** Torna all'URL che stava caricando: rilancia il resolver, che a servizio tornato carica la
+     *  pagina, altrimenti riporta qui. */
+    riprova(): void {
+        if (this.retryUrl) void this.router.navigateByUrl(this.retryUrl);
+    }
 
     private getTranslationKeys(code: number): { titleKey: string; descKey: string } {
         let titleKey = `errore${code}Titolo`;
@@ -67,6 +84,25 @@ export class ErrorComponent {
         // Gli errori di RISORSA (API che fallisce) li mappa base-api.service.ts con chiavi `risorsaXXX`.
         // Separati apposta: "Pagina non trovata" (Router) vs "Risorsa non trovata" (API).
         switch (code) {
+            case 0:
+                // Stessa causa vista dal codice (status 0), due situazioni diverse per l'utente:
+                // senza rete può risolvere lui; con la rete il problema è dall'altra parte.
+                if (this.isBrowser && navigator.onLine === false) {
+                    titleKey = 'erroreOfflineTitolo';
+                    descKey = 'erroreOfflineDescrizione';
+                } else {
+                    titleKey = 'erroreIrraggiungibileTitolo';
+                    descKey = 'erroreIrraggiungibileDescrizione';
+                }
+                break;
+            case 502:
+            case 503:
+            case 504:
+                // Il sito risponde (siamo qui), il backend dietro no: un solo messaggio per l'utente,
+                // che non distingue un gateway da un timeout; il codice resta nel titolo e nell'URL.
+                titleKey = 'erroreServizioTitolo';
+                descKey = 'erroreServizioDescrizione';
+                break;
             case 401:
                 titleKey = 'errore401Titolo';
                 descKey = 'errore401Descrizione';
@@ -93,7 +129,8 @@ export class ErrorComponent {
         if (info === titleKey) {
             return this.translate.translate('erroreGenerico') + ' ' + code;
         }
-        return code + ': ' + info;
+        // Senza rete non c'è un codice HTTP da mostrare: "0" non direbbe niente a nessuno.
+        return code === 0 ? info : code + ': ' + info;
     });
 
     readonly errorMessage = computed(() => {

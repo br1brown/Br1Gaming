@@ -144,6 +144,34 @@ getArticolo(id: string): Promise<Articolo> {
 }
 ```
 
+#### Chiamare un'API pubblica gratuita, senza chiave
+Come "Chiamare un'API esterna" (ricette backend): quella riguarda un'integrazione con un segreto o un contratto col provider, questa un'API pubblica che non ne ha. In quel caso il criterio che decide dove scrivere il codice è uno solo, CORS — verificalo PRIMA di scrivere codice, non è deducibile dal fatto che l'API sia gratuita o senza chiave, e alcune la omettono pur essendo comode da terminale:
+```bash
+curl -s -o /dev/null -D - -H "Origin: https://tuosito.tld" "https://api.esempio.tld/..." | grep -i access-control-allow-origin
+```
+
+**L'API risponde con `Access-Control-Allow-Origin`** → Angular la chiama da sé, un hop nel backend sarebbe latenza senza guadagno di sicurezza su qualcosa che non nasconde nulla:
+```typescript
+// core/services/external-apis/weather/weather.service.ts (Dominio, di progetto)
+@Injectable({ providedIn: 'root' })
+export class WeatherService {
+  private readonly http = inject(HttpClient);
+  getCurrent(lat: number, lon: number): Promise<WeatherForecast> {
+    const params = new HttpParams().set('latitude', lat).set('longitude', lon).set('current_weather', true);
+    return firstValueFrom(this.http.get<WeatherForecast>('https://api.open-meteo.com/v1/forecast', { params }));
+  }
+}
+```
+```json
+// security-headers.override.json — un dominio per servizio, mai un jolly (*) su connect-src
+"csp": { "connect-src": ["https://api.open-meteo.com"] }
+```
+Nel `contentLoader` di una rotta la prima visita gira lato Node (SSR, dove il CORS non si applica: non è un browser), ma la stessa pagina raggiunta con una navigazione interna successiva rigira nel browser dell'utente: verifica comunque il CORS, perché prima o poi la chiamata parte da lì.
+
+**L'API non manda CORS** (o va in errore su ogni richiesta con header `Origin`, cioè su ogni vera richiesta da browser: capita, non è solo teoria) **→ dietro il tuo backend**, come qualunque altra integrazione esterna (`Services/`, thin controller, `HttpClient` tipizzato — vedi "Chiamare un'API esterna"). Il browser chiama sempre e solo il tuo dominio: **nessuna voce da aggiungere alla CSP**, mai, per questo gruppo. Un upstream lento o in errore diventa `BadGatewayException`/`GatewayTimeoutException` (502/504), mai un `EnsureSuccessStatusCode()` lasciato esplodere in un 500 opaco.
+
+**Punto di partenza per cercarne una**: [public-apis/public-apis](https://github.com/public-apis/public-apis), filtrata su `Auth: No` (nessuna chiave, nessun account) — ma verificata comunque con `curl` come sopra: la sua colonna CORS è compilata a mano dalla community e non è affidabile in nessuna delle due direzioni (un'API può risultarci `No` e funzionare, o viceversa). Un provider gratuito può anche cambiare comportamento senza preavviso da un giorno all'altro (deprecare una versione, iniziare a bloccare per rate limit, smettere di rispondere CORS): per questo l'Engine non ne tiene un catalogo con l'implementazione già pronta — è una ricetta da applicare quando serve, non un inventario da mantenere contro servizi fuori dal tuo controllo. Fuori discussione a prescindere dal CORS: API che stimano età/genere/nazionalità da un nome proprio (tema delicato, non un default sensato) e qualunque URL solo `http://` (mixed content bloccato su un sito HTTPS: va comunque dietro il backend).
+
 #### Modulo che raccoglie dati personali (contatto, richiesta, candidatura…)
 Non c'è un componente Engine per un form generico (troppo variabile da progetto a progetto: campi, validazione, endpoint): resta un componente di progetto che chiama `ApiService`, come un endpoint qualsiasi. Ciò che l'Engine offre è la parte `form` della Privacy Policy (`Features.Forms`, vedi sopra); ciò che resta al progetto, e che il Garante privacy chiede esplicitamente (informativa "in corrispondenza" della raccolta, non solo raggiungibile da un'altra pagina), è nel modulo stesso:
 ```html
@@ -153,9 +181,38 @@ Non c'è un componente Engine per un form generico (troppo variabile da progetto
   <a [appPage]="PageType.PrivacyPolicy">{{ 'privacyPolicyMenu' | translate }}</a>
 </p>
 <label class="form-label" for="email">Email <span aria-hidden="true">*</span></label>
-<input id="email" class="form-control" required />   <!-- required = campo obbligatorio, indicalo anche visivamente -->
+<!-- required = obbligatorio (indicalo anche visivamente); appFieldError collega l'errore al campo -->
+<input id="email" class="form-control" formControlName="email" required appFieldError="email-error" />
+@if (form.controls.email.touched && form.controls.email.invalid) {
+  <div id="email-error" class="invalid-feedback">{{ 'emailNonValida' | translate }}</div>
+}
 ```
 Due cose, non di più: un link diretto alla Privacy Policy vicino al modulo (chiave `formPrivacyNota` in `addon.<lang>.json`, es. "Inviando il modulo accetti il trattamento dei dati descritto nella"), e i campi obbligatori marcati (asterisco o etichetta esplicita) — coerenti con `privacy/form/it.md`, che dichiara già "necessario per rispondere alla tua richiesta: senza, non possiamo darle seguito". Se il modulo raccoglie dati oltre quelli strettamente necessari a rispondere (es. una preferenza di marketing), quello è un consenso a parte, non la base giuridica "esecuzione della richiesta" del testo di serie: serve una checkbox propria, non pre-spuntata (stesso principio della newsletter, sotto).
+
+#### Misure, spazi e stati: token e primitive, mai numeri a occhio
+Un componente (Engine o di progetto) non sceglie padding, taglie di testo, altezze o durate "che stanno bene lì": prende il gradino dai token di `styles/engine/base/_tokens.scss` e, per gli stati, le primitive dell'Engine. Tabella completa in [frontend/README.md](frontend/README.md) §«CSS: Bootstrap First».
+```scss
+.mio-pannello {
+  padding: var(--space-3);                 // --space-1..5 = gradini di .p-1...p-5
+  gap: var(--space-2);
+  font-size: var(--fs-sm);                 // sotto il corpo solo --fs-sm e --fs-xs
+  border-radius: var(--elevazioneRaggio);  // raggio e ombra dal design system (elevazione)
+  box-shadow: var(--shadowElevated);
+  transition: background-color var(--movimentoMicro); // pagina / pannello / micro, da `movimento`
+}
+@media (prefers-reduced-motion: reduce) { .mio-pannello { transition: none; } }
+```
+```html
+<!-- Bottone da solo (icona, CTA, chiusura): mai sotto 44px -->
+<button class="btn btn-outline-secondary btn-touch" [disabled]="busy()" [attr.aria-busy]="busy() || null" aria-label="Scarica">
+  <app-busy-icon glyph="fa-solid fa-download" [busy]="busy()" />
+</button>
+<!-- Lista vuota: mai un'area bianca -->
+@if (items().length === 0) { <app-empty-state titleKey="nessunRisultatoStato" /> }
+<!-- Layout di pagina: classi Bootstrap (la demo le usa apposta), niente utility parallele -->
+<section class="mb-5"> <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3"> … </div> </section>
+```
+Per un pannello a comparsa tuo (dropdown, popover non-CDK): `injectDismiss({ open, close, returnFocus })` da `core/engine/dismiss.ts` dà Escape "a pila" (chiude solo il più interno) e click fuori, con focus di ritorno al trigger.
 
 #### Caricare file da un form (upload)
 Due pezzi separati, Engine + Dominio — vedi la regola d'oro in cima al file. `UploadFormComponent` (Engine, `core/engine/components/upload-form/`) è un componente UI puro: gestisce click/drag-and-drop, validazione (`accept`, `maxSize`, `multiple`) ed emette `File[]`, mai un upload. L'upload vero — verso `POST /blob/up`, che richiede login — sta al chiamante, tramite `ApiService.uploadBlob`/`.uploadBlobs` (Dominio):
@@ -331,7 +388,7 @@ Per un flag/variante che un CRO/SEM specialist deve poter cambiare senza toccare
 ```
 
 #### Gestire la UX di aggiornamento versione (PWA / Polling)
-Di default, quando il `VersionCheckService` (che unisce SwUpdate e il polling periodico) rileva un aggiornamento, mostra un alert nativo bloccante che forza il ricaricamento.
+Di default, quando il `VersionCheckService` (che unisce SwUpdate e il polling periodico) rileva un aggiornamento, mostra un dialog di conferma bloccante (lo stesso `NotificationService.confirm()` tematizzato di ogni altro dialog, non un `window.confirm` del browser): "Aggiorna" ricarica, "Annulla" rimanda.
 Se un progetto figlio ha form lunghi o stato che non deve andare perso all'improvviso, puoi intercettare questo evento e mostrare un avviso non invasivo, rinviando l'aggiornamento a un momento più opportuno.
 ```typescript
 // site.ts
@@ -405,7 +462,7 @@ otherSEO: { structuredData: { kind: 'faq', questions: [{ question: 'Come?', answ
 ```
 
 #### Overlay/modali custom (mai `position: fixed` a mano)
-Un pannello fixed con z-index alto dentro un componente finisce comunque dentro lo stacking context di `main#main-content` (z-index: 1 apposta per stare sopra sfondo/effetti) e rischia di finire sotto la navbar o i suoi dropdown. Passa sempre da CDK Overlay (già importato, monta in `.cdk-overlay-container`, `z-index: var(--z-cdk-overlay)` in `_a11y.scss`) — vedi `ContextMenuDirective`/`ImageLightboxService` come riferimento. Come contenitore del pannello usa una `.card`: sfondo `--colorSurface` e bordo dal tema, niente colori da scrivere. Il `.cdk-overlay-container` sta fuori dal pannello contenuti: l'overlay prende il tono della pagina, anche se parte da un pannello di tono diverso.
+Un pannello fixed con z-index alto dentro un componente finisce comunque dentro lo stacking context di `main#main-content` (z-index: 1 apposta per stare sopra sfondo/effetti) e rischia di finire sotto la navbar o i suoi dropdown. Passa sempre da CDK Overlay (Escape, backdrop e focus trap di CDK; per un dialog `cdkTrapFocus` + `role="dialog" aria-modal="true"`, come il lightbox) (già importato, monta in `.cdk-overlay-container`, `z-index: var(--z-cdk-overlay)` in `_a11y.scss`) — vedi `ContextMenuDirective`/`ImageLightboxService` come riferimento. Come contenitore del pannello usa una `.card`: sfondo `--colorSurface` e bordo dal tema, niente colori da scrivere. Il `.cdk-overlay-container` sta fuori dal pannello contenuti: l'overlay prende il tono della pagina, anche se parte da un pannello di tono diverso.
 
 ## Ricette — backend
 

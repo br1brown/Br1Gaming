@@ -4,6 +4,8 @@
 // così non resta hardcodata e disallineata. In dev locale la chiave vive in .local.json.
 // La lettura della chiave è condivisa con proxy.docker.conf.cjs: vedi proxy.api-key.cjs.
 const { readApiKey } = require('./proxy.api-key.cjs');
+// Backend spento o in timeout → 502/504 come in produzione, non il 500 di Vite: vedi proxy.gateway-error.cjs.
+const { gatewayErrors } = require('./proxy.gateway-error.cjs');
 
 module.exports = {
     '/api': {
@@ -12,5 +14,6 @@ module.exports = {
         changeOrigin: true,
         pathRewrite: { '^/api': '' },
         headers: { 'x-api-key': readApiKey() },
+        configure: gatewayErrors,
     },
 };

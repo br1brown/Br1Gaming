@@ -9,18 +9,15 @@ import {
 } from '@angular/core';
 import { SmokeSettings } from '../../../../site';
 
-/** Effetto decorativo a particelle di fumo su `<canvas>`. Parametri (densità, colore) dal design
- *  system attivo (`DesignSystemPreset.smoke`); ometti `smoke` o usa `enable: false` per
- *  disattivarlo. Anima via `requestAnimationFrame`, disattivato (canvas vuoto) con
- *  `prefers-reduced-motion`. */
+/** Effetto decorativo a particelle di fumo su `<canvas>`, parametri dal design system attivo.
+ *  Anima via `requestAnimationFrame`, disattivato (canvas vuoto) con `prefers-reduced-motion`. */
 @Component({
     selector: 'app-smoke-effect',
     templateUrl: './smoke-effect.component.html',
     styleUrl: './smoke-effect.component.scss',
-    // `(window:resize)`: Angular attacca/stacca da solo il listener col ciclo di vita del
-    // componente (stesso pattern di back-to-top.component.ts) — niente addEventListener/
-    // removeEventListener manuali da abbinare a mano nel destroyRef.
-    host: { '(window:resize)': 'onResize()' },
+    // `(window:resize)`: Angular attacca/stacca da solo il listener col ciclo di vita del componente.
+    // Decorazione di sfondo: fuori dall'albero di accessibilità (niente regione "orfana" fuori dai landmark).
+    host: { '(window:resize)': 'onResize()', 'aria-hidden': 'true' },
 })
 export class SmokeEffectComponent {
     readonly config = input.required<SmokeSettings>();
@@ -117,10 +114,7 @@ export class SmokeEffectComponent {
         this.animationId = requestAnimationFrame(() => this.animate(canvas, ctx));
     }
 
-    /**
-     * Estrae r/g/b da una stringa hex. Gestisce '#abc' e '#aabbcc'; per
-     * stringhe corte/malformate fa pad con '0' invece di restituire NaN.
-     */
+    /** Estrae r/g/b da una stringa hex ('#abc' o '#aabbcc'); corte/malformate: pad con '0', mai NaN. */
     private static parseHexColor(input: string): { r: number; g: number; b: number } {
         const hex = (input ?? '').replace('#', '').trim();
         const expanded = hex.length === 3

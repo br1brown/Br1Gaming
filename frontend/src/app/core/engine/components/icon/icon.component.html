@@ -1,1 +1,11 @@
-<i [class]="classes()" [style.background-color]="color()" aria-hidden="true"></i>
+@if (imageUrl(); as url) {
+    <span class="icon icon--image icon--{{ shape() }} icon--anim-{{ animation() }}"
+          [style.background-color]="color()"
+          [style.background-image]="url"
+          aria-hidden="true"></span>
+} @else if (isDisc()) {
+    <!-- Disco: il glifo porta il colore del brand, il ritaglio (--icon-inner) quello del marchio. -->
+    <i [class]="classes()" [style.color]="color()" [style.--icon-inner]="glyphColor()" aria-hidden="true"></i>
+} @else {
+    <i [class]="classes()" [style.background-color]="color()" [style.color]="effectiveGlyphColor()" aria-hidden="true"></i>
+}

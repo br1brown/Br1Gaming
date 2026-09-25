@@ -1,10 +1,10 @@
-import { afterNextRender, Component, computed, DestroyRef, effect, ElementRef, inject, input, isDevMode, PLATFORM_ID, signal, viewChild, viewChildren } from '@angular/core';
+import { afterNextRender, Component, computed, DestroyRef, effect, ElementRef, inject, input, isDevMode, PLATFORM_ID, signal, untracked, viewChild, viewChildren } from '@angular/core';
 import { isPlatformBrowser, NgTemplateOutlet } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { injectCurrentUrl, mergeRouteParams } from '../../routing';
-import { isDesktopViewport } from '../../breakpoints';
+import { isDesktopViewport, viewportAtLeastQuery } from '../../breakpoints';
 import { TranslateService } from '../../services/translate.service';
 import { LocalizationService } from '../../services/localization.service';
 import { PageMetaService } from '../../services/page-meta.service';
@@ -19,21 +19,28 @@ import { AssetDirective } from '../../directives/asset.directive';
 import { UserNavComponent } from '../../../../components/shared/user-nav/user-nav.component';
 import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
 import { TokenService } from '../../services/token.service';
+import { injectDismiss } from '../../dismiss';
+import { NavMenuState } from '../../nav-menu-state';
 
 /** Oltre questa soglia: warning dev (console) + calcolo overflow "Altro" attivo. Sotto, tutte le
  *  voci restano sempre in riga senza costo (nessun ResizeObserver montato) — è la soglia stessa
  *  già raccomandata nel warning, non un limite indipendente. */
 const MAX_RECOMMENDED_TOP_LEVEL_ITEMS = 6;
 
+/** Quota massima dell'altezza visibile occupabile da una navbar `fissa` agganciata: oltre (zoom,
+ *  testo ingrandito, voci a capo) torna nel flusso invece di coprire lettura e navigazione. */
+const MAX_STICKY_VIEWPORT_SHARE = 0.2;
+
 @Component({
     selector: 'app-navbar',
     imports: [TranslatePipe, AssetDirective, NavLinkComponent, NavDropdownComponent, RouterLink, UserNavComponent, NotificationBellComponent, NgTemplateOutlet],
     templateUrl: './navbar.component.html',
     styleUrl: './navbar.component.scss',
+    providers: [NavMenuState],
     host: {
         class: 'd-block',
-        '(document:click)': 'onDocumentClick($event)',
-        '(document:keydown.escape)': 'onEscape()',
+        '[class.navbar-host--sticky]': 'stuck()',
+        '[class.navbar-host--menu-open]': 'menuOpen()',
     }
 })
 /** Barra di navigazione principale, configurata interamente da `site.ts` (via `ContestoSito`). Non modificare questo file: personalizza site.ts e user-nav.component.ts (dominio a contratto fisso). */
@@ -46,6 +53,7 @@ export class NavbarComponent {
     private readonly destroyRef = inject(DestroyRef);
     private readonly tokenService = inject(TokenService);
     private readonly shellNav = inject(ShellNavService);
+    private readonly menuState = inject(NavMenuState);
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
     /** Chiave `track` per il template — vedi doc su `navLinkKey` in shell-nav.ts. */
     protected readonly navLinkKey = navLinkKey;
@@ -56,16 +64,11 @@ export class NavbarComponent {
     readonly homePath = computed<string | null>(() => ContestoSito.config.homePage != null
         ? ContestoSito.getPath(ContestoSito.config.homePage, this.translate.currentLang())
         : null);
-    /** Menu risolto da `ShellNavService` per la lingua corrente, senza filtro auth: usato solo
-     *  per le decisioni strutturali che devono restare stabili a prescindere dal login (soglia
-     *  overflow "Altro", warning di usabilità, sentinel `altroDropdownIndex`) — vedi `menuItems`
-     *  per il render. Il servizio è già risolto al primo render (atteso da `provideAppInitializer`
-     *  in app.config.ts): leggerlo qui, anche in un field initializer sincrono, è sicuro. */
+    /** Menu senza filtro auth, per le decisioni strutturali che devono restare stabili a prescindere
+     *  dal login (overflow "Altro", warning, `altroDropdownIndex`) — il render usa `menuItems`. */
     private readonly rawMenuItems = computed(() => this.shellNav.header());
-    /** Menu effettivamente reso: filtra le voci/gruppi `authOnly` in base al login corrente
-     *  (`TokenService.isLoggedIn()`). In SSR e prima dell'idratazione l'utente risulta sempre
-     *  sloggato (nessun token), quindi anche i bot vedono solo le voci pubbliche — coerente con
-     *  `requiresAuth` che già forza quelle pagine fuori da sitemap/SSR. */
+    /** Menu reso: filtra le voci `authOnly` sul login corrente. In SSR l'utente è sempre sloggato,
+     *  quindi anche i bot vedono solo le voci pubbliche. */
     readonly menuItems = computed(() => filterNavByAuth(this.rawMenuItems(), this.tokenService.isLoggedIn()));
     readonly fixTop = ContestoSito.config.aspetto.navbar.fissa;
     /** Se comparire — calcolato da `AppComponent` (`aspetto.navbar.icona && (RouteChrome.showBrandIcon ?? true)`):
@@ -79,23 +82,30 @@ export class NavbarComponent {
     // Set di lingue dalla config (coerente coi cataloghi i18n presenti → setLanguage funziona
     // sempre); il NOME mostrato è quello nativo derivato via Intl (LocalizationService).
     readonly languages = this.translate.availableLangs;
-    /** True se il sito ha un'area auth in navbar: basta una `loginPage` configurata. Non dipende da
-     *  `showLoginInHeader` — quel flag nasconde il *link di login* ai visitatori, ma il logout (da
-     *  loggato) resta, quindi l'area può comunque renderizzare qualcosa. Governa la comparsa del
-     *  toggler mobile quando non ci sono altre voci di menu. */
+    /** True se il sito ha un'area auth in navbar (`loginPage` configurata): governa il toggler mobile
+     *  quando non ci sono altre voci di menu. Indipendente da `showLoginInHeader` (nasconde solo il link). */
     readonly hasAuthPage = ContestoSito.config.loginPage != null;
     readonly menuOpen = signal(false);
     protected readonly openDropdownIndex = signal(-1);
     protected readonly langOpen = signal(false);
     private readonly currentUrl = injectCurrentUrl();
     private readonly navEl = viewChild<ElementRef<HTMLElement>>('navEl');
-    /** Altezza reale della navbar (custom property `--nav-height`): spacer sotto la navbar fixed e tetto del pannello mobile aperto. 56px = stima sicura pre-misura, poi segue l'elemento vero. */
+    private readonly togglerEl = viewChild<ElementRef<HTMLElement>>('togglerEl');
+    private readonly menuEl = viewChild<ElementRef<HTMLElement>>('menuEl');
+    /** Fratelli dello shell resi `inert` mentre il menu mobile è aperto (per ripristinare solo quelli). */
+    private inertSiblings: HTMLElement[] = [];
+    /** Altezza reale della navbar (custom property `--nav-height`): dove parte il pannello mobile aperto e scroll-padding della pagina con la barra agganciata. 56px = stima sicura pre-misura, poi segue l'elemento vero. */
     readonly navHeight = signal(56);
+    /** Altezza visibile della finestra in px CSS: lo zoom del browser la riduce. Infinita in SSR e
+     *  prima della misura, così il primo render di una navbar `fissa` è già agganciato. */
+    private readonly viewportHeight = signal(Number.POSITIVE_INFINITY);
+    /** Navbar agganciata in cima (sticky): `navbar.fissa` del design system, finché la barra resta
+     *  entro MAX_STICKY_VIEWPORT_SHARE dell'altezza visibile. Sticky e non fixed: la barra resta nel
+     *  flusso, quindi nessuna pagina (ruolo, fitViewport, zoom) deve compensarne l'altezza. */
+    readonly stuck = computed(() => this.fixTop && this.navHeight() <= this.viewportHeight() * MAX_STICKY_VIEWPORT_SHARE);
 
-    // ── Overflow "Altro" (desktop) ──────────────────────────────────────────────────────
-    // Bootstrap forza flex-wrap:nowrap su .navbar-expand-md: oltre le voci che entrano in riga,
-    // il contenuto in eccesso uscirebbe dalla viewport senza scroll (irraggiungibile). Misuriamo la
-    // larghezza reale e decidiamo in TS quante voci entrano, le altre in un dropdown "Altro".
+    // ── Overflow "Altro" (desktop) ── Bootstrap forza flex-wrap:nowrap su .navbar-expand-md: le voci
+    // in eccesso uscirebbero dalla viewport senza scroll, da qui il calcolo in TS di quante entrano.
     private readonly containerFluidEl = viewChild<ElementRef<HTMLElement>>('containerFluidEl');
     private readonly brandEl = viewChild<ElementRef<HTMLElement>>('brandEl');
     private readonly navListEl = viewChild<ElementRef<HTMLElement>>('navListEl');
@@ -120,10 +130,8 @@ export class NavbarComponent {
         isExternal: false,
         children: this.overflowMenuItems(),
     }));
-    /** Indice dedicato per isNavDropdownOpen/onNavDropdownToggle: basato su rawMenuItems (il
-     *  massimo possibile, indipendente dal login) così non collide mai con un indice reale
-     *  del menu filtrato (0..length-1, sempre <= rawMenuItems.length) né con -1 ("nessun
-     *  dropdown aperto"). */
+    /** Indice sentinella per isNavDropdownOpen/onNavDropdownToggle: basato su rawMenuItems.length,
+     *  così non collide mai con un indice reale del menu filtrato né con -1. */
     readonly altroDropdownIndex = this.rawMenuItems().length;
 
     constructor() {
@@ -140,27 +148,79 @@ export class NavbarComponent {
             .pipe(filter(e => e instanceof NavigationEnd), takeUntilDestroyed())
             .subscribe(() => this.closeNavigation());
 
-        // Sempre osservata (non solo se fixTop): serve anche al tetto di altezza del pannello
-        // mobile aperto, indipendente dal fatto che la navbar sia fixed o in flusso normale.
+        // Chiusura condivisa (dismiss.ts): prima i dropdown (lingua compresa), poi il menu mobile.
+        // Escape chiude solo il più interno aperto e ridà il focus al suo trigger; il click fuori
+        // dalla navbar chiude i dropdown (il menu mobile copre la pagina: fuori non c'è niente).
+        injectDismiss({
+            open: computed(() => this.openDropdownIndex() !== -1 || this.langOpen()),
+            close: () => this.closeAllDropdowns(),
+            returnFocus: () => this.elRef.nativeElement.querySelector('.dropdown.show > .nav-dropdown-toggle') as HTMLElement | null,
+        });
+        injectDismiss({
+            open: this.menuOpen,
+            close: () => this.closeNavigation(),
+            returnFocus: () => this.togglerEl()?.nativeElement,
+            outsideClick: false,
+        });
+
+        // Menu mobile aperto = pannello a tutto schermo sopra la pagina: il resto dello shell diventa
+        // `inert` (fuori da Tab e screen reader, WCAG 2.4.3) e il focus entra nella prima voce —
+        // altrimenti da tastiera si finirebbe sul contenuto nascosto dietro il pannello.
+        effect(() => {
+            const open = this.menuOpen();
+            if (!this.isBrowser) return;
+            untracked(() => {
+                this.setBackgroundInert(open);
+                if (open) {
+                    requestAnimationFrame(() => this.menuEl()?.nativeElement
+                        .querySelector<HTMLElement>('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])')
+                        ?.focus());
+                }
+            });
+        });
+        this.destroyRef.onDestroy(() => this.setBackgroundInert(false));
+
+        // Navbar agganciata: la sua altezza reale diventa lo scroll-padding della pagina (--navOffset,
+        // _base.scss), così focus da tastiera e ancore non finiscono coperti dalla barra. Sganciata
+        // (zoom, finestra bassa) non copre niente, e lo scroll-padding torna a zero.
+        if (this.fixTop && this.isBrowser) {
+            const rootStyle = document.documentElement.style;
+            effect(() => this.stuck()
+                ? rootStyle.setProperty('--navOffset', `${this.navHeight()}px`)
+                : rootStyle.removeProperty('--navOffset'));
+            this.destroyRef.onDestroy(() => rootStyle.removeProperty('--navOffset'));
+            afterNextRender(() => {
+                const measure = (): void => this.viewportHeight.set(window.innerHeight);
+                measure();
+                window.addEventListener('resize', measure, { passive: true });   // lo zoom del browser è un resize
+                this.destroyRef.onDestroy(() => window.removeEventListener('resize', measure));
+            });
+        }
+        // Da md in su il pannello mobile non esiste più (voci in riga): se era aperto quando la
+        // finestra si allarga, si chiude — altrimenti la pagina resterebbe inert senza un menu visibile.
+        afterNextRender(() => {
+            const desktop = viewportAtLeastQuery('md');
+            const onChange = (e: MediaQueryListEvent): void => { if (e.matches) this.menuOpen.set(false); };
+            desktop.addEventListener('change', onChange);
+            this.destroyRef.onDestroy(() => desktop.removeEventListener('change', onChange));
+        });
+
+        // Sempre osservata (non solo se fixTop): serve anche a dove parte il pannello mobile
+        // aperto, indipendente dal fatto che la navbar sia agganciata o in flusso normale.
         afterNextRender(() => this.observeNavHeight());
 
         // Overflow "Altro" SEMPRE attivo, indipendente dal numero di voci: il conteggio non
         // garantisce nulla sulla larghezza reale (un'etichetta lunga può non entrare anche con
         // poche voci). MAX_RECOMMENDED_TOP_LEVEL_ITEMS resta solo un avviso, non una condizione di layout.
         afterNextRender(() => this.setupOverflowObserver());
-        // Un font custom può ancora scaricarsi quando afterNextRender misura la prima volta: le
-        // larghezze lette in quel momento sono del font di fallback. Se il cambio di larghezza dopo
-        // il download non tocca le dimensioni di container/navListEl osservate sotto, il primo
-        // calcolo resta sbagliato senza altro trigger a correggerlo. document.fonts è browser-only.
+        // Un font custom può ancora scaricarsi alla prima misura (larghezze del font di fallback):
+        // document.fonts.ready corregge il calcolo dopo il download.
         if (this.isBrowser && typeof document !== 'undefined' && document.fonts) {
             void document.fonts.ready.then(() => this.recomputeOverflow());
         }
-        // Le voci in overflow sono position:absolute: un loro cambio di larghezza (etichette diverse
-        // per lingua, voci authOnly al login/logout) non fa scattare da solo il ResizeObserver su
-        // navListEl, da qui il ricalcolo esplicito (queueMicrotask: margine per non misurare nello
-        // stesso ciclo in cui i segnali sono appena cambiati). `menuItems()` tracciato esplicitamente
-        // perché un resolver header async può ri-risolversi da solo dopo l'idratazione e leggere
-        // transitoriamente vuoto: senza tracciarlo, "Altro" resterebbe pieno anche a riga libera.
+        // Le voci in overflow sono position:absolute: il loro cambio di larghezza non fa scattare da
+        // solo il ResizeObserver, da qui il ricalcolo esplicito (`menuItems()` tracciato perché un
+        // resolver async può leggere transitoriamente vuoto dopo l'idratazione).
         effect(() => {
             this.translate.currentLang();
             this.tokenService.isLoggedIn();
@@ -173,13 +233,10 @@ export class NavbarComponent {
         const el = this.navEl()?.nativeElement;
         if (!el) return;
         this.navHeight.set(el.offsetHeight);
-        // Guardia menuOpen(): il pannello mobile espanso è DENTRO <nav>, quindi aprirlo gonfia anche
-        // l'altezza di <nav>. Aggiornare navHeight a pannello aperto ricalcolerebbe il suo stesso
-        // tetto (calc(100dvh - var(--nav-height))) su un'altezza già gonfiata — un ciclo che lo
-        // schiaccia. L'altezza a riposo non cambia mentre il pannello è aperto.
-        const observer = new ResizeObserver(([entry]) => {
-            if (!this.menuOpen()) this.navHeight.set(entry.target.clientHeight);
-        });
+        // Anche a menu aperto: il pannello mobile è position:fixed, fuori dal flusso di <nav>, e non
+        // ne gonfia l'altezza. La riga superiore invece può cambiarla (l'etichetta "Menu" sparisce,
+        // una riga che andava a capo rientra) e il pannello deve partire dal suo bordo reale.
+        const observer = new ResizeObserver(([entry]) => this.navHeight.set(entry.target.clientHeight));
         observer.observe(el);
         this.destroyRef.onDestroy(() => observer.disconnect());
     }
@@ -220,8 +277,15 @@ export class NavbarComponent {
         const brand = this.brandEl()?.nativeElement;
         const userNav = this.userNavWrapperEl()?.nativeElement;
         const langWrap = this.langWrapEl()?.nativeElement;
-        const GAP = 16; // 1rem — coerente con .navbar-collapse{gap:1rem} in navbar.component.scss
+        // Letto dal CSS (.navbar-collapse { gap: var(--space-3) }), non duplicato qui: se il token
+        // cambia, il calcolo resta allineato. 16px solo se non misurabile.
+        const collapse = this.navListEl()?.nativeElement.parentElement;
+        const GAP = (collapse && parseFloat(getComputedStyle(collapse).columnGap)) || 16;
+        // clientWidth comprende il padding: con la linea del contenuto (.shell-line) è il rientro
+        // dal bordo, fino a centinaia di px su uno schermo largo, e non è spazio per le voci.
+        const style = getComputedStyle(container);
         const available = container.clientWidth
+            - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
             - (brand?.offsetWidth ?? 0)
             - (userNav?.offsetWidth ?? 0)
             - (langWrap?.offsetWidth ?? 0)
@@ -288,20 +352,6 @@ export class NavbarComponent {
         this.closeNavigation();
     }
 
-    onDocumentClick(event: MouseEvent): void {
-        if (!this.elRef.nativeElement.contains(event.target)) {
-            this.closeAllDropdowns();
-        }
-    }
-
-    /** Escape chiude il dropdown aperto e ridà il focus al suo toggle (pattern ARIA menu button: senza, chi naviga da tastiera lo perde su un pannello nascosto). Nessun stopPropagation: se non trova nulla di aperto, l'Escape deve poter chiudere altro (es. un modale sopra la pagina). */
-    onEscape(): void {
-        if (this.openDropdownIndex() === -1 && !this.langOpen()) return;
-        const openToggle = this.elRef.nativeElement.querySelector('.dropdown.show > .nav-dropdown-toggle') as HTMLElement | null;
-        this.closeAllDropdowns();
-        openToggle?.focus();
-    }
-
     setLanguage(lang: string): void {
         void this.applyLanguageSwitch(lang);
     }
@@ -333,5 +383,20 @@ export class NavbarComponent {
     private closeAllDropdowns(): void {
         this.openDropdownIndex.set(-1);
         this.langOpen.set(false);
+        this.menuState.requestCollapse();
+    }
+
+    /** `inert` sui fratelli dello shell (header escluso): contenuto, footer, FAB, banner. */
+    private setBackgroundInert(inert: boolean): void {
+        if (!inert) {
+            this.inertSiblings.forEach(el => el.removeAttribute('inert'));
+            this.inertSiblings = [];
+            return;
+        }
+        const host = this.elRef.nativeElement as HTMLElement;
+        const root = host.closest('app-root') ?? host.ownerDocument.body;
+        this.inertSiblings = Array.from(root.children)
+            .filter((el): el is HTMLElement => el instanceof HTMLElement && !el.contains(host) && !el.hasAttribute('inert'));
+        this.inertSiblings.forEach(el => el.setAttribute('inert', ''));
     }
 }

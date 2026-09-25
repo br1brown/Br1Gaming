@@ -15,6 +15,19 @@
     }
 }
 
+/* Fallback metric-matched al font.principale (generate:statics): evita che lo swap fallback→font
+   caricato muova il testo di riga (CLS). Null se non calcolabile: nessuna @font-face in più. */
+@if theme.$theme-font-fallback != null {
+    @font-face {
+        font-family: lib.required(theme.$theme-font-fallback, 'family');
+        src: local(lib.required(theme.$theme-font-fallback, 'localName'));
+        ascent-override: lib.required(theme.$theme-font-fallback, 'ascentOverride');
+        descent-override: lib.required(theme.$theme-font-fallback, 'descentOverride');
+        line-gap-override: lib.required(theme.$theme-font-fallback, 'lineGapOverride');
+        size-adjust: lib.required(theme.$theme-font-fallback, 'sizeAdjust');
+    }
+}
+
 :root {
     /* Movimento, elevazione, pulsazione, raggio lightbox, font (DesignSystemPreset). */
     @each $name, $value in theme.$theme-static {
@@ -26,11 +39,37 @@
     --focusRingWidth: 3px;
     --focusRingOffset: 2px;
 
-    /* Scala z-index del template, incastrata nei vuoti di quella Bootstrap. */
-    --z-navbar-static: 1020; /* sticky-top Bootstrap: dropdown navbar quando non è fixed/sticky */
-    --z-cookie-banner: 1040;
+    /* Spazi, --fs-sm/--lh-tight e i livelli z condivisi con Bootstrap sono derivati in bootstrap.scss
+       (variabili Sass in scope lì), non duplicati qui, per non poter divergere. */
+    /* Respiro di pannello e shell (--densitaRespiro/-Largo), ombre delle barre (--shadowBarDown/Up) e
+       larghezza massima dello shell (--larghezzaShell) sono scelte estetiche: le genera il design
+       system (`densita`, `elevazione`, `larghezza`), come movimento ed elevazione qui sopra. */
+
+    /* Tipografia oltre Bootstrap: --fs-xs il minimo (fine-print, contatori), mai sotto; --lh-relaxed
+       per i testi lunghi. Sotto il corpo l'altro gradino è --fs-sm (da $font-size-sm, bootstrap.scss). */
+    --fs-xs: 0.75rem;
+    --lh-relaxed: 1.65;
+    /* Maiuscoletto di etichette/intestazioni (voci navbar, titoli colonna footer). */
+    --ls-wide: 0.04em;
+
+    /* Target di tocco minimo (WCAG 2.5.5, 44px): ogni controllo cliccabile da solo — bottone icona,
+       voce di menu, toggle — non scende sotto. Unica eccezione: toolbar dense .btn-sm (2.5.8, 24px). */
+    --touchTarget: 2.75rem;
+
+    /* Icone: glifo in un controllo (sm in .btn-sm, md in .btn), lg per icone di stato isolate.
+       --iconBadgeSize è la pastiglia tonda dei contatti/social: pari al target di tocco. */
+    --iconSize-sm: 1rem;
+    --iconSize-md: 1.25rem;
+    --iconSize-lg: 1.5rem;
+    --iconBadgeSize: var(--touchTarget);
+
+    /* Raggio fuori dalla scala `elevazione` del design system (--elevazioneRaggio) e da quella di
+       Bootstrap (--bs-border-radius-*, pill compresa): il bottom-sheet mobile, convenzione di piattaforma. */
+    --radiusSheet: 1.25rem;
+
+    /* Scala z-index del template, incastrata nei vuoti di quella Bootstrap: i livelli che coincidono
+       con un $zindex-* di Bootstrap sono derivati in bootstrap.scss, qui solo quelli nostri. */
     --z-fab: 1035;
-    --z-mobile-nav-overlay: 1045; /* livello offcanvas: il pannello mobile navbar deve coprire il cookie banner */
     --z-skip-link: 1095;
     --z-cdk-overlay: 1100;
 }

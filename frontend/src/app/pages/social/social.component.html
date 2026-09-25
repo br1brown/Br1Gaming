@@ -1,7 +1,15 @@
-<div class="offset-md-1 col-md-10 offset-lg-2 col-lg-8 row">
-    @if (socialLinks().length > 0) {
+<h1 class="h3 fw-bold mb-4">{{ pageTitle() }}</h1>
+
+<!-- Larghezza dalla shell (DesignSystemPreset.larghezza), come ogni altra pagina: nessun secondo
+     vincolo di colonna qui. Colonne progressive con le sole classi Bootstrap: 1 → 2 → 3 → 4. -->
+@if (socialLinks().length > 0) {
+<div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4 g-3">
     @for (link of socialLinks(); track link.type) {
-    <app-social-link class="col-12 col-md-3 align-self-end" [type]="link.type" [value]="link.url" [showLabel]="true" />
-    }
+    <div class="col">
+        <app-social-link [type]="link.type" [value]="link.url" [showLabel]="true" />
+    </div>
     }
 </div>
+} @else {
+<app-empty-state icon="fa-solid fa-share-nodes" />
+}

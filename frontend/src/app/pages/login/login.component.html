@@ -1,9 +1,12 @@
-<div class="p-4 p-sm-5 text-center">
+<!-- Colonna stretta e centrata (griglia Bootstrap): un modulo di una o due caselle non si allunga su
+     tutta la larghezza del pannello. -->
+<div class="row justify-content-center">
+<div class="col-12 col-sm-10 col-md-8 col-lg-6 col-xl-5 text-center py-3">
 
     <div class="mb-4">
-        <i class="fa-solid fa-circle-user fa-4x text-body-secondary mb-3" aria-hidden="true"></i>
+        <i class="fa-solid fa-circle-user fa-3x text-body-secondary mb-3" aria-hidden="true"></i>
         <h1 class="h4 fw-bold mb-1">{{ 'loginTitolo' | translate }}</h1>
-        <p class="text-body-secondary small">{{ 'loginSottotitolo' | translate }}</p>
+        <p class="text-body-secondary small mb-0">{{ 'loginSottotitolo' | translate }}</p>
     </div>
 
     @if (infoMessage(); as info) {
@@ -15,4 +18,5 @@
 
     <app-login-form (loggedIn)="onLoggedIn()" />
 
+</div>
 </div>

@@ -1,4 +1,4 @@
-import { Component, ElementRef, computed, inject, input, output, viewChild } from '@angular/core';
+import { Component, ElementRef, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { CdkTrapFocus } from '@angular/cdk/a11y';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { AssetService } from '../../services/asset.service';
@@ -9,10 +9,8 @@ import { TranslateService } from '../../services/translate.service';
  *  generato client-side (canvas del builder immagini, QR code...). */
 export type LightboxSource = { assetId: string } | { blob: Blob };
 
-/** UI del lightbox, creata dentro un overlay CDK da `ImageLightboxService`. Non va usata
- *  direttamente: apertura/backdrop/Esc li gestisce il servizio, qui solo il contenuto — dialog
- *  modale ARIA (focus dentro, intrappolato via CDK `cdkTrapFocus`, ripristinato dal servizio alla
- *  chiusura), stesso pattern del WAI-ARIA Dialog Pattern. */
+/** UI del lightbox, montata in un overlay CDK da `ImageLightboxService` (apertura/backdrop/Esc a suo
+ *  carico). Dialog modale ARIA con focus intrappolato via `cdkTrapFocus`. */
 @Component({
     selector: 'app-image-lightbox-overlay',
     standalone: true,
@@ -38,12 +36,12 @@ export class ImageLightboxOverlayComponent {
             ? this.asset.getUrlFromBlob(s.blob).angularUrl
             : this.asset.getUrl(s.assetId, ALLOWED_WIDTHS[ALLOWED_WIDTHS.length - 1]);
     });
+    /** Il file non si è caricato: al suo posto un messaggio (vedi template). */
+    protected readonly broken = signal(false);
     protected readonly dialogLabel = computed(() => this.alt() || this.translate.translate('immagineIngranditaNav'));
 
-    /** Sposta il focus dentro il dialog all'apertura (WAI-ARIA Dialog Pattern) — l'unico elemento
-     *  interattivo qui dentro è il bottone di chiusura. Il trap di Tab/Shift+Tab (restare dentro
-     *  invece di uscire verso la pagina sotto — CDK Overlay non lo fa da solo, a differenza di un
-     *  <dialog> nativo) è `cdkTrapFocus` nel template, non più a mano. */
+    /** Sposta il focus sul bottone di chiusura all'apertura (WAI-ARIA Dialog Pattern); il trap
+     *  Tab/Shift+Tab è `cdkTrapFocus` nel template, CDK Overlay non lo fa da solo. */
     focusClose(): void {
         requestAnimationFrame(() => this.closeBtn()?.nativeElement.focus());
     }

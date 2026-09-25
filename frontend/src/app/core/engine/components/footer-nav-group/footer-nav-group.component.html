@@ -1,6 +1,6 @@
 <div [class.footer-subgroup]="level() > 0">
     @if (level() === 0) {
-        <span class="small fw-bold text-uppercase d-block mb-2">{{ group().label | translate }}</span>
+        <span class="small fw-bold text-uppercase d-block mb-2 footer-group-title">{{ group().label | translate }}</span>
     } @else {
         <span class="small fw-semibold d-block mb-1 footer-subgroup-title">{{ group().label | translate }}</span>
     }

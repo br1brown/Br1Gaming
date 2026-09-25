@@ -1,4 +1,4 @@
-import { Component, ElementRef, PLATFORM_ID, computed, inject, input, output, signal } from '@angular/core';
+import { Component, ElementRef, PLATFORM_ID, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { Router } from '@angular/router';
 import { injectCurrentUrl } from '../../routing';
@@ -6,6 +6,7 @@ import { isDesktopViewport, supportsHover } from '../../breakpoints';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { NavLinkComponent } from '../nav-link/nav-link.component';
 import { NavLink, isNavGroup, navLinkKey } from '../../shell-nav';
+import { NavMenuState } from '../../nav-menu-state';
 
 /** Margine dal bordo inferiore del viewport quando si calcola il tetto d'altezza del flyout. */
 const SUBMENU_VIEWPORT_MARGIN = 16;
@@ -13,10 +14,11 @@ const SUBMENU_VIEWPORT_MARGIN = 16;
  *  visibili + indicazione che continua) che un pannello schiacciato a un dito di altezza. */
 const SUBMENU_MIN_HEIGHT = 160;
 
-/** Gruppo di navigazione dal secondo livello in giù, reso ricorsivamente nel dropdown della navbar.
- *  Desktop: pannello flyout su hover/focus, verso destra o ribaltato se sforerebbe il viewport.
- *  Mobile: accordion indentato al tap. Il singolo link va a `<app-nav-link>`; un figlio gruppo si
- *  rende con un altro `<app-nav-submenu>`. */
+/** Id progressivi dei pannelli, per `aria-controls` (stesso ordine in SSR e nel browser). */
+let nextSubmenuId = 0;
+
+/** Gruppo di navigazione dal secondo livello in giù. Desktop: flyout su hover/focus (destra, o
+ *  ribaltato se sforerebbe il viewport). Mobile: accordion indentato al tap. */
 @Component({
     selector: 'app-nav-submenu',
     standalone: true,
@@ -33,6 +35,9 @@ export class NavSubmenuComponent {
 
     readonly linkClick = output<void>();
 
+    /** Id del pannello, collegato al toggle con `aria-controls`. */
+    protected readonly menuId = `nav-submenu-${nextSubmenuId++}`;
+
     /** Stato di apertura usato su mobile (su desktop il flyout apre via CSS hover/focus). */
     readonly expanded = signal(false);
     /** true quando il flyout desktop va aperto verso sinistra per restare dentro il viewport. */
@@ -48,6 +53,18 @@ export class NavSubmenuComponent {
         return this.hasActiveDescendant(this.item().children);
     });
 
+    constructor() {
+        // Quando la navbar chiude tutto (Escape, click fuori, navigazione) si richiude anche questo
+        // accordion: aperto "di nascosto", al prossimo giro sarebbe già espanso.
+        const menuState = inject(NavMenuState, { optional: true });
+        if (menuState) {
+            effect(() => {
+                menuState.collapseAll();
+                untracked(() => this.expanded.set(false));
+            });
+        }
+    }
+
     /** True se una qualsiasi foglia interna del sottoalbero è la rotta corrente. */
     private hasActiveDescendant(children: NavLink[]): boolean {
         return children.some(child =>
@@ -58,10 +75,8 @@ export class NavSubmenuComponent {
                 }));
     }
 
-    /** Apertura/chiusura dell'accordion mobile. Su desktop con hover reale il pannello è già
-     *  guidato da :hover/:focus-within (CSS) — qui sarebbe un no-op visibile identico. Su un
-     *  touchscreen che riporta >= md di larghezza (tablet, laptop touch) non c'è hover reale:
-     *  senza questo fallback il tap non apriva nulla e il gruppo restava irraggiungibile. */
+    /** Apertura/chiusura dell'accordion mobile: no-op su desktop con hover reale (già guidato da CSS),
+     *  necessario invece su un touchscreen >= md (tablet, laptop touch) dove l'hover non esiste. */
     toggle(): void {
         if (!this.isBrowser || (isDesktopViewport() && supportsHover())) return;
         const nowOpen = !this.expanded();
@@ -74,11 +89,8 @@ export class NavSubmenuComponent {
         this.linkClick.emit();
     }
 
-    /**
-     * All'apertura del flyout desktop sceglie il lato (destra di default, sinistra se non c'è
-     * spazio) e il tetto d'altezza: un gruppo con tanti figli scrolla al proprio interno invece
-     * di sforare il viewport. Il tetto è lo spazio libero REALE sotto l'ancora, non un vh fisso.
-     */
+    /** Sceglie il lato del flyout desktop (destra, sinistra se manca spazio) e il tetto d'altezza
+     *  dallo spazio libero REALE sotto l'ancora, non un vh fisso. */
     updateFlip(): void {
         if (!this.isBrowser) return;
         const root = this.host.nativeElement.querySelector<HTMLElement>(':scope > .dropdown-submenu');

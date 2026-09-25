@@ -1,14 +1,24 @@
-<div class="text-center">
-    <h1 class="h2">{{ errorInfo() }}</h1>
-    <p>{{ errorMessage() }}</p>
-    @if (homePage != null) {
-    <a [appPage]="homePage" class="btn btn-primary btn-lg">
-        {{ 'tornaHomeAzione' | translate }}
-    </a>
-    } @else {
-    <!-- Niente home: navigazione browser "tradizionale" alla radice, fuori dal router. -->
-    <a href="/" class="btn btn-primary btn-lg">
-        {{ 'tornaHomeAzione' | translate }}
-    </a>
-    }
+<div class="row justify-content-center">
+<div class="col-12 col-lg-8 text-center py-4">
+    <h1 class="h2 mb-2">{{ errorInfo() }}</h1>
+    <p class="text-body-secondary mb-4">{{ errorMessage() }}</p>
+    <div class="d-flex flex-wrap justify-content-center gap-2">
+        @if (canRetry()) {
+        <!-- Rete, server o backend: l'azione utile è ritentare; la home ha bisogno del backend quanto la pagina fallita. -->
+        <button type="button" class="btn btn-primary px-4 py-2" (click)="riprova()">
+            {{ 'riprovaAzione' | translate }}
+        </button>
+        }
+        @if (homePage != null) {
+        <a [appPage]="homePage" class="btn px-4 py-2" [class.btn-primary]="!canRetry()" [class.btn-outline-secondary]="canRetry()">
+            {{ 'tornaHomeAzione' | translate }}
+        </a>
+        } @else {
+        <!-- Niente home: navigazione browser "tradizionale" alla radice, fuori dal router. -->
+        <a href="/" class="btn px-4 py-2" [class.btn-primary]="!canRetry()" [class.btn-outline-secondary]="canRetry()">
+            {{ 'tornaHomeAzione' | translate }}
+        </a>
+        }
+    </div>
+</div>
 </div>

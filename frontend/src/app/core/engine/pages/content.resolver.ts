@@ -1,11 +1,12 @@
-import { EnvironmentInjector, inject, Injectable, InjectionToken, makeStateKey, runInInjectionContext, TransferState } from '@angular/core';
+import { EnvironmentInjector, inject, Injectable, InjectionToken, makeStateKey, runInInjectionContext, TransferState, PLATFORM_ID } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { RedirectCommand, ResolveFn, Router } from '@angular/router';
 import { firstValueFrom, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { ContestoSito, PageType } from '../../../site';
 import { TranslateService } from '../services/translate.service';
-import { ApiError } from '../services/base-api.service';
+import { isPlatformServer } from '@angular/common';
+import { ApiError, isAvailabilityError, SsrBackendUnconfiguredError } from '../services/base-api.service';
 import { PageInfo } from '../siteBuilder';
 import type { StructuredDataInput } from '../services/structured-data';
 import { activeLegalPartials, type LegalContent, type LegalPageSpec } from '../legal/legal-pages';
@@ -20,19 +21,11 @@ export const LEGAL_FILE_READER = new InjectionToken<LegalFileReader | null>(
     'LegalFileReader', { providedIn: 'root', factory: () => null }
 );
 
-/**
- * Dati restituiti dal resolver: contenuto della pagina + metadati SEO.
- * Il component base li riceve, aggiorna i meta tag via effect() e
- * espone pageContent() già tipizzato tramite il generic T.
- */
+/** Contenuto + metadati SEO restituiti dal resolver: il component base li legge via `pageContent()`, già tipizzato su T. */
 export interface ResolvedPage<T = unknown> {
     content: T | null;
     info: PageInfo | null;
-    /**
-     * Dati strutturati ricchi (JSON-LD) derivati dal contenuto, impostati da un `contentLoader` di
-     * pagina (es. autore/data di un Article). Hanno la precedenza sul `structuredData` statico di
-     * `site.ts`. Omesso → si usa quello statico (o nessuno).
-     */
+    /** JSON-LD dinamico da un `contentLoader` di pagina; ha precedenza sullo `structuredData` statico di `site.ts`, omesso → resta quello statico. */
     structuredData?: StructuredDataInput | null;
 }
 
@@ -49,11 +42,7 @@ export class ContentResolver {
     // await (contentLoaderResolver), che di suo non ne ha uno attivo per un eventuale inject() nell'hook.
     private readonly injector = inject(EnvironmentInjector);
 
-    /**
-     * `params` sono i valori di tutti i `:segmenti` della rotta corrente (es. `/prodotti/:slug`,
-     * o multi-segmento) — vuoto sulle pagine senza segmenti parametrici. Arriva dal resolver del
-     * router e passa tale e quale al `contentLoader`.
-     */
+    /** `params`: i valori dei `:segmenti` della rotta corrente, passati tali e quali al `contentLoader`. */
     async loadResolved(pageType: PageType, lang?: string, params: Record<string, string> = {}): Promise<ResolvedPage> {
 
         const language = lang ?? this.translate.currentLang();
@@ -78,11 +67,11 @@ export class ContentResolver {
                 }
             }
         } catch (error) {
-            // Uno slug/id inesistente (404 dal backend) risale a contentLoaderResolver (sotto),
-            // che lo trasforma in un redirect verso /error/404 — un 404 vero, non una pagina vuota
-            // appesa in silenzio. Ogni altro errore: l'apiErrorInterceptor ha già avvisato l'utente
-            // via Swal, restituiamo null content e il router completa comunque.
-            if (error instanceof ApiError && error.status === 404) throw error;
+            // 404 e problemi di disponibilità risalgono a contentLoaderResolver, che li trasforma in
+            // un redirect verso una pagina d'errore vera. Ogni altro errore l'ha già notificato
+            // l'apiErrorInterceptor: torniamo null content e il router completa comunque.
+            if (error instanceof ApiError && !(error instanceof SsrBackendUnconfiguredError)
+                && (error.status === 404 || isAvailabilityError(error.status))) throw error;
             content = null;
         }
 
@@ -136,19 +125,37 @@ export class ContentResolver {
     }
 }
 
-/** Factory ResolveFn per core/engine/routing.ts. `inject()` va preso sincrono, prima di ogni await
- *  — l'unico punto con injection context garantito — per questo il redirect sul 404 usa `.catch()`
- *  sulla promise già creata invece di async/await. Un `ResolveFn` redirige SOLO con
- *  `RedirectCommand`: un `UrlTree` nudo qui sarebbe trattato come dato risolto (soft-404), non
- *  come redirect (diverso da `CanActivateFn`). */
+/** `inject()` va preso sincrono prima di ogni await, quindi il redirect usa `.catch()` sulla promise
+ *  già creata, non async/await. Il redirect deve essere un `RedirectCommand`: un `UrlTree` nudo qui
+ *  sarebbe trattato come dato risolto (soft-404), non come redirect. */
 export const contentLoaderResolver = (pageType: PageType, lang: string): ResolveFn<ResolvedPage | RedirectCommand> =>
-    (route) => {
+    (route, state) => {
         const contentResolver = inject(ContentResolver);
         const router = inject(Router);
+        const onServer = isPlatformServer(inject(PLATFORM_ID));
         const params = Object.fromEntries(route.paramMap.keys.map(key => [key, route.paramMap.get(key)!]));
         return contentResolver.loadResolved(pageType, lang, params)
             .catch(error => {
                 if (error instanceof ApiError && error.status === 404) return new RedirectCommand(router.parseUrl('/error/404'));
+                // URL da ritentare in query string, non nello state di navigazione: in SSR il redirect
+                // è un 302 e lo state non esiste, e un reload della pagina d'errore lo perderebbe comunque.
+                if (error instanceof ApiError && !(error instanceof SsrBackendUnconfiguredError) && isAvailabilityError(error.status)) {
+                    const tree = router.createUrlTree([availabilityErrorPath(error.status, onServer)], { queryParams: { [RETRY_QUERY_PARAM]: state.url } });
+                    return new RedirectCommand(tree);
+                }
                 throw error;
             });
     };
+
+export { isAvailabilityError };
+/** Rotta d'errore per uno status di {@link isAvailabilityError}: lo 0 è `error/offline` nel browser,
+ *  ma sul server (che non ha un "sei offline") diventa `/error/502`. Gli altri: `error/<status>`. */
+export function availabilityErrorPath(status: number, onServer: boolean): string {
+    if (status === 0) return onServer ? '/error/502' : OFFLINE_ERROR_PATH;
+    return `/error/${status}`;
+}
+
+/** Rotta della pagina "sei offline / server non raggiungibile" (`error/:errorCode` con codice `offline`, ErrorComponent). */
+export const OFFLINE_ERROR_PATH = '/error/offline';
+/** Query param, su una pagina di {@link availabilityErrorPath}, con l'URL interno da ritentare. */
+export const RETRY_QUERY_PARAM = 'retry';

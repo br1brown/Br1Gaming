@@ -1,0 +1,38 @@
+/* Filo di 3px al bordo inferiore della navbar agganciata (--navOffset, scritto da NavbarComponent),
+   o in cima al viewport quando la navbar scorre via. Colore primario: è un segnale di stato del sito,
+   non decorazione. Sopra il contenuto (z della navbar): il filo sta fuori dalla barra, non la copre. */
+.nav-progress {
+    position: fixed;
+    top: var(--navOffset, 0px);
+    inset-inline: 0;
+    height: 3px;
+    z-index: var(--z-navbar);
+    background-color: var(--bs-primary);
+    transform-origin: left center;
+    /* Indeterminata: parte veloce e rallenta verso il 90%, mai ferma prima della fine. */
+    animation: nav-progress-avanza 8s cubic-bezier(0.1, 0.7, 0.2, 1) forwards;
+    pointer-events: none;
+}
+
+.nav-progress--completa {
+    animation: none;
+    transform: scaleX(1);
+    opacity: 0;
+    transition: opacity var(--movimentoPannello, 0.15s) ease-out 0.1s;
+}
+
+@keyframes nav-progress-avanza {
+    from { transform: scaleX(0); }
+    to   { transform: scaleX(0.9); }
+}
+
+/* Movimento ridotto: barra piena e ferma per tutta la navigazione, sparisce senza dissolvenza. */
+@media (prefers-reduced-motion: reduce) {
+    .nav-progress {
+        animation: none;
+        transform: scaleX(1);
+    }
+    .nav-progress--completa {
+        transition: none;
+    }
+}

@@ -4,14 +4,13 @@ import { ContestoSito, PageType } from '../../../site';
 import { applyPathParams } from '../siteBuilder';
 import { TranslateService } from '../services/translate.service';
 
-/** Risolve un `PageType` e naviga via `RouterLink` (hostDirective) — link sempre aggiornati se i
- *  path cambiano: `<a [appPage]="PageType.User" [appPageParams]="{id:'1'}">`. `href` è re-iniettato
- *  a mano perché `RouterLink` via `hostDirectives` non aggiorna l'attributo DOM in tempo reale,
- *  necessario per "Copia Link". */
+/** Risolve un `PageType` e naviga via `RouterLink` (hostDirective). `href` è re-iniettato a mano
+ *  (serve a "Copia Link"); `target` è esposto come input, altrimenti un `target="_blank"` finirebbe
+ *  in una navigazione in-app. */
 @Directive({
     selector: '[appPage]',
     standalone: true,
-    hostDirectives: [RouterLink],
+    hostDirectives: [{ directive: RouterLink, inputs: ['target'] }],
     host: { '[attr.href]': '_href()' },
 })
 export class PageDirective {
