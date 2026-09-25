@@ -26,8 +26,12 @@
     transition: transform .1s ease, box-shadow .1s ease, filter .15s ease;
 }
 
-.btn-skeuo:hover:not(:disabled) {
-    filter: brightness(1.04);
+/* Effetto al passaggio solo con un puntatore (hover: hover): su touch l'hover resterebbe "incollato"
+   al tap. Stesso gating delle utility dell'Engine (.zoom-on-hover, .fab). */
+@media (hover: hover) {
+    .btn-skeuo:hover:not(:disabled) {
+        filter: brightness(1.04);
+    }
 }
 
 .btn-skeuo:active:not(:disabled) {
@@ -127,14 +131,16 @@
     transition: transform .1s ease, box-shadow .15s ease, background .15s ease, color .15s ease;
 }
 
-.gen-actions .btn-outline-secondary:hover:not(:disabled) {
-    color: var(--bs-body-color);
-    background: linear-gradient(180deg,
-        color-mix(in srgb, white 12%, var(--bs-tertiary-bg)) 0%,
-        var(--bs-tertiary-bg) 55%,
-        color-mix(in srgb, black 10%, var(--bs-tertiary-bg)) 100%);
-    border-color: transparent;
-    filter: brightness(1.06);
+@media (hover: hover) {
+    .gen-actions .btn-outline-secondary:hover:not(:disabled) {
+        color: var(--bs-body-color);
+        background: linear-gradient(180deg,
+            color-mix(in srgb, white 12%, var(--bs-tertiary-bg)) 0%,
+            var(--bs-tertiary-bg) 55%,
+            color-mix(in srgb, black 10%, var(--bs-tertiary-bg)) 100%);
+        border-color: transparent;
+        filter: brightness(1.06);
+    }
 }
 
 .gen-actions .btn-outline-secondary:active:not(:disabled),

@@ -1,7 +1,7 @@
 import { Component, computed, effect, inject, input, PLATFORM_ID, signal } from '@angular/core';
+import { ShareService } from '../../core/engine/services/share.service';
 import { EmptyStateComponent } from '../../core/engine/components/empty-state/empty-state.component';
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
-import { RouterLink } from '@angular/router';
 import { MarkdownPipe } from '../../core/engine/pipes/markdown.pipe';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { PageDirective } from '../../core/engine/directives/page.directive';
@@ -52,13 +52,13 @@ interface PiaciutoGroup {
  */
 @Component({
     selector: 'app-piaciuti',
-    imports: [EmptyStateComponent, RouterLink, PageDirective, MarkdownPipe, TranslatePipe],
+    imports: [EmptyStateComponent, PageDirective, MarkdownPipe, TranslatePipe],
     templateUrl: './piaciuti.component.html',
     styles: [`
         /* position: relative è richiesto da .stretched-link (Bootstrap) sul bottone "Leggi tutto":
            estende l'area cliccabile a tutta la card, non solo al bottone. */
         .piaciuti-card { position: relative; transition: box-shadow .2s ease; cursor: pointer; }
-        .piaciuti-card:hover { box-shadow: var(--shadowElevatedHover); }
+        @media (hover: hover) { .piaciuti-card:hover { box-shadow: var(--shadowElevatedHover); } }
         /* Anteprima troncata: si vede solo l'inizio della generazione, il resto si apre cliccando
            la card o il bottone "Leggi tutto" (link a <path del generatore>/<id> della voce). */
         .piaciuti-preview {
@@ -84,6 +84,7 @@ interface PiaciutoGroup {
 export class PiaciutiComponent extends PageBaseComponent<PiaciutiPageContent> {
     private readonly platform = inject(PLATFORM_ID);
     private readonly document = inject(DOCUMENT);
+    private readonly share = inject(ShareService);
     private readonly contentResolver = inject(ContentResolver);
 
     /** "Tempo fa" in italiano da un istante ISO (es. "2 ore fa"). */
@@ -102,19 +103,16 @@ export class PiaciutiComponent extends PageBaseComponent<PiaciutiPageContent> {
     /** Copia negli appunti il link diretto (`<path>/<id>`) della singola voce, senza doverla aprire. */
     async copyLink(path: string, id: string): Promise<void> {
         const url = `${this.document.location.origin}${path}/${id}`;
-        try {
-            await this.document.defaultView?.navigator.clipboard.writeText(url);
-            this.notify.toast(this.translate.translate('condivisiLinkCopiato'), 'success');
-        } catch {
-            this.notify.toast(url, 'info');   // clipboard non disponibile: mostra l'URL
-        }
+        // ShareService (Engine): appunti con fallback; se non disponibili, mostra l'URL.
+        const ok = await this.share.copyText(url);
+        this.notify.toast(ok ? this.translate.translate('condivisiLinkCopiato') : url, ok ? 'success' : 'info');
     }
 
     /** Query param `?gen=<slug>`: se presente, mostra i piaciuti del solo generatore. */
     readonly gen = input<string>();
 
-    /** Path della pagina piaciuti, per i link "Vedi tutte" / "Tutti i generatori". */
-    protected readonly piaciutiPath = ContestoSito.getPath(PageType.Piaciuti) ?? '/';
+    /** Esposto al template per i link interni via [appPage] (Piaciuti, frase condivisa). */
+    protected readonly PageType = PageType;
     /** Per il link al generatore nel template: un solo PageType per tutti (/generatori/:slug), lo
      *  slug viaggia a parte via `[appPageParams]`. */
     protected readonly generatorPageType = PageType.Generatore;
@@ -157,8 +155,8 @@ export class PiaciutiComponent extends PageBaseComponent<PiaciutiPageContent> {
             bySlug.has(g.slug) && (!filtered || g.slug === filtered));
 
         const counts = this.counts();
-        // Un solo PageType per tutti i generatori (/generatori/:slug): il path REALE si risolve
-        // qui, sostituendo :slug — [routerLink]="[group.path, card.id]" non lo farebbe da solo.
+        // Un solo PageType per tutti i generatori (/generatori/:slug): il path REALE (per il link
+        // da copiare negli appunti) si risolve qui, sostituendo :slug.
         const generatorPath = ContestoSito.getPath(PageType.Generatore) ?? '/generatori/:slug';
         return sources.map(g => {
             const all = bySlug.get(g.slug)!;

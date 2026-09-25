@@ -3,7 +3,7 @@
      con miniatura piccola. Tutta la card è il link, la freccia in basso a destra segnala "entra". -->
 <a class="card content-card-cover overflow-hidden h-100 text-decoration-none"
    [class.has-image]="imageId() && imageVisible()"
-   [routerLink]="path()">
+   [appPage]="pageType()" [appPageParams]="params()">
     @if (imageId() && imageVisible()) {
     <img [appAsset]="imageId()!"
          [appAssetSizes]="'(min-width: 768px) 33vw, 50vw'"

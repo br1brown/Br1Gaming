@@ -28,15 +28,6 @@ export class GeneratorHubComponent {
 
     protected readonly skeletonSlots = [0, 1, 2, 3, 4, 5, 6];
 
-    /** Slug la cui immagine del tasto è mancante/rotta: il tasto ripiega sul solo nome, stesso
-     *  spirito di ContentCardComponent.onImageError — niente icona generica di fallback: se manca
-     *  l'immagine mancava anche la voce nel mapping, la si aggiunge lì, non qui in codice. */
-    protected readonly brokenIcons = signal(new Set<string>());
-
-    protected onIconError(slug: string): void {
-        this.brokenIcons.update(set => new Set(set).add(slug));
-    }
-
     private readonly resource = this.api.generatorsResource();
     readonly loading = this.resource.isLoading;
 

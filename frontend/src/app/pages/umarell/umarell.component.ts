@@ -176,16 +176,13 @@ export class UmarellComponent extends PageBaseComponent<void> implements OnDestr
                 audio.volume = VOICE_VOLUME;
                 this.audioPool[key] = audio;
             }
-            const saved = this.cookies.get('umarellRecord');
-            if (saved) {
-                try {
-                    const parsed = JSON.parse(saved) as Partial<RecordStats>;
-                    if (typeof parsed.combo === 'number') this.recordCombo.set(parsed.combo);
-                    if (typeof parsed.errors === 'number') this.recordErrors.set(parsed.errors);
-                    if (typeof parsed.seconds === 'number') this.recordSeconds.set(parsed.seconds);
-                } catch {
-                    /* cookie nel vecchio formato (solo mattoni, un numero) o corrotto: ignorato. */
-                }
+            // valueType 'json' nel registro: il servizio deserializza da sé (null se corrotto). Un
+            // cookie nel vecchio formato (solo mattoni, un numero) non ha i campi: ignorato.
+            const parsed = this.cookies.get('umarellRecord') as Partial<RecordStats> | null;
+            if (parsed && typeof parsed === 'object') {
+                if (typeof parsed.combo === 'number') this.recordCombo.set(parsed.combo);
+                if (typeof parsed.errors === 'number') this.recordErrors.set(parsed.errors);
+                if (typeof parsed.seconds === 'number') this.recordSeconds.set(parsed.seconds);
             }
         });
     }
@@ -374,7 +371,7 @@ export class UmarellComponent extends PageBaseComponent<void> implements OnDestr
             errors: this.recordErrors(),
             seconds: this.recordSeconds(),
         };
-        this.cookies.set('umarellRecord', JSON.stringify(payload), 60 * 60 * 24 * 365);
+        this.cookies.set('umarellRecord', payload, 60 * 60 * 24 * 365);
     }
 
     resetRecords(): void {

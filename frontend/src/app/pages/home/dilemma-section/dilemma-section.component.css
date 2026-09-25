@@ -37,9 +37,16 @@
     transition: transform .4s ease;
 }
 
-a.dilemma-card:hover .dilemma-card-bg,
 a.dilemma-card:focus-visible .dilemma-card-bg {
     transform: scale(1.03);
+}
+
+/* Effetto al passaggio solo con un puntatore (hover: hover): su touch l'hover resterebbe "incollato"
+   al tap. Stesso gating delle utility dell'Engine (.zoom-on-hover, .fab). */
+@media (hover: hover) {
+    a.dilemma-card:hover .dilemma-card-bg {
+        transform: scale(1.03);
+    }
 }
 
 .dilemma-card-scrim {
@@ -57,10 +64,18 @@ a.dilemma-card {
     transition: background-color .15s ease, transform .15s ease;
 }
 
-a.dilemma-card:hover,
 a.dilemma-card:focus-visible {
     background: var(--colorSurfaceHover);
     transform: translateY(-2px);
+}
+
+/* Effetto al passaggio solo con un puntatore (hover: hover): su touch l'hover resterebbe "incollato"
+   al tap. Stesso gating delle utility dell'Engine (.zoom-on-hover, .fab). */
+@media (hover: hover) {
+    a.dilemma-card:hover {
+        background: var(--colorSurfaceHover);
+        transform: translateY(-2px);
+    }
 }
 
 .dilemma-arrow {

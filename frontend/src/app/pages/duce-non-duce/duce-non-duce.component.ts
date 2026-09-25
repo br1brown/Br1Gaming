@@ -1,4 +1,5 @@
 import { afterNextRender, Component, OnDestroy, signal, computed, inject } from '@angular/core';
+import { LoadingComponent } from '../../core/engine/components/loading/loading.component';
 import { AssetDirective } from '../../core/engine/directives/asset.directive';
 import { CookieConsentService } from '../../core/engine/services/cookie-consent.service';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
@@ -32,7 +33,7 @@ interface RecordEntry { score: number; time: number; }
 @Component({
     selector: 'app-duce-non-duce',
     standalone: true,
-    imports: [AssetDirective],
+    imports: [LoadingComponent, AssetDirective],
     templateUrl: './duce-non-duce.component.html',
 })
 export class DuceNonDuceComponent extends PageBaseComponent<void> implements OnDestroy {
@@ -73,19 +74,13 @@ export class DuceNonDuceComponent extends PageBaseComponent<void> implements OnD
             this.sfxCorrect.preload = 'auto';
             this.sfxWrong.preload = 'auto';
 
+            // valueType 'json' nel registro: il servizio serializza/deserializza da sé.
             const saved = this.cookies.get('duceNonDuceRecord');
-            if (saved) {
-                try {
-                    const parsed = JSON.parse(saved);
-                    if (typeof parsed === 'number') {
-                        // retrocompatibilità: vecchio formato era solo il punteggio
-                        this.record.set({ score: parsed, time: 0 });
-                    } else {
-                        this.record.set(parsed as RecordEntry);
-                    }
-                } catch {
-                    this.record.set(null);
-                }
+            if (typeof saved === 'number') {
+                // retrocompatibilità: vecchio formato era solo il punteggio
+                this.record.set({ score: saved, time: 0 });
+            } else if (saved) {
+                this.record.set(saved as RecordEntry);
             }
         });
     }
@@ -175,7 +170,7 @@ export class DuceNonDuceComponent extends PageBaseComponent<void> implements OnD
             const entry: RecordEntry = { score: newScore, time: newTime };
             this.record.set(entry);
             const maxAge = 60 * 60 * 24 * 365;
-            this.cookies.set('duceNonDuceRecord', JSON.stringify(entry), maxAge);
+            this.cookies.set('duceNonDuceRecord', entry, maxAge);
         }
     }
 

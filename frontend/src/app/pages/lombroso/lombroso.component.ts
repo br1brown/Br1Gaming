@@ -1,6 +1,6 @@
 import { Component, ElementRef, OnDestroy, computed, effect, inject, signal, viewChild } from '@angular/core';
-import { RouterLink } from '@angular/router';
-import { ContestoSito } from '../../site';
+import { PageDirective } from '../../core/engine/directives/page.directive';
+import { ContestoSito, PageType } from '../../site';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { ImgBuilderService } from '../../core/engine/services/img-builder.service';
@@ -42,11 +42,13 @@ const MEASURING_STEPS: readonly string[] = [
 @Component({
     selector: 'app-lombroso',
     standalone: true,
-    imports: [RouterLink, TranslatePipe, LightboxDirective, ShareActionComponent],
+    imports: [PageDirective, TranslatePipe, LightboxDirective, ShareActionComponent],
     templateUrl: './lombroso.component.html',
     styleUrl: './lombroso.component.css',
 })
 export class LombrosoComponent extends PageBaseComponent<void> implements OnDestroy {
+    /** Esposto al template per i link interni via [appPage]. */
+    protected readonly PageType = PageType;
     protected readonly MEASURING_STEPS = MEASURING_STEPS;
 
     private readonly imgBuilder = inject(ImgBuilderService);

@@ -1,10 +1,9 @@
 import { DOCUMENT } from '@angular/common';
+import { LoadingComponent } from '../../core/engine/components/loading/loading.component';
 import { BusyIconComponent } from '../../core/engine/components/busy-icon/busy-icon.component';
 import { afterNextRender, Component, computed, effect, inject, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
 import { GeneratorInfo, GenerateResponse, GeneratorPageContent } from '../../core/dto/generator.dto';
 import { ContestoSito, PageType } from '../../site';
-import { applyPathParams } from '../../core/engine/siteBuilder';
 import { SpeechService } from '../../core/engine/services/speech.service';
 import { ImgBuilderService } from '../../core/engine/services/img-builder.service';
 import { AppearanceService } from '../../core/engine/services/appearance.service';
@@ -24,13 +23,12 @@ import { VariantButtonsComponent } from '../../components/shared/variant-buttons
 
 @Component({
     selector: 'app-generator-detail',
-    imports: [BusyIconComponent, 
+    imports: [LoadingComponent, BusyIconComponent, 
         TranslatePipe,
         MarkdownPipe,
         AssetDirective,
         LightboxDirective,
         PageDirective,
-        RouterLink,
         LikeActionComponent,
         ShareActionComponent,
         SpeechActionComponent,
@@ -102,10 +100,7 @@ import { VariantButtonsComponent } from '../../components/shared/variant-buttons
 export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageContent> {
     /** Esposto al template per i link interni via [appPage] (es. verso i condivisi). */
     protected readonly PageType = PageType;
-    /** Path della pagina piaciuti, per il link "Piaciuti di questo generatore" (con `?gen=`). */
-    protected readonly piaciutiPath = ContestoSito.getPath(PageType.Piaciuti) ?? '/';
     private readonly document = inject(DOCUMENT);
-    private readonly router = inject(Router);
     private readonly speech = inject(SpeechService);
     private readonly imgBuilder = inject(ImgBuilderService);
     private readonly appearance = inject(AppearanceService);
@@ -231,18 +226,6 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
         return `${this.getCurrentUrl()}/${id}`;
     }
 
-    /**
-     * Dalla rotta "frase condivisa" (`/generatori/:slug/:id`) torna al playground del generatore.
-     * Naviga verso una rotta diversa (PageType diverso da quello "condiviso"): l'istanza del
-     * componente NON viene riusata, quindi non generiamo qui — il playground appena montato lo fa
-     * da sé al proprio `afterNextRender` (niente doppia chiamata al backend).
-     */
-    goToGenerator(): void {
-        const slug = this.generator()?.slug;
-        const path = slug ? ContestoSito.getPath(PageType.Generatore) : null;
-        if (!path) return;
-        void this.router.navigateByUrl(applyPathParams(path, { slug: slug! }, 'GeneratorDetailComponent.goToGenerator'));
-    }
 
     // Porta in vista il risultato appena rigenerato (block: 'nearest' = non si muove se già visibile).
     private scrollToResult(): void {

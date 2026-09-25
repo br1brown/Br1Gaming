@@ -53,9 +53,7 @@
     </div>
 
     @if (facade.loading()) {
-    <div class="d-flex justify-content-center py-4">
-        <div class="spinner-grow text-primary opacity-50" role="status"></div>
-    </div>
+    <app-loading [loading]="true" />
     }
 
     @if (facade.snapshot(); as snap) {

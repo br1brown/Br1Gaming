@@ -1,4 +1,5 @@
 import { DOCUMENT } from '@angular/common';
+import { LoadingComponent } from '../../core/engine/components/loading/loading.component';
 import { afterNextRender, Component, computed, inject, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { Router } from '@angular/router';
@@ -12,7 +13,7 @@ import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 
 @Component({
     selector: 'app-story-player',
-    imports: [
+    imports: [LoadingComponent, 
         TranslatePipe,
         MarkdownPipe,
         AssetDirective,

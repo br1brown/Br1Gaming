@@ -44,10 +44,18 @@
     .sim-tile { aspect-ratio: 4 / 3; }
 }
 
-.sim-tile:hover,
 .sim-tile:focus-visible {
     transform: translateY(-4px);
     box-shadow: var(--shadowElevatedHover);
+}
+
+/* Effetto al passaggio solo con un puntatore (hover: hover): su touch l'hover resterebbe "incollato"
+   al tap. Stesso gating delle utility dell'Engine (.zoom-on-hover, .fab). */
+@media (hover: hover) {
+    .sim-tile:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadowElevatedHover);
+    }
 }
 
 /* Variante senza cover fotografica (Generatori: non è un "gioco", nessuna immagine da mostrare) —
@@ -75,9 +83,16 @@
     transition: transform .4s ease;
 }
 
-.sim-tile:hover .sim-tile-bg,
 .sim-tile:focus-visible .sim-tile-bg {
     transform: scale(1.03);
+}
+
+/* Effetto al passaggio solo con un puntatore (hover: hover): su touch l'hover resterebbe "incollato"
+   al tap. Stesso gating delle utility dell'Engine (.zoom-on-hover, .fab). */
+@media (hover: hover) {
+    .sim-tile:hover .sim-tile-bg {
+        transform: scale(1.03);
+    }
 }
 
 /* Scrim: leggibilità del testo sopra l'illustrazione, più marcato in basso dove sta il body. */

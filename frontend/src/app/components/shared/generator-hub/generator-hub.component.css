@@ -38,8 +38,12 @@
     transition: background-color .15s ease, box-shadow .15s ease, transform .1s ease;
 }
 
-.hub-chip:hover:not(.active) {
-    background: color-mix(in srgb, currentColor 6%, var(--bs-tertiary-bg));
+/* Effetto al passaggio solo con un puntatore (hover: hover): su touch l'hover resterebbe "incollato"
+   al tap. Stesso gating delle utility dell'Engine (.zoom-on-hover, .fab). */
+@media (hover: hover) {
+    .hub-chip:hover:not(.active) {
+        background: color-mix(in srgb, currentColor 6%, var(--bs-tertiary-bg));
+    }
 }
 
 .hub-chip:active {

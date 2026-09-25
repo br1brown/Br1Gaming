@@ -1,4 +1,4 @@
-<main class="col-12 col-md-8 offset-md-2 d-flex flex-column justify-content-center gap-3 py-2 flex-grow-1">
+<div class="col-12 col-md-8 offset-md-2 d-flex flex-column justify-content-center gap-3 py-2 flex-grow-1">
 
     @if (!gameActive()) {
     <div class="text-center mb-2">
@@ -45,7 +45,7 @@
                 <img [appAsset]="assetId" [appAssetWidth]="512" alt="" class="img-fluid mh-100 object-fit-contain">
                 } @else {
                 <div class="d-flex align-items-center justify-content-center h-100">
-                    <div class="spinner-border text-muted" role="status"></div>
+                    <app-loading [loading]="true" />
                 </div>
                 }
             </div>
@@ -62,4 +62,4 @@
     </div>
     }
 
-</main>
+</div>

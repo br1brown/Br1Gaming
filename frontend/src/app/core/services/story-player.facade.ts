@@ -176,44 +176,30 @@ export class StoryPlayerFacade {
     private static readonly EMPTY_STATE = { sceneId: null, stats: null } as SavedStoryState;
 
     private getStoryState(slug: string): { sceneId: string | null; stats: Record<string, number> | null; timeline: StoryTimelineItem[] | null } {
-        const raw = this.cookies.get('storyPlayerState');
-        let sceneId: string | null = null;
-        let stats: Record<string, number> | null = null;
-        if (raw) {
-            try {
-                const story = (JSON.parse(raw) as Record<string, SavedStoryState>)[slug] || StoryPlayerFacade.EMPTY_STATE;
-                sceneId = story.sceneId ?? null;
-                stats = story.stats ?? null;
-            } catch { /* cookie corrotto: stato assente */ }
-        }
-        return { sceneId, stats, timeline: this.readTimeline(slug) };
+        // valueType 'json' nel registro: il servizio deserializza da sé (null se assente o corrotto).
+        const all = this.cookies.get('storyPlayerState') as Record<string, SavedStoryState> | null;
+        const story = all?.[slug] || StoryPlayerFacade.EMPTY_STATE;
+        return { sceneId: story.sceneId ?? null, stats: story.stats ?? null, timeline: this.readTimeline(slug) };
     }
 
     private saveStoryState(slug: string, sceneId: string | null, stats: Record<string, number> | null, timeline: StoryTimelineItem[] | null): void {
         // Parte piccola e critica nel cookie (gated dal service).
-        const raw = this.cookies.get('storyPlayerState');
-        let all: Record<string, SavedStoryState> = {};
-        if (raw) {
-            try { all = JSON.parse(raw); } catch { }
-        }
+        const all = (this.cookies.get('storyPlayerState') as Record<string, SavedStoryState> | null) ?? {};
         all[slug] = { sceneId, stats };
-        this.cookies.set('storyPlayerState', JSON.stringify(all), StoryPlayerFacade.MAX_AGE);
+        this.cookies.set('storyPlayerState', all, StoryPlayerFacade.MAX_AGE);
         // Parte pesante in localStorage, stesso gate tecnico.
         this.writeTimeline(slug, timeline);
     }
 
     private clearStoryState(slug: string): void {
-        const raw = this.cookies.get('storyPlayerState');
-        if (raw) {
-            try {
-                const all = JSON.parse(raw) as Record<string, SavedStoryState>;
-                delete all[slug];
-                if (Object.keys(all).length === 0) {
-                    this.cookies.remove('storyPlayerState');
-                } else {
-                    this.cookies.set('storyPlayerState', JSON.stringify(all), StoryPlayerFacade.MAX_AGE);
-                }
-            } catch { }
+        const all = this.cookies.get('storyPlayerState') as Record<string, SavedStoryState> | null;
+        if (all) {
+            delete all[slug];
+            if (Object.keys(all).length === 0) {
+                this.cookies.remove('storyPlayerState');
+            } else {
+                this.cookies.set('storyPlayerState', all, StoryPlayerFacade.MAX_AGE);
+            }
         }
         this.writeTimeline(slug, null);
     }

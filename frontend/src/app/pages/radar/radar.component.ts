@@ -1,5 +1,7 @@
 import { afterNextRender, Component, effect, ElementRef, inject, OnDestroy, signal, viewChild, ViewEncapsulation } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { LoadingComponent } from '../../core/engine/components/loading/loading.component';
+import { PageType } from '../../site';
+import { PageDirective } from '../../core/engine/directives/page.directive';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { APP_CUSTOM } from '../../core/engine/app-custom';
@@ -24,7 +26,7 @@ type RadarStatus = 'init' | 'locating' | 'searching' | 'ready' | 'error';
  */
 @Component({
     selector: 'app-radar',
-    imports: [RouterLink, TranslatePipe],
+    imports: [LoadingComponent, PageDirective, TranslatePipe],
     templateUrl: './radar.component.html',
     styleUrl: './radar.component.css',
     // None come per cookie-banner: il CSS mira al popup Mapbox, DOM creato dalla
@@ -35,6 +37,8 @@ type RadarStatus = 'init' | 'locating' | 'searching' | 'ready' | 'error';
     // `flex-grow-1` sul root del template. Niente direttiva né classi display sull'host.
 })
 export class RadarComponent extends PageBaseComponent<void> implements OnDestroy {
+    /** Esposto al template per i link interni via [appPage]. */
+    protected readonly PageType = PageType;
     /** Contenitore della mappa Mapbox (ref locale, non id globale: niente collisioni). */
     private readonly mapContainer = viewChild.required<ElementRef<HTMLDivElement>>('mapContainer');
 

@@ -63,9 +63,10 @@
 
     @if (recovered()) {
     <div class="text-center mb-3">
-        <button class="btn btn-primary rounded-pill px-4" (click)="goToGenerator()">
+        <!-- Rotta diversa da quella "condivisa": il playground si monta da zero e genera da sé. -->
+        <a class="btn btn-primary rounded-pill px-4" [appPage]="PageType.Generatore" [appPageParams]="{ slug: gen.slug }">
             {{ 'condivisiVaiAlGeneratore' | translate }}
-        </button>
+        </a>
     </div>
     }
 
@@ -81,7 +82,7 @@
     }
 
     <p class="mb-3 text-center">
-        <a class="small text-decoration-none" [routerLink]="piaciutiPath" [queryParams]="{ gen: gen.slug }">
+        <a class="small text-decoration-none" [appPage]="PageType.Piaciuti" [appPageQueryParams]="{ gen: gen.slug }">
             {{ 'condivisiDiQuesto' | translate }}
         </a>
     </p>
@@ -107,8 +108,6 @@
     }
 
     } @else {
-    <div class="d-flex justify-content-center align-items-center py-5">
-        <div class="spinner-grow text-body-secondary opacity-50" role="status"></div>
-    </div>
+    <app-loading [loading]="true" />
     }
 </div>

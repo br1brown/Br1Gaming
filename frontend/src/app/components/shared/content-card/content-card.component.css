@@ -15,10 +15,18 @@
     transition: background-color .15s ease, transform .15s ease;
 }
 
-.content-card-cover:hover,
 .content-card-cover:focus-visible {
     background-color: var(--colorSurfaceHover);
     transform: translateY(-2px);
+}
+
+/* Effetto al passaggio solo con un puntatore (hover: hover): su touch l'hover resterebbe "incollato"
+   al tap. Stesso gating delle utility dell'Engine (.zoom-on-hover, .fab). */
+@media (hover: hover) {
+    .content-card-cover:hover {
+        background-color: var(--colorSurfaceHover);
+        transform: translateY(-2px);
+    }
 }
 
 /* Con copertina il testo siede sopra la foto: bordo tema spento, bianco fisso — il contrasto
@@ -38,9 +46,16 @@
     transition: transform .4s ease;
 }
 
-.content-card-cover:hover .content-card-bg,
 .content-card-cover:focus-visible .content-card-bg {
     transform: scale(1.03);
+}
+
+/* Effetto al passaggio solo con un puntatore (hover: hover): su touch l'hover resterebbe "incollato"
+   al tap. Stesso gating delle utility dell'Engine (.zoom-on-hover, .fab). */
+@media (hover: hover) {
+    .content-card-cover:hover .content-card-bg {
+        transform: scale(1.03);
+    }
 }
 
 .content-card-scrim {

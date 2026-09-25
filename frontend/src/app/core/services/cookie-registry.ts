@@ -3,12 +3,12 @@ import { ConsentCategory, type CookieConfig } from "../engine/services/cookie/co
 /** Registro UNICO dell'archiviazione client (cookie + Web Storage): una riga qui attiva toggle nel
  *  banner GDPR, tipizzazione di set/get/remove, riga nell'elenco cookie della Cookie Policy e pulizia alla revoca. */
 export const COOKIE_MAP = {
-    'storyPlayerState': { category: ConsentCategory.Technical, descriptionKey: 'gamingCookieDescStoryPlayerState' },
-    'duceNonDuceRecord': { category: ConsentCategory.Technical, descriptionKey: 'gamingCookieDescDuceNonDuceRecord' },
+    'storyPlayerState': { category: ConsentCategory.Technical, valueType: 'json', descriptionKey: 'gamingCookieDescStoryPlayerState' },
+    'duceNonDuceRecord': { category: ConsentCategory.Technical, valueType: 'json', descriptionKey: 'gamingCookieDescDuceNonDuceRecord' },
     'burocraziaTutorialDone': { category: ConsentCategory.Technical, valueType: 'boolean', descriptionKey: 'gamingCookieDescBurocraziaTutorial' },
     'burocraziaZoom': { category: ConsentCategory.Technical, valueType: 'number', descriptionKey: 'gamingCookieDescBurocraziaZoom' },
     'burocraziaRun': { category: ConsentCategory.Technical, valueType: 'json', descriptionKey: 'gamingCookieDescBurocraziaRun' },
-    'umarellRecord': { category: ConsentCategory.Technical, descriptionKey: 'gamingCookieDescUmarellRecord' },
+    'umarellRecord': { category: ConsentCategory.Technical, valueType: 'json', descriptionKey: 'gamingCookieDescUmarellRecord' },
     // Web Storage: timeline storie (parte voluminosa del salvataggio, fuori dai 4KB del cookie).
     'storyPlayerTimeline': { category: ConsentCategory.Technical, storage: 'local', valueType: 'json', descriptionKey: 'gamingStorageDescStoryPlayerTimeline' },
     // Web Storage di TERZA PARTE (Mapbox): telemetria/turnstile scritta da mapbox-gl sul radar chiese.

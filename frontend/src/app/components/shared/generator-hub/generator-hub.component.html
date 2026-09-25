@@ -20,14 +20,14 @@
                 [class.active]="activeSlug() === gen.slug"
                 [attr.aria-selected]="activeSlug() === gen.slug"
                 (click)="pickCategory(gen.slug)">
-            @if (!brokenIcons().has(gen.slug)) {
+            <!-- Immagine mancante/rotta: decorativa (alt=""), AssetDirective la toglie da sola e resta
+                 il solo nome — niente icona generica di fallback: se manca l'immagine mancava anche
+                 la voce nel mapping, la si aggiunge lì. -->
             <img [appAsset]="'generator.' + gen.slug"
                  [appAssetWidth]="125"
                  alt=""
                  class="hub-chip-icon"
-                 loading="lazy"
-                 (error)="onIconError(gen.slug)">
-            }
+                 loading="lazy">
             <span>{{ gen.name }}</span>
         </button>
         }
