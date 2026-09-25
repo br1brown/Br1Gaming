@@ -1,3 +1,5 @@
+import { injectPrefersReducedMotion } from '../../core/engine/breakpoints';
+import { CdkTrapFocus } from '@angular/cdk/a11y';
 import { Component, computed, effect, ElementRef, inject, OnDestroy, PLATFORM_ID, signal, viewChild } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
@@ -36,7 +38,7 @@ const BUILDINGS_LIGHT = ['#d7deea', '#cdd6e6', '#e0e6ef', '#c4cfe0', '#d2dbe8', 
 @Component({
     selector: 'app-burocrazia',
     standalone: true,
-    imports: [TranslatePipe],
+    imports: [TranslatePipe, CdkTrapFocus],
     templateUrl: './burocrazia.component.html',
     styleUrl: './burocrazia.component.css',
     host: {
@@ -91,11 +93,8 @@ export class BurocraziaComponent extends PageBaseComponent<void> implements OnDe
     private readonly cookies = inject(CookieConsentService);
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
-    // `AppearanceService` non espone più `prefersReducedMotion` (rimosso dall'Engine): stesso
-    // schema di `themeTone` (matchMedia + addEventListener), tenuto qui perché usato solo da questo gioco.
-    private readonly reduceMotion = signal(
-        this.isBrowser && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    );
+    /** Preferenza "meno movimento" del sistema, reattiva (Engine): il canvas si adegua senza reload. */
+    private readonly reduceMotion = injectPrefersReducedMotion();
 
     private game?: GameController;
     private gameCanvas?: HTMLCanvasElement;   // canvas su cui il gioco è agganciato: se cambia, si riaggancia
@@ -114,13 +113,8 @@ export class BurocraziaComponent extends PageBaseComponent<void> implements OnDe
         // ricalcola la palette al cambio tono. Guard: il game esiste solo dopo il render.
         effect(() => { this.theme.themeTone(); this.applyPalette(); });
 
-        // Accessibilità: rispetta la preferenza "meno movimento" del sistema. Il segnale è
-        // reattivo, così attivando/disattivando la preferenza il canvas si adegua senza reload —
-        // stesso schema dell'effetto palette qui sopra.
-        if (this.isBrowser) {
-            window.matchMedia('(prefers-reduced-motion: reduce)')
-                .addEventListener('change', e => this.reduceMotion.set(e.matches));
-        }
+        // Accessibilità: rispetta la preferenza "meno movimento" del sistema (signal reattivo,
+        // stesso schema dell'effetto palette qui sopra).
         effect(() => { this.game?.setReduceMotion(this.reduceMotion()); });
 
         // (Ri)crea il gioco quando il canvas "vivo" cambia. Su F5 (SSR+hydration) il canvas a cui era

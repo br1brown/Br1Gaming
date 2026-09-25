@@ -7,6 +7,7 @@
 // Navigazione: navbar, footer, dropdown, sottomenu. Commenta questa riga per dare
 // alla navigazione un tuo stile grafico (poi scrivilo, es. in styles/app/_nav.scss).
 @use 'engine/nav';
+@use 'engine/base/lib' as lib;
 
 // ── PROGETTO (tuo) ───────────────────────────────────────────────────────────
 // I tuoi stili globali e i tuoi partial (sotto src/styles/app/, importati con
@@ -70,7 +71,7 @@ main#main-content {
     padding-bottom: 8rem;
 }
 
-@media (min-width: 768px) {
+@media (min-width: #{lib.$bp-md}) {
     main#main-content {
         padding-bottom: 5rem;
     }

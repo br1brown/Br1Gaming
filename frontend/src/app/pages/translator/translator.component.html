@@ -52,19 +52,8 @@
                           [attr.placeholder]="'translatorOutputVuoto' | translate"
                           [attr.aria-label]="'translatorSpagnolo' | translate"></textarea>
                 <div class="d-flex align-items-center justify-content-end gap-2 px-3 py-2">
-                    <button type="button"
-                            class="btn btn-outline-secondary btn-touch d-inline-flex align-items-center justify-content-center gap-2"
-                            [class.active]="parla()"
-                            [disabled]="!tradotto()"
-                            [attr.aria-pressed]="parla()"
-                            (click)="ascolta()"
-                            [title]="(parla() ? 'speechStop' : 'speechPlay') | translate"
-                            [attr.aria-label]="(parla() ? 'speechStop' : 'speechPlay') | translate">
-                        <i class="fa-solid fs-5"
-                           [class.fa-volume-high]="!parla()"
-                           [class.fa-stop]="parla()"
-                           aria-hidden="true"></i>
-                    </button>
+                    <!-- Lettura con voce spagnola: lo stesso bottone azione dell'Engine, con [lang]. -->
+                    <app-speech-action [action]="leggiTradotto" lang="es-ES" />
                     <app-copy-action [action]="esportaTradotto" />
                     <app-share-action [action]="esportaTradotto" [title]="'translator' | translate" />
                 </div>

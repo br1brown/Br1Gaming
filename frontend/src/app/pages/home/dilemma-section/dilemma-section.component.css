@@ -64,17 +64,14 @@ a.dilemma-card {
     transition: background-color .15s ease, transform .15s ease;
 }
 
+/* Sollevamento: .lift-on-hover (Engine, nel template); qui solo il fondo che cambia. */
 a.dilemma-card:focus-visible {
     background: var(--colorSurfaceHover);
-    transform: translateY(-2px);
 }
 
-/* Effetto al passaggio solo con un puntatore (hover: hover): su touch l'hover resterebbe "incollato"
-   al tap. Stesso gating delle utility dell'Engine (.zoom-on-hover, .fab). */
 @media (hover: hover) {
     a.dilemma-card:hover {
         background: var(--colorSurfaceHover);
-        transform: translateY(-2px);
     }
 }
 
@@ -108,3 +105,6 @@ a.dilemma-card:focus-visible {
 @media (prefers-reduced-motion: reduce) {
     .dilemma-card-bg { transition: none; }
 }
+
+/* Copertina rotta (AssetDirective la nasconde): via anche lo scrim, resta la card testuale. */
+.dilemma-card-bg.asset-broken--decorative + .dilemma-card-scrim { display: none; }

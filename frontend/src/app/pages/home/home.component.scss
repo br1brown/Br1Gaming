@@ -1,3 +1,5 @@
+@use 'engine/base/lib' as lib;
+
 /* Bento Grid nativa: 12 colonne da desktop, asimmetrica (hub più largo dei micro-tool),
    fallback a colonna singola pulita su mobile (BR1-DEV §1). */
 .bento {
@@ -22,7 +24,7 @@
 .bento-lombroso { grid-column: span 12; }
 .bento-dilemma { grid-column: 1 / -1; }
 
-@media (min-width: 992px) {
+@media (min-width: #{lib.$bp-lg}) {
     .bento-tools { grid-column: span 7; }
     .bento-lombroso { grid-column: span 5; }
 }

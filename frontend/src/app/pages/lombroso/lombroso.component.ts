@@ -1,3 +1,4 @@
+import { injectPrefersReducedMotion } from '../../core/engine/breakpoints';
 import { Component, ElementRef, OnDestroy, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { PageDirective } from '../../core/engine/directives/page.directive';
 import { ContestoSito, PageType } from '../../site';
@@ -70,11 +71,8 @@ export class LombrosoComponent extends PageBaseComponent<void> implements OnDest
     private stream: MediaStream | null = null;
     private scanTimers: ReturnType<typeof setTimeout>[] = [];
 
-    // Stesso schema di burocrazia.component.ts: AppearanceService non espone più
-    // prefersReducedMotion, matchMedia locale dove serve solo qui.
-    private readonly reduceMotion = signal(
-        typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    );
+    /** Preferenza "meno movimento" del sistema, reattiva (Engine). */
+    private readonly reduceMotion = injectPrefersReducedMotion();
 
     constructor() {
         super();

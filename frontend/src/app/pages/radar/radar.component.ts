@@ -1,3 +1,4 @@
+import { ContactUrl } from '../../core/engine/components/utils/contact-url';
 import { afterNextRender, Component, effect, ElementRef, inject, OnDestroy, signal, viewChild, ViewEncapsulation } from '@angular/core';
 import { LoadingComponent } from '../../core/engine/components/loading/loading.component';
 import { PageType } from '../../site';
@@ -255,8 +256,7 @@ export class RadarComponent extends PageBaseComponent<void> implements OnDestroy
         link.className = 'btn btn-primary btn-sm w-100';
         link.target = '_blank';
         link.rel = 'noopener';
-        link.href = 'https://www.google.com/maps/search/?api=1&query='
-            + encodeURIComponent(c.address ? `${c.name} ${c.address}` : `${c.lat},${c.lon}`);
+        link.href = ContactUrl.maps(c.address ? `${c.name} ${c.address}` : `${c.lat},${c.lon}`);
         link.textContent = this.translate.t('radarGoogleMaps');
         root.append(link);
         return root;

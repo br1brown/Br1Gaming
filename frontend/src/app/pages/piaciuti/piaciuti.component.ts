@@ -1,3 +1,4 @@
+import { LocalizationService } from '../../core/engine/services/localization.service';
 import { Component, computed, effect, inject, input, PLATFORM_ID, signal } from '@angular/core';
 import { ShareService } from '../../core/engine/services/share.service';
 import { EmptyStateComponent } from '../../core/engine/components/empty-state/empty-state.component';
@@ -57,8 +58,7 @@ interface PiaciutoGroup {
     styles: [`
         /* position: relative è richiesto da .stretched-link (Bootstrap) sul bottone "Leggi tutto":
            estende l'area cliccabile a tutta la card, non solo al bottone. */
-        .piaciuti-card { position: relative; transition: box-shadow .2s ease; cursor: pointer; }
-        @media (hover: hover) { .piaciuti-card:hover { box-shadow: var(--shadowElevatedHover); } }
+        .piaciuti-card { position: relative; cursor: pointer; }
         /* Anteprima troncata: si vede solo l'inizio della generazione, il resto si apre cliccando
            la card o il bottone "Leggi tutto" (link a <path del generatore>/<id> della voce). */
         .piaciuti-preview {
@@ -87,17 +87,11 @@ export class PiaciutiComponent extends PageBaseComponent<PiaciutiPageContent> {
     private readonly share = inject(ShareService);
     private readonly contentResolver = inject(ContentResolver);
 
-    /** "Tempo fa" in italiano da un istante ISO (es. "2 ore fa"). */
+    private readonly localization = inject(LocalizationService);
+
+    /** "2 ore fa" / "ieri" nella lingua del sito (Intl, via il formatter dell'Engine). */
     ago(iso: string): string {
-        const t = new Date(iso).getTime();
-        if (isNaN(t)) return '';
-        const s = Math.max(0, Math.floor((Date.now() - t) / 1000));
-        if (s < 60) return 'adesso';
-        const m = Math.floor(s / 60); if (m < 60) return `${m} min fa`;
-        const h = Math.floor(m / 60); if (h < 24) return `${h} ${h === 1 ? 'ora' : 'ore'} fa`;
-        const d = Math.floor(h / 24); if (d < 30) return `${d} ${d === 1 ? 'giorno' : 'giorni'} fa`;
-        const mo = Math.floor(d / 30); if (mo < 12) return `${mo} ${mo === 1 ? 'mese' : 'mesi'} fa`;
-        const y = Math.floor(d / 365); return `${y} ${y === 1 ? 'anno' : 'anni'} fa`;
+        return this.localization.formatter.relativeTime(iso);
     }
 
     /** Copia negli appunti il link diretto (`<path>/<id>`) della singola voce, senza doverla aprire. */

@@ -28,7 +28,7 @@ import { SITE_CONFIG } from '../../core/engine/siteBuilder';
         DilemmaSectionComponent,
     ],
     templateUrl: './home.component.html',
-    styleUrl: './home.component.css',
+    styleUrl: './home.component.scss',
 })
 export class HomeComponent extends PageBaseComponent<unknown> {
     /** Nome del sito dalla config (niente stringhe hardcoded nell'hero). */

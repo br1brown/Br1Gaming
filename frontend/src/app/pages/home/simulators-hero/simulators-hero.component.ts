@@ -60,7 +60,7 @@ const SIMULATORS: SimulatorTile[] = [
     standalone: true,
     imports: [TranslatePipe, AssetDirective, PageDirective],
     templateUrl: './simulators-hero.component.html',
-    styleUrl: './simulators-hero.component.css',
+    styleUrl: './simulators-hero.component.scss',
 })
 export class SimulatorsHeroComponent {
     protected readonly tiles = SIMULATORS;

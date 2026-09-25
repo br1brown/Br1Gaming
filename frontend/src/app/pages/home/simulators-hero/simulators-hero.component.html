@@ -1,6 +1,6 @@
 <div class="sim-grid">
     @for (tile of tiles; track tile.slug) {
-    <a class="sim-tile" [class.sim-tile--flat]="!tile.imageId" [appPage]="tile.pageType">
+    <a class="sim-tile lift-on-hover" [class.sim-tile--flat]="!tile.imageId" [appPage]="tile.pageType">
         @if (tile.imageId) {
         <img [appAsset]="tile.imageId"
              [appAssetSizes]="'(min-width: 992px) 33vw, 100vw'"

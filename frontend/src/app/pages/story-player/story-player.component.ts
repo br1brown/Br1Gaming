@@ -21,6 +21,8 @@ import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
     ],
     templateUrl: './story-player.component.html',
     styles: [`
+        /* Immagine rotta (AssetDirective la nasconde): via l'intero contenitore, niente banda vuota. */
+        .story-cover:has(> img.asset-broken--decorative) { display: none; }
         details > summary { cursor: pointer; list-style: none; }
         details > summary::-webkit-details-marker { display: none; }
         details[open] .story-history-caret { transform: rotate(90deg); }
@@ -56,7 +58,6 @@ export class StoryPlayerComponent extends PageBaseComponent<StorySummary> {
         const slug = this.facade.snapshot()?.storySlug;
         return slug ? `story.${slug}` : null;
     });
-    readonly coverVisible = signal(true);
 
     constructor() {
         super();
@@ -101,13 +102,5 @@ export class StoryPlayerComponent extends PageBaseComponent<StorySummary> {
         });
     }
 
-    // Immagine del finale assente o non caricabile (asset id senza file, rete): nascondi l'intero
-    // contenitore `.story-cover` (non solo l'<img>), così non resta la banda dello sfondo morbido e
-    // la card resta pulita col solo testo. Fallback all'elemento stesso se il wrapper mancasse.
-    hideBrokenImage(event: Event): void {
-        const img = event.target as HTMLElement | null;
-        const target = (img?.closest('.story-cover') ?? img) as HTMLElement | null;
-        target?.style.setProperty('display', 'none');
-    }
 
 }

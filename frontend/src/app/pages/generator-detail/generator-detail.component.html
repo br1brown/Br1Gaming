@@ -2,15 +2,15 @@
 
     @if (generator(); as gen) {
     <div class="d-flex align-items-center gap-3 mb-3">
-        @if (coverAssetId() && coverVisible()) {
+        @if (coverAssetId()) {
         <!-- Piccola ora: la protagonista è la card sotto, questa resta solo un riferimento
-             all'identità del generatore. -->
-        <div class="align-self-stretch position-relative flex-shrink-0" style="width: 3rem;">
+             all'identità del generatore. Se manca/rotta: decorativa, AssetDirective la nasconde e
+             il contenitore la segue (:has nel css). -->
+        <div class="gen-cover align-self-stretch position-relative flex-shrink-0" style="width: 3rem;">
             <img [appAsset]="coverAssetId()!"
                  [appAssetWidth]="125"
                  alt=""
-                 class="position-absolute top-0 start-0 w-100 h-100 object-fit-contain rounded-5"
-                 (error)="coverVisible.set(false)">
+                 class="position-absolute top-0 start-0 w-100 h-100 object-fit-contain rounded-5">
         </div>
         }
         <div>

@@ -1,4 +1,4 @@
-import { Component, input, signal } from '@angular/core';
+import { Component, input } from '@angular/core';
 import { AssetDirective } from '../../../core/engine/directives/asset.directive';
 import { PageDirective } from '../../../core/engine/directives/page.directive';
 import { PageType } from '../../../site';
@@ -18,10 +18,4 @@ export class ContentCardComponent {
     /** Valori per gli eventuali segmenti `:xxx` del path (es. `{ slug: 'incel' }`), stessa regola
      *  di sostituzione di `[appPageParams]` — assente per le pagine non parametriche. */
     readonly params = input<Record<string, string>>();
-
-    readonly imageVisible = signal(true);
-
-    onImageError(): void {
-        this.imageVisible.set(false);
-    }
 }

@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
 import { PageDirective } from '../../../core/engine/directives/page.directive';
 import { AssetDirective } from '../../../core/engine/directives/asset.directive';
@@ -38,15 +38,6 @@ export class DilemmaSectionComponent {
     /** Per il link nel template: un solo PageType per tutte le storie (/avventura/:slug), lo slug
      *  viaggia a parte via `[appPageParams]`. */
     protected readonly storyPageType = PageType.Storia;
-
-    /** Slug delle storie la cui immagine di copertina è mancante/rotta: la card ripiega sul
-     *  trattamento testuale invece di lasciare un riquadro vuoto (stesso spirito di
-     *  ContentCardComponent.onImageError per i generatori, qui per-item). */
-    protected readonly brokenImages = signal(new Set<string>());
-
-    protected onImageError(slug: string): void {
-        this.brokenImages.update(set => new Set(set).add(slug));
-    }
 
     /** Titolo/descrizione così come arrivano dal backend, nessuna storia esclusa: un solo PageType
      *  per tutte (/avventura/:slug), ogni storia del backend ha già una pagina. */

@@ -40,6 +40,8 @@ import { VariantButtonsComponent } from '../../components/shared/variant-buttons
     // Il risultato viene ricreato a ogni generazione (@if su result()/previewUrl()): l'animazione
     // si riavvia da sola a ogni "Ancora!", dando un feedback visivo allo spam.
     styles: [`
+        /* Cover rotta (AssetDirective la nasconde): via il contenitore. */
+        .gen-cover:has(> img.asset-broken--decorative) { display: none; }
         .gen-result { animation: genPop .28s ease-out; }
         @keyframes genPop {
             from { opacity: 0; transform: translateY(8px); }
@@ -127,7 +129,6 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
         const slug = this.generator()?.slug;
         return slug ? `generator.${slug}` : null;
     });
-    readonly coverVisible = signal(true);
 
     /** Generazione prodotta dal client ("Ancora!"): quando c'è, vince sul `result` SSR del resolver. */
     private readonly localResult = signal<GenerateResponse | null>(null);

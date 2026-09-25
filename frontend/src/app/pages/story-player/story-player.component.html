@@ -10,13 +10,14 @@
         <!-- Cover INTERA (object-fit: contain): le immagini scelte si vedono per intero, senza
              ritaglio. Altezza cappata (clamp) e contenuto ristretto tengono sotto controllo
              l'ingombro; le eventuali bande laterali cadono sullo sfondo morbido del contenitore. -->
-        @if (coverAssetId() && coverVisible()) {
+        @if (coverAssetId()) {
+        <!-- Cover mancante/rotta: decorativa, AssetDirective la nasconde e il contenitore la segue
+             (regola :has nel css): niente banda vuota. -->
         <div class="story-cover rounded-4 shadow-sm overflow-hidden mb-3">
             <img [appAsset]="coverAssetId()!"
                  [appAssetWidth]="1024"
                  alt=""
-                 class="w-100 object-fit-contain"
-                 (error)="coverVisible.set(false)">
+                 class="w-100 object-fit-contain">
         </div>
         }
 
@@ -108,8 +109,7 @@
             <img [appAsset]="item.imageId"
                  [appAssetWidth]="1024"
                  alt=""
-                 class="w-100 object-fit-contain"
-                 (error)="hideBrokenImage($event)">
+                 class="w-100 object-fit-contain">
         </div>
         }
         <div class="p-4">

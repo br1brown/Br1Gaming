@@ -15,17 +15,14 @@
     transition: background-color .15s ease, transform .15s ease;
 }
 
+/* Sollevamento: .lift-on-hover (Engine, nel template); qui solo il fondo che cambia. */
 .content-card-cover:focus-visible {
     background-color: var(--colorSurfaceHover);
-    transform: translateY(-2px);
 }
 
-/* Effetto al passaggio solo con un puntatore (hover: hover): su touch l'hover resterebbe "incollato"
-   al tap. Stesso gating delle utility dell'Engine (.zoom-on-hover, .fab). */
 @media (hover: hover) {
     .content-card-cover:hover {
         background-color: var(--colorSurfaceHover);
-        transform: translateY(-2px);
     }
 }
 

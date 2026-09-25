@@ -1,3 +1,5 @@
+@use 'engine/base/lib' as lib;
+
 /* Tre "sportelli" affiancati da desktop (Burocrazia, Umarell, Generatori), impilati su mobile.
    Altezza generosa: è il blocco dominante della viewport (BR1-UI §3.A) — non una card come le altre. */
 .sim-grid {
@@ -6,7 +8,7 @@
     gap: 1rem;
 }
 
-@media (min-width: 768px) {
+@media (min-width: #{lib.$bp-md}) {
     .sim-grid {
         grid-template-columns: repeat(3, 1fr);
     }
@@ -40,23 +42,11 @@
 
 /* 4/3, non 16/11: con tre colonne (non più due) uno sportello più largo che alto avrebbe
    schiacciato troppo il testo del body. */
-@media (min-width: 768px) {
+@media (min-width: #{lib.$bp-md}) {
     .sim-tile { aspect-ratio: 4 / 3; }
 }
 
-.sim-tile:focus-visible {
-    transform: translateY(-4px);
-    box-shadow: var(--shadowElevatedHover);
-}
-
-/* Effetto al passaggio solo con un puntatore (hover: hover): su touch l'hover resterebbe "incollato"
-   al tap. Stesso gating delle utility dell'Engine (.zoom-on-hover, .fab). */
-@media (hover: hover) {
-    .sim-tile:hover {
-        transform: translateY(-4px);
-        box-shadow: var(--shadowElevatedHover);
-    }
-}
+/* Sollevamento al passaggio: .lift-on-hover (Engine, nel template). */
 
 /* Variante senza cover fotografica (Generatori: non è un "gioco", nessuna immagine da mostrare) —
    sfondo pieno color brand invece dello scrim su foto, stessa struttura LED/body sopra. */

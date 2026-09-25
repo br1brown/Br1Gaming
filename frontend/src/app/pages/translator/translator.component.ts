@@ -5,7 +5,6 @@ import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { CopyActionComponent } from '../../core/engine/components/copy-action/copy-action.component';
 import { ShareActionComponent } from '../../core/engine/components/share-action/share-action.component';
 import { SpeechActionComponent } from '../../core/engine/components/speech-action/speech-action.component';
-import { TranslatorSpeechService } from './translator-speech.service';
 
 /**
  * Translator ITA → ESP: il "traduttore" scherzoso verso il finto spagnolo. La logica vive nel
@@ -17,16 +16,10 @@ import { TranslatorSpeechService } from './translator-speech.service';
     selector: 'app-translator',
     standalone: true,
     imports: [TranslatePipe, CopyActionComponent, ShareActionComponent, SpeechActionComponent],
-    providers: [TranslatorSpeechService],
     templateUrl: './translator.component.html',
 })
 export class TranslatorComponent extends PageBaseComponent<unknown> implements OnDestroy {
-    /** TTS di dominio che forza lo spagnolo (l'Engine leggerebbe con voce italiana). */
-    private readonly speech = inject(TranslatorSpeechService);
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
-
-    /** Stato del bottone "ascolta" (true mentre legge). */
-    protected readonly parla = this.speech.isSpeaking;
 
     /** Tetto di caratteri (allineato a FintoSpagnoloTranslator.MaxCaratteri lato backend): oltre, il
      *  server tronca all'ultima parola. Qui limita anche la textarea, così l'utente non lo supera. */
@@ -63,6 +56,10 @@ export class TranslatorComponent extends PageBaseComponent<unknown> implements O
     /** Sorgente per l'ascolto italiano (bottone Engine: legge con la lingua dell'app = italiano). */
     protected readonly leggiTesto = (): string => this.testo();
 
+    /** Sorgente per l'ascolto della traduzione: stesso bottone Engine, ma con `lang="es-ES"` nel
+     *  template, così il finto spagnolo ha una voce spagnola (prima serviva un TTS di dominio). */
+    protected readonly leggiTradotto = (): string => this.tradotto();
+
     /**
      * Testo esportato da copia/condividi: la traduzione più una firma con il link alla pagina
      * (come i generatori). L'URL arriva dal service (getCanonicalUrl via PageBaseComponent), non da window.
@@ -78,20 +75,13 @@ export class TranslatorComponent extends PageBaseComponent<unknown> implements O
         this.testo.set((event.target as HTMLTextAreaElement).value);
     }
 
-    /** Ascolta/interrompe la traduzione letta con voce spagnola. */
-    protected ascolta(): void {
-        if (this.speech.isSpeaking()) this.speech.stop();
-        else this.speech.speak(this.tradotto());
-    }
-
     /** Svuota input e output. */
     protected pulisci(): void {
         this.testo.set('');
     }
 
-    /** Ferma la sintesi vocale e annulla il debounce lasciando la pagina. */
+    /** Annulla il debounce lasciando la pagina (la voce la ferma app-speech-action da sé). */
     ngOnDestroy(): void {
         clearTimeout(this.timer);
-        this.speech.stop();
     }
 }
