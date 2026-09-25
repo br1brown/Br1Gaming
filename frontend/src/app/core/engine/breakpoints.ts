@@ -43,10 +43,8 @@ export function supportsHover(): boolean {
     return window.matchMedia('(hover: hover)').matches;
 }
 
-/** La preferenza di sistema "meno movimento" come signal, aggiornato al cambio (`change` della media
- *  query) e `false` in SSR. Da chiamare in un injection context (constructor/field): il listener si
- *  toglie da solo alla distruzione. Per il CSS basta `@media (prefers-reduced-motion: reduce)`; questo
- *  serve a chi anima in JS (canvas, timer). */
+/** Preferenza "meno movimento" come signal reattivo (`false` in SSR), per chi anima in JS: per il CSS
+ *  basta la media query. Da chiamare in un injection context; il listener si toglie alla distruzione. */
 export function injectPrefersReducedMotion(): Signal<boolean> {
     const reduce = signal(false);
     if (isPlatformBrowser(inject(PLATFORM_ID))) {

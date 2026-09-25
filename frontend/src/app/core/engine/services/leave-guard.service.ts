@@ -8,13 +8,9 @@ export interface LeaveGuardEntry {
     confirm: () => boolean | Promise<boolean>;
 }
 
-/**
- * Modifiche non salvate: un registro unico consultato PRIMA di lasciare una pagina, da qualunque
- * via — link della navbar, `[appPage]`, back del browser (tutti passano dal `canDeactivate` che
- * `routing.ts` mette su ogni rotta foglia) e chiusura/refresh della scheda (`beforeunload`).
- * Un editor si registra nel constructor col proprio `DestroyRef`; la cancellazione è automatica.
- * Il servizio non sa nulla della forma dei dati: solo "c'è qualcosa?" e "chiedi cosa farne".
- */
+/** Modifiche non salvate: registro consultato prima di lasciare una pagina (il `canDeactivate` di ogni
+ *  rotta foglia, link navbar compresi) e alla chiusura della scheda (`beforeunload`). Un editor si
+ *  registra col proprio `DestroyRef`: la cancellazione è automatica. */
 @Injectable({ providedIn: 'root' })
 export class LeaveGuardService {
     private readonly entries = new Set<LeaveGuardEntry>();

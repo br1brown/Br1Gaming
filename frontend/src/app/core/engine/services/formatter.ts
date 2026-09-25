@@ -22,10 +22,8 @@ export class LocaleFormatter {
         return new Intl.NumberFormat(this.localeOf(), { style: 'currency', currency, ...options }).format(value);
     }
 
-    /** Tempo relativo a `now` ("2 ore fa", "ieri", "in 3 giorni", "adesso") da `Intl.RelativeTimeFormat`
-     *  nel locale corrente, `numeric: 'auto'` per le forme parlate ("ieri" invece di "1 giorno fa").
-     *  Unità più grande che entra nel delta (anno → mese → giorno → ora → minuto), sotto il minuto
-     *  "adesso". Data non valida → stringa vuota. */
+    /** Tempo relativo a `now` ("2 ore fa", "ieri", "in 3 giorni", "adesso") nel locale corrente, con
+     *  l'unità più grande che entra nel delta. Data non valida → stringa vuota. */
     relativeTime(value: Date | string, now: Date = new Date()): string {
         const time = value instanceof Date ? value.getTime() : new Date(value).getTime();
         if (!Number.isFinite(time)) return '';
