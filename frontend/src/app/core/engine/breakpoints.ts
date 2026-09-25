@@ -1,3 +1,6 @@
+import { DestroyRef, PLATFORM_ID, Signal, inject, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+
 /** Breakpoint Bootstrap letti a runtime dalle custom property `--bp-*` (impostate su `html` da
  *  `lib.$bp-*`): fonte unica condivisa con le media query SCSS, invece di duplicare "768"/"992" a
  *  mano ovunque JS debba replicare la stessa soglia. Fallback difensivi se assenti. */
@@ -38,4 +41,20 @@ export function isDesktopViewport(): boolean {
  *  senza hover, e chi apre un pannello su `:hover` via CSS usa questo per decidere il fallback al tap. Solo browser. */
 export function supportsHover(): boolean {
     return window.matchMedia('(hover: hover)').matches;
+}
+
+/** La preferenza di sistema "meno movimento" come signal, aggiornato al cambio (`change` della media
+ *  query) e `false` in SSR. Da chiamare in un injection context (constructor/field): il listener si
+ *  toglie da solo alla distruzione. Per il CSS basta `@media (prefers-reduced-motion: reduce)`; questo
+ *  serve a chi anima in JS (canvas, timer). */
+export function injectPrefersReducedMotion(): Signal<boolean> {
+    const reduce = signal(false);
+    if (isPlatformBrowser(inject(PLATFORM_ID))) {
+        const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+        reduce.set(query.matches);
+        const onChange = (e: MediaQueryListEvent): void => reduce.set(e.matches);
+        query.addEventListener('change', onChange);
+        inject(DestroyRef).onDestroy(() => query.removeEventListener('change', onChange));
+    }
+    return reduce.asReadonly();
 }

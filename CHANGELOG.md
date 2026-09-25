@@ -2,6 +2,22 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Primitive che i figli riscrivevano: dialog, modifiche non salvate, tempo relativo, meno movimento, mappe, sollevamento, lingua della voce
+
+Ricognizione sui tre progetti derivati: dieci cose che ciascuno aveva riscritto per sé (spesso due volte nello stesso progetto) perché l'Engine non le esponeva. Ora le espone, e i figli le delegano.
+
+- **`DialogService`** (nuovo, `core/engine/services/dialog.service.ts`): `open(componente | ng-template, { returnFocusTo, inputs, viewContainerRef, canClose, initialFocus })` — overlay CDK centrato con backdrop scuro, scroll bloccato, Escape e click fuori che chiudono, focus iniziale (`[cdkFocusInitial]`/`[autofocus]`/`.btn-close`/primo focusabile) e di ritorno al trigger, smontaggio alla navigazione, `afterClosed`. `canClose` tiene il dialog aperto se l'utente annulla (modifiche non salvate). `ImageLightboxService` ora ci si appoggia: `Overlay.create()` scritto a mano non serve più a nessuno.
+- **`LeaveGuardService`** (nuovo, `core/engine/services/leave-guard.service.ts`) + **`leaveGuard`** (`canDeactivate` su ogni rotta foglia, in `routing.ts`): un editor si registra con `{ dirty, confirm }` e qualunque navigazione che lascia la pagina — link della navbar compresi, irraggiungibili da un guard di Dominio — e la chiusura della scheda (`beforeunload`) chiedono prima cosa fare. Senza registrati non costa nulla.
+- **`LocaleFormatter.relativeTime(data, now?)`**: "2 ore fa" / "ieri" / "in 3 giorni" / "adesso" da `Intl.RelativeTimeFormat` nel locale corrente, invece delle stringhe italiane a mano.
+- **`injectPrefersReducedMotion()`** (`breakpoints.ts`): la preferenza "meno movimento" come signal aggiornato al cambio, `false` in SSR — per chi anima in JS; per il CSS resta la media query.
+- **`ContactUrl.maps(query)`**: ricerca Google Maps di un indirizzo, stesso formato che ogni figlio ricopiava.
+- **`.lift-on-hover`** (`_utilities.scss`): sollevamento di una card/tile cliccabile — focus-visible sempre, hover solo con puntatore (`hover: hover`, niente stato "incollato" su touch), fermo con "meno movimento", ombra e durata dal design system. Sostituisce sette copie di `:hover { transform: translateY(...) }` nei figli.
+- **`SpeechService.speak(text, { lang })`** e input `lang` su `app-speech-action`: un testo in lingua straniera si legge con la sua voce (`es-ES`), senza un servizio TTS parallelo nel progetto.
+- **`detectSocialKey`** esportata da `social-link.component.ts`: chi riconosce una piattaforma da un URL usa i pattern dell'Engine, non una copia. **Spreaker** in `SOCIAL_MAP` (`fa-podcast`, giallo del logo).
+- Pagina d'errore: via dallo switch i casi 401/403/404 che mappavano su se stessi (la coppia `errore{codice}Titolo/Descrizione` di default è già quella); restano solo offline e 502/503/504, gli unici che deviano dallo schema.
+
+**Al merge**: additivo. `ImageLightboxOverlayComponent` non ha più `focusClose()`/`closeBtn` (il focus lo dà `DialogService`): solo chi lo montava da sé, fuori da `ImageLightboxService`, deve togliere quella chiamata.
+
 ### Navbar: aggancio sticky con soglia, chiusura di dropdown/menu condivisa, menu mobile `inert`
 
 La navbar `fissa` restava `position: fixed` anche quando cresceva (zoom alto, più righe): sempre sopra il contenuto, arrivando a coprirlo — un problema di leggibilità (WCAG 1.4.10 reflow, 2.4.11 focus non ostruito), non solo estetico. La chiusura di dropdown e menu mobile duplicava inoltre lo stesso listener (`document:click`/`document:keydown.escape`) in più componenti, senza gestire la sovrapposizione: un dropdown aperto dentro il menu mobile, Escape doveva chiudere solo lui, non tutto insieme.

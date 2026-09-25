@@ -20,6 +20,9 @@ export class SpeechActionComponent extends BaseActionComponent implements OnDest
     /** Chiave i18n per la label in stato "in riproduzione". */
     readonly labelStop = input<string>();
 
+    /** Lingua di lettura (BCP-47, es. `es-ES`) quando il testo NON è nella lingua dell'app; assente = lingua corrente. */
+    readonly lang = input<string | null>(null);
+
     readonly isSpeaking = this.speech.isSpeaking;
 
     override readonly displayLabel = computed(() =>
@@ -35,7 +38,7 @@ export class SpeechActionComponent extends BaseActionComponent implements OnDest
         }
         void this.run(async () => {
             const text = await this.action()();
-            this.speech.speak(text);
+            this.speech.speak(text, this.lang() ? { lang: this.lang()! } : undefined);
         });
     }
 

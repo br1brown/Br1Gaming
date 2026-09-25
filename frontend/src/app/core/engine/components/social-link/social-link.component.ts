@@ -88,8 +88,10 @@ function hostnameLabel(url: string): string {
 }
 
 /** Deduce la chiave social dal dominio dell'URL, pattern ancorati per evitare falsi positivi (es.
- *  `x.com` solo dopo `//` o `.`). Vuota se nessun social combacia → icona generica + hostname. */
-function detectSocialKey(url: string): string {
+ *  `x.com` solo dopo `//` o `.`). Vuota se nessun social combacia → icona generica + hostname.
+ *  Esportata: chi deve riconoscere una piattaforma da un URL (icone custom di progetto, filtro dei
+ *  profili nel footer) usa questa, non una copia dei pattern. */
+export function detectSocialKey(url: string): string {
     const u = (url ?? '').trim();
     if (!u) return '';
     for (const { key, re } of SOCIAL_URL_PATTERNS) {
@@ -109,6 +111,7 @@ const SOCIAL_URL_PATTERNS: { key: string; re: RegExp }[] = [
     { key: 'telegram',   re: /t\.me|telegram\.(?:org|me)/i },
     { key: 'applemusic', re: /music\.apple\.com/i },
     { key: 'tipeee',     re: /tipeee\.com/i },
+    { key: 'spreaker',   re: /spreaker\.com/i },
     { key: 'github',     re: /github\.com/i },
     { key: 'threads',    re: /threads\.net/i },
     { key: 'mastodon',   re: /mastodon\./i },
@@ -214,6 +217,8 @@ const SOCIAL_MAP: Record<string, SocialConfig> = {
     telegram: { icon: 'fa-brands fa-telegram', color: '#26A5E4', fg: '#FFFFFF', mode: 'disc' },
     // fr.tipeee.com (favicon ufficiale); Font Awesome non ha un'icona Tipeee
     tipeee: { icon: 'fa-solid fa-mug-hot', color: '#D84556', fg: '#FFFFFF' },
+    // spreaker.com (giallo del logo, testo nero); Font Awesome non ha un'icona Spreaker: fa-podcast
+    spreaker: { icon: 'fa-solid fa-podcast', color: '#F5C300', fg: '#000000' },
     // Meta brand resources — glifo bianco su verde, colori non modificabili
     whatsapp: { icon: 'fa-brands fa-whatsapp', color: '#25D366', fg: '#FFFFFF' },
     // legacy: Skype chiuso il 5 maggio 2025

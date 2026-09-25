@@ -103,20 +103,8 @@ export class ErrorComponent {
                 titleKey = 'erroreServizioTitolo';
                 descKey = 'erroreServizioDescrizione';
                 break;
-            case 401:
-                titleKey = 'errore401Titolo';
-                descKey = 'errore401Descrizione';
-                break;
-            case 403:
-                titleKey = 'errore403Titolo';
-                descKey = 'errore403Descrizione';
-                break;
-            case 404:
-                // Pagina non trovata (routing)
-                titleKey = 'errore404Titolo';
-                descKey = 'errore404Descrizione';
-                break;
-            // Aggiungi qui altri override specifici per la pagina se necessario in futuro
+            // 401/403/404: nessun caso, la coppia `errore{codice}Titolo/Descrizione` di default è già
+            // quella giusta. Qui vanno solo i codici che NON seguono quello schema.
         }
 
         return { titleKey, descKey };

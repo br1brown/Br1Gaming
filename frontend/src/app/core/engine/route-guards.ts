@@ -1,10 +1,16 @@
-import { CanActivateFn, Router } from '@angular/router';
+import { CanActivateFn, CanDeactivateFn, Router } from '@angular/router';
 import { inject } from '@angular/core';
 import { ContestoSito } from '../../site';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../services/auth.service';
 import { NotificationService } from './services/notification.service';
 import { TranslateService } from './services/translate.service';
+import { LeaveGuardService } from './services/leave-guard.service';
+
+/** Prima di lasciare una pagina foglia (link navbar, [appPage], back del browser): chiede a
+ *  `LeaveGuardService` se c'è qualcosa di non salvato e cosa farne. Messo su ogni rotta foglia
+ *  da `routing.ts`; senza registrati risponde subito `true`. */
+export const leaveGuard: CanDeactivateFn<unknown> = () => inject(LeaveGuardService).canLeave();
 
 /** Allinea `TranslateService.currentLang()` a `route.data['lang']` PRIMA che qualunque guard o
  *  resolver a valle (compreso `authGuard` sotto) legga `currentLang()` — senza, chi gira in fase
