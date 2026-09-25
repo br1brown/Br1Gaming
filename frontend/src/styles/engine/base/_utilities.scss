@@ -33,6 +33,27 @@ code {
 .carousel-item { height: 80vh; }
 .carousel-item img { height: 100%; object-fit: cover; width: 100%; }
 
+/* Sollevamento di una card/tile cliccabile: focus-visible sempre, hover solo con un puntatore,
+   fermo con "meno movimento". Ombra e durata dal design system (elevazione, movimento). */
+.lift-on-hover {
+    transition: transform var(--movimentoMicro, 0.15s), box-shadow var(--movimentoMicro, 0.15s);
+}
+.lift-on-hover:focus-visible {
+    transform: translateY(-3px);
+    box-shadow: var(--shadowElevatedHover);
+}
+@media (hover: hover) {
+    .lift-on-hover:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadowElevatedHover);
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .lift-on-hover { transition: none; }
+    .lift-on-hover:hover,
+    .lift-on-hover:focus-visible { transform: none; }
+}
+
 /* Zoom su schermi ampi, con un puntatore */
 @media only screen and (min-width: #{lib.$bp-md}) and (hover: hover) {
     .zoom-on-hover { transition: transform var(--movimentoMicro, 0.15s); }

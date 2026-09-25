@@ -31,4 +31,9 @@ export const ContactUrl = {
     /** https://t.me/<handle> (rimuove la @ iniziale). */
     telegram: (handle: string): string =>
         `https://t.me/${handle.trim().replace(/^@/, '')}`,
+
+    /** Ricerca su Google Maps di un indirizzo o di un luogo (`query` come lo si scriverebbe nella
+     *  casella di ricerca): URL universale, apre l'app dove c'è. */
+    maps: (query: string): string =>
+        `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query.trim())}`,
 } as const;

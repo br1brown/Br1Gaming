@@ -212,6 +212,7 @@ Un componente (Engine o di progetto) non sceglie padding, taglie di testo, altez
 <!-- Layout di pagina: classi Bootstrap (la demo le usa apposta), niente utility parallele -->
 <section class="mb-5"> <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3"> … </div> </section>
 ```
+Modifiche non salvate in un editor: registrati in `LeaveGuardService` (`register({ dirty, confirm }, destroyRef)`): il `canDeactivate` che l'Engine mette su ogni rotta foglia e il `beforeunload` chiedono conferma prima di lasciare la pagina, da qualunque link (navbar compresa). Tempo relativo ("2 ore fa"): `localization.formatter.relativeTime(iso)`. Animazioni JS (canvas, timer): `injectPrefersReducedMotion()` da `core/engine/breakpoints.ts`. Link a una mappa: `ContactUrl.maps(indirizzo)`. Card/tile che si sollevano al passaggio: classe `lift-on-hover`, mai un `:hover { transform }` a mano.
 Per un pannello a comparsa tuo (dropdown, popover non-CDK): `injectDismiss({ open, close, returnFocus })` da `core/engine/dismiss.ts` dà Escape "a pila" (chiude solo il più interno) e click fuori, con focus di ritorno al trigger.
 
 #### Caricare file da un form (upload)
@@ -462,7 +463,7 @@ otherSEO: { structuredData: { kind: 'faq', questions: [{ question: 'Come?', answ
 ```
 
 #### Overlay/modali custom (mai `position: fixed` a mano)
-Un pannello fixed con z-index alto dentro un componente finisce comunque dentro lo stacking context di `main#main-content` (z-index: 1 apposta per stare sopra sfondo/effetti) e rischia di finire sotto la navbar o i suoi dropdown. Passa sempre da CDK Overlay (Escape, backdrop e focus trap di CDK; per un dialog `cdkTrapFocus` + `role="dialog" aria-modal="true"`, come il lightbox) (già importato, monta in `.cdk-overlay-container`, `z-index: var(--z-cdk-overlay)` in `_a11y.scss`) — vedi `ContextMenuDirective`/`ImageLightboxService` come riferimento. Come contenitore del pannello usa una `.card`: sfondo `--colorSurface` e bordo dal tema, niente colori da scrivere. Il `.cdk-overlay-container` sta fuori dal pannello contenuti: l'overlay prende il tono della pagina, anche se parte da un pannello di tono diverso.
+Un pannello fixed con z-index alto dentro un componente finisce comunque dentro lo stacking context di `main#main-content` (z-index: 1 apposta per stare sopra sfondo/effetti) e rischia di finire sotto la navbar o i suoi dropdown. Passa sempre da CDK Overlay (Escape, backdrop e focus trap di CDK; per un dialog `cdkTrapFocus` + `role="dialog" aria-modal="true"`, come il lightbox) (già importato, monta in `.cdk-overlay-container`, `z-index: var(--z-cdk-overlay)` in `_a11y.scss`) — vedi `ContextMenuDirective`/`ImageLightboxService` come riferimento. Per un dialog modale il meccanismo è già pronto in `DialogService.open(componente | ng-template, { returnFocusTo, inputs, canClose, viewContainerRef })` (`core/engine/services/dialog.service.ts`): overlay centrato, backdrop, Escape, focus iniziale e di ritorno, smontaggio alla navigazione, `canClose` per chiedere prima di chiudere; tu scrivi solo il contenuto. Come contenitore del pannello usa una `.card`: sfondo `--colorSurface` e bordo dal tema, niente colori da scrivere. Il `.cdk-overlay-container` sta fuori dal pannello contenuti: l'overlay prende il tono della pagina, anche se parte da un pannello di tono diverso.
 
 ## Ricette — backend
 

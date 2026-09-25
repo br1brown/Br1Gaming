@@ -1,4 +1,4 @@
-import { Component, ElementRef, computed, inject, input, output, signal, viewChild } from '@angular/core';
+import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { CdkTrapFocus } from '@angular/cdk/a11y';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { AssetService } from '../../services/asset.service';
@@ -9,8 +9,9 @@ import { TranslateService } from '../../services/translate.service';
  *  generato client-side (canvas del builder immagini, QR code...). */
 export type LightboxSource = { assetId: string } | { blob: Blob };
 
-/** UI del lightbox, montata in un overlay CDK da `ImageLightboxService` (apertura/backdrop/Esc a suo
- *  carico). Dialog modale ARIA con focus intrappolato via `cdkTrapFocus`. */
+/** UI del lightbox, montata da `ImageLightboxService` via `DialogService` (overlay, backdrop, Esc e
+ *  focus iniziale sul bottone di chiusura a suo carico). Dialog modale ARIA con focus intrappolato
+ *  via `cdkTrapFocus` (WAI-ARIA Dialog Pattern: CDK Overlay non lo fa da solo). */
 @Component({
     selector: 'app-image-lightbox-overlay',
     standalone: true,
@@ -26,8 +27,6 @@ export class ImageLightboxOverlayComponent {
     readonly alt = input<string>('');
     readonly closeRequested = output<void>();
 
-    readonly closeBtn = viewChild<ElementRef<HTMLButtonElement>>('closeBtn');
-
     /** Sempre alla risoluzione massima della whitelist per un asset: qui l'immagine è il
      *  contenuto, non una thumbnail. Un Blob è già alla sua risoluzione, nessun resize da chiedere. */
     protected readonly src = computed(() => {
@@ -40,9 +39,4 @@ export class ImageLightboxOverlayComponent {
     protected readonly broken = signal(false);
     protected readonly dialogLabel = computed(() => this.alt() || this.translate.translate('immagineIngranditaNav'));
 
-    /** Sposta il focus sul bottone di chiusura all'apertura (WAI-ARIA Dialog Pattern); il trap
-     *  Tab/Shift+Tab è `cdkTrapFocus` nel template, CDK Overlay non lo fa da solo. */
-    focusClose(): void {
-        requestAnimationFrame(() => this.closeBtn()?.nativeElement.focus());
-    }
 }

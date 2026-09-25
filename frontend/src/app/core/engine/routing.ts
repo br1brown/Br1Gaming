@@ -6,7 +6,7 @@ import { ContestoSito } from '../../site';
 import { environment } from '../../../environments/environment';
 import { contentLoaderResolver } from './pages/content.resolver';
 import { InternalSitePage, isInternalPage, isParentPage, resolvePagePath, RouteChrome, CHROME_DATA_KEY } from './siteBuilder';
-import { authGuard, languageSyncGuard } from './route-guards';
+import { authGuard, languageSyncGuard, leaveGuard } from './route-guards';
 
 /**
  * Signal che riemette `project(router)` ad ogni `NavigationEnd`, partendo da `initial`.
@@ -97,6 +97,9 @@ function toAngularRoute(page: InternalSitePage, lang: string): Route {
     } else {
         // Pagina foglia (LeafPage): carica il componente lazy dichiarato in site.ts.
         route.loadComponent = page.component;
+        // Modifiche non salvate (LeaveGuardService): consultato da qualunque navigazione che lascia
+        // la pagina — link navbar compresi, che un guard di Dominio non potrebbe intercettare.
+        route.canDeactivate = [leaveGuard];
         route.data = {
             ...route.data,
             pageType: page.pageType,

@@ -37,9 +37,10 @@ export class SpeechService {
     /**
      * Legge un testo usando la sintesi vocale.
      * @param text Il testo da convertire in audio.
-     * @param options Opzioni per velocità (rate) e tono (pitch).
+     * @param options Velocità (rate), tono (pitch) e `lang` (BCP-47, es. `es-ES`) per leggere in
+     *   una lingua diversa da quella dell'app — un testo in lingua straniera va letto con la SUA voce.
      */
-    speak(text: string, options?: { rate?: number; pitch?: number }): void {
+    speak(text: string, options?: { rate?: number; pitch?: number; lang?: string }): void {
         if (!this.isBrowser || !window.speechSynthesis) return;
 
         // Interrompe eventuali letture precedenti per evitare sovrapposizioni
@@ -48,8 +49,8 @@ export class SpeechService {
         // Crea l'oggetto "frase" (Utterance)
         const utterance = new SpeechSynthesisUtterance(text);
 
-        // Sincronizza la lingua con quella dell'app
-        utterance.lang = this.translate.currentLang();
+        // Lingua dell'app, salvo richiesta esplicita (`lang`): un testo straniero ha la sua voce.
+        utterance.lang = options?.lang ?? this.translate.currentLang();
 
         // Tenta di assegnare la voce migliore disponibile per quella lingua
         const voice = this.findBestVoice(utterance.lang, this.voices());
