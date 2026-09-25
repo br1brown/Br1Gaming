@@ -54,6 +54,18 @@ code {
     .lift-on-hover:focus-visible { transform: none; }
 }
 
+/* NotificationService.modal: contenuto "nudo" (porta la sua .card, o è un'immagine) e dialog a misura. */
+.modal-content-bare {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+}
+.modal-dialog-fit {
+    width: fit-content;
+    max-width: min(92vw, 100%);
+    margin-inline: auto;
+}
+
 /* Zoom su schermi ampi, con un puntatore */
 @media only screen and (min-width: #{lib.$bp-md}) and (hover: hover) {
     .zoom-on-hover { transition: transform var(--movimentoMicro, 0.15s); }

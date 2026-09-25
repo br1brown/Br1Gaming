@@ -1,4 +1,4 @@
-/* Backdrop/posizionamento/z-index sono di CDK Overlay (vedi AssetDirective): qui solo l'aspetto. */
+/* Backdrop, posizionamento e z-index sono della modale Bootstrap (NotificationService.modal): qui solo l'aspetto. */
 /* Durata decisa dal design system attivo (`DesignSystemPreset.movimento`, default 'svelto' —
    0.15s qui sotto resta il fallback). */
 .image-lightbox {

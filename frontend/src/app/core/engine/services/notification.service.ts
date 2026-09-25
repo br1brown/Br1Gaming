@@ -1,10 +1,44 @@
-import { isPlatformBrowser } from '@angular/common';
-import { Injectable, PLATFORM_ID, inject } from '@angular/core';
+import { DOCUMENT, isPlatformBrowser } from '@angular/common';
+import { ApplicationRef, EnvironmentInjector, Injectable, PLATFORM_ID, TemplateRef, Type, createComponent, inject } from '@angular/core';
+import { NavigationStart, Router } from '@angular/router';
 import { AppearanceService } from './appearance.service';
 import { TranslateService } from './translate.service';
 import type { ProblemDetails } from './base-api.service';
 
 type SwalType = typeof import('sweetalert2').default;
+type ModalType = typeof import('bootstrap/js/src/modal.js').default;
+
+/** Opzioni di {@link NotificationService.modal}. */
+export interface ModalOptions {
+    /** Elemento a cui ridare il focus alla chiusura (di norma il bottone che ha aperto la modale). */
+    returnFocusTo?: HTMLElement | null;
+    /** Input iniziali di un componente (`setInput`). */
+    inputs?: Record<string, unknown>;
+    /** Prima di chiudere (Escape, click fuori, `close()`): `false` tiene la modale aperta. */
+    canClose?: () => boolean | Promise<boolean>;
+    /** `false`: Escape non chiude (il focus resta comunque intrappolato). Default `true`. */
+    escape?: boolean;
+    /** Etichetta del dialog per gli screen reader. */
+    ariaLabel?: string;
+    /** Classi Bootstrap sul `.modal-dialog`: `modal-lg`, `modal-dialog-centered`, `modal-dialog-fit`... */
+    dialogClass?: string;
+    /** `true`: niente pannello `.modal-content` (il contenuto porta la sua `.card`, o è un'immagine). */
+    bare?: boolean;
+    /** `'none'`: il focus iniziale lo mette il contenuto (default: `[autofocus]`, `.btn-close`, primo focusabile). */
+    initialFocus?: 'auto' | 'none';
+}
+
+/** Maniglia di una modale aperta con {@link NotificationService.modal}. */
+export interface ModalRef<T = unknown> {
+    /** Istanza del componente montato; `null` per un template. */
+    readonly instance: T | null;
+    /** Chiude rispettando `canClose`; `true` se chiusa davvero. */
+    close(): Promise<boolean>;
+    /** Risolve alla chiusura, da qualunque via (anche un cambio pagina). */
+    readonly afterClosed: Promise<void>;
+}
+
+const MODAL_FOCUS_TARGETS = '[autofocus], .btn-close, button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export interface ValidationResult {
     isValid: boolean;
@@ -32,13 +66,20 @@ export interface PromiseToastConfig<T> {
     error?: string;
 }
 
-/** Notifiche utente via SweetAlert2; `handleApiError()` legge `ProblemDetails` (RFC 9457) dal backend o traduce lo status HTTP via i18n. */
+/** Ogni interazione non "in pagina" passa da qui, senza che il chiamante sappia la libreria: messaggi,
+ *  domande e toast (SweetAlert2), modali che ospitano un componente (`modal`, Bootstrap Modal).
+ *  `handleApiError()` legge `ProblemDetails` (RFC 9457) dal backend o traduce lo status HTTP via i18n. */
 @Injectable({ providedIn: 'root' })
 export class NotificationService {
     private translate = inject(TranslateService);
     private theme = inject(AppearanceService);
     private platformId = inject(PLATFORM_ID);
+    private readonly document = inject(DOCUMENT);
+    private readonly appRef = inject(ApplicationRef);
+    private readonly envInjector = inject(EnvironmentInjector);
+    private readonly router = inject(Router);
     private swalPromise?: Promise<SwalType>;
+    private modalPromise?: Promise<ModalType>;
     private shownOnceKeys = new Set<string>();   // chiavi già mostrate da toastOnce() in questa sessione
 
     private loadSwal(): Promise<SwalType> | null {
@@ -65,6 +106,101 @@ export class NotificationService {
                 denyButton:    'btn btn-danger ms-2',
             },
         }));
+    }
+
+    // --- MODALI (Bootstrap) ---
+
+    private loadModal(): Promise<ModalType> | null {
+        if (!isPlatformBrowser(this.platformId)) return null;
+        // Solo il componente Modal dai sorgenti ESM: il bundle intero porterebbe anche Popper.
+        return this.modalPromise ??= import('bootstrap/js/src/modal.js').then(module => module.default);
+    }
+
+    /** Modale che ospita un componente o un `<ng-template>`: focus intrappolato, Escape, click fuori,
+     *  scroll bloccato e focus di ritorno li dà Bootstrap. SweetAlert mostra un solo popup alla volta,
+     *  quindi un contenuto che a sua volta chiama `confirm`/`toast` deve stare qui, non lì. */
+    modal<T>(content: Type<T> | TemplateRef<unknown>, options: ModalOptions = {}): ModalRef<T> {
+        const host = this.document.createElement('div');
+        host.className = 'modal fade';
+        host.tabIndex = -1;
+        host.setAttribute('role', 'dialog');
+        host.setAttribute('aria-modal', 'true');
+        if (options.ariaLabel) host.setAttribute('aria-label', options.ariaLabel);
+        const dialog = this.document.createElement('div');
+        dialog.className = `modal-dialog ${options.dialogClass ?? ''}`.trim();
+        const slot = this.document.createElement('div');
+        slot.className = options.bare ? 'modal-content modal-content-bare' : 'modal-content';
+        dialog.appendChild(slot);
+        host.appendChild(dialog);
+
+        let instance: T | null = null;
+        let view: { destroy(): void };
+        if (content instanceof TemplateRef) {
+            const embedded = content.createEmbeddedView(undefined);
+            this.appRef.attachView(embedded);
+            for (const node of embedded.rootNodes as Node[]) slot.appendChild(node);
+            view = embedded;
+        } else {
+            const ref = createComponent(content, { environmentInjector: this.envInjector });
+            for (const [name, value] of Object.entries(options.inputs ?? {})) ref.setInput(name, value);
+            this.appRef.attachView(ref.hostView);
+            slot.appendChild(ref.location.nativeElement);
+            instance = ref.instance;
+            view = ref;
+        }
+        this.document.body.appendChild(host);
+
+        let resolveClosed!: () => void;
+        const afterClosed = new Promise<void>(resolve => { resolveClosed = resolve; });
+        let allowed = false;
+        let checking = false;
+        let bsModal: InstanceType<ModalType> | null = null;
+
+        const teardown = (): void => {
+            view.destroy();
+            bsModal?.dispose();
+            host.remove();
+            options.returnFocusTo?.focus({ preventScroll: true });
+            resolveClosed();
+        };
+        const close = async (): Promise<boolean> => {
+            if (allowed || checking || !host.isConnected) return false;
+            checking = true;
+            try {
+                if (options.canClose && !(await options.canClose())) return false;
+            } finally {
+                checking = false;
+            }
+            allowed = true;
+            if (bsModal) bsModal.hide(); else teardown();
+            return true;
+        };
+
+        const loaded = this.loadModal();
+        if (!loaded) {
+            teardown();
+            return { instance, close, afterClosed };
+        }
+        void loaded.then(Modal => {
+            if (allowed) return;
+            bsModal = new Modal(host, { backdrop: true, keyboard: options.escape ?? true, focus: true });
+            // Escape, click fuori e hide(): tutto passa da qui, dove decide canClose.
+            host.addEventListener('hide.bs.modal', e => { if (!allowed) { e.preventDefault(); void close(); } });
+            host.addEventListener('hidden.bs.modal', teardown);
+            host.addEventListener('shown.bs.modal', () => {
+                if (options.initialFocus !== 'none') host.querySelector<HTMLElement>(MODAL_FOCUS_TARGETS)?.focus();
+            });
+            bsModal.show();
+        });
+        // Cambio pagina: via la modale senza domande, il suo contenuto sta per sparire comunque.
+        const nav = this.router.events.subscribe(e => {
+            if (!(e instanceof NavigationStart)) return;
+            allowed = true;
+            if (bsModal) bsModal.hide(); else teardown();
+        });
+        void afterClosed.then(() => nav.unsubscribe());
+
+        return { instance, close, afterClosed };
     }
 
     // --- FEEDBACK STANDARD ---
