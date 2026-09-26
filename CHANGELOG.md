@@ -2,6 +2,17 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Modali: cambio pagina, focus e chiusura durante l'apertura
+
+Emersi provando le modali di Agnese (libreria immagini, selettore foto) su casi reali.
+
+- **La modale si chiude a `NavigationEnd`, non più a `NavigationStart`**: il guard delle modifiche non salvate può ancora annullare la navigazione, e ora chiede dentro la modale aperta. Prima la modale spariva subito, e con "Annulla" il suo contenuto era già perso.
+- **Chiusura durante l'apertura**: Bootstrap ignora `hide()` finché la modale non ha finito di aprirsi; un cambio pagina (o `close()`) in quella finestra la lasciava aperta sulla pagina nuova, senza più modo di chiuderla. Ora si chiude appena aperta.
+- **`initialFocus: 'none'`**: a fine apertura Bootstrap sposta il focus sulla modale, togliendolo al contenuto; ora torna dove il contenuto l'aveva messo, o sul suo `[autofocus]` se ci aveva provato a modale ancora nascosta.
+- **Focus dopo un popup SweetAlert in una modale**: se alla chiusura il focus da restituire manca (dopo un clic resta su `<body>`), torna alla modale, così Escape la chiude ancora.
+
+**Al merge**: nessuno. Chi usa `initialFocus: 'none'` può mettere `autofocus` sull'elemento che deve ricevere il focus.
+
 ### Muro senza ombre fra le barre, SweetAlert dentro le modali, ciclo di import in dev
 
 - **Navbar e footer senza ombra su `navbar.superficie: 'body'`**: nuovi token `--shadowNavbar`/`--shadowFooter` (da `elevazione`), `none` quando le barre stanno sulla superficie della pagina — su Muro navbar, contenuto e footer sono un'unica superficie. `--shadowBarDown`/`--shadowBarUp` restano per le fasce sopra il contenuto (cookie, offline).

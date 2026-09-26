@@ -1,6 +1,6 @@
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { ApplicationRef, EnvironmentInjector, Injectable, PLATFORM_ID, TemplateRef, Type, createComponent, inject } from '@angular/core';
-import { NavigationStart, Router } from '@angular/router';
+import { NavigationEnd, Router } from '@angular/router';
 import { AppearanceService } from './appearance.service';
 import { TranslateService } from './translate.service';
 import type { ProblemDetails } from './base-api.service';
@@ -24,7 +24,8 @@ export interface ModalOptions {
     dialogClass?: string;
     /** `true`: niente pannello `.modal-content` (il contenuto porta la sua `.card`, o è un'immagine). */
     bare?: boolean;
-    /** `'none'`: il focus iniziale lo mette il contenuto (default: `[autofocus]`, `.btn-close`, primo focusabile). */
+    /** `'none'`: il focus iniziale lo mette il contenuto, o se ci prova a modale ancora nascosta il suo `[autofocus]`
+     *  (default: `[autofocus]`, `.btn-close`, primo focusabile). */
     initialFocus?: 'auto' | 'none';
 }
 
@@ -101,6 +102,11 @@ export class NotificationService {
         return base.then(Swal => Swal.mixin({
             theme: themeVariant,
             target: this.swalTarget(),
+            // Dopo un clic il focus da ridare può mancare (resta su <body>): dentro una modale torna a lei, o Escape non la chiude.
+            didClose: () => {
+                const host = this.openModalHosts.at(-1);
+                if (host?.isConnected && !host.contains(this.document.activeElement)) host.focus({ preventScroll: true });
+            },
             buttonsStyling: false,
             customClass: {
                 confirmButton: 'btn btn-success',
@@ -164,6 +170,7 @@ export class NotificationService {
         let allowed = false;
         let checking = false;
         let bsModal: InstanceType<ModalType> | null = null;
+        let shown = false;
 
         const teardown = (): void => {
             const index = this.openModalHosts.indexOf(host);
@@ -186,8 +193,14 @@ export class NotificationService {
                 checking = false;
             }
             allowed = true;
-            if (bsModal) bsModal.hide(); else teardown();
+            hide();
             return true;
+        };
+        // Durante l'apertura Bootstrap ignora hide(): la modale resterebbe aperta, quindi si chiude appena aperta.
+        const hide = (): void => {
+            if (!bsModal) teardown();
+            else if (shown) bsModal.hide();
+            else host.addEventListener('shown.bs.modal', () => bsModal?.hide(), { once: true });
         };
 
         const loaded = this.loadModal();
@@ -201,16 +214,24 @@ export class NotificationService {
             // Escape, click fuori e hide(): tutto passa da qui, dove decide canClose.
             host.addEventListener('hide.bs.modal', e => { if (!allowed) { e.preventDefault(); void close(); } });
             host.addEventListener('hidden.bs.modal', teardown);
+            // A fine apertura Bootstrap mette il focus sulla modale: con 'none' torna dove l'ha messo il contenuto.
+            let contentFocus: HTMLElement | null = null;
+            const trackFocus = (e: FocusEvent): void => { if (e.target instanceof HTMLElement && e.target !== host) contentFocus = e.target; };
+            host.addEventListener('focusin', trackFocus);
             host.addEventListener('shown.bs.modal', () => {
+                shown = true;
+                host.removeEventListener('focusin', trackFocus);
                 if (options.initialFocus !== 'none') host.querySelector<HTMLElement>(MODAL_FOCUS_TARGETS)?.focus();
+                else (contentFocus?.isConnected ? contentFocus : host.querySelector<HTMLElement>('[autofocus]'))?.focus();
             });
             bsModal.show();
         });
-        // Cambio pagina: via la modale senza domande, il suo contenuto sta per sparire comunque.
+        // Cambio pagina avvenuto: via la modale senza domande. Non a NavigationStart: il guard delle modifiche
+        // non salvate può ancora annullarlo, e chiede dentro la modale ancora aperta.
         const nav = this.router.events.subscribe(e => {
-            if (!(e instanceof NavigationStart)) return;
+            if (!(e instanceof NavigationEnd)) return;
             allowed = true;
-            if (bsModal) bsModal.hide(); else teardown();
+            hide();
         });
         void afterClosed.then(() => nav.unsubscribe());
 
