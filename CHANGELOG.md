@@ -2,6 +2,15 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Muro senza ombre fra le barre, SweetAlert dentro le modali, ciclo di import in dev
+
+- **Navbar e footer senza ombra su `navbar.superficie: 'body'`**: nuovi token `--shadowNavbar`/`--shadowFooter` (da `elevazione`), `none` quando le barre stanno sulla superficie della pagina — su Muro navbar, contenuto e footer sono un'unica superficie. `--shadowBarDown`/`--shadowBarUp` restano per le fasce sopra il contenuto (cookie, offline).
+- **SweetAlert dentro una modale Bootstrap**: `confirm`/`choose`/`toast`/… chiamati da un contenuto di `notify.modal` montano il popup dentro la modale aperta (`target`), così il focus trap di Bootstrap non gli strappa il focus. Escape su un toast chiude solo il toast; chiuso, il toast ridà il focus a dove era prima.
+- **Durata delle modali da `movimento`**: fade e ingresso di `.modal`/`.modal-backdrop` seguono `--movimentoPannello` (con `fermo` aprono e chiudono subito); `prefers-reduced-motion` resta di Bootstrap. Il lightbox perde la sua animazione d'ingresso: usa quella della modale.
+- **`FooterField` in `footer-field.ts`** (modulo foglia, riesportato da `footer-content.ts`): `legal-pages.ts` lo legge al caricamento e, dentro il ciclo `footer-content → icon → appearance.service → site.ts → siteBuilder → legal-pages`, nel dev server SSR di Vite lo trovava `undefined` (ogni pagina in 500). `circular-deps.mjs` ora simula il caricamento anche partendo da ogni modulo, non solo da `main.ts`/`main.server.ts`: questo ciclo lo avrebbe segnalato.
+
+**Al merge**: nessuno. Chi importa `FooterField` da `footer-content` continua a funzionare.
+
 ### Primitive che i figli riscrivevano: dialog, modifiche non salvate, tempo relativo, meno movimento, mappe, sollevamento, lingua della voce
 
 Ricognizione sui tre progetti derivati: dieci cose che ciascuno aveva riscritto per sé (spesso due volte nello stesso progetto) perché l'Engine non le esponeva. Ora le espone, e i figli le delegano.

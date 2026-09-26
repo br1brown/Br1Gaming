@@ -65,6 +65,13 @@ code {
     max-width: min(92vw, 100%);
     margin-inline: auto;
 }
+/* Ingresso e uscita delle modali con la durata di `movimento`, non quella fissa di Bootstrap: il suo JS
+   la legge dal CSS, quindi con 'fermo' aprono e chiudono subito. `prefers-reduced-motion` lo gestisce Bootstrap. */
+.modal.fade,
+.modal-backdrop.fade,
+.modal.fade .modal-dialog {
+    transition-duration: var(--movimentoPannello, 0.15s);
+}
 
 /* Zoom su schermi ampi, con un puntatore */
 @media only screen and (min-width: #{lib.$bp-md}) and (hover: hover) {

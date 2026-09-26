@@ -1,17 +1,10 @@
-/* Backdrop, posizionamento e z-index sono della modale Bootstrap (NotificationService.modal): qui solo l'aspetto. */
-/* Durata decisa dal design system attivo (`DesignSystemPreset.movimento`, default 'svelto' —
-   0.15s qui sotto resta il fallback). */
+/* Backdrop, posizionamento, z-index e animazione d'ingresso sono della modale Bootstrap
+   (NotificationService.modal): qui solo l'aspetto. */
 .image-lightbox {
     position: relative;
     display: flex;
     max-width: 92vw;
     max-height: 92vh;
-    animation: lightbox-fade-in var(--movimentoPannello, 0.15s) ease;
-}
-
-@keyframes lightbox-fade-in {
-    from { opacity: 0; transform: scale(0.97); }
-    to   { opacity: 1; transform: scale(1); }
 }
 
 .image-lightbox-img {
@@ -75,10 +68,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .image-lightbox {
-        animation: none;
-    }
-
     .image-lightbox-close {
         transition: none;
     }
