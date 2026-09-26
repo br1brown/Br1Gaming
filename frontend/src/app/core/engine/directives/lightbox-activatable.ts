@@ -1,6 +1,9 @@
-import { Directive, ElementRef, HostBinding, HostListener, inject, Injector, PLATFORM_ID } from '@angular/core';
+import { Directive, ElementRef, HostBinding, HostListener, inject, Injector, isDevMode, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
+import { TranslateService } from '../services/translate.service';
 import type { LightboxSource } from '../components/image-lightbox/image-lightbox-overlay.component';
+
+let altMancanteSegnalato = false;
 
 /** Attivazione lightbox condivisa da `AssetDirective` e `LightboxDirective`. `ImageLightboxService`
  *  (CDK Overlay) si importa dinamicamente solo dentro `onLightboxActivate()`, mai in cima al file:
@@ -8,6 +11,7 @@ import type { LightboxSource } from '../components/image-lightbox/image-lightbox
 @Directive()
 export abstract class LightboxActivatable {
     private readonly injector = inject(Injector);
+    private readonly translate = inject(TranslateService);
     protected readonly hostEl = inject(ElementRef).nativeElement as HTMLElement;
     protected readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
@@ -37,11 +41,21 @@ export abstract class LightboxActivatable {
         return this.lightboxEnabled() ? 'dialog' : null;
     }
 
-    /** Con `role="button"` il nome accessibile si calcola con l'algoritmo generico, e `alt` da solo
-     *  smette di contare: lo specchiamo qui per non perderlo quando l'affordance è attiva. */
+    /** Con `role="button"` `alt` smette di contare: lo specchiamo qui. Senza `alt` il bottone resterebbe
+     *  senza nome (WCAG 4.1.2), quindi ripieghiamo su un'etichetta di serie. */
     @HostBinding('attr.aria-label')
     protected get lightboxAriaLabel(): string | null {
-        return this.lightboxEnabled() ? this.hostEl.getAttribute('alt') : null;
+        if (!this.lightboxEnabled()) return null;
+        const alt = this.altText();
+        if (!alt && isDevMode() && this.isBrowser && !altMancanteSegnalato) {
+            altMancanteSegnalato = true;
+            console.warn('Immagine ingrandibile senza alt: uso il nome di serie, che non è una descrizione.', this.hostEl);
+        }
+        return alt || this.translate.t('lightboxIngrandisci');
+    }
+
+    private altText(): string {
+        return this.hostEl.getAttribute('alt')?.trim() ?? '';
     }
 
     @HostListener('click', ['$event'])
@@ -53,6 +67,6 @@ export abstract class LightboxActivatable {
         if (!source) return;
         event?.preventDefault();
         const { ImageLightboxService } = await import('../services/image-lightbox.service');
-        this.injector.get(ImageLightboxService).open(source, this.hostEl.getAttribute('alt') ?? '', this.hostEl);
+        this.injector.get(ImageLightboxService).open(source, this.altText(), this.hostEl);
     }
 }

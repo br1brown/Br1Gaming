@@ -249,24 +249,29 @@ export class AppearanceService {
         // fattore di separazione. La base è l'ANCORA: lo scarto da se stessa è sempre 0. Tutti i primi
         // piani (testo, titoli, link, bordo...) sono poi tarati contro queste superfici reali.
         const surfacesAt = (tone: 'light' | 'dark', factor: number): string[] => {
-            if (tone === 'light') {
-                const sep = (defaultL: number): number => liftBg(0.970 + (defaultL - 0.970) * factor);
-                return [
-                    AppearanceService.computeBaseLt(C_bg, H_bg, bgBoost, liftBg(0.970)),
-                    AppearanceService.oklchToHex(sep(0.985), Math.min(C_bg * 0.02, 0.003) * bgBoost, H_bg),
-                    AppearanceService.oklchToHex(sep(0.950), Math.min(C_bg * 0.04, 0.006) * bgBoost, H_bg),
-                    AppearanceService.computeMutedBgLt(C_bg, H_bg, bgBoost, sep(0.942)),
-                    AppearanceService.oklchToHex(sep(0.967), Math.min(C_bg * 0.05, 0.007) * bgBoost, H_bg),
-                ];
-            }
-            const sep = (defaultL: number): number => liftBg(0.140 + (defaultL - 0.140) * factor);
-            return [
-                AppearanceService.computeBaseDk(C_bg, H_bg, bgBoost, liftBg(0.140)),
-                AppearanceService.oklchToHex(sep(0.180), Math.min(C_bg * 0.12, 0.014) * bgBoost, H_bg),
-                AppearanceService.oklchToHex(sep(0.220), Math.min(C_bg * 0.10, 0.012) * bgBoost, H_bg),
-                AppearanceService.computeMutedBgDk(C_bg, H_bg, bgBoost, sep(0.295)),
-                AppearanceService.oklchToHex(sep(0.248), Math.min(C_bg * 0.20, 0.025) * bgBoost, H_bg),
-            ];
+            // Per card, hover, muted, tertiary: [L a vividness 0, quota della chroma di sfondo, tetto].
+            const [anchor, baseHex, steps]: [number, string, [number, number, number][]] = tone === 'light'
+                ? [0.970, AppearanceService.computeBaseLt(C_bg, H_bg, bgBoost, liftBg(0.970)),
+                    [[0.985, 0.02, 0.003], [0.950, 0.04, 0.006], [0.942, 0.08, 0.011], [0.967, 0.05, 0.007]]]
+                : [0.140, AppearanceService.computeBaseDk(C_bg, H_bg, bgBoost, liftBg(0.140)),
+                    [[0.180, 0.12, 0.014], [0.220, 0.10, 0.012], [0.295, 0.18, 0.022], [0.248, 0.20, 0.025]]];
+            // Con la vividness le superfici convergono sulla lucentezza della base: si staccano per luce,
+            // verso il lato opposto al testo, e mai più sature della base (sembrerebbero un errore).
+            const [L_base, C_base] = AppearanceService.hexToOklch(baseHex);
+            const away = AppearanceService.prefersDarkText(baseHex) ? 1 : -1;
+            const byLight = (L: number, C: number): string => {
+                let c = Math.min(C, C_base);
+                let hex = AppearanceService.oklchToHex(L, c, H_bg);
+                // L'arrotondamento a 8 bit può sforare la chroma della base di un soffio.
+                while (c > 0 && AppearanceService.hexToOklch(hex)[1] > C_base) hex = AppearanceService.oklchToHex(L, c = Math.max(0, c - 0.002), H_bg);
+                return hex;
+            };
+            return [baseHex, ...steps.map(([defaultL, ratio, cap]) => {
+                const C = Math.min(C_bg * ratio, cap) * bgBoost;
+                return vividness > 0
+                    ? byLight(L_base + away * Math.abs(defaultL - anchor) * factor, C)
+                    : AppearanceService.oklchToHex(liftBg(anchor + (defaultL - anchor) * factor), C, H_bg);
+            })];
         };
         // Con vividness e separazione alte le superfici possono stare a cavallo della luminanza media:
         // nessun colore (nemmeno nero o bianco) resterebbe leggibile su tutte. Lì la leggibilità vince
@@ -538,7 +543,7 @@ export class AppearanceService {
         return AppearanceService.oklchToHex(liftedL, Math.min(C * 0.08, 0.010) * boost, H);
     }
 
-    /** Superficie più ESTREMA su cui un foreground può comparire (`--bs-secondary-bg`): riferimento worst-case, garantendo il target qui lo si ottiene a fortiori sulle altre. Usata da `computePalette` e dai `computeColorPrimaryFg*`. */
+    /** Superficie più ESTREMA su cui un foreground può comparire (`--bs-secondary-bg`): riferimento worst-case, garantendo il target qui lo si ottiene a fortiori sulle altre. Default dei `computeColorPrimaryFg*`; stessi numeri del gradino muted in `computePalette`. */
     private static computeMutedBgLt(C: number, H: number, boost = 1, liftedL = 0.942): string {
         return AppearanceService.oklchToHex(liftedL, Math.min(C * 0.08, 0.011) * boost, H);
     }

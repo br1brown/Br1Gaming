@@ -654,6 +654,8 @@ Il gruppo `colori` ha tre campi.
 
 Con `'distinte'`, `'tenue'` e `'fusione'` il pannello manca su tutte le pagine, qualunque ruolo. Il sito "a tinta piena" (il brand come sfondo, navbar e footer compresi, senza pannello) è il preset `muro`.
 
+Con `'tenue'`, `'tenue-flottante'` e `'fusione'` card, hover, muted e tertiary si staccano dalla base per luminosità, verso il lato opposto al testo (con testo chiaro un filo più scure, con testo scuro un filo più chiare), e non sono mai più sature della base.
+
 **`colori.sfondo`** (hex) sostituisce il brand come tinta di sfondi e testo: genera l'intera famiglia di superfici (base, card, hover, muted, tertiary, nei due toni), e il testo la segue. Il contrasto resta garantito.
 
 **`colori.palette`** aggiunge colori con nome. `secondary` e `info` sostituiscono quelli di Bootstrap; ogni altro nome aggiunge un colore. Senza `secondary` il secondario è il muted del brand (calcolato con garanzia WCAG); senza `info` resta quello di Bootstrap. Il fill di un colore di palette è l'hex esatto in entrambi i toni; come testo si usa una variante resa leggibile.

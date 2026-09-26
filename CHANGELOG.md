@@ -2,6 +2,15 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Superfici che si staccano per luce, e un nome di serie alle foto ingrandibili
+
+Emersi dalla revisione di Agnese (preset `muro`, brand `#8E162B`), dove le card uscivano più accese della pagina (`#A60015` su `#900E29`).
+
+- **Superfici**: con `colori.superfici` `'fusione'`, `'tenue'` e `'tenue-flottante'` le superfici (card, hover, muted, tertiary) non sono più più sature della base: si staccano per luminosità, verso il lato opposto al testo, e il contrasto del testo sopra cresce invece di calare. Meno ripieghi su nero/bianco in quasi tutte le combinazioni provate, nessuna in più; `'foglio'` e `'distinte'` restano identici.
+- **Lightbox**: un'immagine ingrandibile senza `alt` riceve un nome accessibile di serie ("Ingrandisci immagine", chiave `lightboxIngrandisci`, sovrascrivibile in `addon.<lang>.json`) invece di un bottone senza nome (WCAG 4.1.2, segnalato da Pa11y). In dev un avviso in console, una volta, ricorda che non è una descrizione.
+
+**Al merge**: nessuno. Chi aveva corretto a mano lo sfondo delle card (es. `.landing-card { background: … }`) può toglierlo; resta consigliato dare alle foto una descrizione vera.
+
 ### Modali: cambio pagina, focus e chiusura durante l'apertura
 
 Emersi provando le modali di Agnese (libreria immagini, selettore foto) su casi reali.
