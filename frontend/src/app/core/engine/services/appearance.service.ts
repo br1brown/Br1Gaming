@@ -507,6 +507,16 @@ export class AppearanceService {
         return AppearanceService.findContrastOnSurfaces(C, H, surfaces, target, L, step);
     }
 
+    /** Ultima prova prima di nero/bianco: la stessa tinta nel verso opposto a quello cercato, da `fromL` in
+     *  passi di `step`. Con la vividezza la base può stare dall'altra parte del brand (es. tono chiaro scuro). */
+    private static searchOpposite(C: number, H: number, fromL: number, step: number, ok: (hex: string) => boolean): string | null {
+        for (let L = fromL + step; L >= 0.05 && L <= 0.98; L += step) {
+            const hex = AppearanceService.oklchToHex(L, C, H);
+            if (ok(hex)) return hex;
+        }
+        return null;
+    }
+
     /** Primo piano OKLCH(L, C, H) con contrasto ≥ `target` su TUTTE le `surfaces` (testo, titoli, bordo: stanno sopra ognuna). Parte da `startL` (tenuto se già basta) e cerca prima nella direzione di `step` (più scuro in light, più chiaro in dark), poi in quella opposta: con `vividezza` alta le superfici convergono sulla lucentezza del brand e il primo piano deve poterle scavalcare. Nessuna L conforme: nero o bianco, il migliore sul caso peggiore. */
     private static findContrastOnSurfaces(C: number, H: number, surfaces: string[], target: number, startL: number, step: number): string {
         const worst = (hex: string): number =>
@@ -580,6 +590,9 @@ export class AppearanceService {
                 return hex;
             }
         }
+        const opposite = AppearanceService.searchOpposite(C, H, startL, -step, hex =>
+            AppearanceService.calcContrastRatio(hex, bgMuted) >= targetMuted && AppearanceService.calcContrastRatio(hex, bgBase) >= targetBase);
+        if (opposite) return opposite;
         const worstCase = (candidate: string): number => Math.min(
             AppearanceService.calcContrastRatio(candidate, bgMuted),
             AppearanceService.calcContrastRatio(candidate, bgBase)
@@ -608,6 +621,8 @@ export class AppearanceService {
             const hex = AppearanceService.oklchToHex(L, C, H);
             if (AppearanceService.calcContrastRatio(hex, bgHex) >= targetRatio) return hex;
         }
+        const opposite = AppearanceService.searchOpposite(C, H, startL, -step, hex => AppearanceService.calcContrastRatio(hex, bgHex) >= targetRatio);
+        if (opposite) return opposite;
         // Nessuna L a chroma fisso raggiunge il target (tipico con hue molto sature,
         // clampate al gamut sRGB): si ripiega sul massimo contrasto possibile su bgHex
         // (nero o bianco puro), sacrificando la tinta brand ma MAI la conformità WCAG.
@@ -690,6 +705,8 @@ export class AppearanceService {
             const candidate = AppearanceService.oklchToHex(L, C, H);
             if (AppearanceService.calcContrastRatio(candidate, bg) >= 4.5) return candidate;
         }
+        const opposite = AppearanceService.searchOpposite(C, H, L0, +0.01, hex => AppearanceService.calcContrastRatio(hex, bg) >= 4.5);
+        if (opposite) return opposite;
         // Nessuna L raggiunge il target (bg con lucentezza vicina al brand, tipico con
         // vividezza alto): stesso ripiego di findCompliantColor, massimo contrasto possibile.
         const fallback = AppearanceService.getReadableTextColor(bg);
@@ -707,6 +724,9 @@ export class AppearanceService {
             const candidate = AppearanceService.oklchToHex(L, C, H);
             if (AppearanceService.calcContrastRatio(candidate, bg) >= AppearanceService.TARGET_TEXT_CONTRAST) return candidate;
         }
+        const opposite = AppearanceService.searchOpposite(C, H, L0, +0.01, hex =>
+            AppearanceService.calcContrastRatio(hex, bg) >= AppearanceService.TARGET_TEXT_CONTRAST);
+        if (opposite) return opposite;
         // Vedi commento gemello in `computeColorPrimary`: stesso ripiego garantito di `findCompliantColor`.
         const fallback = AppearanceService.getReadableTextColor(bg);
         if (isDevMode()) {
@@ -739,6 +759,9 @@ export class AppearanceService {
             const candidate = AppearanceService.oklchToHex(L, C, H);
             if (AppearanceService.calcContrastRatio(candidate, bg) >= AppearanceService.TARGET_TEXT_CONTRAST) return candidate;
         }
+        const opposite = AppearanceService.searchOpposite(C, H, L0, -0.01, hex =>
+            AppearanceService.calcContrastRatio(hex, bg) >= AppearanceService.TARGET_TEXT_CONTRAST);
+        if (opposite) return opposite;
         // Vedi commento gemello in `computeColorPrimary`: stesso ripiego garantito di `findCompliantColor`.
         const fallback = AppearanceService.getReadableTextColor(bg);
         if (isDevMode()) {

@@ -2,6 +2,12 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Primario, link e testi: la tinta del brand prima del bianco
+
+Con superfici vivide (`'tenue'`, `'fusione'`, `colori.sfondo`) la base di un tono può stare dall'altra parte del brand: su Agnese (`muro`, `#8E162B`) il tono chiaro ha una base scura, e il primario, cercato solo verso il più scuro, ripiegava sul bianco. Siccome il bottone primario del tono scuro parte da lì, anche lui era bianco, cioè del colore del testo. Ora primario, link, testo secondario e secondario derivato provano la stessa tinta nel verso opposto prima di ripiegare su nero o bianco: su Agnese il bottone diventa `#ffa2a7`, zero ripieghi invece di 4. Cambiano solo le palette che prima ripiegavano.
+
+**Al merge**: nessuno. Chi aveva forzato a mano il colore del bottone primario su un tema vivido può toglierlo.
+
 ### Superfici che si staccano per luce, e un nome di serie alle foto ingrandibili
 
 Emersi dalla revisione di Agnese (preset `muro`, brand `#8E162B`), dove le card uscivano più accese della pagina (`#A60015` su `#900E29`).
