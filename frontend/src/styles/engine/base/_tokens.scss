@@ -41,7 +41,7 @@
 
     /* Spazi, --fs-sm/--lh-tight e i livelli z condivisi con Bootstrap sono derivati in bootstrap.scss
        (variabili Sass in scope lì), non duplicati qui, per non poter divergere. */
-    /* Respiro di pannello e shell (--densitaRespiro/-Largo), ombre delle barre (--shadowBarDown/Up) e
+    /* Respiro di pannello e shell (--densitaRespiro/-Largo), ombre delle barre (--shadowBarDown/Up, --shadowNavbar/Footer) e
        larghezza massima dello shell (--larghezzaShell) sono scelte estetiche: le genera il design
        system (`densita`, `elevazione`, `larghezza`), come movimento ed elevazione qui sopra. */
 

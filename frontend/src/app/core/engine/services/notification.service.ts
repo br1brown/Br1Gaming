@@ -81,6 +81,7 @@ export class NotificationService {
     private swalPromise?: Promise<SwalType>;
     private modalPromise?: Promise<ModalType>;
     private shownOnceKeys = new Set<string>();   // chiavi già mostrate da toastOnce() in questa sessione
+    private readonly openModalHosts: HTMLElement[] = [];   // modali Bootstrap aperte, l'ultima in cima
 
     private loadSwal(): Promise<SwalType> | null {
         if (!isPlatformBrowser(this.platformId)) return null;
@@ -90,7 +91,7 @@ export class NotificationService {
         return this.swalPromise ??= import('sweetalert2/dist/sweetalert2.esm.js').then(module => module.default);
     }
 
-    /** SwAl pre-configurato col tema: theme light/dark segue `themeTone` (i colori del popup vengono dal ponte `--swal2-*` → token brand in `_bootstrap-theme.scss`), bottoni Bootstrap (success/outline-secondary/danger, `buttonsStyling: false`). Ricreato ad ogni call per restare reattivo a cambi di themeTone. */
+    /** SwAl pre-configurato col tema: theme light/dark segue `themeTone` (i colori del popup vengono dal ponte `--swal2-*` → token brand in `_bootstrap-theme.scss`), bottoni Bootstrap (success/outline-secondary/danger, `buttonsStyling: false`). Ricreato ad ogni call per seguire themeTone e la modale aperta (`swalTarget`). */
     private loadThemedSwal(): Promise<SwalType> | null {
         const base = this.loadSwal();
         if (!base) return null;
@@ -99,6 +100,7 @@ export class NotificationService {
             : 'bootstrap-5-light';
         return base.then(Swal => Swal.mixin({
             theme: themeVariant,
+            target: this.swalTarget(),
             buttonsStyling: false,
             customClass: {
                 confirmButton: 'btn btn-success',
@@ -106,6 +108,12 @@ export class NotificationService {
                 denyButton:    'btn btn-danger ms-2',
             },
         }));
+    }
+
+    /** SweetAlert monta dentro la modale Bootstrap in cima, se ce n'è una: su `<body>` il focus trap
+     *  della modale (in ascolto su tutto il documento) strapperebbe il focus al popup. */
+    private swalTarget(): HTMLElement {
+        return this.openModalHosts.at(-1) ?? this.document.body;
     }
 
     // --- MODALI (Bootstrap) ---
@@ -117,8 +125,8 @@ export class NotificationService {
     }
 
     /** Modale che ospita un componente o un `<ng-template>`: focus intrappolato, Escape, click fuori,
-     *  scroll bloccato e focus di ritorno li dà Bootstrap. SweetAlert mostra un solo popup alla volta,
-     *  quindi un contenuto che a sua volta chiama `confirm`/`toast` deve stare qui, non lì. */
+     *  scroll bloccato e focus di ritorno li dà Bootstrap. Il contenuto può chiamare `confirm`/`toast`:
+     *  il popup SweetAlert si apre dentro la modale (`swalTarget`). */
     modal<T>(content: Type<T> | TemplateRef<unknown>, options: ModalOptions = {}): ModalRef<T> {
         const host = this.document.createElement('div');
         host.className = 'modal fade';
@@ -149,6 +157,7 @@ export class NotificationService {
             view = ref;
         }
         this.document.body.appendChild(host);
+        this.openModalHosts.push(host);
 
         let resolveClosed!: () => void;
         const afterClosed = new Promise<void>(resolve => { resolveClosed = resolve; });
@@ -157,6 +166,11 @@ export class NotificationService {
         let bsModal: InstanceType<ModalType> | null = null;
 
         const teardown = (): void => {
+            const index = this.openModalHosts.indexOf(host);
+            if (index >= 0) this.openModalHosts.splice(index, 1);
+            // Un popup SweetAlert ancora aperto qui dentro (es. cambio pagina) sopravvive alla modale.
+            const swalContainer = host.querySelector('.swal2-container');
+            if (swalContainer) this.document.body.appendChild(swalContainer);
             view.destroy();
             bsModal?.dispose();
             host.remove();
@@ -396,6 +410,7 @@ export class NotificationService {
             const timer = opts?.durationMs === undefined ? 3000 : opts.durationMs;   // undefined → 3s; null → persistente
             const persistent = timer == null;
             const action = opts?.action;
+            let focusBeforeToast: HTMLElement | null = null;   // da dove è arrivato il focus da tastiera
             const Toast = Swal.mixin({
                 toast: true,
                 position: 'top-end',
@@ -419,11 +434,21 @@ export class NotificationService {
                         toast.addEventListener('focus', Swal.stopTimer);
                         toast.addEventListener('blur', Swal.resumeTimer);
                     }
-                    // Escape chiude il toast quando ha il focus.
+                    // Escape chiude il toast quando ha il focus, e solo lui (non la modale che lo contiene).
                     toast.addEventListener('keydown', (e) => {
-                        if (e.key === 'Escape') void Swal.close();
+                        if (e.key !== 'Escape') return;
+                        e.stopPropagation();
+                        void Swal.close();
                     });
-                }
+                    toast.addEventListener('focusin', (e) => {
+                        const from = e.relatedTarget;
+                        if (from instanceof HTMLElement && !toast.contains(from)) focusBeforeToast = from;
+                    });
+                },
+                // Chiuso col focus dentro: il focus torna da dove veniva, non su <body> (fuori da un'eventuale modale).
+                willClose: (toast) => {
+                    if (toast.contains(this.document.activeElement)) focusBeforeToast?.focus({ preventScroll: true });
+                },
             });
             void Toast.fire({ icon, titleText: message }).then(result => {
                 if (result.isConfirmed) action?.run();              // click sul bottone d'azione

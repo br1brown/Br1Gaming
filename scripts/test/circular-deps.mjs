@@ -22,9 +22,9 @@
 //              inizializzatori di campo di classe (`x = inject(Service)`)
 //   • assenti→ `import type` / `export type` (cancellati da tsc)
 //
-// Poi simula l'ordine reale di valutazione dei moduli ES a partire dai veri
-// entry point (main.ts, main.server.ts) e segnala un ciclo solo se un arco
-// eager punta a un modulo ancora "in valutazione" (sullo stack).
+// Poi simula l'ordine di valutazione dei moduli ES a partire dai veri entry
+// point (main.ts, main.server.ts) e da ogni altro modulo, e segnala un ciclo
+// solo se un arco eager punta a un modulo ancora "in valutazione" (sullo stack).
 //
 // Uso:
 //   node scripts/test/circular-deps.mjs
@@ -178,9 +178,12 @@ function isValueReference(id, p) {
 }
 
 // ── Simulazione dell'ordine di valutazione dei moduli ES dagli entry ─────────
-const entries = ['src/main.ts', 'src/main.server.ts']
+// Oltre agli entry veri, ogni modulo come primo caricato: il dev server di Vite, i chunk lazy e gli
+// script tsx partono da lì, e un ciclo innocuo da main.ts può esplodere solo in quell'ordine.
+const mainEntries = ['src/main.ts', 'src/main.server.ts']
     .map(p => norm(resolve(FRONTEND_DIR, p)))
     .filter(p => graph.has(p));
+const entries = [...new Set([...mainEntries, ...graph.keys()])];
 
 const rel = f => relative(FRONTEND_DIR, f).split(sep).join('/');
 const hazards = new Map(); // "src→tgt" → { from, to, cycle[] }

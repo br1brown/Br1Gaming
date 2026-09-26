@@ -93,6 +93,9 @@ export function buildThemeScss(p: PaletteTokens, cfg: ThemeScssConfig): string {
         // contenuto, graduato dalla stessa `elevazione` delle superfici sollevate.
         ['shadowBarDown', elevazione.ombraBarraGiu],
         ['shadowBarUp', elevazione.ombraBarraSu],
+        // Navbar e footer: con `navbar.superficie` 'body' sono la pagina stessa, un'ombra li staccherebbe.
+        ['shadowNavbar', aspetto.navbar.superficie === 'body' ? 'none' : elevazione.ombraBarraGiu],
+        ['shadowFooter', aspetto.navbar.superficie === 'body' ? 'none' : elevazione.ombraBarraSu],
         // Respiro di pannello e shell (`densita`): sotto md e da md in su.
         ['densitaRespiro', densita.respiro],
         ['densitaRespiroLargo', densita.respiroLargo],

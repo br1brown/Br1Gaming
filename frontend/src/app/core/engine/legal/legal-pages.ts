@@ -5,7 +5,7 @@ import type { ParentPageInput, SitePageInput } from '../siteBuilder';
 import { COOKIE_MAP } from '../../services/cookie-registry';
 import { ConsentCategory, type CookieConfig } from '../services/cookie/cookie-type';
 import { environment } from '../../../../environments/environment';
-import { FooterField } from '../footer-content';
+import { FooterField } from '../footer-field';
 
 /** Parti contestuali di una policy: `assets/legal/<pagina>/<nome>/<lingua>.md`, incluse solo se la
  *  funzione omonima è attiva (`<nome>/off/<lingua>.md`, facoltativo, solo se è spenta). */

@@ -7,32 +7,9 @@ import { PhoneContactComponent } from './components/phone-contact/phone-contact.
 import { MailContactComponent } from './components/mail-contact/mail-contact.component';
 import { PecContactComponent } from './components/pec-contact/pec-contact.component';
 import { BadgeTone, formatAddress, formatCurrency, hasText } from './identity-format';
+import { FooterField } from './footer-field';
 
-/** L'engine possiede per intero la forma di `Identity`: `FooterField` la rende utilizzabile dal resolver del footer (`nav.ts`) senza che il progetto conosca chiave i18n o forma esatta — `g.addField(FooterField.PartitaIva)` pesca, formatta e nasconde se non valorizzato. Fuori da qui: social (`addSocialLink`, sempre espliciti) e contenuto libero (`addText`). */
-export enum FooterField {
-    RagioneSociale,
-    PartitaIva,
-    CodiceFiscale,
-    /** P.IVA e Codice Fiscale, un campo solo: se coincidono (caso comune, ditta individuale) una
-     *  riga sola "Codice Fiscale / P.IVA", altrimenti le due righe separate. Alternativa ad usare `PartitaIva`/`CodiceFiscale` separati: la scelta
-     *  è del progetto, non c'è una combinazione "giusta" a priori. */
-    PartitaIvaCodiceFiscale,
-    RegistroImprese,
-    NumeroRea,
-    CodiceSdi,
-    CapitaleSociale,
-    CapitaleVersato,
-    SocioUnico,
-    InLiquidazione,
-    SedeLegale,
-    Telefono,
-    Email,
-    Pec,
-    RappresentanteLegale,
-    TitolareDelTrattamento,
-    ResponsabileProtezioneDati,
-    OpeningHours,
-}
+export { FooterField } from './footer-field';
 
 /** Trattamento visivo di un valore testuale: testo semplice, monospace "da codice" (P.IVA, REA...),
  *  o badge (booleani). Un canale di contatto cliccabile (telefono/email/pec) non è un `itemKind`:

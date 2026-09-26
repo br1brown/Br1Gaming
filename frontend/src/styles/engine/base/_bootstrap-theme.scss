@@ -56,7 +56,7 @@
 /* Stesso distacco visivo della navbar (sotto), qui sopra: senza, il footer è un cambio di colore
    piatto attaccato al contenuto, non una fascia con un suo peso. */
 .site-footer.theme-bg {
-    box-shadow: var(--shadowBarUp);
+    box-shadow: var(--shadowFooter);
 }
 
 /* Il brand della navbar di serie usa il colore dei titoli, spesso illeggibile su --colorNavBg. Globale e non
@@ -64,7 +64,7 @@
 .navbar.theme-bg {
     --bs-navbar-brand-color: var(--colorNavText);
     --bs-navbar-brand-hover-color: var(--colorNavText);
-    box-shadow: var(--shadowBarDown);
+    box-shadow: var(--shadowNavbar);
 }
 
 .dropdown-menu .dropdown-item.theme-bg:hover {
