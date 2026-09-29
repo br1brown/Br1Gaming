@@ -1,5 +1,6 @@
-<div class="sim-grid">
+<ul class="sim-grid">
     @for (tile of tiles; track tile.slug) {
+    <li>
     <a class="sim-tile lift-on-hover" [class.sim-tile--flat]="!tile.imageId" [appPage]="tile.pageType">
         @if (tile.imageId) {
         <img [appAsset]="tile.imageId"
@@ -41,5 +42,6 @@
             </span>
         </div>
     </a>
+    </li>
     }
-</div>
+</ul>
