@@ -125,16 +125,22 @@ async function runA11ySweep(browser, baseUrl, paths, pa11yOptions) {
         let detail;
         try {
             const result = await auditWithRunners(pa11y, url, { ...pa11yOptions, browser, timeout });
-            // Solo gli 'error' bloccano il budget; i 'warning' (incluse le voci axe needsFurtherReview) sono sempre stampati, mai scartati in silenzio, ma non fanno fallire la pagina: servono a una verifica umana.
+            // Solo gli 'error' bloccano il budget; i 'warning' sono sempre stampati, mai scartati in silenzio, ma non fanno fallire la pagina: servono a una verifica umana (le voci axe non decidibili sono l'eccezione, contate a parte: vedi sotto).
             const errors = result.issues.filter((i) => i.type === 'error');
-            const warnings = result.issues.filter((i) => i.type !== 'error');
+            // axe `needsFurtherReview` ("incomplete"): il controllo dichiara di non poter decidere (testo su un
+            // background-image, elemento sovrapposto…). Non è un avvertimento sul sito ma un'incapacità dello
+            // strumento, e solo un umano può chiuderla: non si elenca fra gli avvisi, si conta a parte. Gli altri
+            // avvisi (HTML_CodeSniffer, es. G18.BgImage/G18.Alpha) restano tutti.
+            const undecidable = result.issues.filter((i) => i.type !== 'error' && i.runnerExtras?.needsFurtherReview === true);
+            const warnings = result.issues.filter((i) => i.type !== 'error' && i.runnerExtras?.needsFurtherReview !== true);
             if (errors.length === 0) {
                 out.push(`  ${paint('32', 'OK')} Nessuna violazione WCAG 2.2 AA — ${path}`);
                 if (warnings.length > 0) {
                     out.push(cliReporter.results({ ...result, issues: warnings }));
                     out.push(`  ${paint('33', 'WARN')} ${warnings.length} avviso/i da verificare a mano (non bloccante) — ${path}`);
                 }
-                detail = { ok: true, warnings: warnings.map((i) => `${i.message} — ${i.selector}`) };
+                if (undecidable.length > 0) out.push(`  ${paint('2', '—')} ${undecidable.length} controllo/i axe non decidibile/i in automatico (needsFurtherReview), non elencati — ${path}`);
+                detail = { ok: true, undecidable: undecidable.length, warnings: warnings.map((i) => `${i.message} — ${i.selector}`) };
             } else {
                 out.push(cliReporter.results(result));
                 out.push(`  ${paint('31', 'ERR')} Violazioni WCAG 2.2 AA — ${path}`);
@@ -388,7 +394,7 @@ function buildStepSummaryMarkdown(baseUrl, allRoutePaths, a11yPerPage, lighthous
                     ? `**Pa11y** — non misurato (${a11y.reason})`
                     : `**Pa11y** — ${a11y.violations.length} violazione/i WCAG 2.2 AA:\n${a11y.violations.map((v) => `  - ${v}`).join('\n')}`);
             }
-            // Warning (incluse le voci axe needsFurtherReview): mai bloccanti, ma sempre visibili
+            // Warning (HTML_CodeSniffer): mai bloccanti, ma sempre visibili
             // qui — vanno verificate a mano caso per caso, non danno un verdetto automatico.
             if (a11y?.warnings?.length > 0) {
                 detailLines.push(`**Pa11y** — ${a11y.warnings.length} avviso/i da verificare a mano (non bloccante):\n${a11y.warnings.map((v) => `  - ${v}`).join('\n')}`);

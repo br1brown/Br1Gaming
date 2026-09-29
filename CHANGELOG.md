@@ -8,7 +8,7 @@ Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspetta
 
 **Al merge**: nessuno.
 
-### Audit pulito: da ~300 avvisi Pa11y a 12, e le citazioni Markdown finalmente citazioni
+### Audit pulito: da ~300 avvisi Pa11y a 7, e le citazioni Markdown finalmente citazioni
 
 Quasi tutti gli avvisi (≈280 su 298) erano il breadcrumb, con lo sfondo `rgba()` e `backdrop-filter` che nessun controllo di contrasto sa risolvere.
 
@@ -17,7 +17,7 @@ Quasi tutti gli avvisi (≈280 su 298) erano il breadcrumb, con lo sfondo `rgba(
 - **Editor Markdown**: il testo dello strato di input si nasconde con `-webkit-text-fill-color: transparent`, non con `color: transparent`.
 - **Citazioni Markdown**: `> testo` esce con le classi Bootstrap del blockquote (barra a sinistra, corpo normale). Il riepilogo "In sintesi" delle pagine legali era già una citazione, ma senza nessuno stile: si leggeva come un paragrafo in grassetto.
 
-Restano 12 avvisi, non risolvibili nel markup: le icone di validazione di Bootstrap sui campi (`background-image`, che si tengono: `$enable-validation-icons: false` le toglierebbe), la freccia della `<select>` di Bootstrap (`background-image`, nessun interruttore), il campo dell'editor Markdown (testo dipinto in uno strato sotto la textarea), e un titolo coperto dal banner cookie durante la misura.
+**Avvisi axe non decidibili**: le voci `needsFurtherReview` di axe ("testo su un `background-image`", "elemento sovrapposto"…) non sono un avvertimento sul sito ma il controllo che dichiara di non poter decidere. `live-audit.mjs` non le elenca più fra gli avvisi: le conta a parte, una riga per pagina. Gli avvisi di HTML_CodeSniffer restano tutti (`G18.BgImage`, `G18.Alpha`, `F24`…). Restano 7 avvisi, tutti sulla `<select>` di `/che-faccio` (freccia di Bootstrap come `background-image`, nessun interruttore).
 
 **Al merge**: chi scriveva `>` nel Markdown vede ora la barra.
 
