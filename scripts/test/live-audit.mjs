@@ -65,15 +65,42 @@ async function runPool(items, limit, worker) {
     return results;
 }
 
+/** Apre la pagina e attende che le animazioni CSS in corso finiscano (`document.getAnimations()`
+ *  vuoto, con un tetto): con un `wait` fisso, sotto carico il campionamento può cadere a metà di
+ *  un'animazione d'ingresso e misurare un elemento ancora semitrasparente o fuori posto. Poi passa
+ *  la pagina a Pa11y (`page` + `ignoreUrl`) senza rinavigare. */
+async function openSettledPage(browser, url, timeout) {
+    const page = await browser.newPage();
+    try {
+        await page.goto(url, { waitUntil: 'networkidle2', timeout });
+        await page.waitForFunction(() => document.getAnimations().length === 0, { timeout: Math.min(timeout, 5000), polling: 100 })
+            .catch(() => { /* animazione infinita (es. spinner): si audita comunque, a tempo scaduto */ });
+    } catch (err) {
+        await page.close();
+        throw err;
+    }
+    return page;
+}
+
 /** Un giro di Pa11y per pagina, o due se `axeRules` è valorizzato: axe con quelle regole accese,
- *  gli altri runner senza. Issue unite in un solo risultato, come se fosse stato un giro solo. */
-async function auditWithRunners(pa11y, url, { axeRules = [], runners = ['htmlcs'], ...options }) {
+ *  gli altri runner senza. Issue unite in un solo risultato, come se fosse stato un giro solo.
+ *  Ogni giro parte da una pagina appena aperta e assestata (`openSettledPage`); `ignore` viaggia
+ *  nelle options e Pa11y lo applica a ogni runner, in entrambi i giri. */
+async function auditWithRunners(pa11y, url, { axeRules = [], runners = ['htmlcs'], browser, timeout, ...options }) {
+    const run = async (extra) => {
+        const page = await openSettledPage(browser, url, timeout);
+        try {
+            return await pa11y(url, { ...options, ...extra, browser, page, ignoreUrl: true, timeout });
+        } finally {
+            await page.close();
+        }
+    };
     const others = runners.filter((r) => r !== 'axe');
     if (axeRules.length === 0 || !runners.includes('axe') || others.length === 0) {
-        return pa11y(url, { ...options, runners, ...(runners.includes('axe') && axeRules.length ? { rules: axeRules } : {}) });
+        return run({ runners, ...(runners.includes('axe') && axeRules.length ? { rules: axeRules } : {}) });
     }
-    const withAxe = await pa11y(url, { ...options, runners: ['axe'], rules: axeRules });
-    const withOthers = await pa11y(url, { ...options, runners: others });
+    const withAxe = await run({ runners: ['axe'], rules: axeRules });
+    const withOthers = await run({ runners: others });
     return { ...withAxe, issues: [...withAxe.issues, ...withOthers.issues] };
 }
 
@@ -429,6 +456,12 @@ async function main() {
         log.info(`Path auto-scoperti — Pa11y: ${a11yPaths.length}, Lighthouse: ${lighthousePaths.length} (A11Y_DYNAMIC_MAX/LIGHTHOUSE_DYNAMIC_MAX per cambiare il campione)`);
     }
 
+    // pa11y.json (JSON, senza commenti) ignora due codici HTML_CodeSniffer per costruzione, non per pigrizia:
+    //  - 1_4_3.G18.Abs: "sfondo non determinabile" su elementi in posizione assoluta; colpisce skip-link,
+    //    regione role="status" e `.visually-hidden` ("apre nuova scheda"), assoluti per definizione.
+    //  - 1_4_10.C32,C31,C33,C38,SCR34,G206: "position: fixed, scroll in due dimensioni" sul banner cookie,
+    //    una barra a tutta larghezza che non richiede scroll bidimensionale.
+    // Restano attivi G18.BgImage, G145.BgImage e G18.Alpha: avvisi reali per chi usa il template.
     const pa11yConfigPath = join(SCRIPT_DIR, 'pa11y.json');
     const { chromeLaunchConfig, ...pa11yOptions } = JSON.parse(readFileSync(pa11yConfigPath, 'utf8'));
     const thresholds = JSON.parse(readFileSync(join(SCRIPT_DIR, 'lighthouse.json'), 'utf8'));
