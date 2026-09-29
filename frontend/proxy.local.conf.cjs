@@ -1,4 +1,5 @@
-// Proxy del dev server Angular (sviluppo locale, backend su localhost:5000).
+// Proxy del dev server Angular (sviluppo locale, backend su localhost:5000 di default:
+// la porta si cambia con BACKEND_ORIGIN, la stessa variabile che legge il Node SSR).
 // La x-api-key viene letta da global-settings.json + override global-settings.local.json
 // (i segreti) — stessa sorgente di verità e stesso deep-merge del backend e del Node SSR,
 // così non resta hardcodata e disallineata. In dev locale la chiave vive in .local.json.
@@ -9,7 +10,7 @@ const { gatewayErrors } = require('./proxy.gateway-error.cjs');
 
 module.exports = {
     '/api': {
-        target: 'http://localhost:5000',
+        target: process.env.BACKEND_ORIGIN || 'http://localhost:5000',
         secure: false,
         changeOrigin: true,
         pathRewrite: { '^/api': '' },

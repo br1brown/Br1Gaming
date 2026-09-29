@@ -2,19 +2,24 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
-### Audit pulito: da ~300 avvisi Pa11y a 10, e le citazioni Markdown finalmente citazioni
+### Proxy dev: la porta del backend da `BACKEND_ORIGIN`
+
+`proxy.local.conf.cjs` puntava sempre a `localhost:5000`. Ora legge `BACKEND_ORIGIN` (la stessa variabile del Node SSR), con la 5000 come default: chi lavora su più progetti in parallelo può avere il backend su un'altra porta. Senza la variabile il comportamento non cambia. `proxy.docker.conf.cjs` resta com'è: il suo target è l'hostname di rete Docker (`backend:8080`).
+
+**Al merge**: nessuno.
+
+### Audit pulito: da ~300 avvisi Pa11y a 12, e le citazioni Markdown finalmente citazioni
 
 Quasi tutti gli avvisi (≈280 su 298) erano il breadcrumb, con lo sfondo `rgba()` e `backdrop-filter` che nessun controllo di contrasto sa risolvere.
 
 - **Breadcrumb**: la pillola è piena (`color-mix` fra tinta del testo e superficie, stesso 12%), senza `backdrop-filter`: il blur sopra una superficie piatta non si vedeva.
-- **Icone di validazione**: `$enable-validation-icons: false`, la leva di Bootstrap. Erano `background-image` sui campi validi/non validi. Lo stato resta detto da bordo e testo del messaggio.
 - **Campioni di colore** (style guide, `/che-faccio`): classe `swatch-var` con `[style.--swatch-bg]`/`[style.--swatch-fg]` al posto di `color` e `background-color` inline (HTML_CodeSniffer F24).
 - **Editor Markdown**: il testo dello strato di input si nasconde con `-webkit-text-fill-color: transparent`, non con `color: transparent`.
 - **Citazioni Markdown**: `> testo` esce con le classi Bootstrap del blockquote (barra a sinistra, corpo normale). Il riepilogo "In sintesi" delle pagine legali era già una citazione, ma senza nessuno stile: si leggeva come un paragrafo in grassetto.
 
-Restano 10 avvisi, non risolvibili nel markup: la freccia della `<select>` di Bootstrap (`background-image`, nessun interruttore), il campo dell'editor Markdown (testo dipinto in uno strato sotto la textarea), e un titolo coperto dal banner cookie durante la misura.
+Restano 12 avvisi, non risolvibili nel markup: le icone di validazione di Bootstrap sui campi (`background-image`, che si tengono: `$enable-validation-icons: false` le toglierebbe), la freccia della `<select>` di Bootstrap (`background-image`, nessun interruttore), il campo dell'editor Markdown (testo dipinto in uno strato sotto la textarea), e un titolo coperto dal banner cookie durante la misura.
 
-**Al merge**: chi usava `is-valid`/`is-invalid` contando sull'icona nel campo può riattivarla con `$enable-validation-icons: true` nel proprio Sass; chi scriveva `>` nel Markdown vede ora la barra.
+**Al merge**: chi scriveva `>` nel Markdown vede ora la barra.
 
 ### Banner cookie senza opacità in ingresso, e un audit che aspetta le animazioni
 
