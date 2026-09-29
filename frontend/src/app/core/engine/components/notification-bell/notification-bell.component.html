@@ -1,7 +1,7 @@
 <button type="button"
         class="nav-link nav-dropdown-toggle notification-bell-toggle"
         aria-haspopup="true"
-        [attr.aria-controls]="panelId"
+        [attr.aria-controls]="open() ? panelId : null"
         [attr.aria-expanded]="open()"
         [attr.aria-label]="bellLabel()"
         (click)="toggle()">

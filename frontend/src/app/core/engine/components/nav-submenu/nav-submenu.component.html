@@ -7,7 +7,7 @@
     <button type="button"
             class="dropdown-item submenu-toggle"
             aria-haspopup="true"
-            [attr.aria-controls]="menuId"
+            [attr.aria-controls]="expanded() ? menuId : null"
             [attr.aria-expanded]="expanded()"
             [attr.aria-current]="isActive() ? 'location' : null"
             (click)="toggle()">

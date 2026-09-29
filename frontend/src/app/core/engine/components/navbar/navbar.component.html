@@ -90,7 +90,7 @@
         <button #togglerEl class="navbar-toggler" type="button"
                 [class.ms-auto]="languages().length <= 1"
                 (click)="toggleMenu()"
-                aria-controls="navbar-menu"
+                [attr.aria-controls]="menuOpen() ? 'navbar-menu' : null"
                 [attr.aria-expanded]="menuOpen()"
                 [attr.aria-label]="'toggleNav' | translate">
             <span class="navbar-toggler-icon"></span>
@@ -113,7 +113,7 @@
                     class="nav-link nav-dropdown-toggle language-toggle"
                     [attr.aria-label]="('selezionaLinguaAzione' | translate) + ', ' + langName(translate.currentLang())"
                     aria-haspopup="true"
-                    aria-controls="navbar-language-menu"
+                    [attr.aria-controls]="langOpen() ? 'navbar-language-menu' : null"
                     [attr.aria-expanded]="langOpen()"
                     (click)="toggleLang()">
                 <span class="nav-dropdown-label">

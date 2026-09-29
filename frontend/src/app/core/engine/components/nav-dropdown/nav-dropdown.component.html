@@ -2,7 +2,7 @@
     <button type="button"
             class="nav-link nav-dropdown-toggle"
             aria-haspopup="true"
-            [attr.aria-controls]="menuId"
+            [attr.aria-controls]="open() ? menuId : null"
             [attr.aria-expanded]="open()"
             [attr.aria-current]="isActive() ? 'location' : null"
             (click)="toggle.emit()">

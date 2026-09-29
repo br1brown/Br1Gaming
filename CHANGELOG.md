@@ -2,6 +2,17 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Banner cookie senza opacità in ingresso, e un audit che aspetta le animazioni
+
+L'audit live di un derivato ha bocciato una pagina con un loop di rendering pesante: i tre pulsanti del banner ("Rifiuta tutto", "Accetta tutto", "Salva scelte") risultavano sotto contrasto, con warning anche su summary, primo blocco di testo e link. Riprodotto fermando l'animazione d'ingresso a metà: con `opacity` a 0,68 axe mescola il testo con lo sfondo. Sotto carico il campionamento cadeva a metà animazione (`wait: 400` fisso).
+
+- **Banner**: `cookieBarEnter` anima solo `transform`, mai `opacity`; il testo non è mai semitrasparente. `prefers-reduced-motion` invariato.
+- **Audit** (`scripts/test/live-audit.mjs`): prima di ogni giro Pa11y la pagina si apre e attende che `document.getAnimations()` sia vuoto (tetto 5 s), poi passa a Pa11y con `page` + `ignoreUrl`.
+- **Configurazione Pa11y** (`scripts/test/pa11y.json`): `ignore` per due codici non risolvibili nel markup, `G18.Abs` (sfondo non determinabile su elementi assoluti: skip-link, `role="status"`, `.visually-hidden`) e `1_4_10.C32,C31,C33,C38,SCR34,G206` (barra fissa del banner, che non scorre in due dimensioni). Motivazione in `live-audit.mjs`. `G18.BgImage`, `G145.BgImage` e `G18.Alpha` restano attivi. `ignore` vale per entrambi i giri (axe e htmlcs).
+- **ARIA**: `aria-controls` ora c'è solo a menu aperto (dropdown e sottomenu della navbar, selettore lingua, hamburger, campanella): axe segnalava come da verificare un `aria-controls` con `aria-expanded="false"`, su ogni pagina. Il supporto reale di `aria-controls` è comunque scarso; nessun comportamento osservabile cambia.
+
+**Al merge**: nessuno. Chi aveva un proprio `ignore` in `pa11y.json` lo unisce a mano; lo scaffold vince il template.
+
 ### Una pagina, una istanza: niente più stato residuo al cambio parametri
 
 Navigando fra due URL della stessa rotta parametrica (`/generatori/a` → `/generatori/b`) Angular riusava il componente e rieseguiva solo il resolver: cambiava il contenuto risolto, non lo stato locale (risultato generato, form, timer). Nuova `EngineRouteReuseStrategy` (`core/engine/route-reuse.ts`, registrata in `app.config.ts`): la rotta si riusa solo se coincidono anche i parametri di percorso; i query param non contano. Opt-out per pagina: `keepOldInstance: true` (campo tipizzato della pagina).
