@@ -1,17 +1,17 @@
 <h2 class="h4 fw-bold mb-3 section-heading-scrim">{{ 'storie' | translate }}</h2>
 
-<div class="dilemma-grid">
+<ul class="dilemma-grid">
 
     @if (loading()) {
     @for (n of skeletonSlots; track n) {
-    <div class="dilemma-card placeholder-glow" aria-hidden="true">
+    <li aria-hidden="true"><div class="dilemma-card placeholder-glow">
         <span class="placeholder col-7 mb-2 d-block"></span>
         <span class="placeholder col-10 d-block"></span>
-    </div>
+    </div></li>
     }
     } @else {
     @for (s of stories(); track s.slug) {
-    <a class="dilemma-card has-image lift-on-hover"
+    <li><a class="dilemma-card has-image lift-on-hover"
        [appPage]="storyPageType" [appPageParams]="{ slug: s.slug }">
         <!-- Copertina mancante/rotta: decorativa (alt=""), AssetDirective la toglie e con lei lo scrim
              (regola :has nel css) — la card ripiega da sola sul trattamento testuale. -->
@@ -26,8 +26,8 @@
         <p class="dilemma-desc">{{ s.description }}</p>
         }
         <i class="fa-solid fa-chevron-right dilemma-arrow" aria-hidden="true"></i>
-    </a>
+    </a></li>
     }
     }
 
-</div>
+</ul>

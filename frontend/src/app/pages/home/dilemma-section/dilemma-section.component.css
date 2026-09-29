@@ -2,7 +2,13 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
     gap: 1rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
+
+/* La lista serve alla semantica: le card restano figlie dirette della griglia. */
+.dilemma-grid > li { display: contents; }
 
 .dilemma-card {
     position: relative;
