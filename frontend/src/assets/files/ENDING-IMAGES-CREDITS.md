@@ -16,6 +16,7 @@ Attribuzione non richiesta dalle licenze; riportata per trasparenza.
 Sorgente opaca usata sia per l'anteprima social (`-og.jpg`) sia, scontornata, per la card trasparente (`.png`).
 
 - **generator/mbeb** — giovane "maschio basic", braccia conserte — https://www.pexels.com/photo/28446958/
+- **generator/ex** — messaggio di addio su smartphone (ex.jpg è un ritaglio quadrato, non scontornato) — https://www.pexels.com/photo/7277987/
 - **generator/locali** — Aperol Spritz — https://www.pexels.com/photo/34621095/
 - **generator/antiveg** — uomo che sbraita (nessuna carne) — https://www.pexels.com/photo/33715992/
 - **story/poveri-maschi** — uomo triste, maglietta rossa — https://www.pexels.com/photo/3769746/

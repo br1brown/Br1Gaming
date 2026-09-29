@@ -1,14 +1,13 @@
 import { DOCUMENT } from '@angular/common';
 import { LoadingComponent } from '../../core/engine/components/loading/loading.component';
 import { BusyIconComponent } from '../../core/engine/components/busy-icon/busy-icon.component';
-import { afterNextRender, Component, computed, effect, inject, signal } from '@angular/core';
+import { afterNextRender, Component, computed, inject, signal } from '@angular/core';
 import { GeneratorInfo, GenerateResponse, GeneratorPageContent } from '../../core/dto/generator.dto';
 import { ContestoSito, PageType } from '../../site';
 import { SpeechService } from '../../core/engine/services/speech.service';
 import { ImgBuilderService } from '../../core/engine/services/img-builder.service';
 import { AppearanceService } from '../../core/engine/services/appearance.service';
 import { AssetDirective } from '../../core/engine/directives/asset.directive';
-import { LightboxDirective } from '../../core/engine/directives/lightbox.directive';
 import { PageDirective } from '../../core/engine/directives/page.directive';
 import { MarkdownPipe } from '../../core/engine/pipes/markdown.pipe';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
@@ -27,7 +26,6 @@ import { VariantButtonsComponent } from '../../components/shared/variant-buttons
         TranslatePipe,
         MarkdownPipe,
         AssetDirective,
-        LightboxDirective,
         PageDirective,
         LikeActionComponent,
         ShareActionComponent,
@@ -37,7 +35,7 @@ import { VariantButtonsComponent } from '../../components/shared/variant-buttons
         VariantButtonsComponent,
     ],
     templateUrl: './generator-detail.component.html',
-    // Il risultato viene ricreato a ogni generazione (@if su result()/previewUrl()): l'animazione
+    // Il risultato viene ricreato a ogni generazione (@if su result()): l'animazione
     // si riavvia da sola a ogni "Ancora!", dando un feedback visivo allo spam.
     styles: [`
         /* Cover rotta (AssetDirective la nasconde): via il contenitore. */
@@ -48,26 +46,6 @@ import { VariantButtonsComponent } from '../../components/shared/variant-buttons
             to   { opacity: 1; transform: none; }
         }
 
-        /* La card non è più il pulsante "genera" (un tap sull'immagine apriva una nuova generazione
-           invece di lasciar leggere quella corrente — soprattutto su mobile non c'era il tempo di
-           leggerla). L'immagine ora è solo ingrandibile (LightboxDirective, [appLightbox]); "Ancora!"
-           è un bottone separato SOTTO, l'unico modo di rigenerare. */
-        .gen-card-wrap { max-width: 420px; margin-inline: auto; }
-        .gen-card-tap {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: .6rem;
-            width: 100%;
-        }
-        .gen-card-tap__img {
-            width: 100%;
-            height: auto;
-            display: block;
-            border-radius: var(--elevazioneRaggio, 1rem);
-            box-shadow: var(--shadowElevated, 0 .5rem 1.5rem rgba(0,0,0,.35));
-            animation: genCardPop .32s cubic-bezier(.2, .9, .3, 1.3);
-        }
         .gen-card-tap__hint {
             display: inline-flex;
             align-items: center;
@@ -84,17 +62,7 @@ import { VariantButtonsComponent } from '../../components/shared/variant-buttons
         .gen-card-tap__hint:hover:not(:disabled) { transform: scale(1.04); }
         .gen-card-tap__hint:active:not(:disabled) { transform: scale(.96); }
         .gen-card-tap__hint:disabled { cursor: default; }
-        .gen-card-tap--loading {
-            aspect-ratio: 3 / 2;
-            border-radius: var(--elevazioneRaggio, 1rem);
-            overflow: hidden;
-        }
-        @keyframes genCardPop {
-            from { opacity: 0; transform: scale(.94); }
-            to   { opacity: 1; transform: scale(1); }
-        }
         @media (prefers-reduced-motion: reduce) {
-            .gen-card-tap__img { animation: none; }
             .gen-card-tap__hint, .gen-card-tap__hint:hover, .gen-card-tap__hint:active { transform: none; }
         }
     `],
@@ -119,7 +87,7 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
         this.pickedVariant() ?? this.variant()?.options?.[0]?.key ?? null);
 
     /** Sceglie un'opzione della variante (es. un segno) e rigenera subito. Arrow function: passata
-     *  come valore a VariantWheelComponent (stesso pattern di speakText/buildShareCanvas). */
+     *  come valore a VariantWheelComponent (stesso pattern di speakText/buildShareData). */
     readonly pickVariant = (key: string): void => {
         this.pickedVariant.set(key);
         void this.generate(true);
@@ -147,14 +115,6 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
      *  pagina stessa è la rotta "frase condivisa" di un piaciuto). */
     readonly liked = computed(() => this.savedId() !== null || this.recovered());
 
-    /** Data URL della card social (stesso `buildShareCanvas` di app-share-action), rigenerata a ogni
-     *  risultato per mostrarla subito accanto al testo — non solo al click su "Condividi". */
-    readonly previewUrl = signal<string | null>(null);
-    /** Stesso canvas della preview, come Blob: sorgente del lightbox ([appLightbox]), che vuole un
-     *  Blob locale, non una data URL (vedi LightboxDirective). */
-    readonly previewBlob = signal<Blob | null>(null);
-    private previewToken = 0;
-
     constructor() {
         super();
         // Rotta "frase condivisa": il contenuto arriva già risolto in SSR (resolver) → niente da
@@ -162,24 +122,6 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
         afterNextRender(() => {
             if (!this.result() && !this.pageContent()?.recovered) void this.generate();
         });
-        effect(() => {
-            if (this.result() && this.generator()) void this.refreshPreview();
-            else { this.previewUrl.set(null); this.previewBlob.set(null); }
-        });
-    }
-
-    /** Token di generazione: scarta una risposta arrivata dopo che l'utente ha già rigenerato
-     *  (stesso principio di `resolveFooterInto`, Engine). */
-    private async refreshPreview(): Promise<void> {
-        const token = ++this.previewToken;
-        try {
-            const canvas = await this.buildShareCanvas();
-            if (token !== this.previewToken) return;
-            this.previewUrl.set(canvas.toDataURL('image/png'));
-            canvas.toBlob(blob => { if (token === this.previewToken) this.previewBlob.set(blob); }, 'image/webp');
-        } catch {
-            if (token === this.previewToken) { this.previewUrl.set(null); this.previewBlob.set(null); }
-        }
     }
 
     /**
@@ -250,30 +192,36 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
     };
 
     /**
-     * Canvas immagine da condividere. Non registra più nulla tra i piaciuti (quello lo fa il
-     * bottone "mi piace" a parte): condivisione e "mi piace" sono azioni indipendenti. Stile
-     * `'fittedCaption'` (Engine): calcola da sé altezza canvas e maxLines in base alla lunghezza
-     * di `res.text`, così il testo generato entra sempre per intero, mai troncato con ellissi.
-     * `scrimColor` esplicito: il default (`colorPrimary`, scurito per il contrasto testo-su-pagina)
-     * rende la fascia un blu-petrolio scuro poco fedele al brand — qui invece il brand vero
-     * (`colorTema`, chiaro), col testo che si adatta da sé al contrasto (`getReadableTextColor`).
+     * Dato da condividere: la card immagine (`'fittedCaption'`, Engine: altezza e maxLines dalla
+     * lunghezza di `res.text`, testo mai troncato) se il generatore ha la sua immagine `.og`,
+     * altrimenti solo testo (frase + link). Un generatore senza immagine, o con immagine che non
+     * si carica, resta condivisibile. Non registra nulla tra i piaciuti: condivisione e "mi piace"
+     * sono azioni indipendenti. `scrimColor` esplicito: il default (`colorPrimary`, scurito per il
+     * contrasto) rende la fascia un blu-petrolio poco fedele al brand; qui il brand vero
+     * (`colorTema`), col testo che si adatta da sé al contrasto.
      */
-    readonly buildShareCanvas = async (): Promise<HTMLCanvasElement> => {
+    readonly buildShareData = async (): Promise<HTMLCanvasElement | string> => {
         const res = this.result();
         const gen = this.generator();
         if (!res || !gen) throw new Error('Nessun risultato da condividere');
-        const canvas = await this.imgBuilder.buildCanvas({
-            style: 'fittedCaption',
-            imageSrc: this.asset.getUrl(`generator.${gen.slug}.og`),
-            captionOpts: {
-                text: res.text,
-                subtitle: `${gen.name} | ${ContestoSito.config.appName}`,
-                scrimColor: this.appearance.colorTema(),
-            },
-            imgOpts: { width: 1200 },
-        });
-        if (!canvas) throw new Error('Errore nella generazione dell\'immagine');
-        return canvas;
+        try {
+            const canvas = await this.imgBuilder.buildCanvas({
+                style: 'fittedCaption',
+                imageSrc: this.asset.getUrl(`generator.${gen.slug}.og`),
+                captionOpts: {
+                    text: res.text,
+                    subtitle: `${gen.name} | ${ContestoSito.config.appName}`,
+                    scrimColor: this.appearance.colorTema(),
+                },
+                imgOpts: { width: 1200 },
+            });
+            if (canvas) return canvas;
+        } catch {
+            // Immagine assente o non caricabile: ripiega sul solo testo.
+        }
+        return `${res.text}
+
+${this.shareTitle()}`;
     };
 
     /**
