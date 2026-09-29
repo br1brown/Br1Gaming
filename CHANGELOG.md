@@ -2,6 +2,12 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Audit: due codici Pa11y non decidibili in meno
+
+`scripts/test/pa11y.json` ignora anche `G145.Abs` (gemello di `G18.Abs`, per il testo grande) e `H67.2` (avviso su ogni `alt=""`, cioè su ogni immagine decorativa scritta correttamente: le immagini senza `alt` le boccia comunque axe). Motivazione in `live-audit.mjs`. Restano attivi `G18.BgImage`, `G145.BgImage` e `G18.Alpha`, avvisi reali.
+
+**Al merge**: nessuno. Chi aveva un proprio `ignore` in `pa11y.json` lo unisce a mano; lo scaffold vince il template.
+
 ### Proxy dev: la porta del backend da `BACKEND_ORIGIN`
 
 `proxy.local.conf.cjs` puntava sempre a `localhost:5000`. Ora legge `BACKEND_ORIGIN` (la stessa variabile del Node SSR), con la 5000 come default: chi lavora su più progetti in parallelo può avere il backend su un'altra porta. Senza la variabile il comportamento non cambia. `proxy.docker.conf.cjs` resta com'è: il suo target è l'hostname di rete Docker (`backend:8080`).

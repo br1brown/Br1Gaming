@@ -462,9 +462,11 @@ async function main() {
         log.info(`Path auto-scoperti — Pa11y: ${a11yPaths.length}, Lighthouse: ${lighthousePaths.length} (A11Y_DYNAMIC_MAX/LIGHTHOUSE_DYNAMIC_MAX per cambiare il campione)`);
     }
 
-    // pa11y.json (JSON, senza commenti) ignora due codici HTML_CodeSniffer per costruzione, non per pigrizia:
-    //  - 1_4_3.G18.Abs: "sfondo non determinabile" su elementi in posizione assoluta; colpisce skip-link,
-    //    regione role="status" e `.visually-hidden` ("apre nuova scheda"), assoluti per definizione.
+    // pa11y.json (JSON, senza commenti) ignora alcuni codici HTML_CodeSniffer per costruzione, non per pigrizia:
+    //  - 1_4_3.G18.Abs / G145.Abs: "sfondo non determinabile" su elementi in posizione assoluta (testo normale /
+    //    grande); colpisce skip-link, regione role="status", `.visually-hidden` e le etichette sopra le immagini.
+    //  - 1_1_1.H67.2: "immagine ignorata dalle tecnologie assistive" = `alt=""`, cioè l'immagine decorativa
+    //    fatta bene (logo accanto al nome, icona accanto alla voce). Un'immagine senza `alt` la boccia axe (`image-alt`).
     //  - 1_4_10.C32,C31,C33,C38,SCR34,G206: "position: fixed, scroll in due dimensioni" sul banner cookie,
     //    una barra a tutta larghezza che non richiede scroll bidimensionale.
     // Restano attivi G18.BgImage, G145.BgImage e G18.Alpha: avvisi reali per chi usa il template.

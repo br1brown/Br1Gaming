@@ -14,6 +14,8 @@
   "wait": 400,
   "ignore": [
     "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Abs",
+    "WCAG2AA.Principle1.Guideline1_4.1_4_3.G145.Abs",
+    "WCAG2AA.Principle1.Guideline1_1.1_1_1.H67.2",
     "WCAG2AA.Principle1.Guideline1_4.1_4_10.C32,C31,C33,C38,SCR34,G206"
   ],
   "chromeLaunchConfig": {
