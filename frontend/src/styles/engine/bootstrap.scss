@@ -72,10 +72,6 @@ $form-switch-focus-bg-image:              var(--tone-form-switch-focus-bg-image)
 $form-switch-checked-bg-image:            var(--tone-form-switch-checked-bg-image);
 // Freccia della select: del colore del testo del tono, non del grigio di serie.
 $form-select-indicator-color:             lib.required($_lt, 'body-color');
-// Niente icone di validazione dentro i campi: sono `background-image`, e un controllo di contrasto non può
-// misurare il testo sopra un'immagine (axe "bgImage", HTML_CodeSniffer G18.BgImage) su ogni campo
-// valido/non valido. Lo stato resta detto due volte: bordo e testo del messaggio (.valid-feedback / .invalid-feedback).
-$enable-validation-icons:                 false;
 
 // ── Da qui Bootstrap è importato a pezzi, nell'ordine documentato per estenderlo ─────────
 @import 'bootstrap/scss/variables';
