@@ -65,15 +65,42 @@ async function runPool(items, limit, worker) {
     return results;
 }
 
+/** Apre la pagina e attende che le animazioni CSS in corso finiscano (`document.getAnimations()`
+ *  vuoto, con un tetto): con un `wait` fisso, sotto carico il campionamento può cadere a metà di
+ *  un'animazione d'ingresso e misurare un elemento ancora semitrasparente o fuori posto. Poi passa
+ *  la pagina a Pa11y (`page` + `ignoreUrl`) senza rinavigare. */
+async function openSettledPage(browser, url, timeout) {
+    const page = await browser.newPage();
+    try {
+        await page.goto(url, { waitUntil: 'networkidle2', timeout });
+        await page.waitForFunction(() => document.getAnimations().length === 0, { timeout: Math.min(timeout, 5000), polling: 100 })
+            .catch(() => { /* animazione infinita (es. spinner): si audita comunque, a tempo scaduto */ });
+    } catch (err) {
+        await page.close();
+        throw err;
+    }
+    return page;
+}
+
 /** Un giro di Pa11y per pagina, o due se `axeRules` è valorizzato: axe con quelle regole accese,
- *  gli altri runner senza. Issue unite in un solo risultato, come se fosse stato un giro solo. */
-async function auditWithRunners(pa11y, url, { axeRules = [], runners = ['htmlcs'], ...options }) {
+ *  gli altri runner senza. Issue unite in un solo risultato, come se fosse stato un giro solo.
+ *  Ogni giro parte da una pagina appena aperta e assestata (`openSettledPage`); `ignore` viaggia
+ *  nelle options e Pa11y lo applica a ogni runner, in entrambi i giri. */
+async function auditWithRunners(pa11y, url, { axeRules = [], runners = ['htmlcs'], browser, timeout, ...options }) {
+    const run = async (extra) => {
+        const page = await openSettledPage(browser, url, timeout);
+        try {
+            return await pa11y(url, { ...options, ...extra, browser, page, ignoreUrl: true, timeout });
+        } finally {
+            await page.close();
+        }
+    };
     const others = runners.filter((r) => r !== 'axe');
     if (axeRules.length === 0 || !runners.includes('axe') || others.length === 0) {
-        return pa11y(url, { ...options, runners, ...(runners.includes('axe') && axeRules.length ? { rules: axeRules } : {}) });
+        return run({ runners, ...(runners.includes('axe') && axeRules.length ? { rules: axeRules } : {}) });
     }
-    const withAxe = await pa11y(url, { ...options, runners: ['axe'], rules: axeRules });
-    const withOthers = await pa11y(url, { ...options, runners: others });
+    const withAxe = await run({ runners: ['axe'], rules: axeRules });
+    const withOthers = await run({ runners: others });
     return { ...withAxe, issues: [...withAxe.issues, ...withOthers.issues] };
 }
 
@@ -98,16 +125,22 @@ async function runA11ySweep(browser, baseUrl, paths, pa11yOptions) {
         let detail;
         try {
             const result = await auditWithRunners(pa11y, url, { ...pa11yOptions, browser, timeout });
-            // Solo gli 'error' bloccano il budget; i 'warning' (incluse le voci axe needsFurtherReview) sono sempre stampati, mai scartati in silenzio, ma non fanno fallire la pagina: servono a una verifica umana.
+            // Solo gli 'error' bloccano il budget; i 'warning' sono sempre stampati, mai scartati in silenzio, ma non fanno fallire la pagina: servono a una verifica umana (le voci axe non decidibili sono l'eccezione, contate a parte: vedi sotto).
             const errors = result.issues.filter((i) => i.type === 'error');
-            const warnings = result.issues.filter((i) => i.type !== 'error');
+            // axe `needsFurtherReview` ("incomplete"): il controllo dichiara di non poter decidere (testo su un
+            // background-image, elemento sovrapposto…). Non è un avvertimento sul sito ma un'incapacità dello
+            // strumento, e solo un umano può chiuderla: non si elenca fra gli avvisi, si conta a parte. Gli altri
+            // avvisi (HTML_CodeSniffer, es. G18.BgImage/G18.Alpha) restano tutti.
+            const undecidable = result.issues.filter((i) => i.type !== 'error' && i.runnerExtras?.needsFurtherReview === true);
+            const warnings = result.issues.filter((i) => i.type !== 'error' && i.runnerExtras?.needsFurtherReview !== true);
             if (errors.length === 0) {
                 out.push(`  ${paint('32', 'OK')} Nessuna violazione WCAG 2.2 AA — ${path}`);
                 if (warnings.length > 0) {
                     out.push(cliReporter.results({ ...result, issues: warnings }));
                     out.push(`  ${paint('33', 'WARN')} ${warnings.length} avviso/i da verificare a mano (non bloccante) — ${path}`);
                 }
-                detail = { ok: true, warnings: warnings.map((i) => `${i.message} — ${i.selector}`) };
+                if (undecidable.length > 0) out.push(`  ${paint('2', '—')} ${undecidable.length} controllo/i axe non decidibile/i in automatico (needsFurtherReview), non elencati — ${path}`);
+                detail = { ok: true, undecidable: undecidable.length, warnings: warnings.map((i) => `${i.message} — ${i.selector}`) };
             } else {
                 out.push(cliReporter.results(result));
                 out.push(`  ${paint('31', 'ERR')} Violazioni WCAG 2.2 AA — ${path}`);
@@ -361,7 +394,7 @@ function buildStepSummaryMarkdown(baseUrl, allRoutePaths, a11yPerPage, lighthous
                     ? `**Pa11y** — non misurato (${a11y.reason})`
                     : `**Pa11y** — ${a11y.violations.length} violazione/i WCAG 2.2 AA:\n${a11y.violations.map((v) => `  - ${v}`).join('\n')}`);
             }
-            // Warning (incluse le voci axe needsFurtherReview): mai bloccanti, ma sempre visibili
+            // Warning (HTML_CodeSniffer): mai bloccanti, ma sempre visibili
             // qui — vanno verificate a mano caso per caso, non danno un verdetto automatico.
             if (a11y?.warnings?.length > 0) {
                 detailLines.push(`**Pa11y** — ${a11y.warnings.length} avviso/i da verificare a mano (non bloccante):\n${a11y.warnings.map((v) => `  - ${v}`).join('\n')}`);
@@ -429,6 +462,12 @@ async function main() {
         log.info(`Path auto-scoperti — Pa11y: ${a11yPaths.length}, Lighthouse: ${lighthousePaths.length} (A11Y_DYNAMIC_MAX/LIGHTHOUSE_DYNAMIC_MAX per cambiare il campione)`);
     }
 
+    // pa11y.json (JSON, senza commenti) ignora due codici HTML_CodeSniffer per costruzione, non per pigrizia:
+    //  - 1_4_3.G18.Abs: "sfondo non determinabile" su elementi in posizione assoluta; colpisce skip-link,
+    //    regione role="status" e `.visually-hidden` ("apre nuova scheda"), assoluti per definizione.
+    //  - 1_4_10.C32,C31,C33,C38,SCR34,G206: "position: fixed, scroll in due dimensioni" sul banner cookie,
+    //    una barra a tutta larghezza che non richiede scroll bidimensionale.
+    // Restano attivi G18.BgImage, G145.BgImage e G18.Alpha: avvisi reali per chi usa il template.
     const pa11yConfigPath = join(SCRIPT_DIR, 'pa11y.json');
     const { chromeLaunchConfig, ...pa11yOptions } = JSON.parse(readFileSync(pa11yConfigPath, 'utf8'));
     const thresholds = JSON.parse(readFileSync(join(SCRIPT_DIR, 'lighthouse.json'), 'utf8'));

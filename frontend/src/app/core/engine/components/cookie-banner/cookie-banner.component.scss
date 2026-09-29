@@ -76,10 +76,12 @@ app-cookie-banner .cookie-banner-modern {
 }
 
 /* Barra fissa full-width (pattern "cookie bar"): entra dal basso con la durata dei pannelli, come
-   una superficie che compare — non deve "scattare" in pagina. */
+   una superficie che compare — non deve "scattare" in pagina. Solo `transform`, mai `opacity`: con
+   l'opacità sotto 1 il testo è semitrasparente e un controllo di contrasto (axe, un utente con
+   un cambio di colore forzato) lo misura mescolato allo sfondo. */
 @keyframes cookieBarEnter {
-    from { transform: translateY(100%); opacity: 0; }
-    to   { transform: translateY(0); opacity: 1; }
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
 }
 
 app-cookie-banner .cookie-banner:not(.cookie-banner--panel) .cookie-banner__shell {

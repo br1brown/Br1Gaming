@@ -148,6 +148,7 @@ export type ParentPageInput = BasePageInput & {
     externalUrl?: never;
     layout?: never;
     renderMode?: never;
+    keepOldInstance?: never;
 };
 
 /** Immagine di anteprima social: `id` = asset statico (mapping.json); `blobGuid` = immagine
@@ -172,6 +173,9 @@ export type LeafPageInput = BasePageInput & {
     };
     /** Strategia di rendering della pagina ('server' o 'client'). */
     renderMode?: SiteRenderMode;
+    /** Tiene l'istanza del componente quando cambiano solo i parametri di percorso (es. un player con
+     *  transizioni interne). Default: false, la pagina si ricrea con stato pulito. */
+    keepOldInstance?: boolean;
     /** Descrizione della pagina per social sharing (og:description). */
     description?: string;
     /** Metadati SEO/social per la pagina. */
@@ -205,6 +209,7 @@ export type ExternalPageInput = Omit<BasePageInput, 'path'> & {
     children?: never;
     layout?: never;
     renderMode?: never;
+    keepOldInstance?: never;
     /** Un link esterno non passa da `routing.ts` (nessun `canActivate`): "richiedi login" non ha
      *  un effetto da applicare. Per nasconderlo a chi non è loggato usa `authOnly` su `addLink`. */
     requiresAuth?: never;

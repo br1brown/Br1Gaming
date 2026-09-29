@@ -2,6 +2,42 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Proxy dev: la porta del backend da `BACKEND_ORIGIN`
+
+`proxy.local.conf.cjs` puntava sempre a `localhost:5000`. Ora legge `BACKEND_ORIGIN` (la stessa variabile del Node SSR), con la 5000 come default: chi lavora su più progetti in parallelo può avere il backend su un'altra porta. Senza la variabile il comportamento non cambia. `proxy.docker.conf.cjs` resta com'è: il suo target è l'hostname di rete Docker (`backend:8080`).
+
+**Al merge**: nessuno.
+
+### Audit pulito: da ~300 avvisi Pa11y a 7, e le citazioni Markdown finalmente citazioni
+
+Quasi tutti gli avvisi (≈280 su 298) erano il breadcrumb, con lo sfondo `rgba()` e `backdrop-filter` che nessun controllo di contrasto sa risolvere.
+
+- **Breadcrumb**: la pillola è piena (`color-mix` fra tinta del testo e superficie, stesso 12%), senza `backdrop-filter`: il blur sopra una superficie piatta non si vedeva.
+- **Campioni di colore** (style guide, `/che-faccio`): classe `swatch-var` con `[style.--swatch-bg]`/`[style.--swatch-fg]` al posto di `color` e `background-color` inline (HTML_CodeSniffer F24).
+- **Editor Markdown**: il testo dello strato di input si nasconde con `-webkit-text-fill-color: transparent`, non con `color: transparent`.
+- **Citazioni Markdown**: `> testo` esce con le classi Bootstrap del blockquote (barra a sinistra, corpo normale). Il riepilogo "In sintesi" delle pagine legali era già una citazione, ma senza nessuno stile: si leggeva come un paragrafo in grassetto.
+
+**Avvisi axe non decidibili**: le voci `needsFurtherReview` di axe ("testo su un `background-image`", "elemento sovrapposto"…) non sono un avvertimento sul sito ma il controllo che dichiara di non poter decidere. `live-audit.mjs` non le elenca più fra gli avvisi: le conta a parte, una riga per pagina. Gli avvisi di HTML_CodeSniffer restano tutti (`G18.BgImage`, `G18.Alpha`, `F24`…). Restano 7 avvisi, tutti sulla `<select>` di `/che-faccio` (freccia di Bootstrap come `background-image`, nessun interruttore).
+
+**Al merge**: chi scriveva `>` nel Markdown vede ora la barra.
+
+### Banner cookie senza opacità in ingresso, e un audit che aspetta le animazioni
+
+L'audit live di un derivato ha bocciato una pagina con un loop di rendering pesante: i tre pulsanti del banner ("Rifiuta tutto", "Accetta tutto", "Salva scelte") risultavano sotto contrasto, con warning anche su summary, primo blocco di testo e link. Riprodotto fermando l'animazione d'ingresso a metà: con `opacity` a 0,68 axe mescola il testo con lo sfondo. Sotto carico il campionamento cadeva a metà animazione (`wait: 400` fisso).
+
+- **Banner**: `cookieBarEnter` anima solo `transform`, mai `opacity`; il testo non è mai semitrasparente. `prefers-reduced-motion` invariato.
+- **Audit** (`scripts/test/live-audit.mjs`): prima di ogni giro Pa11y la pagina si apre e attende che `document.getAnimations()` sia vuoto (tetto 5 s), poi passa a Pa11y con `page` + `ignoreUrl`.
+- **Configurazione Pa11y** (`scripts/test/pa11y.json`): `ignore` per due codici non risolvibili nel markup, `G18.Abs` (sfondo non determinabile su elementi assoluti: skip-link, `role="status"`, `.visually-hidden`) e `1_4_10.C32,C31,C33,C38,SCR34,G206` (barra fissa del banner, che non scorre in due dimensioni). Motivazione in `live-audit.mjs`. `G18.BgImage`, `G145.BgImage` e `G18.Alpha` restano attivi. `ignore` vale per entrambi i giri (axe e htmlcs).
+- **ARIA**: `aria-controls` ora c'è solo a menu aperto (dropdown e sottomenu della navbar, selettore lingua, hamburger, campanella): axe segnalava come da verificare un `aria-controls` con `aria-expanded="false"`, su ogni pagina. Il supporto reale di `aria-controls` è comunque scarso; nessun comportamento osservabile cambia.
+
+**Al merge**: nessuno. Chi aveva un proprio `ignore` in `pa11y.json` lo unisce a mano; lo scaffold vince il template.
+
+### Una pagina, una istanza: niente più stato residuo al cambio parametri
+
+Navigando fra due URL della stessa rotta parametrica (`/generatori/a` → `/generatori/b`) Angular riusava il componente e rieseguiva solo il resolver: cambiava il contenuto risolto, non lo stato locale (risultato generato, form, timer). Nuova `EngineRouteReuseStrategy` (`core/engine/route-reuse.ts`, registrata in `app.config.ts`): la rotta si riusa solo se coincidono anche i parametri di percorso; i query param non contano. Opt-out per pagina: `keepOldInstance: true` (campo tipizzato della pagina).
+
+**Al merge**: **breaking di comportamento**. Chi azzerava a mano lo stato al cambio di `pageContent()` può togliere quel codice; chi contava sull'istanza riusata (player, animazioni continue) mette `keepOldInstance: true` sulla pagina.
+
 ### Primario, link e testi: la tinta del brand prima del bianco
 
 Con superfici vivide (`'tenue'`, `'fusione'`, `colori.sfondo`) la base di un tono può stare dall'altra parte del brand: su Agnese (`muro`, `#8E162B`) il tono chiaro ha una base scura, e il primario, cercato solo verso il più scuro, ripiegava sul bianco. Siccome il bottone primario del tono scuro parte da lì, anche lui era bianco, cioè del colore del testo. Ora primario, link, testo secondario e secondario derivato provano la stessa tinta nel verso opposto prima di ripiegare su nero o bianco: su Agnese il bottone diventa `#ffa2a7`, zero ripieghi invece di 4. Cambiano solo le palette che prima ripiegavano.
