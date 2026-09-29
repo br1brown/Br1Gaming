@@ -7,10 +7,10 @@ import { ApiService } from '../../../core/services/api.service';
 import { PageType } from '../../../site';
 
 /**
- * Sezione "Generatori": titolo + griglia di card dei generatori, con la CTA verso i Piaciuti
- * (che ne raccolgono gli output, quindi vivono accanto). È la "lista di generatori" riusabile sia in
- * home sia nella pagina dedicata `/generatori`: recupera da sé l'elenco (resource reattiva, attiva
- * anche in SSR) e fa il mapping slug→card/rotta — chi la ospita non deve passarle i dati.
+ * Sezione "Generatori": titolo, CTA verso i Piaciuti in cima (ne raccolgono gli output) e griglia
+ * completa dei generatori. È la "lista di generatori" riusabile sia in home sia nella pagina
+ * dedicata `/generatori`: recupera da sé l'elenco (resource reattiva, attiva anche in SSR) e fa il
+ * mapping slug→card/rotta — chi la ospita non deve passarle i dati.
  */
 @Component({
     selector: 'app-generators-section',

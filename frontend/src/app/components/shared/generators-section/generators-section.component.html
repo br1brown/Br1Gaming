@@ -1,4 +1,19 @@
-<h2 class="h4 fw-bold mb-3 section-heading-scrim">{{ 'generatori' | translate }}</h2>
+<h1 class="h4 fw-bold mb-3 section-heading-scrim">{{ 'generatori' | translate }}</h1>
+
+<!-- Call-to-action verso i Piaciuti in cima: sono la scorciatoia più usata, non un "in fondo alla
+     lista" che nessuno raggiunge. Compatta, una riga. -->
+@if (showPiaciutiCta()) {
+<a class="card border-0 bg-body-tertiary rounded-4 mb-3 text-decoration-none lift-on-hover" [appPage]="PageType.Piaciuti">
+    <div class="card-body d-flex align-items-center gap-3 py-3 px-4">
+        <i class="fa-solid fa-heart text-danger fs-4 flex-shrink-0" aria-hidden="true"></i>
+        <div class="flex-grow-1">
+            <h3 class="h6 fw-bold mb-0">{{ 'condivisi' | translate }}</h3>
+            <p class="text-body-secondary small mb-0">{{ 'condivisiSottotitolo' | translate }}</p>
+        </div>
+        <i class="fa-solid fa-chevron-right text-body-secondary flex-shrink-0" aria-hidden="true"></i>
+    </div>
+</a>
+}
 
 @if (loading()) {
 <!-- Scheletro durante il caricamento: evita il flash del messaggio "vuoto" prima che l'elenco arrivi. -->
@@ -19,19 +34,4 @@
 <app-empty-state titleKey="hubNessunGeneratore" icon="fa-solid fa-dice" />
 }
 <app-card-grid [items]="cards()" [itemColClass]="itemColClass()" />
-}
-
-<!-- Call-to-action verso i Piaciuti: vivono accanto ai generatori (ne raccolgono gli output). -->
-@if (showPiaciutiCta()) {
-<div class="card border-0 bg-body-tertiary rounded-4 mt-3">
-    <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3 p-4">
-        <div>
-            <h3 class="h5 fw-bold mb-1">{{ 'condivisi' | translate }}</h3>
-            <p class="text-body-secondary mb-0">{{ 'condivisiSottotitolo' | translate }}</p>
-        </div>
-        <a class="btn btn-primary rounded-pill px-4 flex-shrink-0" [appPage]="PageType.Piaciuti">
-            {{ 'condivisiVaiAiCondivisi' | translate }}
-        </a>
-    </div>
-</div>
 }

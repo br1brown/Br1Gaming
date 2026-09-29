@@ -1,9 +1,11 @@
-<div class="col-12 col-md-8 offset-md-2 py-3">
+<!-- Con una variante (parametri e generazione affiancati) serve più larghezza; senza, la colonna stretta di lettura. -->
+<div class="col-12 py-3" [class]="!recovered() && variant() ? 'col-md-10 offset-md-1' : 'col-md-8 offset-md-2'">
 
     @if (generator(); as gen) {
-    <div class="d-flex align-items-center gap-3 mb-3">
+    <!-- Testata: identità del generatore a sinistra, ascolto a destra. -->
+    <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
         @if (coverAssetId()) {
-        <!-- Piccola ora: la protagonista è la card sotto, questa resta solo un riferimento
+        <!-- Piccola: la protagonista è la card sotto, questa resta solo un riferimento
              all'identità del generatore. Se manca/rotta: decorativa, AssetDirective la nasconde e
              il contenitore la segue (:has nel css). -->
         <div class="gen-cover align-self-stretch position-relative flex-shrink-0" style="width: 3rem;">
@@ -13,83 +15,92 @@
                  class="position-absolute top-0 start-0 w-100 h-100 object-fit-contain rounded-5">
         </div>
         }
-        <div>
+        <div class="flex-grow-1">
             <h1 class="h4 fw-bold mb-1">{{ gen.name }}</h1>
             <p class="text-body-secondary small mb-0">{{ gen.description }}</p>
         </div>
+        <div class="d-flex align-items-center gen-actions ms-auto" style="min-height: 2.75rem">
+            @if (result()) {
+            <app-speech-action [action]="speakText" />
+            }
+        </div>
     </div>
 
-    @if (!recovered() && variant(); as v) {
-    <!-- Selettore variante SOPRA il testo: sceglierla rigenera subito. Forma
-         secondo il NUMERO di opzioni — vedi generator-hub della home per lo stesso criterio. -->
-    <div class="mb-3">
-        @if (v.options.length <= 2) {
-        <app-variant-toggle [options]="v.options" [active]="activeVariant()" [loading]="loading()"
-                             [ariaLabel]="v.label" [onPick]="pickVariant" />
-        } @else if (v.options.length === 12) {
-        <app-variant-wheel [options]="v.options" [active]="activeVariant()" [loading]="loading()"
-                            [ariaLabel]="v.label" [onPick]="pickVariant" />
-        } @else {
-        <app-variant-buttons [options]="v.options" [active]="activeVariant()" [loading]="loading()"
-                              [ariaLabel]="v.label" [onPick]="pickVariant" />
+    <div class="row g-3 align-items-start mb-3">
+        @if (!recovered() && variant(); as v) {
+        <!-- Parametri A SINISTRA (sopra da telefono): sceglierli rigenera subito. Forma secondo il NUMERO
+             di opzioni — vedi generator-hub della home per lo stesso criterio. -->
+        <div class="col-12 col-md-5">
+            @if (v.options.length <= 2) {
+            <app-variant-toggle [options]="v.options" [active]="activeVariant()" [loading]="loading()"
+                                 [ariaLabel]="v.label" [onPick]="pickVariant" />
+            } @else if (v.options.length === 12) {
+            <app-variant-wheel [options]="v.options" [active]="activeVariant()" [loading]="loading()"
+                                [ariaLabel]="v.label" [onPick]="pickVariant" />
+            } @else {
+            <app-variant-buttons [options]="v.options" [active]="activeVariant()" [loading]="loading()"
+                                  [ariaLabel]="v.label" [onPick]="pickVariant" />
+            }
+        </div>
         }
-    </div>
-    }
 
-    <!-- Testo del risultato in pagina (l'immagine si genera solo alla condivisione: una card
-         sempre visibile allungava troppo la pagina). Sulla rotta "frase condivisa" (recovered)
-         niente "Ancora!": si guarda un pezzo già fatto, non se ne tira uno nuovo da lì. -->
-    @if (result(); as res) {
-    <div class="gen-result p-3 mb-3">
-        <div [innerHTML]="res.markdown | markdown"></div>
+        <div class="col-12" [class.col-md-7]="!recovered() && variant()">
+            <!-- Risultato + azioni in un'unica card: il testo è il contenuto, la barra sotto (Ancora / mi piace /
+                 condividi) ne è il piè — si legge, poi si agisce, e le due cose restano un oggetto solo. L'altezza
+                 minima del corpo attutisce lo spostamento del piè quando la lunghezza cambia a ogni generazione.
+                 Sulla rotta "frase condivisa" (recovered) niente "Ancora!" (si guarda un pezzo già fatto) e niente
+                 "mi piace" (è già tra i piaciuti). L'immagine si genera solo alla condivisione. -->
+            <div class="card gen-card shadow-sm">
+                @if (result(); as res) {
+                <div class="card-body gen-result">
+                    <div [innerHTML]="res.markdown | markdown"></div>
+                </div>
+                } @else {
+                <div class="card-body gen-result placeholder-glow" aria-hidden="true">
+                    <span class="placeholder col-9 mb-2 d-block"></span>
+                    <span class="placeholder col-12 mb-2 d-block"></span>
+                    <span class="placeholder col-7 d-block"></span>
+                </div>
+                }
+                <div class="card-footer bg-transparent d-flex align-items-center gap-2 gen-actions">
+                    @if (recovered()) {
+                    <!-- Rotta diversa da quella "condivisa": il playground si monta da zero e genera da sé. -->
+                    <a class="btn btn-primary rounded-pill px-4 flex-grow-1" [appPage]="PageType.Generatore" [appPageParams]="{ slug: gen.slug }">
+                        {{ 'condivisiVaiAlGeneratore' | translate }}
+                    </a>
+                    } @else {
+                    <button type="button" class="gen-lever flex-grow-1" (click)="generate(true)" [disabled]="loading()" [attr.aria-busy]="loading() || null">
+                        <app-busy-icon glyph="fa-solid fa-arrow-rotate-right" [busy]="loading()" />
+                        {{ (result() ? 'ancora' : 'genera') | translate }}!
+                    </button>
+                    }
+                    @if (result()) {
+                    <!-- Raggruppate e mai comprimibili: la leva larga cede spazio a loro, non li copre. -->
+                    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                        @if (!recovered()) {
+                        <app-like-action [action]="likeThis" [liked]="liked()" />
+                        }
+                        <app-share-action [action]="buildShareData"
+                                          [title]="shareTitle()" [filename]="shareFilename()" />
+                    </div>
+                    }
+                </div>
+            </div>
+        </div>
     </div>
-    } @else if (loading()) {
-    <div class="gen-result p-3 mb-3 placeholder-glow" aria-hidden="true">
-        <span class="placeholder col-9 mb-2 d-block"></span>
-        <span class="placeholder col-12 mb-2 d-block"></span>
-        <span class="placeholder col-7 d-block"></span>
-    </div>
-    }
 
-    @if (!recovered()) {
-    <div class="text-center mb-3">
-        <button type="button" class="gen-card-tap__hint" (click)="generate(true)" [disabled]="loading()" [attr.aria-busy]="loading() || null">
-            <app-busy-icon glyph="fa-solid fa-arrow-rotate-right" [busy]="loading()" />
-            {{ (result() ? 'ancora' : 'genera') | translate }}!
-        </button>
-    </div>
-    }
-
-    @if (recovered()) {
-    <div class="text-center mb-3">
-        <!-- Rotta diversa da quella "condivisa": il playground si monta da zero e genera da sé. -->
-        <a class="btn btn-primary rounded-pill px-4" [appPage]="PageType.Generatore" [appPageParams]="{ slug: gen.slug }">
-            {{ 'condivisiVaiAlGeneratore' | translate }}
-        </a>
-    </div>
-    }
-
-    @if (result(); as res) {
-    <div class="d-flex justify-content-center align-items-center gap-2 gen-actions mb-3">
-        <app-speech-action [action]="speakText" />
-        @if (!recovered()) {
-        <app-like-action [action]="likeThis" [liked]="liked()" />
-        }
-        <app-share-action [action]="buildShareData"
-                          [title]="shareTitle()" [filename]="shareFilename()" />
-    </div>
-    }
-
-    <p class="mb-3 text-center">
-        <a class="small text-decoration-none" [appPage]="PageType.Piaciuti" [appPageQueryParams]="{ gen: gen.slug }">
-            {{ 'condivisiDiQuesto' | translate }}
-        </a>
-    </p>
-
+    <!-- In fondo, mutuamente esclusivi: sul playground il link ai piaciuti di QUESTO generatore, su
+         una frase piaciuta la nota che spiega da dove arriva (con il link a tutti i piaciuti). -->
     @if (recovered()) {
     <p class="text-body-secondary small mb-3 text-center">
         {{ 'condivisiDaCondivisi' | translate }}
         <a [appPage]="PageType.Piaciuti" class="ms-1">{{ 'condivisiVaiAiCondivisi' | translate }}</a>
+    </p>
+    } @else {
+    <p class="mb-3 text-center">
+        <a class="small text-decoration-none" [appPage]="PageType.Piaciuti" [appPageQueryParams]="{ gen: gen.slug }">
+            {{ 'condivisiDiQuesto' | translate }}
+        </a>
     </p>
     }
 

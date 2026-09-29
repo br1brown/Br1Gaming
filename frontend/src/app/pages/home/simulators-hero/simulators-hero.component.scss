@@ -54,13 +54,29 @@
     background: linear-gradient(160deg, var(--colorPrimary, #2a2a2a) 0%, color-mix(in srgb, var(--colorPrimary, #2a2a2a) 60%, black) 100%);
 }
 
-.sim-tile-icon {
+.sim-tile-robot {
     position: absolute;
-    top: 52%;
+    top: 34%;
     left: 50%;
+    width: clamp(5rem, 34%, 8rem);
+    aspect-ratio: 1;
     transform: translate(-50%, -50%);
-    font-size: clamp(3rem, 8vw, 4.5rem);
-    color: rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.9);
+    filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.35));
+    transition: transform .3s ease;
+}
+
+.sim-tile-robot-led {
+    animation: sim-robot-blink 1.6s ease-in-out infinite;
+}
+
+@keyframes sim-robot-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .25; }
+}
+
+@media (hover: hover) {
+    .sim-tile:hover .sim-tile-robot { transform: translate(-50%, -50%) rotate(-4deg) scale(1.05); }
 }
 
 .sim-tile-bg {
@@ -121,6 +137,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .sim-tile-bg, .sim-tile { transition: none; }
+    .sim-tile-bg, .sim-tile, .sim-tile-robot { transition: none; }
+    .sim-tile-robot-led { animation: none; }
     .sim-tile { animation: none; }
 }

@@ -40,30 +40,32 @@ import { VariantButtonsComponent } from '../../components/shared/variant-buttons
     styles: [`
         /* Cover rotta (AssetDirective la nasconde): via il contenitore. */
         .gen-cover:has(> img.asset-broken--decorative) { display: none; }
-        .gen-result { animation: genPop .28s ease-out; }
+        .gen-result { min-height: 9rem; animation: genPop .28s ease-out; }
         @keyframes genPop {
             from { opacity: 0; transform: translateY(8px); }
             to   { opacity: 1; transform: none; }
         }
 
-        .gen-card-tap__hint {
+        .gen-lever {
             display: inline-flex;
+            justify-content: center;
             align-items: center;
             gap: .4rem;
-            padding: .4rem .9rem;
+            padding: .65rem 1.2rem;
             border-radius: 999px;
             border: none;
             background: var(--colorSurface, rgba(0, 0, 0, .65));
             color: var(--colorSurfaceText, #fff);
             font-weight: 700;
-            font-size: .85rem;
-            transition: transform .15s ease;
+            font-size: 1rem;
+            min-width: 0;
+            transition: filter .15s ease;
         }
-        .gen-card-tap__hint:hover:not(:disabled) { transform: scale(1.04); }
-        .gen-card-tap__hint:active:not(:disabled) { transform: scale(.96); }
-        .gen-card-tap__hint:disabled { cursor: default; }
+        .gen-lever:hover:not(:disabled) { filter: brightness(1.15); }
+        .gen-lever:active:not(:disabled) { filter: brightness(.9); }
+        .gen-lever:disabled { cursor: default; }
         @media (prefers-reduced-motion: reduce) {
-            .gen-card-tap__hint, .gen-card-tap__hint:hover, .gen-card-tap__hint:active { transform: none; }
+            .gen-lever, .gen-lever:hover, .gen-lever:active { transition: none; }
         }
     `],
 })
@@ -133,8 +135,11 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
         this.loading.set(true);
         this.localResult.set(null);
         this.savedId.set(null);
+        const slug = this.generator()?.slug;
         try {
             const res = await this.fetchGeneratedText();
+            // Nel frattempo si è passati a un altro generatore: la risposta non è più sua.
+            if (this.generator()?.slug !== slug) return;
             this.localResult.set(res);
             if (scrollToResult) this.scrollToResult();
         } catch {
@@ -174,7 +179,7 @@ export class GeneratorDetailComponent extends PageBaseComponent<GeneratorPageCon
     private scrollToResult(): void {
         const win = this.document.defaultView;
         win?.requestAnimationFrame(() =>
-            this.document.querySelector('.gen-result')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+            this.document.querySelector('.gen-card')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
     }
 
     // ── Sorgenti dati per i bottoni azione (like / share / speech) ────────

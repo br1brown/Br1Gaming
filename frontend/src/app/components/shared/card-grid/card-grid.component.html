@@ -10,35 +10,19 @@
 </div>
 }
 
-<!-- Si rendono TUTTE le card visibili; quando è ripiegato si nascondono le eccedenti con le utility
-     responsive: oltre la collapseMobile-esima su mobile (d-none) e oltre la collapseDesktop-esima da
-     desktop. Le posizioni intermedie restano nascoste solo su mobile (d-md-block le riporta da ≥ md). -->
 <div class="row g-3">
-    @for (item of visibleItems(); track item.pageType + (item.params?.['slug'] ?? ''); let i = $index) {
+    @for (item of visibleItems(); track item.pageType + (item.params?.['slug'] ?? '')) {
     <app-content-card [class]="itemColClass()"
-                      [class.d-none]="collapsed() && i >= collapseMobile()"
-                      [class.d-md-block]="collapsed() && i >= collapseMobile() && i < collapseDesktop()"
                       [title]="item.title"
                       [subtitle]="item.subtitle"
                       [imageId]="item.imageId"
                       [pageType]="item.pageType"
                       [params]="item.params" />
     } @empty {
-    <!-- Vuoto durante una ricerca = nessun match. Il vuoto "normale" (lista non caricata / senza
+    <!-- Vuoto = nessun match della ricerca. Il vuoto "normale" (lista non caricata / senza
          elementi) lo gestisce la sezione che ospita la griglia, con un messaggio dedicato. -->
-    @if (searching()) {
+    @if (searchable()) {
     <app-empty-state class="col-12" [compact]="true" titleKey="cardGridNessunRisultato" icon="fa-solid fa-magnifying-glass" />
     }
     }
 </div>
-
-<!-- Pulsante espandi/ripiega: nascosto da ≥ md quando il ripiegamento riguarda solo il mobile. -->
-@if (espandibile()) {
-<div class="text-center mt-3" [class.d-md-none]="soloMobile()">
-    <button type="button" class="btn btn-outline-secondary rounded-pill px-4"
-            [attr.aria-expanded]="espanso()"
-            (click)="espanso.set(!espanso())">
-        {{ (espanso() ? 'mostraMeno' : 'mostraTutti') | translate }}
-    </button>
-</div>
-}

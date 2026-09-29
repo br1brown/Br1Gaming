@@ -7,7 +7,7 @@ import { PageType } from '../../../site';
 /**
  * Una "cabina": i due simulatori pesi massimi PIÙ l'accesso ai Generatori nella stessa riga — tre
  * launcher pari peso, non due grandi e uno strizzato sotto. `imageId` assente (caso Generatori:
- * non è un "gioco", non ha una cover) → niente `<img>`, il tile usa `.sim-tile--flat` (icona, non
+ * non è un "gioco", non ha una cover) → niente `<img>`, il tile usa `.sim-tile--flat` (illustrazione, non
  * fotografia) invece di lasciare `[appAsset]` senza sorgente.
  */
 interface SimulatorTile {
@@ -17,8 +17,8 @@ interface SimulatorTile {
     taglineKey?: string;
     ctaKey: string;
     imageId?: string;
-    /** Solo per i tile senza immagine (Font Awesome, es. "fa-solid fa-dice"). */
-    icon?: string;
+    /** Solo per i tile senza immagine: illustrazione SVG inline nel template (robot dei Generatori). */
+    art?: 'robot';
     pageType: PageType;
 }
 
@@ -43,7 +43,7 @@ const SIMULATORS: SimulatorTile[] = [
         slug: 'generatori',
         titleKey: 'generatori',
         ctaKey: 'heroApri',
-        icon: 'fa-solid fa-dice',
+        art: 'robot',
         pageType: PageType.Generatori,
     },
 ];
