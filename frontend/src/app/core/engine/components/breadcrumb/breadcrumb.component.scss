@@ -1,5 +1,7 @@
-// Pillolina semi-trasparente con blur e troncamento — blur/alpha nel range "regular" del
-// Liquid Glass: più bassi si leggono come un bordo, non come vetro, su sfondi scuri.
+// Pillolina piena: la tinta del testo mescolata alla superficie della pagina (stesso 12% di prima), non
+// un rgba() sopra di essa. Un fondo semitrasparente con backdrop-filter non lo risolve nessun controllo
+// di contrasto (axe e HTML_CodeSniffer lo lasciano "da verificare" su ogni pagina), e il blur sopra
+// una superficie piatta non si vede.
 .app-breadcrumb {
     display: block;
     margin-bottom: var(--space-3);
@@ -12,10 +14,8 @@
         list-style: none;
         margin: 0;
         padding: var(--space-1) var(--space-3);
-        background: rgba(var(--bs-body-color-rgb), 0.12);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(var(--bs-body-color-rgb), 0.1);
+        background: color-mix(in srgb, var(--bs-body-color) 12%, var(--bs-body-bg));
+        border: 1px solid color-mix(in srgb, var(--bs-body-color) 10%, var(--bs-body-bg));
         border-radius: var(--bs-border-radius-pill);
     }
 

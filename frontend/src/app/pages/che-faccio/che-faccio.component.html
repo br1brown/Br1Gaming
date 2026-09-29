@@ -425,14 +425,14 @@
                     <h3 class="mb-2 h6">{{ 'themeAccessibilityTitle' | translate }}</h3>
                     <p class="small text-muted mb-2">{{ 'accessibilityDesc' | translate }}</p>
                     <div class="d-flex gap-2 flex-wrap mb-3">
-                        <span class="badge border font-monospace fw-normal"
-                              [style.backgroundColor]="theme.colorTema()"
-                              [style.color]="theme.colorTemaText()">
+                        <span class="badge border font-monospace fw-normal swatch-var"
+                              [style.--swatch-bg]="theme.colorTema()"
+                              [style.--swatch-fg]="theme.colorTemaText()">
                             colorTema: {{ theme.colorTema() }}
                         </span>
-                        <span class="badge border font-monospace fw-normal"
-                              [style.backgroundColor]="theme.colorPrimary()"
-                              [style.color]="theme.colorPrimaryText()">
+                        <span class="badge border font-monospace fw-normal swatch-var"
+                              [style.--swatch-bg]="theme.colorPrimary()"
+                              [style.--swatch-fg]="theme.colorPrimaryText()">
                             colorPrimary: {{ theme.colorPrimary() }}
                         </span>
                     </div>

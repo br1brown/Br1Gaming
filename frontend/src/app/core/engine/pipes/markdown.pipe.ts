@@ -29,6 +29,13 @@ safeRenderer.table = function (this: Renderer, token: Tokens.Table): string {
     return `<div class="table-responsive" tabindex="0">${baseTable(token).replace('<table>', '<table class="table table-sm">')}</div>`;
 };
 
+// Citazioni (`> testo`, come il riepilogo "in sintesi" delle pagine legali) con lo stile Bootstrap: barra a
+// sinistra, testo a corpo normale (`fs-6`: `.blockquote` di serie è 1.25rem, troppo per un paragrafo lungo).
+const baseBlockquote = safeRenderer.blockquote.bind(safeRenderer);
+safeRenderer.blockquote = function (this: Renderer, token: Tokens.Blockquote): string {
+    return baseBlockquote(token).replace('<blockquote>', '<blockquote class="blockquote fs-6 border-start border-4 ps-3">');
+};
+
 const MARKDOWN_OPTIONS = {
     breaks: true,
     gfm: true,

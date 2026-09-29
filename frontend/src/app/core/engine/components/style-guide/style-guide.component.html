@@ -14,14 +14,14 @@
       <h3 class="h6 mb-1">Colors</h3>
       <p class="text-muted small mb-2">The project's theme variables, plus Bootstrap's semantic colors.</p>
       <div class="d-flex flex-wrap gap-2 mb-4">
-        <span class="badge border font-monospace fw-normal"
-              [style.backgroundColor]="theme.colorTema()"
-              [style.color]="theme.colorTemaText()">
+        <span class="badge border font-monospace fw-normal swatch-var"
+              [style.--swatch-bg]="theme.colorTema()"
+              [style.--swatch-fg]="theme.colorTemaText()">
           colorTema
         </span>
-        <span class="badge border font-monospace fw-normal"
-              [style.backgroundColor]="theme.colorPrimary()"
-              [style.color]="theme.colorPrimaryText()">
+        <span class="badge border font-monospace fw-normal swatch-var"
+              [style.--swatch-bg]="theme.colorPrimary()"
+              [style.--swatch-fg]="theme.colorPrimaryText()">
           colorPrimary
         </span>
         <span class="badge border font-monospace fw-normal sg-swatch-surface">colorSurface</span>

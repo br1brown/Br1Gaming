@@ -67,7 +67,10 @@
     overflow: hidden;
     resize: none;
     background: transparent;
-    color: transparent;
+    /* Il testo vero lo dipinge lo strato sotto (evidenziazione): qui si nasconde solo il riempimento dei
+       glifi, non `color`, così un controllo di contrasto legge il colore del testo e non "trasparente". */
+    color: var(--bs-body-color);
+    -webkit-text-fill-color: transparent;
     caret-color: var(--bs-body-color);
     outline: none;
 
@@ -76,7 +79,7 @@
     }
 
     &::selection {
-        color: transparent;
+        -webkit-text-fill-color: transparent;
         background-color: color-mix(in srgb, var(--focusRingColor) 30%, transparent);
     }
 

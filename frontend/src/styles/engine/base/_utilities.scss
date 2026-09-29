@@ -231,3 +231,11 @@ img.asset-broken--decorative {
 
 /* Testo al gradino minimo della scala (--fs-xs): codici, slug, note a margine. */
 .text-xs { font-size: var(--fs-xs); }
+
+/* Campione di un colore calcolato a runtime (colore del tema, del brand): sfondo e testo arrivano da due
+   variabili impostate con [style.--swatch-bg] / [style.--swatch-fg]. Un `style` inline con `color` e
+   `background-color` lo lascia "da verificare" a HTML_CodeSniffer (F24); le variabili no. */
+.swatch-var {
+    background-color: var(--swatch-bg);
+    color: var(--swatch-fg);
+}

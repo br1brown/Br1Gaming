@@ -2,6 +2,20 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Audit pulito: da ~300 avvisi Pa11y a 10, e le citazioni Markdown finalmente citazioni
+
+Quasi tutti gli avvisi (≈280 su 298) erano il breadcrumb, con lo sfondo `rgba()` e `backdrop-filter` che nessun controllo di contrasto sa risolvere.
+
+- **Breadcrumb**: la pillola è piena (`color-mix` fra tinta del testo e superficie, stesso 12%), senza `backdrop-filter`: il blur sopra una superficie piatta non si vedeva.
+- **Icone di validazione**: `$enable-validation-icons: false`, la leva di Bootstrap. Erano `background-image` sui campi validi/non validi. Lo stato resta detto da bordo e testo del messaggio.
+- **Campioni di colore** (style guide, `/che-faccio`): classe `swatch-var` con `[style.--swatch-bg]`/`[style.--swatch-fg]` al posto di `color` e `background-color` inline (HTML_CodeSniffer F24).
+- **Editor Markdown**: il testo dello strato di input si nasconde con `-webkit-text-fill-color: transparent`, non con `color: transparent`.
+- **Citazioni Markdown**: `> testo` esce con le classi Bootstrap del blockquote (barra a sinistra, corpo normale). Il riepilogo "In sintesi" delle pagine legali era già una citazione, ma senza nessuno stile: si leggeva come un paragrafo in grassetto.
+
+Restano 10 avvisi, non risolvibili nel markup: la freccia della `<select>` di Bootstrap (`background-image`, nessun interruttore), il campo dell'editor Markdown (testo dipinto in uno strato sotto la textarea), e un titolo coperto dal banner cookie durante la misura.
+
+**Al merge**: chi usava `is-valid`/`is-invalid` contando sull'icona nel campo può riattivarla con `$enable-validation-icons: true` nel proprio Sass; chi scriveva `>` nel Markdown vede ora la barra.
+
 ### Banner cookie senza opacità in ingresso, e un audit che aspetta le animazioni
 
 L'audit live di un derivato ha bocciato una pagina con un loop di rendering pesante: i tre pulsanti del banner ("Rifiuta tutto", "Accetta tutto", "Salva scelte") risultavano sotto contrasto, con warning anche su summary, primo blocco di testo e link. Riprodotto fermando l'animazione d'ingresso a metà: con `opacity` a 0,68 axe mescola il testo con lo sfondo. Sotto carico il campionamento cadeva a metà animazione (`wait: 400` fisso).
