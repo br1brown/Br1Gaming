@@ -7,8 +7,9 @@ import { ApplicationConfig, ErrorHandler, TransferState, inject, isDevMode, prov
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideClientHydration, withEventReplay, withIncrementalHydration } from '@angular/platform-browser';
 import { provideServiceWorker } from '@angular/service-worker';
-import { provideRouter, withComponentInputBinding, withInMemoryScrolling, withViewTransitions } from '@angular/router';
+import { provideRouter, RouteReuseStrategy, withComponentInputBinding, withInMemoryScrolling, withViewTransitions } from '@angular/router';
 import { routes } from './core/engine/routing';
+import { EngineRouteReuseStrategy } from './core/engine/route-reuse';
 import { AuthService } from './core/services/auth.service';
 import { AppearanceService } from './core/engine/services/appearance.service';
 import { SessionExpiryNoticeService } from './core/engine/services/session-expiry-notice.service';
@@ -50,6 +51,9 @@ export const appConfig: ApplicationConfig = {
             // system attivo; la durata la dà `movimento`. skipInitialTransition: il primo load non è un cambio pagina.
             ...(ContestoSito.config.aspetto.transizioni ? [withViewTransitions({ skipInitialTransition: true })] : [])
         ),
+
+        // Cambio dei parametri di percorso sulla stessa rotta = nuova istanza della pagina (stato pulito).
+        { provide: RouteReuseStrategy, useClass: EngineRouteReuseStrategy },
 
         // HttpClient con supporto fetch (migliore performance/compatibilità) e l'interceptor
         // che normalizza gli errori HTTP in ApiError e li notifica in automatico (opt-out via

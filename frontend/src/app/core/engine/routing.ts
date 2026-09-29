@@ -7,6 +7,7 @@ import { environment } from '../../../environments/environment';
 import { contentLoaderResolver } from './pages/content.resolver';
 import { InternalSitePage, isInternalPage, isParentPage, resolvePagePath, RouteChrome, CHROME_DATA_KEY } from './siteBuilder';
 import { authGuard, languageSyncGuard, leaveGuard } from './route-guards';
+import { KEEP_OLD_INSTANCE_DATA_KEY } from './route-reuse';
 
 /**
  * Signal che riemette `project(router)` ad ogni `NavigationEnd`, partendo da `initial`.
@@ -107,6 +108,8 @@ function toAngularRoute(page: InternalSitePage, lang: string): Route {
             // pageFade: acceso solo con le transizioni del design system (config.aspetto.transizioni);
             // il ruolo (page.pageFade, da ruoloPagina.<ruolo>.pageFade) può solo spegnerlo.
             pageFade: ContestoSito.config.aspetto.transizioni && (page.pageFade ?? true),
+            // Letto da EngineRouteReuseStrategy (route-reuse.ts).
+            [KEEP_OLD_INSTANCE_DATA_KEY]: page.keepOldInstance ?? false,
             // CHROME_DATA_KEY: i flag di layout (showNav/showFooter/fitViewport...) letti SOLO dalla
             // shell (app.component, fuori dal <router-outlet>) via snapshot — mai spacchettati qui.
             [CHROME_DATA_KEY]: page.chrome,

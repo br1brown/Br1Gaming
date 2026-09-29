@@ -2,6 +2,12 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Una pagina, una istanza: niente più stato residuo al cambio parametri
+
+Navigando fra due URL della stessa rotta parametrica (`/generatori/a` → `/generatori/b`) Angular riusava il componente e rieseguiva solo il resolver: cambiava il contenuto risolto, non lo stato locale (risultato generato, form, timer). Nuova `EngineRouteReuseStrategy` (`core/engine/route-reuse.ts`, registrata in `app.config.ts`): la rotta si riusa solo se coincidono anche i parametri di percorso; i query param non contano. Opt-out per pagina: `keepOldInstance: true` (campo tipizzato della pagina).
+
+**Al merge**: **breaking di comportamento**. Chi azzerava a mano lo stato al cambio di `pageContent()` può togliere quel codice; chi contava sull'istanza riusata (player, animazioni continue) mette `keepOldInstance: true` sulla pagina.
+
 ### Primario, link e testi: la tinta del brand prima del bianco
 
 Con superfici vivide (`'tenue'`, `'fusione'`, `colori.sfondo`) la base di un tono può stare dall'altra parte del brand: su Agnese (`muro`, `#8E162B`) il tono chiaro ha una base scura, e il primario, cercato solo verso il più scuro, ripiegava sul bianco. Siccome il bottone primario del tono scuro parte da lì, anche lui era bianco, cioè del colore del testo. Ora primario, link, testo secondario e secondario derivato provano la stessa tinta nel verso opposto prima di ripiegare su nero o bianco: su Agnese il bottone diventa `#ffa2a7`, zero ripieghi invece di 4. Cambiano solo le palette che prima ripiegavano.
