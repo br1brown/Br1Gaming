@@ -128,7 +128,7 @@
         <div class="umarell-panel text-center p-4">
             @if (turnResult(); as result) {
             <h1 class="display-5 fw-bold">Edificio completato!</h1>
-            <p class="text-muted mb-3">Hai posato tutti e {{ totalBricks }} i mattoni. Il gilet può andare in pensione.</p>
+            <p class="text-body mb-3">Hai posato tutti e {{ totalBricks }} i mattoni. Il gilet può andare in pensione.</p>
             <div class="d-flex justify-content-center gap-3 flex-wrap mb-3">
                 <div class="umarell-card">
                     <span class="umarell-card-pip">♠</span>
@@ -154,8 +154,8 @@
             </button>
             } @else {
             <h1 class="display-5 fw-bold">Simulatore Umarell</h1>
-            <p class="text-muted mb-1">Guarda la barra del cantiere: premi <strong>SPAZIO</strong> (o tocca la barra) esattamente quando il segnale entra nella zona gialla.</p>
-            <p class="text-muted mb-3">Ogni critica al momento giusto fa posare un mattone. Lasciarne scappare una, o premere fuori tempo, azzera la combo.</p>
+            <p class="text-body mb-1">Guarda la barra del cantiere: premi <strong>SPAZIO</strong> (o tocca la barra) esattamente quando il segnale entra nella zona gialla.</p>
+            <p class="text-body mb-3">Ogni critica al momento giusto fa posare un mattone. Lasciarne scappare una, o premere fuori tempo, azzera la combo.</p>
 
             <button class="btn btn-primary btn-lg" (click)="startGame()">
                 Indossa il gilet e inizia

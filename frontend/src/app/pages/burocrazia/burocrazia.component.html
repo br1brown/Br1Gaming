@@ -184,12 +184,12 @@
         @if (showDismount()) {
         <button type="button" class="buro-scendi" [class.buro-pulse]="coach()?.pulse === 'dismount'"
                 (pointerdown)="doDismount($event)">
-            {{ 'buroScendi' | translate }}<kbd class="buro-key">Shift</kbd>
+            {{ 'buroScendi' | translate }}<kbd class="buro-key" aria-hidden="true">Shift</kbd>
         </button>
         }
         <button type="button" class="buro-action" [class.dim]="actDim()" [class.buro-pulse]="coach()?.pulse === 'act'"
-                [attr.aria-label]="actAria()" (pointerdown)="doAction($event)">
-            {{ actLabel() }}<kbd class="buro-key">Spazio</kbd>
+                [attr.aria-label]="actAria() ? actLabel() + ' — ' + actAria() : actLabel()" [attr.aria-disabled]="actDim() || null" (pointerdown)="doAction($event)">
+            {{ actLabel() }}<kbd class="buro-key" aria-hidden="true">Spazio</kbd>
         </button>
     </div>
 
