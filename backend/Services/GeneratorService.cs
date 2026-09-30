@@ -260,6 +260,11 @@ public class GeneratorService
     // Il maschile "un" davanti a vocale NON si elide ("un amico"), quindi non è toccato.
     private static readonly Regex RxUnaElide = new(@"(?<![\p{L}'’])(Una|una)[ \t]+(?=[aeiouàèéìòùhAEIOUÀÈÉÌÒÙH])", RegexOptions.Compiled);
 
+    // "a" + parola che inizia per "a" → "ad" ("a Assisi" → "ad Assisi", "a Adrano" → "ad Adrano"). Solo la "a"
+    // davanti a "a": con le altre vocali "a" resta corretta ("a Ivrea", "a Ozieri"), quindi la regola sta qui,
+    // una volta per tutti i generatori, invece che in ogni voce che scrive "a {City}".
+    private static readonly Regex RxAdA = new(@"(?<![\p{L}'’])(A|a)([ \t]+)(?=[Aa]\p{L})", RegexOptions.Compiled);
+
     private static string Cap(string s, bool upper) => upper ? char.ToUpperInvariant(s[0]) + s[1..] : s;
 
     private static string ContraiPreposizioni(string text)
@@ -278,6 +283,8 @@ public class GeneratorService
         text = RxContractedElide.Replace(text, m => Cap(ContractedElideMap[m.Groups[1].Value.ToLowerInvariant()], char.IsUpper(m.Groups[1].Value[0])));
         // Articolo femminile "una" + vocale → "un'".
         text = RxUnaElide.Replace(text, m => Cap("un'", char.IsUpper(m.Groups[1].Value[0])));
+        // "a" davanti a "a" → "ad".
+        text = RxAdA.Replace(text, m => m.Groups[1].Value + "d" + m.Groups[2].Value);
         return text;
     }
 }

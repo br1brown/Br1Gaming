@@ -2,8 +2,9 @@
 <div class="col-12 py-3" [class]="!recovered() && variant() ? 'col-md-10 offset-md-1' : 'col-md-8 offset-md-2'">
 
     @if (generator(); as gen) {
-    <!-- Testata: identità del generatore a sinistra, ascolto a destra. -->
-    <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+    <!-- Testata: identità del generatore a sinistra, ascolto a destra. Mai flex-wrap: da telefono il
+         pulsante resta a fianco e a andare a capo sono titolo e descrizione, non l'azione (verticalità). -->
+    <div class="d-flex align-items-center gap-2 gap-sm-3 mb-3">
         @if (coverAssetId()) {
         <!-- Piccola: la protagonista è la card sotto, questa resta solo un riferimento
              all'identità del generatore. Se manca/rotta: decorativa, AssetDirective la nasconde e
@@ -15,11 +16,11 @@
                  class="position-absolute top-0 start-0 w-100 h-100 object-fit-contain rounded-5">
         </div>
         }
-        <div class="flex-grow-1">
+        <div class="flex-grow-1" style="min-width: 0">
             <h1 class="h4 fw-bold mb-1">{{ gen.name }}</h1>
             <p class="text-body-secondary small mb-0">{{ gen.description }}</p>
         </div>
-        <div class="d-flex align-items-center gen-actions ms-auto" style="min-height: 2.75rem">
+        <div class="d-flex align-items-center flex-shrink-0 gen-actions ms-auto" style="min-height: 2.75rem">
             @if (result()) {
             <app-speech-action [action]="speakText" />
             }

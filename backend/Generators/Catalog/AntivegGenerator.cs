@@ -63,7 +63,7 @@ public sealed class AntivegGenerator : GeneratorBase
         ("comprano avocado spediti dall'altro capo del mondo", 3),
         ("mangiano roba ultraprocessata uscita da un laboratorio", 3),
         ("sono pallidi come un cero pasquale", 3),
-        ("te lo dicono nei primi cinque minuti che li conosci", 3),
+        new ($"lo dicono a tutti nei primi {2..7} minuti", 3),
         ("si credono Gandhi perché masticano un'insalata", 3),
         ("stanno con la PETA, che ne ammazza più di un macello", 3),
         ("vogliono salvare mucche che senza di noi manco esisterebbero", 3),
@@ -74,8 +74,6 @@ public sealed class AntivegGenerator : GeneratorBase
         ("vogliono imporre a tutti il loro credo", 3),
         ("guardano lo spot ma non la filiera completa", 3),
         ("si bevono i numeri gonfiati dei documentari", 3),
-        // Il paladino della carne si tradisce da solo: un'insinuazione da spogliatoio sulle verdure
-        // falliche che lui trova ovvia e gli altri leggono per quello che è — mai dichiarata esplicitamente.
         ("si accaniscono sul cetriolo in un modo che la dice lunga", 3),
         ("mangiano la zucchina con un entusiasmo sospetto", 3),
         ("col pisello in tavola diventano stranamente allegri, chissà perché", 3),
@@ -97,8 +95,8 @@ public sealed class AntivegGenerator : GeneratorBase
         ("credo vegano", 2),
         ("veganismo etico", 3),
         ("crudismo militante", 3),
-        ("stile di vita cruelty-free", 3),
-        ("dieta a impatto zero", 3),
+        ("modo di vivere cruelty-free", 3),
+        ("menù a impatto zero", 3),
     };
 
     // ESTENSIONI dei piatti condivisi: la carne pesante è roba da antivegano, gli altri generatori
@@ -150,7 +148,7 @@ public sealed class AntivegGenerator : GeneratorBase
         ("ciccia genuina", 2),
         ("carne allevata a terra", 3),
         ("carne di manzo piemontese", 3),
-        ("una bistecca di frisona", 3),
+        ("bistecca di frisona", 3),
         ("roba con dentro il ferro", 2),
     };
 
@@ -197,7 +195,7 @@ public sealed class AntivegGenerator : GeneratorBase
     {
         "Netflix", "Prime Video", "Disney+", "YouTube", "Rai Play",
         "Twitch", "Mediaset Infinity", "DAZN", "NOW", "Apple TV+",
-        "Paramount+", "Crunchyroll", "Pluto TV", "il canale Telegram del cugino", "un gruppo Facebook di complottisti",
+        "Paramount+", "Crunchyroll", "Pluto TV", "un canale Telegram del cugino", "un gruppo Facebook di complottisti",
     };
 
     internal static readonly Tag Indottrina = new("indottrina")
@@ -265,7 +263,7 @@ public sealed class AntivegGenerator : GeneratorBase
     /// <inheritdoc />
     public override List<Frase> Core { get; } =
     [
-        new($"ma le piante allora? anche loro soffrono quando le strappi, ci hai mai pensato {Vegani}?", 8),
+        new($"ma le piante allora? anche loro soffrono quando le strappi, ci hai mai pensato, {Vegani}?", 8),
         new($"da dove le prendi le proteine, dall'aria? questi {Vegani} {Pregiudizi}", 6),
         // Recuperate dal JSON originale: usavano la lista "indottrina", persa nel refactor JSON→classi.
         new($"sti {Vegani} sono semplicemente {Indottrina}", 6),
@@ -273,19 +271,19 @@ public sealed class AntivegGenerator : GeneratorBase
         new($"abbiamo i canini per un motivo, mica per masticare la lattuga, {Rincaro}", 20),
         new($"siamo in cima alla catena alimentare, fattene una ragione, {Rincaro}", 20),
         new($"il leone mica chiede scusa alla gazzella, è la natura bellezza, {Rincaro}", 20),
-        new($"nella mietitura del grano muoiono più topi che in un allevamento, altro che {Carne}", 5),
-        new($"la PETA ammazza più cani e gatti di una macelleria, informati prima di aprire bocca, {Rincaro}", 20),
+        new($"nella mietitura del grano muoiono più topi che in un allevamento, e poi sarei io il crudele che mangia {Carne}", 5),
+        new($"la PETA ammazza più cani e gatti di una macelleria, informati, {Rincaro}", 20),
         new($"il tuo latte di mandorla sta prosciugando la California, altro che ambientalista, {Rincaro}", 20),
         new($"se devi integrare la B12 con le pasticche, forse la natura ti sta dicendo qualcosa, {Rincaro}", 20),
         new($"troppa soia abbassa il testosterone, è risaputo, {Rincaro}", 20),
-        new($"una persona sola non cambia niente, mangiati di {Carne} e stai sereno", 5),
+        new($"una persona sola non cambia niente, mangia {Carne} e stai sereno", 5),
         new($"se non le allevassimo le mucche si estinguerebbero, siamo noi a salvarle, {Rincaro}", 20),
-        new($"i nostri antenati cacciavano i mammut mentre voi {Vegani} piangete per un broccolo", 5),
+        new($"i nostri antenati cacciavano i mammut mentre voi {Vegani} piangete per un cavolfiore", 5),
         new($"vabbè ma il bacon però... non dirmi che non ti manca, {Rincaro}", 20),
         new($"siete una setta, lo dite entro cinque minuti che vi si conosce, {Rincaro}", 20),
         new($"guardatevi allo specchio, {Aggettivo}, e poi venite a parlarmi di salute", 5),
         new($"fai come il Liver King, un po' di carne cruda e ti rimetti in sesto, {Rincaro}", 20),
-        new($"l'ha spiegato pure Joe Rogan nel podcast, ma 'sti {Vegani} {Pregiudizi}", 5),
+        new($"l'ha spiegato pure Joe Rogan nel podcast, e intanto 'sti {Vegani} {Pregiudizi}", 5),
         new($"le mie mucche pascolano felici, mica come la tua roba di laboratorio, {Rincaro}", 20),
         new($"Dio ci ha messo gli animali sulla terra per un motivo, {Rincaro}", 20),
         new($"è una mia scelta, non venire a impormi il tuo {Concetto}", 5),
@@ -301,32 +299,32 @@ public sealed class AntivegGenerator : GeneratorBase
         new($"la verdura urla quando la tagli, solo che tu non la senti, {Rincaro}", 20),
         new($"io gli animali li rispetto: me li mangio dal primo all'ultimo pezzo, zero sprechi, {Rincaro}", 20),
         new($"il {Concetto} è solo il nuovo modo per sentirsi speciali su {Social.Any}", 5),
-        new($"carnivoro da generazioni e sto benissimo, 'sti {Vegani} {Pregiudizi}", 5),
+        new($"carnivoro da generazioni e sto benissimo, mentre 'sti {Vegani} {Pregiudizi}", 5),
         new($"ma davvero rinunci a {Piatto} per un'ideologia?", 5),
         new($"{Vegani} {Aggettivo} che {Pregiudizi}", 3),
         new($"guarda {Idoli}, altro che il tuo {Concetto}", 4),
         new($"questi {Vegani} {Pregiudizi}", 3),
         new($"non rompete con 'sto {Concetto}, lasciatemi mangiare in pace", 5),
         new($"rinunceresti a {Piatto}? io manco morto", 5),
-        new($"questi {Vegani} {Pregiudizi}, ma poi {Pregiudizi}", 4),
+        new($"questi {Vegani} {Pregiudizi}, e poi la morale la fanno a noi", 4),
         new($"il {Concetto} è una moda da {Social.Any}, tra sei mesi non se lo fila più nessuno", 6),
         new($"noi {Aggettivo}? ma sono questi {Vegani} che {Pregiudizi}", 5),
-        new($"mezzo chilo di {Carne} e ti torna il sorriso, fidati", 5),
-        new($"non sono contro l'ambiente, ma se guardi tutta la filiera l'agricoltura vegetale inquina più degli allevamenti, {Rincaro}", 20),
+        new($"mezzo chilo di {Carne} e ti torna il sorriso, provare per credere", 5),
+        new($"non sono contro l'ambiente, ma guarda la filiera: l'agricoltura vegetale inquina più degli allevamenti, {Rincaro}", 20),
         new($"informati sui dati veri: per un chilo di tofu serve più acqua che per una bistecca, {Rincaro}", 20),
         new($"le monocolture di soia divorano più foreste di qualsiasi allevamento, guarda i numeri, {Rincaro}", 20),
-        new($"io per primo voglio salvare il pianeta, ma bisogna guardare tutta la filiera, non lo spot, {Rincaro}", 20),
-        new($"il trattore che ara il campo inquina più di una mandria intera, ma questo non te lo dicono, {Rincaro}", 20),
-        new($"se conti trasporti e fertilizzanti, la tua insalata importata inquina più dell'agnello del contadino qui sotto, {Rincaro}", 20),
+        new($"voglio salvare il pianeta anch'io, ma guardo la filiera, non lo spot, {Rincaro}", 20),
+        new($"il trattore che ara il campo inquina più di una mandria, ma non te lo dicono, {Rincaro}", 20),
+        new($"se conti trasporti e fertilizzanti, la tua insalata importata inquina più dell'agnello del contadino, {Rincaro}", 20),
         new($"gli integratori che prendete li fanno in laboratorio col petrolio, altro che naturale, {Rincaro}", 20),
         new($"non è ideologia, è guardare i dati reali invece dei documentari, {Rincaro}", 20),
         new($"la quinoa arriva in aereo dal Perù, altro che impatto zero, {Rincaro}", 20),
         new($"non sono complottista, ma chiediti chi ci guadagna a venderti il {Concetto}", 5),
         // Appello all'autorità professionale, dentro il corpo del rant (non solo nella firma finale).
-        new($"lo dico da {Professioni.M}: la carne fa bene, punto", 5),
-        new($"lo dico da {Professioni.F}: la carne fa bene, punto", 5),
-        new($"conosco un {Professioni.M} che lo dice chiaro: senza carne ti si spegne il cervello", 5),
-        new($"conosco una {Professioni.F} che lo dice chiaro: senza carne ti si spegne il cervello", 5),
-        new($"non ho niente contro una dieta a base di {Ortaggi}, per carità, però certi entusiasmi a tavola restano un mistero per me", 6),
+        new($"lo dico da {Professioni.M}: la carne fa bene, lo vedo ogni giorno al lavoro", 5),
+        new($"da {Professioni.F} ve lo garantisco: la carne fa bene, ne so qualcosa per mestiere", 5),
+        new($"conosco un {Professioni.M} che lo dice: senza carne ti si spegne il cervello", 5),
+        new($"una {Professioni.F} me l'ha detto in faccia: senza carne il cervello va in standby", 5),
+        new($"non ho niente contro le diete a base di {Ortaggi}, però certi entusiasmi a tavola restano un mistero", 6),
     ];
 }

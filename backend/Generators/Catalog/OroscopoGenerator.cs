@@ -75,13 +75,13 @@ public sealed class OroscopoGenerator : GeneratorBase
     };
 
     // Ordinale FEMMINILE per "settimana" (sempre femminile → nessun problema di concordanza): i tempi
-    // "del mese" si dicono come "al {giorno} della {ordinale} settimana" — es. "al giovedì della terza
-    // settimana". Il giorno resta il tag condiviso (domenica inclusa).
+    // "del mese" si dicono come "{giorno} della {ordinale} settimana" — es. "giovedì della terza
+    // settimana". Il giorno è nudo (mai "al"/"il"): il genere di "domenica" non crea attriti.
     internal static readonly Tag Ordinale = new("ordinale") { "prima", "seconda", "terza", "quarta" };
 
     // Previsioni: predicati (minuscoli) che seguono un'apertura d'ambito. La LUNGHEZZA è mista di
     // proposito (corte secche, medie, lunghe): così i paragrafi dell'oroscopo non hanno tutti lo
-    // stesso ritmo. I riferimenti temporali usano "al {giorno} della {ordinale} settimana".
+    // stesso ritmo. I riferimenti temporali usano "{giorno} della {ordinale} settimana" (mai "al {giorno}").
     internal static readonly Tag Previsione = new("previsione")
     {
         ("andrà così così, ma con un certo stile", 2),
@@ -90,7 +90,7 @@ public sealed class OroscopoGenerator : GeneratorBase
         ("tutto tace, sospettosamente", 2),
         ("nulla di irreparabile, per ora", 2),
         ("le stelle consigliano di restare a letto e fingersi irreperibile", 2),
-        ("arriva una svolta che, come da tradizione, ignorerai", 2),
+        ("arriva una svolta, o forse una conferma: dipende da come la leggi", 2),
         ("qualcuno ti deluderà con la puntualità di un orologio svizzero", 2),
         ("una spesa imprevista si farà viva col suo solito tempismo impeccabile", 2),
         ("riceverai un messaggio che leggerai senza mai rispondere", 2),
@@ -106,13 +106,13 @@ public sealed class OroscopoGenerator : GeneratorBase
         ("un imprevisto ti salverà da un impegno che detestavi", 3),
         ("la pazienza verrà messa alla prova da una fila alle poste", 2),
         ("ti verrà voglia di cambiare vita, poi passerà entro pranzo", 3),
-        new($"un impegno ti aspetta al {Giorni.Any} della {Ordinale} settimana e fingerai di averlo già in agenda", 3),
-        new($"al {Giorni.Any} della {Ordinale} settimana dovrai dare una risposta che continuerai a rimandare", 3),
-        ("un concatenarsi di piccoli imprevisti, all'apparenza slegati, cospirerà per farti arrivare tardi proprio dove non volevi andare", 5),
-        ("qualcuno di solito affidabile oggi si prende, senza preavviso, un giorno di ferie dall'esserlo", 4),
+        new($"un impegno ti aspetta {Giorni.Any} della {Ordinale} settimana: previsione sicura, ogni settimana ne ha uno", 3),
+        new($"dovrai dare una risposta entro {Giorni.Any} della {Ordinale} settimana, ma continuerai a rimandare", 3),
+        ("una serie di piccoli imprevisti cospirerà per farti arrivare tardi dove non volevi andare", 5),
+        ("qualcuno di solito affidabile oggi si prende un giorno di ferie dall'esserlo", 4),
         ("qualcuno userà la tua password del Wi-Fi senza nemmeno ringraziare", 6),
-        ("rimpiangerai un carrello abbandonato tre mesi fa, con rimorso", 6),
-        new($"una notifica ti rovinerà l'unica giornata perfetta del mese, guarda caso al {Giorni.Any} della {Ordinale} settimana", 7),
+        ("rimpiangerai un carrello abbandonato tre mesi fa", 6),
+        new($"una notifica ti rovinerà l'unica giornata perfetta del mese: {Giorni.Any} della {Ordinale} settimana", 7),
         ("accadrà un non-evento di cui, giustamente, non ti accorgerai", 3),
         ("succederà qualcosa, oppure no", 3),
         ("qualcosa andrà inaspettatamente bene: approfittane prima che se ne accorgano", 3),
@@ -133,7 +133,7 @@ public sealed class OroscopoGenerator : GeneratorBase
         ("metti giù il telefono e affronta la vita. O almeno il telefono", 3),
         "sorridi: confonde i nemici e i creditori",
         ("respira. Poi respira ancora. Poi torna a letto", 3),
-        "fidati dell'istinto, tanto sbaglia con eleganza",
+        "fidati dell'istinto, ma anche del suo contrario: le stelle coprono entrambi i casi",
         "investi in pazienza: rende poco ma è gratis",
         ("occhio a chi ti dà ragione troppo in fretta", 2),
         ("bevi acqua: le stelle non sanno cos'altro dirti", 5),
@@ -147,14 +147,14 @@ public sealed class OroscopoGenerator : GeneratorBase
         ("spegni le notifiche e accendi il cervello. O viceversa", 3),
         // Accattivanti: complici e affettuosi, con un filo d'ironia.
         ("concediti qualcosa di buono: in fondo te lo sei quasi meritato", 3),
-        ("fatti un complimento da solo, tanto oggi non lo farà nessun altro", 3),
+        ("fatti un complimento: gli oroscopi ne prevedono uno a fine giornata, per tutti i segni", 3),
         ("fidati di te, una volta ogni tanto: che male vuoi che faccia", 3),
         // Corte, secche.
         "lascia stare",
         "rimanda",
         ("fidati poco", 2),
         // Lunga.
-        ("prima di rispondere rileggi, rifletti, rimanda di un'ora e poi sbaglia comunque: almeno sarà una tua scelta consapevole", 4),
+        ("prima di rispondere rileggi e rimanda di un'ora, poi sbaglia comunque: sarà almeno una scelta tua", 4),
     };
 
     // ── Vena "MBEB/incel" dell'oroscopo: più mordente e specifica del generico, MA senza nomi reali
@@ -172,14 +172,14 @@ public sealed class OroscopoGenerator : GeneratorBase
         new($"a {City.Any} un monopattino ti taglierà la strada sulle strisce", 2),
         new($"il pacco da {Marketplace.Any} arriverà proprio mentre sei sotto la doccia", 3),
         new($"l'autovelox sulla strada per {City.Any} ti beccherà per {2..6} chilometri orari di troppo", 3),
-        new($"il barista — un certo {Nome.M} — ti darà tutto il resto in monetine", 2),
+        new($"il barista {Nome.M} ti darà tutto il resto in monetine", 2),
         new($"un {Professioni.M} ti rifilerà l'ennesimo ‘ci pensiamo e ti facciamo sapere’", 3),
         new($"il collega {Nome.M} rimetterà in discussione una cosa decisa da settimane", 2),
         new($"a {City.Any} ti toccherà il carrello con la ruota impazzita", 2),
         new($"il gruppo WhatsApp del condominio si accenderà proprio di {Giorni.Any}", 3),
         new($"scoprirai una spesa ricorrente su {Marketplace.Any} che giuravi di aver disdetto", 3),
         new($"prenderai tutti i semafori rossi verso {City.Any}, ma solo quando hai fretta", 2),
-        new($"l'ombrello si romperà al primo colpo di vento, puntuale come un {Giorni.Any}", 2),
+        new($"l'ombrello si romperà al primo colpo di vento, puntuale come ogni {Giorni.Any}", 2),
     };
 
     internal static readonly Tag TipoMolesto = new("tipo-molesto")
@@ -211,14 +211,14 @@ public sealed class OroscopoGenerator : GeneratorBase
         ("il tuo ascendente odierno è una sedia di plastica dimenticata sotto la pioggia", 4),
         ("oggi raggiungi l'apice del successo, ma soltanto agli occhi di un piccione", 5),
         ("l'universo ha rifatto i conti sul tuo futuro e il risultato non è un numero, è un rumore", 5),
-        ("qualcosa di rotondo e cosmico rotola verso di te da tre giorni; oggi, guarda caso, ti raggiunge", 5),
+        ("qualcosa di rotondo e cosmico rotola verso di te da tre giorni, e oggi ti raggiunge", 5),
         ("il frigorifero ti osserva e, come sempre, non approva", 4),
         ("le tue finanze oggi scendono, ma con grande eleganza", 4),
-        ("qualcosa che vive nel tuo armadio ha espresso un parere; ignoralo con affetto", 4),
+        ("qualcosa che vive nel tuo armadio ha espresso un parere: ignoralo con affetto", 4),
         ("oggi annuisci a tutto senza capire niente, e va benissimo così", 3),
-        ("gli astri hanno scritto un'equazione sul tuo mese; purtroppo mancano metà dei simboli", 4),
+        ("gli astri hanno scritto un'equazione sul tuo mese, ma mancano metà dei simboli", 4),
         ("qualcosa di gassato ti solleverà il morale, ma solo per dieci minuti", 4),
-        ("qualcuno, in una vecchia fotografia, veglia su di te; qualunque cosa accada, non chiedergli aiuto", 5),
+        ("qualcuno in una vecchia fotografia veglia su di te: non chiedergli aiuto", 5),
         ("il destino ti aveva preparato una sorpresa, poi se ne è dimenticato", 4),
     };
 
@@ -276,15 +276,39 @@ public sealed class OroscopoGenerator : GeneratorBase
     {
         new($"{Giorni.Any} {Nome.M} ti scriverà esattamente {3..9} parole, non una di più", 5),
         new($"{Nome.F}, {Eta.Cresciuto} anni, {Professioni.F}, ti dirà una frase di esattamente {4..11} parole che ricorderai per vent'anni", 6),
-        new($"a {TimeSlot.Notte} il telefono vibrerà per esattamente {2..5} notifiche, tutte inutili", 5),
-        new($"tra esattamente {3..21} giorni un {Professioni.M} di {Eta.Giovane} anni dirà una parola che ti farà pensare per {2..4} ore, non una di meno", 6),
+        new($"alle {TimeSlot.Notte} il telefono vibrerà per esattamente {2..5} notifiche, tutte inutili", 5),
+        new($"tra esattamente {3..21} giorni un {Professioni.M} di {Eta.Giovane} anni dirà una parola che ti farà pensare per {2..4} ore", 6),
         new($"a {City.Any} farai la fila per esattamente {2..12} minuti", 5),
         new($"a {City.Any} incrocerai {Nome.M} in una finestra di {5..15} minuti", 6),
-        new($"il tuo umore seguirà una curva esatta: su fino alle {TimeSlot.Mattina}, giù dalle {TimeSlot.Pomeriggio}, piatto per il resto della giornata", 5),
+        new($"il tuo umore seguirà una curva esatta: alto alle {TimeSlot.Mattina}, basso alle {TimeSlot.Pomeriggio}, piatto per il resto della giornata", 5),
         new($"un {Parente.M} arriverà con esattamente {5..20} minuti di ritardo", 5),
-        new($"oggi risparmierai esattamente {2..40} minuti evitando una conversazione che non sapevi di dover evitare", 5),
-        new($"su {Marketplace.Any} troverai un'offerta scontata del {5..40}%, valida per altri {2..6} minuti esatti, poi mai più", 5),
-        new($"un {Parente.M} ti chiamerà per parlare di una cosa che dura esattamente {2..7} minuti", 5),
+        new($"oggi risparmierai esattamente {2..40} minuti evitando una conversazione che non sapevi di dover fare", 5),
+        new($"su {Marketplace.Any} troverai un'offerta scontata del {5..40}%, valida ancora per {2..6} minuti esatti", 5),
+        new($"un {Parente.M} ti chiamerà per una cosa che durerà esattamente {2..7} minuti", 5),
+    };
+
+    // Il meccanismo Barnum: affermazioni che chiunque riconosce come proprie, al presente o al futuro,
+    // sempre in seconda persona e con iniziale minuscola (reggono dopo ", " e dopo "con X in questa
+    // posizione, "). La comicità sta nel fatto che vanno bene per ogni segno, non in chi le legge.
+    internal static readonly Tag Barnum = new("barnum")
+    {
+        "a volte hai bisogno che gli altri ti apprezzino, e a volte preferisci non ammetterlo",
+        "hai un grande potenziale che non hai ancora usato del tutto",
+        "tendi a essere più severo con te stesso di quanto meriti",
+        "c'è qualcosa che vorresti cambiare, ma non oggi",
+        "sei socievole e riservato in proporzioni che variano a seconda dell'ora",
+        "una decisione ti aspetta, e sarà giusta o sbagliata a seconda di come andrà",
+        "un cambiamento è in arrivo, oppure si conferma che non arriva",
+        "hai idee chiare su quasi tutto, tranne su quello che conta",
+    };
+
+    // La stessa cosa detta in più modi: chiusure che ribadiscono la frase precedente senza aggiungere nulla.
+    internal static readonly Tag Riformulazione = new("riformulazione")
+    {
+        "detto in altre parole, dipende",
+        "in sostanza: un po' sì e un po' no, come per tutti i segni",
+        "ripeto, con parole diverse, così qualcuno ci si riconosce",
+        "insomma, quello che avevi già capito da solo",
     };
 
     /// <inheritdoc />
@@ -320,10 +344,10 @@ public sealed class OroscopoGenerator : GeneratorBase
     internal static readonly Tag ColoreSegno = new("colore-segno")
     {
         new($"{Elemento.Fissato}, con {Pianeta.Fissato} a fare il bello e il cattivo tempo"),
-        new($"nel segno di {Elemento.Fissato}, oggi comanda {Pianeta.Fissato}"),
-        new($"{Elemento.Fissato} pura, con {Pianeta.Fissato} che tira le fila"),
+        new($"Nel segno di {Elemento.Fissato}, oggi comanda {Pianeta.Fissato}"),
+        new($"{Elemento.Fissato}, con {Pianeta.Fissato} che tira le fila"),
         new($"{Pianeta.Fissato} governa la giornata, in perfetto stile {Elemento.Fissato}"),
-        new($"oggi si respira {Elemento.Fissato}, e a comandare è {Pianeta.Fissato}"),
+        new($"Oggi si respira {Elemento.Fissato}, e a comandare è {Pianeta.Fissato}"),
     };
 
     /// <inheritdoc />
@@ -346,10 +370,10 @@ public sealed class OroscopoGenerator : GeneratorBase
     // non nel Core apposta: nel Core (scelta uniforme) potrebbero non uscire mai, o uscirne due insieme.
     public override RequiredInjectData? CoreRequired { get; } = new(1, 1,
     [
-        new($"diciamocelo, da {Segno.Fissato} sei {Pregio.Fissato}, su questo non si discute; il problema è quella vena {Ombra.Fissato} che oggi salta fuori", 4),
+        new($"da {Segno.Fissato} sei {Pregio.Fissato}, su questo non si discute; il problema è quel lato {Ombra.Fissato} che oggi salta fuori", 4),
         new($"roba da {Elemento.Fissato}, la tua: il tratto {Pregio.Fissato} oggi viene naturale, ma quello {Ombra.Fissato} resta lì, in agguato", 4),
         new($"{Pianeta.Fissato} oggi ti rema contro, punto; e quando succede, si vede subito quanto sei {Ombra.Fissato}", 4),
-        new($"{Pianeta.Fissato}, per una volta, gioca dalla tua parte: la tua nota {Pregio.Fissato} oggi lavora per te", 3),
+        new($"{Pianeta.Fissato}, per una volta, gioca dalla tua parte: il tuo lato {Pregio.Fissato} oggi lavora per te", 3),
         new($"il nodo della giornata, per te {Segno.Fissato}, è tutto lì: {Tema.Fissato}", 3),
         new($"in fondo sei un {Qualita.Fissato}, e certe cose un {Qualita.Fissato} le sente arrivare: oggi ti tira dritto verso {Tema.Fissato}", 3),
         new($"da bravo {Segno.Fissato}, oggi sei {Pregio.Fissato} e {Ombra.Fissato} nel giro di mezz'ora — e va bene così", 4),
@@ -360,31 +384,40 @@ public sealed class OroscopoGenerator : GeneratorBase
     public override List<Frase> Core { get; } =
     [
         new($"{Ambito}, {Previsione}", 2),
-        new($"{Ambito}, {Previsione}; {Consiglio}", 3),
+        new($"{Ambito}, {Previsione}. Le stelle aggiungono un consiglio — {Consiglio}", 3),
         new($"{Ambito}, {Previsione}", 2),
         new($"{Previsione}. Nient'altro", 2),                                      // corta, secca
-        new($"{Ambito}, {Previsione}, e come se non bastasse {Previsione}", 3),    // lunga, doppia previsione
-        new($"{Ambito}, una collega di nome {Nome.F} ti metterà in difficoltà senza accorgersene", 3),
-        new($"occhio a un {Professioni.M} conosciuto su {Social.Any}: {Previsione}", 3),
-        new($"occhio a una {Professioni.F} conosciuta su {Social.Any}: {Previsione}", 3),
-        new($"ti verrà voglia di una gita a {City.Any}, e poi niente, la rimanderai come tutto il resto", 3),
-        new($"{Giorni.Any} è il giorno giusto per NON rispondere a {Nome.M}", 3),
-        new($"le stelle vedono un piatto di {Piatti.Any} e un rimorso lungo la strada per {City.Any}", 3),
+        new($"{Ambito}, {Previsione}", 3),                                          // ex "doppia previsione", spezzata:
+        new($"{Previsione}", 3),                                                     // ogni Core ha un solo tag Previsione
+        new($"{Ambito}, una collega di nome {Nome.F} ti metterà in difficoltà, senza accorgersene", 3),
+        new($"occhio a un {Professioni.M} conosciuto su {Social.Any}. {Previsione}", 3),
+        new($"occhio a una {Professioni.F} conosciuta su {Social.Any}. {Previsione}", 3),
+        new($"ti verrà voglia di una gita verso {City.Any}, ma la rimanderai come tutto il resto", 3),
+        new($"{Giorni.Any} è il giorno giusto per lasciare {Nome.M} senza risposta", 3),
+        new($"le stelle vedono un {Piatti.M} e un rimorso lungo la strada per {City.Any}", 3),
+        new($"lungo la strada per {City.Any} ti aspettano una {Piatti.F} e un rimorso, come da previsione", 3),
         new($"una {Parente.F} ti chiederà notizie che non hai voglia di dare", 2),
         new($"un {Parente.M} ti darà una lezione di vita che non avevi chiesto", 2),
-        new($"un {Professioni.M} di {Eta.Cresciuto} anni ti darà un consiglio pessimo: seguilo pure", 4),
-        new($"una {Professioni.F} di {Eta.Cresciuto} anni ti darà un consiglio pessimo: seguilo pure", 4),
+        new($"un {Professioni.M} di {Eta.Cresciuto} anni ti darà un consiglio valido per chiunque: seguilo pure, vale anche per te", 4),
+        new($"l'unico consiglio utile di oggi lo darà una {Professioni.F} di {Eta.Cresciuto} anni: vale per chiunque, quindi anche per te", 4),
+
+        // ── Barnum: frasi buone per tutti i segni, dette con la stessa sicurezza di quelle su misura ──
+        new($"{Ambito}, {Barnum}", 3),
+        new($"{Barnum}. {Riformulazione}", 3),
+        new($"{Barnum}. Vale per oggi, per domani e per {Giorni.Any} della {Ordinale} settimana", 3),
+        new($"con {Pianeta.Fissato} in questa posizione, {Barnum}", 3),
+        new($"{Barnum}: {Pianeta.Fissato} lo ripete a tutti i segni, ma a te con particolare convinzione", 4),
         new($"numeri fortunati: {1..90} e {1..90}. Non ci prenderai comunque", 2),
         new($"attenzione agli acquisti d'impulso su {Marketplace.Any}: {Nome.M} lo scoprirà", 3),
         new($"le stelle prevedono una sfiga precisa: oggi {Sventura}", 4),
-        new($"{Ambito}, oggi {Sventura}", 3),
-        new($"e occhio, perché {Sventura} — e gli astri, in tutto questo, ti fanno pata pat", 4),
+        new($"{Ambito}, sarà una giornata storta: {Sventura}", 3),
+        new($"occhio, perché {Sventura}", 4),
         new($"oggi incrocerai {TipoMolesto}: sorridi e sopravvivi", 4),
-        new($"attenzione a {TipoMolesto}; gli astri, per la cronaca, tifano per te ma un po' distrattamente", 4),
+        new($"attenzione: oggi c'è {TipoMolesto}. Gli astri tifano per te, ma distrattamente", 4),
         new($"{Surreale}", 3),
-        new($"{Surreale}. {Consiglio}", 4),
-        new($"da {Segno.Fissato} oggi la giornata prende una piega strana: {Surreale}", 4),
-        new($"presenza astrale del giorno: {Entita}. Trattala con il dovuto sospetto", 3),
+        new($"{Surreale}. Il consiglio, a questo punto — {Consiglio}", 4),
+        new($"da {Segno.Fissato} oggi la giornata prende una piega strana. {Surreale}", 4),
+        new($"presenza astrale del giorno: {Entita}. Diffida a prescindere", 3),
         new($"{Entita} veglia su di te e, come da tradizione, non muoverà un dito", 3),
         new($"oggi il tuo spirito guida è {Entita}: buona fortuna con questo", 3),
         new($"attenzione: {Entita} ha lasciato una recensione a una stella sul tuo mese", 3),
@@ -399,11 +432,11 @@ public sealed class OroscopoGenerator : GeneratorBase
 
         // ── La finta precisione: {PrecisioneAssurda} è già una frase completa e autosufficiente ──
         new($"{PrecisioneAssurda}", 5),
-        new($"per oggi, questo è certo: {PrecisioneAssurda}", 4),
+        new($"questo è certo: {PrecisioneAssurda}", 4),
 
         // ── Chiusure-consiglio ──
-        new($"il consiglio degli astri: {Consiglio}", 2),
-        new($"{Previsione}. {Consiglio}", 2),
+        new($"il consiglio degli astri — {Consiglio}", 2),
+        new($"{Previsione}. Come rimedio, le stelle suggeriscono — {Consiglio}", 2),
     ];
 
     /// <inheritdoc />

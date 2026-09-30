@@ -37,10 +37,10 @@ public sealed class LombrosoGenerator : GeneratorBase, IHiddenGenerator
     /// fisso citato sempre uguale nel Core, ora un Tag come gli altri, varietà a ogni generazione.</summary>
     internal static readonly Tag Strumento = new("lombroso-strumento")
     {
-        "l'antropometro (di legno, 1876)",
+        "l'antropometro di legno",
         "l'estesiometro per la soglia del dolore",
         "l'ergografo per la fatica muscolare",
-        "il craniometro di Broca, requisito al museo apposta per l'occasione",
+        "il craniometro di Broca, requisito al museo",
         "un calibro da falegname riadattato",
         "il dinamometro a molla, tarato l'ultima volta nel secolo scorso",
     };
@@ -61,8 +61,9 @@ public sealed class LombrosoGenerator : GeneratorBase, IHiddenGenerator
     {
         "il fascicolo resta aperto a tempo indeterminato",
         "il caso passa al collega del turno successivo, che lo riaprirà identico",
-        "la pratica viene archiviata per stanchezza del funzionario di turno, salvo essere riaperta per abitudine",
+        "la pratica viene archiviata per stanchezza del funzionario, salvo essere riaperta per abitudine",
         "il verdetto finisce affisso in bacheca, giusto per la cronaca",
+        "la commissione si riserva di misurare di nuovo, finché il risultato coincide col verdetto",
     };
 
     /// <summary>
@@ -73,9 +74,9 @@ public sealed class LombrosoGenerator : GeneratorBase, IHiddenGenerator
     /// </summary>
     internal static readonly Tag ProvaDebole = new("lombroso-prova-debole")
     {
-        new($"un testimone di nome {Nome.Any}, residente a {City.Any}, giura di averti riconosciuto sul luogo esatto dei fatti", 2),
-        new($"il fascicolo cita un {Professioni.M} di {City.Any} come consulente esterno, pagato profumatamente e mai davvero interpellato", 2),
-        new($"un {Professioni.M} anonimo ha segnalato tutto da {City.Any}, salvo ritrattare in {Giorni.Any}", 2),
+        new($"un testimone di nome {Nome.Any}, residente a {City.Any}, giura di aver riconosciuto il soggetto sul luogo dei fatti, dopo averlo visto in foto una sola volta", 2),
+        new($"il fascicolo cita un {Professioni.M} di {City.Any} come consulente, pagato ma mai interpellato", 2),
+        new($"un {Professioni.M} anonimo ha segnalato tutto da {City.Any}, salvo ritrattare {Giorni.Any}", 2),
     };
 
     public override string Slug => "lombroso";
@@ -127,34 +128,39 @@ public sealed class LombrosoGenerator : GeneratorBase, IHiddenGenerator
     [
         // ── Prova debole (nome+città+professione annidati, vedi ProvaDebole) ──────────────
         new($"{ProvaDebole}", 2),
-        new($"{ProvaDebole}, ma ritratta tutto appena arriva {Strumento}", 3),
+        new($"{ProvaDebole}, ma tutto crolla appena arriva {Strumento}", 3),
 
         // ── Strumentazione e gergo, variabili a ogni scatto ───────────────────────────────
         new($"{Strumento} assegna un indice di sospettosità di {60..99} su 100", 2),
         new($"Secondo {Strumento}, {Gergo} è fuori norma di almeno {2..15} punti", 3),
         new($"{Gergo} risulta borderline: né innocente né colpevole, ma lo scanner non contempla vie di mezzo", 2),
-        new($"Il valore di {Gergo} viene ricontrollato tre volte: cambia ogni volta, il verdetto no", 3),
+        new($"{Gergo} viene ricontrollato tre volte: il valore cambia ogni volta, il verdetto no", 3),
+
+        // ── Il metodo che si conferma da solo ─────────────────────────────────────────────
+        new($"La correlazione fra {Gergo} e il capo d'accusa è stata stabilita su un campione di {5..12} persone, tutte già sospettate in partenza", 3),
+        new($"Il rapporto tecnico definisce {Gergo} \"indicativo\", e precisa che \"indicativo\" è un termine tecnico", 3),
+        new($"{Strumento} è stato calibrato sul verdetto atteso, per ridurre gli errori di misura", 3),
 
         // ── Precedenti e statistiche pseudo-scientifiche ──────────────────────────────────
-        new($"Secondo l'atlante, chi presenta questa stigmata ha in media {18..70} precedenti, sempre per lo stesso identico episodio", 2),
+        new($"Secondo l'atlante, chi presenta questa stigmata ha in media {18..70} precedenti, sempre per lo stesso episodio", 2),
         new($"Età presunta secondo l'ergografo: {Eta.Adulto} anni, ma nelle foto segnaletiche dimostra di meno", 2),
-        new($"Il fascicolo digitale segna {1..9} procedimenti pendenti, tutti apertisi lo stesso {Giorni.Any}", 2),
+        new($"Il fascicolo digitale segna {2..9} procedimenti pendenti, tutti aperti di {Giorni.Any}", 2),
 
         // ── Parente/testimoni di famiglia (Parente.M per l'accordo, vedi sopra) ───────────
-        new($"Tuo {Parente.M} conferma: \"lo dicevo sempre, quello sguardo non mi tornava\"", 3),
-        new($"Tuo {Parente.M} produce come prova una foto di {2..15} anni fa, comunque ammissibile", 2),
+        new($"Un {Parente.M} del soggetto conferma di aver sempre avuto dei dubbi, ma solo dopo aver letto il verdetto", 3),
+        new($"Un {Parente.M} del soggetto produce come prova una foto di {2..15} anni fa, comunque ammissibile", 2),
 
         // ── Giudiziario/burocratico, con città (ExclusiveGroups la limita a una sola comparsa) ──
         new($"Prossima udienza fissata a {City.Any}, ma nessuno ha ancora trovato l'aula", 2),
-        new($"Il verbale, redatto a {City.Any}, riporta {Gergo} sbagliato per errore di trascrizione — non cambia il verdetto", 2),
+        new($"Il verbale, redatto a {City.Any}, riporta {Gergo} sbagliato per errore di trascrizione: il verdetto non cambia", 2),
 
         // ── Eco social/commerciale del verdetto ───────────────────────────────────────────
-        new($"Un annuncio su {Marketplace.Any} venderebbe già la tua \"vera storia\" per {5..40} euro, spese di spedizione escluse", 2),
+        new($"Un annuncio su {Marketplace.Any} venderebbe già la \"vera storia\" del soggetto per {5..40} euro, spese di spedizione escluse", 2),
         new($"Su {Social.Any} circola già uno screenshot del verdetto, con didascalia \"chiamate un {Professioni.M}\"", 2),
         new($"Su {Social.Any}, {Nome.Any} ha già commentato \"lo sapevo\" senza aver letto il fascicolo", 2),
 
         // ── Esito e prossimi passi ─────────────────────────────────────────────────────────
-        new($"Prossimo controllo di routine: {Giorni.Any}, salvo imprevisti — ce ne saranno", 2),
+        new($"Prossimo controllo di routine: {Giorni.Any}, salvo imprevisti, e ce ne saranno", 2),
         new($"Per ora {Esito}", 2),
         new($"Il collega di turno propone una seconda misurazione con {Strumento}; {Esito}", 3),
     ];

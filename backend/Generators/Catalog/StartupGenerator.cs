@@ -41,7 +41,7 @@ public sealed class StartupGenerator : GeneratorBase
         "Un canale WhatsApp", "Un widget da mettere sul telefono", "Un abbonamento in stile Netflix", "Un NFT (non ha capito cosa sia)",
     };
 
-    // Pezzi VARIABILI che alcile filzioni pescano (come i "dove" della genesi): più combinazioni, meno noia.
+    // Pezzi VARIABILI che alcune voci pescano (come i "dove" della genesi): più combinazioni, meno noia.
     // L'articolo sta nella voce, così l'incastro concorda sempre ("per {la cappa}", "se {lo yogurt} è buono").
     internal static readonly Tag Mestiere = new("mestiere")
     {
@@ -92,7 +92,7 @@ public sealed class StartupGenerator : GeneratorBase
         new($"trovare lavoro nella zona di {City.Any}"),
         "dividere le spese tra amici",
         "prenotare dal barbiere senza telefonare",
-        new($"trovare un parcheggio libero vicino a {Genera("locali")}"),
+        new($"trovare un parcheggio libero vicino a _‘{Genera("locali")}’_"),
         "sapere a che ora passa davvero l'autobus",
         "vendere le cose che non usi più",
         "condividere la macchina con chi fa la tua strada",
@@ -211,21 +211,26 @@ public sealed class StartupGenerator : GeneratorBase
     // Come lo liquida ("il sito del cugino"): pesca i parenti condivisi tipizzati.
     internal static readonly Tag Percepito = new("percepito")
     {
-        new($"la fa mio {Parente.Pari.M} che smanetta, due sere", 2),
-        new($"è il sito del {Parente.Giovane.M}, due click", 2),
-        new($"la butto giù con {Ai} in un weekend", 2),
-        new($"{Ai} ormai fa tutto lei, io ci metto l'idea", 2),
+        new($"se ne occupa mio {Parente.Pari.M} che smanetta, due sere", 2),
+        new($"mio {Parente.Giovane.M} ci mette due click", 2),
+        new($"lo faccio con {Ai} in un weekend", 2),
+        new($"{Ai} ormai fa tutto, io ci metto l'idea", 2),
         new($"tanto mi ha detto mio {Parente.Anziano.M} che è una figata", 2),
         ("ci vuole niente, è solo questione di mettersi lì", 2),
         ("basta un programmatore e siamo a posto", 2),
-        new($"me la fa mia {Parente.Pari.F} che studia informatica", 2),
-        new($"me lo smanetta il {Parente.Giovane.M} nel weekend", 2),
+        new($"ci pensa mia {Parente.Pari.F} che studia informatica", 2),
+        new($"ci smanetta mio {Parente.Giovane.M} nel weekend", 2),
         new($"ci pensa mio {Parente.Pari.M} che ha fatto un corso online", 2),
-        new($"copio il codice da un tutorial su {Social.Any}", 2),
+        new($"copio il codice da un tutorial su {Social.Any.Fissato}", 2),
         ("scarico un template e cambio il logo", 2),
         new($"lo genero tutto con {Ai}, gratis", 2),
         ("prendo un tema di WordPress e via", 2),
-        new($"la fa mio {Parente.Giovane.M} che ha tredici anni ma ci sa fare col computer", 2),
+        new($"ci pensa mio {Parente.Giovane.M}, ha tredici anni ma se la cava col computer", 2),
+        new($"mio {Parente.Pari.M} ha già fatto il sito della pizzeria, sarà uguale", 2),
+        ("faccio prima un MVP e poi, se funziona, assumo qualcuno", 2),
+        ("il difficile è l'idea, il resto è manovalanza", 2),
+        new($"il logo e la parte tecnica li ordino su {Marketplace.Any.Fissato}, costa poco", 2),
+        ("il codice lo scarico da un forum e poi lo adatto", 2),
     };
 
     // A CHI SERVIREBBE: iper-specifico apposta, ma abbastanza generico da valere per qualunque idea
@@ -246,7 +251,7 @@ public sealed class StartupGenerator : GeneratorBase
         ("fatta per chi si lamenta sempre ma non cambia mai abitudini", 3),
         ("pensata per chi perde sempre lo scontrino", 3),
         ("fatta apposta per chi non legge mai le istruzioni", 3),
-        ("pensata per chi ha sempre da ridire ma non fa mai nulla per cambiarlo", 3),
+        ("pensata per chi ha sempre da ridire ma non cambia mai nulla", 3),
     };
 
     // COME "FUNZIONA": spiegazione semplicistica e generica, mai gergo tecnico — deve restare chiara
@@ -254,7 +259,7 @@ public sealed class StartupGenerator : GeneratorBase
     internal static readonly Tag Meccanismo = new("meccanismo")
     {
         ("funziona con un pulsante, tanto basta quello", 3),
-        ("basta una notifica e sai già tutto quello che ti serve", 3),
+        ("basta una notifica e si sa già tutto", 3),
         ("ci pensa un algoritmo, anche se lui non sa spiegare come funzioni", 3),
         ("basta fare una domanda e la risposta arriva subito", 3),
         ("funziona da sola una volta aperta, dice", 3),
@@ -287,21 +292,105 @@ public sealed class StartupGenerator : GeneratorBase
         ("è gratis, ma solo per i primi mille iscritti", 3),
     };
 
+    // ══ IL NODO TECNICO ══ due tag che si combinano in {Nodo} ("dà per scontato X, ma poi ammette Y"), come
+    // Torti+Scusanti dell'Ex. {Presupposto} è la cosa tecnica che dà per scontata (una clausola che parte
+    // da "che", così regge dopo qualunque verbo); {Intoppo} è il dettaglio che la smonta, detto da lui senza
+    // accorgersene: sempre una clausola finita in terza persona, così regge dopo "ma", "però" e "ammette che".
+    // Il bersaglio è la facilità con cui si tratta un tema tecnico senza conoscerlo, non chi lo fa.
+    // Vanno dichiarati PRIMA di {Nodo}: gli inizializzatori statici girano nell'ordine del file.
+    internal static readonly Tag Presupposto = new("presupposto")
+    {
+        "che i dati arrivino da soli dai negozi della zona",
+        "che basti collegarsi ai sistemi del Comune",
+        "che le altre app si colleghino da sole alla sua",
+        "che gli utenti inseriscano tutto a mano, ogni giorno, per sempre",
+        new($"che {Ai} sappia sempre la risposta giusta"),
+        "che basti una foto perché il telefono capisca tutto",
+        "che la posizione sia sempre precisa al metro",
+        "che tutti abbiano già l'ultimo modello di telefono",
+        "che la connessione ci sia ovunque, anche in cantina",
+        "che le notifiche arrivino sempre, a tutti, subito",
+        "che un solo server regga qualsiasi numero di utenti",
+        "che basti aggiungere la blockchain perché nessuno possa barare",
+        "che l'accesso con SPID si aggiunga come un pulsante",
+        new($"che {Marketplace.Any.Fissato} lasci usare i suoi prezzi, tanto sono pubblici"),
+        "che i negozi vogliano caricare da soli i loro prezzi",
+        "che l'utente lasci sempre attiva la posizione, per comodità",
+    };
+
+    internal static readonly Tag Intoppo = new("intoppo")
+    {
+        "non ha ancora capito da dove arriverebbero i dati",
+        "sulla privacy pensa di informarsi a lancio avvenuto",
+        "quella parte la sistemerà dopo il lancio",
+        new($"per quel punto si è segnato di chiedere a suo {Parente.Pari.M}"),
+        "ne ha sentito parlare in un podcast e non ricorda quale",
+        "nessuno gli ha ancora detto se si può fare",
+        "conta di scoprirlo strada facendo",
+        "non ha ancora guardato quanto costerebbe tenerlo acceso",
+        "non ha ancora deciso chi lo dovrà aggiornare",
+        "ha già scelto il nome e il logo, quindi il resto viene",
+        new($"l'ha letto in un post su {Social.Any.Fissato} e da lì non ha più approfondito"),
+        "la parte più difficile l'ha già assegnata a qualcuno che ancora non lo sa",
+        new($"per il resto si affida a {Ai}, che secondo lui saprà come fare"),
+        "le regole degli store le guarderà quando l'app sarà già pronta",
+    };
+
+    // Il connettivo avversativo: solo quelli che reggono qualunque intoppo (clausola finita in terza persona).
+    internal static readonly Tag Ma = new("ma_startup") { "ma", "però", "solo che", "ma poi ammette che" };
+
+    internal static readonly Tag Nodo = new("nodo")
+    {
+        new($"Dà per scontato {Presupposto}, {Ma} {Intoppo}"),
+        new($"Parte dal presupposto {Presupposto}, {Ma} {Intoppo}"),
+        new($"Per lui è ovvio {Presupposto}, {Ma} {Intoppo}"),
+        new($"Assicura {Presupposto}, {Ma} {Intoppo}"),
+        new($"Dà per scontato {Presupposto}, {Ma} {Intoppo}, e per lui la questione è chiusa"),
+    };
+
+    // COMPETENZE DICHIARATE contro quelle reali: predicati in terza persona ("ha ..."), il dettaglio che
+    // fa il resto è sempre piccolo e vero. Niente giudizio del narratore.
+    internal static readonly Tag Competenza = new("competenza")
+    {
+        new($"ha fatto un corso online da {2..6} ore"),
+        "ha installato WordPress una volta",
+        new($"ha visto {3..9} video su come si programma"),
+        "sa usare bene Excel",
+        "ha una laurea in tutt'altro, ma è portato",
+        "ha aggiornato il telefono da solo, senza chiedere aiuto",
+        "ha il computer più veloce del gruppo di amici",
+        "ha fatto una volta il sito per un matrimonio",
+        "ha scritto una macro su Excel, che funziona ancora",
+        "ha sistemato il Wi-Fi a metà condominio",
+        new($"ha un canale su {Social.Any.Fissato} con {2..9} iscritti"),
+    };
+
+    // I TEMPI: il "MVP in un weekend" e i suoi cugini. Frasi complete, terza persona.
+    internal static readonly Tag Tempi = new("tempi")
+    {
+        "Il primo prototipo lo vuole pronto in un weekend",
+        new($"Vuole l'MVP pronto entro {Giorni.Any}, poi si vede"),
+        new($"Per la versione completa ha previsto {2..5} giorni, i test li farà chi la scarica"),
+        new($"Il lancio è fissato tra {3..6} settimane, il logo è già pronto"),
+        "Ha già il nome, il dominio e la data di uscita: manca solo il codice",
+        "La versione beta esce appena ha finito di scegliere i colori",
+    };
+
     // Il QUANDO/DOVE: frammenti (scorrono in "…{nome}, {professione}, {genesi}."). Il "dove" pesca il
     // social condiviso. Momenti passivi/qualunque apposta: chi ha l'idea non ci ha "lavorato sopra",
     // gli è capitata — non prendiamoci gioco della persona, solo dell'idea (vedi Funzione).
     internal static readonly Tag Genesi = new("genesi")
     {
         "al terzo spritz",
-        new($"dopo l'ennesima ora su {Social.Any}"),
-        new($"una sera sul divano, scrollando {Social.Any}"),
+        new($"dopo l'ennesima ora su {Social.Any.Fissato}"),
+        new($"una sera sul divano, scrollando {Social.Any.Fissato}"),
         new($"al _‘{Genera("locali")}’_, verso il terzo giro"),
         "davanti all'ennesimo tutorial per diventare ricchi",
         "in coda da qualche parte, per ammazzare il tempo",
-        new($"sotto un reel di un motivatore, alle {TimeSlot.Notte} su {Social.Any}"),
+        new($"sotto un reel di un motivatore, alle {TimeSlot.Notte} su {Social.Any.Fissato}"),
         "dopo un documentario sui miliardari",
         "tornando a casa dall'aperitivo",
-        new($"leggendo i commenti di un video su {Social.Any}"),
+        new($"leggendo i commenti di un video su {Social.Any.Fissato}"),
         "in pausa pranzo, fissando il vuoto",
         new($"alle {TimeSlot.Notte}, aspettando il sonno"),
         "in bagno, col telefono in mano da mezz'ora",
@@ -330,13 +419,16 @@ public sealed class StartupGenerator : GeneratorBase
     // scansionando le liste per parole condivise tra bucket distinti — non le particelle generiche
     // ("cosa", "solo"…), che ricorrono ovunque e renderebbero la generazione quasi impossibile.
     public override List<Etichetta>? UniqueLabels { get; } =
-        [LblDettaglio, "weekend", "gratis", "abbonamento", "pubblicità"];
+        [LblDettaglio, "weekend", "gratis", "abbonamento", "pubblicit", "MVP", "dati", "blockchain", "notific",
+         "foto", "server", "privacy", "lancio",
+         "Instagram", "TikTok", "Facebook", "Twitter", "LinkedIn", "YouTube", "WhatsApp", "Telegram", "Snapchat",
+         "Reddit", "Twitch", "Pinterest"];
 
 
     /// <inheritdoc />
     // Un tema per gruppo: mai due frasi che dicono la stessa cosa nello stesso testo.
     public override List<string>? ExclusiveGroups { get; } =
-        [Pubblico.Key, Meccanismo.Key, Modello.Key];
+        [Pubblico.Key, Meccanismo.Key, Modello.Key, Nodo.Key, Competenza.Key, Tempi.Key];
 
     /// <inheritdoc />
     // LA DESCRIZIONE: elabora solo l'IDEA — come pensa di realizzarla ({Percepito}, la sua voce), a chi
@@ -351,6 +443,16 @@ public sealed class StartupGenerator : GeneratorBase
         // quindi un secondo template qui pescherebbe un'ALTRA citazione — stesso concetto ("ci pensa
         // qualcun altro") ripetuto con parole diverse, ridondante quanto un vero stutter testuale ──
         new($"Il piano è semplice: _‘{Percepito}’_", 4),
+        // ── COSA DÀ PER SCONTATO (tecnicamente) e il dettaglio che lo smonta: {Presupposto} + {Ma} + {Intoppo} ──
+        new($"{Nodo}", 5),
+        // ── COMPETENZE DICHIARATE contro quelle reali (gruppo "competenza"). Un tag di gruppo esclusivo si
+        // fissa da solo (stesso valore in ogni frase), quindi due Core con {Competenza} finivano nello
+        // stesso testo con la stessa competenza ripetuta. Le due formulazioni condividono la parola
+        // "dettagli", che è una UniqueLabel: il compositore non le ammette mai insieme. ──
+        new($"Sulla parte tecnica {Competenza}, e per lui i dettagli sono già coperti", 4),
+        new($"Le competenze tecniche non sono un problema: {Competenza}, il resto sono dettagli", 4),
+        // ── I TEMPI: l'MVP in un weekend (gruppo "tempi") ──
+        new($"{Tempi}", 4),
         // ── A CHI SERVIREBBE (gruppo "pubblico") ──
         new($"È {Pubblico}", 4),
         // ── COME "FUNZIONA" (gruppo "meccanismo") ──
