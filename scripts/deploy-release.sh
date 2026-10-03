@@ -345,6 +345,9 @@ else
     exit 1
 fi
 
+# ── BACKUP (solo se `Backup` è dichiarato in global-settings; i dati sono del backend) ──
+if [[ "$DEPLOY_BACKEND" == true ]]; then br1_backup_before_deploy; fi
+
 # ── PUBBLICAZIONE (swap) ─────────────────────────────────────────────────────
 echo
 echo -e "${BOLD}Pubblicazione${RESET}"

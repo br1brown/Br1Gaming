@@ -9,7 +9,7 @@ import {
     createNodeRequestHandler,
     isMainModule,
 } from '@angular/ssr/node';
-import { serverEnv, assertRequiredEnv, getBr1Settings } from './server-env';
+import { serverEnv, assertRequiredEnv, getBr1Settings, computeLegalFacts } from './server-env';
 import { fingerprintIdentitySections } from '../scripts/config/config-fingerprint';
 import { readFeaturesLikeBackend } from '../scripts/config/features';
 import { environment } from '../../../../environments/environment';
@@ -411,10 +411,12 @@ if (isMainModule(import.meta.url)) {
         // backend: se divergono (Features nel .local, chiave in minuscolo, "true" come stringa, build
         // vecchio) il backend farebbe cose che navbar e Privacy Policy non dicono. Meglio non partire.
         const runtimeFeatures = readFeaturesLikeBackend(getBr1Settings() as Record<string, unknown>);
-        // Fatti dell'installazione per la Privacy Policy: un file indicato ma assente o sbagliato ferma l'avvio.
+        // Fatti dell'installazione per la Privacy Policy: un file indicato ma non valido ferma l'avvio; assente o vuoto = testo generico.
         if (serverEnv.hostingInfo === null) {
             console.warn('[frontend] frontend.hostingInfo non configurato: la Privacy Policy usa il testo generico sui dati di navigazione.');
         }
+        // `Backup` di global-settings: un valore non valido ferma l'avvio.
+        computeLegalFacts();
         if (JSON.stringify(runtimeFeatures) !== JSON.stringify(environment.features)) {
             throw new Error(
                 '[br1-engine] Features del file montato non coincide con quello compilato nel frontend: ' +

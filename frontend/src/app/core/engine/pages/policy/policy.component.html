@@ -20,6 +20,9 @@
             @for (section of p.sections; track $index) {
                 <div [innerHTML]="section | markdown"></div>
             }
+            @if (p.details) {
+                <div [innerHTML]="p.details | markdown"></div>
+            }
             @if (accessibilityStatus(); as a) {
                 <app-accessibility-statement [nonAccessibili]="a.nonAccessibili" />
             }

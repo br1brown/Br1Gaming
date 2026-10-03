@@ -1,7 +1,3 @@
 ### Site forms
 
-When you fill in a form on the site, we process the data you enter to handle your request.
-
-- **Legal basis:** handling the request you made (Art. 6(1)(b) GDPR).
-- **Retention:** for as long as needed to handle the request.
-- **Provision:** needed to answer your request: without it we cannot follow it up.
+When you fill in a form on the site, the controller processes the data you enter to reply to your request. It does so to follow up on what you asked (Art. 6(1)(b) GDPR) and keeps the data for as long as needed to handle the request. Providing the data is necessary to receive a reply: without it, the request cannot be handled.

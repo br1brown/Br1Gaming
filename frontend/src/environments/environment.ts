@@ -44,5 +44,5 @@ export const environment: AppEnvironment = {
     },
     features: {"login":true,"publicLogin":true,"mail":false,"errorReporting":false,"forms":false},
     configFingerprint: "e0a079a8bf9a",
-    legalFiles: {"privacy":["analytics","cookiePolicy","errorReporting","form","intro","login","mail","outro","profiling"],"cookie":["intro","tracking"],"TOS":["intro"],"legal":["intro","outro"],"accessibility":["intro","outro"]}
+    legalFiles: {"privacy":["analytics","cookiePolicy","cookiePolicy/off","errorReporting","form","form/off","intro","login","mail","outro","profiling"],"cookie":["intro","tracking"],"TOS":["form","intro","login","outro"],"legal":["intro","outro"],"accessibility":["intro","outro"]}
 };

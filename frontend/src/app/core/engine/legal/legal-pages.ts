@@ -26,6 +26,8 @@ export interface LegalRecipe {
     cookieList?: boolean;
     /** Stato di conformità reso dall'Engine dopo l'intro (Dichiarazione di accessibilità). */
     accessibilityStatus?: boolean;
+    /** Sezione «Hosting e gestione tecnica» scritta dall'Engine dai fatti dell'installazione, dopo l'intro (Note legali): l'intro del progetto non la ripete. */
+    hostingNote?: boolean;
     /** Sezione "Dati di navigazione" resa dall'Engine dopo l'intro, dai fatti dell'installazione (Privacy Policy). */
     navigationData?: boolean;
     identity?: LegalIdentity;
@@ -59,6 +61,8 @@ const IDENTITA_CONTATTI: LegalIdentity = {
 export interface LegalContent {
     intro: string;
     sections: string[];
+    /** Nome di ogni sezione, in parallelo a `sections` (`form`, `form/off`, `login`…): serve a chi deve escluderne una a render. Assente nelle pagine con `markdown`. */
+    sectionNames?: string[];
     outro: string | null;
 }
 
@@ -174,11 +178,11 @@ const STANDARD: Record<StandardSlot, Omit<LegalPageSpec, 'page' | 'updated'>> = 
     },
     termsOfService: {
         path: { it: 'termini', en: 'terms' }, titleKey: 'terminiPolicyMenu', descriptionKey: 'terminiPolicyDescrizione', folder: 'TOS',
-        recipe: { identity: IDENTITA_GESTORE },
+        recipe: { partials: ['login', 'form'], identity: IDENTITA_GESTORE },
     },
     legalNotice: {
         path: 'legal', titleKey: 'noteLegaliPolicyMenu', descriptionKey: 'noteLegaliPolicyDescrizione', folder: 'legal',
-        recipe: { identity: IDENTITA_NOTE_LEGALI },
+        recipe: { hostingNote: true, identity: IDENTITA_NOTE_LEGALI },
     },
     accessibility: {
         path: { it: 'accessibilita', en: 'accessibility' }, titleKey: 'accessibilitaPolicyMenu', descriptionKey: 'accessibilitaPolicyDescrizione', folder: 'accessibility',

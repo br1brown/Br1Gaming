@@ -9,14 +9,16 @@ import { ConsentCategory, CookieConfig, EngineCookieKey, StorageMedium } from '.
 import { COOKIE_MAP, type CookieKey } from '../../../services/cookie-registry';
 import { ContestoSito } from '../../../../site';
 import { resolveFooterFields } from '../../footer-content';
+import { FooterField } from '../../footer-field';
 import { IdentityService } from '../../services/identity.service';
 import type { Identity } from '../../dto/identity.dto';
 import { SITE_CONFIG } from '../../siteBuilder';
 import { CookieBannerComponent } from '../../components/cookie-banner/cookie-banner.component';
 import { AccessibilityStatementComponent } from '../../components/accessibility-statement/accessibility-statement.component';
 import { LocalizationService } from '../../services/localization.service';
-import { resolveLegalLinks, type LegalContent } from '../../legal/legal-pages';
-import { LEGAL_FACTS, renderNavigationData, renderNavigationSummary, type LegalFacts } from '../../legal/hosting-info';
+import { activeLegalPartials, resolveLegalLinks, type LegalContent } from '../../legal/legal-pages';
+import { environment } from '../../../../../environments/environment';
+import { LEGAL_FACTS, renderInstallationDetails, renderNavigationData, renderNavigationSummary, renderHostingNote, renderRecipients, renderThirdParties, type LegalFacts } from '../../legal/hosting-info';
 
 @Component({
     selector: 'app-policy',
@@ -230,6 +232,11 @@ export class PolicyComponent extends PageBaseComponent<LegalContent> {
         return { heading: this.translate.translate(spec.titleKey), items };
     });
 
+    /** `true` se l'identità che la pagina ha in mano (qualunque ne sia la fonte: la stessa che alimenta il footer) dà almeno un'email o una PEC.
+     *  Serve a «Contatti via email», che rimanda ai recapiti della pagina: senza, non ha a cosa rimandare. */
+    private readonly hasEmailContact = computed(() =>
+        resolveFooterFields([FooterField.Email, FooterField.Pec], this.identity(), { translate: this.translate, localization: this.localization }).length > 0);
+
     /** Elenco cookie subito dopo l'intro, se la ricetta lo prevede (Cookie Policy). */
     readonly showCookieList = computed(() => this.legalPage()?.recipe.cookieList === true);
 
@@ -300,11 +307,24 @@ export class PolicyComponent extends PageBaseComponent<LegalContent> {
         const navigation = this.legalPage()?.recipe.navigationData
             ? renderNavigationData(this.legalFacts(), (key, ...args) => this.translate.translate(key, ...args), lang)
             : null;
+        const tr = (key: string, ...args: unknown[]) => this.translate.translate(key, ...args);
+        const recipe = this.legalPage()?.recipe;
+        // Dopo le parti per funzione: Note legali, l'hosting dai fatti; Privacy, backup, servizi di terze parti e destinatari
+        // (posta e segnalazioni per categoria, dalle funzioni accese; gli strumenti della Cookie Policy se ne ha).
+        const attive = activeLegalPartials(environment.features, this.siteConfig.cookiePolicy != null);
+        const details = recipe?.hostingNote ? renderHostingNote(this.legalFacts(), tr, lang)
+            : recipe?.navigationData
+                ? [
+                    renderInstallationDetails(this.legalFacts(), tr),
+                    renderThirdParties(this.legalFacts(), tr, lang),
+                    renderRecipients(this.legalFacts(), tr, lang, { posta: attive.mail, segnalazioni: attive.errorReporting, strumentiCookie: attive.tracking }),
+                ].filter(Boolean).join('\n\n')
+                : null;
         const summaryText = this.pageSummaryText();
         return {
             heading, update: this.policyUpdate(), summary: summaryText ? `> ${summaryText}` : null,
-            intro: links(intro), navigation,
-            sections: content.sections.map(links), outro: content.outro === null ? null : links(content.outro),
+            intro: links(intro), navigation, details: details ? links(details) : null,
+            sections: content.sections.filter((_, i) => !(content.sectionNames?.[i] === 'form/off' && !this.hasEmailContact())).map(links), outro: content.outro === null ? null : links(content.outro),
         };
     });
 

@@ -152,14 +152,16 @@ process.stdout.write([
     'BEHIND_PROXY=' + (s.Security?.BehindProxy ? 'yes' : 'no'),
     // frontend.hostingInfo è relativo alla root del progetto (dove gira il deploy): assoluto per il mount.
     'BR1_HOSTING_INFO=' + (hosting ? resolve(hosting) : ''),
+    // Backup.Retention: quante copie tenere. Assente = nessun backup nel deploy (e nessuna frase sui backup nella Privacy Policy).
+    'BR1_BACKUP_RETENTION=' + (Number.isInteger(s.Backup?.Retention) ? String(s.Backup.Retention) : ''),
 ].join('\n') + '\n');
 ")
 
-    # Un file dei fatti dell'installazione indicato ma assente: meglio fermarsi qui che far montare a
-    # Docker una cartella vuota al suo posto.
+    # Un file dei fatti dell'installazione indicato ma assente si tratta come non indicato (testo generico
+    # nella Privacy Policy): lo si toglie, così Docker monta /dev/null e non una cartella vuota al suo posto.
     if [[ -n "${BR1_HOSTING_INFO:-}" && ! -f "$BR1_HOSTING_INFO" ]]; then
-        echo "frontend.hostingInfo punta a $BR1_HOSTING_INFO, che non esiste." >&2
-        return 1
+        echo "frontend.hostingInfo punta a $BR1_HOSTING_INFO, che non esiste: la Privacy Policy usa il testo generico sui dati di navigazione." >&2
+        BR1_HOSTING_INFO=""
     fi
 
     # Config di PROGETTO (project/Localization/site/Features/Custom) minificata per il build del frontend.
@@ -262,4 +264,28 @@ br1_cleanup_old_release_images() {
             docker image rm "$name" >/dev/null 2>&1 || true
         done < <(docker image ls --filter "reference=${repo}" --format '{{.Repository}}:{{.Tag}}')
     done
+}
+
+# Backup dei dati prima della pubblicazione: solo se global-settings dichiara `Backup` (la stessa chiave che la Privacy Policy
+# scrive nella sezione «Copie di sicurezza»). Niente `Backup` = niente backup e niente frase: la policy non dichiara ciò che il deploy
+# non fa. Nessun container: si lancia scripts/backup.sh (nel bundle di release sta alla radice) con `Retention` come numero di copie.
+# Un backup fallito avvisa ma non blocca il rilascio; al primo deploy i volumi non esistono ancora e lo script li salta.
+# Usa info/ok/warn e ROOT dello script chiamante.
+br1_backup_before_deploy() {
+    [[ -n "${BR1_BACKUP_RETENTION:-}" ]] || return 0
+    local script=""
+    for _c in "${ROOT}/scripts/backup.sh" "${ROOT}/backup.sh"; do
+        [[ -f "$_c" ]] && { script="$_c"; break; }
+    done
+    if [[ -z "$script" ]]; then
+        warn "Backup.Retention è dichiarato ma backup.sh non c'è: nessun backup prima della pubblicazione."
+        return 0
+    fi
+    echo
+    info "Backup dei dati prima della pubblicazione (Backup.Retention=${BR1_BACKUP_RETENTION})"
+    if ( cd "$ROOT" && RETENTION="$BR1_BACKUP_RETENTION" bash "$script" ); then
+        ok "Backup fatto"
+    else
+        warn "Backup non riuscito: la pubblicazione prosegue (controlla spazio e permessi, poi rilancia scripts/backup.sh)."
+    fi
 }

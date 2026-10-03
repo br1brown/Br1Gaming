@@ -103,7 +103,7 @@ lingue supportate (sezione `Localization`) per SEO e `environment.ts`: non servo
 |---|---|---|
 | `frontend.hostname` | `""` | Dominio pubblico senza schema. Deriva `FRONTEND_BASE_URL` e `NG_ALLOWED_HOSTS`. Senza hostname (né `NG_ALLOWED_HOSTS`) il Node SSR accetta gli host locali e nessun altro, ed è **fail-closed**: in produzione il traffico reale viene rifiutato con **421 Misdirected Request**. Per più domini, imposta direttamente `NG_ALLOWED_HOSTS` (vedi sotto) |
 | `frontend.port` | `3000` | Porta host del frontend |
-| `frontend.hostingInfo` | `""` | Percorso del file JSON coi fatti del server (hosting, CDN, reverse proxy, log), relativo alla root del progetto o assoluto: la Privacy Policy ne genera la sezione "Dati di navigazione". Vuoto = testo generico; indicato ma assente o non valido = il deploy e il frontend si fermano. Schema in `frontend/src/app/core/engine/legal/hosting-info.schema.json`, modello in `hosting-info.example.json` |
+| `frontend.hostingInfo` | `""` | Percorso del file JSON coi fatti del server (hosting, CDN, reverse proxy, log), relativo alla root del progetto o assoluto: la Privacy Policy ne genera la sezione "Dati di navigazione". Vuoto, non indicato o assente = testo generico (il deploy e l'avvio lo segnalano); indicato ma non valido = il frontend si ferma. Schema in `frontend/src/app/core/engine/legal/hosting-info.schema.json`, modello in `hosting-info.example.json` |
 | `backend.public` | `false` | `true` espone il backend sull'host (richiede `docker-compose.backend-exposed.yml`) |
 | `backend.publicPort` | `null` | Porta host del backend, con `public: true` |
 | `Security.ApiConfig.Keys` | — | Chiavi API del backend (header `X-Api-Key`); il frontend usa `[0]`. In produzione almeno 32 caratteri ciascuna (il deploy lo verifica) |
@@ -292,9 +292,11 @@ I dati che sopravvivono ai deploy vivono in due volumi Docker: `<progetto>_uploa
 
 ```bash
 ./scripts/backup.sh                  # backup in ./backups, tiene i 14 archivi più recenti (per volume)
-RETENTION=30 ./scripts/backup.sh     # cambia quanti archivi tenere (è un conteggio, non giorni)
+RETENTION=30 ./scripts/backup.sh     # cambia quanti archivi tenere (è un conteggio, non giorni); vince su Backup.Retention
 BACKUP_DIR=/mnt/dati ./scripts/backup.sh
 ```
+
+Il numero di archivi sta in `global-settings.json`, blocco `Backup` (`"Backup": { "Retention": 14 }`), ed è la stessa fonte che la Privacy Policy usa per la sezione «Copie di sicurezza». **Dichiararlo attiva il backup nel deploy**: `deploy.sh` e `deploy-release.sh` lanciano `backup.sh` (con quel numero come `RETENTION`) prima di pubblicare il backend; un backup fallito avvisa ma non blocca il rilascio, e al primo deploy, senza ancora volumi, viene saltato. Nessun container in più. Senza il blocco il deploy non fa nessun backup e la policy non parla di backup; lanciare `backup.sh` a mano resta possibile e tiene 14 archivi. Per copie periodiche, oltre a quella di ogni rilascio, serve il cron qui sotto.
 
 Pianificalo via cron (la cartella `backups/` è gitignorata):
 
