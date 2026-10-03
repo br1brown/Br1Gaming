@@ -337,6 +337,9 @@ else
     exit 1
 fi
 
+# ── BACKUP (solo se `Backup` è dichiarato in global-settings; i dati sono del backend) ──
+if [[ "$DEPLOY_BACKEND" == true ]]; then br1_backup_before_deploy; fi
+
 # ── PUBBLICAZIONE (swap) ─────────────────────────────────────────────────────
 # Il preflight ha buildato sotto il progetto "-pf", quindi le immagini di produzione
 # vanno ricostruite esplicitamente: senza questa build, `up` riuserebbe l'immagine

@@ -93,13 +93,11 @@ export class ContentResolver {
             ? this.tryLoadPolicy(`${folder}/${name}/${lang}.md`)
             : Promise.resolve(null);
         const active = activeLegalPartials(environment.features, ContestoSito.config.cookiePolicy != null);
-        const [intro, outro, ...sections] = await Promise.all([
-            read('intro'),
-            read('outro'),
-            ...(page.recipe.partials ?? []).map(name => read(active[name] ? name : `${name}/off`)),
-        ]);
+        const names = (page.recipe.partials ?? []).map(name => active[name] ? name : `${name}/off`);
+        const [intro, outro, ...texts] = await Promise.all([read('intro'), read('outro'), ...names.map(read)]);
         if (intro === null) return null;
-        return { intro, outro, sections: sections.filter((s): s is string => s !== null) };
+        const found = names.map((name, i) => ({ name, text: texts[i] })).filter((p): p is { name: string; text: string } => p.text !== null);
+        return { intro, outro, sections: found.map(p => p.text), sectionNames: found.map(p => p.name) };
     }
 
     private async tryLoadPolicy(file: string): Promise<string | null> {

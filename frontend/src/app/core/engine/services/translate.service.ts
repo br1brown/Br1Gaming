@@ -116,11 +116,9 @@ export class TranslateService {
         }
         if (args.length === 0) return template;
 
-        let result = template;
-        for (let i = 0; i < args.length; i++) {
-            result = result.replaceAll(`{${i}}`, String(args[i] ?? ''));
-        }
-        return result;
+        // Un solo passaggio: un argomento che contiene a sua volta `{1}` (es. un nome fornitore) non viene
+        // sostituito di nuovo. Un segnaposto senza argomento resta com'è.
+        return template.replace(/\{(\d+)\}/g, (match, i: string) => +i < args.length ? String(args[+i] ?? '') : match);
     }
 
     t(key: string, ...args: unknown[]): string {

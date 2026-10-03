@@ -44,7 +44,7 @@ export interface GlobalSettings {
      */
     port?: number;
     /**
-     * Percorso del file con i fatti dell'installazione (hosting, CDN, reverse proxy, log del server), relativo alla cartella di global-settings.json o assoluto (es. '../hosting.json'). Un file per server, condiviso dai siti che ci girano; schema in frontend/src/app/core/engine/legal/hosting-info.schema.json. La Privacy Policy genera da qui la sezione 'Dati di navigazione'. Vive nel .local perché dipende da dove pubblichi. Assente = testo generico; indicato ma mancante o non valido = il frontend non parte.
+     * Percorso del file con i fatti dell'installazione (hosting, CDN, reverse proxy, log del server), relativo alla cartella di global-settings.json o assoluto (es. '../hosting.json'). Un file per server, condiviso dai siti che ci girano; schema in frontend/src/app/core/engine/legal/hosting-info.schema.json. La Privacy Policy genera da qui la sezione 'Dati di navigazione'. Vive nel .local perché dipende da dove pubblichi. Assente o mancante = testo generico; indicato ma non valido = il frontend non parte.
      */
     hostingInfo?: string;
   };
@@ -226,6 +226,15 @@ export interface GlobalSettings {
      * URL del webhook a cui inviare la segnalazione (POST JSON: message, exceptionType, statusCode, path, method, stackTrace troncato, timestamp). Vuoto con Features.ErrorReporting spento = nessuna chiamata uscente; vuoto con il flag acceso = il backend non parte.
      */
     WebhookUrl?: string;
+  };
+  /**
+   * Copie di sicurezza dei dati del sito (volumi Docker uploads-data e db-data), fatte da scripts/backup.sh. Una sola fonte: lo script usa Retention come numero di copie da tenere (se non lo passi con la variabile RETENTION) e la Privacy Policy la scrive nella sezione 'Copie di sicurezza'. Dichiararlo ATTIVA il backup: deploy.sh e deploy-release.sh lanciano scripts/backup.sh prima di pubblicare il backend (un backup fallito avvisa ma non blocca il rilascio; al primo deploy i volumi non esistono e vengono saltati). Assente = nessun backup nel deploy e nessuna frase nella Privacy Policy: la policy non dichiara ciò che il deploy non fa. Per copie periodiche aggiungi il cron (vedi DOCKER_README). Committabile, senza segreti.
+   */
+  Backup?: {
+    /**
+     * Quante copie restano (le più vecchie vengono cancellate). È un conteggio, non giorni: con una copia al giorno sono i giorni.
+     */
+    Retention: number;
   };
   /**
    * Qualità della variante web-ottimizzata di un blob immagine (EngineBlobController.webopt). Le DIMENSIONI richiedibili non sono qui: sono una whitelist fissa dell'Engine (`ALLOWED_WIDTHS` in `frontend/src/app/core/engine/asset-config.ts`, rispecchiata lato C# in `EngineBlobController.AllowedWebOptSizes`) — non una scelta per-progetto, sono le stesse larghezze per qualunque sito.

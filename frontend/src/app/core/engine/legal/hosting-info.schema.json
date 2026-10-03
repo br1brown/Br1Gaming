@@ -12,7 +12,7 @@
       "properties": {
         "fornitore": { "type": "string", "minLength": 1, "description": "Ragione sociale del fornitore (es. 'OVH SAS').", "examples": ["OVH SAS", "Hetzner Online GmbH"] },
         "paese": { "type": "string", "pattern": "^[A-Z]{2}$", "description": "Paese dei server, codice ISO 3166-1 alpha-2 (es. 'FR'). Dentro l'Unione europea o lo Spazio economico europeo il testo lo dice da sé; fuori serve 'garanzie'.", "examples": ["FR", "DE", "IT"] },
-        "garanzie": { "enum": ["adeguatezza", "clausole-standard"], "description": "Base del trasferimento fuori dallo Spazio economico europeo: decisione di adeguatezza della Commissione (art. 45 GDPR) o clausole contrattuali standard (art. 46 GDPR). Obbligatoria se 'paese' è fuori dallo SEE." }
+        "garanzie": { "enum": ["adeguatezza", "clausole-standard"], "description": "Base del trasferimento fuori dallo Spazio economico europeo: decisione di adeguatezza della Commissione (art. 45 GDPR) o clausole contrattuali standard (art. 46 GDPR). Obbligatoria se 'paese' è fuori dallo SEE. Per gli Stati Uniti la decisione di adeguatezza vale solo per le aziende aderenti al Data Privacy Framework UE-USA: se non sei sicuro che il fornitore lo sia, indica 'clausole-standard'." }
       }
     },
     "log": {

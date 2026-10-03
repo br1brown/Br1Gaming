@@ -7,9 +7,9 @@
 # archivio .tar.gz datato e tiene solo gli ultimi N backup.
 #
 # Uso:
-#   ./backup.sh                    Backup in ./backups, retention 14
+#   ./backup.sh                    Backup in ./backups, retention da Backup.Retention (global-settings.json), altrimenti 14
 #   BACKUP_DIR=/mnt/dati ./backup.sh
-#   RETENTION=30 ./backup.sh
+#   RETENTION=30 ./backup.sh       La variabile vince su global-settings.json
 #
 # Cron (ogni notte alle 3:00):
 #   0 3 * * * cd /percorso/progetto && ./backup.sh >> backups/backup.log 2>&1
@@ -22,7 +22,9 @@
 set -euo pipefail
 
 BACKUP_DIR="${BACKUP_DIR:-./backups}"
-RETENTION="${RETENTION:-14}"
+# Quante copie tenere: la variabile RETENTION, altrimenti Backup.Retention di global-settings.json (la stessa fonte
+# che la Privacy Policy scrive nella sezione "Copie di sicurezza"), altrimenti 14. Risolta dopo la lettura del progetto.
+RETENTION="${RETENTION:-}"
 
 if [[ -t 1 ]]; then
     BOLD='\033[1m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; RESET='\033[0m'
@@ -31,15 +33,6 @@ else
 fi
 ok()   { echo -e "  ${GREEN}OK${RESET} $*"; }
 warn() { echo -e "  ${YELLOW}WARN${RESET} $*"; }
-
-# Minimo 1: con RETENTION=0 `tail -n +1` includerebbe anche l'archivio appena creato in questo stesso
-# run fra i "vecchi da eliminare" — lo script cancellerebbe il backup che ha appena fatto, stampando
-# comunque "Backup completato" (nessun archivio resterebbe sul disco). Non esiste un modo sensato per
-# "nessuna retention" che non sia "nessun backup", quindi il minimo utile è 1.
-if (( RETENTION < 1 )); then
-    warn "RETENTION=${RETENTION} non valido (cancellerebbe anche il backup appena creato) — forzato a 1."
-    RETENTION=1
-fi
 
 command -v docker >/dev/null 2>&1 || { echo -e "  ${RED}ERR${RESET} Docker non trovato" >&2; exit 1; }
 command -v node   >/dev/null 2>&1 || { echo -e "  ${RED}ERR${RESET} Node.js non trovato (serve per leggere il nome progetto)" >&2; exit 1; }
@@ -54,6 +47,23 @@ const slug = String(s.project?.name || 'app').trim().toLowerCase().replace(/[^a-
 process.stdout.write(slug);
 ")"
 [[ -n "$PROJ" ]] || { echo -e "  ${RED}ERR${RESET} Impossibile derivare il nome progetto da global-settings.json" >&2; exit 1; }
+
+if [[ -z "$RETENTION" ]]; then
+    RETENTION="$(node --input-type=module --eval "
+import { readFileSync } from 'fs';
+const r = JSON.parse(readFileSync('global-settings.json','utf-8')).Backup?.Retention;
+process.stdout.write(Number.isInteger(r) ? String(r) : '14');
+")"
+fi
+
+# Minimo 1: con RETENTION=0 `tail -n +1` includerebbe anche l'archivio appena creato in questo stesso
+# run fra i "vecchi da eliminare" — lo script cancellerebbe il backup che ha appena fatto, stampando
+# comunque "Backup completato" (nessun archivio resterebbe sul disco). Non esiste un modo sensato per
+# "nessuna retention" che non sia "nessun backup", quindi il minimo utile è 1.
+if (( RETENTION < 1 )); then
+    warn "RETENTION=${RETENTION} non valido (cancellerebbe anche il backup appena creato) — forzato a 1."
+    RETENTION=1
+fi
 
 mkdir -p "$BACKUP_DIR"
 STAMP="$(date +%Y%m%d-%H%M%S)"

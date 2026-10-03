@@ -1,13 +1,13 @@
 /** Configurazione dell'ambiente Node SSR, letta una volta al boot: unica sorgente per server.ts e app.config.server.ts. Sezioni lazy (l'import non legge env var, così la route extraction non le richiede); validazione in server.ts, non qui. */
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, statSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import type { GlobalSettings } from '../global-settings.types';
 import { deepMergeSettings } from '../scripts/config/settings-merge';
 import type { CspOverride } from './csp';
 import type { PermissionsPolicyOverride } from './permissions-policy';
-import { parseHostingInfo, type HostingInfo, type LegalFacts } from '../legal/hosting-info';
+import { parseBackupProgetto, parseHostingInfo, terziDaOverride, type HostingInfo, type LegalFacts } from '../legal/hosting-info';
 import { environment } from '../../../../environments/environment';
 
 // ── Lettura global-settings.json (+ override global-settings.local.json) ──────────────
@@ -149,7 +149,8 @@ function br1(): Br1Json {
 
 /** File dei fatti dell'installazione: HOSTING_INFO_PATH (Docker: lo monta il deploy, `/dev/null` se non
  *  configurato) oppure `frontend.hostingInfo` relativo alla cartella di global-settings.json (dev locale).
- *  File vuoto o percorso non configurato = null; file mancante o non valido = errore. */
+ *  File vuoto, mancante o percorso non configurato = null (testo generico; un file indicato ma mancante lascia un avviso nel log);
+ *  file presente ma non valido = errore. */
 function loadHostingInfo(): HostingInfo | null {
     const configured = br1().frontend?.hostingInfo?.trim();
     const settingsDir = [process.env['GLOBAL_SETTINGS_PATH'], resolve(process.cwd(), 'global-settings.json'), resolve(process.cwd(), '../global-settings.json')]
@@ -157,7 +158,11 @@ function loadHostingInfo(): HostingInfo | null {
     const file = process.env['HOSTING_INFO_PATH']
         || (configured ? resolve(settingsDir ? dirname(settingsDir) : process.cwd(), configured) : '');
     if (!file) return null;
-    if (!existsSync(file)) throw new Error(`[br1-engine] frontend.hostingInfo: il file ${file} non esiste.`);
+    // Mancante (o, in Docker, una cartella montata al suo posto) = come vuoto: la policy ha il testo generico.
+    if (!existsSync(file) || !statSync(file).isFile()) {
+        if (file !== '/dev/null') console.warn(`[br1-engine] frontend.hostingInfo: il file ${file} non esiste; la Privacy Policy usa il testo generico sui dati di navigazione.`);
+        return null;
+    }
     const text = readFileSync(file, 'utf-8').trim();
     if (!text) return null;
     let raw: unknown;
@@ -172,7 +177,7 @@ export function getBr1Settings(): GlobalSettings {
     return (_br1 ??= loadBr1Settings()) as GlobalSettings;
 }
 
-/** Fatti per la Privacy Policy (installazione, sito coperto, finestra del rate limiting): stessa fonte per
+/** Fatti per la Privacy Policy (installazione, servizi di terze parti, backup, sito coperto, finestra del rate limiting): stessa fonte per
  *  il provider Angular (SSR di ogni pagina) e per l'endpoint di scorta (`/internal/legal-facts`), che il
  *  browser interroga solo quando una pagina caricata senza SSR (`requiresAuth`) non gliel'ha già passata.
  *  Già ridotti a ciò che il testo scrive (vedi `LegalFacts`): il limite spento è `null`, non "spento", e la finestra
@@ -186,6 +191,8 @@ export function computeLegalFacts(): LegalFacts {
         const finestra = Math.max(rl?.Global?.WindowSeconds ?? 60, environment.features.login ? rl?.Login?.WindowSeconds ?? 60 : 0);
         return {
             installazione: serverEnv.hostingInfo,
+            terzi: terziDaOverride(serverEnv.security.cspOverride, serverEnv.security.permissionsPolicyOverride),
+            backup: parseBackupProgetto(getBr1Settings().Backup),
             sito: serverEnv.site.baseUrl || null,
             limiteRichiesteSecondi: attivo ? finestra : null,
         };
