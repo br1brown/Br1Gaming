@@ -166,7 +166,7 @@ fi
 ok "COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}"
 ok "FRONTEND_PORT=${FRONTEND_PORT}"
 # Avviso (non bloccante): dietro un reverse proxy serve BehindProxy=true, altrimenti il rate
-# limiter del backend vede l'IP del proxy per OGNI utente → li conta come uno solo → 100 req/min
+# limiter del backend vede l'IP del proxy per OGNI utente → li conta come uno solo → 500 req/min
 # condivise da tutti (429 intermittenti sotto traffico modesto). Se NON usi un proxy, ignora.
 if [[ "$DEPLOY_BACKEND" == true && "${BEHIND_PROXY:-no}" != "yes" ]]; then
     warn "Security.BehindProxy non è true: se pubblichi dietro un reverse proxy (es. nginx) il rate limiter conterà tutti gli utenti come un solo IP. Imposta \"Security\": { \"BehindProxy\": true } in global-settings.local.json."

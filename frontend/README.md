@@ -106,7 +106,7 @@ Comportamento:
 - **Cambio pagina lato client (SPA):** il blocco carica `on idle`, mostrando per un attimo il `@placeholder`.
 - I click su una sezione non ancora idratata non vanno persi: `withEventReplay()` li riconsegna a idratazione avvenuta.
 
-La home demo lo applica alle sezioni QR, Notifiche e Sistema.
+La pagina demo `che-faccio` lo applica alle sezioni QR, Notifiche e Sistema.
 
 Transizioni di pagina: i cambi pagina usano la View Transitions API del browser (`withViewTransitions()` nel router) come progressive enhancement: dissolvenza incrociata, con le parti uguali fra le due pagine (navbar, sfondo) ferme. Ogni pagina che estende `PageBaseComponent` riceve anche un fade-in d'ingresso del contenuto (`.page-fade`). Entrambe le decide il design system con `movimento` (§«Chrome del sito»): `'fermo'` le spegne tutte e due, e nessun ruolo di pagina riaccende il fade. Sotto `prefers-reduced-motion` non c'è animazione (`engine/base/_a11y.scss`); i browser senza supporto cambiano pagina senza transizione.
 
@@ -166,7 +166,7 @@ Nei template, Bootstrap prima di tutto: layout, griglie, spazi fra sezioni (`.mb
 | `.icon-sm` / `.icon-md` / `.icon-lg` | Taglia del glifo Font Awesome dal token |
 | `.text-xs`, `.text-label` | Testo al gradino minimo (Bootstrap si ferma a `.small`); spaziatura del maiuscoletto |
 
-z-index e ombre: variabili, mai letterali. `base/_tokens.scss` definisce la scala z-index del template (`--z-cookie-banner`, `--z-fab`, `--z-skip-link`, `--z-cdk-overlay`), incastrata nei vuoti della scala Bootstrap così i widget persistenti restano sotto offcanvas e modali (che devono coprirli). Un nuovo elemento fisso usa una di queste variabili o ne aggiunge una alla scala, e resta coerente con l'ordine di sovrapposizione di Bootstrap. Stesso principio per le ombre di elevazione: `--shadowElevated` / `--shadowElevatedHover` (dal campo `elevazione` del design system), che valgono anche per il pannello contenuti.
+z-index e ombre: variabili, mai letterali. `base/_tokens.scss` definisce la scala z-index del template (`--z-fab`, `--z-skip-link`, `--z-cdk-overlay`; `--z-cookie-banner` e gli altri livelli condivisi con Bootstrap sono derivati in `styles/engine/bootstrap.scss`), incastrata nei vuoti della scala Bootstrap così i widget persistenti restano sotto offcanvas e modali (che devono coprirli). Un nuovo elemento fisso usa una di queste variabili o ne aggiunge una alla scala, e resta coerente con l'ordine di sovrapposizione di Bootstrap. Stesso principio per le ombre di elevazione: `--shadowElevated` / `--shadowElevatedHover` (dal campo `elevazione` del design system), che valgono anche per il pannello contenuti.
 
 Componenti senza CSS: il file `.scss` di un componente nasce quando serve qualcosa fra i casi sopra. Il footer, ad esempio, è fatto di classi Bootstrap nel template e non ne ha uno.
 
@@ -389,7 +389,7 @@ Le rotte d'errore sono generate dall'Engine (`core/engine/routing.ts`):
 
 | Rotta | Comportamento |
 | :--- | :--- |
-| `**` (qualsiasi URL non riconosciuto) | redirect a `error/404` |
+| `**` (qualsiasi URL non riconosciuto) | rende `ErrorComponent` (404) direttamente, senza redirect |
 | `error/:errorCode` | mostra `ErrorComponent` con quel codice |
 | `error/offline`, `error/502`, `error/503`, `error/504` | Problemi di **disponibilità** della pagina che stava caricando (`isAvailabilityError` in `content.resolver.ts`): il resolver dei contenuti ci arriva da sé, con l'URL da ritentare nel query param `retry` (solo path interni; in query e non nello state perché in SSR il redirect è un 302 HTTP e un reload lo perderebbe), e `ErrorComponent` offre un bottone **Riprova** che torna a quell'URL (rilancia il resolver); senza `retry` (pagina aperta da sé) resta solo "Torna alla home". Tre situazioni, distinte da ciò che il browser vede: status 0 senza rete → "Sei offline" (dispositivo); status 0 con la rete → "Server non raggiungibile" (il server del sito non risponde: hosting, DNS); 502/504 dal proxy SSR (backend irraggiungibile o in timeout) e 503 dal backend (manutenzione, saturo) → "Servizio non disponibile" (il sito risponde, il backend no). Un 500 resta fuori: è un bug, segnalato da `ErrorReporting`, non un "riprova". **Lato server**: con `BACKEND_ORIGIN` configurato l'SSR chiama il backend direttamente, e un backend irraggiungibile (status 0 sul server) è un 502 come per il proxy: 302 verso `error/502?retry=…`, servita con status HTTP 502 (`getSeoStatusForPath`); `error/offline` chiesta al server risponde 503 con `Retry-After: 60`. Senza `BACKEND_ORIGIN` (`npm run start`, estrazione rotte in CI) le chiamate SSR sono rifiutate con `SsrBackendUnconfiguredError`, che **non** è un problema di disponibilità: contenuto vuoto e il browser ricarica dopo l'idratazione, come prima. Con la PWA attiva `error/offline` è la pagina che si vede aprendo senza rete un URL non in cache: il service worker serve la shell, il resolver fallisce, si finisce qui invece che su una pagina vuota. Chiavi `erroreOffline*`, `erroreIrraggiungibile*`, `erroreServizio*`, `riprovaAzione`. |
 | `error` | redirect a `error/500` |
@@ -1040,7 +1040,7 @@ Tre vincoli dello stack, rispettati by design:
 | `resolveText(notification)` | metodo | Risolve il testo mostrabile di una notifica (chiave i18n tradotta → `message` letterale → `type` come fallback); riusato dal campanellino |
 | `clear()` | metodo | Svuota lo storico |
 
-Notifiche non soltanto testuali: ogni notifica è `{ id, type, payload, timestamp }` con `payload` libero. Il `type` sceglie la reazione: senza handler registrato si ricade sul toast di default; con `on(type, ...)` la reazione è libera: un modale ricco (`notify.interact`), un'immagine, un link, un tuo componente pilotato da `notifications()`. Per il toast di default il payload segue il contratto i18n: `{ messageKey, messageParams?, icon }` (chiave tradotta lato client nella lingua corrente) oppure `{ message, icon }` per testo letterale. La risoluzione vive in un punto, `resolveText(notification)`, riusato anche dal campanellino.
+Notifiche non soltanto testuali: ogni notifica è `{ id, type, payload, timestamp }` con `payload` libero. Il `type` sceglie la reazione: senza handler registrato si ricade sul toast di default; con `on(type, ...)` la reazione è libera: un modale ricco (`notify.modal`), un'immagine, un link, un tuo componente pilotato da `notifications()`. Per il toast di default il payload segue il contratto i18n: `{ messageKey, messageParams?, icon }` (chiave tradotta lato client nella lingua corrente) oppure `{ message, icon }` per testo letterale. La risoluzione vive in un punto, `resolveText(notification)`, riusato anche dal campanellino.
 
 ```typescript
 // In un componente sempre attivo (es. AppComponent): iniettarlo attiva lo stream.
@@ -1052,7 +1052,7 @@ ngOnInit() {
     // Tipo ricco + interattivo: notifica con azione di risposta.
     this.stream.on<{ jobId: string }>('renderReady', async n => {
         const ok = await this.notify.confirm('Render pronto', 'Vuoi salvarlo?');
-        if (ok) await this.api.post(`/jobs/${n.payload!.jobId}/save`, {}); // la "risposta" è una POST
+        if (ok) await this.api.salvaJob(n.payload!.jobId); // metodo di ApiService (POST): la "risposta" alla notifica
     });
 }
 ```
@@ -1061,7 +1061,7 @@ Notifica mirata a chi avvia il job: `X-Connection-Id` automatico. Per notificare
 
 ```typescript
 // Il connectionId viaggia da sé: l'header X-Connection-Id è già su questa POST.
-await this.api.post('/upload', body);
+await this.api.caricaFile(body); // metodo di ApiService che fa la POST
 ```
 
 L'holder è inerte di proposito: leggerlo (lato `BaseApiService`) NON inietta il `NotificationStreamService` e non avvia alcuna SSE. Lo popola lo stream quando si connette e lo azzera quando cade. Finché nessuno avvia lo stream (campanellino non montato) resta `null`: nessun header, e il backend riceve un `connectionId` nullo e gestisce il caso (broadcast / nessun target). Lo stream resta pigro: nessuna connessione SSE non voluta, ma l'header c'è appena serve.
@@ -1106,7 +1106,7 @@ Due percorsi distinti portano all'URL di un'immagine ottimizzata. Si comportano 
 In breve: un'immagine già nel repo/build è un asset → `asset.getUrl('hero', 640)`. Un'immagine caricata a runtime e identificata da uno slug → `api.getBlobUrl(slug)`. Ognuno legge dalla propria sorgente: lo slug del blob dal volume `uploads`, l'id dell'asset da `mapping.json`.
 
 Registrare un nuovo asset:
-1. Copia il file immagine nella cartella indicata da `ASSETS_DIR` (default `src/assets/files/`, la stessa che `AssetService` serve via `/cdn-cgi/asset`, vedi `frontend/src/app/core/engine/server/asset-mapping.ts`).
+1. Copia il file immagine nella cartella indicata da `ASSETS_DIR` (valorizzata a `src/assets/files/` da `npm start` e `start-frontend-dev.sh`; senza, il server cerca in `dist/browser/assets/files`; è la stessa cartella che `AssetService` serve via `/cdn-cgi/asset`, vedi `frontend/src/app/core/engine/server/asset-mapping.ts`).
 2. Aggiungi una riga a `src/assets/mapping.json`: `"hero": "hero.jpg"` (chiave = id da usare in `asset.getUrl('hero')`/`appAsset="hero"`, valore = nome del file appena copiato).
 3. Nessun comando da lanciare: il server SSR legge `mapping.json` a runtime e lo ricarica alla prima occorrenza utile se il file cambia dopo l'avvio (vale anche in `ng serve`, senza riavvio).
 
@@ -1415,8 +1415,9 @@ Pattern reattivo (dati che si aggiornano con la lingua o lo stato): esponi un me
 In componenti con UI d'errore propria (es. form di login), passa `{ silent: true }` per impedire la notifica automatica:
 
 ```typescript
-// LoginFormComponent: gestisce l'errore internamente
-await this.api.login(req, { silent: true })
+// Componente con UI d'errore propria: gestisce l'errore internamente.
+// getArticolo è un metodo di ApiService che passa { silent: true } a api_get.
+await this.api.getArticolo(id, { silent: true })
     .catch(err => {
         this.errorMsg.set(err.problem?.detail ?? this.translate.translate('erroreImprevisto'));
     });
@@ -1558,7 +1559,7 @@ Varianti utili: `toSVG(config)` restituisce il QR come stringa SVG (vettoriale, 
 
 ## 🖼️ ImgBuilderService: Generazione Immagini da Testo
 
-`ImgBuilderService` genera PNG da testo (o da testo sovrapposto a un'immagine) con SVG come formato intermedio. Un punto d'ingresso per formato di output (`buildCanvas`/`buildBlob`/`buildFile`), che riceve uno `spec` con `style` a scegliere l'implementazione.
+`ImgBuilderService` genera immagini WebP da testo (o da testo sovrapposto a un'immagine) con SVG come formato intermedio. Un punto d'ingresso per formato di output (`buildCanvas`/`buildBlob`/`buildFile`), che riceve uno `spec` con `style` a scegliere l'implementazione.
 
 **`style: 'plain'`**: testo su sfondo pieno, senza immagine di base. Tre modalità di layout:
 
@@ -1581,7 +1582,7 @@ const canvas = await this.img.buildCanvas({
     opts: { bgColor: '#1f40ff', textColor: '#ffffff', fontSize: 60, ratio: '16:9', maxWidth: 1920 },
 });
 
-// Blob PNG per download o condivisione
+// Blob WebP per download o condivisione
 const blob = await this.img.buildBlob({ style: 'plain', text: 'Titolo', opts });
 await this.share.downloadBlob(blob, 'social.png');
 ```
@@ -1590,7 +1591,7 @@ Senza `bgColor`/`textColor` i colori vengono dai signal del tema corrente (WCAG-
 
 **`style: 'pill'`**: badge/chip di testo ancorato a un angolo sopra un'immagine esistente (`imageSrc`, URL o `Blob`): `pillOpts.text`/`subtitle`, `corner`, `margin`. **`style: 'caption'`**: fascia scrim (in alto/al centro/in basso) con titolo e sottotitolo sopra un'immagine: `captionOpts.text`/`subtitle`/`position`. Entrambe troncano con ellissi oltre `maxLines` (3 e 4 di default).
 
-**`style: 'fittedCaption'`**: come `'caption'`, per un testo non noto a priori (es. generato) quando l'ellissi non è accettabile: calcola da sé l'altezza perché `text`/`subtitle` entrino per intero, mai troncati. A differenza di `'caption'` non sovrappone il testo all'immagine: compone due zone indipendenti, immagine sopra e fascia testo sotto, con una dissolvenza fra le due (mai una riga netta). L'immagine è **nitida e a piena larghezza, mai sfocata**: se la sua altezza naturale supera `captionOpts.maxImageRatio` (frazione della larghezza canvas, default `0.6`) viene ritagliata dal basso, mai zoomata sui lati né deformata. `imgOpts` qui accetta `width`/`backdropColor` (niente `background`/`foreground`/`fit`: `fittedCaption` mostra l'immagine in un modo).
+**`style: 'fittedCaption'`**: come `'caption'`, per un testo non noto a priori (es. generato) quando l'ellissi non è accettabile: calcola da sé l'altezza perché `text`/`subtitle` entrino per intero, mai troncati. A differenza di `'caption'` non sovrappone il testo all'immagine: compone due zone indipendenti, immagine sopra e fascia testo sotto, con una dissolvenza fra le due (mai una riga netta). L'immagine è **nitida e a piena larghezza, mai sfocata**: se la sua altezza naturale supera `captionOpts.maxImageRatio` (frazione della larghezza canvas, default: nessun tetto) viene ritagliata dal basso, mai zoomata sui lati né deformata. `imgOpts` qui accetta `width`/`backdropColor` (niente `background`/`foreground`/`fit`: `fittedCaption` mostra l'immagine in un modo).
 
 ```typescript
 const canvas = await this.img.buildCanvas({
@@ -1601,7 +1602,7 @@ const canvas = await this.img.buildCanvas({
 });
 ```
 
-Per allegare l'immagine a un `FormData`/upload c'è `buildFile(spec, filename?)`, che restituisce un `File` PNG pronto (è `buildBlob` avvolto in un `new File([...])`).
+Per allegare l'immagine a un `FormData`/upload c'è `buildFile(spec, filename?)`, che restituisce un `File` WebP pronto (è `buildBlob` avvolto in un `new File([...])`).
 
 SSR-safe: il metodo statico `ImgBuilderService.buildSvg()` non tocca DOM né Angular, ed è usabile in Node.js per le preview server-side.
 
@@ -1700,7 +1701,7 @@ Tab senza Service Worker (con `isWebApp:false`, in ogni caso): polling a interva
 PWA / tab con SW attivo: il SW serve `index.html` dalla cache (versione stabile per il polling) e decide SwUpdate, che emette `VERSION_READY` quando la nuova versione è scaricata → l'utente conferma → `activateUpdate()` + reload.
 
 #### Personalizzare la UX di Aggiornamento
-Di default la notifica è un `window.confirm` bloccante seguito da un ricaricamento forzato (`window.location.reload()`), che interromperebbe un utente a metà di un form lungo o di una partita.
+Di default la notifica è un dialog di conferma bloccante (`NotificationService.confirm`) seguito da un ricaricamento forzato (`window.location.reload()`), che interromperebbe un utente a metà di un form lungo o di una partita.
 In `site.ts` `onVersionUpdateAvailable(apply: () => void)` devia questo comportamento: l'Engine consegna la callback `apply` (che incapsula attivazione SW e ricaricamento) e **il progetto decide come e quando** invocarla (es. una snackbar non bloccante "Aggiorna ora"). Se l'hook fallisce, interviene il dialog di default, e l'aggiornamento non va perso. Esempi d'uso in `AGENTS.md`.
 
 Prerequisito (consenso TechnicalOptional): se il sito ha un consenso TechnicalOptional (di norma il caso PWA; i cookie Technical necessari sono esenti per legge, mai a consenso) il controllo versione resta spento finché l'utente non lo accetta, e parte dal reload successivo. Senza consenso TechnicalOptional (non-PWA) non c'è nulla da accettare e il polling parte in ogni caso: legge il meta `app-version` via `fetch`, senza scrivere cookie. Senza questa distinzione un sito con `isWebApp:false` resterebbe senza controllo versione per sempre.
@@ -1717,7 +1718,7 @@ Deliberatamente senza destinazione di default: l'Engine raccoglie, non decide do
 constructor() {
     effect(() => {
         const m = inject(WebVitalsService).metrics();
-        if (m.length) this.api.post('metrics/vitals', m.at(-1));
+        if (m.length) this.api.inviaVitals(m.at(-1)!); // metodo di ApiService che fa la POST
     });
 }
 ```
@@ -2134,7 +2135,7 @@ Regola pratica: `[appPage]` per tutti i link interni. Per un cambio pagina da co
 
 ### `img[appImgRender]`: Rendering Immagine Generata
 
-Applica `ImgBuilderService` su un `<img>`. Il `src` si aggiorna con il data URL PNG a ogni cambio della config. Niente wrapper, niente classi proprie: l'elemento accetta gli attributi `<img>` standard.
+Applica `ImgBuilderService` su un `<img>`. Il `src` si aggiorna con il data URL WebP a ogni cambio della config. Niente wrapper, niente classi proprie: l'elemento accetta gli attributi `<img>` standard.
 
 ```html
 <img [appImgRender]="imgConfig"
@@ -2322,7 +2323,7 @@ Pulsante social con icona e colore del network. Deduce il network dall'URL (rege
 | `label` | `string` | Etichetta custom (default: nome network dedotto, o hostname) |
 | `showLabel` | `boolean` | Mostra testo accanto all'icona (default: `false`) |
 
-Network con branding integrato (30+): `facebook`, `instagram`, `twitter` (X), `linkedin`, `youtube`, `whatsapp`, `telegram`, `tiktok`, `spotify`, `discord`, `github`, `reddit`, `threads`, `google`, `snapchat`, `pinterest`, `tumblr`, `twitch`, `soundcloud`, `deezer`, `vimeo`, `dribbble`, `mastodon`, `applemusic`, `btc`, `amazon`, `airbnb`, `apple`, `android`, `playstation`, `yahoo`, `audible`, `quora`, `tipeee`, `chrome`, `chromecast` (Google Cast); `skype`, `foursquare` e `itunes` restano per i link vecchi (servizi chiusi o rinominati).
+Network con branding integrato (30+): `facebook`, `instagram`, `twitter` (X), `linkedin`, `youtube`, `whatsapp`, `telegram`, `tiktok`, `spotify`, `spreaker`, `discord`, `github`, `reddit`, `threads`, `google`, `snapchat`, `pinterest`, `tumblr`, `twitch`, `soundcloud`, `deezer`, `vimeo`, `dribbble`, `mastodon`, `applemusic`, `btc`, `amazon`, `airbnb`, `apple`, `android`, `playstation`, `yahoo`, `audible`, `quora`, `tipeee`, `chrome`, `chromecast` (Google Cast); `skype`, `foursquare` e `itunes` restano per i link vecchi (servizi chiusi o rinominati).
 
 **Colori: dalle linee guida dei brand, non calcolati.** Ogni voce di `SOCIAL_MAP` (`social-link.component.ts`) dichiara lo sfondo della pastiglia (`color`) e il colore del marchio sopra (`fg`) come li prescrive il brand, con la fonte in commento (brand kit verificati il 2026-09-25): l'aereo di Telegram è bianco sul blu, le onde di Spotify nere sul verde, il robot Android verde su nero perché Google vieta il logo su fondo verde, il sorriso Amazon arancio su Squid Ink perché non va sull'arancio pieno. Tre casi particolari:
 - **Glifi "a disco"** (`mode: 'disc'`: Telegram, Spotify, GitHub, Skype): il glifo Font Awesome è già un disco col marchio ritagliato; prende il colore del brand a tutta pastiglia e il ritaglio si riempie di `fg`, come il logo vero (in pastiglia normale uscirebbe in negativo).
@@ -2529,13 +2530,11 @@ npm run generate:statics
 | `src/index.html` | `<html lang>` (+ `dir`), `<title>`, i meta OpenGraph/Twitter, `<link rel="icon">`, `<link rel="apple-touch-icon">` |
 | `public/manifest.webmanifest` | `name`, `short_name`, `id`, `description`, `lang`, `dir`, `theme_color`, `background_color`, `icons` (`any`/`maskable`), `version`, con `isWebApp:true` |
 | `public/robots.txt` | `Allow: /` + URL sitemap. Le pagine protette **non** sono elencate (un robots.txt è pubblico e ne rivelerebbe i path): la loro non-indicizzazione la gestisce il server SSR con `X-Robots-Tag: noindex` |
-| `public/llms.txt` | Indice del sito per i crawler AI (convenzione `llms.txt`): nome, descrizione, elenco pagine |
-| `public/security.txt` | Contatto di sicurezza RFC 9116 (`Expires` rigenerato a ogni build); servito sul percorso canonico `/.well-known/security.txt` dal Node SSR |
 | `public/theme-init.js` | Script anti-flash del tema (vedi «Anti-flash e build»): sincrono nel `<head>`, imposta `data-bs-theme` prima che si carichino gli stili |
 | `src/styles/engine/generated/_theme.scss` | Il design system attivo come dati Sass: colori per tono, colori di palette, movimento, elevazione, alone, font. Lo compilano `styles/engine/bootstrap.scss` e `base.scss` |
 | `src/environments/environment.ts` | `defaultLang`, `availableLanguages`, `features`, `configFingerprint`, `legalFiles`: **file generato, non modificarlo a mano** |
 
-> `sitemap.xml` non è un file di questo script: è un endpoint runtime (`GET /sitemap.xml`, vedi «sitemap.xml: endpoint runtime, non file statico»).
+> `sitemap.xml`, `llms.txt` e `security.txt` non sono file di questo script: sono endpoint runtime (`GET /sitemap.xml`, vedi «sitemap.xml: endpoint runtime, non file statico»; `GET /llms.txt`; `GET /.well-known/security.txt`, con `Expires` a un anno da ogni richiesta e 404 se l'identità non ha un contatto).
 
 > `configFingerprint`: guardia contro un `environment.ts` non rigenerato. Un hash (12 caratteri) delle sezioni identity-critiche di `global-settings.json` (`project`/`Localization`/`site`/`Features`). Il Node SSR lo ricalcola al boot dal config letto a runtime e lo confronta con quello del bundle: se non coincidono stampa un warning (capita lanciando `ng serve` senza i pre-hook, o cambiando `global-settings.json` senza rilanciare `npm run generate:statics`). Non blocca l'avvio: è un segnale di dev. `Features` fa eccezione: se i flag del file montato differiscono da quelli compilati, `server.mjs` avviato come processo principale esce con codice 1 (in `ng serve` il controllo non gira).
 
@@ -2605,12 +2604,12 @@ Il builder è `@angular/build:application` (`angular.json → architect.build.bu
 
 | Leva | Dove | Effetto |
 | :--- | :--- | :--- |
-| `budgets` (`configurations.production`) | `angular.json` | Soglia sul peso del bundle iniziale (`950kB` warning, `1.1MB` errore, vedi sotto il perché di questi numeri) e per stile di componente (`6kB`/`10kB`). **`maximumError` è il gate anti-regressione**: fa fallire `ng build` (e la CI); `maximumWarning` stampa un avviso e il build riesce |
+| `budgets` (`configurations.production`) | `angular.json` | Soglia sul peso del bundle iniziale (`960kB` warning, `1000kB` errore, vedi sotto il perché di questi numeri) e per stile di componente (`6kB`/`10kB`). **`maximumError` è il gate anti-regressione**: fa fallire `ng build` (e la CI); `maximumWarning` stampa un avviso e il build riesce |
 | `allowedCommonJsDependencies` | `angular.json` | Whitelist delle dipendenze CommonJS (niente tree-shaking, altrimenti warning bloccante). Qui va una libreria di terze parti che non spedisce ESM (`qrcode` c'è già per il template) |
 | `styles` / `scripts` | `angular.json` | CSS/JS globali caricati prima del bundle applicativo: Bootstrap compilato dall'Engine (`styles/engine/bootstrap.scss`), FontAwesome e SweetAlert2 da `node_modules` |
 | `assets` | `angular.json` | Glob di file copiati così come sono, fuori dal bundle JS |
 
-Budget iniziale (`950kB`): il bundle iniziale del template (senza una riga di contenuto del progetto figlio) pesa ~860kB raw / ~190kB trasferiti (gzip); la cifra che conta per chi visita il sito è quella trasferita, mentre il budget di Angular CLI misura il peso raw. La scomposizione, dal più pesante:
+Budget iniziale (`960kB`): il bundle iniziale del template (senza una riga di contenuto del progetto figlio) pesa ~860kB raw / ~190kB trasferiti (gzip); la cifra che conta per chi visita il sito è quella trasferita, mentre il budget di Angular CLI misura il peso raw. La scomposizione, dal più pesante:
 
 | Voce | Peso raw sorgente | Nota |
 | :--- | ---: | :--- |
@@ -2620,7 +2619,7 @@ Budget iniziale (`950kB`): il bundle iniziale del template (senza una riga di co
 | SweetAlert2 (tema CSS) | ~5kB | Il JS della libreria è dietro `import()` dinamico (`notification.service.ts`), in un chunk lazy |
 | Stili propri dell'Engine + CDK overlay | ~5kB | Trascurabile |
 
-Il limite non cresce con le pagine del progetto figlio: sono lazy-loaded una per una (`component: () => import(...)`, vedi sotto) e non contano nel bundle iniziale (misurato costruendo sia un progetto vuoto sia il template con qualche pagina in più: il numero cambia di pochi kB). È il costo fisso di includere Bootstrap e Font Awesome per intero anziché un sottoinsieme: il template non taglia componenti Bootstrap o icone che un progetto figlio userebbe senza che l'Engine lo sappia (un sito che non usa `.carousel` lo userà magari domani). Il budget alto è la conseguenza di quella scelta: se un progetto figlio arriva a `950kB` col proprio codice (non con il template e basta) è il segnale reale, e a quel punto si alza la soglia lì o si sposta quel contenuto dietro un `import()` dinamico. Se un `ng build` pulito del template appena clonato è già vicino alla soglia, il problema è a monte, qui, non nel figlio.
+Il limite non cresce con le pagine del progetto figlio: sono lazy-loaded una per una (`component: () => import(...)`, vedi sotto) e non contano nel bundle iniziale (misurato costruendo sia un progetto vuoto sia il template con qualche pagina in più: il numero cambia di pochi kB). È il costo fisso di includere Bootstrap e Font Awesome per intero anziché un sottoinsieme: il template non taglia componenti Bootstrap o icone che un progetto figlio userebbe senza che l'Engine lo sappia (un sito che non usa `.carousel` lo userà magari domani). Il budget alto è la conseguenza di quella scelta: se un progetto figlio arriva a `960kB` col proprio codice (non con il template e basta) è il segnale reale, e a quel punto si alza la soglia lì o si sposta quel contenuto dietro un `import()` dinamico. Se un `ng build` pulito del template appena clonato è già vicino alla soglia, il problema è a monte, qui, non nel figlio.
 
 Code-splitting: automatico, segui il pattern esistente. Ogni pagina, nel suo file di area, si dichiara con `component: () => import('./.../x.component').then(m => m.XComponent)`: il router genera un chunk lazy per pagina senza altra configurazione. Per un SDK di terze parti pesante (mappe, player video, chat) lo stesso principio va applicato a mano: `import()` dinamico dentro il componente/servizio che lo usa, non un import statico in cima al file, così il codice entra nel bundle quando serve (e, se l'SDK scrive cookie/Web Storage, dietro il gate del consenso: vedi «Aggiungere voci in `COOKIE_MAP`», [AGENTS.md](../AGENTS.md#persistere-dati-lato-client-cookie-web-storage-consenso)).
 

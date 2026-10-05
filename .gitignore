@@ -64,3 +64,4 @@ frontend/src/styles/engine/generated/
 lh-report-*.json
 frontend/.a11y-run-*.cjs
 .github/copilot-instructions.md
+graphify-out

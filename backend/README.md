@@ -30,7 +30,7 @@ L'Engine si estende ereditando o registrando servizi in DI, mai modificando `Eng
 
 - **`X-Api-Key` obbligatoria**: la esige ogni controller derivato per l'accesso base.
 - **Rate Limiter automatico**: 500 req/min globali, 5 req/min per i login (default, configurabili in `Security.ApiConfig.RateLimiting`). Risponde con HTTP 429 e `ProblemDetails` JSON.
-- **CORS e Header di Sicurezza**: `WithExposedHeaders("Retry-After")` attivato; `security-headers.json` applicato se il backend è esposto al web (`backend.public`).
+- **CORS e Header di Sicurezza**: `WithExposedHeaders("Retry-After")` attivato; `security-headers.json` applicato a ogni risposta del backend quando il file è presente (esposto al web o no).
 - **Ordine Middleware**: `UseExceptionHandler` sta prima di `UseRateLimiter`, così cattura anche le eccezioni interne del limiter (dettaglio in [Ordine della pipeline HTTP](#ordine-della-pipeline-http)).
 
 #### Schema di Autenticazione API Key
@@ -61,7 +61,7 @@ Più chiavi coesistono; elimina quella vecchia quando tutti i client hanno aggio
 | `ApiConfig.Keys` | `string[]` | obbligatorio | Chiavi accettate nell'header `X-Api-Key`. Case-sensitive. |
 | `ApiConfig.RateLimiting.*` | — | vedi sotto | Soglie del rate limiter (globale, login) e interruttore `Enabled` — dettaglio nella nota sotto la tabella. |
 | `CorsOrigins` | `string[]` | `[]` | Origins CORS consentite. **Vuoto = `AllowAnyOrigin`** — la protezione è la API key. Valorizzare per multi-tenant o API admin separata. |
-| `Headers` | `Dictionary<string,string>` | vedi `security-headers.json` | Header di sicurezza browser (dal file del template `security-headers.json`, non da `global-settings.json`). Il backend li applica quando è esposto pubblicamente (`backend.public`). `Content-Security-Policy` è ignorata (irrilevante su JSON) e `Strict-Transport-Security` è esclusa dal loop perché già emessa da `UseHsts()`. |
+| `Headers` | `Dictionary<string,string>` | vedi `security-headers.json` | Header di sicurezza browser (dal file del template `security-headers.json`, non da `global-settings.json`). Il backend li applica a ogni risposta quando il file è presente, esposto o no. `Content-Security-Policy` è ignorata (irrilevante su JSON) e `Strict-Transport-Security` è esclusa dal loop perché già emessa da `UseHsts()`. |
 | `BehindProxy` | `bool` | `false` | Se `true`, abilita `ForwardedHeaders` che legge l'IP reale da `X-Forwarded-For`. **Impostare `true` in produzione se c'è un reverse proxy** — altrimenti il rate limiter vede l'IP del proxy, non del client, e il limite per-IP diventa inutile. Trusted per reti RFC 1918 (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) e per loopback (nginx sulla stessa macchina → `127.0.0.1`), il deploy non-Docker più comune: senza, tutti i visitatori finirebbero nel bucket di `127.0.0.1`. |
 | `Token.SecretKey` | `string` | `""` | Chiave di firma JWT (HMAC-SHA256). Requisito del login, non l'interruttore: senza `Features.Login`/`PublicLogin` il login resta spento anche con la chiave. Con il login acceso deve avere almeno 32 byte UTF-8, niente spazi o a capo ai bordi (rifiutata, non ripulita in silenzio) ed essere diversa dal segnaposto di `global-settings.local.example.json`; altrimenti il backend non parte. |
 | `Token.ExpirationSeconds` | `int` | `3000` (50 min) | Durata del token JWT. `ClockSkew = TimeSpan.Zero`: scaduto = subito rifiutato, senza margine di grazia. **Non esiste un refresh token**: alla scadenza serve un nuovo login, non un rinnovo silenzioso (frontend: [Ciclo di Vita del Token](../frontend/README.md#ciclo-di-vita-del-token)). |
@@ -138,7 +138,7 @@ Task<string> ReadStaticFileAsync(string name, string dataPath, IMemoryCache cach
 
 Unico punto d'invio email del template (`MailKit`/`MimeKit`), iniettato come singleton. Esiste per dare al progetto un invio SMTP già blindato senza scrivere cablaggio.
 - **Accensione**: `IsEnabled` è vero con `Features.Mail` acceso e `Mail.Host`+`Mail.FromAddress` presenti nel `.local`. Flag acceso senza configurazione = il backend non parte; configurazione presente con flag spento = mailer spento. Da spento, l'invio diretto (`SendAsync`) lancia `MailNotConfiguredException` (503, `error_mail_disabled`) e un messaggio accodato viene scartato dal worker con un avviso nel log. All'avvio il log dice "Mailer attivo" o "Mailer spento".
-- **Sicurezza e Hardening**: TLS sempre obbligatorio, subject sanitizzato, allegati limitati, e check sul dominio `To` (se `VerifyRecipientDomain` è true). `MailKit`/`MimeKit` fissati a ≥ 4.17.0 (fix CVE-2026-30227/CVE-2026-41319).
+- **Sicurezza e Hardening**: TLS di default (`Auto` sceglie tra `StartTls` e `SslOnConnect`, mai le varianti opportunistiche; `Security: None` esiste solo per relay locali fidati), subject sanitizzato, allegati limitati, e check sul dominio `To` (se `VerifyRecipientDomain` è true). `MailKit`/`MimeKit` fissati a ≥ 4.17.0 (fix CVE-2026-30227/CVE-2026-41319).
 - **In background**: la via raccomandata non blocca la chiamata HTTP: `IEmailQueue.TryEnqueue` accoda e un worker spedisce in asincrono (3 tentativi, backoff 2 s e 4 s). `IEngineMailer.SendAsync` resta per l'invio diretto.
 
 ```csharp
@@ -710,8 +710,9 @@ L'ordine dei middleware è critico e va mantenuto. I primi 6 vivono dentro `UseT
 | 2 | `UseForwardedHeaders` (con `BehindProxy`) | Ricostruisce l'IP reale da `X-Forwarded-For`: il rate limiter partiziona per IP. Trusted da reti private RFC 1918 e da loopback; se `BehindProxy` è `false` il middleware non viene proprio registrato (niente spoofing). |
 | 3 | `UseCors` | I preflight `OPTIONS` che il browser manda prima delle chiamate cross-origin vengono gestiti qui e **non consumano il budget del rate limiter**. |
 | 4 | `UseExceptionHandler` + `UseStatusCodePages` | Prima del rate limiter: cattura anche eventuali eccezioni interne del limiter. I 429 di `OnRejected` non passano da qui (non sono eccezioni). |
-| 5 | `UseRateLimiter` | Fail fast: un client abusivo viene bloccato subito, senza sprecare i middleware successivi. |
-| 6 | Security headers (se `Security.Headers` presente) + `UseHsts` | Header browser-facing da `security-headers.json`. CSP esclusa (irrilevante su JSON, gestita dall'SSR), HSTS escluso dal loop perché emesso da `UseHsts()`. |
+| 5 | Security headers (se `Security.Headers` presente) | Header browser-facing da `security-headers.json`, applicati a ogni risposta. **Prima del rate limiter**, così li porta anche il 429 di `OnRejected`. CSP esclusa (irrilevante su JSON, gestita dall'SSR), HSTS escluso dal loop perché emesso da `UseHsts()`. |
+| 6 | `UseRateLimiter` | Fail fast: un client abusivo viene bloccato subito, senza sprecare i middleware successivi. |
+| 6b | `UseHsts` | Subito dopo il rate limiter. |
 | 7 | `UseRequestLocalization` | Da qui in poi `IStringLocalizer` risolve nella lingua di `Accept-Language`. Per questo `OnRejected` del limiter (che sta **prima**) ricava la cultura a mano, e `ApiExceptionHandler` la rilegge da `IRequestCultureFeature`. |
 | 8 | `UseAuthentication` → `UseAuthorization` | API key e JWT validati dopo i filtri "di costo" (CORS, rate limit). |
 | 9 | `MapControllers` + `MapHealthChecks("/health")` | `/health` è `AllowAnonymous`. |
@@ -1176,7 +1177,7 @@ Classe concreta dell'Engine (`Backend.Blob.FileBlobStore`, `Engine/Blob/Blob.cs`
 | `ReplaceAsync(oldSlug, stream, ext)` | — | "modifica": salva il nuovo (nuovo slug), poi cancella il vecchio, in quest'ordine |
 | `MaxUploadSizeBytes` | — | proprietà, non metodo: limite upload in byte, default 10 MB |
 
-Lo slug resta immutabile anche per `ReplaceAsync`: il contenuto esistente non si sovrascrive (romperebbe `Cache-Control: immutable` della GET), il rimpiazzo è un blob a sé e il vecchio si cancella DOPO. Se il salvataggio fallisce il vecchio resta intatto; se fallisce la cancellazione del vecchio, per il chiamante la sostituzione è riuscita (resta un file orfano, nessun dato perso) e non c'è errore.
+Lo slug resta immutabile anche per `ReplaceAsync`: il contenuto esistente non si sovrascrive (romperebbe `Cache-Control: immutable` della GET), il rimpiazzo è un blob a sé e il vecchio si cancella DOPO. Se il salvataggio fallisce il vecchio resta intatto; se fallisce la cancellazione del vecchio, il nuovo blob resta comunque salvato e nessun dato va perso, ma il vecchio può restare orfano finché lo sweep all'avvio non lo rimuove, e la chiamata può rispondere con un errore.
 
 `Store/AppBlobStore.cs` è il file di progetto (come `AppIdentityStore.cs`): estende `FileBlobStore`, di serie registra il proprietario a ogni `SaveAsync` e applica il controllo di proprietà su `DeleteAsync`/`ReplaceAsync`. Sovrascrivi i membri che ti servono (es. `SaveAsync` per antivirus o quote, `MaxUploadSizeBytes`), gli altri restano il default Engine. I metodi sono `virtual` e la classe non è `sealed`: uno storage diverso (es. S3) si ottiene estraendo un'interfaccia il giorno in cui serve.
 
@@ -1243,7 +1244,7 @@ builder.Services.AddHealthChecks()
 
 **Docker `HEALTHCHECK`:**
 ```dockerfile
-HEALTHCHECK --interval=30s --timeout=5s CMD curl -f http://localhost:80/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 CMD wget --no-verbose --tries=1 --spider "http://localhost:8080/health" || exit 1
 ```
 
 > `UseStatusCodePages` è registrato dopo `UseExceptionHandler`. Intercetta risposte 4xx/5xx senza body e aggiunge un testo minimo. In pratica quasi mai visibile perché `AddProblemDetails` popola già il body, ma ricordati di lanciare eccezioni (`throw new NotFoundException()`) invece di `return StatusCode(404)` per garantire il formato ProblemDetails anche negli edge case.
