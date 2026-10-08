@@ -17,10 +17,11 @@
 }
 
 /* Riga "small print" (copyright + descrizione): sempre la più defilata del footer, come sulla
-   maggior parte dei siti — non allo stesso corpo/peso visivo delle colonne di link sopra. */
+   maggior parte dei siti — non allo stesso corpo/peso visivo delle colonne di link sopra.
+   Defilata per corpo, mai per `opacity`: il testo del footer può essere `colori.testo`, un colore
+   "duro" garantito solo a 4.5:1, e qualunque trasparenza lo porterebbe sotto soglia. */
 .footer-fineprint {
     font-size: var(--fs-xs);
-    opacity: 0.75;
 }
 
 /* ── Footer: sottogruppi annidati ────────────────────────────────────
@@ -29,8 +30,4 @@
     margin-top: var(--space-2);
     padding-inline-start: var(--space-3);
     border-inline-start: 2px solid color-mix(in srgb, currentColor 18%, transparent);
-}
-
-.footer-subgroup-title {
-    opacity: 0.85;
 }

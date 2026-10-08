@@ -30,7 +30,6 @@
     &__link {
         color: var(--bs-body-color);
         text-decoration: none;
-        transition: text-shadow var(--movimentoMicro, 0.15s) ease-in-out;
         display: inline-flex;
         align-items: center;
         // Hit-slop: allarga l'area cliccabile senza toccare le dimensioni visive (padding
@@ -41,8 +40,8 @@
         &:hover,
         &:focus-visible {
             color: var(--bs-body-color);
-            text-shadow: 0 0 10px rgba(var(--bs-body-color-rgb), 0.3);
-            text-decoration: none;
+            text-decoration: underline;
+            text-underline-offset: 0.2em;
         }
     }
 
@@ -70,7 +69,6 @@
     // Elemento collassato
     &__ellipsis {
         color: var(--bs-body-color);
-        opacity: 0.85;
         display: inline-flex;
         align-items: center;
         padding: 0 var(--space-1);
@@ -84,9 +82,9 @@
         cursor: default;
     }
 
+    // Separatore decorativo (aria-hidden): defilato col tono secondario del tema, non con una trasparenza.
     &__sep {
-        color: var(--bs-body-color);
-        opacity: 0.4;
+        color: var(--bs-secondary-color);
         margin: 0 0.5em;
         font-weight: 300;
         user-select: none;

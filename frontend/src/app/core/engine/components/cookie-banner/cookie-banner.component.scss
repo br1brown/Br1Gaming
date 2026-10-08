@@ -12,10 +12,9 @@ app-cookie-banner .cookie-reopen-btn {
     padding: 0;
 }
 
-/* `'discreto'` (default): più piccolo/trasparente del `.fab` standard, ma mai sotto il target di
-   tocco (--touchTarget) — è l'aspetto a ridursi, non l'area cliccabile. */
+/* `'discreto'` (default): più piccolo del `.fab` standard, ma mai sotto il target di tocco
+   (--touchTarget). Discreto per misura, non per trasparenza: resta un controllo, a contrasto pieno. */
 app-cookie-banner .cookie-reopen-btn:not(.cookie-reopen-btn--standard) {
-    opacity: 0.55;
     width: var(--touchTarget);
     height: var(--touchTarget);
 }
@@ -66,7 +65,7 @@ app-cookie-banner .cookie-banner a {
 }
 
 app-cookie-banner .cookie-banner a:hover {
-    opacity: 0.85;
+    text-decoration-thickness: 2px;
 }
 
 app-cookie-banner .cookie-banner-modern {
@@ -156,15 +155,13 @@ app-cookie-banner .cookie-category summary::after {
     border-right: 1.5px solid currentColor;
     border-bottom: 1.5px solid currentColor;
     transform: rotate(-45deg);
-    opacity: 0.6;
-    transition: transform var(--movimentoMicro, 0.15s), opacity var(--movimentoMicro, 0.15s);
+    transition: transform var(--movimentoMicro, 0.15s);
     flex-shrink: 0;
     margin-left: auto;
 }
 
 app-cookie-banner .cookie-category[open] summary::after {
     transform: rotate(45deg);
-    opacity: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {

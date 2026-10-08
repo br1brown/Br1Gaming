@@ -25,8 +25,8 @@ export class CookieBannerComponent {
         return ContestoSito.config.cookiePolicy != null && this.pagemeta.currentPageType() === ContestoSito.config.cookiePolicy;
     });
 
-    /** `'discreto'` (default): FAB di riapertura più piccolo/trasparente del `.fab`
-     *  standard. `'standard'`: stessa dimensione/opacità di `.fab` (es. `back-to-top`) — il LATO
+    /** `'discreto'` (default): FAB di riapertura più piccolo del `.fab`
+     *  standard. `'standard'`: stessa dimensione di `.fab` (es. `back-to-top`) — il LATO
      *  resta comunque opposto a `back-to-top` in entrambi i casi, apposta: stessa area di
      *  `inset-inline-end` raddoppierebbe la probabilità di sovrapporsi a un controllo di pagina.
      *  `DesignSystemPreset.fab.cookie`. */
