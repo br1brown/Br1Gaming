@@ -2,6 +2,21 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Niente più trasparenze per attenuare, niente aloni al posto dell'anello di focus
+
+Dopo il footer (voce sotto), lo stesso schema nel resto dell'Engine: elementi resi "defilati" con `opacity`, un'abitudine che non regge con i colori garantiti dal motore. Una trasparenza mescola il primo piano con lo sfondo e ne abbassa il contrasto di quanto vuole, sotto il 4.5:1 del testo (WCAG 1.4.3) o il 3:1 dei controlli (1.4.11), soprattutto con un colore "duro" come `colori.testo`. Ora un elemento secondario lo è per corpo, peso o col tono secondario del tema (`--bs-secondary-color`), che ha già il suo contrasto garantito; uno stato si segnala con forma o sottolineatura.
+
+- **FAB** (torna su, cookie): sempre opachi (prima 0.85, piena solo all'hover). Il focus è l'anello di tutto il sito invece di un alone al 22% del colore del testo.
+- **FAB cookie `'discreto'`**: più piccolo e basta, non più al 55% di opacità. Resta il default.
+- **Breadcrumb**: separatore col tono secondario invece del testo al 40%; puntini senza trasparenza; hover e focus dei link con la sottolineatura invece di un bagliore (`text-shadow`).
+- **Banner cookie**: link all'hover con sottolineatura più spessa invece che trasparenti; freccia delle categorie sempre piena, lo stato lo dà la rotazione.
+- **Icona del link esterno** in navbar, **icona dello stato vuoto** (`app-empty-state`), **icone con `lift`** all'hover: senza trasparenza.
+- **Menu contestuale**: focus da tastiera con un anello pieno nel colore del testo invece di un bordo interno al 40%.
+
+Restano, apposta: l'`opacity` degli elementi disabilitati (menu contestuale, come Bootstrap: WCAG esclude i controlli inattivi dal contrasto), le dissolvenze di comparsa e scomparsa (barra di navigazione, apertura del menu contestuale: transizioni, non stati), e il finto grassetto con `text-shadow` nell'evidenziazione dell'editor Markdown, dove un grassetto vero cambierebbe la larghezza dei glifi e disallineerebbe lo strato colorato dalla textarea.
+
+**Al merge**: nessuno. Nel figlio cambia solo l'aspetto: FAB e icone un filo più marcati, separatori del breadcrumb nel tono secondario.
+
 ### Footer: niente trasparenza sul testo, che può essere `colori.testo`
 
 L'audit live di un figlio con `colori.testo` (sabbia su bordeaux, 5.5:1) ha bocciato la riga del copyright su ogni pagina col footer: `.footer-fineprint` aveva `opacity: 0.75`, che mescola il testo con lo sfondo e lo portava a 3.85:1. Reggeva solo sul testo calcolato, quasi bianco o quasi nero e con margine; un colore "duro" è garantito a 4.5:1 e basta, e qualunque trasparenza lo porta sotto. Stesso difetto, ancora non emerso, sul titolo dei sottogruppi del footer (`opacity: 0.85`, 4.48:1).
