@@ -73,7 +73,7 @@
 
     @if (!facade.error()) {
     <div class="text-center mt-4 pt-3 border-top">
-        <button class="btn btn-link text-muted text-decoration-none px-4"
+        <button class="btn btn-link text-body-secondary text-decoration-none px-4"
                 (click)="restart()"
                 [disabled]="facade.loading()">
             {{ 'riavvia' | translate }}
