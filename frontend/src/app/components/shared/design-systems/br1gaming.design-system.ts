@@ -1,29 +1,8 @@
 import { emptyDesignSystem, extendDesignSystem, NAKED_CHROME, type DesignSystemFactory } from '../../../core/engine/design-system-presets';
 import { SystemFont } from '../../../core/engine/font-system';
 
-/**
- * Design system di Br1Gaming: `colori.superfici: 'distinte'` tiene il pannello spento ovunque
- * (era `shell.showPanel: false` globale) salvo il ruolo `storia` che lo riaccende.
- * `font.principale` sostituisce il vecchio `font-config.ts` (`webDefault: 'Georgia'`, stack di
- * sistema, mai garantito): `NotoSerif` è il serif self-hosted più vicino per carattere (caldo/da
- * lettura, non "da iscrizione" come `LiberationSerif`). `colori.palette.secondary` (giallo)
- * migrato da `global-settings.json`'s `site.*` (non più un campo valido lì, vedi
- * global-settings.schema.json).
- *
- * Ruoli:
- * - `home`: niente navbar (la home espone già tutto come sezioni).
- * - `storia`: unica pagina col pannello riacceso, smoke spento.
- * - `giochini`: `fitViewport` per i minigiochi a schermo pieno (duce-non-duce, burocrazia) e per
- *   il radar (stessa esigenza tecnica, nessun ruolo dedicato per un utility).
- * - `cantiere`: naked (niente nav/footer/pannello) + fitViewport — per Umarell, "il vecchio che
- *   guarda i cantieri".
- * - `NoFooter`: SOLO showFooter:false, niente fitViewport — navbar resta, pagina scorre normale
- *   (non full-bleed). Per ora solo Lombroso: fitViewport forzerebbe showFooter:false comunque
- *   (vedi RuoloPagina in siteBuilder.ts — "fitViewport del ruolo (niente footer) > resto del
- *   ruolo"), ma bloccherebbe anche l'altezza al viewport — sbagliato qui, dove il verdetto è
- *   testo combinatorio a lunghezza variabile: meglio una pagina che scorre da sé (vedi
- *   .lombroso-stage/.lombroso-result-fill nel componente) che uno scroll interno da gestire a mano.
- */
+/** Design system di Br1Gaming: superfici `distinte`, quindi niente pannello salvo il ruolo `storia`;
+ *  NotoSerif self-hosted come serif da lettura; secondario giallo. */
 export const br1gamingDesignSystem: DesignSystemFactory = extendDesignSystem(emptyDesignSystem, {
     colori: {
         superfici: 'distinte',
@@ -42,10 +21,15 @@ export const br1gamingDesignSystem: DesignSystemFactory = extendDesignSystem(emp
         intensita: 'nebbia',
     },
     ruoloPagina: {
+        // La home espone già tutto come sezioni.
         home: { showNav: false },
         storia: { showPanel: true, showSmoke: false },
+        // Minigiochi a schermo pieno (duce-non-duce, burocrazia) e radar.
         giochini: { fitViewport: true },
+        // Umarell.
         cantiere: { ...NAKED_CHROME, fitViewport: true },
+        // Lombroso: senza footer ma senza fitViewport, perché il verdetto ha lunghezza variabile e la pagina
+        // deve scorrere da sé invece di bloccarsi all'altezza del viewport.
         NoFooter: { showFooter: false },
     },
 });
