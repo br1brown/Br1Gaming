@@ -15,7 +15,8 @@
 # Dopo la chiamata sono esportate:
 #   BR1_SETTINGS_FILE   file effettivo da montare nei container (base + .local merge + ApiKey
 #                       effimero se assente), path relativo
-#   COMPOSE_PROJECT_NAME  slug di project.name
+#   COMPOSE_PROJECT_NAME  slug di project.name, più "-<deploy-istanza>" se il .local la dichiara
+#                         (br1_compose_project_name, la sola fonte del nome per deploy, backup, test e CI)
 #   FRONTEND_PORT         porta host del frontend
 #   EXPOSE_BACKEND        yes|no (da backend.public)
 #   BACKEND_PORT          porta host del backend (se esposto)
@@ -29,6 +30,25 @@
 # docker-compose risolve BR1_SETTINGS_FILE rispetto al file compose. Evita anche i
 # problemi di traduzione path di Git Bash su Windows. Richiede: node. Ritorna 1 se il merge fallisce.
 # =============================================================================
+
+# br1_compose_project_name — stampa il nome del progetto Docker (container, volumi, rete): slug di
+# project.name più "-<deploy-istanza>" del .local, se c'è. Unica fonte per deploy, backup, test e CI.
+# Ritorna 1, col motivo su stderr, se deploy-istanza è nel file base o non è valida.
+br1_compose_project_name() {
+    node --input-type=module --eval "
+import { readFileSync, existsSync } from 'fs';
+const fail = msg => { console.error('[br1-config] ' + msg); process.exit(1); };
+const base = JSON.parse(readFileSync('global-settings.json', 'utf-8'));
+const local = existsSync('global-settings.local.json') ? JSON.parse(readFileSync('global-settings.local.json', 'utf-8')) : {};
+if (Object.keys(base).some(k => k.toLowerCase() === 'deploy-istanza'))
+    fail('deploy-istanza sta in global-settings.json: va solo in global-settings.local.json, una per installazione (nel file base rinominerebbe tutte le installazioni del progetto).');
+const istanza = local?.['deploy-istanza'];
+if (istanza !== undefined && (typeof istanza !== 'string' || !/^[a-z0-9]+(-[a-z0-9]+)*\$/.test(istanza)))
+    fail('deploy-istanza=' + JSON.stringify(istanza) + ' non valida: minuscole, cifre e trattini (es. \"prova\", \"staging-2\").');
+const slug = String(base.project?.name || 'app').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+\$/g, '');
+process.stdout.write(istanza ? slug + '-' + istanza : slug);
+"
+}
 
 # br1_ensure_local_secrets — se manca global-settings.local.json, lo crea da zero GENERANDO
 # i segreti (SecretKey/ApiConfig.Keys) ma lasciando VUOTI i valori che sono decisioni
@@ -138,12 +158,10 @@ writeFileSync('.br1-settings.effective.json', JSON.stringify(cfg, null, 2) + '\n
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 const s = JSON.parse(readFileSync(process.env.BR1_EFFECTIVE, 'utf-8'));
-const slugify = n => String(n).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+\$/g, '');
 const h = (s.frontend?.hostname || '').trim();
 const hosting = (s.frontend?.hostingInfo || '').trim();
 const langs = Array.isArray(s.Localization?.SupportedLanguages) ? s.Localization.SupportedLanguages : [];
 process.stdout.write([
-    'COMPOSE_PROJECT_NAME=' + slugify(s.project?.name || 'app'),
     'FRONTEND_PORT=' + String(s.frontend?.port || 3000),
     'EXPOSE_BACKEND=' + (s.backend?.public ? 'yes' : 'no'),
     'BACKEND_PORT=' + String(s.backend?.publicPort || ''),
@@ -156,6 +174,10 @@ process.stdout.write([
     'BR1_BACKUP_RETENTION=' + (Number.isInteger(s.Backup?.Retention) ? String(s.Backup.Retention) : ''),
 ].join('\n') + '\n');
 ")
+
+    # Nome del progetto Docker: dalla sua sola fonte (project.name + deploy-istanza), non ricalcolato qui.
+    COMPOSE_PROJECT_NAME="$(br1_compose_project_name)" || return 1
+    export COMPOSE_PROJECT_NAME
 
     # Un file dei fatti dell'installazione indicato ma assente si tratta come non indicato (testo generico
     # nella Privacy Policy): lo si toglie, così Docker monta /dev/null e non una cartella vuota al suo posto.

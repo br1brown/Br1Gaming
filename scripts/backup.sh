@@ -11,6 +11,9 @@
 #   BACKUP_DIR=/mnt/dati ./backup.sh
 #   RETENTION=30 ./backup.sh       La variabile vince su global-settings.json
 #
+# Il progetto è quello del deploy (br1_compose_project_name): con "deploy-istanza" nel .local
+# si fa il backup dei volumi di QUESTA installazione, non di un'altra dello stesso progetto.
+#
 # Cron (ogni notte alle 3:00):
 #   0 3 * * * cd /percorso/progetto && ./backup.sh >> backups/backup.log 2>&1
 #
@@ -38,15 +41,16 @@ command -v docker >/dev/null 2>&1 || { echo -e "  ${RED}ERR${RESET} Docker non t
 command -v node   >/dev/null 2>&1 || { echo -e "  ${RED}ERR${RESET} Node.js non trovato (serve per leggere il nome progetto)" >&2; exit 1; }
 [[ -f global-settings.json ]] || { echo -e "  ${RED}ERR${RESET} global-settings.json non trovato (esegui dalla root del progetto)" >&2; exit 1; }
 
-# Nome progetto = slug di project.name, identico a quello che deriva deploy.sh:
-# i volumi Docker Compose sono prefissati con questo nome.
-PROJ="$(node --input-type=module --eval "
-import { readFileSync } from 'fs';
-const s = JSON.parse(readFileSync('global-settings.json','utf-8'));
-const slug = String(s.project?.name || 'app').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+\$/g,'');
-process.stdout.write(slug);
-")"
-[[ -n "$PROJ" ]] || { echo -e "  ${RED}ERR${RESET} Impossibile derivare il nome progetto da global-settings.json" >&2; exit 1; }
+# Nome del progetto Docker (i volumi sono prefissati con lui): lo stesso del deploy, da br1-config.sh, che
+# conta anche deploy-istanza del .local. La libreria sta in scripts/lib/ dalla radice del progetto, sia nel
+# repo (questo script in scripts/) sia nel deploy bundle (questo script alla radice).
+_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+while [[ "$_root" != "/" && ! -f "$_root/docker-compose.yml" ]]; do _root="$(dirname "$_root")"; done
+[[ -f "$_root/scripts/lib/br1-config.sh" ]] || { echo -e "  ${RED}ERR${RESET} scripts/lib/br1-config.sh non trovato (serve per il nome del progetto)" >&2; exit 1; }
+# shellcheck source=scripts/lib/br1-config.sh
+source "$_root/scripts/lib/br1-config.sh"
+PROJ="$(br1_compose_project_name)" || { echo -e "  ${RED}ERR${RESET} Impossibile derivare il nome del progetto Docker" >&2; exit 1; }
+[[ -n "$PROJ" ]] || { echo -e "  ${RED}ERR${RESET} Impossibile derivare il nome del progetto Docker" >&2; exit 1; }
 
 if [[ -z "$RETENTION" ]]; then
     RETENTION="$(node --input-type=module --eval "

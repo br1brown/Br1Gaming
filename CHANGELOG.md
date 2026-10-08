@@ -2,6 +2,14 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Deploy: più installazioni dello stesso progetto sulla stessa VPS (`deploy-istanza`)
+
+Due cartelle con lo stesso repo (produzione e prova) avevano lo stesso `COMPOSE_PROJECT_NAME`, slug di `project.name`: il deploy della seconda prendeva i container della prima e ne montava gli stessi volumi, quindi gli stessi dati. Ora `"deploy-istanza": "prova"` nel `global-settings.local.json` di un'installazione si aggiunge al nome (`agnese-subacchi-prova`): container, volumi, rete, immagini di prova e backup separati. Solo nel `.local`: nel file base, committato, è rifiutata. Il nome mostrato sul sito non cambia.
+
+Il nome lo calcola ora una funzione sola, `br1_compose_project_name` in `scripts/lib/br1-config.sh`, e lo prendono da lì `deploy.sh`, `deploy-release.sh`, `backup.sh`, `public-test.sh` e la CI. Prima `backup.sh` e il passo "Butta giù" della CI lo ricalcolavano da soli dal file base: con un nome diverso nel `.local` il backup avrebbe copiato i volumi di un'altra installazione. `backup.sh` cerca la libreria dalla radice del progetto, così funziona sia nel repo sia nel deploy bundle.
+
+**Al merge**: nessuno. Senza `deploy-istanza` il nome è quello di sempre e i volumi esistenti restano gli stessi. Aggiungerla a un'installazione già pubblicata la rinomina: il deploy successivo parte da volumi nuovi e vuoti (vedi `DOCKER_README.md`).
+
 ### Design system: `success`/`warning`/`danger` in palette, `elevazione` come gruppo con gli angoli, campionario
 
 - **`colori.palette`** accetta anche `success`, `warning` e `danger`, che sostituiscono quelli di Bootstrap come già `secondary` e `info`: fill esatto, variante leggibile come testo, avviso del build sotto 3:1. Arrivano a bottoni, alert, `.text-*` e alla validazione dei moduli; nel tono scuro anche i bordi dei campi validi e non validi, che Bootstrap fissa a `$green-300`/`$red-300`. Prima erano nomi rifiutati: un sito bordeaux restava col `danger` di serie, che sembra il brand.

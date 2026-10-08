@@ -45,6 +45,23 @@ Risultato:
 - Volumi separati: `progetto-a_uploads-data`, `progetto-b_uploads-data` (naming automatico Docker Compose)
 - Nessun conflitto di container
 
+### Esempio: due installazioni dello stesso progetto (produzione e prova)
+
+Due cartelle con lo stesso repo hanno lo stesso `project.name`, quindi lo stesso `COMPOSE_PROJECT_NAME`: senza altro, il deploy della seconda prenderebbe il posto dei container della prima e ne monterebbe gli stessi volumi, cioè i suoi dati. Si distinguono con `deploy-istanza` nel `global-settings.local.json` di una delle due (il `.local` è per installazione; nel file base, committato, la chiave è rifiutata):
+
+```text
+/home/deploy/agnese/global-settings.local.json        →  (niente deploy-istanza)                   frontend.port 3000
+/home/deploy/agnese-prova/global-settings.local.json  →  "deploy-istanza": "prova"                 frontend.port 3001
+```
+
+Risultato:
+- `COMPOSE_PROJECT_NAME`: `agnese-subacchi` e `agnese-subacchi-prova`
+- Volumi, rete e immagini di prova separati (`agnese-subacchi-prova_db-data`…), e `backup.sh` copia quelli della propria installazione
+- Il nome mostrato sul sito resta `project.name` in entrambe: l'istanza cambia solo i nomi Docker
+- Una porta diversa (`frontend.port`) e un dominio diverso (`frontend.hostname`) per ognuna; per un'istanza di prova, `SEO_NOINDEX=true` la tiene fuori dai motori di ricerca
+
+Il nome lo calcola una funzione sola (`br1_compose_project_name` in `scripts/lib/br1-config.sh`): `deploy.sh`, `deploy-release.sh`, `backup.sh`, i test e la CI lo prendono da lì. Aggiungere `deploy-istanza` a un'installazione già pubblicata ne cambia il nome: il deploy successivo crea container e volumi nuovi, vuoti, e quelli vecchi restano dove sono finché non li sposti o li cancelli.
+
 ## File Compose
 
 - **`docker-compose.yml`** — base: servizi, build, rete, volumi.

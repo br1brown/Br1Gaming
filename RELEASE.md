@@ -90,7 +90,9 @@ $EDITOR global-settings.local.json     # frontend.hostname, frontend.hostingInfo
 > Il `cp` del `.local` è opzionale: se `global-settings.local.json` non c'è, lo script lo scrive
 > con segreti generati ma `frontend.hostname` vuoto, e il deploy si ferma finché non metti
 > il tuo dominio (deve combaciare con `FRONTEND_BASE_URL` della CI). È voluto: le chiavi te le genera,
-> il dominio lo scegli tu. Imposta anche la porta se hai altri progetti sulla stessa VPS.
+> il dominio lo scegli tu. Imposta anche la porta se hai altri progetti sulla stessa VPS, e
+> `deploy-istanza` se è una seconda installazione dello stesso progetto (es. una prova accanto alla
+> produzione): senza, le due condividerebbero container e dati (vedi [DOCKER_README.md](DOCKER_README.md)).
 
 **Modo B — da file (nessun registry né `docker login`):** scarichi il bundle **e** i due
 `.tar.gz` delle immagini nella stessa cartella (con `curl` se la repo è pubblica, con `gh`/token se
