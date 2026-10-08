@@ -2,6 +2,12 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Budget del bundle iniziale: `1200kB`/`1250kB`, deciso dall'Engine per tutti
+
+Il budget `initial` di `angular.json` passa da `960kB`/`1000kB` a `1200kB` (warning) / `1250kB` (errore). Prima ogni figlio alzava il proprio (Gaming `1050kB`/`1100kB`, Agnese `970kB`/`1000kB`); ora il numero è uno, lo tiene l'Engine e si alza qui. Il budget per stile di componente resta del figlio.
+
+**Al merge**: un figlio che aveva un budget `initial` suo va in conflitto su `angular.json`; si tiene quello del template.
+
 ### Dipendenze: `proxy-addr` critical, Angular 21.2.25/21.2.26
 
 Un advisory nuovo su `proxy-addr` (critical, IP spoofing via IPv4 mappato in IPv6, da `express`) mandava in rosso l'audit npm della CI senza modifiche al codice.
