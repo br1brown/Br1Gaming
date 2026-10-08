@@ -38,7 +38,7 @@
             <i class="fa-solid fa-chevron-right small story-history-caret" aria-hidden="true"></i>
             {{ 'storiaFinora' | translate }}
         </summary>
-        <div class="d-flex flex-column gap-3 pb-3 opacity-75">
+        <div class="d-flex flex-column gap-3 pb-3">
             @for (item of pastTimeline(); track $index) {
             <ng-container [ngTemplateOutlet]="step" [ngTemplateOutletContext]="{ $implicit: item }" />
             }
@@ -91,8 +91,8 @@
     }
 
     @if (item.type === 'choice') {
-    <div data-step class="border-start border-3 border-primary ps-3 py-1 ms-2 opacity-75">
-        <small class="text-muted fst-italic">{{ 'haiscelta' | translate }}:</small>
+    <div data-step class="border-start border-3 border-primary ps-3 py-1 ms-2">
+        <small class="text-body-secondary fst-italic">{{ 'haiscelta' | translate }}:</small>
         <div class="fw-bold text-primary">{{ item.text }}</div>
     </div>
     }

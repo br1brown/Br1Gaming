@@ -59,13 +59,14 @@ import { VariantButtonsComponent } from '../../components/shared/variant-buttons
             font-weight: 700;
             font-size: 1rem;
             min-width: 0;
-            transition: filter .15s ease;
+            transition: background-color .15s ease, transform .15s ease;
         }
-        .gen-lever:hover:not(:disabled) { filter: brightness(1.15); }
-        .gen-lever:active:not(:disabled) { filter: brightness(.9); }
+        /* Stati dai token del tema (testo garantito anche sulla superficie hover), non da un filtro di luminosità. */
+        .gen-lever:hover:not(:disabled) { background: var(--colorSurfaceHover); }
+        .gen-lever:active:not(:disabled) { transform: translateY(1px); }
         .gen-lever:disabled { cursor: default; }
         @media (prefers-reduced-motion: reduce) {
-            .gen-lever, .gen-lever:hover, .gen-lever:active { transition: none; }
+            .gen-lever, .gen-lever:hover, .gen-lever:active { transition: none; transform: none; }
         }
     `],
 })
