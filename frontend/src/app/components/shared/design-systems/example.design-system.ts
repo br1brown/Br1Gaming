@@ -12,7 +12,7 @@ import { muroDesignSystem } from './engine/muro.design-system';
  * buildSite({ shell: { designSystem: exampleDesignSystem } });
  * ```
  * Colori sotto = segnaposto. Ogni nome di `colori.palette` (camelCase ASCII) aggiunge `--color<Nome>`/`--color<Nome>Text`
- * e le classi Bootstrap del colore (`.btn-bordeaux`, `.alert-oro`...); `secondary`/`info` rimpiazzerebbero quelli di serie.
+ * e le classi Bootstrap del colore (`.btn-bordeaux`, `.alert-oro`...); `secondary`/`info`/`success`/`warning`/`danger` rimpiazzerebbero quelli di serie.
  */
 export const exampleDesignSystem: DesignSystemFactory = extendDesignSystem(muroDesignSystem, {
     colori: {

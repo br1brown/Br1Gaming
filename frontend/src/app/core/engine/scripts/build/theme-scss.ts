@@ -1,7 +1,7 @@
 import { AppearanceService, type PaletteTokens } from '../../services/appearance.service';
 import { buildFontFallback } from './font-fallback-metrics';
 import {
-    CONTENT_WIDTH_OFFSET_LG, CONTENT_WIDTH_SHELL_MAX, DENSITA_TIERS, ELEVAZIONE_TIERS, MOVIMENTO_DURATA, PULSAZIONE_TIERS,
+    ANGOLI_TIERS, CONTENT_WIDTH_OFFSET_LG, CONTENT_WIDTH_SHELL_MAX, DENSITA_TIERS, MOVIMENTO_DURATA, OMBRA_TIERS, PULSAZIONE_TIERS,
     toKebabCaseLabel, toPascalCaseLabel,
 } from '../../design-system-presets';
 import type { SiteConfig } from '../../siteBuilder';
@@ -50,6 +50,7 @@ function toneEntries(p: PaletteTokens, tone: 'light' | 'dark', superficieNav: 'b
         ['body-bg', lt ? p.colorBaseLt : p.colorBaseDk],
         ['body-color', lt ? p.colorSurfaceTextLt : p.colorSurfaceTextDk],
         ['heading', lt ? p.colorHeadingLt : p.colorHeadingDk],
+        ['emphasis', lt ? p.colorEmphasisLt : p.colorEmphasisDk],
         ['surface', lt ? p.colorSurfaceLt : p.colorSurfaceDk],
         ['surface-hover', lt ? p.colorSurfaceHoverLt : p.colorSurfaceHoverDk],
         ['border', lt ? p.colorSurfaceBorderLt : p.colorSurfaceBorderDk],
@@ -67,7 +68,8 @@ function toneEntries(p: PaletteTokens, tone: 'light' | 'dark', superficieNav: 'b
 export function buildThemeScss(p: PaletteTokens, cfg: ThemeScssConfig): string {
     const { aspetto } = cfg;
     const movimento = MOVIMENTO_DURATA[aspetto.movimento];
-    const elevazione = ELEVAZIONE_TIERS[aspetto.elevazione];
+    const elevazione = OMBRA_TIERS[aspetto.elevazione.ombra];
+    const { pannello: raggioPannello, ...scalaRaggi } = ANGOLI_TIERS[aspetto.elevazione.angoli];
     const pulsazione = PULSAZIONE_TIERS[aspetto.pulsazione];
     const densita = DENSITA_TIERS[aspetto.densita];
     const fonts = cfg.fonts;
@@ -86,7 +88,7 @@ export function buildThemeScss(p: PaletteTokens, cfg: ThemeScssConfig): string {
         ['movimentoPagina', movimento.pagina],
         ['movimentoPannello', movimento.pannello],
         ['movimentoMicro', movimento.micro],
-        ['elevazioneRaggio', elevazione.raggio],
+        ['elevazioneRaggio', raggioPannello],
         ['shadowElevated', elevazione.ombra],
         ['shadowElevatedHover', elevazione.ombraHover],
         // Barre agganciate a un bordo (navbar sotto, footer e fasce in fondo sopra): distacco dal
@@ -112,7 +114,11 @@ export function buildThemeScss(p: PaletteTokens, cfg: ThemeScssConfig): string {
         // `larghezza`, sola fonte). Senza pannello `larghezza` non vale: rientro zero.
         ['superficiPannello', aspetto.pannello ? '1' : '0'],
         ['larghezzaColonne', aspetto.pannello ? String(CONTENT_WIDTH_OFFSET_LG[aspetto.larghezza]) : '0'],
+        // Base del rem (`font.scala`): html { font-size } in _base.scss, in percentuale.
+        ['fontScala', String(aspetto.font.scala)],
         ['fontFamily', fontFamilyValue],
+        // Campionario del design system (`colori.campioni`): solo variabili, nessuna classe.
+        ...Object.entries(aspetto.colori.campioni).map(([nome, hex]): [string, string] => [`campione${toPascalCaseLabel(nome)}`, hex]),
         ...fonts.customFontVars.map((v): [string, string] => [v.cssVar.replace(/^--/, ''), `"${v.family}"`]),
     ];
 
@@ -135,6 +141,7 @@ export function buildThemeScss(p: PaletteTokens, cfg: ThemeScssConfig): string {
     const accents: [string, string][] = [
         ['secondary', accent(p.colorSecondaryLt, p.colorSecondaryDk, p.accentText['secondary'])],
         ...(p.colorInfo ? [['info', accent(p.colorInfo, p.colorInfo, p.accentText['info'])] as [string, string]] : []),
+        ...Object.entries(p.coloriSemantici).map(([nome, hex]): [string, string] => [nome, accent(hex, hex, p.accentText[nome])]),
         ...Object.entries(p.coloriNuovi).map(([label, hex]): [string, string] =>
             [toKebabCaseLabel(label), accent(hex, hex, p.accentText[label])]),
     ];
@@ -144,6 +151,10 @@ export function buildThemeScss(p: PaletteTokens, cfg: ThemeScssConfig): string {
         '// si rigenera a ogni build/dev.',
         `$theme-tema: ${p.colorTema};`,
         `$theme-info: ${p.colorInfo ?? 'null'};`,
+        // success/warning/danger del design system; quelli assenti restano i !default di Bootstrap.
+        `$theme-semantici: ${Object.keys(p.coloriSemantici).length ? sassMap(Object.entries(p.coloriSemantici)) : '()'};`,
+        // Scala dei raggi di Bootstrap, da `elevazione.angoli` (il raggio del pannello è fra le leve statiche).
+        `$theme-angoli: ${sassMap(Object.entries(scalaRaggi))};`,
         `$theme-light: ${sassMap(toneEntries(p, 'light', aspetto.navbar.superficie))};`,
         `$theme-dark: ${sassMap(toneEntries(p, 'dark', aspetto.navbar.superficie))};`,
         `$theme-custom: ${custom.length ? sassMap(custom) : '()'};`,

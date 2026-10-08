@@ -571,7 +571,7 @@ buildSite({ shell: { designSystem: clienteX } });
 
 Contratto:
 - **Tipi.** Un nome di campo sbagliato o un valore fuori elenco è un errore di `tsc`, con la patch-oggetto come con la patch-funzione (radice, gruppi, ruoli).
-- **Validazione.** `validateDesignSystemPreset` gira a ogni risoluzione (in `buildSite` e in `generate:statics`) e ferma tutto con un messaggio in italiano su: valore fuori elenco (con l'elenco ammesso), booleano che non è booleano, `og.testo` che non è una funzione, `smoke.opacity` non finita o fuori da 0–1, campo sconosciuto (radice, gruppo, ruolo), `ruoloPagina.naked`, nome di palette non ammesso (§«Colori»), font non valido (§«Font: `SystemFont` + `font.aggiuntivi`»), hex non validi. Un design system nuovo non vuole uno spec dedicato: la struttura la garantisce questa validazione, e il contrasto di una palette specifica è contenuto che il progetto cambia a piacere.
+- **Validazione.** `validateDesignSystemPreset` gira a ogni risoluzione (in `buildSite` e in `generate:statics`) e ferma tutto con un messaggio in italiano su: valore fuori elenco (con l'elenco ammesso), booleano che non è booleano, `og.testo` che non è una funzione, `smoke.opacity` non finita o fuori da 0–1, `font.scala` non numerica o fuori da 0.875–1.5, un colore fuori da `colori.campioni` quando c'è (§«Campionario»), campo sconosciuto (radice, gruppo, ruolo), `ruoloPagina.naked`, nome di palette non ammesso (§«Colori»), font non valido (§«Font: `SystemFont` + `font.aggiuntivi`»), hex non validi. Un design system nuovo non vuole uno spec dedicato: la struttura la garantisce questa validazione, e il contrasto di una palette specifica è contenuto che il progetto cambia a piacere.
 
 **Gli 8 preset condivisi** (`components/shared/design-systems/engine/`, Engine: al merge vince il template) sono pappa pronta: si estendono con `extendDesignSystem`, o si copiano in un file di progetto in `components/shared/design-systems/` per farne un design system tuo. Non si modificano sul posto.
 
@@ -600,9 +600,12 @@ Ogni campo è facoltativo; il default è quello che vale senza design system. Og
 | `tono.pannello` | `'light'` / `'dark'` / `'auto'` | `'light'`; `'auto'` con `tono.forza` | Tono del pannello contenuti; `'auto'` = quello del sito |
 | `colori.superfici` | `'foglio'` / `'distinte'` / `'tenue'` / `'tenue-flottante'` / `'fusione'` | `'foglio'` | Quanto le superfici prendono il colore del brand, e se c'è il pannello (§«Colori») |
 | `colori.sfondo` | hex | assente: dal brand | Tinta di sfondi e testo al posto del brand, contrasto garantito |
-| `colori.palette` | `Record<nome, hex>` | `{}` | `secondary`/`info` sostituiscono quelli di Bootstrap, ogni altro nome aggiunge un colore |
+| `colori.testo` | hex | assente: calcolato | Colore esatto di testo e titoli, senza correzione: il build avvisa sotto 4.5:1 |
+| `colori.campioni` | `Record<nome, hex>` (da `campionario()`) | `{}` | I colori del brand, usati per riferimento dagli altri campi; generano solo `--campione<Nome>` (§«Campionario») |
+| `colori.palette` | `Record<nome, hex>` | `{}` | `secondary`/`info`/`success`/`warning`/`danger` sostituiscono quelli di Bootstrap, ogni altro nome aggiunge un colore |
 | `movimento` | `'fermo'` / `'scatto'` / `'svelto'` / `'morbido'` | `'svelto'` | Transizione fra pagine, fade d'ingresso, animazioni di comparsa, alone dei toggle attivi |
-| `elevazione` | `'piatta'` / `'sospesa'` / `'flottante'` | `'sospesa'` | Ombra di dropdown, menu contestuale, cookie banner, FAB e delle barre (navbar, footer, fasce in fondo); raggio d'angolo di dropdown e menu contestuale |
+| `elevazione.ombra` | `'piatta'` / `'sospesa'` / `'flottante'` | `'sospesa'` | Ombra di pannello, dropdown, menu contestuale, cookie banner, FAB e delle barre (navbar, footer, fasce in fondo) |
+| `elevazione.angoli` | `'vivi'` / `'morbidi'` / `'tondi'` | `'morbidi'` | Raggio d'angolo di pannello, dropdown e menu, e la scala `$border-radius-*` di Bootstrap per bottoni, campi, card e badge |
 | `densita` | `'compatta'` / `'normale'` / `'ariosa'` | `'normale'` | Respiro fra chrome, pannello e contenuto: spazio interno del pannello e distacco da navbar, footer e bordi (sui gradini di `$spacers`: 0.5/1, 1/1.5, 1.5/3rem sotto e da md) |
 | `navbar.show` | `boolean` | `true` | `false`: nessuna navbar, su nessuna pagina |
 | `navbar.fissa` | `boolean` | `false` | Navbar agganciata in cima allo scroll (sticky); si sgancia da sola oltre un quinto dell'altezza visibile |
@@ -616,10 +619,12 @@ Ogni campo è facoltativo; il default è quello che vale senza design system. Og
 | `fab.cookie` | `'discreto'` / `'standard'` | `'discreto'` | Dimensione del bottone che riporta il banner cookie |
 | `larghezza` | `'colonna'` / `'ampio'` / `'pieno'` | `'ampio'` | Larghezza della colonna di pannello e breadcrumb |
 | `badgeNotifiche` | `'numero'` / `'puntino'` | `'numero'` | Badge delle notifiche non lette: conteggio o indicatore |
+| `iconeSocial` | `'marchio'` / `'tema'` | `'marchio'` | Pastiglie di social, WhatsApp e Telegram: colori ufficiali della rete o quelli del tema (§«`app-social-link`») |
 | `lightboxArrotondato` | `boolean` | `true` | Angoli arrotondati sull'immagine ingrandita |
 | `smoke` | `{ enable, color, opacity?, intensita? }` | spento | Effetto di particelle di sfondo (§«Effetto smoke») |
 | `font.principale` | `SystemFont` o `CustomFontDef` | font di sistema | Font del sito, web e og:image (§«Font: `SystemFont` + `font.aggiuntivi`») |
 | `font.aggiuntivi` | `FontChoice[]` | `[]` | Font serviti e raggiungibili da SCSS, non attivi |
+| `font.scala` | numero fra 0.875 e 1.5 | `1` | Moltiplica la base del rem: testo, titoli, spazi e controlli crescono insieme |
 | `og.soloSfondo` | `boolean` | `false` | og:image senza titolo e icona (§«og:image generata») |
 | `og.testo` | `(input) => { title, subtitle, font? }` | assente | Testo e font riservati all'og:image |
 | `ruoloPagina` | `Record<ruolo, SpecRuoloPagina>` | `{}` | Comportamento per ruolo di pagina (§«Ruoli di Pagina (`layout.role`)») |
@@ -658,7 +663,30 @@ Con `'tenue'`, `'tenue-flottante'` e `'fusione'` card, hover, muted e tertiary s
 
 **`colori.sfondo`** (hex) sostituisce il brand come tinta di sfondi e testo: genera l'intera famiglia di superfici (base, card, hover, muted, tertiary, nei due toni), e il testo la segue. Il contrasto resta garantito.
 
-**`colori.palette`** aggiunge colori con nome. `secondary` e `info` sostituiscono quelli di Bootstrap; ogni altro nome aggiunge un colore. Senza `secondary` il secondario è il muted del brand (calcolato con garanzia WCAG); senza `info` resta quello di Bootstrap. Il fill di un colore di palette è l'hex esatto in entrambi i toni; come testo si usa una variante resa leggibile.
+#### Campionario
+
+`colori.campioni`: i colori del brand si dichiarano una volta, con `campionario()`, e gli altri campi colore li usano per riferimento: cambiare il colore del testo è cambiare un riferimento, senza togliere niente da nessuna parte. `campionario()` restituisce l'oggetto così com'è, ma tipizzato: un nome scritto male è un errore di `tsc` (con il suggerimento del nome giusto) e un valore senza `#` è rifiutato dal tipo. I campioni da soli non generano classi (a differenza di `colori.palette`, che ne genera una famiglia per voce): diventano solo le variabili `--campione<Nome>` (`sabbia` → `--campioneSabbia`) per lo SCSS di progetto. Nomi camelCase, valori hex, controllati da `validateDesignSystemPreset`; estendendo un design system i campioni si fondono con quelli della base.
+
+Dichiarato un campionario, è lui la sola fonte dei colori: ogni colore che il design system scrive (`colori.sfondo`, `colori.testo`, le voci di `colori.palette`, `smoke.color`, di cui conta il colore e non l'alpha) deve essere uno dei campioni, o la validazione si ferma col nome del campo e l'hex da aggiungere. Il controllo è sul valore (un riferimento `c.sabbia` è un hex come un altro, quindi passa anche lo stesso hex scritto a mano), e insieme ai nomi controllati da `tsc` copre entrambi i modi di sbagliare: nome inesistente e colore fuori dal campionario. Una variante di lavoro (un colore ufficiale schiarito per il fondo) si registra come campione a sé, col suo nome. Anche `site.colorTema`, che sta in `global-settings.json`, dovrebbe esserci: se manca, `generate:statics` lo segnala (avviso, non errore: il design system non lo scrive). Senza campionario nessuno di questi controlli.
+
+```typescript
+import { campionario, extendDesignSystem } from '../../../core/engine/design-system-presets';
+
+const c = campionario({ bordeaux: '#8E162B', sabbia: '#DCCCB6', terracotta: '#B66D64', ocra: '#F5A71C' });
+
+export const cliente = extendDesignSystem(muroDesignSystem, {
+    colori: {
+        campioni: c,
+        sfondo: c.bordeaux,
+        testo: c.sabbia,          // domani c.ocra: un riferimento, niente da cancellare
+        palette: { info: c.ocra }, // solo ciò che serve come classi Bootstrap
+    },
+});
+```
+
+**`colori.testo`** (hex) è il colore di testo e titoli, esatto e uguale nei due toni, al posto di quello calcolato (quasi nero o quasi bianco appena tinto): per un testo nella tinta del brand, come una sabbia su un bordeaux. È un override "duro", come un fill di palette: nessuna ricerca di contrasto. `generate:statics` scrive un avviso per ogni ruolo (testo, titoli) che scende sotto 4.5:1 su una delle cinque superfici di un tono mostrato (con `tono.forza`, solo quello); il build non si ferma, la scelta resta del design system. Lo segue anche il testo di navbar e footer con `navbar.superficie: 'body'`, che stanno sulla pagina; con `'brand'` il loro testo resta tarato sul loro sfondo. `--bs-emphasis-color` (`.text-body-emphasis`, la pastiglia delle icone) resta quello calcolato: il testo di massimo contrasto, che col testo di serie coincide coi titoli. Il testo attenuato (`--bs-secondary-color`) prende la tinta di `colori.testo`, un quarto più vicino alla base, e resta tarato su tutte le superfici come quello di serie: lui la garanzia ce l'ha. Un colore leggibile in un tono solo va con `tono.forza`.
+
+**`colori.palette`** aggiunge colori con nome. `secondary`, `info`, `success`, `warning` e `danger` sostituiscono quelli di Bootstrap; ogni altro nome aggiunge un colore. Senza `secondary` il secondario è il muted del brand (calcolato con garanzia WCAG); senza gli altri restano quelli di Bootstrap. Un semantico sostituito vale ovunque Bootstrap lo usa: bottoni, alert, `.text-*`, e i messaggi e i bordi della validazione dei moduli (nel tono scuro Bootstrap fissa i bordi a `$green-300`/`$red-300`: con `success`/`danger` in palette prendono la loro variante leggibile). Un rosso `danger` che sul brand si confonde col brand (un bordeaux) è il caso tipico. Il fill di un colore di palette è l'hex esatto in entrambi i toni; come testo si usa una variante resa leggibile.
 
 ```typescript
 export const clienteY = extendDesignSystem(cartaDesignSystem, {
@@ -676,7 +704,7 @@ Ogni nome produce i token `--color<Nome>` / `--color<Nome>Text` (il nome in Pasc
 ```
 
 Nomi ammessi: camelCase ASCII, `^[a-z][a-zA-Z0-9]*$` (`oro`, `oroChiaro`, `blu2`). La validazione rifiuta anche:
-- i colori di tema di Bootstrap tranne `secondary` e `info`, e i nomi della mappa `$colors` (`blue`, `grayDark`…);
+- i colori di tema di Bootstrap tranne `secondary`, `info`, `success`, `warning` e `danger` (`primary`, `light`, `dark`), e i nomi della mappa `$colors` (`blue`, `grayDark`…);
 - un nome il cui primo segmento kebab è già usato da Bootstrap dopo `.btn-`, `.text-`, `.bg-`, `.border-`, `.link-`, `.alert-` e simili (`sm`, `lg`, `center`, `top`, `bgPrimary`, `outlinePrimary`…);
 - i suffissi `-rgb`, `-subtle`, `-emphasis` (`oroSubtle`);
 - un nome che genererebbe una variabile `--bs-*` esistente (`borderWidth`, `focusRingColor`, `fontSansSerif`…);
@@ -684,7 +712,7 @@ Nomi ammessi: camelCase ASCII, `^[a-z][a-zA-Z0-9]*$` (`oro`, `oroChiaro`, `blu2`
 - due voci che producono la stessa classe o lo stesso token.
 
 **Garanzie di contrasto (WCAG 2.1).**
-- Testo, titoli, link, testo secondario e primary come testo (`--colorPrimaryFg`) sono tarati su tutte le superfici del tono: base, card, hover, muted, tertiary, con obiettivo 4.8:1; quando la tinta del brand non ci arriva su superfici vicine alla luminanza media, il ripiego è nero o bianco e la garanzia scende a 4.5:1 (AA). Il bordo delle superfici regge ≥3:1 su tutte. Sono le superfici dell'Engine, non i `bg-*-subtle` di Bootstrap: `text-muted`/`text-body-secondary` sopra un `bg-primary-subtle` scende sotto AA (nel template 3,8:1), lì il testo va in `text-primary-emphasis`, che Bootstrap deriva proprio per quel fondo. Se le superfici richieste dal design system (`colori.superfici`, `colori.sfondo`, `vividezza`) collassano su un colore solo, la palette è degenerata (testo, link e fill del primario tutti su nero o bianco) e `generate:statics` si ferma con un errore che nomina brand e superfici; gli altri ripieghi sono riassunti in una riga di avviso del build.
+- Testo, titoli, link, testo secondario e primary come testo (`--colorPrimaryFg`) sono tarati su tutte le superfici del tono (testo e titoli no, se li fissa `colori.testo`: lì solo l'avviso del build): base, card, hover, muted, tertiary, con obiettivo 4.8:1; quando la tinta del brand non ci arriva su superfici vicine alla luminanza media, il ripiego è nero o bianco e la garanzia scende a 4.5:1 (AA). Il bordo delle superfici regge ≥3:1 su tutte. Sono le superfici dell'Engine, non i `bg-*-subtle` di Bootstrap: `text-muted`/`text-body-secondary` sopra un `bg-primary-subtle` scende sotto AA (nel template 3,8:1), lì il testo va in `text-primary-emphasis`, che Bootstrap deriva proprio per quel fondo. Se le superfici richieste dal design system (`colori.superfici`, `colori.sfondo`, `vividezza`) collassano su un colore solo, la palette è degenerata (testo, link e fill del primario tutti su nero o bianco) e `generate:statics` si ferma con un errore che nomina brand e superfici; gli altri ripieghi sono riassunti in una riga di avviso del build.
 - Se le superfici sono così vivide che nessun colore reggerebbe su tutte, lo scarto fra di loro si riduce da sé fino a farle coincidere: la leggibilità vince sulla separazione.
 - La variante emphasis di ogni colore di tema (`.text-*-emphasis`, testo degli alert) regge 4.5:1 sul proprio subtle e sulle cinque superfici; se le funzioni di Bootstrap non bastano si passa a nero o bianco, e se neanche quello basta la build emette un `@warn` con colore e tono.
 - Ogni tono ha una polarità reale: con superfici vivide il tono scuro di un brand chiaro ha un fondo chiaro, e si usano le derivazioni per fondo chiaro, compresi il bordo traslucido (cornice del pannello, dropdown, modali) e l'hover dei link.
@@ -694,7 +722,7 @@ Nomi ammessi: camelCase ASCII, `^[a-z][a-zA-Z0-9]*$` (`oro`, `oroChiaro`, `blu2`
 - Stampa: testo, titoli, pannello e card escono neri su bianco qualunque sia il tono a schermo, link compresi; colori d'accento e bordi restano quelli del tono.
 
 Limiti:
-- Il fill di una voce di `colori.palette` è l'hex scelto, senza verifica: se non si stacca dal fondo è una scelta visibile di chi l'ha scritta. Con superfici vivide un accento simile al brand sparisce: verificalo con `AppearanceService.calcContrastRatio`.
+- Il fill di una voce di `colori.palette` è l'hex scelto, senza correzione: se non si stacca dal fondo è una scelta visibile di chi l'ha scritta. `generate:statics` lo dice, una riga per colore e superficie sotto 3:1 (WCAG 1.4.11) sui toni che il sito mostra (`AppearanceService.auditPaletteContrast`); con superfici vivide un accento simile al brand sparisce.
 - `.border-success/-info/-warning/-danger` restano il colore pieno di Bootstrap (un bordo non è testo, nessun contrasto garantito); primary, secondary e i colori di palette sui bordi usano la variante leggibile.
 - Il testo della navbar è tarato sullo sfondo della navbar, ≥4.5:1 (con un brand scuro è bianco; il margine 4.8 non è garantito, e in dev un avviso lo segnala). Il bordo della navbar è decorativo, senza contrasto garantito.
 - `bg-*-subtle`, `border-*-subtle` e `text-*-emphasis` sono una terna per colore: accoppiarne di colori diversi esce dalla garanzia.
@@ -716,14 +744,14 @@ Limiti:
 
 `prefers-reduced-motion` è rispettato a prescindere dal valore. Una transizione nuova, dell'Engine o tua, usa una di queste tre variabili (mai una durata letterale) e ha la sua guardia `@media (prefers-reduced-motion: reduce) { … none }`: un solo idioma in tutto il codebase. Restano fuori solo gli effetti in loop scelti apposta (`.shake-on-hover`, `.pulse-live`), anch'essi spenti sotto reduced-motion.
 
-**Elevazione, larghezza, FAB.** `elevazione` dà l'ombra a pannello contenuti, dropdown, menu contestuale e FAB, e il raggio d'angolo a pannello, dropdown e menu contestuale (i FAB restano tondi; sotto md il pannello va a filo schermo, senza raggio). `larghezza` è la colonna di pannello e breadcrumb; senza pannello il contenuto occupa l'intera riga. `fab.tornaSuSoglia` sposta la comparsa di "torna su"; `fab.cookie` dimensiona il bottone che riporta il banner cookie, a sinistra, dal lato opposto a "torna su". `badgeNotifiche` e `lightboxArrotondato` completano la chrome.
+**Elevazione, larghezza, FAB.** `elevazione` è il gruppo di come le superfici si staccano dalla pagina. `elevazione.ombra` dà l'ombra a pannello contenuti, dropdown, menu contestuale, FAB e barre. `elevazione.angoli` dà il raggio d'angolo a tutto il sito, scelto insieme: pannello, dropdown e menu (`--elevazioneRaggio`; i FAB restano tondi e sotto md il pannello va a filo schermo, senza raggio) e l'intera scala `$border-radius-*` di Bootstrap, quindi bottoni, campi, card, badge e `.rounded-*`. `'vivi'` è tutto a spigolo (per un sito con foto a filo), `'morbidi'` il raggio di sempre col pannello a 0.85rem e Bootstrap di serie, `'tondi'` circa il doppio. La pillola (`.rounded-pill`, `--bs-border-radius-pill`) resta tale; l'immagine ingrandita ha `lightboxArrotondato`. Ombra e angoli si combinano liberamente (ombra piatta con angoli tondi, o il contrario). `larghezza` è la colonna di pannello e breadcrumb; senza pannello il contenuto occupa l'intera riga. `fab.tornaSuSoglia` sposta la comparsa di "torna su"; `fab.cookie` dimensiona il bottone che riporta il banner cookie, a sinistra, dal lato opposto a "torna su". `badgeNotifiche` e `lightboxArrotondato` completano la chrome.
 
 ```typescript
 export const istituzionale = extendDesignSystem(cartaDesignSystem, {
     navbar: { fissa: true },
     movimento: 'fermo',
     breadcrumb: { show: true, stile: 'freccia' },
-    elevazione: 'piatta',
+    elevazione: { ombra: 'piatta', angoli: 'vivi' },
 });
 ```
 
@@ -789,6 +817,8 @@ Lo stesso salto (FOUT) sposta anche le righe sotto (CLS), perché il font di rip
 `SystemFont` è un catalogo di 11 font installati nel container (`FONT_PACKAGES` in `frontend/Dockerfile`): Roboto, Noto, NotoSerif, Liberation, LiberationSerif, LiberationMono, DejaVu, DejaVuSerif, DejaVuMono, OpenSans, JetBrainsMono. Sono self-hosted: il browser riceve i file reali via `@font-face` dall'endpoint `/cdn-cgi/font/:key/:index` (`server/routes/system-font.ts`), e il rendering server delle og:image usa lo stesso file (`PreviewBuilder`, risolto per nome via fontconfig). La build Docker lo verifica: `scripts/checks/system-fonts-installed.ts` controlla che ogni faccia di ogni `SystemFont` esista su disco e che la `family` dichiarata combaci col nome letto da fontconfig (`fc-scan` e `fc-match`), e un disallineamento ferma il build.
 
 **`font.aggiuntivi`** è un array di `FontChoice` (voci di `SystemFont` o `CustomFontDef`) serviti e raggiungibili da SCSS con `--fontFamily-<key>`, senza diventare il font del sito; estendendo un design system l'array sostituisce quello della base. Il font attivo si legge con `var(--fontFamily)`. Un font diverso sui titoli non è un campo: si registra in `font.aggiuntivi` e si scrive la regola CSS nel progetto.
+
+**`font.scala`** (numero, default `1`) moltiplica la base del rem: `html { font-size }` diventa `scala × 100%` (`--fontScala`, `_base.scss`), quindi in percentuale sopra la dimensione che l'utente ha scelto nel browser, mai in px. Tutto ciò che è in rem cresce insieme, nella stessa proporzione: corpo, titoli, `--fs-sm`/`--fs-xs`, spazi (`--space-*`), `--touchTarget` e pastiglie. È la leva per un font con l'occhio piccolo (un Garamond a 16px si legge come un sans da 13px): alzare solo `--bs-body-font-size` lascerebbe indietro i gradini in rem fissi, con un corpo più grande degli `h6`. Ammesso fra 0.875 (sotto, il corpo scende verso `--fs-xs`) e 1.5; breakpoint e misure in px non cambiano.
 
 ```typescript
 // components/shared/design-systems/con-titoli.design-system.ts (import di extendDesignSystem e cartaDesignSystem come in clienteX)
@@ -942,7 +972,7 @@ AppearanceService.computePalette(colorTema, overrides); // palette completa (com
 ```
 `getFillTextColor` segue l'algoritmo di `color-contrast()`: bianco se regge 4.5:1, altrimenti nero se regge 4.5:1, altrimenti il migliore dei due. La misura del contrasto è pubblica; la derivazione di un colore conforme resta interna al servizio. `siteOverrides(cfg)` è l'unica fonte degli override del design system per client, SSR, og:image e build.
 
-**`SITE_CONFIG` e `aspetto`.** `inject(SITE_CONFIG)` (provider in `app.config.ts`, valore `ContestoSito.config`) restituisce la `SiteConfig` già risolta. Il design system arriva in `aspetto` (tipo `Aspetto`, prodotto da `risolviAspetto()` in `design-system-presets.ts`): stessi gruppi e nomi del design system, con ogni default applicato. Restano facoltativi quattro campi, la cui assenza è una scelta: `tono.forza`, `colori.sfondo`, `font.principale`, `og.testo`. `aspetto.smoke` è già in numeri; `ruoloPagina` non c'è (i ruoli arrivano risolti nelle rotte).
+**`SITE_CONFIG` e `aspetto`.** `inject(SITE_CONFIG)` (provider in `app.config.ts`, valore `ContestoSito.config`) restituisce la `SiteConfig` già risolta. Il design system arriva in `aspetto` (tipo `Aspetto`, prodotto da `risolviAspetto()` in `design-system-presets.ts`): stessi gruppi e nomi del design system, con ogni default applicato. Restano facoltativi cinque campi, la cui assenza è una scelta: `tono.forza`, `colori.sfondo`, `colori.testo`, `font.principale`, `og.testo`. `aspetto.smoke` è già in numeri; `ruoloPagina` non c'è (i ruoli arrivano risolti nelle rotte).
 
 ```typescript
 import { SITE_CONFIG } from './core/engine/siteBuilder';
@@ -950,7 +980,9 @@ import { SITE_CONFIG } from './core/engine/siteBuilder';
 const site = inject(SITE_CONFIG);
 site.aspetto.navbar.fissa;          // boolean
 site.aspetto.tono.pannello;         // 'light' | 'dark' | 'auto'
-site.aspetto.colori.palette;        // secondary/info e i colori in più
+site.aspetto.colori.palette;        // secondary/info/success/warning/danger e i colori in più
+site.aspetto.colori.campioni;       // il campionario (vuoto se non dichiarato)
+site.aspetto.elevazione.angoli;     // 'vivi' | 'morbidi' | 'tondi'
 // valori derivati
 site.aspetto.pannello;              // c'è il pannello (da colori.superfici)
 site.aspetto.transizioni;           // tutto tranne movimento 'fermo'
@@ -2330,7 +2362,9 @@ Network con branding integrato (30+): `facebook`, `instagram`, `twitter` (X), `l
 - **Loghi solo a colori** (`image`: Google): la "G" monocromatica è vietata, la pastiglia bianca porta la G ufficiale a colori.
 - **Glifi scelti per la pastiglia tonda**: `facebook-f`, `linkedin-in`, `pinterest-p`, `vimeo-v`, `reddit-alien`, `x-twitter`, `btc` al posto delle varianti con cerchio o quadrato proprio.
 
-`brandColors(key)` espone gli stessi valori ai componenti contatto (WhatsApp, Telegram): una fonte sola. Un colore non censito (`color` senza `fg`, es. in un `app-link-badge` generico) ha il glifo nero o bianco scelto per contrasto.
+`brandColors(key)` espone gli stessi valori ai componenti contatto (WhatsApp, Telegram): una fonte sola.
+
+**Colori del tema invece del marchio**: con `iconeSocial: 'tema'` nel design system, `brandColors` restituisce la pastiglia neutra del tema, la stessa di email e telefono (sfondo `--bs-emphasis-color`, glifo `--bs-body-bg`), per un sito che vuole tutte le icone uguali. I glifi a disco seguono la stessa coppia di colori, il disco in `--bs-emphasis-color` e il ritaglio in `--bs-body-bg`; un logo che il marchio vieta in monocromo (la "G" di Google) resta nei suoi colori. Un colore non censito (`color` senza `fg`, es. in un `app-link-badge` generico) ha il glifo nero o bianco scelto per contrasto.
 
 ### `app-link-badge`: Link a Badge con Icona
 

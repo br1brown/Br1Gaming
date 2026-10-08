@@ -3,7 +3,7 @@
     @if (groups().length > 0) {
         <div class="footer-nav-groups mb-3">
             @for (group of groups(); track footerLeafKey(group)) {
-                <app-footer-nav-group [group]="group" [level]="0" />
+                <app-footer-nav-group [group]="group" [level]="0" [class]="group.itemClass" />
             }
         </div>
     }

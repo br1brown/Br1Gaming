@@ -78,14 +78,29 @@ export const MOVIMENTO_DURATA: Record<Movimento, { pagina: string; pannello: str
     morbido: { pagina: '0.45s', pannello: '0.28s', micro: '0.2s' },
 };
 
-/** 3 gradi di "quanto un pannello elevato si stacca dalla superficie sotto": ombra e raggio d'angolo scelti insieme, non separabili (stessa idea di `superfici`). */
-export type Elevazione = 'piatta' | 'sospesa' | 'flottante';
+/** `elevazione.ombra`: 3 gradi di "quanto una superficie sollevata si stacca da quella sotto" (pannello,
+ *  dropdown, menu, FAB, barre), stessa idea di `superfici`. Il raggio d'angolo lo decide `elevazione.angoli`. */
+export type Ombra = 'piatta' | 'sospesa' | 'flottante';
 
-/** Valori grezzi dietro ogni `Elevazione`, uso interno di `theme-scss.ts`. 'sospesa' è il default. */
-export const ELEVAZIONE_TIERS: Record<Elevazione, { ombra: string; ombraHover: string; raggio: string; ombraBarraGiu: string; ombraBarraSu: string }> = {
-    piatta: { ombra: '0 1px 3px rgba(0, 0, 0, 0.10)', ombraHover: '0 2px 6px rgba(0, 0, 0, 0.14)', raggio: '0.35rem', ombraBarraGiu: '0 1px 2px rgba(0, 0, 0, 0.04)', ombraBarraSu: '0 -1px 2px rgba(0, 0, 0, 0.05)' },
-    sospesa: { ombra: '0 10px 24px rgba(0, 0, 0, 0.18)', ombraHover: '0 14px 28px rgba(0, 0, 0, 0.24)', raggio: '0.85rem', ombraBarraGiu: '0 4px 12px rgba(0, 0, 0, 0.06)', ombraBarraSu: '0 -4px 12px rgba(0, 0, 0, 0.08)' },
-    flottante: { ombra: '0 18px 40px rgba(0, 0, 0, 0.24)', ombraHover: '0 24px 52px rgba(0, 0, 0, 0.30)', raggio: '1.25rem', ombraBarraGiu: '0 6px 18px rgba(0, 0, 0, 0.10)', ombraBarraSu: '0 -6px 18px rgba(0, 0, 0, 0.12)' },
+/** Valori grezzi dietro ogni `Ombra`, uso interno di `theme-scss.ts`. 'sospesa' è il default. */
+export const OMBRA_TIERS: Record<Ombra, { ombra: string; ombraHover: string; ombraBarraGiu: string; ombraBarraSu: string }> = {
+    piatta: { ombra: '0 1px 3px rgba(0, 0, 0, 0.10)', ombraHover: '0 2px 6px rgba(0, 0, 0, 0.14)', ombraBarraGiu: '0 1px 2px rgba(0, 0, 0, 0.04)', ombraBarraSu: '0 -1px 2px rgba(0, 0, 0, 0.05)' },
+    sospesa: { ombra: '0 10px 24px rgba(0, 0, 0, 0.18)', ombraHover: '0 14px 28px rgba(0, 0, 0, 0.24)', ombraBarraGiu: '0 4px 12px rgba(0, 0, 0, 0.06)', ombraBarraSu: '0 -4px 12px rgba(0, 0, 0, 0.08)' },
+    flottante: { ombra: '0 18px 40px rgba(0, 0, 0, 0.24)', ombraHover: '0 24px 52px rgba(0, 0, 0, 0.30)', ombraBarraGiu: '0 6px 18px rgba(0, 0, 0, 0.10)', ombraBarraSu: '0 -6px 18px rgba(0, 0, 0, 0.12)' },
+};
+
+/** `elevazione.angoli`: 3 gradi di arrotondamento di tutto il sito, scelti insieme: pannello, dropdown e
+ *  menu contestuale (`--elevazioneRaggio`) e la scala `$border-radius-*` di Bootstrap (bottoni, campi,
+ *  card, badge, `.rounded-*`). La pillola resta tale; FAB e immagine ingrandita hanno le loro regole. */
+export type Angoli = 'vivi' | 'morbidi' | 'tondi';
+
+/** Valori grezzi dietro ogni `Angoli`, uso interno di `theme-scss.ts`: `pannello` (`--elevazioneRaggio`), poi
+ *  `$border-radius` (base), `-sm`, `-lg`, `-xl`, `-xxl`. `'morbidi'`, il default, è il raggio di sempre del
+ *  pannello con la scala di serie di Bootstrap. */
+export const ANGOLI_TIERS: Record<Angoli, { pannello: string; base: string; sm: string; lg: string; xl: string; xxl: string }> = {
+    vivi: { pannello: '0', base: '0', sm: '0', lg: '0', xl: '0', xxl: '0' },
+    morbidi: { pannello: '0.85rem', base: '0.375rem', sm: '0.25rem', lg: '0.5rem', xl: '1rem', xxl: '2rem' },
+    tondi: { pannello: '1.25rem', base: '0.75rem', sm: '0.5rem', lg: '1rem', xl: '1.5rem', xxl: '2.5rem' },
 };
 
 /** 3 gradi di respiro fra chrome, pannello e contenuto (spazio interno del pannello e distacco da
@@ -155,6 +170,11 @@ export type CookieReopenStile = 'discreto' | 'standard';
  *  (default) mostra il conteggio, `'puntino'` solo un indicatore. */
 export type BadgeNotifiche = 'numero' | 'puntino';
 
+/** Colori delle pastiglie di social e contatti di messaggistica (`app-social-link`, WhatsApp, Telegram):
+ *  `'marchio'` (default) i colori ufficiali di ogni rete, `'tema'` la pastiglia neutra del tema, la
+ *  stessa di email e telefono. I loghi che il marchio vieta in monocromo (la "G" di Google) restano a colori. */
+export type IconeSocial = 'marchio' | 'tema';
+
 /** Intensità dell'alone pulsante dei toggle attivi (`.pulse-live`); `'assente'` lo spegne. Default `'lieve'`. */
 export type PulsazioneAttiva = 'assente' | 'lieve' | 'marcata';
 
@@ -184,8 +204,22 @@ export interface OgTextTransformResult {
     font?: FontChoice;
 }
 
-/** I colori di un design system oltre al brand; `secondary`/`info` rimpiazzano quelli di Bootstrap. */
-export type Palette = { secondary?: string; info?: string } & Record<string, string>;
+/** Un colore esadecimale come lo scrive un design system: il `#` lo controlla `tsc`, il resto la validazione. */
+export type Hex = `#${string}`;
+
+/** Il campionario dei colori del brand (`colori.campioni`), dichiarato una volta e usato per riferimento
+ *  negli altri campi colore: `testo: c.sabbia`, `palette: { info: c.ocra }`. Un nome scritto male è un
+ *  errore di `tsc`, non un colore sbagliato. Restituisce l'oggetto così com'è: serve al tipo. */
+export function campionario<const C extends Readonly<Record<string, Hex>>>(campioni: C): C {
+    return campioni;
+}
+
+/** I colori di Bootstrap che una voce di `colori.palette` rimpiazza invece di aggiungerne uno. */
+export const COLORI_SOSTITUIBILI = ['secondary', 'info', 'success', 'warning', 'danger'] as const;
+export type ColoreSostituibile = typeof COLORI_SOSTITUIBILI[number];
+
+/** I colori di un design system oltre al brand; `secondary`/`info`/`success`/`warning`/`danger` rimpiazzano quelli di Bootstrap. */
+export type Palette = Partial<Record<ColoreSostituibile, string>> & Record<string, string>;
 
 /** Quanto le superfici prendono il colore del brand, e se c'è il pannello contenuti: con 'distinte', 'tenue' e
  *  'fusione' il pannello non c'è su nessuna pagina, qualunque ruolo. Default (assente) `'foglio'`. */
@@ -204,18 +238,30 @@ export interface DesignSystemPreset {
     colori?: {
         /** Quanto le superfici prendono il colore del brand, e se c'è il pannello. Default `'foglio'`. */
         superfici?: Superfici;
+        /** Il campionario dei colori del brand (da `campionario()`): nomi camelCase, valori hex. Da solo non
+         *  genera classi, solo le variabili `--campione<Nome>` per lo SCSS di progetto; gli altri campi colore
+         *  lo usano per riferimento (`testo: c.sabbia`). Estendendo un design system si fonde con quello della base. */
+        campioni?: Readonly<Record<string, Hex>>;
         /** Tinta di sfondo e testo al posto del brand; contrasto WCAG sempre garantito. Assente: dal brand. */
         sfondo?: string;
-        /** I colori del sito oltre al brand: `secondary` e `info` sostituiscono quelli di Bootstrap, ogni
-         *  altro nome ne aggiunge uno (`.btn-<nome>`, `.text-<nome>`, `--color<Nome>`). Fill esatto, testo
+        /** Colore esatto di testo e titoli, uguale nei due toni, al posto di quello calcolato (quasi nero o
+         *  quasi bianco). Nessuna correzione: `generate:statics` avvisa se sta sotto 4.5:1 su una superficie.
+         *  Vale anche per navbar e footer con `navbar.superficie: 'body'`. Assente: calcolato. */
+        testo?: string;
+        /** I colori del sito oltre al brand: `secondary`, `info`, `success`, `warning` e `danger` sostituiscono
+         *  quelli di Bootstrap, ogni altro nome ne aggiunge uno (`.btn-<nome>`, `.text-<nome>`, `--color<Nome>`). Fill esatto, testo
          *  leggibile. Nome in camelCase ASCII (`oro`, `oroChiaro`), fuori dai nomi che Bootstrap usa già. */
         palette?: Palette;
     };
     /** Quanto si muove il sito: durata di transizione fra pagine, fade d'ingresso, aperture e alone dei
      *  toggle attivi. `'fermo'` li spegne ovunque, anche nei ruoli che li chiedono. Default `'svelto'`. */
     movimento?: Movimento;
-    /** Ombra di dropdown, menu contestuale, cookie banner, FAB e delle barre (navbar, footer, fasce in fondo); raggio d'angolo di dropdown e menu contestuale (i FAB restano tondi). Default `'sospesa'`. */
-    elevazione?: Elevazione;
+    elevazione?: {
+        /** Ombra di pannello, dropdown, menu contestuale, cookie banner, FAB e delle barre (navbar, footer, fasce in fondo). Default `'sospesa'`. */
+        ombra?: Ombra;
+        /** Raggio d'angolo di pannello, dropdown, menu e di bottoni, campi, card e badge (i FAB restano tondi). Default `'morbidi'`. */
+        angoli?: Angoli;
+    };
     /** Respiro fra chrome, pannello e contenuto: spazio interno del pannello e distacco da navbar, footer e bordi. Default `'normale'`. */
     densita?: Densita;
     navbar?: {
@@ -251,6 +297,8 @@ export interface DesignSystemPreset {
     larghezza?: ContentWidth;
     /** Badge delle notifiche non lette. Default `'numero'`. */
     badgeNotifiche?: BadgeNotifiche;
+    /** Colori delle pastiglie di social e contatti di messaggistica. Default `'marchio'`. */
+    iconeSocial?: IconeSocial;
     /** Angoli arrotondati sull'immagine ingrandita. Default `true`. */
     lightboxArrotondato?: boolean;
     /** Effetto smoke; senza `enable` non compare su nessuna pagina, qualunque ruolo. */
@@ -260,6 +308,10 @@ export interface DesignSystemPreset {
         principale?: FontChoice;
         /** Font in più, raggiungibili da SCSS con `--fontFamily-<key>`; non diventano attivi. */
         aggiuntivi?: readonly FontChoice[];
+        /** Moltiplica la base del rem (e con lei testo, titoli, spazi e controlli, in proporzione): per un
+         *  font con l'occhio piccolo che a 16px si legge minuto. Fra 0.875 e 1.5, default `1`. In percentuale
+         *  sulla dimensione scelta dall'utente nel browser, mai in px. */
+        scala?: number;
     };
     og?: {
         /** og:image con solo lo sfondo, senza titolo e icona. Default `false`. */
@@ -289,7 +341,7 @@ const TOKEN_DI_SISTEMA = new Set([
     'MutedBg', 'MutedText', 'SubtleBg', 'NavBg', 'NavText', 'NavBorder',
 ].map(t => t.toLowerCase()));
 
-/** Colori di tema di Bootstrap: `secondary` e `info` la palette li rimpiazza, gli altri non sono nomi liberi. */
+/** Colori di tema di Bootstrap: quelli di `COLORI_SOSTITUIBILI` la palette li rimpiazza, gli altri non sono nomi liberi. */
 const COLORI_TEMA_BOOTSTRAP = new Set(['primary', 'secondary', 'success', 'info', 'warning', 'danger', 'light', 'dark']);
 
 /** La mappa `$colors` di Bootstrap (`--bs-blue`, `--bs-gray-dark`...). */
@@ -357,7 +409,7 @@ function motivoNomeColoreRifiutato(label: string): string | null {
     const kebab = toKebabCaseLabel(label);
     const segmenti = kebab.split('-');
     if (COLORI_TEMA_BOOTSTRAP.has(kebab)) {
-        return `"${kebab}" è un colore di tema di Bootstrap (fra questi la palette rimpiazza solo secondary e info)`;
+        return `"${kebab}" è un colore di tema di Bootstrap (fra questi la palette rimpiazza solo ${COLORI_SOSTITUIBILI.join(', ')})`;
     }
     if (COLORI_BASE_BOOTSTRAP.has(kebab)) {
         return `"${kebab}" è un colore della mappa $colors di Bootstrap (--bs-${kebab})`;
@@ -396,8 +448,8 @@ function checkPalette(name: string, palette: unknown): void {
                 `valido (atteso #RGB o #RRGGBB, es. "#5c1a2b" — niente canale alpha).`
             );
         }
-        // secondary/info sono i colori di Bootstrap che la palette rimpiazza: niente controlli di nome.
-        if (label === 'secondary' || label === 'info') continue;
+        // I colori di Bootstrap che la palette rimpiazza: niente controlli di nome.
+        if ((COLORI_SOSTITUIBILI as readonly string[]).includes(label)) continue;
         const motivo = motivoNomeColoreRifiutato(label);
         if (motivo) {
             throw new Error(`[DesignSystem] "${name}".colori.palette["${label}"]: nome non ammesso — ${motivo}. Scegli un'altra etichetta.`);
@@ -425,6 +477,60 @@ function checkPalette(name: string, palette: unknown): void {
     }
 }
 
+/** Valida `colori.campioni`: nomi camelCase (diventano `--campione<Nome>`), valori hex. Nessun controllo di
+ *  collisione con Bootstrap: un campione non genera classi. */
+function checkCampioni(name: string, campioni: unknown): void {
+    if (campioni === undefined) return;
+    if (!isOggetto(campioni)) {
+        throw new Error(`[DesignSystem] "${name}".colori.campioni deve essere un oggetto { nome: '#hex' } (vedi campionario()).`);
+    }
+    for (const [label, value] of Object.entries(campioni)) {
+        if (!NOME_COLORE_PATTERN.test(label)) {
+            throw new Error(
+                `[DesignSystem] "${name}".colori.campioni["${label}"]: nome non ammesso — camelCase ASCII, inizia con ` +
+                `una lettera minuscola (es. "sabbia", "verdeBosco").`
+            );
+        }
+        if (typeof value !== 'string' || !HEX_COLOR_PATTERN.test(value)) {
+            throw new Error(
+                `[DesignSystem] "${name}".colori.campioni["${label}"]=${JSON.stringify(value)} non è un colore hex ` +
+                `valido (atteso #RGB o #RRGGBB).`
+            );
+        }
+    }
+}
+
+/** `#RGB`/`#RRGGBB` (e `#RRGGBBAA` per lo smoke, senza alpha) nella forma lunga minuscola: due hex sono lo
+ *  stesso colore se coincidono qui. */
+export function hexNormalizzato(hex: string): string {
+    const h = hex.toLowerCase();
+    if (h.length === 4) return '#' + [...h.slice(1)].map(ch => ch + ch).join('');
+    return h.slice(0, 7);
+}
+
+/** Con un campionario, ogni colore del design system (`sfondo`, `testo`, `palette`, `smoke.color` senza
+ *  alpha) deve esserne parte. Il controllo è sul valore: `c.sabbia` è un hex come un altro, e un colore
+ *  scritto a mano passa solo se è già un campione. */
+function checkColoriDalCampionario(name: string, preset: DesignSystemPreset): void {
+    const campioni = preset.colori?.campioni ?? {};
+    if (Object.keys(campioni).length === 0) return;
+    const valori = new Set(Object.values(campioni).map(hexNormalizzato));
+    const usati: [string, string | undefined][] = [
+        ['colori.sfondo', preset.colori?.sfondo],
+        ['colori.testo', preset.colori?.testo],
+        ...Object.entries(preset.colori?.palette ?? {}).map(([label, hex]): [string, string | undefined] => [`colori.palette.${label}`, hex]),
+        ['smoke.color', preset.smoke?.color],
+    ];
+    for (const [campo, hex] of usati) {
+        if (hex === undefined || valori.has(hexNormalizzato(hex))) continue;
+        throw new Error(
+            `[DesignSystem] "${name}".${campo}=${JSON.stringify(hex)} non è nel campionario: con colori.campioni ` +
+            `dichiarato, ogni colore del design system viene da lì. Aggiungilo a colori.campioni con un nome ` +
+            `(es. nomeColore: '${hex}') e usalo per riferimento, o togli il campionario.`
+        );
+    }
+}
+
 /** Valori ammessi di un campo enumerato; il `Record` obbliga a elencarli tutti. */
 function valoriDi<T extends string>(valori: Record<T, unknown>): readonly string[] {
     return Object.keys(valori);
@@ -434,7 +540,7 @@ function valoriDi<T extends string>(valori: Record<T, unknown>): readonly string
 type RegolaCampo = readonly string[] | 'boolean' | 'function' | 'a parte';
 
 /** I gruppi del design system: si fondono campo per campo, non si sostituiscono interi. */
-const GRUPPI = ['tono', 'colori', 'navbar', 'footer', 'breadcrumb', 'fab', 'font', 'og', 'smoke'] as const;
+const GRUPPI = ['tono', 'colori', 'elevazione', 'navbar', 'footer', 'breadcrumb', 'fab', 'font', 'og', 'smoke'] as const;
 type Gruppo = typeof GRUPPI[number];
 
 /** Campi di ogni gruppo e loro regola: i tipi obbligano a elencarli tutti, e solo quelli. */
@@ -445,14 +551,17 @@ const REGOLE_GRUPPI: { [G in Gruppo]: Record<keyof NonNullable<DesignSystemPrese
     },
     colori: {
         superfici: valoriDi<Superfici>({ foglio: 1, distinte: 1, tenue: 1, 'tenue-flottante': 1, fusione: 1 }),
+        campioni: 'a parte',
         sfondo: 'a parte',
+        testo: 'a parte',
         palette: 'a parte',
     },
+    elevazione: { ombra: valoriDi(OMBRA_TIERS), angoli: valoriDi(ANGOLI_TIERS) },
     navbar: { show: 'boolean', fissa: 'boolean', superficie: valoriDi<'brand' | 'body'>({ brand: 1, body: 1 }), icona: 'boolean' },
     footer: { show: 'boolean' },
     breadcrumb: { show: 'boolean', stile: valoriDi(BREADCRUMB_SEPARATORE), maxVoci: 'a parte' },
     fab: { tornaSuSoglia: valoriDi(BACK_TO_TOP_SOGLIA_PX), cookie: valoriDi<CookieReopenStile>({ discreto: 1, standard: 1 }) },
-    font: { principale: 'a parte', aggiuntivi: 'a parte' },
+    font: { principale: 'a parte', aggiuntivi: 'a parte', scala: 'a parte' },
     og: { soloSfondo: 'boolean', testo: 'function' },
     smoke: { enable: 'boolean', color: 'a parte', opacity: 'a parte', intensita: valoriDi(SMOKE_INTENSITY) },
 };
@@ -460,10 +569,10 @@ const REGOLE_GRUPPI: { [G in Gruppo]: Record<keyof NonNullable<DesignSystemPrese
 /** Campi fuori dai gruppi e loro regola. */
 const REGOLE_RADICE: Record<Exclude<keyof DesignSystemPreset, Gruppo>, RegolaCampo> = {
     movimento: valoriDi(MOVIMENTO_DURATA),
-    elevazione: valoriDi(ELEVAZIONE_TIERS),
     densita: valoriDi(DENSITA_TIERS),
     larghezza: valoriDi(CONTENT_WIDTH_CLASSES),
     badgeNotifiche: valoriDi<BadgeNotifiche>({ numero: 1, puntino: 1 }),
+    iconeSocial: valoriDi<IconeSocial>({ marchio: 1, tema: 1 }),
     lightboxArrotondato: 'boolean',
     ruoloPagina: 'a parte',
 };
@@ -543,6 +652,14 @@ export function validateDesignSystemPreset(name: string, preset: DesignSystemPre
     for (const gruppo of GRUPPI) {
         const valore = raw[gruppo];
         if (valore === undefined) continue;
+        // `elevazione` era una stringa (l'ombra, col suo raggio): ora è un gruppo, e lo si dice con la riga giusta.
+        if (gruppo === 'elevazione' && typeof valore === 'string') {
+            throw new Error(
+                `[DesignSystem] "${name}".elevazione=${JSON.stringify(valore)}: elevazione ora è un gruppo, ` +
+                `{ ombra, angoli }. Scrivi elevazione: { ombra: ${JSON.stringify(valore)} } (il raggio d'angolo è ` +
+                `elevazione.angoli: 'vivi', 'morbidi' o 'tondi').`
+            );
+        }
         if (!isOggetto(valore)) {
             throw new Error(`[DesignSystem] "${name}".${gruppo} deve essere un oggetto.`);
         }
@@ -559,7 +676,15 @@ export function validateDesignSystemPreset(name: string, preset: DesignSystemPre
             `(atteso #RGB o #RRGGBB, es. "#131e55" — niente canale alpha).`
         );
     }
+    if (colori.testo != null && (typeof colori.testo !== 'string' || !HEX_COLOR_PATTERN.test(colori.testo))) {
+        throw new Error(
+            `[DesignSystem] "${name}".colori.testo=${JSON.stringify(colori.testo)} non è un colore hex valido ` +
+            `(atteso #RGB o #RRGGBB, es. "#dcccb6" — niente canale alpha).`
+        );
+    }
     checkPalette(name, colori.palette);
+    checkCampioni(name, colori.campioni);
+    checkColoriDalCampionario(name, preset);
 
     const smoke = preset.smoke;
     if (smoke?.color != null && (typeof smoke.color !== 'string' || !SMOKE_HEX_COLOR_PATTERN.test(smoke.color))) {
@@ -578,6 +703,14 @@ export function validateDesignSystemPreset(name: string, preset: DesignSystemPre
             `[DesignSystem] "${name}".breadcrumb.maxVoci=${JSON.stringify(maxItems)} non valido: deve essere un ` +
             `intero >= 3 (il troncamento mostra Home, "…", penultimo e ultimo: sotto 3 voci non c'è nulla ` +
             `da nascondere) oppure la stringa 'none'.`
+        );
+    }
+    const scala = preset.font?.scala;
+    if (scala !== undefined
+        && (typeof scala !== 'number' || !Number.isFinite(scala) || scala < FONT_SCALA_MIN || scala > FONT_SCALA_MAX)) {
+        throw new Error(
+            `[DesignSystem] "${name}".font.scala=${JSON.stringify(scala)} non valido: atteso un numero fra ${FONT_SCALA_MIN} e ` +
+            `${FONT_SCALA_MAX} (1 = la dimensione scelta dall'utente nel browser, 1.125 = un ottavo più grande).`
         );
     }
     const principale = preset.font?.principale;
@@ -615,6 +748,11 @@ export function validateDesignSystemPreset(name: string, preset: DesignSystemPre
         seenKeys.add(addon.key);
     }
 }
+
+/** Limiti di `font.scala`: sotto, il corpo scenderebbe a ridosso di `--fs-xs`; sopra, i gradini fissi
+ *  in px (breakpoint, immagini) non terrebbero più il passo col testo. */
+const FONT_SCALA_MIN = 0.875;
+const FONT_SCALA_MAX = 1.5;
 
 /** Nome di file di una faccia: solo il nome, senza cartelle, con estensione di font. */
 const FONT_FILE_PATTERN = /^[^\\/:*?"<>|\x00-\x1f]+\.(ttf|otf|woff|woff2)$/i;
@@ -672,12 +810,14 @@ export type DesignSystemFactory = () => DesignSystemPreset;
 export const emptyDesignSystem: DesignSystemFactory = () => ({});
 
 /** Design system con ogni default applicato (= `ContestoSito.config.aspetto`); ogni campo ha un
- *  valore tranne quattro la cui assenza è essa stessa una scelta (`tono.forza`, `colori.sfondo`, `font.principale`, `og.testo`). */
+ *  valore tranne cinque la cui assenza è essa stessa una scelta (`tono.forza`, `colori.sfondo`, `colori.testo`, `font.principale`, `og.testo`). */
 export interface Aspetto {
     tono: { forza?: 'light' | 'dark'; pannello: 'light' | 'dark' | 'auto' };
     colori: {
         superfici: Superfici;
+        campioni: Readonly<Record<string, Hex>>;
         sfondo?: string;
+        testo?: string;
         palette: Palette;
         /** Quanto le superfici prendono la lucentezza del brand (0-1), da `superfici`. */
         vividezza: number;
@@ -689,7 +829,7 @@ export interface Aspetto {
     transizioni: boolean;
     /** Alone dei toggle attivi, dal movimento: spento da fermo, più ampio se morbido. */
     pulsazione: PulsazioneAttiva;
-    elevazione: Elevazione;
+    elevazione: { ombra: Ombra; angoli: Angoli };
     densita: Densita;
     navbar: { show: boolean; fissa: boolean; superficie: 'brand' | 'body'; icona: boolean };
     footer: { show: boolean };
@@ -697,9 +837,10 @@ export interface Aspetto {
     fab: { tornaSuSoglia: BackToTopSoglia; cookie: CookieReopenStile };
     larghezza: ContentWidth;
     badgeNotifiche: BadgeNotifiche;
+    iconeSocial: IconeSocial;
     lightboxArrotondato: boolean;
     smoke: SmokeSettings;
-    font: { principale?: FontChoice; aggiuntivi: readonly FontChoice[] };
+    font: { principale?: FontChoice; aggiuntivi: readonly FontChoice[]; scala: number };
     og: { soloSfondo: boolean; testo?: (input: OgTextTransformInput) => OgTextTransformResult };
 }
 
@@ -725,12 +866,12 @@ export function risolviAspetto(preset: DesignSystemPreset | undefined): Aspetto 
     return {
         // Con un tono forzato il pannello segue il sito, invece di una card chiara che nessuno ha chiesto.
         tono: { forza: p.tono?.forza, pannello: p.tono?.pannello ?? (p.tono?.forza ? 'auto' : 'light') },
-        colori: { superfici, sfondo: p.colori?.sfondo, palette: { ...p.colori?.palette }, vividezza: vividezzaDi(superfici) },
+        colori: { superfici, campioni: { ...p.colori?.campioni }, sfondo: p.colori?.sfondo, testo: p.colori?.testo, palette: { ...p.colori?.palette }, vividezza: vividezzaDi(superfici) },
         pannello: superficiConPannello(superfici),
         movimento,
         transizioni: movimento !== 'fermo',
         pulsazione: movimento === 'fermo' ? 'assente' : movimento === 'morbido' ? 'marcata' : 'lieve',
-        elevazione: p.elevazione ?? 'sospesa',
+        elevazione: { ombra: p.elevazione?.ombra ?? 'sospesa', angoli: p.elevazione?.angoli ?? 'morbidi' },
         densita: p.densita ?? 'normale',
         navbar: {
             show: p.navbar?.show ?? true,
@@ -743,6 +884,7 @@ export function risolviAspetto(preset: DesignSystemPreset | undefined): Aspetto 
         fab: { tornaSuSoglia: p.fab?.tornaSuSoglia ?? 'standard', cookie: p.fab?.cookie ?? 'discreto' },
         larghezza: p.larghezza ?? 'ampio',
         badgeNotifiche: p.badgeNotifiche ?? 'numero',
+        iconeSocial: p.iconeSocial ?? 'marchio',
         lightboxArrotondato: p.lightboxArrotondato ?? true,
         smoke: {
             enable: p.smoke?.enable ?? false,
@@ -750,7 +892,7 @@ export function risolviAspetto(preset: DesignSystemPreset | undefined): Aspetto 
             opacity: p.smoke?.opacity ?? 0.5,
             ...SMOKE_INTENSITY[p.smoke?.intensita ?? 'pulviscolo'],
         },
-        font: { principale: p.font?.principale, aggiuntivi: p.font?.aggiuntivi ?? [] },
+        font: { principale: p.font?.principale, aggiuntivi: p.font?.aggiuntivi ?? [], scala: p.font?.scala ?? 1 },
         og: { soloSfondo: p.og?.soloSfondo ?? false, testo: p.og?.testo },
     };
 }
@@ -769,6 +911,9 @@ function mergeDesignSystemPreset(base: DesignSystemPreset, patch: Partial<Design
     const result = merged as DesignSystemPreset;
     if (base.colori?.palette || patch.colori?.palette) {
         result.colori = { ...result.colori, palette: { ...base.colori?.palette, ...definiti(patch.colori?.palette) } as Palette };
+    }
+    if (base.colori?.campioni || patch.colori?.campioni) {
+        result.colori = { ...result.colori, campioni: { ...base.colori?.campioni, ...definiti(patch.colori?.campioni) } as Record<string, Hex> };
     }
     // Ogni ruolo presente da un lato o dall'altro, anche uno custom del base non toccato dal patch.
     if (base.ruoloPagina || patch.ruoloPagina) {

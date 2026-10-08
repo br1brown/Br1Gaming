@@ -18,11 +18,22 @@ $primary:   lib.required($_lt, 'primary');
 $secondary: lib.required($_lt, 'secondary');
 // null = nessun override: il !default di Bootstrap tiene il suo $info.
 $info:      $theme-info;
+// success/warning/danger di colori.palette; quelli assenti (null) restano i !default di Bootstrap.
+$success:   map.get($theme-semantici, 'success');
+$warning:   map.get($theme-semantici, 'warning');
+$danger:    map.get($theme-semantici, 'danger');
+
+// ── Raggi: la scala di Bootstrap da `elevazione.angoli` (la pillola resta la sua) ──
+$border-radius:     lib.required($theme-angoli, 'base');
+$border-radius-sm:  lib.required($theme-angoli, 'sm');
+$border-radius-lg:  lib.required($theme-angoli, 'lg');
+$border-radius-xl:  lib.required($theme-angoli, 'xl');
+$border-radius-xxl: lib.required($theme-angoli, 'xxl');
 
 // ── Tono chiaro ────────────────────────────────────────────────────────────
 $body-bg:               lib.required($_lt, 'body-bg');
 $body-color:            lib.required($_lt, 'body-color');
-$body-emphasis-color:   lib.required($_lt, 'heading');
+$body-emphasis-color:   lib.required($_lt, 'emphasis');
 $headings-color:        lib.required($_lt, 'heading');
 $body-secondary-color:  lib.required($_lt, 'muted-text');
 $body-secondary-bg:     lib.required($_lt, 'muted-bg');
@@ -35,7 +46,7 @@ $card-border-color:     var(--bs-border-color);
 // ── Tono scuro ─────────────────────────────────────────────────────────────
 $body-bg-dark:              lib.required($_dk, 'body-bg');
 $body-color-dark:           lib.required($_dk, 'body-color');
-$body-emphasis-color-dark:  lib.required($_dk, 'heading');
+$body-emphasis-color-dark:  lib.required($_dk, 'emphasis');
 $headings-color-dark:       lib.required($_dk, 'heading');
 $body-secondary-color-dark: lib.required($_dk, 'muted-text');
 $body-secondary-bg-dark:    lib.required($_dk, 'muted-bg');
@@ -75,6 +86,18 @@ $form-select-indicator-color:             lib.required($_lt, 'body-color');
 
 // ── Da qui Bootstrap è importato a pezzi, nell'ordine documentato per estenderlo ─────────
 @import 'bootstrap/scss/variables';
+
+// Bordi dei campi validi/non validi nel tono scuro: Bootstrap li fissa ($green-300/$red-300) invece di
+// derivarli da $success/$danger. Con quei colori in palette, la loro variante leggibile del tono scuro.
+// (Il testo dei messaggi di validazione è già l'emphasis del colore, in _bootstrap-theme.scss.)
+@if map.has-key($theme-accents, 'success') {
+    $form-valid-color-dark: list.nth(map.get($theme-accents, 'success', 'dark'), 2) !global;
+    $form-valid-border-color-dark: $form-valid-color-dark !global;
+}
+@if map.has-key($theme-accents, 'danger') {
+    $form-invalid-color-dark: list.nth(map.get($theme-accents, 'danger', 'dark'), 2) !global;
+    $form-invalid-border-color-dark: $form-invalid-color-dark !global;
+}
 
 // Alone del cursore del range sul fondo del tono (di serie $body-bg, il chiaro, in entrambi i toni).
 $form-range-thumb-focus-box-shadow: 0 0 0 1px var(--#{$prefix}body-bg), $input-focus-box-shadow;

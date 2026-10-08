@@ -3,6 +3,9 @@ import { Injectable, PLATFORM_ID, Signal, WritableSignal, inject, isDevMode, sig
 import { ContestoSito } from '../../../site';
 import type { SiteConfig } from '../siteBuilder';
 
+/** I colori semantici di Bootstrap che un design system può rimpiazzare oltre a `secondary`/`info`. */
+export type ColoreSemantico = 'success' | 'warning' | 'danger';
+
 /** Input della palette per Bootstrap (compilati in `generated/_theme.scss`) più i token che lui non ha; Lt/Dk = per tono. */
 export interface PaletteTokens {
     // ── Brand ─────────────────────────────────────────────────────────────────
@@ -54,12 +57,19 @@ export interface PaletteTokens {
     colorSecondaryDk: string;
     /** Override "duro" di `$info`, SOLO se il design system lo propone: assente, Bootstrap tiene il suo. */
     colorInfo?: string;
+    /** Override "duri" di `$success`/`$warning`/`$danger`, solo quelli proposti dal design system: per gli altri Bootstrap tiene i suoi. */
+    coloriSemantici: Partial<Record<ColoreSemantico, string>>;
 
     // ── Strutturali ─────────────────────────────────────────────────────────
-    /** Titoli/`<strong>` light (L=0.165, spostata solo se serve per ≥4.8:1). `$body-emphasis-color`. */
+    /** Titoli/`<strong>` light (L=0.165, spostata solo se serve per ≥4.8:1; `colori.testo` se c'è). `$headings-color`. */
     colorHeadingLt: string;
-    /** Titoli/`<strong>` dark (L=0.958, idem). `$body-emphasis-color-dark`. */
+    /** Titoli/`<strong>` dark (L=0.958, idem). `$headings-color-dark`. */
     colorHeadingDk: string;
+    /** Testo di massimo contrasto light (`$body-emphasis-color`: `.text-body-emphasis`, pastiglie delle icone):
+     *  il titolo calcolato, anche quando `colori.testo` sostituisce testo e titoli. */
+    colorEmphasisLt: string;
+    /** Testo di massimo contrasto dark (`$body-emphasis-color-dark`), idem. */
+    colorEmphasisDk: string;
     /** Sfondo muted light: input disabilitati, righe table-striped (L=0.942): a vividness 0 la più scura, riferimento iniziale dei primi piani. `$body-secondary-bg`. */
     colorMutedBgLt: string;
     /** Sfondo muted dark (L=0.295). `$body-secondary-bg-dark`. */
@@ -93,7 +103,7 @@ export interface PaletteTokens {
     /** Colori con nome proprio da `PaletteOverrides.coloriNuovi`, override "duri": il fill esatto di `--color<Label>` e delle classi Bootstrap del colore. `{}` se nessuno. */
     coloriNuovi: Record<string, string>;
 
-    /** Variante da TESTO, per tono, dei colori d'accento: `secondary`, `info` (solo se overridden) e ogni etichetta di `coloriNuovi`. Il fill resta l'hex scelto; dove il colore finisce come testo sulla pagina (`.text-*`, `.link-*`, bottoni outline) si usa questa, stessa tinta spostata in L quanto basta per ≥4.8:1 su ogni superficie del tono. Per il secondario derivato coincide col fill, già leggibile. */
+    /** Variante da TESTO, per tono, dei colori d'accento: `secondary`, `info` e `coloriSemantici` (solo se overridden) e ogni etichetta di `coloriNuovi`. Il fill resta l'hex scelto; dove il colore finisce come testo sulla pagina (`.text-*`, `.link-*`, bottoni outline) si usa questa, stessa tinta spostata in L quanto basta per ≥4.8:1 su ogni superficie del tono. Per il secondario derivato coincide col fill, già leggibile. */
     accentText: Record<string, { lt: string; dk: string }>;
 }
 
@@ -105,6 +115,11 @@ export interface PaletteOverrides {
     background?: string;
     /** Override "duro" di `$info`. Senza fallback dal brand: assente, Bootstrap tiene il suo. */
     info?: string;
+    /** Override "duri" di `$success`/`$warning`/`$danger`, come `info`: per quelli assenti Bootstrap tiene i suoi. */
+    semantici?: Partial<Record<ColoreSemantico, string>>;
+    /** Override "duro" di testo e titoli (`colori.testo`), lo stesso hex nei due toni: nessuna ricerca di
+     *  contrasto, la segnala `auditTextContrast`. L'emphasis resta quella calcolata. Assente: calcolati. */
+    testo?: string;
     /** Colori con nome proprio (i nomi nuovi di `colori.palette`), override "duro" come `secondary`. Vuoto: nessun token in più. */
     coloriNuovi?: Record<string, string>;
     /** Quanto le superfici si avvicinano alla lucentezza (L, OKLCH) del colore di riferimento invece di restare neutre: 0 (default) = near-black/white appena tinto, 1 = sfondo visibilmente quel colore, interpolato in mezzo. Testo, titoli e bordi sono ricercati contro le superfici reali risultanti. */
@@ -114,12 +129,15 @@ export interface PaletteOverrides {
 /** Gli override di un design system risolto (default: quello attivo in site.ts), unica fonte per
  *  client, SSR e script di build. */
 export function siteOverrides(cfg: SiteConfig = ContestoSito.config): PaletteOverrides {
-    // secondary/info rimpiazzano quelli di serie, ogni altro nome è un colore in più.
-    const { secondary, info, ...coloriNuovi } = cfg.aspetto.colori.palette;
+    // secondary/info/success/warning/danger rimpiazzano quelli di serie, ogni altro nome è un colore in più.
+    const { secondary, info, success, warning, danger, ...coloriNuovi } = cfg.aspetto.colori.palette;
+    const semantici = Object.fromEntries(Object.entries({ success, warning, danger }).filter(([, hex]) => hex !== undefined));
     return {
         secondary,
         background: cfg.aspetto.colori.sfondo,
         info,
+        semantici,
+        testo: cfg.aspetto.colori.testo,
         coloriNuovi,
         vividezza: cfg.aspetto.colori.vividezza,
     };
@@ -331,6 +349,7 @@ export class AppearanceService {
         // (color-contrast) in fase di compilazione.
         const coloriNuovi: PaletteTokens['coloriNuovi'] = { ...(overrides?.coloriNuovi ?? {}) };
         const colorInfo = overrides?.info;
+        const coloriSemantici: PaletteTokens['coloriSemantici'] = { ...(overrides?.semantici ?? {}) };
 
 
         // ── Structural Bootstrap vars ──────────────────────────────────────
@@ -372,10 +391,14 @@ export class AppearanceService {
         // Testo corpo (L 0.200 / 0.920) e titoli/strong (L 0.165 / 0.958): quasi nero/bianco con leggera
         // tinta testo. A vividness 0 queste L reggono già e restano identiche; con le superfici portate
         // verso la lucentezza del brand (es. brand chiaro in tono scuro) si spostano finché reggono.
-        const colorSurfaceTextLt = AppearanceService.findContrastOnSurfaces(Math.min(C_txt * 0.20, 0.030), H_txt, surfacesLt, TARGET_TEXT, 0.200, -0.01);
-        const colorSurfaceTextDk = AppearanceService.findContrastOnSurfaces(Math.min(C_txt * 0.06, 0.010), H_txt, surfacesDk, TARGET_TEXT, 0.920, +0.01);
-        const colorHeadingLt = AppearanceService.findContrastOnSurfaces(Math.min(C_txt * 0.14, 0.020), H_txt, surfacesLt, TARGET_TEXT, 0.165, -0.01);
-        const colorHeadingDk = AppearanceService.findContrastOnSurfaces(Math.min(C_txt * 0.04, 0.006), H_txt, surfacesDk, TARGET_TEXT, 0.958, +0.01);
+        const colorSurfaceTextLt = overrides?.testo ?? AppearanceService.findContrastOnSurfaces(Math.min(C_txt * 0.20, 0.030), H_txt, surfacesLt, TARGET_TEXT, 0.200, -0.01);
+        const colorSurfaceTextDk = overrides?.testo ?? AppearanceService.findContrastOnSurfaces(Math.min(C_txt * 0.06, 0.010), H_txt, surfacesDk, TARGET_TEXT, 0.920, +0.01);
+        const colorEmphasisLt = AppearanceService.findContrastOnSurfaces(Math.min(C_txt * 0.14, 0.020), H_txt, surfacesLt, TARGET_TEXT, 0.165, -0.01);
+        const colorEmphasisDk = AppearanceService.findContrastOnSurfaces(Math.min(C_txt * 0.04, 0.006), H_txt, surfacesDk, TARGET_TEXT, 0.958, +0.01);
+        // `colori.testo`: override "duro" di testo e titoli, come un fill di palette (vedi `auditTextContrast`).
+        const testo = overrides?.testo;
+        const colorHeadingLt = testo ?? colorEmphasisLt;
+        const colorHeadingDk = testo ?? colorEmphasisDk;
         // Bordo neutro Lt L=0.570 / Dk L=0.600, portato da liftBg come le superfici: a vividness 0 ≥3:1
         // sulla superficie peggiore (≈3.75 e ≈3.47:1); dove non regge 3:1 su tutte si sposta in L.
         const colorSurfaceBorderLt = AppearanceService.findContrastOnSurfaces(0, 0, surfacesLt, AppearanceService.MIN_UI_CONTRAST, liftBg(0.570), -0.01);
@@ -385,8 +408,21 @@ export class AppearanceService {
         // non è più quello: restano identici se reggono già su tutte, altrimenti si spostano in L.
         const colorLinkLt = AppearanceService.keepOnSurfaces(linkLtBase, surfacesLt, TARGET_TEXT, -0.01);
         const colorLinkDk = AppearanceService.keepOnSurfaces(linkDkBase, surfacesDk, TARGET_TEXT, +0.01);
-        const colorMutedTextLt = AppearanceService.keepOnSurfaces(mutedTextLtBase, surfacesLt, TARGET_TEXT, -0.01);
-        const colorMutedTextDk = AppearanceService.keepOnSurfaces(mutedTextDkBase, surfacesDk, TARGET_TEXT, +0.01);
+        // Con `colori.testo` il testo attenuato ne prende la tinta, a un quarto verso la base, e si sposta verso
+        // il testo finché regge su tutte le superfici (qui la garanzia resta). Il verso viene dal testo, non dal
+        // tono: con la vividezza un tono "chiaro" può avere testo chiaro.
+        const mutedDaTesto = (testoHex: string, baseHex: string, surfaces: string[]): string => {
+            const [L_tx, C_tx, H_tx] = AppearanceService.hexToOklch(testoHex);
+            const [L_b] = AppearanceService.hexToOklch(baseHex);
+            const step = L_tx > L_b ? +0.01 : -0.01;
+            return AppearanceService.findContrastOnSurfaces(C_tx, H_tx, surfaces, TARGET_TEXT, L_tx + (L_b - L_tx) * 0.25, step);
+        };
+        const colorMutedTextLt = testo
+            ? mutedDaTesto(testo, baseLtHex, surfacesLt)
+            : AppearanceService.keepOnSurfaces(mutedTextLtBase, surfacesLt, TARGET_TEXT, -0.01);
+        const colorMutedTextDk = testo
+            ? mutedDaTesto(testo, baseDkHex, surfacesDk)
+            : AppearanceService.keepOnSurfaces(mutedTextDkBase, surfacesDk, TARGET_TEXT, +0.01);
         const colorPrimaryFgLt = AppearanceService.keepOnSurfaces(primaryFgLtBase, surfacesLt, TARGET_TEXT, -0.01);
         const colorPrimaryFgDk = AppearanceService.keepOnSurfaces(primaryFgDkBase, surfacesDk, TARGET_TEXT, +0.01);
         // Il fill primary (bottoni, checkbox spuntata) deve staccarsi dalle superfici su cui sta davvero:
@@ -406,6 +442,7 @@ export class AppearanceService {
         const accentText: PaletteTokens['accentText'] = {
             secondary: secondaryDerived ? { lt: secLt, dk: secDk } : { lt: textOn(secLt).lt, dk: textOn(secDk).dk },
             ...(colorInfo ? { info: textOn(colorInfo) } : {}),
+            ...Object.fromEntries(Object.entries(coloriSemantici).map(([nome, hex]) => [nome, textOn(hex)])),
             ...Object.fromEntries(Object.entries(coloriNuovi).map(([label, hex]) => [label, textOn(hex)])),
         };
 
@@ -437,7 +474,9 @@ export class AppearanceService {
             colorSecondaryLt: secLt,
             colorSecondaryDk: secDk,
             colorInfo,
+            coloriSemantici,
             colorHeadingLt, colorHeadingDk,
+            colorEmphasisLt, colorEmphasisDk,
             colorMutedBgLt, colorMutedBgDk,
             colorSubtleBgLt, colorSubtleBgDk,
             colorMutedTextLt, colorMutedTextDk,
@@ -454,31 +493,33 @@ export class AppearanceService {
             accentText,
         };
 
-        // Un fill "duro" può confondersi col fondo: in dev lo si segnala, mai lo si corregge.
+        // Un fill "duro" può confondersi col fondo: in dev lo si segnala, mai lo si corregge. Il nome della
+        // funzione dopo il prefisso, come i ripieghi: `generate:statics` conta questi ultimi per funzione e
+        // stampa a parte gli avvisi dell'audit, che ripieghi non sono.
         if (isDevMode()) {
             for (const message of AppearanceService.auditPaletteContrast(tokens)) {
-                console.warn(`[AppearanceService] ${message}`);
+                console.warn(`[AppearanceService] auditPaletteContrast: ${message}`);
             }
         }
 
         return tokens;
     }
 
-    /** WCAG 1.4.11 (≥3:1): un fill (secondario/info/coloriNuovi) deve restare distinguibile dalla superficie su cui si appoggia, non solo avere testo leggibile sopra (già coperto da `getReadableTextColor`). Rete di sicurezza per gli override "duri": solo segnalazione, mai correzione silenziosa. Pura e statica, chiamata da `computePalette`. */
-    static auditPaletteContrast(tokens: PaletteTokens): string[] {
+    /** WCAG 1.4.11 (≥3:1): un fill (secondario/info/coloriNuovi) deve restare distinguibile dalla superficie su cui si appoggia, non solo avere testo leggibile sopra (già coperto da `getReadableTextColor`). Rete di sicurezza per gli override "duri": solo segnalazione, mai correzione silenziosa. Pura e statica, chiamata da `computePalette` (in dev) e da `generate:statics`, che passa i `toni` mostrati dal sito. */
+    static auditPaletteContrast(tokens: PaletteTokens, toni: readonly ('light' | 'dark')[] = ['light', 'dark']): string[] {
         const MIN_UI_CONTRAST = AppearanceService.MIN_UI_CONTRAST;
         const messages: string[] = [];
 
         const checkFill = (label: string, fillLt: string, fillDk: string): void => {
             const surfacesLt: [string, string][] = [['colorBaseLt', tokens.colorBaseLt], ['colorSurfaceLt', tokens.colorSurfaceLt]];
             const surfacesDk: [string, string][] = [['colorBaseDk', tokens.colorBaseDk], ['colorSurfaceDk', tokens.colorSurfaceDk]];
-            for (const [surfaceName, surfaceHex] of surfacesLt) {
+            for (const [surfaceName, surfaceHex] of toni.includes('light') ? surfacesLt : []) {
                 const ratio = AppearanceService.calcContrastRatio(fillLt, surfaceHex);
                 if (ratio < MIN_UI_CONTRAST) {
                     messages.push(`${label}Lt (${fillLt}) ha contrasto ${ratio.toFixed(2)}:1 contro ${surfaceName} (${surfaceHex}) — sotto la soglia WCAG 1.4.11 (${MIN_UI_CONTRAST}:1) per elementi UI: rischia di risultare invisibile, non solo poco leggibile.`);
                 }
             }
-            for (const [surfaceName, surfaceHex] of surfacesDk) {
+            for (const [surfaceName, surfaceHex] of toni.includes('dark') ? surfacesDk : []) {
                 const ratio = AppearanceService.calcContrastRatio(fillDk, surfaceHex);
                 if (ratio < MIN_UI_CONTRAST) {
                     messages.push(`${label}Dk (${fillDk}) ha contrasto ${ratio.toFixed(2)}:1 contro ${surfaceName} (${surfaceHex}) — sotto la soglia WCAG 1.4.11 (${MIN_UI_CONTRAST}:1) per elementi UI: rischia di risultare invisibile, non solo poco leggibile.`);
@@ -490,12 +531,40 @@ export class AppearanceService {
         if (tokens.colorInfo !== undefined) {
             checkFill('colorInfo', tokens.colorInfo, tokens.colorInfo);
         }
+        for (const [nome, hex] of Object.entries(tokens.coloriSemantici)) {
+            checkFill(`coloriSemantici.${nome}`, hex, hex);
+        }
         for (const [label, hex] of Object.entries(tokens.coloriNuovi)) {
             checkFill(`coloriNuovi.${label}`, hex, hex);
         }
 
         return messages;
     }
+
+    /** WCAG 1.4.3 (≥4.5:1): testo e titoli sulle cinque superfici di ogni tono in `toni` (quelli mostrati dal
+     *  sito). Serve a `colori.testo`, che li sostituisce senza ricerca di contrasto: i calcolati reggono per
+     *  costruzione. Solo segnalazione, come `auditPaletteContrast`; la stampa `generate:statics`. */
+    static auditTextContrast(tokens: PaletteTokens, toni: readonly ('light' | 'dark')[] = ['light', 'dark']): string[] {
+        const messages: string[] = [];
+        const tones: ['light' | 'dark', string[], string, string][] = [
+            ['light', [tokens.colorBaseLt, tokens.colorSurfaceLt, tokens.colorSurfaceHoverLt, tokens.colorMutedBgLt, tokens.colorSubtleBgLt], tokens.colorSurfaceTextLt, tokens.colorHeadingLt],
+            ['dark', [tokens.colorBaseDk, tokens.colorSurfaceDk, tokens.colorSurfaceHoverDk, tokens.colorMutedBgDk, tokens.colorSubtleBgDk], tokens.colorSurfaceTextDk, tokens.colorHeadingDk],
+        ];
+        for (const [tone, surfaces, text, heading] of tones) {
+            if (!toni.includes(tone)) continue;
+            for (const [ruolo, fg] of [['del testo', text], ['dei titoli', heading]] as const) {
+                const peggiore = Math.min(...surfaces.map(bg => AppearanceService.calcContrastRatio(fg, bg)));
+                if (peggiore < AppearanceService.MIN_TEXT_CONTRAST) {
+                    messages.push(`Il colore ${ruolo} nel tono ${tone === 'light' ? 'chiaro' : 'scuro'} (${fg}) scende a ${peggiore.toFixed(2)}:1 ` +
+                        `su una superficie (${surfaces.join(', ')}): sotto la soglia WCAG 1.4.3 (${AppearanceService.MIN_TEXT_CONTRAST}:1).`);
+                }
+            }
+        }
+        return [...new Set(messages)];
+    }
+
+    /** Minimo WCAG 1.4.3 (AA) per il testo di corpo. */
+    private static readonly MIN_TEXT_CONTRAST = 4.5;
 
     /** Minimo WCAG 1.4.11 per i confini di componenti UI (bordi, fill contro lo sfondo). */
     private static readonly MIN_UI_CONTRAST = 3.0;
