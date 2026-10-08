@@ -2,6 +2,15 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Dipendenze: `proxy-addr` critical, Angular 21.2.25/21.2.26
+
+Un advisory nuovo su `proxy-addr` (critical, IP spoofing via IPv4 mappato in IPv6, da `express`) mandava in rosso l'audit npm della CI senza modifiche al codice.
+
+- `npm audit fix --omit=dev`: `proxy-addr`, `compression` 1.8.2, `sharp` 0.35.5. Solo il lock.
+- `ng update @angular/core@21 @angular/cli@21 @angular/ssr@21`: framework 21.2.25, `build`/`cli`/`ssr` 21.2.26 (i due gruppi hanno numerazioni di patch diverse). Chiude il critical su `piscina` in `@angular/build` e gli avvisi su `@modelcontextprotocol/sdk` e `fast-uri`. Resta `braces` (high, via `http-proxy-middleware`): non c'è ancora una versione corretta, e `--force` riporterebbe il proxy alla 0.2.0.
+
+**Al merge**: `package.json` si fonde da solo; `package-lock.json` va in conflitto se il figlio ha dipendenze proprie. Si risolve partendo dal lock del template, con `node_modules` cancellato (`git show template/main:frontend/package-lock.json > frontend/package-lock.json`, `rm -rf node_modules`, `npm install`): `npm install` sopra il lock del figlio o sui `node_modules` vecchi si ferma (ERESOLVE), perché i pacchetti `@angular/*` si richiedono a vicenda alla versione esatta.
+
 ### Deploy: più installazioni dello stesso progetto sulla stessa VPS (`deploy-istanza`)
 
 Due cartelle con lo stesso repo (produzione e prova) avevano lo stesso `COMPOSE_PROJECT_NAME`, slug di `project.name`: il deploy della seconda prendeva i container della prima e ne montava gli stessi volumi, quindi gli stessi dati. Ora `"deploy-istanza": "prova"` nel `global-settings.local.json` di un'installazione si aggiunge al nome (`agnese-subacchi-prova`): container, volumi, rete, immagini di prova e backup separati. Solo nel `.local`: nel file base, committato, è rifiutata. Il nome mostrato sul sito non cambia.

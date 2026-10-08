@@ -265,7 +265,7 @@ Dove e come girano:
 ### Supply chain
 
 Oltre alla qualità del codice, la CI tiene d'occhio anche:
-- **Pacchetti vulnerabili:** `npm audit` (frontend) e `dotnet list package --vulnerable` (backend) a ogni push/PR.
+- **Pacchetti vulnerabili:** `npm audit` (frontend) e `dotnet list package --vulnerable` (backend) a ogni push/PR; bloccano solo i *critical* di produzione (`--omit=dev`). Un advisory nuovo può fermare la CI anche a codice invariato: si corregge con `npm audit fix --omit=dev` o, per i pacchetti `@angular/*`, con `ng update @angular/core@21 @angular/cli@21 @angular/ssr@21`, mai con `npm audit fix --force` (propone downgrade di major). Storico in [CHANGELOG.md](CHANGELOG.md).
 - **Segreti committati per sbaglio:** scansione **gitleaks** (rinforza l'architettura "segreti fuori da git").
 - **Pattern di vulnerabilità nel codice scritto qui** (injection, uso non sicuro di crypto, ecc.): **CodeQL** (`.github/workflows/CodeQL.yml`), su frontend e backend, a ogni push/PR e settimanalmente (query nuove trovano cose nuove anche su codice invariato). Risultati nel tab **Security → Code scanning** del repository. Workflow separato apposta: nessun file di test coinvolto, zero rischio di rompersi quando un figlio sostituisce la demo (vedi nota sopra sull'asimmetria unit/E2E).
 
