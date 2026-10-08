@@ -4,7 +4,7 @@
              stato Aperto/Chiuso di oggi + chevron che ruota su [open]; il corpo mostra la settimana. -->
         <details class="opening-hours border rounded overflow-hidden">
             <summary class="d-flex align-items-center gap-2 px-3 py-2 fw-semibold">
-                <i class="fa-solid fa-calendar-days opacity-75" aria-hidden="true"></i>
+                <i class="fa-solid fa-calendar-days" aria-hidden="true"></i>
                 @if (label()) { <span>{{ label() }}</span> }
                 <span class="ms-auto d-flex align-items-center gap-2 fw-normal">
                     @if (todayRow(); as t) {
@@ -12,13 +12,13 @@
                              visitatore, insensata da confrontare). "Oggi aperto/chiuso"; le fasce nel corpo. -->
                         <span class="text-nowrap">
                             @if (t.ranges.length) {
-                                <i class="fa-solid fa-door-open me-1 opacity-75" aria-hidden="true"></i>{{ 'oggiApertoOrariAzienda' | translate }}
+                                <i class="fa-solid fa-door-open me-1" aria-hidden="true"></i>{{ 'oggiApertoOrariAzienda' | translate }}
                             } @else {
-                                <i class="fa-solid fa-door-closed me-1 opacity-75" aria-hidden="true"></i>{{ 'oggiChiusoOrariAzienda' | translate }}
+                                <i class="fa-solid fa-door-closed me-1" aria-hidden="true"></i>{{ 'oggiChiusoOrariAzienda' | translate }}
                             }
                         </span>
                     }
-                    <i class="oh-caret fa-solid fa-chevron-down opacity-75" aria-hidden="true"></i>
+                    <i class="oh-caret fa-solid fa-chevron-down" aria-hidden="true"></i>
                 </span>
             </summary>
             <div class="px-3 pb-2 pt-1 border-top">
@@ -29,7 +29,7 @@
         <!-- Pagine legali: tabella settimanale piena, sempre visibile. -->
         @if (label()) {
             <div class="mb-2 fw-semibold">
-                <i class="fa-solid fa-calendar-days me-2 opacity-75" aria-hidden="true"></i>{{ label() }}
+                <i class="fa-solid fa-calendar-days me-2" aria-hidden="true"></i>{{ label() }}
             </div>
         }
         <ng-container [ngTemplateOutlet]="week" />
@@ -49,15 +49,15 @@
                         @if (row.isToday) {
                             <i class="fa-solid fa-calendar-check me-2" aria-hidden="true"></i>
                         } @else {
-                            <i class="fa-solid fa-calendar-day me-2 opacity-75" aria-hidden="true"></i>
+                            <i class="fa-solid fa-calendar-day me-2" aria-hidden="true"></i>
                         }
                         {{ row.name }}
                     </th>
                     <td class="py-1">
                         @if (row.ranges.length) {
-                            <i class="fa-solid fa-clock me-2 opacity-75" aria-hidden="true"></i>@for (r of row.ranges; track r) {<span class="text-nowrap">{{ r }}</span>@if (!$last) {, }}
+                            <i class="fa-solid fa-clock me-2" aria-hidden="true"></i>@for (r of row.ranges; track r) {<span class="text-nowrap">{{ r }}</span>@if (!$last) {, }}
                         } @else {
-                            <i class="fa-solid fa-door-closed me-2 opacity-75" aria-hidden="true"></i>{{ 'chiusoOrariAzienda' | translate }}
+                            <i class="fa-solid fa-door-closed me-2" aria-hidden="true"></i>{{ 'chiusoOrariAzienda' | translate }}
                         }
                     </td>
                 </tr>
