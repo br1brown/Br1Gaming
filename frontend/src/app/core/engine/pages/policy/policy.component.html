@@ -5,7 +5,7 @@
                 <div [innerHTML]="p.heading | markdown"></div>
             }
             @if (p.update) {
-                <p class="fst-italic text-muted mb-4">{{ p.update.label }}: <time [attr.datetime]="p.update.iso">{{ p.update.formatted }}</time></p>
+                <p class="fst-italic text-body-secondary mb-4">{{ p.update.label }}: <time [attr.datetime]="p.update.iso">{{ p.update.formatted }}</time></p>
             }
             @if (p.summary) {
                 <div [innerHTML]="p.summary | markdown"></div>
@@ -98,13 +98,13 @@
                         }
                     </div>
                     <div class="flex-grow-1 min-w-0">
-                        <h2 class="card-title h5 mb-0 fw-bold">{{ group.name }} <span class="fw-normal text-muted small">· {{ group.countLabel }}</span></h2>
+                        <h2 class="card-title h5 mb-0 fw-bold">{{ group.name }} <span class="fw-normal text-body-secondary small">· {{ group.countLabel }}</span></h2>
                         @if (group.description) {
-                            <p class="text-muted small mb-0 mt-1">{{ group.description }}</p>
+                            <p class="text-body-secondary small mb-0 mt-1">{{ group.description }}</p>
                         }
                     </div>
-                    <span class="cookie-group__hint text-muted small d-none d-sm-inline text-nowrap">{{ showListLabel() }}</span>
-                    <i class="cookie-group__caret fa-solid fa-chevron-down text-muted flex-shrink-0" aria-hidden="true"></i>
+                    <span class="cookie-group__hint text-body-secondary small d-none d-sm-inline text-nowrap">{{ showListLabel() }}</span>
+                    <i class="cookie-group__caret fa-solid fa-chevron-down text-body-secondary flex-shrink-0" aria-hidden="true"></i>
                 </summary>
                 <div class="list-group list-group-flush border-top">
                     @for (cookie of group.cookies; track cookie.name) {
@@ -123,7 +123,7 @@
                             @if (cookie.description) {
                                 <p class="text-body-secondary small mb-0 mt-2 lh-base">{{ cookie.description }}</p>
                             }
-                            <div class="d-flex flex-wrap gap-3 mt-2 text-muted small">
+                            <div class="d-flex flex-wrap gap-3 mt-2 text-body-secondary small">
                                 <span [attr.aria-label]="providerFieldLabel() + ': ' + cookie.provider">
                                     <i class="fa-solid fa-building me-1" aria-hidden="true"></i>
                                     @if (cookie.providerUrl) {

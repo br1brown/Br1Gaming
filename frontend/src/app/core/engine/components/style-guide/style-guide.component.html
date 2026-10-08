@@ -8,11 +8,11 @@
   <div class="card">
     <div class="card-body">
       <h2 class="card-title mb-1 h5">Style Guide</h2>
-      <p class="text-muted small mb-4">Visual catalog of the design system: colors, type and spacing scales, controls and their states.</p>
+      <p class="text-body-secondary small mb-4">Visual catalog of the design system: colors, type and spacing scales, controls and their states.</p>
 
       <!-- Colori -->
       <h3 class="h6 mb-1">Colors</h3>
-      <p class="text-muted small mb-2">The project's theme variables, plus Bootstrap's semantic colors.</p>
+      <p class="text-body-secondary small mb-2">The project's theme variables, plus Bootstrap's semantic colors.</p>
       <div class="d-flex flex-wrap gap-2 mb-4">
         <span class="badge border font-monospace fw-normal swatch-var"
               [style.--swatch-bg]="theme.colorTema()"
@@ -35,21 +35,21 @@
 
       <!-- Tipografia: la scala vera, etichettata con la classe che la produce -->
       <h3 class="h6 mb-1">Typography</h3>
-      <p class="text-muted small mb-2">Headings from Bootstrap's scale; below body only two steps: <code>--fs-sm</code> and <code>--fs-xs</code>.</p>
+      <p class="text-body-secondary small mb-2">Headings from Bootstrap's scale; below body only two steps: <code>--fs-sm</code> and <code>--fs-xs</code>.</p>
       <div class="mb-4">
         <p class="h2 mb-1">.h2 — Page title</p>
         <p class="h4 mb-1">.h4 — Section title</p>
         <p class="h5 mb-1">.h5 — Card title</p>
         <p class="lead mb-1">.lead — Introduction</p>
         <p class="mb-1">Body (--bs-body-font-size) — Running text that wraps onto several lines when the column is narrow, as real content does.</p>
-        <p class="small text-muted mb-1">.small (--fs-sm) — Helper text, captions, menu items</p>
-        <p class="text-xs text-muted mb-1">.text-xs (--fs-xs) — Fine print, counters, codes</p>
+        <p class="small text-body-secondary mb-1">.small (--fs-sm) — Helper text, captions, menu items</p>
+        <p class="text-xs text-body-secondary mb-1">.text-xs (--fs-xs) — Fine print, counters, codes</p>
         <p class="font-monospace small mb-0">.font-monospace — IT12345678901</p>
       </div>
 
       <!-- Spazi -->
       <h3 class="h6 mb-1">Spacing</h3>
-      <p class="text-muted small mb-2">One scale for utilities and component CSS: <code>--space-N</code> ≡ <code>.p-N</code> / <code>.gap-N</code>.</p>
+      <p class="text-body-secondary small mb-2">One scale for utilities and component CSS: <code>--space-N</code> ≡ <code>.p-N</code> / <code>.gap-N</code>.</p>
       <div class="d-flex flex-column gap-1 mb-4" aria-hidden="true">
         @for (step of spaceSteps; track step) {
           <div class="d-flex align-items-center gap-2 small">
@@ -61,7 +61,7 @@
 
       <!-- Bottoni -->
       <h3 class="h6 mb-1">Buttons</h3>
-      <p class="text-muted small mb-2">Default size for actions; <code>.btn-sm</code> only in dense toolbars; <code>.btn-touch</code> on any button used on its own (44px target).</p>
+      <p class="text-body-secondary small mb-2">Default size for actions; <code>.btn-sm</code> only in dense toolbars; <code>.btn-touch</code> on any button used on its own (44px target).</p>
       <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
         <button type="button" class="btn btn-primary">Primary</button>
         <button type="button" class="btn btn-secondary">Secondary</button>
@@ -135,7 +135,7 @@
 
       <!-- Stati di contenuto -->
       <h3 class="h6 mb-1">Content states</h3>
-      <p class="text-muted small mb-2">Loading and empty: never a blank area.</p>
+      <p class="text-body-secondary small mb-2">Loading and empty: never a blank area.</p>
       <div class="row g-3">
         <div class="col-md-6">
           <div class="border rounded h-100">

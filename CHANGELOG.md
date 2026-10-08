@@ -2,6 +2,12 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### `text-body-secondary` al posto di `text-muted`
+
+`text-muted` è deprecata da Bootstrap 5.3, che la tiene solo per compatibilità: stesso colore (`--bs-secondary-color`), quindi nessun cambio visivo. L'Engine (style guide, pagine legali), le pagine demo e il README usano ora `text-body-secondary`.
+
+**Al merge**: `pages/home` e `pages/che-faccio` sono Dominio. Se il figlio li ha riscritti o cancellati, il merge va in conflitto: vince il figlio (`git checkout --ours -- <path>`, o `git rm` per un file che il figlio aveva tolto). Nel codice di progetto la sostituzione è la stessa, classe per classe.
+
 ### Niente più trasparenze per attenuare, niente aloni al posto dell'anello di focus
 
 Dopo il footer (voce sotto), lo stesso schema nel resto dell'Engine: elementi resi "defilati" con `opacity`, un'abitudine che non regge con i colori garantiti dal motore. Una trasparenza mescola il primo piano con lo sfondo e ne abbassa il contrasto di quanto vuole, sotto il 4.5:1 del testo (WCAG 1.4.3) o il 3:1 dei controlli (1.4.11), soprattutto con un colore "duro" come `colori.testo`. Ora un elemento secondario lo è per corpo, peso o col tono secondario del tema (`--bs-secondary-color`), che ha già il suo contrasto garantito; uno stato si segnala con forma o sottolineatura.
