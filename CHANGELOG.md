@@ -2,6 +2,12 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Trasparenze: anche le utility `opacity-*` nei template
+
+Completa "Niente più trasparenze per attenuare" (sotto), che aveva guardato solo gli stili: le descrizioni delle categorie nel banner cookie erano `opacity-75`, testo al 75%; ora `text-body-secondary`, garantito su ogni superficie. Le icone del componente orari (`app-opening-hours`) perdono la stessa classe. Resta `opacity-25` sugli `<hr>` decorativi, che è già l'opacità di serie di Bootstrap per `hr`.
+
+**Al merge**: nessuno.
+
 ### `text-body-secondary` al posto di `text-muted`
 
 `text-muted` è deprecata da Bootstrap 5.3, che la tiene solo per compatibilità: stesso colore (`--bs-secondary-color`), quindi nessun cambio visivo. L'Engine (style guide, pagine legali), le pagine demo e il README usano ora `text-body-secondary`.
