@@ -45,6 +45,23 @@ Risultato:
 - Volumi separati: `progetto-a_uploads-data`, `progetto-b_uploads-data` (naming automatico Docker Compose)
 - Nessun conflitto di container
 
+### Esempio: due installazioni dello stesso progetto (produzione e prova)
+
+Due cartelle con lo stesso repo hanno lo stesso `project.name`, quindi lo stesso `COMPOSE_PROJECT_NAME`: senza altro, il deploy della seconda prenderebbe il posto dei container della prima e ne monterebbe gli stessi volumi, cioè i suoi dati. Si distinguono con `deploy-istanza` nel `global-settings.local.json` di una delle due (il `.local` è per installazione; nel file base, committato, la chiave è rifiutata):
+
+```text
+/home/deploy/agnese/global-settings.local.json        →  (niente deploy-istanza)                   frontend.port 3000
+/home/deploy/agnese-prova/global-settings.local.json  →  "deploy-istanza": "prova"                 frontend.port 3001
+```
+
+Risultato:
+- `COMPOSE_PROJECT_NAME`: `agnese-subacchi` e `agnese-subacchi-prova`
+- Volumi, rete e immagini di prova separati (`agnese-subacchi-prova_db-data`…), e `backup.sh` copia quelli della propria installazione
+- Il nome mostrato sul sito resta `project.name` in entrambe: l'istanza cambia solo i nomi Docker
+- Una porta diversa (`frontend.port`) e un dominio diverso (`frontend.hostname`) per ognuna; per un'istanza di prova, `SEO_NOINDEX=true` la tiene fuori dai motori di ricerca
+
+Il nome lo calcola una funzione sola (`br1_compose_project_name` in `scripts/lib/br1-config.sh`): `deploy.sh`, `deploy-release.sh`, `backup.sh`, i test e la CI lo prendono da lì. Aggiungere `deploy-istanza` a un'installazione già pubblicata ne cambia il nome: il deploy successivo crea container e volumi nuovi, vuoti, e quelli vecchi restano dove sono finché non li sposti o li cancelli.
+
 ## File Compose
 
 - **`docker-compose.yml`** — base: servizi, build, rete, volumi.
@@ -212,9 +229,16 @@ La suite di qualità (lint, i18n, type checking, dipendenze circolari, accessibi
 
 ## Test pubblico dietro reverse proxy
 
-Per riprodurre in locale la catena reale `browser -> reverse proxy -> frontend SSR -> backend` usa l'overlay dedicato:
+Per riprodurre in locale la catena reale `browser -> reverse proxy -> frontend SSR -> backend` usa l'overlay dedicato (`docker-compose.public-test.yml`) tramite lo script, che ricava da sé `FRONTEND_PORT` e il file di impostazioni effettivo:
 
 ```bash
+bash scripts/test/public-test.sh
+```
+
+I comandi `docker compose` scritti a mano partono solo dopo aver caricato la configurazione, perché `docker-compose.yml` richiede `FRONTEND_PORT` e il frontend richiede le chiavi API del file effettivo (`BR1_SETTINGS_FILE`):
+
+```bash
+source scripts/lib/br1-config.sh; br1_load_config
 docker compose -f docker-compose.yml -f docker-compose.public-test.yml up -d --build
 ```
 
@@ -248,6 +272,7 @@ bash scripts/test/live-test.sh http://localhost:8088
 Per cambiare dominio/porta simulati senza toccare i file:
 
 ```bash
+source scripts/lib/br1-config.sh; br1_load_config   # FRONTEND_PORT e BR1_SETTINGS_FILE
 PUBLIC_TEST_PORT=9090 \
 PUBLIC_TEST_BASE_URL=http://miosito.localhost:9090 \
 PUBLIC_TEST_ALLOWED_HOSTS=miosito.localhost \

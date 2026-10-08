@@ -13,6 +13,9 @@
 }
 
 html {
+    /* Base del rem dal design system (`font.scala`, default 1): in percentuale, sopra la dimensione che
+       l'utente ha scelto nel browser. Testo, titoli, spazi e controlli in rem crescono insieme. */
+    font-size: calc(var(--fontScala, 1) * 100%);
     position: relative;
     /* Navbar agganciata in cima: --navOffset (scritto da NavbarComponent) evita che il browser porti
        in vista un elemento focus/ancora lasciandolo nascosto sotto la barra (WCAG 2.4.11). */

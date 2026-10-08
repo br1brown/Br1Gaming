@@ -140,7 +140,7 @@ NEW_API_KEY="$(_read_api_key "$BR1_SETTINGS_FILE")"
 KEY_CHANGED=false
 [[ "$OLD_API_KEY" != "$NEW_API_KEY" ]] && KEY_CHANGED=true
 
-[[ -z "$COMPOSE_PROJECT_NAME" ]] && fail "COMPOSE_PROJECT_NAME non derivabile da global-settings.json (project.name)"
+[[ -z "$COMPOSE_PROJECT_NAME" ]] && fail "COMPOSE_PROJECT_NAME non derivabile (project.name in global-settings.json, deploy-istanza nel .local)"
 [[ -n "$COMPOSE_PROJECT_NAME" && ! "$COMPOSE_PROJECT_NAME" =~ ^[a-z0-9_-]+$ ]] && fail "COMPOSE_PROJECT_NAME contiene caratteri non validi (ammessi: a-z, 0-9, - e _)"
 [[ -z "$FRONTEND_PORT" ]] && fail "FRONTEND_PORT non valido in global-settings.json (frontend.port)"
 if [[ "${EXPOSE_BACKEND:-no}" == "yes" && -z "${BACKEND_PORT:-}" ]]; then
@@ -166,7 +166,7 @@ fi
 ok "COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}"
 ok "FRONTEND_PORT=${FRONTEND_PORT}"
 # Avviso (non bloccante): dietro un reverse proxy serve BehindProxy=true, altrimenti il rate
-# limiter del backend vede l'IP del proxy per OGNI utente → li conta come uno solo → 100 req/min
+# limiter del backend vede l'IP del proxy per OGNI utente → li conta come uno solo → 500 req/min
 # condivise da tutti (429 intermittenti sotto traffico modesto). Se NON usi un proxy, ignora.
 if [[ "$DEPLOY_BACKEND" == true && "${BEHIND_PROXY:-no}" != "yes" ]]; then
     warn "Security.BehindProxy non è true: se pubblichi dietro un reverse proxy (es. nginx) il rate limiter conterà tutti gli utenti come un solo IP. Imposta \"Security\": { \"BehindProxy\": true } in global-settings.local.json."

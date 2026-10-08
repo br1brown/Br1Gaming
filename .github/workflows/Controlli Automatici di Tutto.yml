@@ -283,5 +283,5 @@ jobs:
       - name: Butta giù
         if: always()
         run: |
-          COMPOSE_PROJECT_NAME="$(node --input-type=module --eval "import{readFileSync}from'fs';const s=JSON.parse(readFileSync('global-settings.json','utf-8'));process.stdout.write(String(s.project?.name||'app').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+\$/g,''))")" \
+          COMPOSE_PROJECT_NAME="$(source scripts/lib/br1-config.sh && br1_compose_project_name)" \
           docker compose -f docker-compose.yml -f docker-compose.public-test.yml down

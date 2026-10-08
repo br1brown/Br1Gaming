@@ -157,7 +157,7 @@ NEW_API_KEY="$(_read_api_key "$BR1_SETTINGS_FILE")"
 KEY_CHANGED=false
 [[ "$OLD_API_KEY" != "$NEW_API_KEY" ]] && KEY_CHANGED=true
 
-[[ -z "$COMPOSE_PROJECT_NAME" ]] && fail "COMPOSE_PROJECT_NAME non derivabile da global-settings.json (project.name)"
+[[ -z "$COMPOSE_PROJECT_NAME" ]] && fail "COMPOSE_PROJECT_NAME non derivabile (project.name in global-settings.json, deploy-istanza nel .local)"
 [[ -n "$COMPOSE_PROJECT_NAME" && ! "$COMPOSE_PROJECT_NAME" =~ ^[a-z0-9_-]+$ ]] && fail "COMPOSE_PROJECT_NAME contiene caratteri non validi (ammessi: a-z, 0-9, - e _)"
 [[ -z "$FRONTEND_PORT" ]] && fail "FRONTEND_PORT non valido in global-settings.json (frontend.port)"
 if [[ "${EXPOSE_BACKEND:-no}" == "yes" && -z "${BACKEND_PORT:-}" ]]; then

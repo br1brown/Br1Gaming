@@ -106,7 +106,7 @@ Comportamento:
 - **Cambio pagina lato client (SPA):** il blocco carica `on idle`, mostrando per un attimo il `@placeholder`.
 - I click su una sezione non ancora idratata non vanno persi: `withEventReplay()` li riconsegna a idratazione avvenuta.
 
-La home demo lo applica alle sezioni QR, Notifiche e Sistema.
+La pagina demo `che-faccio` lo applica alle sezioni QR, Notifiche e Sistema.
 
 Transizioni di pagina: i cambi pagina usano la View Transitions API del browser (`withViewTransitions()` nel router) come progressive enhancement: dissolvenza incrociata, con le parti uguali fra le due pagine (navbar, sfondo) ferme. Ogni pagina che estende `PageBaseComponent` riceve anche un fade-in d'ingresso del contenuto (`.page-fade`). Entrambe le decide il design system con `movimento` (§«Chrome del sito»): `'fermo'` le spegne tutte e due, e nessun ruolo di pagina riaccende il fade. Sotto `prefers-reduced-motion` non c'è animazione (`engine/base/_a11y.scss`); i browser senza supporto cambiano pagina senza transizione.
 
@@ -166,7 +166,7 @@ Nei template, Bootstrap prima di tutto: layout, griglie, spazi fra sezioni (`.mb
 | `.icon-sm` / `.icon-md` / `.icon-lg` | Taglia del glifo Font Awesome dal token |
 | `.text-xs`, `.text-label` | Testo al gradino minimo (Bootstrap si ferma a `.small`); spaziatura del maiuscoletto |
 
-z-index e ombre: variabili, mai letterali. `base/_tokens.scss` definisce la scala z-index del template (`--z-cookie-banner`, `--z-fab`, `--z-skip-link`, `--z-cdk-overlay`), incastrata nei vuoti della scala Bootstrap così i widget persistenti restano sotto offcanvas e modali (che devono coprirli). Un nuovo elemento fisso usa una di queste variabili o ne aggiunge una alla scala, e resta coerente con l'ordine di sovrapposizione di Bootstrap. Stesso principio per le ombre di elevazione: `--shadowElevated` / `--shadowElevatedHover` (dal campo `elevazione` del design system), che valgono anche per il pannello contenuti.
+z-index e ombre: variabili, mai letterali. `base/_tokens.scss` definisce la scala z-index del template (`--z-fab`, `--z-skip-link`, `--z-cdk-overlay`; `--z-cookie-banner` e gli altri livelli condivisi con Bootstrap sono derivati in `styles/engine/bootstrap.scss`), incastrata nei vuoti della scala Bootstrap così i widget persistenti restano sotto offcanvas e modali (che devono coprirli). Un nuovo elemento fisso usa una di queste variabili o ne aggiunge una alla scala, e resta coerente con l'ordine di sovrapposizione di Bootstrap. Stesso principio per le ombre di elevazione: `--shadowElevated` / `--shadowElevatedHover` (dal campo `elevazione` del design system), che valgono anche per il pannello contenuti.
 
 Componenti senza CSS: il file `.scss` di un componente nasce quando serve qualcosa fra i casi sopra. Il footer, ad esempio, è fatto di classi Bootstrap nel template e non ne ha uno.
 
@@ -389,7 +389,7 @@ Le rotte d'errore sono generate dall'Engine (`core/engine/routing.ts`):
 
 | Rotta | Comportamento |
 | :--- | :--- |
-| `**` (qualsiasi URL non riconosciuto) | redirect a `error/404` |
+| `**` (qualsiasi URL non riconosciuto) | rende `ErrorComponent` (404) direttamente, senza redirect |
 | `error/:errorCode` | mostra `ErrorComponent` con quel codice |
 | `error/offline`, `error/502`, `error/503`, `error/504` | Problemi di **disponibilità** della pagina che stava caricando (`isAvailabilityError` in `content.resolver.ts`): il resolver dei contenuti ci arriva da sé, con l'URL da ritentare nel query param `retry` (solo path interni; in query e non nello state perché in SSR il redirect è un 302 HTTP e un reload lo perderebbe), e `ErrorComponent` offre un bottone **Riprova** che torna a quell'URL (rilancia il resolver); senza `retry` (pagina aperta da sé) resta solo "Torna alla home". Tre situazioni, distinte da ciò che il browser vede: status 0 senza rete → "Sei offline" (dispositivo); status 0 con la rete → "Server non raggiungibile" (il server del sito non risponde: hosting, DNS); 502/504 dal proxy SSR (backend irraggiungibile o in timeout) e 503 dal backend (manutenzione, saturo) → "Servizio non disponibile" (il sito risponde, il backend no). Un 500 resta fuori: è un bug, segnalato da `ErrorReporting`, non un "riprova". **Lato server**: con `BACKEND_ORIGIN` configurato l'SSR chiama il backend direttamente, e un backend irraggiungibile (status 0 sul server) è un 502 come per il proxy: 302 verso `error/502?retry=…`, servita con status HTTP 502 (`getSeoStatusForPath`); `error/offline` chiesta al server risponde 503 con `Retry-After: 60`. Senza `BACKEND_ORIGIN` (`npm run start`, estrazione rotte in CI) le chiamate SSR sono rifiutate con `SsrBackendUnconfiguredError`, che **non** è un problema di disponibilità: contenuto vuoto e il browser ricarica dopo l'idratazione, come prima. Con la PWA attiva `error/offline` è la pagina che si vede aprendo senza rete un URL non in cache: il service worker serve la shell, il resolver fallisce, si finisce qui invece che su una pagina vuota. Chiavi `erroreOffline*`, `erroreIrraggiungibile*`, `erroreServizio*`, `riprovaAzione`. |
 | `error` | redirect a `error/500` |
@@ -571,7 +571,7 @@ buildSite({ shell: { designSystem: clienteX } });
 
 Contratto:
 - **Tipi.** Un nome di campo sbagliato o un valore fuori elenco è un errore di `tsc`, con la patch-oggetto come con la patch-funzione (radice, gruppi, ruoli).
-- **Validazione.** `validateDesignSystemPreset` gira a ogni risoluzione (in `buildSite` e in `generate:statics`) e ferma tutto con un messaggio in italiano su: valore fuori elenco (con l'elenco ammesso), booleano che non è booleano, `og.testo` che non è una funzione, `smoke.opacity` non finita o fuori da 0–1, campo sconosciuto (radice, gruppo, ruolo), `ruoloPagina.naked`, nome di palette non ammesso (§«Colori»), font non valido (§«Font: `SystemFont` + `font.aggiuntivi`»), hex non validi. Un design system nuovo non vuole uno spec dedicato: la struttura la garantisce questa validazione, e il contrasto di una palette specifica è contenuto che il progetto cambia a piacere.
+- **Validazione.** `validateDesignSystemPreset` gira a ogni risoluzione (in `buildSite` e in `generate:statics`) e ferma tutto con un messaggio in italiano su: valore fuori elenco (con l'elenco ammesso), booleano che non è booleano, `og.testo` che non è una funzione, `smoke.opacity` non finita o fuori da 0–1, `font.scala` non numerica o fuori da 0.875–1.5, un colore fuori da `colori.campioni` quando c'è (§«Campionario»), campo sconosciuto (radice, gruppo, ruolo), `ruoloPagina.naked`, nome di palette non ammesso (§«Colori»), font non valido (§«Font: `SystemFont` + `font.aggiuntivi`»), hex non validi. Un design system nuovo non vuole uno spec dedicato: la struttura la garantisce questa validazione, e il contrasto di una palette specifica è contenuto che il progetto cambia a piacere.
 
 **Gli 8 preset condivisi** (`components/shared/design-systems/engine/`, Engine: al merge vince il template) sono pappa pronta: si estendono con `extendDesignSystem`, o si copiano in un file di progetto in `components/shared/design-systems/` per farne un design system tuo. Non si modificano sul posto.
 
@@ -600,9 +600,12 @@ Ogni campo è facoltativo; il default è quello che vale senza design system. Og
 | `tono.pannello` | `'light'` / `'dark'` / `'auto'` | `'light'`; `'auto'` con `tono.forza` | Tono del pannello contenuti; `'auto'` = quello del sito |
 | `colori.superfici` | `'foglio'` / `'distinte'` / `'tenue'` / `'tenue-flottante'` / `'fusione'` | `'foglio'` | Quanto le superfici prendono il colore del brand, e se c'è il pannello (§«Colori») |
 | `colori.sfondo` | hex | assente: dal brand | Tinta di sfondi e testo al posto del brand, contrasto garantito |
-| `colori.palette` | `Record<nome, hex>` | `{}` | `secondary`/`info` sostituiscono quelli di Bootstrap, ogni altro nome aggiunge un colore |
+| `colori.testo` | hex | assente: calcolato | Colore esatto di testo e titoli, senza correzione: il build avvisa sotto 4.5:1 |
+| `colori.campioni` | `Record<nome, hex>` (da `campionario()`) | `{}` | I colori del brand, usati per riferimento dagli altri campi; generano solo `--campione<Nome>` (§«Campionario») |
+| `colori.palette` | `Record<nome, hex>` | `{}` | `secondary`/`info`/`success`/`warning`/`danger` sostituiscono quelli di Bootstrap, ogni altro nome aggiunge un colore |
 | `movimento` | `'fermo'` / `'scatto'` / `'svelto'` / `'morbido'` | `'svelto'` | Transizione fra pagine, fade d'ingresso, animazioni di comparsa, alone dei toggle attivi |
-| `elevazione` | `'piatta'` / `'sospesa'` / `'flottante'` | `'sospesa'` | Ombra di dropdown, menu contestuale, cookie banner, FAB e delle barre (navbar, footer, fasce in fondo); raggio d'angolo di dropdown e menu contestuale |
+| `elevazione.ombra` | `'piatta'` / `'sospesa'` / `'flottante'` | `'sospesa'` | Ombra di pannello, dropdown, menu contestuale, cookie banner, FAB e delle barre (navbar, footer, fasce in fondo) |
+| `elevazione.angoli` | `'vivi'` / `'morbidi'` / `'tondi'` | `'morbidi'` | Raggio d'angolo di pannello, dropdown e menu, e la scala `$border-radius-*` di Bootstrap per bottoni, campi, card e badge |
 | `densita` | `'compatta'` / `'normale'` / `'ariosa'` | `'normale'` | Respiro fra chrome, pannello e contenuto: spazio interno del pannello e distacco da navbar, footer e bordi (sui gradini di `$spacers`: 0.5/1, 1/1.5, 1.5/3rem sotto e da md) |
 | `navbar.show` | `boolean` | `true` | `false`: nessuna navbar, su nessuna pagina |
 | `navbar.fissa` | `boolean` | `false` | Navbar agganciata in cima allo scroll (sticky); si sgancia da sola oltre un quinto dell'altezza visibile |
@@ -616,10 +619,12 @@ Ogni campo è facoltativo; il default è quello che vale senza design system. Og
 | `fab.cookie` | `'discreto'` / `'standard'` | `'discreto'` | Dimensione del bottone che riporta il banner cookie |
 | `larghezza` | `'colonna'` / `'ampio'` / `'pieno'` | `'ampio'` | Larghezza della colonna di pannello e breadcrumb |
 | `badgeNotifiche` | `'numero'` / `'puntino'` | `'numero'` | Badge delle notifiche non lette: conteggio o indicatore |
+| `iconeSocial` | `'marchio'` / `'tema'` | `'marchio'` | Pastiglie di social, WhatsApp e Telegram: colori ufficiali della rete o quelli del tema (§«`app-social-link`») |
 | `lightboxArrotondato` | `boolean` | `true` | Angoli arrotondati sull'immagine ingrandita |
 | `smoke` | `{ enable, color, opacity?, intensita? }` | spento | Effetto di particelle di sfondo (§«Effetto smoke») |
 | `font.principale` | `SystemFont` o `CustomFontDef` | font di sistema | Font del sito, web e og:image (§«Font: `SystemFont` + `font.aggiuntivi`») |
 | `font.aggiuntivi` | `FontChoice[]` | `[]` | Font serviti e raggiungibili da SCSS, non attivi |
+| `font.scala` | numero fra 0.875 e 1.5 | `1` | Moltiplica la base del rem: testo, titoli, spazi e controlli crescono insieme |
 | `og.soloSfondo` | `boolean` | `false` | og:image senza titolo e icona (§«og:image generata») |
 | `og.testo` | `(input) => { title, subtitle, font? }` | assente | Testo e font riservati all'og:image |
 | `ruoloPagina` | `Record<ruolo, SpecRuoloPagina>` | `{}` | Comportamento per ruolo di pagina (§«Ruoli di Pagina (`layout.role`)») |
@@ -658,7 +663,30 @@ Con `'tenue'`, `'tenue-flottante'` e `'fusione'` card, hover, muted e tertiary s
 
 **`colori.sfondo`** (hex) sostituisce il brand come tinta di sfondi e testo: genera l'intera famiglia di superfici (base, card, hover, muted, tertiary, nei due toni), e il testo la segue. Il contrasto resta garantito.
 
-**`colori.palette`** aggiunge colori con nome. `secondary` e `info` sostituiscono quelli di Bootstrap; ogni altro nome aggiunge un colore. Senza `secondary` il secondario è il muted del brand (calcolato con garanzia WCAG); senza `info` resta quello di Bootstrap. Il fill di un colore di palette è l'hex esatto in entrambi i toni; come testo si usa una variante resa leggibile.
+#### Campionario
+
+`colori.campioni`: i colori del brand si dichiarano una volta, con `campionario()`, e gli altri campi colore li usano per riferimento: cambiare il colore del testo è cambiare un riferimento, senza togliere niente da nessuna parte. `campionario()` restituisce l'oggetto così com'è, ma tipizzato: un nome scritto male è un errore di `tsc` (con il suggerimento del nome giusto) e un valore senza `#` è rifiutato dal tipo. I campioni da soli non generano classi (a differenza di `colori.palette`, che ne genera una famiglia per voce): diventano solo le variabili `--campione<Nome>` (`sabbia` → `--campioneSabbia`) per lo SCSS di progetto. Nomi camelCase, valori hex, controllati da `validateDesignSystemPreset`; estendendo un design system i campioni si fondono con quelli della base.
+
+Dichiarato un campionario, è lui la sola fonte dei colori: ogni colore che il design system scrive (`colori.sfondo`, `colori.testo`, le voci di `colori.palette`, `smoke.color`, di cui conta il colore e non l'alpha) deve essere uno dei campioni, o la validazione si ferma col nome del campo e l'hex da aggiungere. Il controllo è sul valore (un riferimento `c.sabbia` è un hex come un altro, quindi passa anche lo stesso hex scritto a mano), e insieme ai nomi controllati da `tsc` copre entrambi i modi di sbagliare: nome inesistente e colore fuori dal campionario. Una variante di lavoro (un colore ufficiale schiarito per il fondo) si registra come campione a sé, col suo nome. Anche `site.colorTema`, che sta in `global-settings.json`, dovrebbe esserci: se manca, `generate:statics` lo segnala (avviso, non errore: il design system non lo scrive). Senza campionario nessuno di questi controlli.
+
+```typescript
+import { campionario, extendDesignSystem } from '../../../core/engine/design-system-presets';
+
+const c = campionario({ bordeaux: '#8E162B', sabbia: '#DCCCB6', terracotta: '#B66D64', ocra: '#F5A71C' });
+
+export const cliente = extendDesignSystem(muroDesignSystem, {
+    colori: {
+        campioni: c,
+        sfondo: c.bordeaux,
+        testo: c.sabbia,          // domani c.ocra: un riferimento, niente da cancellare
+        palette: { info: c.ocra }, // solo ciò che serve come classi Bootstrap
+    },
+});
+```
+
+**`colori.testo`** (hex) è il colore di testo e titoli, esatto e uguale nei due toni, al posto di quello calcolato (quasi nero o quasi bianco appena tinto): per un testo nella tinta del brand, come una sabbia su un bordeaux. È un override "duro", come un fill di palette: nessuna ricerca di contrasto. `generate:statics` scrive un avviso per ogni ruolo (testo, titoli) che scende sotto 4.5:1 su una delle cinque superfici di un tono mostrato (con `tono.forza`, solo quello); il build non si ferma, la scelta resta del design system. Lo segue anche il testo di navbar e footer con `navbar.superficie: 'body'`, che stanno sulla pagina; con `'brand'` il loro testo resta tarato sul loro sfondo. `--bs-emphasis-color` (`.text-body-emphasis`, la pastiglia delle icone) resta quello calcolato: il testo di massimo contrasto, che col testo di serie coincide coi titoli. Il testo attenuato (`--bs-secondary-color`) prende la tinta di `colori.testo`, un quarto più vicino alla base, e resta tarato su tutte le superfici come quello di serie: lui la garanzia ce l'ha. Un colore leggibile in un tono solo va con `tono.forza`.
+
+**`colori.palette`** aggiunge colori con nome. `secondary`, `info`, `success`, `warning` e `danger` sostituiscono quelli di Bootstrap; ogni altro nome aggiunge un colore. Senza `secondary` il secondario è il muted del brand (calcolato con garanzia WCAG); senza gli altri restano quelli di Bootstrap. Un semantico sostituito vale ovunque Bootstrap lo usa: bottoni, alert, `.text-*`, e i messaggi e i bordi della validazione dei moduli (nel tono scuro Bootstrap fissa i bordi a `$green-300`/`$red-300`: con `success`/`danger` in palette prendono la loro variante leggibile). Un rosso `danger` che sul brand si confonde col brand (un bordeaux) è il caso tipico. Il fill di un colore di palette è l'hex esatto in entrambi i toni; come testo si usa una variante resa leggibile.
 
 ```typescript
 export const clienteY = extendDesignSystem(cartaDesignSystem, {
@@ -676,7 +704,7 @@ Ogni nome produce i token `--color<Nome>` / `--color<Nome>Text` (il nome in Pasc
 ```
 
 Nomi ammessi: camelCase ASCII, `^[a-z][a-zA-Z0-9]*$` (`oro`, `oroChiaro`, `blu2`). La validazione rifiuta anche:
-- i colori di tema di Bootstrap tranne `secondary` e `info`, e i nomi della mappa `$colors` (`blue`, `grayDark`…);
+- i colori di tema di Bootstrap tranne `secondary`, `info`, `success`, `warning` e `danger` (`primary`, `light`, `dark`), e i nomi della mappa `$colors` (`blue`, `grayDark`…);
 - un nome il cui primo segmento kebab è già usato da Bootstrap dopo `.btn-`, `.text-`, `.bg-`, `.border-`, `.link-`, `.alert-` e simili (`sm`, `lg`, `center`, `top`, `bgPrimary`, `outlinePrimary`…);
 - i suffissi `-rgb`, `-subtle`, `-emphasis` (`oroSubtle`);
 - un nome che genererebbe una variabile `--bs-*` esistente (`borderWidth`, `focusRingColor`, `fontSansSerif`…);
@@ -684,7 +712,7 @@ Nomi ammessi: camelCase ASCII, `^[a-z][a-zA-Z0-9]*$` (`oro`, `oroChiaro`, `blu2`
 - due voci che producono la stessa classe o lo stesso token.
 
 **Garanzie di contrasto (WCAG 2.1).**
-- Testo, titoli, link, testo secondario e primary come testo (`--colorPrimaryFg`) sono tarati su tutte le superfici del tono: base, card, hover, muted, tertiary, con obiettivo 4.8:1; quando la tinta del brand non ci arriva su superfici vicine alla luminanza media, il ripiego è nero o bianco e la garanzia scende a 4.5:1 (AA). Il bordo delle superfici regge ≥3:1 su tutte. Sono le superfici dell'Engine, non i `bg-*-subtle` di Bootstrap: `text-muted`/`text-body-secondary` sopra un `bg-primary-subtle` scende sotto AA (nel template 3,8:1), lì il testo va in `text-primary-emphasis`, che Bootstrap deriva proprio per quel fondo. Se le superfici richieste dal design system (`colori.superfici`, `colori.sfondo`, `vividezza`) collassano su un colore solo, la palette è degenerata (testo, link e fill del primario tutti su nero o bianco) e `generate:statics` si ferma con un errore che nomina brand e superfici; gli altri ripieghi sono riassunti in una riga di avviso del build.
+- Testo, titoli, link, testo secondario e primary come testo (`--colorPrimaryFg`) sono tarati su tutte le superfici del tono (testo e titoli no, se li fissa `colori.testo`: lì solo l'avviso del build): base, card, hover, muted, tertiary, con obiettivo 4.8:1; quando la tinta del brand non ci arriva su superfici vicine alla luminanza media, il ripiego è nero o bianco e la garanzia scende a 4.5:1 (AA). Il bordo delle superfici regge ≥3:1 su tutte. Sono le superfici dell'Engine, non i `bg-*-subtle` di Bootstrap: `text-muted`/`text-body-secondary` sopra un `bg-primary-subtle` scende sotto AA (nel template 3,8:1), lì il testo va in `text-primary-emphasis`, che Bootstrap deriva proprio per quel fondo. Se le superfici richieste dal design system (`colori.superfici`, `colori.sfondo`, `vividezza`) collassano su un colore solo, la palette è degenerata (testo, link e fill del primario tutti su nero o bianco) e `generate:statics` si ferma con un errore che nomina brand e superfici; gli altri ripieghi sono riassunti in una riga di avviso del build.
 - Se le superfici sono così vivide che nessun colore reggerebbe su tutte, lo scarto fra di loro si riduce da sé fino a farle coincidere: la leggibilità vince sulla separazione.
 - La variante emphasis di ogni colore di tema (`.text-*-emphasis`, testo degli alert) regge 4.5:1 sul proprio subtle e sulle cinque superfici; se le funzioni di Bootstrap non bastano si passa a nero o bianco, e se neanche quello basta la build emette un `@warn` con colore e tono.
 - Ogni tono ha una polarità reale: con superfici vivide il tono scuro di un brand chiaro ha un fondo chiaro, e si usano le derivazioni per fondo chiaro, compresi il bordo traslucido (cornice del pannello, dropdown, modali) e l'hover dei link.
@@ -694,7 +722,7 @@ Nomi ammessi: camelCase ASCII, `^[a-z][a-zA-Z0-9]*$` (`oro`, `oroChiaro`, `blu2`
 - Stampa: testo, titoli, pannello e card escono neri su bianco qualunque sia il tono a schermo, link compresi; colori d'accento e bordi restano quelli del tono.
 
 Limiti:
-- Il fill di una voce di `colori.palette` è l'hex scelto, senza verifica: se non si stacca dal fondo è una scelta visibile di chi l'ha scritta. Con superfici vivide un accento simile al brand sparisce: verificalo con `AppearanceService.calcContrastRatio`.
+- Il fill di una voce di `colori.palette` è l'hex scelto, senza correzione: se non si stacca dal fondo è una scelta visibile di chi l'ha scritta. `generate:statics` lo dice, una riga per colore e superficie sotto 3:1 (WCAG 1.4.11) sui toni che il sito mostra (`AppearanceService.auditPaletteContrast`); con superfici vivide un accento simile al brand sparisce.
 - `.border-success/-info/-warning/-danger` restano il colore pieno di Bootstrap (un bordo non è testo, nessun contrasto garantito); primary, secondary e i colori di palette sui bordi usano la variante leggibile.
 - Il testo della navbar è tarato sullo sfondo della navbar, ≥4.5:1 (con un brand scuro è bianco; il margine 4.8 non è garantito, e in dev un avviso lo segnala). Il bordo della navbar è decorativo, senza contrasto garantito.
 - `bg-*-subtle`, `border-*-subtle` e `text-*-emphasis` sono una terna per colore: accoppiarne di colori diversi esce dalla garanzia.
@@ -716,14 +744,14 @@ Limiti:
 
 `prefers-reduced-motion` è rispettato a prescindere dal valore. Una transizione nuova, dell'Engine o tua, usa una di queste tre variabili (mai una durata letterale) e ha la sua guardia `@media (prefers-reduced-motion: reduce) { … none }`: un solo idioma in tutto il codebase. Restano fuori solo gli effetti in loop scelti apposta (`.shake-on-hover`, `.pulse-live`), anch'essi spenti sotto reduced-motion.
 
-**Elevazione, larghezza, FAB.** `elevazione` dà l'ombra a pannello contenuti, dropdown, menu contestuale e FAB, e il raggio d'angolo a pannello, dropdown e menu contestuale (i FAB restano tondi; sotto md il pannello va a filo schermo, senza raggio). `larghezza` è la colonna di pannello e breadcrumb; senza pannello il contenuto occupa l'intera riga. `fab.tornaSuSoglia` sposta la comparsa di "torna su"; `fab.cookie` dimensiona il bottone che riporta il banner cookie, a sinistra, dal lato opposto a "torna su". `badgeNotifiche` e `lightboxArrotondato` completano la chrome.
+**Elevazione, larghezza, FAB.** `elevazione` è il gruppo di come le superfici si staccano dalla pagina. `elevazione.ombra` dà l'ombra a pannello contenuti, dropdown, menu contestuale, FAB e barre. `elevazione.angoli` dà il raggio d'angolo a tutto il sito, scelto insieme: pannello, dropdown e menu (`--elevazioneRaggio`; i FAB restano tondi e sotto md il pannello va a filo schermo, senza raggio) e l'intera scala `$border-radius-*` di Bootstrap, quindi bottoni, campi, card, badge e `.rounded-*`. `'vivi'` è tutto a spigolo (per un sito con foto a filo), `'morbidi'` il raggio di sempre col pannello a 0.85rem e Bootstrap di serie, `'tondi'` circa il doppio. La pillola (`.rounded-pill`, `--bs-border-radius-pill`) resta tale; l'immagine ingrandita ha `lightboxArrotondato`. Ombra e angoli si combinano liberamente (ombra piatta con angoli tondi, o il contrario). `larghezza` è la colonna di pannello e breadcrumb; senza pannello il contenuto occupa l'intera riga. `fab.tornaSuSoglia` sposta la comparsa di "torna su"; `fab.cookie` dimensiona il bottone che riporta il banner cookie, a sinistra, dal lato opposto a "torna su". `badgeNotifiche` e `lightboxArrotondato` completano la chrome.
 
 ```typescript
 export const istituzionale = extendDesignSystem(cartaDesignSystem, {
     navbar: { fissa: true },
     movimento: 'fermo',
     breadcrumb: { show: true, stile: 'freccia' },
-    elevazione: 'piatta',
+    elevazione: { ombra: 'piatta', angoli: 'vivi' },
 });
 ```
 
@@ -789,6 +817,8 @@ Lo stesso salto (FOUT) sposta anche le righe sotto (CLS), perché il font di rip
 `SystemFont` è un catalogo di 11 font installati nel container (`FONT_PACKAGES` in `frontend/Dockerfile`): Roboto, Noto, NotoSerif, Liberation, LiberationSerif, LiberationMono, DejaVu, DejaVuSerif, DejaVuMono, OpenSans, JetBrainsMono. Sono self-hosted: il browser riceve i file reali via `@font-face` dall'endpoint `/cdn-cgi/font/:key/:index` (`server/routes/system-font.ts`), e il rendering server delle og:image usa lo stesso file (`PreviewBuilder`, risolto per nome via fontconfig). La build Docker lo verifica: `scripts/checks/system-fonts-installed.ts` controlla che ogni faccia di ogni `SystemFont` esista su disco e che la `family` dichiarata combaci col nome letto da fontconfig (`fc-scan` e `fc-match`), e un disallineamento ferma il build.
 
 **`font.aggiuntivi`** è un array di `FontChoice` (voci di `SystemFont` o `CustomFontDef`) serviti e raggiungibili da SCSS con `--fontFamily-<key>`, senza diventare il font del sito; estendendo un design system l'array sostituisce quello della base. Il font attivo si legge con `var(--fontFamily)`. Un font diverso sui titoli non è un campo: si registra in `font.aggiuntivi` e si scrive la regola CSS nel progetto.
+
+**`font.scala`** (numero, default `1`) moltiplica la base del rem: `html { font-size }` diventa `scala × 100%` (`--fontScala`, `_base.scss`), quindi in percentuale sopra la dimensione che l'utente ha scelto nel browser, mai in px. Tutto ciò che è in rem cresce insieme, nella stessa proporzione: corpo, titoli, `--fs-sm`/`--fs-xs`, spazi (`--space-*`), `--touchTarget` e pastiglie. È la leva per un font con l'occhio piccolo (un Garamond a 16px si legge come un sans da 13px): alzare solo `--bs-body-font-size` lascerebbe indietro i gradini in rem fissi, con un corpo più grande degli `h6`. Ammesso fra 0.875 (sotto, il corpo scende verso `--fs-xs`) e 1.5; breakpoint e misure in px non cambiano.
 
 ```typescript
 // components/shared/design-systems/con-titoli.design-system.ts (import di extendDesignSystem e cartaDesignSystem come in clienteX)
@@ -942,7 +972,7 @@ AppearanceService.computePalette(colorTema, overrides); // palette completa (com
 ```
 `getFillTextColor` segue l'algoritmo di `color-contrast()`: bianco se regge 4.5:1, altrimenti nero se regge 4.5:1, altrimenti il migliore dei due. La misura del contrasto è pubblica; la derivazione di un colore conforme resta interna al servizio. `siteOverrides(cfg)` è l'unica fonte degli override del design system per client, SSR, og:image e build.
 
-**`SITE_CONFIG` e `aspetto`.** `inject(SITE_CONFIG)` (provider in `app.config.ts`, valore `ContestoSito.config`) restituisce la `SiteConfig` già risolta. Il design system arriva in `aspetto` (tipo `Aspetto`, prodotto da `risolviAspetto()` in `design-system-presets.ts`): stessi gruppi e nomi del design system, con ogni default applicato. Restano facoltativi quattro campi, la cui assenza è una scelta: `tono.forza`, `colori.sfondo`, `font.principale`, `og.testo`. `aspetto.smoke` è già in numeri; `ruoloPagina` non c'è (i ruoli arrivano risolti nelle rotte).
+**`SITE_CONFIG` e `aspetto`.** `inject(SITE_CONFIG)` (provider in `app.config.ts`, valore `ContestoSito.config`) restituisce la `SiteConfig` già risolta. Il design system arriva in `aspetto` (tipo `Aspetto`, prodotto da `risolviAspetto()` in `design-system-presets.ts`): stessi gruppi e nomi del design system, con ogni default applicato. Restano facoltativi cinque campi, la cui assenza è una scelta: `tono.forza`, `colori.sfondo`, `colori.testo`, `font.principale`, `og.testo`. `aspetto.smoke` è già in numeri; `ruoloPagina` non c'è (i ruoli arrivano risolti nelle rotte).
 
 ```typescript
 import { SITE_CONFIG } from './core/engine/siteBuilder';
@@ -950,7 +980,9 @@ import { SITE_CONFIG } from './core/engine/siteBuilder';
 const site = inject(SITE_CONFIG);
 site.aspetto.navbar.fissa;          // boolean
 site.aspetto.tono.pannello;         // 'light' | 'dark' | 'auto'
-site.aspetto.colori.palette;        // secondary/info e i colori in più
+site.aspetto.colori.palette;        // secondary/info/success/warning/danger e i colori in più
+site.aspetto.colori.campioni;       // il campionario (vuoto se non dichiarato)
+site.aspetto.elevazione.angoli;     // 'vivi' | 'morbidi' | 'tondi'
 // valori derivati
 site.aspetto.pannello;              // c'è il pannello (da colori.superfici)
 site.aspetto.transizioni;           // tutto tranne movimento 'fermo'
@@ -1040,7 +1072,7 @@ Tre vincoli dello stack, rispettati by design:
 | `resolveText(notification)` | metodo | Risolve il testo mostrabile di una notifica (chiave i18n tradotta → `message` letterale → `type` come fallback); riusato dal campanellino |
 | `clear()` | metodo | Svuota lo storico |
 
-Notifiche non soltanto testuali: ogni notifica è `{ id, type, payload, timestamp }` con `payload` libero. Il `type` sceglie la reazione: senza handler registrato si ricade sul toast di default; con `on(type, ...)` la reazione è libera: un modale ricco (`notify.interact`), un'immagine, un link, un tuo componente pilotato da `notifications()`. Per il toast di default il payload segue il contratto i18n: `{ messageKey, messageParams?, icon }` (chiave tradotta lato client nella lingua corrente) oppure `{ message, icon }` per testo letterale. La risoluzione vive in un punto, `resolveText(notification)`, riusato anche dal campanellino.
+Notifiche non soltanto testuali: ogni notifica è `{ id, type, payload, timestamp }` con `payload` libero. Il `type` sceglie la reazione: senza handler registrato si ricade sul toast di default; con `on(type, ...)` la reazione è libera: un modale ricco (`notify.modal`), un'immagine, un link, un tuo componente pilotato da `notifications()`. Per il toast di default il payload segue il contratto i18n: `{ messageKey, messageParams?, icon }` (chiave tradotta lato client nella lingua corrente) oppure `{ message, icon }` per testo letterale. La risoluzione vive in un punto, `resolveText(notification)`, riusato anche dal campanellino.
 
 ```typescript
 // In un componente sempre attivo (es. AppComponent): iniettarlo attiva lo stream.
@@ -1052,7 +1084,7 @@ ngOnInit() {
     // Tipo ricco + interattivo: notifica con azione di risposta.
     this.stream.on<{ jobId: string }>('renderReady', async n => {
         const ok = await this.notify.confirm('Render pronto', 'Vuoi salvarlo?');
-        if (ok) await this.api.post(`/jobs/${n.payload!.jobId}/save`, {}); // la "risposta" è una POST
+        if (ok) await this.api.salvaJob(n.payload!.jobId); // metodo di ApiService (POST): la "risposta" alla notifica
     });
 }
 ```
@@ -1061,7 +1093,7 @@ Notifica mirata a chi avvia il job: `X-Connection-Id` automatico. Per notificare
 
 ```typescript
 // Il connectionId viaggia da sé: l'header X-Connection-Id è già su questa POST.
-await this.api.post('/upload', body);
+await this.api.caricaFile(body); // metodo di ApiService che fa la POST
 ```
 
 L'holder è inerte di proposito: leggerlo (lato `BaseApiService`) NON inietta il `NotificationStreamService` e non avvia alcuna SSE. Lo popola lo stream quando si connette e lo azzera quando cade. Finché nessuno avvia lo stream (campanellino non montato) resta `null`: nessun header, e il backend riceve un `connectionId` nullo e gestisce il caso (broadcast / nessun target). Lo stream resta pigro: nessuna connessione SSE non voluta, ma l'header c'è appena serve.
@@ -1106,7 +1138,7 @@ Due percorsi distinti portano all'URL di un'immagine ottimizzata. Si comportano 
 In breve: un'immagine già nel repo/build è un asset → `asset.getUrl('hero', 640)`. Un'immagine caricata a runtime e identificata da uno slug → `api.getBlobUrl(slug)`. Ognuno legge dalla propria sorgente: lo slug del blob dal volume `uploads`, l'id dell'asset da `mapping.json`.
 
 Registrare un nuovo asset:
-1. Copia il file immagine nella cartella indicata da `ASSETS_DIR` (default `src/assets/files/`, la stessa che `AssetService` serve via `/cdn-cgi/asset`, vedi `frontend/src/app/core/engine/server/asset-mapping.ts`).
+1. Copia il file immagine nella cartella indicata da `ASSETS_DIR` (valorizzata a `src/assets/files/` da `npm start` e `start-frontend-dev.sh`; senza, il server cerca in `dist/browser/assets/files`; è la stessa cartella che `AssetService` serve via `/cdn-cgi/asset`, vedi `frontend/src/app/core/engine/server/asset-mapping.ts`).
 2. Aggiungi una riga a `src/assets/mapping.json`: `"hero": "hero.jpg"` (chiave = id da usare in `asset.getUrl('hero')`/`appAsset="hero"`, valore = nome del file appena copiato).
 3. Nessun comando da lanciare: il server SSR legge `mapping.json` a runtime e lo ricarica alla prima occorrenza utile se il file cambia dopo l'avvio (vale anche in `ng serve`, senza riavvio).
 
@@ -1415,8 +1447,9 @@ Pattern reattivo (dati che si aggiornano con la lingua o lo stato): esponi un me
 In componenti con UI d'errore propria (es. form di login), passa `{ silent: true }` per impedire la notifica automatica:
 
 ```typescript
-// LoginFormComponent: gestisce l'errore internamente
-await this.api.login(req, { silent: true })
+// Componente con UI d'errore propria: gestisce l'errore internamente.
+// getArticolo è un metodo di ApiService che passa { silent: true } a api_get.
+await this.api.getArticolo(id, { silent: true })
     .catch(err => {
         this.errorMsg.set(err.problem?.detail ?? this.translate.translate('erroreImprevisto'));
     });
@@ -1558,7 +1591,7 @@ Varianti utili: `toSVG(config)` restituisce il QR come stringa SVG (vettoriale, 
 
 ## 🖼️ ImgBuilderService: Generazione Immagini da Testo
 
-`ImgBuilderService` genera PNG da testo (o da testo sovrapposto a un'immagine) con SVG come formato intermedio. Un punto d'ingresso per formato di output (`buildCanvas`/`buildBlob`/`buildFile`), che riceve uno `spec` con `style` a scegliere l'implementazione.
+`ImgBuilderService` genera immagini WebP da testo (o da testo sovrapposto a un'immagine) con SVG come formato intermedio. Un punto d'ingresso per formato di output (`buildCanvas`/`buildBlob`/`buildFile`), che riceve uno `spec` con `style` a scegliere l'implementazione.
 
 **`style: 'plain'`**: testo su sfondo pieno, senza immagine di base. Tre modalità di layout:
 
@@ -1581,7 +1614,7 @@ const canvas = await this.img.buildCanvas({
     opts: { bgColor: '#1f40ff', textColor: '#ffffff', fontSize: 60, ratio: '16:9', maxWidth: 1920 },
 });
 
-// Blob PNG per download o condivisione
+// Blob WebP per download o condivisione
 const blob = await this.img.buildBlob({ style: 'plain', text: 'Titolo', opts });
 await this.share.downloadBlob(blob, 'social.png');
 ```
@@ -1590,7 +1623,7 @@ Senza `bgColor`/`textColor` i colori vengono dai signal del tema corrente (WCAG-
 
 **`style: 'pill'`**: badge/chip di testo ancorato a un angolo sopra un'immagine esistente (`imageSrc`, URL o `Blob`): `pillOpts.text`/`subtitle`, `corner`, `margin`. **`style: 'caption'`**: fascia scrim (in alto/al centro/in basso) con titolo e sottotitolo sopra un'immagine: `captionOpts.text`/`subtitle`/`position`. Entrambe troncano con ellissi oltre `maxLines` (3 e 4 di default).
 
-**`style: 'fittedCaption'`**: come `'caption'`, per un testo non noto a priori (es. generato) quando l'ellissi non è accettabile: calcola da sé l'altezza perché `text`/`subtitle` entrino per intero, mai troncati. A differenza di `'caption'` non sovrappone il testo all'immagine: compone due zone indipendenti, immagine sopra e fascia testo sotto, con una dissolvenza fra le due (mai una riga netta). L'immagine è **nitida e a piena larghezza, mai sfocata**: se la sua altezza naturale supera `captionOpts.maxImageRatio` (frazione della larghezza canvas, default `0.6`) viene ritagliata dal basso, mai zoomata sui lati né deformata. `imgOpts` qui accetta `width`/`backdropColor` (niente `background`/`foreground`/`fit`: `fittedCaption` mostra l'immagine in un modo).
+**`style: 'fittedCaption'`**: come `'caption'`, per un testo non noto a priori (es. generato) quando l'ellissi non è accettabile: calcola da sé l'altezza perché `text`/`subtitle` entrino per intero, mai troncati. A differenza di `'caption'` non sovrappone il testo all'immagine: compone due zone indipendenti, immagine sopra e fascia testo sotto, con una dissolvenza fra le due (mai una riga netta). L'immagine è **nitida e a piena larghezza, mai sfocata**: se la sua altezza naturale supera `captionOpts.maxImageRatio` (frazione della larghezza canvas, default: nessun tetto) viene ritagliata dal basso, mai zoomata sui lati né deformata. `imgOpts` qui accetta `width`/`backdropColor` (niente `background`/`foreground`/`fit`: `fittedCaption` mostra l'immagine in un modo).
 
 ```typescript
 const canvas = await this.img.buildCanvas({
@@ -1601,7 +1634,7 @@ const canvas = await this.img.buildCanvas({
 });
 ```
 
-Per allegare l'immagine a un `FormData`/upload c'è `buildFile(spec, filename?)`, che restituisce un `File` PNG pronto (è `buildBlob` avvolto in un `new File([...])`).
+Per allegare l'immagine a un `FormData`/upload c'è `buildFile(spec, filename?)`, che restituisce un `File` WebP pronto (è `buildBlob` avvolto in un `new File([...])`).
 
 SSR-safe: il metodo statico `ImgBuilderService.buildSvg()` non tocca DOM né Angular, ed è usabile in Node.js per le preview server-side.
 
@@ -1700,7 +1733,7 @@ Tab senza Service Worker (con `isWebApp:false`, in ogni caso): polling a interva
 PWA / tab con SW attivo: il SW serve `index.html` dalla cache (versione stabile per il polling) e decide SwUpdate, che emette `VERSION_READY` quando la nuova versione è scaricata → l'utente conferma → `activateUpdate()` + reload.
 
 #### Personalizzare la UX di Aggiornamento
-Di default la notifica è un `window.confirm` bloccante seguito da un ricaricamento forzato (`window.location.reload()`), che interromperebbe un utente a metà di un form lungo o di una partita.
+Di default la notifica è un dialog di conferma bloccante (`NotificationService.confirm`) seguito da un ricaricamento forzato (`window.location.reload()`), che interromperebbe un utente a metà di un form lungo o di una partita.
 In `site.ts` `onVersionUpdateAvailable(apply: () => void)` devia questo comportamento: l'Engine consegna la callback `apply` (che incapsula attivazione SW e ricaricamento) e **il progetto decide come e quando** invocarla (es. una snackbar non bloccante "Aggiorna ora"). Se l'hook fallisce, interviene il dialog di default, e l'aggiornamento non va perso. Esempi d'uso in `AGENTS.md`.
 
 Prerequisito (consenso TechnicalOptional): se il sito ha un consenso TechnicalOptional (di norma il caso PWA; i cookie Technical necessari sono esenti per legge, mai a consenso) il controllo versione resta spento finché l'utente non lo accetta, e parte dal reload successivo. Senza consenso TechnicalOptional (non-PWA) non c'è nulla da accettare e il polling parte in ogni caso: legge il meta `app-version` via `fetch`, senza scrivere cookie. Senza questa distinzione un sito con `isWebApp:false` resterebbe senza controllo versione per sempre.
@@ -1717,7 +1750,7 @@ Deliberatamente senza destinazione di default: l'Engine raccoglie, non decide do
 constructor() {
     effect(() => {
         const m = inject(WebVitalsService).metrics();
-        if (m.length) this.api.post('metrics/vitals', m.at(-1));
+        if (m.length) this.api.inviaVitals(m.at(-1)!); // metodo di ApiService che fa la POST
     });
 }
 ```
@@ -2134,7 +2167,7 @@ Regola pratica: `[appPage]` per tutti i link interni. Per un cambio pagina da co
 
 ### `img[appImgRender]`: Rendering Immagine Generata
 
-Applica `ImgBuilderService` su un `<img>`. Il `src` si aggiorna con il data URL PNG a ogni cambio della config. Niente wrapper, niente classi proprie: l'elemento accetta gli attributi `<img>` standard.
+Applica `ImgBuilderService` su un `<img>`. Il `src` si aggiorna con il data URL WebP a ogni cambio della config. Niente wrapper, niente classi proprie: l'elemento accetta gli attributi `<img>` standard.
 
 ```html
 <img [appImgRender]="imgConfig"
@@ -2322,14 +2355,16 @@ Pulsante social con icona e colore del network. Deduce il network dall'URL (rege
 | `label` | `string` | Etichetta custom (default: nome network dedotto, o hostname) |
 | `showLabel` | `boolean` | Mostra testo accanto all'icona (default: `false`) |
 
-Network con branding integrato (30+): `facebook`, `instagram`, `twitter` (X), `linkedin`, `youtube`, `whatsapp`, `telegram`, `tiktok`, `spotify`, `discord`, `github`, `reddit`, `threads`, `google`, `snapchat`, `pinterest`, `tumblr`, `twitch`, `soundcloud`, `deezer`, `vimeo`, `dribbble`, `mastodon`, `applemusic`, `btc`, `amazon`, `airbnb`, `apple`, `android`, `playstation`, `yahoo`, `audible`, `quora`, `tipeee`, `chrome`, `chromecast` (Google Cast); `skype`, `foursquare` e `itunes` restano per i link vecchi (servizi chiusi o rinominati).
+Network con branding integrato (30+): `facebook`, `instagram`, `twitter` (X), `linkedin`, `youtube`, `whatsapp`, `telegram`, `tiktok`, `spotify`, `spreaker`, `discord`, `github`, `reddit`, `threads`, `google`, `snapchat`, `pinterest`, `tumblr`, `twitch`, `soundcloud`, `deezer`, `vimeo`, `dribbble`, `mastodon`, `applemusic`, `btc`, `amazon`, `airbnb`, `apple`, `android`, `playstation`, `yahoo`, `audible`, `quora`, `tipeee`, `chrome`, `chromecast` (Google Cast); `skype`, `foursquare` e `itunes` restano per i link vecchi (servizi chiusi o rinominati).
 
 **Colori: dalle linee guida dei brand, non calcolati.** Ogni voce di `SOCIAL_MAP` (`social-link.component.ts`) dichiara lo sfondo della pastiglia (`color`) e il colore del marchio sopra (`fg`) come li prescrive il brand, con la fonte in commento (brand kit verificati il 2026-09-25): l'aereo di Telegram è bianco sul blu, le onde di Spotify nere sul verde, il robot Android verde su nero perché Google vieta il logo su fondo verde, il sorriso Amazon arancio su Squid Ink perché non va sull'arancio pieno. Tre casi particolari:
 - **Glifi "a disco"** (`mode: 'disc'`: Telegram, Spotify, GitHub, Skype): il glifo Font Awesome è già un disco col marchio ritagliato; prende il colore del brand a tutta pastiglia e il ritaglio si riempie di `fg`, come il logo vero (in pastiglia normale uscirebbe in negativo).
 - **Loghi solo a colori** (`image`: Google): la "G" monocromatica è vietata, la pastiglia bianca porta la G ufficiale a colori.
 - **Glifi scelti per la pastiglia tonda**: `facebook-f`, `linkedin-in`, `pinterest-p`, `vimeo-v`, `reddit-alien`, `x-twitter`, `btc` al posto delle varianti con cerchio o quadrato proprio.
 
-`brandColors(key)` espone gli stessi valori ai componenti contatto (WhatsApp, Telegram): una fonte sola. Un colore non censito (`color` senza `fg`, es. in un `app-link-badge` generico) ha il glifo nero o bianco scelto per contrasto.
+`brandColors(key)` espone gli stessi valori ai componenti contatto (WhatsApp, Telegram): una fonte sola.
+
+**Colori del tema invece del marchio**: con `iconeSocial: 'tema'` nel design system, `brandColors` restituisce la pastiglia neutra del tema, la stessa di email e telefono (sfondo `--bs-emphasis-color`, glifo `--bs-body-bg`), per un sito che vuole tutte le icone uguali. I glifi a disco seguono la stessa coppia di colori, il disco in `--bs-emphasis-color` e il ritaglio in `--bs-body-bg`; un logo che il marchio vieta in monocromo (la "G" di Google) resta nei suoi colori. Un colore non censito (`color` senza `fg`, es. in un `app-link-badge` generico) ha il glifo nero o bianco scelto per contrasto.
 
 ### `app-link-badge`: Link a Badge con Icona
 
@@ -2529,13 +2564,11 @@ npm run generate:statics
 | `src/index.html` | `<html lang>` (+ `dir`), `<title>`, i meta OpenGraph/Twitter, `<link rel="icon">`, `<link rel="apple-touch-icon">` |
 | `public/manifest.webmanifest` | `name`, `short_name`, `id`, `description`, `lang`, `dir`, `theme_color`, `background_color`, `icons` (`any`/`maskable`), `version`, con `isWebApp:true` |
 | `public/robots.txt` | `Allow: /` + URL sitemap. Le pagine protette **non** sono elencate (un robots.txt è pubblico e ne rivelerebbe i path): la loro non-indicizzazione la gestisce il server SSR con `X-Robots-Tag: noindex` |
-| `public/llms.txt` | Indice del sito per i crawler AI (convenzione `llms.txt`): nome, descrizione, elenco pagine |
-| `public/security.txt` | Contatto di sicurezza RFC 9116 (`Expires` rigenerato a ogni build); servito sul percorso canonico `/.well-known/security.txt` dal Node SSR |
 | `public/theme-init.js` | Script anti-flash del tema (vedi «Anti-flash e build»): sincrono nel `<head>`, imposta `data-bs-theme` prima che si carichino gli stili |
 | `src/styles/engine/generated/_theme.scss` | Il design system attivo come dati Sass: colori per tono, colori di palette, movimento, elevazione, alone, font. Lo compilano `styles/engine/bootstrap.scss` e `base.scss` |
 | `src/environments/environment.ts` | `defaultLang`, `availableLanguages`, `features`, `configFingerprint`, `legalFiles`: **file generato, non modificarlo a mano** |
 
-> `sitemap.xml` non è un file di questo script: è un endpoint runtime (`GET /sitemap.xml`, vedi «sitemap.xml: endpoint runtime, non file statico»).
+> `sitemap.xml`, `llms.txt` e `security.txt` non sono file di questo script: sono endpoint runtime (`GET /sitemap.xml`, vedi «sitemap.xml: endpoint runtime, non file statico»; `GET /llms.txt`; `GET /.well-known/security.txt`, con `Expires` a un anno da ogni richiesta e 404 se l'identità non ha un contatto).
 
 > `configFingerprint`: guardia contro un `environment.ts` non rigenerato. Un hash (12 caratteri) delle sezioni identity-critiche di `global-settings.json` (`project`/`Localization`/`site`/`Features`). Il Node SSR lo ricalcola al boot dal config letto a runtime e lo confronta con quello del bundle: se non coincidono stampa un warning (capita lanciando `ng serve` senza i pre-hook, o cambiando `global-settings.json` senza rilanciare `npm run generate:statics`). Non blocca l'avvio: è un segnale di dev. `Features` fa eccezione: se i flag del file montato differiscono da quelli compilati, `server.mjs` avviato come processo principale esce con codice 1 (in `ng serve` il controllo non gira).
 
@@ -2605,12 +2638,12 @@ Il builder è `@angular/build:application` (`angular.json → architect.build.bu
 
 | Leva | Dove | Effetto |
 | :--- | :--- | :--- |
-| `budgets` (`configurations.production`) | `angular.json` | Soglia sul peso del bundle iniziale (`950kB` warning, `1.1MB` errore, vedi sotto il perché di questi numeri) e per stile di componente (`6kB`/`10kB`). **`maximumError` è il gate anti-regressione**: fa fallire `ng build` (e la CI); `maximumWarning` stampa un avviso e il build riesce |
+| `budgets` (`configurations.production`) | `angular.json` | Soglia sul peso del bundle iniziale (`960kB` warning, `1000kB` errore, vedi sotto il perché di questi numeri) e per stile di componente (`6kB`/`10kB`). **`maximumError` è il gate anti-regressione**: fa fallire `ng build` (e la CI); `maximumWarning` stampa un avviso e il build riesce |
 | `allowedCommonJsDependencies` | `angular.json` | Whitelist delle dipendenze CommonJS (niente tree-shaking, altrimenti warning bloccante). Qui va una libreria di terze parti che non spedisce ESM (`qrcode` c'è già per il template) |
 | `styles` / `scripts` | `angular.json` | CSS/JS globali caricati prima del bundle applicativo: Bootstrap compilato dall'Engine (`styles/engine/bootstrap.scss`), FontAwesome e SweetAlert2 da `node_modules` |
 | `assets` | `angular.json` | Glob di file copiati così come sono, fuori dal bundle JS |
 
-Budget iniziale (`950kB`): il bundle iniziale del template (senza una riga di contenuto del progetto figlio) pesa ~860kB raw / ~190kB trasferiti (gzip); la cifra che conta per chi visita il sito è quella trasferita, mentre il budget di Angular CLI misura il peso raw. La scomposizione, dal più pesante:
+Budget iniziale (`960kB`): il bundle iniziale del template (senza una riga di contenuto del progetto figlio) pesa ~860kB raw / ~190kB trasferiti (gzip); la cifra che conta per chi visita il sito è quella trasferita, mentre il budget di Angular CLI misura il peso raw. La scomposizione, dal più pesante:
 
 | Voce | Peso raw sorgente | Nota |
 | :--- | ---: | :--- |
@@ -2620,7 +2653,7 @@ Budget iniziale (`950kB`): il bundle iniziale del template (senza una riga di co
 | SweetAlert2 (tema CSS) | ~5kB | Il JS della libreria è dietro `import()` dinamico (`notification.service.ts`), in un chunk lazy |
 | Stili propri dell'Engine + CDK overlay | ~5kB | Trascurabile |
 
-Il limite non cresce con le pagine del progetto figlio: sono lazy-loaded una per una (`component: () => import(...)`, vedi sotto) e non contano nel bundle iniziale (misurato costruendo sia un progetto vuoto sia il template con qualche pagina in più: il numero cambia di pochi kB). È il costo fisso di includere Bootstrap e Font Awesome per intero anziché un sottoinsieme: il template non taglia componenti Bootstrap o icone che un progetto figlio userebbe senza che l'Engine lo sappia (un sito che non usa `.carousel` lo userà magari domani). Il budget alto è la conseguenza di quella scelta: se un progetto figlio arriva a `950kB` col proprio codice (non con il template e basta) è il segnale reale, e a quel punto si alza la soglia lì o si sposta quel contenuto dietro un `import()` dinamico. Se un `ng build` pulito del template appena clonato è già vicino alla soglia, il problema è a monte, qui, non nel figlio.
+Il limite non cresce con le pagine del progetto figlio: sono lazy-loaded una per una (`component: () => import(...)`, vedi sotto) e non contano nel bundle iniziale (misurato costruendo sia un progetto vuoto sia il template con qualche pagina in più: il numero cambia di pochi kB). È il costo fisso di includere Bootstrap e Font Awesome per intero anziché un sottoinsieme: il template non taglia componenti Bootstrap o icone che un progetto figlio userebbe senza che l'Engine lo sappia (un sito che non usa `.carousel` lo userà magari domani). Il budget alto è la conseguenza di quella scelta: se un progetto figlio arriva a `960kB` col proprio codice (non con il template e basta) è il segnale reale, e a quel punto si alza la soglia lì o si sposta quel contenuto dietro un `import()` dinamico. Se un `ng build` pulito del template appena clonato è già vicino alla soglia, il problema è a monte, qui, non nel figlio.
 
 Code-splitting: automatico, segui il pattern esistente. Ogni pagina, nel suo file di area, si dichiara con `component: () => import('./.../x.component').then(m => m.XComponent)`: il router genera un chunk lazy per pagina senza altra configurazione. Per un SDK di terze parti pesante (mappe, player video, chat) lo stesso principio va applicato a mano: `import()` dinamico dentro il componente/servizio che lo usa, non un import statico in cima al file, così il codice entra nel bundle quando serve (e, se l'SDK scrive cookie/Web Storage, dietro il gate del consenso: vedi «Aggiungere voci in `COOKIE_MAP`», [AGENTS.md](../AGENTS.md#persistere-dati-lato-client-cookie-web-storage-consenso)).
 

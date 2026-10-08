@@ -22,9 +22,8 @@ import { TokenService } from '../../services/token.service';
 import { injectDismiss } from '../../dismiss';
 import { NavMenuState } from '../../nav-menu-state';
 
-/** Oltre questa soglia: warning dev (console) + calcolo overflow "Altro" attivo. Sotto, tutte le
- *  voci restano sempre in riga senza costo (nessun ResizeObserver montato) — è la soglia stessa
- *  già raccomandata nel warning, non un limite indipendente. */
+/** Soglia del solo warning dev (console) sul numero di voci di primo livello. Non attiva né
+ *  spegne l'overflow "Altro", che è sempre attivo e dipende dalla larghezza reale misurata. */
 const MAX_RECOMMENDED_TOP_LEVEL_ITEMS = 6;
 
 /** Quota massima dell'altezza visibile occupabile da una navbar `fissa` agganciata: oltre (zoom,

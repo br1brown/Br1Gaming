@@ -11,6 +11,10 @@
 export interface GlobalSettings {
   $schema?: string;
   /**
+   * SOLO in global-settings.local.json: nome di questa installazione, per averne più di una dello stesso progetto sulla stessa VPS (es. produzione e prova). Si aggiunge allo slug di project.name nel nome del progetto Docker ('Agnese Subacchi' + 'prova' → agnese-subacchi-prova): container, volumi, rete e backup separati. Assente = il nome di sempre. Nel file base, committato, è rifiutato: rinominerebbe tutte le installazioni. Il nome mostrato sul sito non cambia.
+   */
+  "deploy-istanza"?: string;
+  /**
    * Nota descrittiva libera (ignorata dal runtime). Usata in testa ai file per ricordare a cosa serve ciascuno.
    */
   _nota?: string;
@@ -19,7 +23,7 @@ export interface GlobalSettings {
    */
   project?: {
     /**
-     * Nome visualizzato dell'app. Mostrato in navbar/titolo/manifest e slugificato per COMPOSE_PROJECT_NAME (es. 'Mercatino App' → 'mercatino-app').
+     * Nome visualizzato dell'app. Mostrato in navbar/titolo/manifest e slugificato per COMPOSE_PROJECT_NAME (con deploy-istanza del .local in coda, se c'è) (es. 'Mercatino App' → 'mercatino-app').
      */
     name?: string;
     /**

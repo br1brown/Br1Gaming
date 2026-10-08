@@ -2,6 +2,7 @@ import { Component, Signal, computed, input } from '@angular/core';
 import { BaseLinkComponent } from '../base/base-link.component';
 import { LinkBadgeComponent } from '../link-badge/link-badge.component';
 import { ContactUrl } from '../utils/contact-url';
+import { ContestoSito } from '../../../../site';
 
 @Component({
     selector: 'app-social-link',
@@ -24,9 +25,10 @@ export class SocialLinkComponent extends BaseLinkComponent {
     readonly socialConfig = computed(() => SOCIAL_MAP[this.socialKey()] ?? DEFAULT_SOCIAL_CONFIG);
 
     readonly glyph: Signal<string> = computed(() => this.socialConfig().icon);
-    readonly color: Signal<string | null> = computed(() => this.socialConfig().color);
-    override readonly glyphColor: Signal<string | null> = computed(() => this.socialConfig().fg ?? null);
-    override readonly glyphMode: Signal<'glyph' | 'disc'> = computed(() => this.socialConfig().mode ?? 'glyph');
+    private readonly colors = computed(() => brandColors(this.socialKey()));
+    readonly color: Signal<string | null> = computed(() => this.colors().color);
+    override readonly glyphColor: Signal<string | null> = computed(() => this.colors().fg);
+    override readonly glyphMode: Signal<'glyph' | 'disc'> = computed(() => this.colors().mode);
     override readonly glyphImage: Signal<string | null> = computed(() => this.socialConfig().image ?? null);
     readonly content: Signal<string> = computed(() => this.value().trim());
 
@@ -150,11 +152,19 @@ const DEFAULT_SOCIAL_CONFIG: SocialConfig = {
     color: null
 };
 
-/** Colori ufficiali di una rete riconosciuta (sfondo della pastiglia e marchio sopra), per chi
- *  rende la stessa identità fuori da questo componente (contatti WhatsApp/Telegram): una sola fonte. */
+/** Colori della pastiglia di una rete (sfondo e marchio), unica fonte anche per i contatti WhatsApp/Telegram.
+ *  Con `iconeSocial: 'tema'` la pastiglia neutra di `.icon` (`null`), come email e telefono; un glifo a
+ *  disco prende i colori del tema in negativo. */
 export function brandColors(type: string): { color: string | null; fg: string | null; mode: 'glyph' | 'disc' } {
     const cfg = SOCIAL_MAP[type.trim().toLowerCase()];
-    return { color: cfg?.color ?? null, fg: cfg?.fg ?? null, mode: cfg?.mode ?? 'glyph' };
+    const mode = cfg?.mode ?? 'glyph';
+    // Un logo-immagine (la "G" di Google) non si ricolora: il marchio lo vieta, resta la sua pastiglia.
+    if (ContestoSito.config.aspetto.iconeSocial === 'tema' && !cfg?.image) {
+        return mode === 'disc'
+            ? { color: 'var(--bs-emphasis-color)', fg: 'var(--bs-body-bg)', mode }
+            : { color: null, fg: null, mode };
+    }
+    return { color: cfg?.color ?? null, fg: cfg?.fg ?? null, mode };
 }
 
 /** Icona brand per una rete riconosciuta (`type`/`socialKey`, es. "github"); `undefined` se non nota.

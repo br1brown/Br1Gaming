@@ -67,3 +67,4 @@ frontend/ssr-server*.log
 lh-report-*.json
 frontend/.a11y-run-*.cjs
 .github/copilot-instructions.md
+graphify-out

@@ -8,6 +8,13 @@
     "$schema": {
       "type": "string"
     },
+    "deploy-istanza": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "maxLength": 32,
+      "description": "SOLO in global-settings.local.json: nome di questa installazione, per averne più di una dello stesso progetto sulla stessa VPS (es. produzione e prova). Si aggiunge allo slug di project.name nel nome del progetto Docker ('Agnese Subacchi' + 'prova' → agnese-subacchi-prova): container, volumi, rete e backup separati. Assente = il nome di sempre. Nel file base, committato, è rifiutato: rinominerebbe tutte le installazioni. Il nome mostrato sul sito non cambia.",
+      "examples": ["prova", "staging"]
+    },
     "_nota": {
       "type": "string",
       "description": "Nota descrittiva libera (ignorata dal runtime). Usata in testa ai file per ricordare a cosa serve ciascuno."
@@ -19,7 +26,7 @@
       "properties": {
         "name": {
           "type": "string",
-          "description": "Nome visualizzato dell'app. Mostrato in navbar/titolo/manifest e slugificato per COMPOSE_PROJECT_NAME (es. 'Mercatino App' → 'mercatino-app').",
+          "description": "Nome visualizzato dell'app. Mostrato in navbar/titolo/manifest e slugificato per COMPOSE_PROJECT_NAME (con deploy-istanza del .local in coda, se c'è) (es. 'Mercatino App' → 'mercatino-app').",
           "examples": ["App", "Mercatino App", "MioProgetto"]
         },
         "version": {

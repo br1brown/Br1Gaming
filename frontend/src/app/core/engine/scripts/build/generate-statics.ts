@@ -9,6 +9,7 @@ import { join } from 'path';
 import { ContestoSito } from '../../../../site';
 import { AppearanceService, siteOverrides, type PaletteTokens } from '../../services/appearance.service';
 import { buildThemeScss, paletteDegenerata } from './theme-scss';
+import { hexNormalizzato } from '../../design-system-presets';
 import { fingerprintIdentitySections } from '../config/config-fingerprint';
 import { readFeaturesStrict } from '../config/features';
 import { ensureLocalSettings } from '../config/local-settings';
@@ -109,6 +110,13 @@ if (!/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(COLOR_TEMA)) {
 // ContestoSito.config senza rischio di staleness (site.ts non passa da environment.ts, a
 // differenza di COLOR_TEMA/SITE_CONFIG sopra).
 const COLOR_OVERRIDES = siteOverrides();
+// Con un campionario, anche il brand dovrebbe esserci: sta in global-settings.json (lo leggono backend e
+// manifest) e il design system non lo scrive, quindi è un avviso, non un errore di validazione.
+const CAMPIONI = Object.values(ContestoSito.config.aspetto.colori.campioni);
+if (CAMPIONI.length > 0 && !CAMPIONI.some(hex => hexNormalizzato(hex) === hexNormalizzato(COLOR_TEMA))) {
+    console.warn(`[statics] site.colorTema ${COLOR_TEMA} non è fra i colori.campioni del design system: aggiungilo ` +
+        '(es. brand) perché il colore del brand stia nel campionario come gli altri.');
+}
 // Tono forzato dal design system attivo (`tono.forza`), già risolto da siteBuilder.ts.
 const FORCE_THEME_TONE: 'light' | 'dark' | undefined = ContestoSito.config.aspetto.tono.forza;
 
@@ -122,6 +130,8 @@ function buildPalette(): PaletteTokens {
     const ripieghi = new Map<string, number>();
     console.warn = (...args: unknown[]): void => {
         const fn = /\[AppearanceService\] (\w+)/.exec(args.map(String).join(' '))?.[1];
+        // L'audit dei fill non è un ripiego (nessun colore cambia): lo si stampa sotto, una riga per avviso.
+        if (fn === 'auditPaletteContrast') return;
         if (fn) ripieghi.set(fn, (ripieghi.get(fn) ?? 0) + 1); else warn(...args);
     };
     try { _palette = AppearanceService.computePalette(COLOR_TEMA, COLOR_OVERRIDES); } finally { console.warn = warn; }
@@ -131,6 +141,16 @@ function buildPalette(): PaletteTokens {
         const totale = [...ripieghi.values()].reduce((a, b) => a + b, 0);
         warn(`[statics] Palette: ${totale} ripieghi di contrasto su nero/bianco (${[...ripieghi].map(([fn, n]) => `${fn} ×${n}`).join(', ')}): ` +
             'i colori restano leggibili (≥4.5:1) ma perdono la tinta del brand. Brand o superfici troppo vicini alla luminanza media.');
+    }
+    // Override "duri" (fill di palette, `colori.testo`): nessuna correzione, solo l'avviso, sui toni che il
+    // sito mostra davvero.
+    const toni = FORCE_THEME_TONE ? [FORCE_THEME_TONE] : undefined;
+    for (const message of AppearanceService.auditPaletteContrast(_palette, toni)) {
+        warn(`[statics] Palette: ${message} Lo decide \`colori.palette\` del design system.`);
+    }
+    const avvisiTesto = COLOR_OVERRIDES.testo ? AppearanceService.auditTextContrast(_palette, toni) : [];
+    for (const message of avvisiTesto) {
+        warn(`[statics] Palette: ${message} Lo decide \`colori.testo\` del design system.`);
     }
     return _palette;
 }
