@@ -2,6 +2,16 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Un'immagine cambiata non resta più quella vecchia (`/cdn-cgi/asset`)
+
+Emerso in un figlio: sostituito `favicon.png`, l'icona della navbar (`/cdn-cgi/asset?id=favIcon&w=125`) restava la vecchia. Due cause. Sul server la copia ridimensionata su disco aveva come chiave solo id, larghezza e formato: la copia AVIF generata prima del cambio continuava a essere servita (la WebP, generata dopo, era giusta). Nel browser la risposta era `immutable` per un anno su un URL che non cambia col file: chi l'aveva già vista la teneva.
+
+- **Copia su disco**: la chiave porta l'impronta del contenuto sorgente (`server/asset-fingerprint.ts`, SHA-1 a 12 caratteri). Un file cambiato genera una copia nuova; quella vecchia non la chiede più nessuno ed è la prima che lo sweep LRU scarta.
+- **Cache del browser**: gli asset di `mapping.json` rispondono `no-cache` con l'impronta come ETag, come ogni altro statico senza hash nel nome. Il browser tiene la copia e chiede se è cambiata: 304 finché è quella, l'immagine nuova appena il file cambia. L'URL non porta versioni. Restano `immutable` i blob, perché lo slug non cambia mai contenuto. `Last-Modified` non c'è più sulle copie in cache, il cui mtime si rinfresca a ogni accesso.
+- **`/cdn-cgi/preview`**: la chiave dell'anteprima social include le impronte della favicon e dell'immagine di sfondo, e la risposta non è più `immutable` (l'URL porta la versione del sito, non quella dei file).
+
+**Al merge**: nessuno. Le miniature già su disco hanno il nome vecchio e si rigenerano al primo accesso. Un limite, una volta sola: chi ha già in cache un asset ricevuto con la vecchia risposta `immutable` lo tiene fino alla scadenza (un anno dalla visita), perché l'URL è lo stesso e il browser non lo richiede. Conta solo se quell'immagine cambia; Ctrl+F5 la aggiorna subito.
+
 ### Trasparenze: anche le utility `opacity-*` nei template
 
 Completa "Niente più trasparenze per attenuare" (sotto), che aveva guardato solo gli stili: le descrizioni delle categorie nel banner cookie erano `opacity-75`, testo al 75%; ora `text-body-secondary`, garantito su ogni superficie. Le icone del componente orari (`app-opening-hours`) perdono la stessa classe. Resta `opacity-25` sugli `<hr>` decorativi, che è già l'opacità di serie di Bootstrap per `hr`.

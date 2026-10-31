@@ -62,7 +62,8 @@ export async function runImageJob<T>(task: () => Promise<T>): Promise<T> {
 /** Sweep LRU della cache immagini: se supera CACHE_MAX_BYTES, elimina i file meno recenti (per
  *  mtime) finché scende sotto il 90% del cap (margine che evita di ri-sweepare a ogni file
  *  aggiunto). mtime è rinfrescato ad ogni hit (`AssetHandler.serveImage`), quindi sopravvivono i
- *  file davvero usati. Interamente asincrono (fs/promises): non blocca l'event loop. */
+ *  file davvero usati; le copie di un sorgente poi cambiato (impronta vecchia nel nome) non le
+ *  chiede più nessuno e sono le prime a uscire. Interamente asincrono (fs/promises): non blocca l'event loop. */
 export async function pruneImageCache(): Promise<void> {
     try {
         const names = await readdir(cacheDir);

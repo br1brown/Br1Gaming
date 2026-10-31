@@ -1142,6 +1142,8 @@ Registrare un nuovo asset:
 2. Aggiungi una riga a `src/assets/mapping.json`: `"hero": "hero.jpg"` (chiave = id da usare in `asset.getUrl('hero')`/`appAsset="hero"`, valore = nome del file appena copiato).
 3. Nessun comando da lanciare: il server SSR legge `mapping.json` a runtime e lo ricarica alla prima occorrenza utile se il file cambia dopo l'avvio (vale anche in `ng serve`, senza riavvio).
 
+Sostituire l'immagine di un id esistente è come aggiungerla: si copia il file nuovo e basta. Il server se ne accorge da solo e il browser, che rivalida a ogni accesso, riceve la nuova (vedi «Ottimizzazione Immagini Server-Side»).
+
 ### Ottimizzazione Immagini Server-Side
 
 L'endpoint `/cdn-cgi/asset` ridimensiona lato server e cacha il risultato:
@@ -1151,9 +1153,11 @@ GET /cdn-cgi/asset?id=hero&w=640
 → Legge mapping.json (asset ID → percorso fisico)
 → Ridimensiona a 640px (se la larghezza è in whitelist, mai oltre l'originale)
 → Converte in AVIF o WebP a seconda dell'header Accept del browser
-→ Caches il risultato (cache key per-formato)
-→ Restituisce l'immagine ottimizzata (con Vary: Accept)
+→ Caches il risultato (cache key per formato e impronta del file sorgente)
+→ Restituisce l'immagine ottimizzata (con Vary: Accept ed ETag)
 ```
+
+L'impronta del sorgente (i primi 12 caratteri dello SHA-1 del contenuto, `server/asset-fingerprint.ts`) è nel nome della copia su disco: un file sostituito sotto lo stesso id genera una copia nuova invece di ritrovare quella di prima. È anche l'ETag della risposta, che porta `Cache-Control: no-cache`: il browser tiene la copia e prima di usarla chiede se è cambiata, con un 304 finché l'impronta resta quella. L'URL non porta versioni, e così un file sostituito arriva anche a chi aveva già la versione precedente (tabella «Cache Strategy per Tipo di File Statico»). `/cdn-cgi/preview` mette nella propria chiave le impronte della favicon e dell'immagine di sfondo: cambiarle rigenera le anteprime.
 
 Larghezze supportate (whitelist `ALLOWED_WIDTHS` in `core/engine/asset-config.ts`): `125, 320, 480, 512, 640, 768, 1024, 1080, 1366, 1600, 1920`.
 La whitelist è anche il tetto anti-4k (max 1920) e il limite alla cardinalità della cache: una `w` arbitraria viene rifiutata, e le varianti non crescono senza limite.
@@ -2782,6 +2786,8 @@ Il server dichiara una lista esplicita di header proxy fidati, incluso `x-forwar
 | `manifest.webmanifest` | `public, max-age=86400` | Con `isWebApp:true`. Con `isWebApp:false` non viene generato e il server risponde `404` (sito non installabile) |
 | Traduzioni, icone, altri statici | `no-cache` | Rivalidati a ogni accesso |
 | Pagine SSR | `no-cache` | Contenuto dinamico per risposta |
+| `/cdn-cgi/asset` su un asset di `mapping.json`, `/cdn-cgi/preview` | `no-cache` + ETag | Il file può cambiare sotto lo stesso URL: rivalidati a ogni accesso, 304 finché il contenuto resta quello |
+| `/cdn-cgi/asset` su un blob | `public, max-age=31536000, immutable` + ETag | Lo slug identifica quel contenuto: un blob sostituito prende uno slug nuovo |
 
 ### Protezione Path Traversal (`/assets/legal`)
 
@@ -2832,7 +2838,7 @@ IMAGE_CACHE_MAX_MB=500                   # default: 500 MB — oltre questa sogl
 
 Posizione (`IMAGE_CACHE_DIR`): senza override la cache vive in una cartella dedicata nella temp di sistema, isolata per progetto con un hash del percorso asset (più siti sullo stesso host, il template e i suoi figli, non si mischiano le immagini). Tenerla fuori da `src/assets` evita che `ng serve` ricarichi la pagina a ogni miniatura generata in sviluppo, e che miniature effimere finiscano in `dist` al build. In produzione la temp è scrivibile anche col container non-root, ma è effimera: dopo un riavvio la cache parte fredda e si rigenera on-demand. Per una cache calda fra i deploy, monta un volume persistente e punta `IMAGE_CACHE_DIR` lì.
 
-Sweep (`IMAGE_CACHE_MAX_MB`): lo sweep LRU avviene ogni 6 ore e porta la cache al 90% del cap (non al 100%), per non ripartire a ogni miniatura aggiunta. L'`mtime` di ogni file si aggiorna a ogni hit: le miniature in uso sopravvivono e si scartano quelle inutilizzate.
+Sweep (`IMAGE_CACHE_MAX_MB`): lo sweep LRU avviene ogni 6 ore e porta la cache al 90% del cap (non al 100%), per non ripartire a ogni miniatura aggiunta. L'`mtime` di ogni file si aggiorna a ogni hit: le miniature in uso sopravvivono e si scartano quelle inutilizzate, fra cui le copie di un'immagine poi sostituita, che nessuno chiede più.
 
 Concorrenza dei job (`IMAGE_JOBS_MAX`), indipendente dal cap di dimensione: ogni decode/resize `sharp` alloca il bitmap intero in memoria, e i job in parallelo sono limitati: default `Math.max(2, availableParallelism())`, configurabile via `IMAGE_JOBS_MAX`. Quelli oltre il tetto entrano in una coda FIFO interna (non limitata, senza timeout): a cache fredda con tante immagini distinte in una pagina (di norma il primo traffico dopo un deploy) le miniature oltre il tetto aspettano il proprio turno invece di fallire, con un ritardo di caricamento silenzioso (nessun log, nessuna metrica dedicata), non un errore.
 
