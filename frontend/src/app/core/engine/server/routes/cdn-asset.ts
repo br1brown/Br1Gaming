@@ -11,6 +11,7 @@ import { defaultBlobUrl, defaultBlobUrlRaw, fetchBackendImage } from '../backend
 import { inProgress, runImageJob } from '../image-cache';
 import { recordCacheHit, recordCacheMiss } from '../image-cache-metrics';
 import { fileExists } from '../fs-utils';
+import { contentFingerprint, fileFingerprint } from '../asset-fingerprint';
 
 /** Tetto al tempo di decode/resize per singola richiesta: blinda contro file patologici/decode lenti
  *  (il cap sui pixel d'ingresso lo dà già `limitInputPixels` di default di Sharp, ~268MP). */
@@ -20,7 +21,10 @@ const SHARP_TIMEOUT = { seconds: 15 };
  *  serve (o genera al volo) una miniatura in cache — richieste concorrenti per la stessa chiave
  *  riusano lo stesso job sharp (mappa `inProgress`). Formato AVIF se il browser lo dichiara in
  *  `Accept`, altrimenti WebP; il formato entra nella cache key e la risposta porta `Vary: Accept`
- *  perché cache/CDN intermedie non servano la variante sbagliata a un client diverso. */
+ *  perché cache/CDN intermedie non servano la variante sbagliata a un client diverso.
+ *  L'impronta del contenuto sorgente entra nella cache key (un file cambiato genera una copia
+ *  nuova; la vecchia, non più chiesta, è la prima che lo sweep LRU scarta) ed è l'ETag con cui il
+ *  browser rivalida. */
 export async function cdnAssetHandler(req: Request, res: Response): Promise<void> {
     try {
         const id = req.query['id'];
@@ -40,11 +44,18 @@ export async function cdnAssetHandler(req: Request, res: Response): Promise<void
         if (!sharpSource) { res.status(404).send('Asset not found'); return; }
         const source: string | Buffer = sharpSource; // stabile da qui in poi, evita di ri-allargare a `| null` sotto
 
+        // Impronta del contenuto servito: chiave della copia su disco ed ETag. Un file locale si
+        // sostituisce sotto lo stesso id, quindi il browser lo rivalida (`no-cache`, 304 finché
+        // l'impronta resta quella). Un blob no: EngineBlobController dà uno slug nuovo a ogni
+        // sostituzione, lo slug non cambia mai contenuto e può restare in cache per un anno.
+        const fingerprint = typeof source === 'string' ? await fileFingerprint(source) : contentFingerprint(source);
+        const immutable = typeof source !== 'string';
+
         // File locale non-immagine: serve diretto senza elaborazione. Un blob del backend non ha
         // un path fisico da servire tal quale — si tenta sempre la rasterizzazione sharp.
         if (typeof source === 'string') {
             const filename = source.split(/[\\/]/).pop()!;
-            if (!AssetHandler.isSharpCompatible(filename)) { AssetHandler.serveFile(res, source); return; }
+            if (!AssetHandler.isSharpCompatible(filename)) { AssetHandler.serveFile(res, source, fingerprint, immutable); return; }
         }
 
         // Formato: AVIF se il browser lo supporta (Accept), altrimenti WebP. La risposta
@@ -68,17 +79,17 @@ export async function cdnAssetHandler(req: Request, res: Response): Promise<void
         const originalWidth = metadata.width || 0;
         const finalWidth = originalWidth < requestedWidth ? originalWidth : requestedWidth;
 
-        /** Chiave cache basata su ID e dimensione: identifica univocamente la miniatura generata.
-         *  L'id è del client (anche un GUID di blob, o ciò che `resolveBlobImageUrl` accetta): nel nome
+        /** Chiave cache basata su ID, dimensione e impronta del sorgente: identifica univocamente la
+         *  miniatura generata, e un sorgente cambiato non ritrova la copia di prima. L'id è del client (anche un GUID di blob, o ciò che `resolveBlobImageUrl` accetta): nel nome
          *  del file entra solo se innocuo, altrimenti il suo hash, come fa og-preview. Un `../` nell'id
          *  non deve poter scrivere fuori da cacheDir. */
         const safeId = /^[A-Za-z0-9._-]{1,128}$/.test(id) && !id.startsWith('.') ? id : createHash('sha1').update(id).digest('hex');
-        const cacheKey = `${safeId}_w${finalWidth}.${format}`;
+        const cacheKey = `${safeId}_w${finalWidth}_${fingerprint}.${format}`;
         const cacheFile = join(cacheDir, cacheKey);
         if (!resolve(cacheFile).startsWith(resolve(cacheDir) + sep)) { res.status(400).send('Invalid id'); return; }
 
         /** Se la miniatura esiste già in cache, la serve istantaneamente */
-        if (await fileExists(cacheFile)) { recordCacheHit(); AssetHandler.serveImage(res, cacheFile); return; }
+        if (await fileExists(cacheFile)) { recordCacheHit(); AssetHandler.serveImage(res, cacheFile, cacheKey, immutable); return; }
         recordCacheMiss();
 
         /** Se la generazione è già in corso riusa la stessa Promise, altrimenti ne avvia una
@@ -97,7 +108,7 @@ export async function cdnAssetHandler(req: Request, res: Response): Promise<void
         }
         await job;
 
-        AssetHandler.serveImage(res, cacheFile);
+        AssetHandler.serveImage(res, cacheFile, cacheKey, immutable);
     } catch (err) {
         console.error('[Asset Error]:', err);
         res.status(500).send('Error processing asset');

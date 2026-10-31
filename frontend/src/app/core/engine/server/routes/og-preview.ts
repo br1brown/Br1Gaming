@@ -17,6 +17,7 @@ import { defaultBlobUrl, defaultBlobUrlRaw, fetchBackendImage } from '../backend
 import { inProgress, runImageJob } from '../image-cache';
 import { recordCacheHit, recordCacheMiss } from '../image-cache-metrics';
 import { fileExists } from '../fs-utils';
+import { contentFingerprint, fileFingerprint } from '../asset-fingerprint';
 
 /** Palette multi-colore del sito: deterministica da config statica, calcolata una sola volta al
  *  load del modulo invece che ad ogni richiesta (anche sui cache-hit). Rispecchia sempre gli
@@ -106,7 +107,7 @@ export async function ogPreviewHandler(req: Request, res: Response): Promise<voi
             try {
                 const faviconPath = await resolveAssetPath('favIcon');
                 // no-store: un errore transitorio non deve far cachare ai crawler social la favicon
-                // come og:image di questa pagina per un anno (serveImage la marca immutable).
+                // come og:image di questa pagina.
                 if (faviconPath) { res.setHeader('Cache-Control', 'no-store'); res.sendFile(faviconPath); return; }
             } catch { /* best-effort: si cade sul 500 */ }
             res.status(500).send('Error generating preview');
@@ -114,25 +115,35 @@ export async function ogPreviewHandler(req: Request, res: Response): Promise<voi
     }
 }
 
+/** Favicon da comporre nell'anteprima, con l'impronta del suo contenuto: entra nella cache key,
+ *  così una favicon cambiata rigenera le anteprime invece di servire quelle con l'icona vecchia. */
+async function resolveFavicon(): Promise<{ path: string | null; fingerprint: string | null }> {
+    const path = await resolveAssetPath('favIcon');
+    return { path, fingerprint: path ? await fileFingerprint(path) : null };
+}
+
 /** Variante testuale: genera l'anteprima in SVG, nel font del sito o in quello di `og.testo`. */
 async function renderPreviewText(res: Response, title: string, subtitle: string, font: FontChoice): Promise<void> {
     const { version } = ContestoSito.config;
     const r = PreviewBuilder.resolvePreviewBuilder({ title, subtitle, bgColor: cardBgColor, font });
+    const favicon = await resolveFavicon();
 
-    const keyData = JSON.stringify({ version, ...r, font: choiceKey(font) });
+    const keyData = JSON.stringify({ version, ...r, font: choiceKey(font), favicon: favicon.fingerprint });
     const hash = createHash('sha1').update(keyData).digest('hex').slice(0, 16);
     // PNG per bordi netti e compatibilità crawler social
     const cacheKey = `preview_${hash}.png`;
     const cacheFile = join(cacheDir, cacheKey);
 
-    if (await fileExists(cacheFile)) { recordCacheHit(); AssetHandler.serveImage(res, cacheFile); return; }
+    // Mai `immutable`: l'URL porta la versione del sito, non l'impronta della favicon.
+    // Rivalidata con l'ETag, che è la chiave e quindi contiene anche quell'impronta.
+    if (await fileExists(cacheFile)) { recordCacheHit(); AssetHandler.serveImage(res, cacheFile, cacheKey, false); return; }
     recordCacheMiss();
 
     let job = inProgress.get(cacheKey);
     if (!job) {
         job = runImageJob(async () => {
             let faviconDataUrl = '';
-            const faviconPath = await resolveAssetPath('favIcon');
+            const faviconPath = favicon.path;
             if (faviconPath) {
                 faviconDataUrl = `data:image/png;base64,${(await readFile(faviconPath)).toString('base64')}`;
             }
@@ -142,7 +153,7 @@ async function renderPreviewText(res: Response, title: string, subtitle: string,
         inProgress.set(cacheKey, job);
     }
     await job;
-    AssetHandler.serveImage(res, cacheFile);
+    AssetHandler.serveImage(res, cacheFile, cacheKey, false);
 }
 
 /** Sorgente immagine risolta: un file locale (path su disco) oppure i byte già scaricati dal
@@ -174,6 +185,8 @@ async function renderPreviewWithImage(
 ): Promise<void> {
     const source = await resolveImageSource(ref);
     if (!source) { res.status(404).send('Asset not found'); return; }
+    // Impronta del contenuto: un'immagine cambiata sotto lo stesso id rigenera l'anteprima.
+    const sourceFingerprint = source.kind === 'path' ? await fileFingerprint(source.path) : contentFingerprint(source.buffer);
 
     // Se l'asset locale non è rasterizzabile da sharp, viene servito tal quale. Un'immagine
     // recuperata dal backend è sempre trattata come rasterizzabile (foto caricate via blob storage).
@@ -181,19 +194,23 @@ async function renderPreviewWithImage(
     if (source.kind === 'path') {
         const filename = source.path.split(/[\\/]/).pop()!;
         isSvg = /\.svg$/i.test(filename);
-        if (!isSvg && !AssetHandler.isSharpCompatible(filename)) { AssetHandler.serveFile(res, source.path); return; }
+        if (!isSvg && !AssetHandler.isSharpCompatible(filename)) { AssetHandler.serveFile(res, source.path, sourceFingerprint, false); return; }
     }
 
     const normalizedTitle = normalizeAndTruncate(title, 100);
     const normalizedSubtitle = normalizeAndTruncate(subtitle, 150);
     const { version } = ContestoSito.config;
+    const favicon = await resolveFavicon();
     // Il font nell'hash: due font diversi per lo stesso titolo non collidono sulla stessa immagine in cache.
-    const hash = createHash('sha1').update(JSON.stringify({ version, ref, title: normalizedTitle, subtitle: normalizedSubtitle, plain, font: choiceKey(font) })).digest('hex').slice(0, 16);
+    const hash = createHash('sha1').update(JSON.stringify({
+        version, ref, source: sourceFingerprint, favicon: favicon.fingerprint,
+        title: normalizedTitle, subtitle: normalizedSubtitle, plain, font: choiceKey(font),
+    })).digest('hex').slice(0, 16);
     // JPEG per massima compatibilità con le piattaforme social
     const cacheKey = `preview_img_${hash}.jpg`;
     const cacheFile = join(cacheDir, cacheKey);
 
-    if (await fileExists(cacheFile)) { recordCacheHit(); AssetHandler.serveImage(res, cacheFile); return; }
+    if (await fileExists(cacheFile)) { recordCacheHit(); AssetHandler.serveImage(res, cacheFile, cacheKey, false); return; }
     recordCacheMiss();
 
     let job = inProgress.get(cacheKey);
@@ -228,7 +245,7 @@ async function renderPreviewWithImage(
                 const chipTop = SAFE_MARGIN;
                 const iconLeft = chipLeft + chipPad;
                 const iconTop = chipTop + chipPad;
-                const faviconPath = await resolveAssetPath('favIcon');
+                const faviconPath = favicon.path;
                 if (faviconPath) {
                     // Chip arrotondato dietro la favicon per garantire contrasto
                     const chipRadius = Math.round(chipSize * 0.18);
@@ -270,12 +287,12 @@ async function renderPreviewWithImage(
     } catch (err) {
         // Fallback al file originale se la rasterizzazione SVG non è supportata (solo asset locali:
         // isSvg è true solo quando source.kind === 'path', vedi sopra)
-        if (isSvg && source.kind === 'path') { console.warn('[Preview] SVG non rasterizzabile, servo l\'originale:', err); AssetHandler.serveFile(res, source.path); return; }
+        if (isSvg && source.kind === 'path') { console.warn('[Preview] SVG non rasterizzabile, servo l\'originale:', err); AssetHandler.serveFile(res, source.path, sourceFingerprint, false); return; }
         // Formato che sharp non decodifica (es. BMP non passato per webopt, file corrotto): una
         // card testuale con titolo/sottotitolo già noti comunica più di un'icona muta o di un 500.
         console.warn('[Preview] Immagine non rasterizzabile, fallback a preview testuale:', err);
         await renderPreviewText(res, title, subtitle, font);
         return;
     }
-    AssetHandler.serveImage(res, cacheFile);
+    AssetHandler.serveImage(res, cacheFile, cacheKey, false);
 }

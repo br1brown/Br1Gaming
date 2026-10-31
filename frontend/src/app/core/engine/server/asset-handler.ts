@@ -18,21 +18,31 @@ export class AssetHandler {
         return false;
     }
 
-    /** Spedisce l'immagine al browser deducendo il Content-Type dall'estensione
-     *  (WebP, AVIF, PNG, JPEG, ...) e impostando cache eterna (1 anno). */
-    static serveImage(res: Response, path: string): void {
+    /** Intestazioni di cache comuni a immagini e file: cache di un anno (`immutable`) solo quando
+     *  l'URL identifica quel contenuto (slug di un blob, che non cambia contenuto); altrimenti
+     *  `no-cache`, il browser rivalida e riceve 304 finché l'ETag resta. */
+    private static setCacheHeaders(res: Response, etag: string, immutable: boolean): void {
+        res.setHeader('Cache-Control', immutable ? 'public, max-age=31536000, immutable' : 'no-cache');
+        res.setHeader('ETag', `"${etag}"`);
+    }
+
+    /** Spedisce l'immagine al browser deducendo il Content-Type dall'estensione (WebP, AVIF, PNG,
+     *  JPEG, ...). `etag` è il nome della copia in cache, che porta già l'impronta del sorgente. */
+    static serveImage(res: Response, path: string, etag: string, immutable: boolean): void {
         // Rinfresca mtime (fire-and-forget) per la politica LRU dello sweep: un hit
         // marca il file come "caldo" e lo protegge dall'eviction. L'errore è ininfluente.
         const now = new Date();
         utimes(path, now, now, () => { /* best-effort */ });
         res.setHeader('Content-Type', mimeLookup(path) || 'image/webp');
-        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-        res.sendFile(path);
+        AssetHandler.setCacheHeaders(res, etag, immutable);
+        // Niente Last-Modified: l'mtime della copia cambia a ogni hit (LRU sopra) e farebbe
+        // sembrare nuova la risposta a ogni rivalidazione. Decide l'ETag.
+        res.sendFile(path, { lastModified: false });
     }
 
-    /** Spedisce un file non-immagine (PDF, ecc) mantenendo il formato originale e cache eterna. */
-    static serveFile(res: Response, path: string): void {
-        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    /** Spedisce un file non-immagine (PDF, ecc) mantenendo il formato originale. */
+    static serveFile(res: Response, path: string, etag: string, immutable: boolean): void {
+        AssetHandler.setCacheHeaders(res, etag, immutable);
         res.sendFile(path);
     }
 }
