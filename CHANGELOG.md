@@ -2,6 +2,17 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Il login resta attivo in una nuova scheda e dopo la chiusura del browser
+
+Il JWT stava in `sessionStorage`: per scheda, azzerato alla chiusura. Aprire un link del sito in una scheda nuova, o riaprire il browser, chiedeva di nuovo il login anche con un token ancora valido. Ora sta in `localStorage`, la persistenza standard dei siti con sessione: finché il token non scade o l'utente esce, ogni scheda lo rilegge da lì all'avvio (`restoreSession()`). La durata non cambia (`Security.Token.ExpirationSeconds`, 50 minuti di serie, nessun refresh token), e le schede non si parlano.
+
+- **`TokenService`**: `localStorage` al posto di `sessionStorage`, con `try/catch` (storage bloccato = la sessione vive solo in memoria). Due cautele che lo storage condiviso rende necessarie: la scadenza di un token toglie dallo storage solo quel token (un login più recente fatto in un'altra scheda non va perso), e `ngOnDestroy` ferma il timer senza cancellare lo storage (distruggere il servizio non è un logout).
+- **Voce `bearerToken`** (`ENGINE_COOKIE_MAP`): mezzo `local`, sempre Technical ed essenziale (esente da consenso, mai cancellata dalla revoca). In Cookie Policy la durata è «Fino alla scadenza della sessione o all'uscita» (`durataAccessoListaCookie`), la descrizione non parla più di chiusura della scheda. `durationKey` ora vale anche per le voci `local` (prima solo cookie): senza, sarebbe uscito «Persistente».
+- **Informativa privacy (parte `login`, it/en)**: la sessione resta nel browser del dispositivo e termina alla scadenza o all'uscita, non più «alla chiusura della scheda».
+- **Limiti dichiarati** in `frontend/README.md` «Ciclo di Vita del Token»: il logout in una scheda non slogga le altre già aperte (tengono il token in memoria fino a `exp`), e il token è leggibile da script della pagina. Cade il limite PWA descritto prima (logout al rilancio dell'app installata).
+
+**Al merge**: nessuno. Dopo il deploy, chi era loggato con il token in `sessionStorage` si ritrova sloggato una volta sola. Un figlio che ha ricopiato testo `login` della Privacy Policy con `markdown` proprio deve aggiornarlo a mano.
+
 ### Un'immagine cambiata non resta più quella vecchia (`/cdn-cgi/asset`)
 
 Emerso in un figlio: sostituito `favicon.png`, l'icona della navbar (`/cdn-cgi/asset?id=favIcon&w=125`) restava la vecchia. Due cause. Sul server la copia ridimensionata su disco aveva come chiave solo id, larghezza e formato: la copia AVIF generata prima del cambio continuava a essere servita (la WebP, generata dopo, era giusta). Nel browser la risposta era `immutable` per un anno su un URL che non cambia col file: chi l'aveva già vista la teneva.

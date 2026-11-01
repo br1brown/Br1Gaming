@@ -50,9 +50,7 @@ export interface CookieConfig {
     /** URL alla privacy/cookie policy del provider terzo (opzionale). Se presente, nella policy il
      *  nome del provider diventa un link. Ha senso solo insieme a `provider`. */
     providerUrl?: string;
-    /** Chiave i18n della durata dichiarata (solo cookie), per la Cookie Policy. Omessa → default
-     *  "1 anno" (il Max-Age predefinito di `set()`). Per il Web Storage la durata è derivata dal
-     *  mezzo (sessione / persistente) e questo campo è ignorato. */
+    /** Chiave i18n della durata per la Cookie Policy. Omessa → cookie: "1 anno", local storage: "Persistente". Ignorata per session storage ("Sessione"). */
     durationKey?: string;
 }
 
@@ -110,12 +108,13 @@ export const ENGINE_COOKIE_MAP = {
         storage: 'local',
         descriptionKey: 'consentLogDescrizioneListaCookie',
     },
-    /** sessionStorage. Token di autenticazione (TokenService). Incluso solo se è configurato un login.
+    /** localStorage. Token di autenticazione (TokenService). Incluso solo se è configurato un login.
      *  ESSENZIALE → elencato in policy ma mai cancellato dalla revoca. */
     bearerToken: {
         category: ConsentCategory.Technical,
-        storage: 'session',
+        storage: 'local',
         descriptionKey: 'bearerTokenDescrizioneListaCookie',
+        durationKey: 'durataAccessoListaCookie',
     },
     ...CONSENT_COOKIE_MAP
 } as const satisfies Readonly<Record<string, CookieConfig>>;

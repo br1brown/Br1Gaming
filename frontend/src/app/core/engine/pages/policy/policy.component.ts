@@ -136,11 +136,10 @@ export class PolicyComponent extends PageBaseComponent<LegalContent> {
         return config.provider ?? this.translate.translate('primaParteListaCookie');
     }
 
-    /** Durata dichiarata: derivata dal mezzo per il Web Storage (sessione / persistente), dalla
-     *  `durationKey` per i cookie che la specificano, altrimenti il default "1 anno" (Max-Age di set()). */
+    /** Durata dichiarata: "Sessione" per session storage; per local storage e cookie usa `durationKey` (default "Persistente" o "1 anno"). */
     private durationLabel(config: CookieConfig, medium: StorageMedium): string {
         if (medium === 'session') return this.translate.translate('durataSessioneListaCookie');
-        if (medium === 'local') return this.translate.translate('durataPersistenteListaCookie');
+        if (medium === 'local') return this.translate.translate(config.durationKey ?? 'durataPersistenteListaCookie');
         return this.translate.translate(config.durationKey ?? 'durataAnnoListaCookie');
     }
 

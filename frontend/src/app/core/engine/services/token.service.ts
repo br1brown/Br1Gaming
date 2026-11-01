@@ -1,9 +1,12 @@
 import { computed, inject, Injectable, isDevMode, OnDestroy, PLATFORM_ID, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 
-/** Conserva il token JWT: unica sorgente di verità sulla sessione attiva. Modulo foglia a sé (nessun import verso api/auth/base-api), separato da AuthService per non chiudere il ciclo api → base-api → auth → api. */
+/** Conserva il token JWT (in localStorage): unica sorgente di verità sulla sessione attiva. Modulo foglia a sé (nessun import verso api/auth/base-api), separato da AuthService per non chiudere il ciclo api → base-api → auth → api. */
 @Injectable({ providedIn: 'root' })
 export class TokenService implements OnDestroy {
+    /** Chiave nel Web Storage (`bearerToken` in ENGINE_COOKIE_MAP). */
+    private static readonly STORAGE_KEY = 'bearerToken';
+
     // Identifica se il codice sta girando nel browser o sul server (SSR)
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
@@ -46,35 +49,51 @@ export class TokenService implements OnDestroy {
         this._token.set(token);
         this._expiresAt.set(expiration);
 
-        // sessionStorage diretto (eccezione ESLint deliberata): accoppiarlo al consenso
-        // reintrodurrebbe il ciclo api→base-api→auth→api; censito comunque in ENGINE_COOKIE_MAP.
-        if (this.isBrowser) sessionStorage.setItem('bearerToken', token);
+        // localStorage diretto: evita cicli di dipendenza col consenso; censito in ENGINE_COOKIE_MAP.
+        if (this.isBrowser) {
+            try { localStorage.setItem(TokenService.STORAGE_KEY, token); } catch { }
+        }
 
         this.scheduleExpiration(expiration);
         return true;
     }
 
-    /** Rimuove il token, pulisce i timer e svuota il SessionStorage. */
+    /** Rimuove il token (memoria e storage) e ferma il timer di scadenza. */
     clear(): void {
+        this.discard(false);
+    }
+
+    /** Tenta di ripristinare una sessione esistente da localStorage. */
+    restore(): void {
+        if (!this.isBrowser) return;
+        let token: string | null = null;
+        try { token = localStorage.getItem(TokenService.STORAGE_KEY); } catch { }
+        if (token) this.store(token);
+    }
+
+    /** Ferma il timer alla distruzione del servizio senza toccare lo storage. */
+    ngOnDestroy(): void {
+        if (this.expirationTimer !== null) {
+            clearTimeout(this.expirationTimer);
+            this.expirationTimer = null;
+        }
+    }
+
+    /** Svuota lo stato in memoria e ferma il timer. Con `onlyIfOwn`, rimuove dallo storage solo se il token corrisponde (evita di sovrascrivere un login più recente di un'altra scheda). */
+    private discard(onlyIfOwn: boolean): void {
+        const own = this._token();
         this._token.set(null);
         this._expiresAt.set(null);
         if (this.expirationTimer !== null) {
             clearTimeout(this.expirationTimer);
             this.expirationTimer = null;
         }
-        if (this.isBrowser) sessionStorage.removeItem('bearerToken');
-    }
-
-    /** Tenta di ripristinare una sessione esistente (es. dopo F5). */
-    restore(): void {
         if (!this.isBrowser) return;
-        const token = sessionStorage.getItem('bearerToken');
-        if (token) this.store(token);
-    }
-
-    /** Lifecycle hook: assicura che i timer vengano distrutti se il servizio muore. */
-    ngOnDestroy(): void {
-        this.clear();
+        try {
+            if (!onlyIfOwn || localStorage.getItem(TokenService.STORAGE_KEY) === own) {
+                localStorage.removeItem(TokenService.STORAGE_KEY);
+            }
+        } catch { }
     }
 
     /** Pianifica il logout automatico, ricorsivo per superare il limite di `setTimeout` a 32 bit (~24 giorni). */
@@ -83,13 +102,13 @@ export class TokenService implements OnDestroy {
         if (this.expirationTimer !== null) clearTimeout(this.expirationTimer);
 
         const delay = expiration - Date.now();
-        if (delay <= 0) { this.clear(); return; }
+        if (delay <= 0) { this.discard(true); return; }
 
         // Il delay massimo supportato da setTimeout è un intero a 32 bit
         const nextDelay = Math.min(delay, 2147483647);
         this.expirationTimer = setTimeout(() => {
             if (expiration <= Date.now()) {
-                this.clear();
+                this.discard(true);
                 return;
             }
             // Se il token scade tra molto tempo, ri-schedula ricorsivamente
