@@ -360,9 +360,9 @@ Per cambiare anche la logica (un altro endpoint, un campo aggiuntivo nel form, u
 
 ### Ciclo di Vita del Token
 
-Il token sta in `sessionStorage` (sopravvive all'F5, si azzera alla chiusura della scheda). `TokenService` (Engine, intoccabile) avvia un timer che esegue il logout allo scadere dell'`exp` del JWT, e gestisce il limite JavaScript di 24 giorni con un rescheduling ricorsivo.
+Il token sta in `localStorage` (chiave `bearerToken`), come fanno i siti con sessione persistente: sopravvive a F5, nuove schede e chiusura del browser, e all'avvio ogni scheda lo rilegge da lì (`AuthService.restoreSession()`), senza che le schede si parlino. Vale finché il JWT non scade (`Security.Token.ExpirationSeconds`, 50 minuti di serie: nessun refresh token, alla scadenza serve un nuovo login) o l'utente esce. `TokenService` (Engine, intoccabile) avvia un timer che esegue il logout allo scadere dell'`exp` del JWT, e gestisce il limite JavaScript di 24 giorni con un rescheduling ricorsivo.
 
-> PWA e `sessionStorage`: logout silenzioso al rilancio. Su un sito con `isWebApp: true`, riaprire l'app installata dalla home screen, a seconda di OS e browser, parte in un nuovo contesto del browser (per `sessionStorage` non è la stessa "scheda"), e l'utente si ritrova sloggato senza un logout esplicito. L'Engine non ha un meccanismo che lo impedisce: una sessione che sopravviva al rilancio della PWA vuole un mezzo diverso (es. un refresh token in cookie persistente), fuori dallo scope di `TokenService`.
+> Più schede: il logout o la scadenza in una scheda non sloggano le altre già aperte, che tengono il token in memoria fino alla sua `exp` (e al loro prossimo avvio non lo trovano più). È il compromesso di non far parlare le schede tra loro. Un login fatto in una scheda non viene cancellato dalla scadenza di un token più vecchio tenuto da un'altra. Il token sta in chiaro in `localStorage`, leggibile da qualsiasi script della pagina: la difesa è la CSP (`security-headers.json`) e la breve durata. Una sessione più lunga di 50 minuti, o fuori dalla portata di uno script (cookie `HttpOnly`), vuole un refresh token e va oltre `TokenService`.
 
 ### Gestione Errori di Login
 

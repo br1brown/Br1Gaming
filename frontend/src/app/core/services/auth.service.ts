@@ -67,7 +67,7 @@ export class AuthService {
         this.tokenService.clear();
     }
 
-    /** Carica il token salvato precedentemente in sessionStorage. */
+    /** Carica il token salvato precedentemente in localStorage. */
     restoreSession(): void {
         this.tokenService.restore();
     }
