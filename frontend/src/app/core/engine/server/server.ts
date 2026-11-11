@@ -249,6 +249,14 @@ app.use((_request, response, next) => {
     next();
 });
 
+/** Le risorse sotto /cdn-cgi/ (immagini, anteprime og:image, font) non sono pagine: Google le scansiona
+ *  perché compaiono in og:image/@font-face e le elenca come «scansionata, non indicizzata». Con
+ *  `noindex` restano scaricabili (anteprime social, font) ma escono dal report di indicizzazione. */
+app.use('/cdn-cgi', (_request, response, next) => {
+    response.setHeader('X-Robots-Tag', 'noindex');
+    next();
+});
+
 /** Endpoint CDN Asset: recupero e ottimizzazione delle immagini al volo */
 app.get(CdnCgiPaths.asset, cdnAssetHandler);
 
