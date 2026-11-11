@@ -2,6 +2,14 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Le anteprime social non finiscono più nel report di indicizzazione (`/cdn-cgi/*`)
+
+Emerso in un figlio: Search Console elencava decine di URL `/cdn-cgi/preview?p=…` come «Pagina scansionata, ma attualmente non indicizzata». Sono le immagini `og:image` generate dall'Engine: Google le trova nei meta tag e le scansiona come se fossero pagine, una per pagina del sito. Non toglievano nulla all'indicizzazione vera, ma sporcavano il report e consumavano scansioni.
+
+- **`server.ts`**: ogni risposta sotto `/cdn-cgi/` (`asset`, `preview`, `font`) porta `X-Robots-Tag: noindex`. Le risorse restano scaricabili: anteprime social e font funzionano come prima. Niente `Disallow` in `robots.txt`, che impedirebbe a Google di vedere le immagini.
+
+**Al merge**: nessuno. Nel report le voci spariscono da sole, via via che Google riscansiona gli URL.
+
 ### Il login resta attivo in una nuova scheda e dopo la chiusura del browser
 
 Il JWT stava in `sessionStorage`: per scheda, azzerato alla chiusura. Aprire un link del sito in una scheda nuova, o riaprire il browser, chiedeva di nuovo il login anche con un token ancora valido. Ora sta in `localStorage`, la persistenza standard dei siti con sessione: finché il token non scade o l'utente esce, ogni scheda lo rilegge da lì all'avvio (`restoreSession()`). La durata non cambia (`Security.Token.ExpirationSeconds`, 50 minuti di serie, nessun refresh token), e le schede non si parlano.
