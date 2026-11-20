@@ -40,9 +40,16 @@ export class TokenService implements OnDestroy {
     store(token: string): boolean {
         const expiration = this.getExpirationTime(token);
 
-        // Se il token è malformato o già scaduto, annulla l'operazione
+        // Un token malformato o già scaduto non deve sovrascrivere né cancellare una sessione
+        // valida già attiva (anche se salvata da un'altra scheda).
         if (expiration === null || expiration <= Date.now()) {
-            this.clear();
+            if (this.isBrowser) {
+                try {
+                    if (localStorage.getItem(TokenService.STORAGE_KEY) === token) {
+                        localStorage.removeItem(TokenService.STORAGE_KEY);
+                    }
+                } catch { }
+            }
             return false;
         }
 
@@ -54,7 +61,7 @@ export class TokenService implements OnDestroy {
             try { localStorage.setItem(TokenService.STORAGE_KEY, token); } catch { }
         }
 
-        this.scheduleExpiration(expiration);
+        this.scheduleExpiration(expiration, token);
         return true;
     }
 
@@ -97,9 +104,10 @@ export class TokenService implements OnDestroy {
     }
 
     /** Pianifica il logout automatico, ricorsivo per superare il limite di `setTimeout` a 32 bit (~24 giorni). */
-    private scheduleExpiration(expiration: number): void {
+    private scheduleExpiration(expiration: number, expectedToken: string): void {
         if (!this.isBrowser) return; // I timer di scadenza non servono in SSR
         if (this.expirationTimer !== null) clearTimeout(this.expirationTimer);
+        if (this._token() !== expectedToken) return;
 
         const delay = expiration - Date.now();
         if (delay <= 0) { this.discard(true); return; }
@@ -107,12 +115,14 @@ export class TokenService implements OnDestroy {
         // Il delay massimo supportato da setTimeout è un intero a 32 bit
         const nextDelay = Math.min(delay, 2147483647);
         this.expirationTimer = setTimeout(() => {
+            // Un callback già accodato per una sessione precedente non deve scollegare un login più recente.
+            if (this._token() !== expectedToken) return;
             if (expiration <= Date.now()) {
                 this.discard(true);
                 return;
             }
             // Se il token scade tra molto tempo, ri-schedula ricorsivamente
-            this.scheduleExpiration(expiration);
+            this.scheduleExpiration(expiration, expectedToken);
 
         }, nextDelay);
     }

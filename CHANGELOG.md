@@ -13,11 +13,11 @@ La larghezza del testo si misura con le metriche del font del sito. Se quel font
 
 **Al merge**: nessuno.
 
-### Le anteprime social non finiscono più nel report di indicizzazione (`/cdn-cgi/*`)
+### Le anteprime social non finiscono più nel report di indicizzazione (`/cdn-cgi/preview`)
 
 Emerso in un figlio: Search Console elencava decine di URL `/cdn-cgi/preview?p=…` come «Pagina scansionata, ma attualmente non indicizzata». Sono le immagini `og:image` generate dall'Engine: Google le trova nei meta tag e le scansiona come se fossero pagine, una per pagina del sito. Non toglievano nulla all'indicizzazione vera, ma sporcavano il report e consumavano scansioni.
 
-- **`server.ts`**: ogni risposta sotto `/cdn-cgi/` (`asset`, `preview`, `font`) porta `X-Robots-Tag: noindex`. Le risorse restano scaricabili: anteprime social e font funzionano come prima. Niente `Disallow` in `robots.txt`, che impedirebbe a Google di vedere le immagini.
+- **`server.ts`**: le risposte di `/cdn-cgi/preview` portano `X-Robots-Tag: noindex`. Gli asset immagine e i font restano fuori da questa regola; niente `Disallow` in `robots.txt`, che impedirebbe a Google di vedere le anteprime.
 
 **Al merge**: nessuno. Nel report le voci spariscono da sole, via via che Google riscansiona gli URL.
 
@@ -25,7 +25,7 @@ Emerso in un figlio: Search Console elencava decine di URL `/cdn-cgi/preview?p=�
 
 Il JWT stava in `sessionStorage`: per scheda, azzerato alla chiusura. Aprire un link del sito in una scheda nuova, o riaprire il browser, chiedeva di nuovo il login anche con un token ancora valido. Ora sta in `localStorage`, la persistenza standard dei siti con sessione: finché il token non scade o l'utente esce, ogni scheda lo rilegge da lì all'avvio (`restoreSession()`). La durata non cambia (`Security.Token.ExpirationSeconds`, 50 minuti di serie, nessun refresh token), e le schede non si parlano.
 
-- **`TokenService`**: `localStorage` al posto di `sessionStorage`, con `try/catch` (storage bloccato = la sessione vive solo in memoria). Due cautele che lo storage condiviso rende necessarie: la scadenza di un token toglie dallo storage solo quel token (un login più recente fatto in un'altra scheda non va perso), e `ngOnDestroy` ferma il timer senza cancellare lo storage (distruggere il servizio non è un logout).
+- **`TokenService`**: `localStorage` al posto di `sessionStorage`, con `try/catch` (storage bloccato = la sessione vive solo in memoria). Le operazioni su token scaduti o malformati non cancellano una sessione valida già attiva; un timer già accodato per un token precedente non può scollegare il login più recente. Alla scadenza si rimuove dallo storage solo il token scaduto (anche tra schede), e `ngOnDestroy` ferma il timer senza cancellare lo storage (distruggere il servizio non è un logout).
 - **Voce `bearerToken`** (`ENGINE_COOKIE_MAP`): mezzo `local`, sempre Technical ed essenziale (esente da consenso, mai cancellata dalla revoca). In Cookie Policy la durata è «Fino alla scadenza della sessione o all'uscita» (`durataAccessoListaCookie`), la descrizione non parla più di chiusura della scheda. `durationKey` ora vale anche per le voci `local` (prima solo cookie): senza, sarebbe uscito «Persistente».
 - **Informativa privacy (parte `login`, it/en)**: la sessione resta nel browser del dispositivo e termina alla scadenza o all'uscita, non più «alla chiusura della scheda».
 - **Limiti dichiarati** in `frontend/README.md` «Ciclo di Vita del Token»: il logout in una scheda non slogga le altre già aperte (tengono il token in memoria fino a `exp`), e il token è leggibile da script della pagina. Cade il limite PWA descritto prima (logout al rilancio dell'app installata).
