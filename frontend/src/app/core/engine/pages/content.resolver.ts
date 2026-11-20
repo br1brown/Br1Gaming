@@ -27,8 +27,6 @@ export interface ResolvedPage<T = unknown> {
     info: PageInfo | null;
     /** JSON-LD dinamico da un `contentLoader` di pagina; ha precedenza sullo `structuredData` statico di `site.ts`, omesso → resta quello statico. */
     structuredData?: StructuredDataInput | null;
-    /** Ultimo aggiornamento del contenuto dal `contentLoader` (`updatedOn`), già normalizzato in ISO; null = nessuno. */
-    updatedOn?: string | null;
 }
 
 /** Carica i contenuti di pagina senza conoscere i PageType: le legali qui (`getLegalPage`/`tryLoadPolicy`),
@@ -51,7 +49,6 @@ export class ContentResolver {
 
         let content: unknown = null;
         let structuredData: StructuredDataInput | null = null;
-        let updatedOn: string | null = null;
         let info = ContestoSito.getPageInfo(pageType, language);
 
         try {
@@ -66,8 +63,12 @@ export class ContentResolver {
                     const result = await runInInjectionContext(this.injector, () => loader({ lang: language, params }));
                     content = result.content;
                     structuredData = result.structuredData ?? null;
-                    updatedOn = normalizeUpdatedOn(result.updatedOn);
-                    if (result.info && info) info = { ...info, ...result.info };
+                    if (result.info && info) {
+                        // `updatedOn` arriva come Date o stringa: nel PageInfo entra già in ISO, o non entra.
+                        const { updatedOn, ...rest } = result.info;
+                        const iso = normalizeUpdatedOn(updatedOn);
+                        info = { ...info, ...rest, ...(iso && { updatedOn: iso }) };
+                    }
                 }
             }
         } catch (error) {
@@ -79,7 +80,7 @@ export class ContentResolver {
             content = null;
         }
 
-        return { content, info, structuredData, updatedOn };
+        return { content, info, structuredData };
     }
 
     /** Pagina con `markdown`: il suo file e basta. Pagina composta: `intro`, le parti contestuali attive (o

@@ -1652,14 +1652,14 @@ Due limiti impliciti, nessuno dei due segnalato al chiamante:
 
 `PageMetaService` aggiorna i meta tag (title, og:, twitter:, canonical, JSON-LD) per ogni pagina. I valori di base vengono dalle dichiarazioni delle pagine; il resolver li affina con i dati della pagina.
 
-### Data di ultimo aggiornamento della pagina (`updatedOn`)
+### Data di ultimo aggiornamento della pagina (`info.updatedOn`)
 
-`og:updated_time` (e il `dateModified` del JSON-LD) di serie è la data di build (`project.lastModified`): la stessa per tutto il sito, un segnale di refresh per gli scraper social a ogni deploy. Per una pagina il cui contenuto ha una data sua (un articolo, la scheda di un prodotto) la si restituisce dal `contentLoader`, accanto a `content`:
+`og:updated_time` (e il `dateModified` del JSON-LD) di serie è la data di build (`project.lastModified`): la stessa per tutto il sito, un segnale di refresh per gli scraper social a ogni deploy. Per una pagina il cui contenuto ha una data sua (un articolo, la scheda di un prodotto) la si restituisce dal `contentLoader`, nell'`info` insieme a titolo e descrizione:
 
 ```typescript
 contentLoader: withApi(async (ctx, api) => {
     const art = await api.getArticolo(ctx.params['slug']);
-    return { content: art, info: { title: art.titolo }, updatedOn: art.modificatoIl };   // Date o stringa ISO 8601
+    return { content: art, info: { title: art.titolo, updatedOn: art.modificatoIl } };   // Date o stringa ISO 8601
 }),
 ```
 
