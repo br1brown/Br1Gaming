@@ -23,7 +23,7 @@ export interface PageMetaInput {
     imgId?: OgImageRef | null | false;
     /** Tipo Open Graph (es. 'website', 'article'). Default: 'website'. */
     ogType?: string | null;
-    /** Timestamp ISO 8601 ultima modifica (og:updated_time). Se assente resta il valore di build. */
+    /** Timestamp ISO 8601 ultima modifica (og:updated_time). Se assente vale il valore di build. */
     updatedTime?: string | null;
     /** Dati strutturati ricchi tipizzati: un item o una lista (vedi `structured-data.ts`). Tradotti in JSON-LD. */
     structuredData?: StructuredDataInput | null;
@@ -73,6 +73,11 @@ export class PageMetaService {
     private readonly encryptFn = inject(SSR_PREVIEW_ENCRYPT_FN, { optional: true });
     /** Origin del frontend: fornito in SSR, null nel browser. */
     private readonly frontendOrigin = inject(SSR_FRONTEND_ORIGIN, { optional: true });
+
+    /** `og:updated_time` scritto dal build in index.html (letto alla prima pagina, e tenuto nel `data-build` del
+     *  meta per il browser che idrata una pagina SSR): torna su ogni pagina senza una data propria, così una
+     *  navigazione non si porta dietro quella della pagina precedente. */
+    private buildUpdatedTime: string | null | undefined;
 
     /** Titolo browser dell'ultima navigazione per annunci aria-live. */
     readonly announcedTitle = signal('');
@@ -140,10 +145,20 @@ export class PageMetaService {
         // Aggiorna og:type (default: website)
         this.meta.updateTag({ property: 'og:type', content: ogType || 'website' });
 
-        // Override per-pagina di og:updated_time. Se assente resta il valore
-        // globale di build (segnale di refresh per gli scraper social a ogni deploy).
-        if (updatedTime) {
-            this.meta.updateTag({ property: 'og:updated_time', content: updatedTime });
+        // Override per-pagina di og:updated_time. Se assente vale il valore globale di build (segnale di
+        // refresh per gli scraper social a ogni deploy), ripristinato: non quello della pagina precedente.
+        // Il valore di build si prende alla prima pagina: dal `data-build` se il server ha già scritto lì sopra
+        // la data di una pagina (SSR + idratazione), altrimenti dal contenuto (index.html di build, render client).
+        if (this.buildUpdatedTime === undefined) {
+            const tag = this.meta.getTag('property="og:updated_time"');
+            this.buildUpdatedTime = tag?.getAttribute('data-build') || tag?.content || null;
+        }
+        const effectiveUpdatedTime = updatedTime || this.buildUpdatedTime;
+        if (effectiveUpdatedTime) {
+            this.meta.updateTag({
+                property: 'og:updated_time', content: effectiveUpdatedTime,
+                ...(this.buildUpdatedTime && { 'data-build': this.buildUpdatedTime }),
+            });
         }
 
         // Aggiorna og:locale e og:locale:alternate per i18n

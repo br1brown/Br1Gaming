@@ -2,6 +2,18 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### La data di ultimo aggiornamento di una pagina si dichiara nel `contentLoader` (`updatedOn`)
+
+Emerso in un figlio: la scheda di un elemento ha una data vera (l'ultima volta che è stata aggiornata), da mettere in `og:updated_time` e nel `dateModified` del JSON-LD al posto della data di build. L'unica via era sovrascrivere `pageUpdatedOn()` nel componente, mentre titolo, descrizione, `noindex` e dati strutturati dinamici si dichiarano tutti nel `contentLoader` della pagina.
+
+- **`ContentLoaderResult.updatedOn`** (`Date` o stringa ISO 8601), accanto a `content`, `info` e `structuredData`. `normalizeUpdatedOn` (`siteBuilder.ts`) trasforma una `Date` in `YYYY-MM-DD` e scarta una data non valida; `ResolvedPage` la porta già normalizzata.
+- **`PageBaseComponent`**: `updatedTime` è `pageUpdatedOn()` se il componente la sovrascrive, altrimenti l'`updatedOn` del resolver. `PolicyComponent` non cambia.
+- **`PageMetaService`**: una pagina senza data torna alla data di build. Prima, navigando nel browser, `og:updated_time` restava quello della pagina precedente. La data di build si ricorda nell'attributo `data-build` del meta, perché il browser che idrata una pagina SSR la trova già sovrascritta.
+
+Provato con 23 pagine fittizie su una rotta dinamica (date come `Date`, come stringa, con l'ora, assenti, `null` e non valide), in SSR e nella navigazione del browser.
+
+**Al merge**: nessuno. Un figlio che sovrascrive `pageUpdatedOn()` con una data presa dal contenuto risolto può spostarla nell'`updatedOn` del `contentLoader` e togliere l'override; lasciarlo funziona uguale. Ricetta in `frontend/README.md` «Data di ultimo aggiornamento della pagina (`updatedOn`)».
+
 ### Nell'anteprima social la descrizione va a capo (`/cdn-cgi/preview`)
 
 Emerso in un figlio: la descrizione sotto il titolo stava su una riga sola. Una descrizione con più dati, come «tipo · luogo · posti · costo · servizi», perdeva tutta la coda, cioè proprio i dati che servono a chi riceve il link.

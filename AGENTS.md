@@ -457,6 +457,7 @@ otherSEO: { structuredData: { kind: 'faq', questions: [{ question: 'Come?', answ
       content: art,
       info: art && { title: art.titolo, description: art.sommario },
       structuredData: art && { kind: 'article', headline: art.titolo, author: art.autore, publishedOn: art.data },
+      updatedOn: art?.modificatoIl,   // og:updated_time + dateModified della pagina (Date o ISO); assente = data di build
     };
   },
 }

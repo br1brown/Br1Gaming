@@ -1652,6 +1652,19 @@ Due limiti impliciti, nessuno dei due segnalato al chiamante:
 
 `PageMetaService` aggiorna i meta tag (title, og:, twitter:, canonical, JSON-LD) per ogni pagina. I valori di base vengono dalle dichiarazioni delle pagine; il resolver li affina con i dati della pagina.
 
+### Data di ultimo aggiornamento della pagina (`updatedOn`)
+
+`og:updated_time` (e il `dateModified` del JSON-LD) di serie è la data di build (`project.lastModified`): la stessa per tutto il sito, un segnale di refresh per gli scraper social a ogni deploy. Per una pagina il cui contenuto ha una data sua (un articolo, la scheda di un prodotto) la si restituisce dal `contentLoader`, accanto a `content`:
+
+```typescript
+contentLoader: withApi(async (ctx, api) => {
+    const art = await api.getArticolo(ctx.params['slug']);
+    return { content: art, info: { title: art.titolo }, updatedOn: art.modificatoIl };   // Date o stringa ISO 8601
+}),
+```
+
+Una `Date` diventa `YYYY-MM-DD` (in UTC, come le pagine legali); una stringa ISO (`2026-09-22` o con l'ora) passa così com'è. Assente, `null` o non valida: vale la data di build, e il JSON-LD resta senza `dateModified` di pagina. Navigando nel browser da una pagina con data a una senza torna la data di build, non quella della pagina precedente. Un componente che la data la conosce da sé (non dal contenuto risolto) sovrascrive `pageUpdatedOn()`, che ha la precedenza: è il caso delle pagine legali, dalla sezione `legal` di `site.ts`.
+
 ### og:image della pagina
 
 Non si chiama `PageMetaService` a mano (è privato all'Engine): i meta si dichiarano sulla pagina (`description`, `otherSEO`) o, per i dati derivati dal contenuto, nel `contentLoader`, e l'Engine li riapplica da sé a ogni cambio pagina e lingua. `otherSEO.ogImage` ha tre stati: un `OgImageRef` (sfondo dell'immagine generata), `false` (nessuna og:image), omesso (anteprima generata dal titolo della pagina).
