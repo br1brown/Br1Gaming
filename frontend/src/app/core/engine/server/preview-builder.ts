@@ -106,9 +106,16 @@ export class PreviewBuilder {
     /** Dimensione della favicon nella preview. */
     static readonly FAVICON_SIZE = 72;
 
+    /** Versione dell'impaginazione: entra nella chiave della cache delle anteprime, così un cambio di layout non resta
+     *  nascosto dietro le immagini già generate (anche con `IMAGE_CACHE_DIR` su un volume che sopravvive ai deploy). */
+    static readonly LAYOUT_VERSION = 2;
+
     // --- Limiti righe (anti-overflow verticale) ---
     /** Max righe del titolo nella preview testuale. */
     static readonly MAX_TITLE_LINES = 3;
+    /** Max righe della subline nella preview testuale: una descrizione (es. «tipo · luogo · posti · costo») va a capo invece di
+     *  perdere la coda, e oltre si chiude con «…». */
+    static readonly MAX_SUBTITLE_LINES = 3;
     /** Max righe del badge titolo sopra l'immagine. */
     static readonly MAX_BADGE_LINES = 3;
 
@@ -169,9 +176,17 @@ export class PreviewBuilder {
             : '';
         const contentTop = margin + (hasFavicon ? identityIconSize + identityGap : 0);
 
+        // La subline si spezza prima del titolo: il suo spazio (righe vere, non il massimo) va tolto a quello del titolo.
+        const measure = this.measureIn(r.font);
         const hasSubtitle = r.subtitle.length > 0;
         const subtitleGap = Math.round(r.subtitleFontSize * this.SUBTITLE_GAP_RATIO);
-        const reservedForSubtitle = hasSubtitle ? subtitleGap + r.subtitleFontSize : 0;
+        const subtitleLineStep = r.subtitleFontSize * this.LINE_HEIGHT;
+        const subtitleLines = hasSubtitle
+            ? ImgBuilderService.wrapText(r.subtitle, maxWidthPx, r.subtitleFontSize, (t: string) => measure(t, r.subtitleFontSize, false), this.MAX_SUBTITLE_LINES)
+            : [];
+        const reservedForSubtitle = hasSubtitle
+            ? subtitleGap + r.subtitleFontSize + (subtitleLines.length - 1) * subtitleLineStep
+            : 0;
 
         const titleLineStep = r.titleFontSize * r.titleLineHeight;
         const maxTitleBudget = r.titleFontSize + (this.MAX_TITLE_LINES - 1) * titleLineStep;
@@ -182,7 +197,6 @@ export class PreviewBuilder {
         const blocks: TextBlockSpec[] = [
             { text: r.title, baseFontSize: r.titleFontSize, lineHeight: r.titleLineHeight, maxLines: this.MAX_TITLE_LINES, bold: true },
         ];
-        const measure = this.measureIn(r.font);
         const titleFit = ImgBuilderService.fitTextBlocks(blocks, maxWidthPx, availableTitleHeight, 0, {
             minScale: 1, measureFn: measure,
         }).blocks[0];
@@ -201,10 +215,11 @@ export class PreviewBuilder {
         let subtitleEl = '';
         if (hasSubtitle) {
             topY += subtitleGap;
-            const measureSub = (t: string) => measure(t, r.subtitleFontSize, false);
-            const subtitleLine = ImgBuilderService.wrapText(r.subtitle, maxWidthPx, r.subtitleFontSize, measureSub, 1)[0];
+            const subtitleTspans = subtitleLines
+                .map((line, i) => `<tspan x="${leftX}" dy="${i === 0 ? 0 : subtitleLineStep}">${esc(line)}</tspan>`)
+                .join('');
             subtitleEl =
-                `<text x="${leftX}" y="${topY + r.subtitleFontSize}" font-family="${esc(r.fontFamily)}" font-size="${r.subtitleFontSize}" font-weight="400" fill="${esc(r.mutedTextColor)}" text-anchor="start">${esc(subtitleLine)}</text>`;
+                `<text x="${leftX}" y="${topY + r.subtitleFontSize}" font-family="${esc(r.fontFamily)}" font-size="${r.subtitleFontSize}" font-weight="400" fill="${esc(r.mutedTextColor)}" text-anchor="start">${subtitleTspans}</text>`;
         }
 
         const svg =

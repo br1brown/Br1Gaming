@@ -2,6 +2,17 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Nell'anteprima social la descrizione va a capo (`/cdn-cgi/preview`)
+
+Emerso in un figlio: la descrizione sotto il titolo stava su una riga sola. Una descrizione con più dati, come «tipo · luogo · posti · costo · servizi», perdeva tutta la coda, cioè proprio i dati che servono a chi riceve il link.
+
+- **`PreviewBuilder`**: la descrizione va a capo fino a tre righe (`MAX_SUBTITLE_LINES`); oltre si chiude con «…». Lo spazio che occupa davvero si toglie a quello del titolo, che resta di tre righe al massimo.
+- **Cache delle anteprime**: la chiave porta `LAYOUT_VERSION`, così un cambio d'impaginazione non resta nascosto dietro le immagini già generate, anche con `IMAGE_CACHE_DIR` su un volume che sopravvive ai deploy.
+
+La larghezza del testo si misura con le metriche del font del sito. Se quel font non è installato dove gira il server (in locale su Windows, per esempio), il testo viene disegnato con un font di riserva più largo e può uscire dal bordo destro. Nel container i font del catalogo ci sono.
+
+**Al merge**: nessuno.
+
 ### Le anteprime social non finiscono più nel report di indicizzazione (`/cdn-cgi/*`)
 
 Emerso in un figlio: Search Console elencava decine di URL `/cdn-cgi/preview?p=…` come «Pagina scansionata, ma attualmente non indicizzata». Sono le immagini `og:image` generate dall'Engine: Google le trova nei meta tag e le scansiona come se fossero pagine, una per pagina del sito. Non toglievano nulla all'indicizzazione vera, ma sporcavano il report e consumavano scansioni.
