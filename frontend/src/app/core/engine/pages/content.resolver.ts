@@ -7,7 +7,7 @@ import { ContestoSito, PageType } from '../../../site';
 import { TranslateService } from '../services/translate.service';
 import { isPlatformServer } from '@angular/common';
 import { ApiError, isAvailabilityError, SsrBackendUnconfiguredError } from '../services/base-api.service';
-import { PageInfo } from '../siteBuilder';
+import { normalizeUpdatedOn, PageInfo } from '../siteBuilder';
 import type { StructuredDataInput } from '../services/structured-data';
 import { activeLegalPartials, type LegalContent, type LegalPageSpec } from '../legal/legal-pages';
 import { environment } from '../../../../environments/environment';
@@ -63,7 +63,12 @@ export class ContentResolver {
                     const result = await runInInjectionContext(this.injector, () => loader({ lang: language, params }));
                     content = result.content;
                     structuredData = result.structuredData ?? null;
-                    if (result.info && info) info = { ...info, ...result.info };
+                    if (result.info && info) {
+                        // `updatedOn` arriva come Date o stringa: nel PageInfo entra già in ISO, o non entra.
+                        const { updatedOn, ...rest } = result.info;
+                        const iso = normalizeUpdatedOn(updatedOn);
+                        info = { ...info, ...rest, ...(iso && { updatedOn: iso }) };
+                    }
                 }
             }
         } catch (error) {

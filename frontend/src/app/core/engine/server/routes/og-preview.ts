@@ -128,7 +128,7 @@ async function renderPreviewText(res: Response, title: string, subtitle: string,
     const r = PreviewBuilder.resolvePreviewBuilder({ title, subtitle, bgColor: cardBgColor, font });
     const favicon = await resolveFavicon();
 
-    const keyData = JSON.stringify({ version, ...r, font: choiceKey(font), favicon: favicon.fingerprint });
+    const keyData = JSON.stringify({ version, layout: PreviewBuilder.LAYOUT_VERSION, ...r, font: choiceKey(font), favicon: favicon.fingerprint });
     const hash = createHash('sha1').update(keyData).digest('hex').slice(0, 16);
     // PNG per bordi netti e compatibilità crawler social
     const cacheKey = `preview_${hash}.png`;

@@ -455,7 +455,7 @@ otherSEO: { structuredData: { kind: 'faq', questions: [{ question: 'Come?', answ
     const art = await inject(ApiService).getArticolo(ctx.params['slug']);
     return {
       content: art,
-      info: art && { title: art.titolo, description: art.sommario },
+      info: art && { title: art.titolo, description: art.sommario, updatedOn: art.modificatoIl },   // updatedOn: og:updated_time + dateModified (Date o ISO); assente = data di build
       structuredData: art && { kind: 'article', headline: art.titolo, author: art.autore, publishedOn: art.data },
     };
   },

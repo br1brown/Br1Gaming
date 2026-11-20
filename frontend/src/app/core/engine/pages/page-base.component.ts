@@ -62,8 +62,9 @@ export abstract class PageBaseComponent<T> {
     }
 
     /** Data ISO (YYYY-MM-DD) di ultimo aggiornamento REALE del contenuto, per `og:updated_time` e
-     *  `dateModified` JSON-LD (non la data di build). Default `null`; override dove esiste (es.
-     *  PolicyComponent, dalla sezione `legal` di site.ts). */
+     *  `dateModified` JSON-LD (non la data di build). Default `null`: vale allora l'`info.updatedOn` del
+     *  `contentLoader` della pagina (site.ts), la via normale per una pagina di progetto. Override per una
+     *  data che il componente conosce da sé (es. PolicyComponent, dalla sezione `legal` di site.ts). */
     protected pageUpdatedOn(): string | null {
         return null;
     }
@@ -93,7 +94,7 @@ export abstract class PageBaseComponent<T> {
             this.pageMeta.setPageMeta({
                 title, description,
                 imgId: info.ogImage, ogType: info.ogType,
-                updatedTime: this.pageUpdatedOn(),
+                updatedTime: this.pageUpdatedOn() ?? info.updatedOn ?? null,
                 structuredData,
                 noindex: info.noindex,
             });

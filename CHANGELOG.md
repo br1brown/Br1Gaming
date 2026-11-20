@@ -2,11 +2,34 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
-### Le anteprime social non finiscono più nel report di indicizzazione (`/cdn-cgi/*`)
+### La data di ultimo aggiornamento di una pagina si dichiara nel `contentLoader` (`info.updatedOn`)
+
+Emerso in un figlio: la scheda di un elemento ha una data vera (l'ultima volta che è stata aggiornata), da mettere in `og:updated_time` e nel `dateModified` del JSON-LD al posto della data di build. L'unica via era sovrascrivere `pageUpdatedOn()` nel componente, mentre titolo, descrizione, `noindex` e dati strutturati dinamici si dichiarano tutti nel `contentLoader` della pagina.
+
+- **`info.updatedOn`** nell'esito del `contentLoader` (`Date` o stringa ISO 8601), insieme a titolo, descrizione e `noindex`: è un metadato della pagina come gli altri. Il tipo dell'`info` di un `contentLoader` ora ha un nome, `ContentLoaderInfo`. `normalizeUpdatedOn` (`siteBuilder.ts`) trasforma una `Date` in `YYYY-MM-DD` e scarta una data non valida; nel `PageInfo` risolto (`PageInfo.updatedOn`) arriva già in ISO.
+- **`PageBaseComponent`**: `updatedTime` è `pageUpdatedOn()` se il componente la sovrascrive, altrimenti l'`info.updatedOn` del resolver. `PolicyComponent` non cambia.
+- **`PageMetaService`**: una pagina senza data torna alla data di build. Prima, navigando nel browser, `og:updated_time` restava quello della pagina precedente. La data di build si ricorda nell'attributo `data-build` del meta, perché il browser che idrata una pagina SSR la trova già sovrascritta.
+
+Provato con 23 pagine fittizie su una rotta dinamica (date come `Date`, come stringa, con l'ora, assenti, `null` e non valide), in SSR e nella navigazione del browser.
+
+**Al merge**: nessuno. Un figlio che sovrascrive `pageUpdatedOn()` con una data presa dal contenuto risolto può spostarla nell'`info.updatedOn` del `contentLoader` e togliere l'override; lasciarlo funziona uguale. Ricetta in `frontend/README.md` «Data di ultimo aggiornamento della pagina (`info.updatedOn`)». Il commit `5599e22` aveva messo `updatedOn` fuori da `info`, accanto a `content`: chi l'avesse già usato lì lo sposta dentro `info` (`tsc` lo segnala).
+
+### Nell'anteprima social la descrizione va a capo (`/cdn-cgi/preview`)
+
+Emerso in un figlio: la descrizione sotto il titolo stava su una riga sola. Una descrizione con più dati, come «tipo · luogo · posti · costo · servizi», perdeva tutta la coda, cioè proprio i dati che servono a chi riceve il link.
+
+- **`PreviewBuilder`**: la descrizione va a capo fino a tre righe (`MAX_SUBTITLE_LINES`); oltre si chiude con «…». Lo spazio che occupa davvero si toglie a quello del titolo, che resta di tre righe al massimo.
+- **Cache delle anteprime**: la chiave porta `LAYOUT_VERSION`, così un cambio d'impaginazione non resta nascosto dietro le immagini già generate, anche con `IMAGE_CACHE_DIR` su un volume che sopravvive ai deploy.
+
+La larghezza del testo si misura con le metriche del font del sito. Se quel font non è installato dove gira il server (in locale su Windows, per esempio), il testo viene disegnato con un font di riserva più largo e può uscire dal bordo destro. Nel container i font del catalogo ci sono.
+
+**Al merge**: nessuno.
+
+### Le anteprime social non finiscono più nel report di indicizzazione (`/cdn-cgi/preview`)
 
 Emerso in un figlio: Search Console elencava decine di URL `/cdn-cgi/preview?p=…` come «Pagina scansionata, ma attualmente non indicizzata». Sono le immagini `og:image` generate dall'Engine: Google le trova nei meta tag e le scansiona come se fossero pagine, una per pagina del sito. Non toglievano nulla all'indicizzazione vera, ma sporcavano il report e consumavano scansioni.
 
-- **`server.ts`**: ogni risposta sotto `/cdn-cgi/` (`asset`, `preview`, `font`) porta `X-Robots-Tag: noindex`. Le risorse restano scaricabili: anteprime social e font funzionano come prima. Niente `Disallow` in `robots.txt`, che impedirebbe a Google di vedere le immagini.
+- **`server.ts`**: le risposte di `/cdn-cgi/preview` portano `X-Robots-Tag: noindex`. Gli asset immagine e i font restano fuori da questa regola; niente `Disallow` in `robots.txt`, che impedirebbe a Google di vedere le anteprime.
 
 **Al merge**: nessuno. Nel report le voci spariscono da sole, via via che Google riscansiona gli URL.
 
@@ -14,7 +37,7 @@ Emerso in un figlio: Search Console elencava decine di URL `/cdn-cgi/preview?p=�
 
 Il JWT stava in `sessionStorage`: per scheda, azzerato alla chiusura. Aprire un link del sito in una scheda nuova, o riaprire il browser, chiedeva di nuovo il login anche con un token ancora valido. Ora sta in `localStorage`, la persistenza standard dei siti con sessione: finché il token non scade o l'utente esce, ogni scheda lo rilegge da lì all'avvio (`restoreSession()`). La durata non cambia (`Security.Token.ExpirationSeconds`, 50 minuti di serie, nessun refresh token), e le schede non si parlano.
 
-- **`TokenService`**: `localStorage` al posto di `sessionStorage`, con `try/catch` (storage bloccato = la sessione vive solo in memoria). Due cautele che lo storage condiviso rende necessarie: la scadenza di un token toglie dallo storage solo quel token (un login più recente fatto in un'altra scheda non va perso), e `ngOnDestroy` ferma il timer senza cancellare lo storage (distruggere il servizio non è un logout).
+- **`TokenService`**: `localStorage` al posto di `sessionStorage`, con `try/catch` (storage bloccato = la sessione vive solo in memoria). Le operazioni su token scaduti o malformati non cancellano una sessione valida già attiva; un timer già accodato per un token precedente non può scollegare il login più recente. Alla scadenza si rimuove dallo storage solo il token scaduto (anche tra schede), e `ngOnDestroy` ferma il timer senza cancellare lo storage (distruggere il servizio non è un logout).
 - **Voce `bearerToken`** (`ENGINE_COOKIE_MAP`): mezzo `local`, sempre Technical ed essenziale (esente da consenso, mai cancellata dalla revoca). In Cookie Policy la durata è «Fino alla scadenza della sessione o all'uscita» (`durataAccessoListaCookie`), la descrizione non parla più di chiusura della scheda. `durationKey` ora vale anche per le voci `local` (prima solo cookie): senza, sarebbe uscito «Persistente».
 - **Informativa privacy (parte `login`, it/en)**: la sessione resta nel browser del dispositivo e termina alla scadenza o all'uscita, non più «alla chiusura della scheda».
 - **Limiti dichiarati** in `frontend/README.md` «Ciclo di Vita del Token»: il logout in una scheda non slogga le altre già aperte (tengono il token in memoria fino a `exp`), e il token è leggibile da script della pagina. Cade il limite PWA descritto prima (logout al rilancio dell'app installata).

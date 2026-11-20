@@ -454,6 +454,9 @@ export type PageInfo = {
     structuredData?: StructuredDataInput;
     /** Esclusione dall'indicizzazione. */
     noindex?: boolean;
+    /** Ultimo aggiornamento REALE del contenuto (ISO 8601), per `og:updated_time` e `dateModified` del JSON-LD.
+     *  Lo porta solo l'`info` di un `contentLoader` (vedi {@link ContentLoaderInfo}); assente = data di build. */
+    updatedOn?: string;
 };
 
 export interface BuiltSite {
@@ -810,8 +813,25 @@ export interface ContentLoaderContext {
 /** Esito di `LeafPageInput.contentLoader`. */
 export interface ContentLoaderResult {
     content: unknown;
-    info?: Partial<PageInfo>;
+    info?: ContentLoaderInfo;
     structuredData?: StructuredDataInput | null;
+}
+
+/** I metadati che un `contentLoader` fonde sopra il `PageInfo` statico della pagina (titolo, descrizione, `noindex`…). */
+export type ContentLoaderInfo = Partial<Omit<PageInfo, 'updatedOn'>> & {
+    /** Ultimo aggiornamento REALE del contenuto caricato (es. la data dell'articolo o della scheda), per
+     *  `og:updated_time` e `dateModified` del JSON-LD. `Date` o stringa ISO 8601 (`2026-09-22` o con l'ora);
+     *  assente, `null` o non valida = resta la data di build. */
+    updatedOn?: Date | string | null;
+};
+
+/** `info.updatedOn` di un `contentLoader` in stringa ISO: una `Date` diventa `YYYY-MM-DD` (come le pagine legali),
+ *  una stringa valida resta com'è. Una data non valida non diventa un meta sbagliato: torna null. */
+export function normalizeUpdatedOn(value: Date | string | null | undefined): string | null {
+    if (value == null) return null;
+    if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value.toISOString().slice(0, 10);
+    const text = value.trim();
+    return text !== '' && !Number.isNaN(Date.parse(text)) ? text : null;
 }
 
 export type ContentLoader = (ctx: ContentLoaderContext) => Promise<ContentLoaderResult>;

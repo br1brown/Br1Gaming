@@ -228,14 +228,28 @@ app.use((request, response, next) => {
     // Open redirect: con un trust proxy permissivo l'Host grezzo può divergere da request.hostname
     // (validato da allowedHosts). Si riflette l'Host solo se il suo hostname coincide con quello validato.
     const rawHost = (request.get('host') ?? '').toLowerCase();
-    const reflectsValidatedHost = rawHost === requestHost || rawHost.startsWith(requestHost + ':');
+    const reflectsValidatedHost = (() => {
+        if (!rawHost) return false;
+        try {
+            // `request.hostname` in Express si ferma al primo `:`: un Host come
+            // `localhost:80@attacker.example` sembrerebbe quindi autorizzato, ma la URL reale
+            // punta a `attacker.example`. Riflettiamo solo un'autorità che il parser URL conferma.
+            const parsed = new URL(`${request.protocol}://${rawHost}`);
+            return parsed.hostname.toLowerCase() === requestHost
+                && !parsed.username && !parsed.password
+                && parsed.pathname === '/' && !parsed.search && !parsed.hash;
+        } catch {
+            return false;
+        }
+    })();
+    const redirectProtocol = request.protocol === 'https' ? 'https' : 'http';
     const targetHost = hostMismatch
         ? canonicalHost
         : (canonicalHost ?? (reflectsValidatedHost ? rawHost : request.hostname));
     const targetPath = hasTrailingSlash ? request.path.replace(/\/+$/, '') || '/' : request.path;
     const queryIndex = request.url.indexOf('?');
     const queryString = queryIndex !== -1 ? request.url.slice(queryIndex) : '';
-    response.redirect(301, `${request.protocol}://${targetHost}${targetPath}${queryString}`);
+    response.redirect(301, `${redirectProtocol}://${targetHost}${targetPath}${queryString}`);
 });
 
 /** Proxy manuale: /api/* → backend, stripping il prefisso /api */
@@ -249,10 +263,10 @@ app.use((_request, response, next) => {
     next();
 });
 
-/** Le risorse sotto /cdn-cgi/ (immagini, anteprime og:image, font) non sono pagine: Google le scansiona
- *  perché compaiono in og:image/@font-face e le elenca come «scansionata, non indicizzata». Con
- *  `noindex` restano scaricabili (anteprime social, font) ma escono dal report di indicizzazione. */
-app.use('/cdn-cgi', (_request, response, next) => {
+/** Le anteprime social sono immagini generate e referenziate nei meta og:image, non pagine del
+ *  sito. Escludi solo questo endpoint dall'indice: `/cdn-cgi/asset` serve immagini di contenuto,
+ *  che possono invece essere indicizzate in Google Immagini. */
+app.use(CdnCgiPaths.preview, (_request, response, next) => {
     response.setHeader('X-Robots-Tag', 'noindex');
     next();
 });
