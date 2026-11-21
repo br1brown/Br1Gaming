@@ -15,9 +15,13 @@ import { ContextMenuOverlayComponent } from '../components/context-menu/context-
 /** Menu contestuale su qualsiasi elemento (`[appContextMenu]`). L'overlay (creazione,
  *  posizionamento viewport-aware, dismiss su click-fuori/Escape) è gestito da CDK Overlay; resta
  *  custom solo la UX di apertura: right-click su desktop, long-press su touch (con soppressione
- *  del click sintetico che il browser emette dopo il long-press). */
+ *  del click sintetico che il browser emette dopo il long-press).
+ *
+ *  Il menu si apre anche da codice, ancorato a un elemento, con `openFromElement()` (`exportAs: 'appContextMenu'`):
+ *  è ciò che usa `app-action-menu` per il bottone «⋮», che si scopre da solo (tasto destro e long-press no). */
 @Directive({
     selector: '[appContextMenu]',
+    exportAs: 'appContextMenu',
     standalone: true,
     host: {
         '(contextmenu)': 'onContextMenu($event)',
@@ -36,6 +40,9 @@ export class ContextMenuDirective {
 
     private overlayRef: OverlayRef | null = null;
     private triggerEl: Element | null = null;
+    /** L'elemento a cui è ancorato il menu aperto con `openFromElement()`: un clic su di lui lo chiude, non lo riapre. */
+    private anchorEl: HTMLElement | null = null;
+    private suppressReopen = false;
     private longPressTimer: number | null = null;
     private suppressNextClickTimer: number | null = null;
     private pointerOrigin: { x: number; y: number } | null = null;
@@ -110,17 +117,42 @@ export class ContextMenuDirective {
         this.clearLongPressState();
     }
 
-    private openMenu(clientX: number, clientY: number, presentation: 'popover' | 'sheet'): void {
+    /**
+     * Apre il menu ancorato a un elemento (di norma l'host stesso, un bottone «⋮»): un popover attaccato al bottone, sotto di lui e allineato al suo bordo
+     * destro (sopra, se sotto non c'è posto), su desktop come su touch. Il bottom sheet resta per il tasto destro e la pressione lunga, dove non c'è un bottone
+     * da cui il menu possa «uscire»: qui, in fondo allo schermo, non si capirebbe da dove arriva.
+     * Un secondo clic sull'elemento mentre il menu è aperto lo chiude (il clic fuori lo chiude già: qui non lo si riapre nello stesso gesto).
+     */
+    openFromElement(anchor: HTMLElement = this.hostEl): void {
+        if (!this.isBrowser || this.options().length === 0 || this.suppressReopen) return;
+        const r = anchor.getBoundingClientRect();
+        this.openMenu(r.left, r.bottom, 'popover', anchor);
+        this.anchorEl = anchor;
+    }
+
+    private openMenu(clientX: number, clientY: number, presentation: 'popover' | 'sheet', anchor?: HTMLElement): void {
         this.close();
 
         // Elemento a cui restituire il focus alla chiusura (fallback all'host se activeElement è il body).
         const active = this.isBrowser ? document.activeElement : null;
         this.triggerEl = (active && active !== document.body) ? active : this.hostEl;
 
-        // Popover → ancorato al punto del cursore con push nel viewport; sheet → centrato in basso.
+        // Popover → ancorato al punto del cursore (o al bottone che lo apre) con push nel viewport; sheet → centrato in basso.
         const positionStrategy = presentation === 'sheet'
             ? this.overlay.position().global().centerHorizontally()
                 .bottom('max(0.75rem, env(safe-area-inset-bottom, 0px))')
+            : anchor
+            // Aperto da un bottone: attaccato a lui, allineato al suo bordo destro (il «⋮» sta di solito a destra), sopra se sotto non c'è posto.
+            ? this.overlay.position()
+                .flexibleConnectedTo(anchor)
+                .withFlexibleDimensions(false)
+                .withPush(true)
+                .withPositions([
+                    { originX: 'end', originY: 'bottom', overlayX: 'end', overlayY: 'top', offsetY: 4 },
+                    { originX: 'end', originY: 'top', overlayX: 'end', overlayY: 'bottom', offsetY: -4 },
+                    { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top', offsetY: 4 },
+                    { originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'bottom', offsetY: -4 },
+                ])
             : this.overlay.position()
                 .flexibleConnectedTo({ x: clientX, y: clientY })
                 .withFlexibleDimensions(false)
@@ -154,7 +186,17 @@ export class ContextMenuDirective {
         this.overlayRef.outsidePointerEvents().subscribe((e) => {
             if (this.suppressNextClick && e.type === 'click') {
                 this.clearSuppressNextClick();
+                // Il click sintetico del rilascio, se cade sul «⋮» stesso, arriverebbe dopo a `openFromElement` e sostituirebbe il foglio appena aperto col popover.
+                this.suppressReopen = true;
+                setTimeout(() => { this.suppressReopen = false; });
                 return;
+            }
+            // Il tasto destro che ha aperto il menu fa seguire un `auxclick` sull'host: CDK lo conta come «clic fuori» e lo richiuderebbe subito.
+            if (e.type === 'auxclick' && this.hostEl.contains(e.target as Node)) return;
+            // Il clic sul bottone che ha aperto il menu lo chiude, e il suo `(click)` non deve riaprirlo nello stesso gesto.
+            if (this.anchorEl?.contains(e.target as Node)) {
+                this.suppressReopen = true;
+                setTimeout(() => { this.suppressReopen = false; });
             }
             this.close();
         });
@@ -201,6 +243,7 @@ export class ContextMenuDirective {
             this.clearSuppressNextClick();
             this.overlayRef.dispose(); // completa anche outsidePointerEvents/keydownEvents
             this.overlayRef = null;
+            this.anchorEl = null;
 
             // Ripristina il focus al trigger (tabindex="-1" temporaneo se non nativamente focusabile).
             if (this.triggerEl) {

@@ -38,6 +38,11 @@ import { MarkdownEditorComponent } from '../../core/engine/components/markdown-e
 import { ImgFallbackDirective } from '../../core/engine/directives/img-fallback.directive';
 import { EmptyStateComponent } from '../../core/engine/components/empty-state/empty-state.component';
 import { BusyIconComponent } from '../../core/engine/components/busy-icon/busy-icon.component';
+import { LikeActionComponent } from '../../core/engine/components/like-action/like-action.component';
+import { FavoriteActionComponent } from '../../core/engine/components/favorite-action/favorite-action.component';
+import { ActionMenuComponent } from '../../core/engine/components/action-menu/action-menu.component';
+import { PagedItemsDirective, PagedListComponent, type PageRequest, type PageResult } from '../../core/engine/components/paged-list/paged-list.component';
+import { parseLooseCoordinate, parseLooseDecimal, parseLooseInteger } from '../../core/engine/input-parsers';
 
 /**
  * "Che faccio" (`/che-faccio`, `/en/what-i-do`): la vetrina completa delle funzionalità
@@ -70,6 +75,11 @@ import { BusyIconComponent } from '../../core/engine/components/busy-icon/busy-i
         ImgFallbackDirective,
         EmptyStateComponent,
         BusyIconComponent,
+        LikeActionComponent,
+        FavoriteActionComponent,
+        ActionMenuComponent,
+        PagedListComponent,
+        PagedItemsDirective,
     ],
     templateUrl: './che-faccio.component.html',
 })
@@ -413,6 +423,37 @@ async onFilesConfirmed(files: File[]) {
 <!-- Render: URL relativo, cache eterna (slug = GUID) -->
 <img [src]="api.getBlobUrl(slug)" alt="…">`,
 
+        toggles:
+`// ── INTERRUTTORI A ICONA ──
+// Permanente (di serie): lo stato è tuo
+<app-like-action [action]="registra"
+                 [liked]="piace()" />
+// Interruttore: si accende e si spegne;
+// action(prossimo) → false = rifiuta
+<app-favorite-action [toggle]="true"
+  [favorite]="salvato()" [action]="alterna" />
+<app-favorite-action [toggle]="true"
+  icon="fa-solid fa-bookmark" tone="primary"
+  [action]="alterna" />
+
+// ── MENU «⋮» A CLICK ──
+<app-action-menu [options]="voci"
+                 label="Azioni su X" />
+
+// ── LISTA A PAGINE ──
+carica = async ({ page, pageSize }) =>
+  ({ items: [...], total: 23 });
+<app-paged-list [load]="carica" [pageSize]="5">
+  <ng-template [appPagedItems]="carica" let-items>
+    @for (r of items; track r.id) { … }
+  </ng-template>
+</app-paged-list>
+
+// ── NUMERI SCRITTI A MANO ──
+parseLooseDecimal('1.200,50 €')  // 1200.5
+parseLooseInteger('circa 40')    // 40
+parseLooseCoordinate('3.2 W')    // -3.2`,
+
         actionComponents:
 `// ── AZIONI (bottone + servizio) ──
 // Funzione che PRODUCE il dato: il
@@ -602,6 +643,57 @@ wa = { phone: '+39...', text: 'Ciao' };
         });
         this.modalResult.set(this.translate.translate('modalPromiseSuccess'));
     }
+
+    /** Conferma di un'azione che toglie qualcosa: bottone rosso e focus su «Annulla». */
+    async showDangerConfirm(): Promise<void> {
+        const confirmed = await this.notify.confirm(
+            this.translate.translate('modalDangerTitle'),
+            this.translate.translate('modalDangerBody'),
+            { danger: true, icon: 'warning' }
+        );
+        this.modalResult.set(this.translate.translate(confirmed ? 'confermatoStato' : 'annullatoStato'));
+    }
+
+    showBottomToast(): void {
+        this.notify.toast(this.translate.translate('modalToastBottomBody'), 'info', { position: 'bottom' });
+    }
+
+    // ==================== Interruttori, menu ⋮, lista a pagine, numeri ====================
+
+    /** «Mi piace» permanente: lo stato è del chiamante, il componente fa il lavoro e il toast. */
+    readonly demoLiked = signal(false);
+    readonly demoLikeOnce = async (): Promise<void> => {
+        await new Promise(r => setTimeout(r, 400));
+        this.demoLiked.set(true);
+    };
+    /** Interruttore: il componente passa da sé al nuovo stato a lavoro riuscito. */
+    readonly demoToggle = (): Promise<void> => new Promise(r => setTimeout(r, 300));
+
+    readonly demoActionMenuOptions = computed<ContextMenuOption[]>(() => [
+        { label: this.translate.translate('togglesDemoMenuEdit'), icon: 'fa-solid fa-pen', action: () => this.notify.toast(this.translate.translate('togglesDemoMenuEdit'), 'info') },
+        { label: this.translate.translate('copiaAzione'), icon: 'fa-solid fa-copy', action: () => this.notify.toast(this.translate.translate('copiaAzione'), 'info') },
+        { label: '', separator: true },
+        { label: this.translate.translate('togglesDemoMenuDelete'), icon: 'fa-solid fa-trash', action: () => void this.showDangerConfirm() },
+    ]);
+
+    /** Finta sorgente da 23 righe con un ritardo di rete: la funzione di caricamento la decide chi usa la lista. */
+    readonly demoLoadPage = async ({ page, pageSize }: PageRequest): Promise<PageResult<{ id: number; nome: string }>> => {
+        await new Promise(r => setTimeout(r, 350));
+        const total = 23;
+        const start = (page - 1) * pageSize;
+        const items = Array.from({ length: Math.max(0, Math.min(pageSize, total - start)) }, (_, i) => ({
+            id: start + i + 1,
+            nome: `${this.translate.translate('pagedDemoItem')} ${start + i + 1}`,
+        }));
+        return { items, total };
+    };
+
+    readonly demoParserText = signal('1.200,50 €');
+    readonly demoParsed = computed(() => {
+        const show = (n: number | null): string => n === null ? '—' : Number.isNaN(n) ? 'NaN' : String(n);
+        const t = this.demoParserText();
+        return { decimal: show(parseLooseDecimal(t)), integer: show(parseLooseInteger(t)), coordinate: show(parseLooseCoordinate(t)) };
+    });
 
     // ==================== Sistema & API ====================
 

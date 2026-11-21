@@ -6,6 +6,8 @@
   "tornaHomeAzione": "Back to Home",
   "errore400Titolo": "Bad Request",
   "errore400Descrizione": "The request sent is invalid or incomplete.",
+  "sessioneScadutaTitolo": "Session ended",
+  "sessioneScadutaDescrizione": "Your session has ended (expired or closed by an administrator): sign in again to continue.",
   "errore401Titolo": "Unauthorized",
   "errore401Descrizione": "You must be authenticated to access this page.",
   "errore403Titolo": "Forbidden",
@@ -282,6 +284,7 @@
   "nuovaVersioneDescrizioneStato": "An updated version of the application is available. Refresh the page to apply the changes.",
   "aggiornaAppAzione": "Refresh",
   "menuContestualeNav": "Context menu",
+  "actionMenuLabel": "Actions",
   "immagineIngranditaNav": "Enlarged image",
   "lightboxIngrandisci": "Enlarge image",
   "tornaInCimaNav": "Back to top",
@@ -344,5 +347,15 @@
   "erroreServizioTitolo": "Service unavailable",
   "erroreServizioDescrizione": "The site is up, but the service providing its data isn't: it may be under maintenance or overloaded. Try again in a moment.",
   "sessioneScadeTraAvviso": "Your session expires in {0} minutes: save what you are doing.",
-  "sessioneScadutaAvviso": "Session expired: sign in again to continue."
+  "sessioneScadutaAvviso": "Session expired: sign in again to continue.",
+  "paginationNav": "Result pages",
+  "paginationPrev": "Previous",
+  "paginationNext": "Next",
+  "paginationPageOf": "Page {0} of {1}",
+  "pagedListError": "The list could not be loaded.",
+  "pagedListRetry": "Try again",
+  "miPiaceTogli": "Remove like",
+  "preferitoAggiungiAzione": "Add to favorites",
+  "preferitoGiaAzione": "In favorites",
+  "preferitoTogliAzione": "Remove from favorites"
 }
