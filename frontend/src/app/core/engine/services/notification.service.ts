@@ -50,7 +50,21 @@ export interface ValidationResult {
  *  esplicito (diverso da annullare), `cancel` = nessuna decisione (Annulla/ESC/clic fuori). */
 export type ConfirmChoice = 'confirm' | 'deny' | 'cancel';
 
+/** Dove compare un toast: i nove punti dello schermo, per nome. Tradotti in `notify.toast` nelle posizioni di SweetAlert2 (left/right seguono il verso di scrittura). */
+export type ToastPosition =
+    | 'top' | 'top-left' | 'top-right'
+    | 'center' | 'center-left' | 'center-right'
+    | 'bottom' | 'bottom-left' | 'bottom-right';
+
+const TOAST_POSITIONS: Record<ToastPosition, 'top' | 'top-start' | 'top-end' | 'center' | 'center-start' | 'center-end' | 'bottom' | 'bottom-start' | 'bottom-end'> = {
+    'top': 'top', 'top-left': 'top-start', 'top-right': 'top-end',
+    'center': 'center', 'center-left': 'center-start', 'center-right': 'center-end',
+    'bottom': 'bottom', 'bottom-left': 'bottom-start', 'bottom-right': 'bottom-end',
+};
+
 export interface ToastOptions {
+    /** Dove compare il toast. Default `'top-right'`. */
+    position?: ToastPosition;
     /** Durata ms prima dell'auto-dismiss. `null` = persistente (niente timer, mostra il pulsante di chiusura). Default 3000. */
     durationMs?: number | null;
     /** Bottone d'azione nel toast (es. "Ripristina"): se premuto esegue `run()`. */
@@ -331,6 +345,8 @@ export class NotificationService {
         cancelText?: string;
         icon?: 'question' | 'info' | 'warning';
         allowOutsideClick?: boolean;
+        /** Azione che toglie qualcosa (elimina, esci senza salvare): conferma in rosso e il focus su «Annulla», così un Invio distratto non cancella niente. */
+        danger?: boolean;
     }): Promise<boolean> {
         const swal = this.loadThemedSwal();
         if (!swal) return false;
@@ -341,6 +357,10 @@ export class NotificationService {
             text,
             icon: options?.icon ?? 'question',
             showCancelButton: true,
+            ...(options?.danger ? {
+                focusCancel: true,
+                customClass: { confirmButton: 'btn btn-danger', cancelButton: 'btn btn-outline-secondary ms-2', denyButton: 'btn btn-danger ms-2' },
+            } : {}),
             confirmButtonText: options?.confirmText ?? this.translate.translate('siAzione'),
             cancelButtonText: options?.cancelText ?? this.translate.translate('annullaAzione'),
             allowOutsideClick: options?.allowOutsideClick ?? true,
@@ -434,7 +454,7 @@ export class NotificationService {
             let focusBeforeToast: HTMLElement | null = null;   // da dove è arrivato il focus da tastiera
             const Toast = Swal.mixin({
                 toast: true,
-                position: 'top-end',
+                position: TOAST_POSITIONS[opts?.position ?? 'top-right'],
                 showConfirmButton: !!action,
                 confirmButtonText: action?.text,
                 showCloseButton: persistent,                       // persistente → serve comunque un modo per chiuderlo
@@ -529,8 +549,10 @@ export class NotificationService {
             return;
         }
 
-        const keyInfo = overrideKeys?.titleKey ?? `errore${httpStatus}Titolo`;
-        const keyDesc = overrideKeys?.descKey ?? `errore${httpStatus}Descrizione`;
+        // 401 su un'azione (un salvataggio, un invio): «Non autorizzato… per accedere a questa pagina» non c'entra, la sessione è finita. Chi vuole un
+        // testo suo passa `overrideKeys`; la pagina negata dal guard ha i suoi (errore401*).
+        const keyInfo = overrideKeys?.titleKey ?? (httpStatus === 401 ? 'sessioneScadutaTitolo' : `errore${httpStatus}Titolo`);
+        const keyDesc = overrideKeys?.descKey ?? (httpStatus === 401 ? 'sessioneScadutaDescrizione' : `errore${httpStatus}Descrizione`);
 
         let errorInfo = this.translate.translate(keyInfo);
         let errorMessage = this.translate.translate(keyDesc);

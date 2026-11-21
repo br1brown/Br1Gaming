@@ -6,6 +6,8 @@
   "tornaHomeAzione": "Torna alla home",
   "errore400Titolo": "Richiesta non valida",
   "errore400Descrizione": "La richiesta inviata non è valida o è incompleta.",
+  "sessioneScadutaTitolo": "Sessione scaduta",
+  "sessioneScadutaDescrizione": "La sessione è finita (scaduta o chiusa da un amministratore): accedi di nuovo per continuare.",
   "errore401Titolo": "Non autorizzato",
   "errore401Descrizione": "Devi essere autenticato per accedere a questa pagina.",
   "errore403Titolo": "Accesso vietato",
@@ -282,6 +284,7 @@
   "nuovaVersioneDescrizioneStato": "È disponibile una versione aggiornata dell'applicazione. Aggiorna la pagina per applicare le modifiche.",
   "aggiornaAppAzione": "Aggiorna",
   "menuContestualeNav": "Menu contestuale",
+  "actionMenuLabel": "Azioni",
   "immagineIngranditaNav": "Immagine ingrandita",
   "lightboxIngrandisci": "Ingrandisci immagine",
   "tornaInCimaNav": "Torna in cima",
@@ -344,5 +347,15 @@
   "erroreServizioTitolo": "Servizio non disponibile",
   "erroreServizioDescrizione": "Il sito risponde, ma il servizio che fornisce i dati no: potrebbe essere in manutenzione o sovraccarico. Riprova tra poco.",
   "sessioneScadeTraAvviso": "La sessione scade tra {0} minuti: salva quello che stai facendo.",
-  "sessioneScadutaAvviso": "Sessione scaduta: accedi di nuovo per continuare."
+  "sessioneScadutaAvviso": "Sessione scaduta: accedi di nuovo per continuare.",
+  "paginationNav": "Pagine dei risultati",
+  "paginationPrev": "Precedente",
+  "paginationNext": "Successiva",
+  "paginationPageOf": "Pagina {0} di {1}",
+  "pagedListError": "Non riesco a caricare l'elenco.",
+  "pagedListRetry": "Riprova",
+  "miPiaceTogli": "Togli il mi piace",
+  "preferitoAggiungiAzione": "Aggiungi ai preferiti",
+  "preferitoGiaAzione": "Nei preferiti",
+  "preferitoTogliAzione": "Togli dai preferiti"
 }

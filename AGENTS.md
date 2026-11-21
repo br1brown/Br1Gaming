@@ -242,6 +242,52 @@ protected async onFilesConfirmed(files: File[]): Promise<void> {
 ```
 `labels` (input opzionale, `UploadFormLabels`) sovrascrive i testi campo per campo — non passato, ciascuno ricade sulla chiave i18n di default. Per servire/recuperare il file caricato, vedi la ricetta backend "Caricare/servire un file" più sotto (`getBlobUrl(slug)`/`getBlob(slug)` sul client).
 
+#### Lista a pagine con contenuto e caricamento tuoi (`app-paged-list`)
+Una lista che si pagina non si scrive a mano: pagina corrente, risposte arrivate in ritardo, errore, stato vuoto e ritorno in cima a dati arrivati e disegnati sono dell'Engine. A te restano due cose: **dove prendere i dati** (una funzione) e **come si disegna una pagina** (il tuo `@for`, dentro il tag).
+```html
+<app-paged-list [load]="carica" [pageSize]="24" [reloadOn]="testoCercato()">
+  <ng-template [appPagedItems]="carica" let-items let-state="state">
+    <p>{{ state.total }} risultati</p>
+    <ul>@for (s of items; track s.id) { <li>{{ s.nome }}</li> }</ul>
+  </ng-template>
+  <ng-template appPagedEmpty><app-empty-state titleKey="nessunRisultato" /></ng-template>   <!-- facoltativo -->
+</app-paged-list>
+```
+```typescript
+// la funzione la decidi tu, qui: riceve { page, pageSize } e risponde { items, total }
+protected readonly carica = async ({ page, pageSize }: PageRequest): Promise<PageResult<Struttura>> => {
+  const r = await this.api.cerca(this.testoCercato(), page, pageSize);
+  return { items: r.risultati, total: r.totale };
+};
+```
+- **`[reloadOn]`**: un valore qualunque (filtri, testo cercato). Quando cambia, si torna a pagina 1 e si ricarica; per un testo digitato passa quello *dopo* il debounce. Dopo una modifica che cambia l'elenco (un ripristino, una cancellazione) `viewChild(PagedListComponent)?.reload()`.
+- **La paginazione**: di serie in fondo; `pagination="top"|"both"|"none"`. Con `none` la disegni tu: nel template arrivano `goTo(page)` e `state.pages`.
+- **Non fa**: totale ignoto (API a cursore, «carica altri») e lista con stato nell'indirizzo. Per quelle restano i pezzi: `app-pagination` e, da `core/engine/scroll.ts`, `scrollToAfterPaint(el)`. **Regola per ogni elenco che si ricarica**: lo scroll verso l'inizio si fa DOPO la risposta e DOPO il disegno (`nextPaint()`), mai subito dopo aver lanciato la richiesta: la pagina cambia altezza e si resta in fondo.
+Dettagli e opzioni in [frontend/README.md](frontend/README.md) «Liste a pagine»; come è fatto dentro in [ENGINE.md](ENGINE.md).
+
+#### Numeri scritti a mano in un campo di testo (prezzi, posti, coordinate)
+Non scrivere un `parseFloat` e un `replace(',', '.')`: la gente scrive «1.200,50», «6 €», «circa 40», «44,5», «44.5 N», e un `parseFloat('1.200')` dà 1,2. `core/engine/input-parsers.ts` legge tutto questo e dice `null` (vuoto) o `NaN` (non è un numero): dentro un validatore del form, e di nuovo al momento di inviare.
+```typescript
+import { parseLooseDecimal, parseLooseInteger, parseLooseCoordinate } from '../../core/engine/input-parsers';
+const euro = parseLooseDecimal('1.200,50');                    // 1200.5      («6 €» → 6, «€ 6,5» → 6.5)
+const posti = parseLooseInteger('circa 40');                    // 40          («1.000» → 1000, «30-40» → NaN)
+const lat = parseLooseCoordinate('44,5 N');                     // 44.5        («3.2 W» → -3.2)
+parseLooseDecimal('1,200', { locale: 'en' });                   // 1200: solo l'ambiguità «1.200» / «1,200» dipende dalla lingua
+```
+L'intervallo («da 1 a 10000») e il messaggio d'errore restano tuoi, nel validatore.
+
+#### «Mi piace», preferiti, segui: interruttori a icona
+Un bottone che accende e spegne (un cuore, una stella, un segnalibro) non si scrive a mano: `app-like-action` (cuore) e `app-favorite-action` (stella) dell'Engine hanno stato, caricamento, nomi accessibili, area di tocco da 44 px e doppio click gestiti. Stesse opzioni, intercambiabili: cambiare la stella in cuore è un `icon`. **Di serie `app-like-action` si comporta come ha sempre fatto** (permanente: lo stato è `[liked]`, una volta acceso il click non fa più niente); il resto è opt-in, e lo scegli tu con `[toggle]="true"` (interruttore che si accende e si spegne da sé).
+```html
+<app-favorite-action [toggle]="true" [favorite]="salvato()" [action]="alterna" [label]="'Aggiungi: ' + nome" [activeLabel]="'Togli: ' + nome" />
+<app-like-action [action]="registra" />                       <!-- «mi piace» permanente, con toast -->
+<app-favorite-action [toggle]="true" [favorite]="salvato()" [action]="alterna" icon="fa-solid fa-heart" tone="danger" />   <!-- stesso preferito, col cuore -->
+```
+```typescript
+protected readonly alterna = (prossimo: boolean) => this.servizio.imposta(this.id, prossimo);   // false = rifiuta e lo stato non cambia
+```
+Per un'azione a due stati diversa (segui, segnalibro) usa `app-toggle-icon` da solo (glifo, stato, evento `toggle`) o estendi `BaseToggleActionComponent`. Opzioni, tabella e come è fatto: [frontend/README.md](frontend/README.md) «Interruttori a icona», [ENGINE.md](ENGINE.md).
+
 #### Campo di testo Markdown
 Per un contenuto che poi passa da `| markdown` (descrizioni, pagine gestite da un'area riservata), `MarkdownEditorComponent` (Engine) è il campo di form: barra, colori e anteprima vengono dalla stessa pipeline che renderà il testo.
 ```html

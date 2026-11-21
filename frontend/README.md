@@ -1013,7 +1013,7 @@ Il tono giusto è in pagina prima che Angular parta, senza lampi al primo carica
 
 | Metodo | Quando usarlo |
 | :--- | :--- |
-| `toast(msg, icon?)` | Notifica rapida in alto a destra (3 s, non bloccante). `icon`: `'success'` \| `'error'` \| `'info'` \| `'warning'` |
+| `toast(msg, icon?, opts?)` | Notifica rapida (di serie in alto a destra, 3 s, non bloccante). `icon`: `'success'` \| `'error'` \| `'info'` \| `'warning'`. `opts.position`: `'top'` \| `'top-left'` \| `'top-right'` \| `'center'` \| `'center-left'` \| `'center-right'` \| `'bottom'` \| `'bottom-left'` \| `'bottom-right'`; `opts.durationMs`: millisecondi, `null` = resta finché non lo chiudi; `opts.action`: pulsante d'azione |
 | `success(msg, onClose?)` | Popup di conferma operazione riuscita |
 | `error(title, msg)` | Popup di errore con titolo esplicito |
 | `confirm(title, text, opts?)` | Modale Sì/No → restituisce `Promise<boolean>` |
@@ -2288,6 +2288,22 @@ readonly menuOptions: ContextMenuOption[] = [
 | Click fuori dal menu | Chiude il menu |
 | Focus | Ripristinato sull'elemento trigger alla chiusura |
 
+### Il bottone «⋮» a click: `app-action-menu`
+
+Tasto destro e pressione lunga non si scoprono da soli: per le azioni di una scheda o di una riga (modifica, elimina…) il modo consueto è un bottone «⋮» che apre il menu con un click, al posto di una fila di pulsanti. `ActionMenuComponent` è quel bottone, e apre lo stesso menu di `[appContextMenu]`, ma attaccato al bottone: un popover sotto di lui e allineato al suo bordo destro (sopra, se sotto non c'è posto), anche su touch, perché un bottom sheet in fondo allo schermo non si capirebbe da dove arriva. Escape, click fuori e focus di ritorno sono quelli del menu contestuale; il tasto destro e la pressione lunga sul bottone aprono invece il bottom sheet, come altrove.
+
+```html
+<app-action-menu [options]="voci" [label]="'Azioni su ' + nome" />
+```
+
+Le etichette di `options` sono già tradotte; `label` è il nome accessibile del bottone (senza, il generico `actionMenuLabel`). Un secondo clic sul bottone mentre il menu è aperto lo chiude. Con **una sola azione** per riga un pulsante dedicato (anche solo con l'icona) resta meglio: il menu aggiunge un clic.
+
+Per aprire il menu da un elemento tuo, senza il componente: `[appContextMenu]` espone `exportAs: 'appContextMenu'` e il metodo `openFromElement(elemento?)`.
+
+```html
+<button #t [appContextMenu]="voci" #m="appContextMenu" (click)="m.openFromElement(t)">…</button>
+```
+
 La directive usa Pointer Events unificati (mouse, touch, penna). Un timer di sicurezza di 600 ms impedisce che il click sintetico dopo il long-press chiuda subito il menu appena comparso.
 
 ---
@@ -2407,6 +2423,58 @@ Componente presentazionale di basso livello: un `<a>` (in nuova scheda se è un 
 | `layout` | `'responsive' \| 'row'` | Disposizione icona/testo: `'responsive'` (colonna su mobile, riga su sm+) o `'row'` (riga in ogni caso) |
 | `action` | `() => void \| Promise<void>` | Override opzionale: se presente, al click sostituisce il link |
 
+### Liste a pagine: `app-paged-list` e `app-pagination`
+
+`app-paged-list` è una lista a pagine in cui il **contenuto è di chi la usa** e tutto il resto è dell'Engine. Tu dici *dove* prendere i dati (`load`: una funzione che riceve `{ page, pageSize }` e risponde `{ items, total }`) e *quanti* per pagina, e scrivi dentro il tag come si disegna una pagina (il tuo `@for`, le tue card, la tua tabella). La funzione la decide chi istanzia il componente: l'Engine non sa cosa carichi.
+
+```html
+<app-paged-list [load]="carica" [pageSize]="24" [reloadOn]="testoCercato()" ariaLabel="Strutture archiviate">
+  <ng-template [appPagedItems]="carica" let-items let-state="state" let-goTo="goTo">
+    <p>{{ state.total }} risultati, pagina {{ state.page }} di {{ state.pages }}</p>
+    <ul>@for (s of items; track s.id) { <li>{{ s.nome }}</li> }</ul>
+  </ng-template>
+  <ng-template appPagedEmpty> <!-- facoltativo: senza, c'è lo stato vuoto di serie -->
+    <app-empty-state titleKey="nessunRisultato" />
+  </ng-template>
+  <ng-template appPagedError let-retry="retry"> <!-- facoltativo: senza, un avviso con «Riprova» -->
+    <button (click)="retry()">Riprova</button>
+  </ng-template>
+</app-paged-list>
+```
+```typescript
+protected readonly carica = async ({ page, pageSize }: PageRequest): Promise<PageResult<Struttura>> => {
+  const r = await this.api.cerca(this.testoCercato(), page, pageSize);
+  return { items: r.risultati, total: r.totale };
+};
+```
+Il binding `[appPagedItems]="carica"` serve solo a far dedurre al template il tipo di `items` (è la stessa funzione data a `[load]`).
+
+| Input / uscita | Cosa fa |
+| :--- | :--- |
+| `load` (obbligatorio) | `({ page, pageSize }) => Promise<{ items, total }>`: la decidi tu. `items` = solo gli elementi di quella pagina; `total` = quanti in tutto. |
+| `pageSize` (20) | Elementi per pagina. Un valore non valido (0, negativo, decimale) ripiega su 20. |
+| `reloadOn` | Un valore qualunque (filtri, testo): quando cambia si torna a pagina 1 e si ricarica. Per un testo digitato passa il valore *dopo* il debounce. |
+| `[(page)]` (1) | La pagina, per leggerla o scriverla da fuori (es. nell'indirizzo). Un valore non valido riporta a 1. |
+| `pagination` (`'bottom'`) | `'top'` \| `'both'` \| `'none'`. Con `none` la disegni tu con `goTo(page)` e `state.pages` del template. |
+| `scrollOnPageChange` (true) | Cambiando pagina porta in cima alla lista, a dati arrivati e disegnati. Spegnilo se la lista sta già in cima alla pagina. |
+| `ariaLabel` | Se c'è, la lista è una regione con questo nome per i lettori di schermo. |
+| `reload()` | (da `viewChild`) ricarica la pagina corrente, dopo una modifica che cambia l'elenco. |
+
+Cosa fa da sé: chiama `load` a ogni cambio di pagina; scarta le risposte arrivate in ritardo; durante il caricamento mostra lo spinner dell'Engine (`app-loading`), come ogni altra attesa del sito; mostra l'errore con «Riprova» (se un caricamento successivo fallisce, i dati di prima restano e compare l'avviso); mostra lo stato vuoto; disegna la paginazione; se la pagina richiesta non esiste più torna all'ultima; sul server attende il caricamento prima di serializzare la pagina. Una risposta senza `items` è un errore, non un elenco vuoto.
+
+**Non copre**: un totale che non si conosce (API a cursore, «carica altri») e una lista con la ricerca nell'indirizzo (come la home di un figlio: lì lo stato è condiviso con l'URL). Per quei casi restano i pezzi:
+- `app-pagination`: `[page] [total] [pageSize]` e `(pageChange)`; nasce nascosta con una sola pagina. Testi in `basic.*.json` (`pagination*`).
+- `core/engine/scroll.ts`: `nextPaint()` (si risolve dopo che il browser ha disegnato) e `scrollToAfterPaint(el, { focus })`. **Lo scroll verso un elenco che si ricarica va fatto dopo la risposta e dopo il disegno**, non subito dopo aver lanciato la richiesta: la pagina cambia altezza e si resta in fondo.
+
+### Numeri scritti a mano: `core/engine/input-parsers.ts`
+
+`parseLooseInteger`, `parseLooseDecimal` e `parseLooseCoordinate` leggono i numeri come li scrive e li incolla la gente: «40 letti», «circa 40», «1.000», «6 €», «€6», «1.200,50», «.5», «44,5», «44.5°», «44.5 N», «3.2 W» (S e W cambiano il segno). Esiti: il numero, `null` (campo vuoto) o `NaN` (non è un numero e non si indovina: «30-40», «4O», «1.2.000,5»). Servono dentro un validatore del form e di nuovo all'invio; l'intervallo e il messaggio d'errore restano a chi le usa.
+
+| Opzione | Effetto |
+| :--- | :--- |
+| `locale` (`'it'`) | Scioglie solo l'ambiguità di un separatore unico seguito da tre cifre: in `it` «1.200» = 1200 e «1,5» = 1,5; in `en` «1,200» = 1200 e «1.5» = 1,5. |
+| `thousands` (true, solo `parseLooseDecimal`) | `false` per coordinate e misure: «44.512» è un grado e mezzo, non quarantamila. |
+
 ### Editor Markdown: `app-markdown-editor`
 
 Perché esiste: un contenuto che poi passa da `| markdown` (descrizioni, pagine gestite da un'area riservata) scritto in una `<textarea>` nuda obbliga chi scrive a conoscere la sintassi e a indovinare il risultato. `MarkdownEditorComponent` (Engine, `core/engine/components/markdown-editor/`) è il campo di form per quei contenuti: barra dei comandi, scrittura colorata e anteprima escono dalla stessa pipeline (`MarkdownPipe`) che renderà il testo.
@@ -2492,12 +2560,36 @@ Mostra o scarica un PDF. Usa `config` al posto di `action`: lavora sull'URL senz
 #### `app-print-action`
 Chiama la stampa nativa del browser (`window.print()`). Non vuole `action`. Non è montato nel template di default (vedi «Stampa/PDF», che copre la resa senza un bottone): serve a un progetto che vuole un'affordance di stampa puntuale su una pagina specifica (es. una fattura, un articolo). Si esclude dalla propria stampa (`d-print-none` intrinseco).
 
-#### `app-like-action`
-Registra un apprezzamento tramite `action` (nessun contenuto prodotto: segnala un evento). Bottone a stato piatto: una volta `liked`, il click è no-op (niente "togli mi piace") e il bottone resta attivo (`.active`, `aria-pressed="true"`).
+#### Interruttori a icona: `app-toggle-icon`, `app-like-action`, `app-favorite-action`
+Tre componenti, uno sopra l'altro. `app-toggle-icon` è la base: solo presentazione di un interruttore a due stati (glifo, stato, richiesta di cambiarlo). `app-like-action` (cuore, «mi piace») e `app-favorite-action` (stella, «preferito») la usano e aggiungono il lavoro da fare, il caricamento e i testi. Hanno le stesse opzioni e sono intercambiabili: un «mi piace» a stella o un preferito a cuore sono solo un cambio di `icon`.
 
-| Input aggiuntivo | Tipo | Descrizione |
+**Due modi, scelti da chi li usa con `[toggle]`:**
+- **permanente** (di serie): è esattamente il comportamento che `app-like-action` ha sempre avuto, stesso nome e stesso aspetto. Lo stato è solo `[liked]`/`[favorite]`, lo aggiorna chi usa il componente; il click fa il lavoro (il «mi piace» conferma con un toast) e, una volta acceso, non fa più niente. Il valore restituito da `action` è ignorato.
+- **interruttore** (`[toggle]="true"`, opt-in): il click accende e spegne, e il componente passa da sé al nuovo stato dopo un'azione riuscita.
+
+```html
+<app-like-action [action]="registra" />                                         <!-- «mi piace» permanente: bottone col cuore, toast di conferma -->
+<app-like-action [action]="alterna" [toggle]="true" [liked]="piace()" variant="icon" />   <!-- «mi piace» che si toglie, solo cuore -->
+<app-favorite-action [action]="alterna" [toggle]="true" [favorite]="salvato()" />       <!-- la stellina dei preferiti -->
+<app-favorite-action [action]="alterna" [toggle]="true" [favorite]="salvato()" icon="fa-solid fa-heart" tone="danger" label="Salva" activeLabel="Togli dai salvati" />
+<app-toggle-icon icon="fa-solid fa-bookmark" [active]="salvato()" label="Salva" activeLabel="Salvato" (toggle)="salva($event)" />   <!-- la base da sola -->
+```
+```typescript
+protected readonly alterna = (prossimo: boolean): void | boolean | Promise<void | boolean> => { /* prossimo = lo stato che si chiede; false = rifiuto, lo stato non cambia */ };
+```
+| Input | Dove | Descrizione |
 | :--- | :--- | :--- |
-| `liked` | `boolean` | Stato iniziale "già piaciuto" (default `false`) |
+| `action` (obbligatorio) | like, favorite | `(prossimo: boolean) => void \| boolean \| Promise<…>`: il lavoro. Riceve lo stato che si chiede (`true` = accendi); chi non guarda l'argomento (`() => …`) funziona come sempre. Solo con `[toggle]`, rispondere `false` rifiuta il cambio. Un'eccezione mostra l'errore di serie e lascia lo stato com'è. |
+| `toggle` (false) | like, favorite | `true` = interruttore (opt-in); `false` = come sempre. |
+| `liked` / `favorite` (false) | like / favorite | Lo stato. Di serie è lo stato del bottone, lo aggiorna chi usa il componente (come sempre). Con `[toggle]` il componente passa da sé al nuovo stato dopo un'azione riuscita e segue comunque ogni cambio da fuori. |
+| `icon` | like (`fa-solid fa-heart`), favorite (`fa-solid fa-star`), toggle-icon | Il glifo: qualunque `fa-solid`. Il contorno da spento è disegnato dal browser, non serve un secondo glifo. |
+| `variant` | tutti | `'icon'` (solo glifo, contorno da spento e pieno da acceso: di serie per il preferito) o `'button'` (`btn-outline-secondary`, da acceso `.active`, con `showLabel` la label: di serie per il like). |
+| `tone` | tutti | Il colore dell'icona accesa (variante `icon`): `warning` (stella), `danger` (cuore), `primary`, `success`, `info`, `secondary`. |
+| `label`, `activeLabel` | tutti | Nome accessibile da spento e da acceso (chiave i18n o testo già tradotto). Per un nome per riga («Aggiungi ai preferiti: Casa X») passa il testo tradotto. Di serie: «Mi piace» / «Togli il mi piace» (permanente: «Ti piace»), «Aggiungi ai preferiti» / «Togli dai preferiti» (permanente: «Nei preferiti»). |
+| `showLabel`, `fullWidth`, `disabled`, `loading` | tutti | Come le altre azioni. Durante `action` asincrona c'è lo spinner e un secondo click non parte. |
+| `tabbable` (true) | tutti | `false` negli elenchi: un solo Tab per riga. |
+
+Il «mi piace» conferma con un toast quando si accende; il preferito, di serie, no. L'area di tocco è di almeno 44 px. Nel DOM il `<button>` di `app-like-action` sta dentro `app-toggle-icon`: un selettore `app-like-action > button` va scritto `app-like-action button`.
 
 ### Componenti di Contatto
 
