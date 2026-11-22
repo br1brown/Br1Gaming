@@ -7,7 +7,7 @@
   "errore400Titolo": "Bad Request",
   "errore400Descrizione": "The request sent is invalid or incomplete.",
   "sessioneScadutaTitolo": "Session ended",
-  "sessioneScadutaDescrizione": "Your session has ended (expired or closed by an administrator): sign in again to continue.",
+  "sessioneScadutaDescrizione": "Your session has expired: sign in again to continue.",
   "errore401Titolo": "Unauthorized",
   "errore401Descrizione": "You must be authenticated to access this page.",
   "errore403Titolo": "Forbidden",

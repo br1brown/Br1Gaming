@@ -7,7 +7,7 @@
   "errore400Titolo": "Richiesta non valida",
   "errore400Descrizione": "La richiesta inviata non è valida o è incompleta.",
   "sessioneScadutaTitolo": "Sessione scaduta",
-  "sessioneScadutaDescrizione": "La sessione è finita (scaduta o chiusa da un amministratore): accedi di nuovo per continuare.",
+  "sessioneScadutaDescrizione": "La sessione è scaduta: accedi di nuovo per continuare.",
   "errore401Titolo": "Non autorizzato",
   "errore401Descrizione": "Devi essere autenticato per accedere a questa pagina.",
   "errore403Titolo": "Accesso vietato",
