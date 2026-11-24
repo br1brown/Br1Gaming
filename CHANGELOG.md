@@ -2,6 +2,12 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### `generate:statics` toglie i vecchi `sitemap.xml`, `llms.txt` e `security.txt` da `public/`
+
+Da quando sono rotte del server SSR non si generano più, ma una copia rimasta in `frontend/public/` dalle versioni precedenti restava lì: `ng serve` la serviva al posto della rotta vera, con dati vecchi (su Br1Gaming la sitemap elencava due generatori tolti dal backend, che rispondevano 404). Ora `generate:statics` li toglie a ogni avvio e build. `public/` è gitignored, quindi lì c'è solo roba generata: niente di scritto a mano va perso. In produzione non cambiava niente: il server monta le rotte prima dei file statici.
+
+**Al merge**: nessuno.
+
 ### Pausa dello smoke: pulsante sticky sopra quello dei cookie
 
 Nuovo `MotionPauseComponent` (`app-motion-pause`): ferma o riprende lo smoke (WCAG 2.2.2) con la stessa preferenza di `app-motion-toggle`. È un `sticky-bottom` di Bootstrap alto 0 fra `<main>` e footer: flotta sopra il pulsante dei cookie e si ferma da solo dove inizia il footer, senza JavaScript. Solo dove lo smoke si vede; nascosto col banner dei cookie aperto, con `prefers-reduced-motion` e in stampa. Fermo sopra il footer tiene la sua corsia, così non copre il contenuto sotto `md`. `SmokeEffectComponent` ora segue `prefers-reduced-motion` anche quando cambia a pagina aperta (prima la leggeva solo all'avvio: accesa dopo, lo smoke continuava a muoversi senza più il pulsante per fermarlo). Copyright e descrizione del footer vanno a capo anche su parole lunghissime (`text-break`). Il pulsante dei cookie resta in fondo allo schermo anche sotto `md` (via i 5rem in più), e il footer riserva in fondo solo la corsia dei pulsanti fissi (`--space-4 + --fabSize`, nuovo token usato anche da `.fab`), così a fine pagina non coprono l'ultima riga (WCAG 1.4.10, 2.4.11).
