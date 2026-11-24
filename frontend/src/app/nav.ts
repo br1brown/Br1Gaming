@@ -1,6 +1,5 @@
 import { inject } from '@angular/core';
 import type { ShellNavResolver } from './core/engine/shell-nav';
-import { MotionToggleComponent } from './core/engine/components/motion-toggle/motion-toggle.component';
 import { PageType } from './site';
 import { ApiService } from './core/services/api.service';
 import type { GeneratorInfo } from './core/dto/generator.dto';
@@ -57,7 +56,5 @@ export const navResolver: ShellNavResolver = {
     // tenerlo minimale (solo link GitHub), anche ora che `data/identity.json` esiste.
     footer: (f) => {
         f.addLink('githubDesc', 'https://github.com/br1brown/Br1Gaming');
-        // Pausa dell'animazione di sfondo (WCAG 2.2.2): lo smoke è acceso. Non compare se il design system lo spegne.
-        f.addGroup('footerPreferenze', g => g.addCustom(MotionToggleComponent, { inputs: { hint: false } }));
     },
 };
