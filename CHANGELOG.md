@@ -2,6 +2,26 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Pausa dello smoke: pulsante sticky sopra quello dei cookie
+
+Nuovo `MotionPauseComponent` (`app-motion-pause`): ferma o riprende lo smoke (WCAG 2.2.2) con la stessa preferenza di `app-motion-toggle`. È un `sticky-bottom` di Bootstrap alto 0 fra `<main>` e footer: flotta sopra il pulsante dei cookie e si ferma da solo dove inizia il footer, senza JavaScript. Solo dove lo smoke si vede; nascosto col banner dei cookie aperto e con `prefers-reduced-motion`. Il pulsante dei cookie resta in fondo allo schermo anche sotto `md` (via i 5rem in più), e il footer riserva in fondo solo la corsia dei pulsanti fissi (`--space-4 + --fabSize`, nuovo token usato anche da `.fab`), così a fine pagina non coprono l'ultima riga (WCAG 1.4.10, 2.4.11).
+
+**Al merge**: nessuno. Chi aveva `app-motion-toggle` nel footer solo per la 2.2.2 può toglierlo.
+
+### Footer: una sola barra compatta in fondo, solo Bootstrap
+
+Il footer occupava molto più spazio del suo peso: `py-5`, due `<hr>`, `pb-3`/`pt-3` e il `margin-bottom` di Bootstrap sull'ultimo paragrafo lasciavano circa 4rem di vuoto sotto l'ultima riga. Ora, sotto i link del progetto (invariati), c'è una sola barra: copyright e descrizione a sinistra, Mappa del sito e pagine legali a destra; sotto `md` in colonna e centrate. Un solo separatore. È scritto solo con utility di Bootstrap (`d-flex`, `py-4`, `small`, `my-3`…): la regola `.footer-fineprint` è sparita da `_footer.scss` e non ce n'è una nuova. La Mappa del sito passa **prima** delle policy nella fascia (privacy, cookie e le altre restano nel loro ordine). La descrizione sta su una riga sua, a tutta larghezza, sotto la barra, così i sei link legali stanno su una riga sola da `md` in su; sotto `md` il footer ha più spazio in fondo (`pb-5` più `pb-4`) perché i pulsanti flottanti (cookie, «torna su») non coprano l'ultima riga. L'ordine della fascia legale è deciso dal builder (`resolveLegalFooterLinks`), non dal componente. La descrizione ora è davvero in corsivo (`fst-italic`: la classe `italic` non esisteva). `app-footer-link-row` guadagna l'input `align` (`center` di serie, `end` per la barra).
+
+**Al merge**: nessuno. Un figlio con stili sul vecchio markup del footer (`.footer-fineprint`, `.row.pt-3`) li adatta.
+
+### Footer e banner cookie: interruttori visibili e righe allineate
+
+- **Interruttore nel footer** (`app-motion-toggle` e ogni `form-switch` sulla fascia a tinta del brand): acceso, la pista di Bootstrap è `primary`, spesso identica al footer, e restava visibile solo il pallino (WCAG 1.4.11). Ora il bordo è del colore del testo della fascia (`_bootstrap-theme.scss`).
+- **Banner cookie**: le righe delle categorie finivano 48px prima dei bottoni, perché lo spazio per la X (`pe-5`) era sull'intero contenuto; ora è solo sul testo. Switch e badge «Necessari» finiscono sullo stesso bordo destro, e la freccia di apertura sta accanto al nome della categoria invece che a destra a x diverse per riga.
+- Corretto un commento in `_footer.scss`: con un solo gruppo la colonna sta a sinistra, non centrata.
+
+**Al merge**: nessuno.
+
 ### Test avversari su tutto: correzioni
 
 Una passata di prove cattive (22 casi nel browser per `notify.modal`, 23 token costruiti a mano, 40 ritorni al login malevoli, strutture strane per la mappa, stati dei bottoni su touch, e il nuovo `a11y-check.sh` sulle pagine vere dei quattro figli) ha trovato e fatto correggere:

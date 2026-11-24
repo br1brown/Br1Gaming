@@ -1,19 +1,19 @@
 @if (links().length > 0) {
     <nav [attr.aria-label]="'footerNav' | translate">
     @if (groups().length > 0) {
-        <div class="footer-nav-groups mb-3">
+        <div class="footer-nav-groups">
             @for (group of groups(); track footerLeafKey(group)) {
                 <app-footer-nav-group [group]="group" [level]="0" [class]="group.itemClass" />
             }
         </div>
     }
     @if (standaloneLinks().length > 0) {
-        <div class="row mb-3">
+        <div class="row">
             <div class="col-12">
                 <app-footer-link-row [links]="standaloneLinks()" />
             </div>
         </div>
     }
-    <hr />
+    <hr class="my-3" />
     </nav>
 }

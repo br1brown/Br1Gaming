@@ -953,7 +953,9 @@ function resolveLegalFooterLinks(
     defaultLang: string,
     siteMap: boolean,
 ): NavLink[] {
-    return [...legalPages.map(spec => spec.page), ...(siteMap ? [SITE_MAP_PAGE] : [])]
+    // Ordine deciso qui, non dal footer né dal figlio: Mappa del sito, poi le policy nell'ordine di
+    // `STANDARD` in legal-pages.ts (privacy, cookie, termini, note legali, accessibilità) e le `extra`.
+    return [...(siteMap ? [SITE_MAP_PAGE] : []), ...legalPages.map(spec => spec.page)]
         .map((page): NavLink | null => {
             const entry = pageMap.get(pageMapKey(page, lang, defaultLang));
             return entry ? { label: entry.title, path: entry.path, isExternal: entry.isExternal } : null;

@@ -13,6 +13,7 @@ import { FooterComponent } from './core/engine/components/footer/footer.componen
 import { NavbarComponent } from './core/engine/components/navbar/navbar.component';
 import { SmokeEffectComponent } from './core/engine/components/smoke-effect/smoke-effect.component';
 import { BackToTopComponent } from './core/engine/components/back-to-top/back-to-top.component';
+import { MotionPauseComponent } from './core/engine/components/motion-pause/motion-pause.component';
 import { CookieBannerComponent } from './core/engine/components/cookie-banner/cookie-banner.component';
 import { OfflineBannerComponent } from './core/engine/components/offline-banner/offline-banner.component';
 import { NavProgressComponent } from './core/engine/components/nav-progress/nav-progress.component';
@@ -30,7 +31,7 @@ const aspetto = ContestoSito.config.aspetto;
 /** Shell principale dell'app: non decide quali pagine esistono, consuma le route già trasformate e reagisce alla chrome della pagina attiva (decisa dal design system e dal ruolo della pagina, vedi `RouteChrome`). */
 @Component({
     selector: 'app-root',
-    imports: [RouterOutlet, NavbarComponent, FooterComponent, SmokeEffectComponent, BackToTopComponent, CookieBannerComponent, OfflineBannerComponent, NavProgressComponent, BreadcrumbComponent, TranslatePipe],
+    imports: [RouterOutlet, NavbarComponent, FooterComponent, SmokeEffectComponent, MotionPauseComponent, BackToTopComponent, CookieBannerComponent, OfflineBannerComponent, NavProgressComponent, BreadcrumbComponent, TranslatePipe],
     templateUrl: './app.component.html',
     // L'altezza minima a tutto schermo è gestita nativamente su `app-root` in base.scss con
     // `min-height: 100dvh` (altezza dinamica reale su mobile, evita i problemi del 100vh fisso).

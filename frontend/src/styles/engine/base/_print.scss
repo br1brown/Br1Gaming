@@ -45,6 +45,7 @@
     /* Chrome della shell: fissa, su carta si ripeterebbe o coprirebbe il contenuto. */
     app-back-to-top,
     app-cookie-banner,
+    app-motion-pause,
     app-smoke-effect {
         display: none !important;
     }
@@ -60,6 +61,7 @@
         color: inherit !important;
         border-top: none !important;
         margin-top: 1rem !important;
+        padding-bottom: 0 !important;   /* niente corsia dei pulsanti fissi su carta */
 
         app-loading,
         app-footer-nav {

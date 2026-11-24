@@ -1,6 +1,5 @@
 import type { ShellNavResolver } from './core/engine/shell-nav';
 import { FooterField } from './core/engine/footer-content';
-import { MotionToggleComponent } from './core/engine/components/motion-toggle/motion-toggle.component';
 import { PageType } from './site';
 
 // Navigazione di header/footer: dato, non struttura del sito (per questo vive qui e non in
@@ -29,8 +28,6 @@ export const navResolver: ShellNavResolver = {
         f.addGroup('footerProgettoAzienda', g => {
             g.addField(FooterField.RagioneSociale);
             g.addField(FooterField.PartitaIva);
-            // Pausa dell'effetto di sfondo (WCAG 2.2.2): non compare da solo se il design system non accende lo smoke.
-            g.addCustom(MotionToggleComponent, { inputs: { hint: false } });
             g.addLink('githubDesc', 'https://github.com/br1brown/Br1WebEngine');
         });
 

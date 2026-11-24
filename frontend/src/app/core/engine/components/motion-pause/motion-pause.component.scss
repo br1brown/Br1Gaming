@@ -1,0 +1,21 @@
+/* L'offset `bottom` dello sticky conta solo mentre flotta: sopra il pulsante dei cookie (stessa base e lato) se c'è.
+   Fermo sopra il footer resta il solo --space-3 del pulsante. */
+:host {
+    --mp-cookie: var(--touchTarget);
+    --mp-lift: 0px;
+    height: 0;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + var(--mp-lift) + var(--bottomBarOffset, 0px));
+}
+:host(.motion-pause--above-cookie) { --mp-lift: calc(var(--mp-cookie) + var(--space-2)); }
+:host(.motion-pause--standard) { --mp-cookie: var(--fabSize); }
+
+.motion-pause-btn {
+    bottom: var(--space-3);
+    inset-inline-start: var(--space-3);
+}
+
+/* `'discreto'`: misura del target di tocco, come il pulsante dei cookie discreto; `'standard'` tiene quella di `.fab`. */
+:host(:not(.motion-pause--standard)) .motion-pause-btn {
+    width: var(--touchTarget);
+    height: var(--touchTarget);
+}

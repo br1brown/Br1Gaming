@@ -1,6 +1,12 @@
+/* Il fondo del footer è la corsia dei pulsanti fissi (il più alto, «torna su»: --space-4 + --fabSize, più fascia offline
+   e area sicura): a fine pagina l'ultima riga resta sopra di loro (WCAG 1.4.10, 2.4.11). */
+.site-footer {
+    padding-bottom: calc(var(--space-4) + var(--fabSize) + var(--bottomBarOffset, 0px) + env(safe-area-inset-bottom, 0px));
+}
+
 /* ── Footer: colonne di navigazione (gruppi) — griglia fluida ────────
    auto-fit/minmax(10rem, 1fr), non i breakpoint fissi di Bootstrap: con poche colonne il gruppo si
-   allarga a riempire lo spazio invece di restare compresso, sempre centrata anche con un solo gruppo per non lasciarlo sbilanciato a sinistra. */
+   allarga a riempire lo spazio invece di restare compresso. Con un solo gruppo la colonna occupa tutta la riga e sta a sinistra, in linea con la barra sotto. */
 .footer-nav-groups {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
@@ -14,14 +20,6 @@
    (nessun colore nuovo) e via CSS puro. Stesso token delle etichette della navbar. */
 .footer-group-title {
     letter-spacing: var(--ls-wide);
-}
-
-/* Riga "small print" (copyright + descrizione): sempre la più defilata del footer, come sulla
-   maggior parte dei siti — non allo stesso corpo/peso visivo delle colonne di link sopra.
-   Defilata per corpo, mai per `opacity`: il testo del footer può essere `colori.testo`, un colore
-   "duro" garantito solo a 4.5:1, e qualunque trasparenza lo porterebbe sotto soglia. */
-.footer-fineprint {
-    font-size: var(--fs-xs);
 }
 
 /* ── Footer: sottogruppi annidati ────────────────────────────────────

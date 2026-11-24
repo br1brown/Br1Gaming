@@ -356,6 +356,8 @@
   "durataPreferenzaListaCookie": "Until you change the choice",
   "motionToggleLabel": "Background animation",
   "motionToggleAiuto": "Turn it off if the movement bothers you.",
+  "motionPauseFerma": "Pause background animation",
+  "motionPauseRiprendi": "Resume background animation",
   "siteMapMenu": "Site map",
   "siteMapDescrizione": "All the pages of the site in one list.",
   "paginationNav": "Result pages",
