@@ -24,9 +24,11 @@ Provati e **senza difetti**: azioni di modale che lanciano o rifiutano, tre clic
 - **«Accedi» della navbar col ritorno**: il link di login è la direttiva `appLoginLink` su un `<a>` (classi e testo restano di chi la usa) e `user-nav` la usa al posto di `app-nav-link`: da qualunque pagina, dopo l'accesso si torna lì, parametri compresi, invece che alla home. Sul login mette `aria-current="page"`. `loginUrlWithReturn` diventa `loginUrlFrom(lang, here)`, che non annida il login dentro sé stesso.
 - **`returnUrl` in base64url**: il ritorno viaggia come un solo blocco `[A-Za-z0-9_-]` (`encodeReturnUrl`/`decodeReturnUrl`, `returnUrlParam`), senza `%` annidati anche con filtri lunghi e accentati; il limite sale da 2000 a 4000 caratteri decodificati. Un `?returnUrl=/percorso` in chiaro non vale più: si ripiega su `returnPageType` o sulla home.
 - **`app-embed`**: «Carica» porta il focus sul proprio player, non sul primo dello stesso provider nella pagina.
-- **`PasswordHasher`**: nuovi hash a 600 000 iterazioni (vedi sotto).
+- **`PasswordHasher`**: nuovi hash a 600 000 iterazioni (vedi sotto). `Verify(pwd, null)` per un account inesistente calcola un hash alle iterazioni correnti e dà `false`: un hash finto del progetto fatto a 210 000 risponderebbe tre volte più in fretta e rivelerebbe quali utenti esistono.
+- **`app-motion-toggle`**: un `id` diverso per ogni copia (footer e impostazioni insieme non duplicano più `motion-toggle`).
+- **`LeaveGuardService.confirmDiscard(only)`**: una richiesta per le sole voci di una modale non riceve più la risposta del dialogo di uscita dalla pagina già aperto.
 
-**Al merge**: `components/shared/user-nav/` è Dominio: un figlio che l'ha toccato riporta a mano lo scambio `app-nav-link` → `<a appLoginLink>` (quattro righe del template). Una `ISessionRevocation` propria che confronta `SessionRevocation.LoginTime` (secondi) funziona come prima; per la precisione al millisecondo passa a `LoginTimeMs` e salva l'istante di revoca in millisecondi.
+**Al merge**: chi verificava gli account inesistenti contro un proprio `HashFinto` passa `null` (`Verify(pwd, account?.PasswordHash)`) e toglie la costante. `components/shared/user-nav/` è Dominio: un figlio che l'ha toccato riporta a mano lo scambio `app-nav-link` → `<a appLoginLink>` (quattro righe del template). Una `ISessionRevocation` propria che confronta `SessionRevocation.LoginTime` (secondi) funziona come prima; per la precisione al millisecondo passa a `LoginTimeMs` e salva l'istante di revoca in millisecondi.
 
 ### Controlli di accessibilità live in CI: `scripts/test/a11y-check.sh`
 

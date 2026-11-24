@@ -32,8 +32,8 @@ export class LeaveGuardService {
     private readonly translate = inject(TranslateService);
     private readonly entries = new Set<LeaveGuardEntry>();
     private readonly dirtyEntries = new Set<DirtyEntry>();
-    /** Il dialogo aperto adesso: due navigazioni insieme (un doppio clic) ne condividono uno solo. */
-    private asking: Promise<boolean> | null = null;
+    /** Il dialogo aperto adesso e le voci che riguarda (`undefined` = tutta la pagina): solo una richiesta per le stesse voci lo condivide. */
+    private asking: { only: readonly DirtyEntry[] | undefined; answer: Promise<boolean> } | null = null;
 
     constructor() {
         if (!isPlatformBrowser(inject(PLATFORM_ID))) return;
@@ -72,15 +72,15 @@ export class LeaveGuardService {
     }
 
     /** Chiede cosa fare delle voci sporche (tutte, o solo `only`) e risolve `true` se si può procedere: niente da salvare, salvato o scartato.
-     *  `false` se l'utente resta o un salvataggio fallisce; due chiamate insieme condividono lo stesso dialogo. */
+     *  `false` se l'utente resta o un salvataggio fallisce; due chiamate insieme per le stesse voci condividono il dialogo. */
     confirmDiscard(only?: readonly DirtyEntry[]): Promise<boolean> {
-        if (this.asking) return this.asking;
+        if (this.asking && this.asking.only === only) return this.asking.answer;
         const pending = [...(only ?? this.dirtyEntries)].filter(e => e.dirty());
         if (pending.length === 0) return Promise.resolve(true);
 
-        const asking = this.ask(pending).finally(() => { this.asking = null; });
+        const asking = { only, answer: this.ask(pending).finally(() => { if (this.asking === asking) this.asking = null; }) };
         this.asking = asking;
-        return asking;
+        return asking.answer;
     }
 
     private async ask(pending: DirtyEntry[]): Promise<boolean> {

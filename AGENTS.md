@@ -619,7 +619,7 @@ public class PaymentRequiredException : ApiException {
 Mai un hash scritto a mano né una copia nel progetto: `PasswordHasher` (`Backend.Security`), PBKDF2 con sale e iterazioni dentro la stringa.
 ```csharp
 var hash = PasswordHasher.Hash(password);                    // salva questo, mai la password
-if (!PasswordHasher.Verify(pwd ?? "", account?.PasswordHash ?? HashFinto)) return null;   // HashFinto: stesso costo anche se l'account non esiste
+if (!PasswordHasher.Verify(pwd ?? "", account?.PasswordHash)) return null;   // account null: stesso costo, sempre false
 if (PasswordHasher.NeedsRehash(account.PasswordHash)) account.PasswordHash = PasswordHasher.Hash(pwd);   // al login riuscito
 ```
 
