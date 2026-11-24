@@ -1,4 +1,4 @@
-import { Component, Signal, ViewEncapsulation, computed, effect, inject, input, signal } from '@angular/core';
+import { Component, ViewEncapsulation, computed, effect, inject, input, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { CookieConsentService } from '../../services/cookie-consent.service';
 import { AppearanceService } from '../../services/appearance.service';
@@ -7,15 +7,6 @@ import { PageMetaService } from '../../services/page-meta.service';
 import { ContestoSito } from '../../../../site';
 import { MarkdownLitePipe } from '../../pipes/markdown-lite.pipe';
 import { TranslatePipe } from '../../pipes/translate.pipe';
-
-/** Il pulsante di riapertura dei cookie è a schermo: consenso richiesto e già dato, fuori dalla Cookie Policy (lì c'è il
- *  pannello). Unica fonte per il banner e per chi si allinea al pulsante (`app-motion-pause`). */
-export function injectCookieReopenVisible(): Signal<boolean> {
-    const consent = inject(CookieConsentService);
-    const pageMeta = inject(PageMetaService);
-    const policy = ContestoSito.config.cookiePolicy;
-    return computed(() => consent.isNeeded() && consent.responded() && !(policy != null && pageMeta.currentPageType() === policy));
-}
 
 @Component({
     selector: 'app-cookie-banner',
@@ -28,7 +19,10 @@ export class CookieBannerComponent {
     readonly cookieConsent = inject(CookieConsentService);
     readonly theme = inject(AppearanceService);
     private readonly translate = inject(TranslateService);
-    readonly reopenVisible = injectCookieReopenVisible();
+    private readonly pageMeta = inject(PageMetaService);
+    /** Pulsante di riapertura a schermo: consenso già dato, fuori dalla Cookie Policy (lì c'è il pannello). */
+    readonly reopenVisible = computed(() => this.cookieConsent.responded()
+        && !(ContestoSito.config.cookiePolicy != null && this.pageMeta.currentPageType() === ContestoSito.config.cookiePolicy));
 
     /** `'discreto'` (default): FAB di riapertura più piccolo del `.fab`
      *  standard. `'standard'`: stessa dimensione di `.fab` (es. `back-to-top`) — il LATO

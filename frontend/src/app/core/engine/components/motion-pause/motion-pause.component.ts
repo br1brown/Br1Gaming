@@ -1,21 +1,23 @@
 import { ChangeDetectionStrategy, Component, afterNextRender, computed, inject, signal } from '@angular/core';
 import { AppearanceService } from '../../services/appearance.service';
 import { CookieConsentService } from '../../services/cookie-consent.service';
-import { injectCookieReopenVisible } from '../cookie-banner/cookie-banner.component';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { injectPrefersReducedMotion } from '../../breakpoints';
 import { ContestoSito } from '../../../../site';
 
-/** Pulsante che ferma o riprende lo smoke (WCAG 2.2.2). Host `sticky-bottom` alto 0 fra `<main>` e footer: flotta sopra il
- *  pulsante dei cookie e si ferma da solo dove inizia il footer. Sparisce col banner dei cookie aperto e con «riduci movimento». */
+/** Pulsante che ferma o riprende lo smoke (WCAG 2.2.2). Host `sticky-bottom` fra `<main>` e footer, alto quanto la sua corsia:
+ *  flotta in fondo e si ferma da solo sopra il footer; sopra il pulsante dei cookie lo porta `_layout.scss` (`:has()`).
+ *  Sparisce col banner dei cookie aperto e con «riduci movimento». */
 @Component({
     selector: 'app-motion-pause',
     imports: [TranslatePipe],
     changeDetection: ChangeDetectionStrategy.OnPush,
     styleUrl: './motion-pause.component.scss',
     host: {
-        class: 'sticky-bottom d-block',
-        '[class.motion-pause--above-cookie]': 'aboveCookie()',
+        class: 'sticky-bottom d-print-none',
+        // Nascosto, l'host non tiene la sua corsia vuota sopra il footer.
+        '[class.d-block]': 'visible()',
+        '[class.d-none]': '!visible()',
         '[class.motion-pause--standard]': 'standard',
     },
     template: `
@@ -40,7 +42,6 @@ export class MotionPauseComponent {
     /** Stessa misura del pulsante dei cookie (`fab.cookie` del design system). */
     protected readonly standard = ContestoSito.config.aspetto.fab.cookie === 'standard';
 
-    protected readonly aboveCookie = injectCookieReopenVisible();
     protected readonly visible = computed(() =>
         this.hydrated() && this.appearance.smokeAvailable && !this.reducedMotion()
         && !(this.cookie.isNeeded() && !this.cookie.responded()));

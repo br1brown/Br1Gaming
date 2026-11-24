@@ -6,13 +6,13 @@
         <app-footer-nav [links]="footerNavLinks()" />
 
         <div class="d-flex flex-column flex-md-row justify-content-md-between align-items-center gap-2 small text-center text-md-start">
-            <p class="mb-0" [innerHTML]="footerCopyright() | markdownLite"></p>
+            <p class="mb-0 text-break" [innerHTML]="footerCopyright() | markdownLite"></p>
             @if (legalFooterLinks().length > 0) {
                 <app-footer-link-row [links]="legalFooterLinks()" align="end" />
             }
         </div>
         @if (description()) {
-            <p class="mt-2 mb-0 small fst-italic text-center text-md-start">{{ description() }}</p>
+            <p class="mt-2 mb-0 small fst-italic text-center text-md-start text-break">{{ description() }}</p>
         }
     </div>
 </footer>

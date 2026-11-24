@@ -120,3 +120,12 @@ main#main-content:has(> .row > .content-panel) {
         border-inline: 0;
     }
 }
+
+/* La pausa dello smoke (app-motion-pause) sale sopra il pulsante dei cookie quando quello è a schermo: lo decide la pagina,
+   non i componenti, che non si conoscono. */
+app-root:has(.cookie-reopen-btn) app-motion-pause {
+    --mp-lift: calc(var(--touchTarget) + var(--space-2));
+}
+app-root:has(.cookie-reopen-btn--standard) app-motion-pause {
+    --mp-lift: calc(var(--fabSize) + var(--space-2));
+}
