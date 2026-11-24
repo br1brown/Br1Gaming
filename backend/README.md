@@ -1096,7 +1096,7 @@ public Task DeleteAccountAsync(SessionInfo session, CancellationToken ct = defau
 | :--- | :--- | :--- |
 | `ClaimTypes.Role` | `"Authenticated"` | Richiesto dalla policy `RequireLogin` su `EngineProtectedController`. Senza di esso il token viene accettato come firma ma rifiutato dall'autorizzazione (403). |
 | `"loginTime"` | Timestamp Unix UTC | Momento dell'emissione. Utile per "forza re-login se la sessione ha più di N ore" senza modificare il middleware. |
-| `"loginTimeMs"` | Millisecondi Unix UTC | Lo stesso istante al millisecondo: la revoca confronta questo (`SessionRevocation.LoginTimeMs`), così un login subito dopo «esci da tutti i dispositivi» non cade nello stesso secondo della revoca. Un token che ha solo `loginTime` vale come emesso a fine secondo. |
+| `"loginTimeMs"` | Millisecondi Unix UTC | Lo stesso istante al millisecondo: la revoca confronta questo (`SessionRevocation.LoginTimeMs`), così un login subito dopo «esci da tutti i dispositivi» non cade nello stesso secondo della revoca. Un token che ha solo `loginTime` vale come emesso all'inizio del secondo: una revoca nello stesso secondo lo respinge. |
 | `"sessionStart"` | Timestamp Unix UTC | Il login originale, uguale a ogni rinnovo: fissa il tetto di `POST /session/refresh`. |
 
 Il token è firmato con HMAC-SHA256. La scadenza assoluta è `Security.Token.ExpirationSeconds`. Il middleware JWT Bearer ha `ClockSkew = TimeSpan.Zero`: un token scaduto è immediatamente rifiutato, senza margine di grazia.
