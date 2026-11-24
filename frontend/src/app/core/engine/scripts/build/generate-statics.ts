@@ -540,10 +540,21 @@ function updateThemeScss(): void {
 
 // ── Entry point ───────────────────────────────────────────────────────────
 
+// Un tempo generati qui, oggi rotte del server SSR: una copia rimasta in public/ (gitignored, quindi solo
+// generata) le nasconde in ng serve con dati vecchi. Si tolgono a ogni build.
+const RUNTIME_ROUTE_FILES = ['sitemap.xml', 'llms.txt', 'security.txt'];
+
 function main(): void {
     const publicDir = join(ROOT, 'public');
     if (!existsSync(publicDir)) {
         mkdirSync(publicDir, { recursive: true });
+    }
+    for (const file of RUNTIME_ROUTE_FILES) {
+        const path = join(publicDir, file);
+        if (existsSync(path)) {
+            rmSync(path);
+            console.log(`[statics] tolto public/${file} (residuo: oggi è una rotta del server)`);
+        }
     }
 
     updateIndexHtml();
