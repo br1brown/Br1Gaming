@@ -26,6 +26,9 @@ public static class SecurityExtensions
         SecurityOptions security,
         Action<RateLimiterOptions>? configureRateLimiting = null)
     {
+        // ── OROLOGIO ── Emissione, scadenza e revoca dei token leggono questo TimeProvider; uno registrato dal progetto vince (TryAdd).
+        services.TryAddSingleton(TimeProvider.System);
+
         // ── AUTENTICAZIONE ── Schema primario: API Key (header X-Api-Key).
         var authBuilder = services
             .AddAuthentication(options =>
@@ -79,6 +82,10 @@ public static class SecurityExtensions
                     }
                 };
             });
+            // Scadenza dei token col TimeProvider registrato invece di DateTime.UtcNow: stesse regole ed eccezioni del controllo di IdentityModel.
+            services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+                .Configure<TimeProvider>((options, clock) => options.TokenValidationParameters.LifetimeValidator =
+                    (notBefore, expires, _, parameters) => ValidateLifetime(clock.GetUtcNow().UtcDateTime, notBefore, expires, parameters.ClockSkew));
             // Registro delle revoche: default in memoria (IMemoryCache), usato qui e da EngineDataPrivacyController.
             // TryAdd: un progetto con più istanze registra la propria ISessionRevocation in Program.cs e vince.
             services.AddMemoryCache();
@@ -325,4 +332,19 @@ public static class SecurityExtensions
     /// </summary>
     private static bool IsValidRequestId(string value) =>
         value.Length <= 128 && value.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '-' or '_');
+
+    /// <summary>Il controllo di scadenza di IdentityModel con un'ora passata da fuori: scaduto se <c>exp</c> è prima di adesso, non ancora valido se
+    /// <c>nbf</c> è dopo; senza <c>exp</c> il token non vale (il template li emette sempre con scadenza). Lancia le stesse eccezioni del controllo di serie.</summary>
+    internal static bool ValidateLifetime(DateTime now, DateTime? notBefore, DateTime? expires, TimeSpan clockSkew)
+    {
+        if (expires is null)
+            throw new SecurityTokenNoExpirationException("IDX10225: Lifetime validation failed. The token is missing an Expiration Time.");
+        if (notBefore is { } nbf && nbf > expires)
+            throw new SecurityTokenInvalidLifetimeException($"IDX10224: Lifetime validation failed. The NotBefore: '{nbf:O}' is after Expires: '{expires:O}'.") { NotBefore = nbf, Expires = expires.Value };
+        if (notBefore is { } start && start > now.Add(clockSkew))
+            throw new SecurityTokenNotYetValidException($"IDX10222: Lifetime validation failed. The token is not yet valid. ValidFrom (UTC): '{start:O}', Current time (UTC): '{now:O}'.") { NotBefore = start };
+        if (expires < now.Add(-clockSkew))
+            throw new SecurityTokenExpiredException($"IDX10223: Lifetime validation failed. The token is expired. ValidTo (UTC): '{expires:O}', Current time (UTC): '{now:O}'.") { Expires = expires.Value };
+        return true;
+    }
 }

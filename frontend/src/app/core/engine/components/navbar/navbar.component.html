@@ -87,16 +87,16 @@
         <!-- Toggler: ultimo item della riga; ms-auto solo se il selettore lingua non c'è (altrimenti
              eredita la spinta a destra dal suo ms-auto). -->
         @if (menuItems().length > 0 || hasAuthPage) {
-        <button #togglerEl class="navbar-toggler" type="button"
+        <button #togglerEl class="navbar-toggler" type="button" [class.navbar-toggler--bordo]="menuBorder"
                 [class.ms-auto]="languages().length <= 1"
                 (click)="toggleMenu()"
                 [attr.aria-controls]="menuOpen() ? 'navbar-menu' : null"
                 [attr.aria-expanded]="menuOpen()"
-                [attr.aria-label]="'toggleNav' | translate">
+                [attr.aria-label]="('menuLabelNav' | translate) + ': ' + ('toggleNav' | translate)">
             <span class="navbar-toggler-icon"></span>
-            <!-- Etichetta "Menu" solo da chiuso (rimossa dal DOM, non solo nascosta, quando aperto):
-                 da aperto resta un quadratino con la sola X. -->
-            @if (!menuOpen()) {
+            <!-- Etichetta "Menu" solo se il design system la vuole (`navbar.etichettaMenu`) e solo da chiuso
+                 (rimossa dal DOM, non solo nascosta, quando aperto): da aperto resta la sola X. -->
+            @if (menuLabel && !menuOpen()) {
             <span class="navbar-toggler-label" aria-hidden="true">{{ 'menuLabelNav' | translate }}</span>
             }
         </button>

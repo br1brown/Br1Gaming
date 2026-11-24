@@ -64,7 +64,8 @@ Più chiavi coesistono; elimina quella vecchia quando tutti i client hanno aggio
 | `Headers` | `Dictionary<string,string>` | vedi `security-headers.json` | Header di sicurezza browser (dal file del template `security-headers.json`, non da `global-settings.json`). Il backend li applica a ogni risposta quando il file è presente, esposto o no. `Content-Security-Policy` è ignorata (irrilevante su JSON) e `Strict-Transport-Security` è esclusa dal loop perché già emessa da `UseHsts()`. |
 | `BehindProxy` | `bool` | `false` | Se `true`, abilita `ForwardedHeaders` che legge l'IP reale da `X-Forwarded-For`. **Impostare `true` in produzione se c'è un reverse proxy** — altrimenti il rate limiter vede l'IP del proxy, non del client, e il limite per-IP diventa inutile. Trusted per reti RFC 1918 (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) e per loopback (nginx sulla stessa macchina → `127.0.0.1`), il deploy non-Docker più comune: senza, tutti i visitatori finirebbero nel bucket di `127.0.0.1`. |
 | `Token.SecretKey` | `string` | `""` | Chiave di firma JWT (HMAC-SHA256). Requisito del login, non l'interruttore: senza `Features.Login`/`PublicLogin` il login resta spento anche con la chiave. Con il login acceso deve avere almeno 32 byte UTF-8, niente spazi o a capo ai bordi (rifiutata, non ripulita in silenzio) ed essere diversa dal segnaposto di `global-settings.local.example.json`; altrimenti il backend non parte. |
-| `Token.ExpirationSeconds` | `int` | `3000` (50 min) | Durata del token JWT. `ClockSkew = TimeSpan.Zero`: scaduto = subito rifiutato, senza margine di grazia. **Non esiste un refresh token**: alla scadenza serve un nuovo login, non un rinnovo silenzioso (frontend: [Ciclo di Vita del Token](../frontend/README.md#ciclo-di-vita-del-token)). |
+| `Token.ExpirationSeconds` | `int` | `3000` (50 min) | Durata del token JWT. `ClockSkew = TimeSpan.Zero`: scaduto = subito rifiutato, senza margine di grazia. La sessione si prolunga con `POST /session/refresh` (sotto), non con un refresh token a parte (frontend: [Ciclo di Vita del Token](../frontend/README.md#ciclo-di-vita-del-token)). |
+| *(derivato)* `MaxSessionSeconds` | — | `ExpirationSeconds × 9,5` | Non si configura: tetto della sessione dal login anche rinnovandola, calcolato dalla durata del token (50 minuti di serie → 7 ore e 55). Raggiunto il tetto, `POST /session/refresh` risponde `403` e serve un nuovo login. |
 
 > Con il login acceso, una `SecretKey` vuota, con spazi o a capo iniziali/finali, uguale al segnaposto dell'esempio o sotto i 32 byte UTF-8 ferma l'avvio (`FeaturesOptions.EnsureRequirements`) con un messaggio esplicito. Gli script di deploy applicano la stessa regola. `openssl rand -base64 48` genera una chiave valida.
 
@@ -91,7 +92,7 @@ Si lancia un'eccezione (`throw new NotFoundException("utente")`) e l'`ApiExcepti
 
 - Legge file JSON da `data/`, cacha i risultati in `IMemoryCache` (TTL 1h) e risolve la lingua via header `Accept-Language`.
 - I contenuti di `data/` sono **parte del codice** (richiedono un deploy per cambiare). Dati mutabili vivono in `db/` o `uploads/` (il contenuto è ignorato da git tramite `!.gitignore`).
-- Sostituibile agilmente da un DB reale implementando `IContentStore`. La cartella `db/` fa già da mount point in Docker.
+- Sostituibile agilmente da un DB reale implementando `IContentStore`. La cartella `db/` fa già da mount point in Docker. Per un sito dove il dato è il prodotto (molte righe, filtri, storico) il database c'è già (EF Core + SQLite) e la ricetta con le scelte che reggono la scala e il metodo di test è in [AGENTS.md](../AGENTS.md#un-sito-con-molti-dati-database-ricerca-test).
 
 #### `LocalizedJsonDeserializer` — regole dettagliate della risoluzione i18n
 
@@ -349,7 +350,7 @@ public interface IPersonalDataStore
   2. poi cancella l'account con `AccountService.DeleteAccountAsync`.
 
   I file caricati restano (la Privacy Policy lo dichiara).
-- **Revoca della sessione**: un JWT non si ritira, ma si può respingere. Dopo `EraseAsync` il controller chiama `ISessionRevocation.Revoke` (`Engine/Security/SessionRevocation.cs`): da quell'istante ogni token della stessa sessione (claim `session`) emesso prima (claim `loginTime`, scritto da `AuthService`) è respinto dal middleware JWT con `401` al prossimo uso, quindi nessun upload con il vecchio token può registrare di nuovo l'id reale. Il default è `MemorySessionRevocation` (`IMemoryCache`, una voce per la durata di un token): vive nel backend, l'unico che valida i token, quindi vale con frontend su un altro server e dietro un reverse proxy; un riavvio lo perde e i token emessi prima del riavvio tornano validi fino a scadenza; due istanze del backend non si vedono. Registrato con `TryAddSingleton`: un progetto con più istanze registra la propria `ISessionRevocation` (es. Redis) nel blocco "SERVIZI APPLICATIVI" di `Program.cs` e vince sul default, con le chiavi condivise di `SessionRevocation.SessionKey`/`LoginTime`. Il payload di sessione deve restare deterministico per utente (solo dati identificativi, è già il contratto): è la chiave della revoca. Il client scarta comunque il token alla risposta 204, e gli store di dominio tollerano un `UserId` orfano come "nessun dato". Il frontend del template non chiama `/me/data`: un progetto che lo espone nell'interfaccia gestisce anche il logout dopo la `DELETE`.
+- **Revoca della sessione**: un JWT non si ritira, ma si può respingere. Dopo `EraseAsync` il controller chiama `ISessionRevocation.Revoke` (`Engine/Security/SessionRevocation.cs`): da quell'istante ogni token della stessa sessione (claim `session`) emesso prima (claim `loginTime`, scritto da `AuthService`) è respinto dal middleware JWT con `401` al prossimo uso, quindi nessun upload con il vecchio token può registrare di nuovo l'id reale. Il default è `MemorySessionRevocation` (`IMemoryCache`, una voce per la durata di un token): vive nel backend, l'unico che valida i token, quindi vale con frontend su un altro server e dietro un reverse proxy; un riavvio lo perde e i token emessi prima del riavvio tornano validi fino a scadenza; due istanze del backend non si vedono. Registrato con `TryAddSingleton`: un progetto con più istanze registra la propria `ISessionRevocation` (es. Redis) nel blocco "SERVIZI APPLICATIVI" di `Program.cs` e vince sul default, con le chiavi condivise di `SessionRevocation.SessionKey`/`LoginTimeMs`. Il payload di sessione deve restare deterministico per utente (solo dati identificativi, è già il contratto): è la chiave della revoca. Il client scarta comunque il token alla risposta 204, e gli store di dominio tollerano un `UserId` orfano come "nessun dato". Il frontend del template non chiama `/me/data`: un progetto che lo espone nell'interfaccia gestisce anche il logout dopo la `DELETE`.
 
 ---
 
@@ -397,13 +398,13 @@ Ereditando da queste classi ogni controller riceve, senza nulla nel costruttore,
 | `Notifications` | `INotificationStream` | Pubblica notifiche realtime SSE. |
 | `BackgroundQueue` | `IBackgroundTaskQueue` | Accoda un task lungo. |
 | `Delivery` | `IDeliveryService` | Consegna l'esito con switch realtime/email. |
-| `Sitemap` | `SitemapNotifier` | Avvisa il frontend che un catalogo `dynamicParams` è cambiato, invalidando la cache di `/sitemap.xml`. |
+| `SitemapNotifier` | `SitemapNotifier` | Avvisa il frontend che un catalogo `dynamicParams` è cambiato, invalidando la cache di `/sitemap.xml`. |
 | `ConnectionId` | `string?` | connectionId della SSE del chiamante, o `null`. |
 | `CurrentCulture` | `CultureInfo` | Cultura della chiamata HTTP. |
 | `CurrentLanguage` | `string` | Codice lingua a due lettere (es. `"it"`). |
 | `User` | `ClaimsPrincipal` | I claim della sessione. |
 
-I servizi sopra (`Notifications`, `BackgroundQueue`, `Delivery`, `Sitemap`) sono singleton risolti pigramente da `HttpContext.RequestServices`: il getter scatta quando lo invochi dentro un'azione, e non vanno iniettati nel costruttore.
+I servizi sopra (`Notifications`, `BackgroundQueue`, `Delivery`, `SitemapNotifier`) sono singleton risolti pigramente da `HttpContext.RequestServices`: il getter scatta quando lo invochi dentro un'azione, e non vanno iniettati nel costruttore.
 
 `EngineProtectedController` aggiunge `CurrentSession<T>()`: rilegge il payload di sessione tipizzato (`User.GetSession<T>()`) senza importare l'extension method, vedi [Sistema di Login e Sessioni JWT](#-sistema-di-login-e-sessioni-jwt).
 
@@ -805,7 +806,7 @@ Concretamente, servizio per servizio:
 > Nota: lo storage dei file caricati non è un'interfaccia ma la classe concreta `FileBlobStore` (Engine, `Engine/Blob/Blob.cs`): la estendi via `override` in `Store/AppBlobStore.cs` (di proprietà del progetto), non la sostituisci. È separato di proposito da `IContentStore` (binari in volume runtime vs contenuti localizzati read-only). Uno swap a runtime (es. S3) si ottiene estraendo un'interfaccia il giorno in cui serve.
 - **`IEngineMailer`** — default `EngineMailer` (SMTP). Lo sostituisci con una tua implementazione di `IsEnabled`/`IsValidAddress`/`SendAsync` (es. l'API HTTP di un provider); coda e worker restano invariati.
 - **`INotificationStream`** — default in-memory. Una tua implementazione (es. un backplane Redis) lo fa scalare oltre il singolo processo.
-- **`ISessionRevocation`** — default `MemorySessionRevocation` (in-memory, per processo). Con più istanze del backend registri la tua (`AddSingleton<ISessionRevocation, RedisSessionRevocation>()`), riusando `SessionRevocation.SessionKey`/`LoginTime`; vedi «Logout e revoca della sessione».
+- **`ISessionRevocation`** — default `MemorySessionRevocation` (in-memory, per processo). Con più istanze del backend o account nel database registri la tua: per un database estendi `CachedSessionRevocation` (tre metodi), per Redis o altro implementi l'interfaccia riusando `SessionRevocation.SessionKey`/`LoginTimeMs`; vedi «Logout e revoca della sessione».
 - **`IDeliveryService`** e **`INotificationGroupResolver`** — registrati con `TryAddSingleton`: basta registrare la tua versione (`AddSingleton<IDeliveryService, MiaPolicy>()` per una policy di consegna propria, `AddSingleton<…, UserGroupResolver>()` per il targeting per utente/tenant).
 
 `IContentStore`, `IIdentityStore` e `IEngineMailer` sono registrati con `AddSingleton`; `INotificationStream`, `IDeliveryService`, `INotificationGroupResolver` e `ISessionRevocation` con `TryAddSingleton`: in entrambi i casi la tua registrazione nel blocco vince. L'override di `IDeliveryService` compare in contesto in [§7](#7-task-in-background-e-delivery-notificaemail), il ruolo di `INotificationGroupResolver` in [§6](#6-notifiche-realtime-inotificationstream); questo elenco è il riferimento consolidato.
@@ -1095,8 +1096,12 @@ public Task DeleteAccountAsync(SessionInfo session, CancellationToken ct = defau
 | :--- | :--- | :--- |
 | `ClaimTypes.Role` | `"Authenticated"` | Richiesto dalla policy `RequireLogin` su `EngineProtectedController`. Senza di esso il token viene accettato come firma ma rifiutato dall'autorizzazione (403). |
 | `"loginTime"` | Timestamp Unix UTC | Momento dell'emissione. Utile per "forza re-login se la sessione ha più di N ore" senza modificare il middleware. |
+| `"loginTimeMs"` | Millisecondi Unix UTC | Lo stesso istante al millisecondo: la revoca confronta questo (`SessionRevocation.LoginTimeMs`), così un login subito dopo «esci da tutti i dispositivi» non cade nello stesso secondo della revoca. Un token che ha solo `loginTime` vale come emesso a fine secondo. |
+| `"sessionStart"` | Timestamp Unix UTC | Il login originale, uguale a ogni rinnovo: fissa il tetto di `POST /session/refresh`. |
 
 Il token è firmato con HMAC-SHA256. La scadenza assoluta è `Security.Token.ExpirationSeconds`. Il middleware JWT Bearer ha `ClockSkew = TimeSpan.Zero`: un token scaduto è immediatamente rifiutato, senza margine di grazia.
+
+**Rinnovo: `POST /session/refresh`.** `EngineSessionController` (Engine, `sealed`, dietro login: con il login spento non esiste) rilascia un token nuovo a chi ne ha uno valido: `AuthService.Refresh(user)` ricopia i soli claim di dominio (payload `session` e ruoli), riscrive `loginTime` e dà una nuova scadenza, mai oltre `sessionStart + ExpirationSeconds × 9,5`. Risponde `{ "token": … }`; se non c'è più niente da guadagnare (tetto raggiunto) `403`, non `401`, perché il client non deve scartare una sessione ancora valida. È il «Resta connesso» dell'avviso di scadenza (WCAG 2.2.1). Un token scaduto o revocato non arriva al controller (`401` dal middleware), quindi un account disabilitato o una sessione revocata non si rinnova; chi ha account nel database e vuole ricontrollare altro al rinnovo lo fa in `ISessionRevocation` (`CachedSessionRevocation`), che il middleware consulta a ogni richiesta.
 
 `RequireLogin` combina due schemi (API Key + JWT Bearer, vedi [Ordine della pipeline HTTP](#ordine-della-pipeline-http)). `LoginChallengeResultHandler` (`Engine/Security/`) distingue i due fallimenti possibili: nessun JWT valido presentato (Bearer assente, malformato o scaduto) → 401, "non so chi sei"; JWT valido ma privo del ruolo `Authenticated` (riga sopra) → 403, "so chi sei, non puoi". Senza questo handler il primo caso non darebbe un 401: ASP.NET Core considera "autenticata" una chiamata con almeno uno dei due schemi riusciti, ed è per questo che `RequireLogin` esige anche il claim `ApiKeyValidated` emesso da `ApiKeyHandler` (`SecurityDefaults.ApiKeyValidatedClaimType`): un JWT da solo, senza `X-Api-Key`, riceve 403 — `LoginChallengeResultHandler` guarda specificamente all'esito dello schema JWT per decidere quale dei due status restituire.
 
@@ -1129,6 +1134,16 @@ return Ok(new LoginResult(true, Token: Auth.GenerateToken(claims)));
 Per un controllo puntuale resta possibile anche l'enforce imperativo, senza policy:
 `if (User.GetSession<SessionInfo>()?.Roles.Contains("admin") != true) throw new ForbiddenException();`.
 
+### L'orologio dei token (`TimeProvider`)
+
+Emissione, scadenza e revoca dei token leggono **la stessa ora**, quella del `TimeProvider` registrato in DI (anche i claim `nbf` e `iat`, che il gestore JWT altrimenti riempie con l'orologio di sistema: con un orologio finto diverso da quello vero il token nascerebbe «non ancora valido»). L'Engine registra `TimeProvider.System` (`TryAdd`) in `AddTemplateSecurity`; un progetto o un test che registra il proprio `TimeProvider` vince, e `AuthService` (claim `exp` e `loginTime`), `MemorySessionRevocation` e il controllo di scadenza del middleware JWT lo seguono. Con un orologio fisso la scadenza e la revoca si provano senza aspettare né dormire:
+```csharp
+// nel test: l'orologio prima di AddTemplateSecurity (o come override nella factory)
+services.AddSingleton<TimeProvider>(orologioFisso);
+// poi: GenerateToken() → avanzi l'orologio di 61 secondi → la stessa richiesta risponde 401
+```
+Perché un controllo di scadenza proprio: IdentityModel 8.x legge `DateTime.UtcNow` e non ha un punto di iniezione. L'Engine imposta un `LifetimeValidator` con le stesse regole e le stesse eccezioni di quello di serie (nessun margine, `ClockSkew` è zero; senza `exp` il token non vale), quindi il `401` e il suo messaggio non cambiano. Non passano dal `TimeProvider` i timestamp che sono solo dati di un payload (la data di una notifica, quella di una segnalazione d'errore): non decidono niente. Un `AuthService` costruito a mano come prima (`new AuthService(options)`) funziona uguale, con l'orologio di sistema.
+
 ### Leggere la Sessione (in `ProtectedController`)
 
 ```csharp
@@ -1141,6 +1156,10 @@ public IActionResult Ping()
 ```
 Ricetta rapida: [AGENTS.md](../AGENTS.md#leggere-la-sessione).
 
+### Hash delle password: `PasswordHasher`
+
+`Backend.Security.PasswordHasher` (`Engine/Security/PasswordHasher.cs`): `Hash(password)` e `Verify(password, hash)` con PBKDF2-HMACSHA256 (600 000 iterazioni, sale casuale, confronto a tempo costante). Formato `{iterazioni}.{saltBase64}.{hashBase64}`: i parametri viaggiano con l'hash, quindi `NeedsRehash(hash)` dice quando un hash vecchio va riscritto al prossimo login riuscito. Un formato non valido è `false`, non un'eccezione. Il formato è un contratto: uno script esterno che produce hash per lo stesso database lo replica identico. Per un account inesistente si passa `null` come hash (`Verify(pwd, account?.PasswordHash)`). `Verify` costa sempre almeno le iterazioni correnti, anche con `null`, un hash malformato o uno con meno iterazioni: il tempo di risposta non rivela quali utenti esistono.
+
 ### Logout e revoca della sessione
 
 Il JWT è stateless: il logout sul client (rimozione del token) non invalida il token sul backend, che resta valido fino alla scadenza (`exp`, al massimo `Security.Token.ExpirationSeconds`). L'Engine porta però il meccanismo per respingerlo prima: `ISessionRevocation` (`Engine/Security/SessionRevocation.cs`).
@@ -1149,9 +1168,42 @@ Il JWT è stateless: il logout sul client (rimozione del token) non invalida il 
 
 **Chi la chiama.** `DELETE /me/data` ([§9](#9-dati-personali-export--diritto-alloblio)), dopo `EraseAsync`. Un logout "con effetto sul server" del progetto è la stessa chiamata da un endpoint proprio: inietti `ISessionRevocation` e chiami `Revoke(User)` (ricetta in [AGENTS.md](../AGENTS.md#revocare-una-sessione-logout-con-effetto-sul-server)). Non serve per il logout ordinario: lì basta scartare il token sul client.
 
-**Dove vive e dove si rompe.** Il default `MemorySessionRevocation` è un registro in `IMemoryCache` del processo backend, con una voce per la durata di un token (dopo, il token è scaduto da sé). Vale con il frontend su un altro server e dietro un reverse proxy, perché la revoca sta dove si validano i token, cioè nel backend, e il Node SSR fa solo da proxy. Non vale con due o più istanze del backend dietro un bilanciatore: ognuna ha la sua memoria, la revoca fatta su una non si vede sull'altra. Un riavvio del backend perde il registro: i token emessi prima del riavvio tornano validi fino a `exp`. Chi supera l'istanza singola registra la propria `ISessionRevocation` (Redis, o la SQLite già presente per il registro dei blob) nel blocco `── SERVIZI APPLICATIVI ──` di `Program.cs`, e vince sul default (`TryAddSingleton`); `SessionRevocation.SessionKey`/`LoginTime` sono le chiavi condivise da riusare, così il middleware e `/me/data` non cambiano.
+**Dove vive e dove si rompe.** Il default `MemorySessionRevocation` è un registro in `IMemoryCache` del processo backend, con una voce per la durata di un token (dopo, il token è scaduto da sé). Vale con il frontend su un altro server e dietro un reverse proxy, perché la revoca sta dove si validano i token, cioè nel backend, e il Node SSR fa solo da proxy. Non vale con due o più istanze del backend dietro un bilanciatore: ognuna ha la sua memoria, la revoca fatta su una non si vede sull'altra. Un riavvio del backend perde il registro: i token emessi prima del riavvio tornano validi fino a `exp`. Chi supera l'istanza singola registra la propria `ISessionRevocation` (Redis, o la SQLite già presente per il registro dei blob) nel blocco `── SERVIZI APPLICATIVI ──` di `Program.cs`, e vince sul default (`TryAddSingleton`); `SessionRevocation.SessionKey`/`LoginTimeMs` sono le chiavi condivise da riusare, così il middleware e `/me/data` non cambiano.
+
+
+**Revoca nel database: `CachedSessionRevocation`.** Per un progetto con account veri (utenti, gruppi) la revoca sta nel database, non in memoria: regge i riavvii e più istanze, e disabilitare un account o cambiargli la password fa cadere subito le sessioni aperte. Si estende `CachedSessionRevocation` (`Engine/Security/CachedSessionRevocation.cs`) e si implementano solo tre metodi:
+```csharp
+public sealed class AccountSessionRevocation : CachedSessionRevocation
+{
+    private readonly IDbContextFactory<AppDbContext> _db;   // singleton: la factory, non un DbContext iniettato
+    public AccountSessionRevocation(IDbContextFactory<AppDbContext> db, IMemoryCache cache, TimeProvider clock) : base(cache, clock) => _db = db;
+
+    protected override string? AccountKey(ClaimsPrincipal user) => user.GetSession<SessionInfo>()?.UserId;   // null = token di nessun account noto: respinto
+
+    protected override AccountSessionState? LoadState(string key)                                            // null = account inesistente: respinto
+    {
+        using var db = _db.CreateDbContext();
+        return db.Utenti.AsNoTracking().Where(u => u.Id == key).Select(u => new { u.Abilitato, u.SessioniValideDal })
+            .AsEnumerable().Select(u => new AccountSessionState(u.Abilitato, u.SessioniValideDal)).FirstOrDefault();
+    }
+
+    protected override void SaveValidFrom(string key, DateTimeOffset validFrom)
+    {
+        using var db = _db.CreateDbContext();
+        db.Utenti.Where(u => u.Id == key).ExecuteUpdate(s => s.SetProperty(u => u.SessioniValideDal, validFrom));
+    }
+}
+// Program.cs, blocco "── SERVIZI APPLICATIVI ──"
+builder.Services.AddSingleton<AccountSessionRevocation>();
+builder.Services.AddSingleton<ISessionRevocation>(sp => sp.GetRequiredService<AccountSessionRevocation>());   // vince sul default; lo stesso oggetto serve anche ad AccountService
+```
+Cosa garantisce la base: `IsRevoked` (sincrono, a ogni richiesta) legge lo stato in cache per `CacheDuration` (30 s, `virtual`), quindi lo store si interroga al più una volta ogni 30 secondi per account; un token senza payload di sessione non è un login del progetto e non si revoca; un token con payload ma senza account noto, o di un account inesistente o disabilitato, è respinto; un token emesso fino a `ValidFrom` (compreso) è respinto, e uno senza `loginTime` non può dimostrare di essere successivo. Chi cambia un account dall'app chiama `Forget(key)` (o `RevokeAccount(key)`, che scrive e dimentica) e l'effetto è immediato; un cambio fatto da fuori (uno script, un altro nodo) vale entro la durata.
 
 ---
+
+### Testo per confronti e indirizzi: `TextFold`
+
+`TextFold.Fold("Forlì")` → `forli` (minuscolo, senza segni diacritici) e `TextFold.Slugify("Pozzolo di Bore (Città)!")` → `pozzolo-di-bore-citta` (`maxLength` 60, `fallback` se non resta niente), in `Backend.Engine`. È la gemella di `foldText`/`slugify` del frontend (`core/engine/text-fold.ts`): una ricerca lato server e un filtro lato client danno lo stesso risultato sullo stesso testo.
 
 ## 📦 Strumenti HTTP di Fabbrica
 

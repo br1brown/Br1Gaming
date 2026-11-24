@@ -7,6 +7,63 @@
     border-radius: 2px;
 }
 
+/* Bootstrap toglie l'outline ai suoi controlli (`.btn:focus-visible { outline: 0 }`) e lascia un'ombra al 50% del colore del bottone:
+   misurata 1,87:1 (danger), 2,09:1 (small), 2,57:1 (primary) sul fondo, sotto i 3:1 di WCAG 1.4.11. Qui l'anello pieno del sito
+   (`--focusRingColor`, 3 px, scelto contro la superficie); l'ombra di Bootstrap resta come alone. Stessa specificità di Bootstrap,
+   e `base` si carica dopo: vince per ordine. */
+.btn:focus-visible,
+.btn-check:focus-visible + .btn,
+.btn-close:focus-visible,
+.page-link:focus-visible,
+.accordion-button:focus-visible,
+.list-group-item-action:focus-visible,
+.form-check-input:focus-visible {
+    outline: var(--focusRingWidth) solid var(--focusRingColor);
+    outline-offset: var(--focusRingOffset);
+}
+
+/* La X di chiusura di Bootstrap è 16px (sotto i 24px di WCAG 2.5.8, e ai 44px che l'Engine dà a ogni controllo): l'icona resta 1em,
+   cambia l'area cliccabile, centrata attorno a lei. */
+.btn-close {
+    box-sizing: border-box;
+    width: var(--touchTarget);
+    height: var(--touchTarget);
+    padding: 0;
+    background-position: center;
+    flex-shrink: 0; /* in un'intestazione flex con un titolo lungo (320px) si restringeva sotto i 44px */
+}
+
+/* Modale scorrevole con un componente che porta i suoi `.modal-header/.modal-body/.modal-footer`: l'elemento host del componente sta tra il pannello (flex) e il
+   suo corpo e, come scatola a blocco, impedisce al corpo di restringersi e di scorrere (il piè finisce tagliato su schermi bassi, come un telefono in orizzontale).
+   Senza scatola propria, intestazione, corpo e piè tornano figli diretti del pannello. Un `form` che li avvolge no: toglierne la scatola ne cambia il ruolo per alcune tecnologie assistive. */
+.modal-dialog-scrollable .modal-content > :not(.modal-header, .modal-body, .modal-footer, form) {
+    display: contents;
+}
+
+/* Modale scorrevole: ombre sfumate in alto e in basso al corpo, solo dove c'è altro da scorrere (`background-attachment: local` le fa
+   sparire a fine corsa). Il segnale standard che il contenuto continua, senza testo né JS. Le due fasce piene coprono l'ombra quando si è all'estremo. */
+.modal-dialog-scrollable .modal-body {
+    background:
+        linear-gradient(var(--bs-modal-bg) 30%, transparent) center top,
+        linear-gradient(transparent, var(--bs-modal-bg) 70%) center bottom,
+        radial-gradient(farthest-side at 50% 0, rgb(0 0 0 / 0.22), transparent) center top,
+        radial-gradient(farthest-side at 50% 100%, rgb(0 0 0 / 0.22), transparent) center bottom;
+    background-repeat: no-repeat;
+    background-size: 100% 2.5rem, 100% 2.5rem, 100% 0.875rem, 100% 0.875rem;
+    background-attachment: local, local, scroll, scroll;
+}
+
+/* Un campo che si toglie bordo o ombra con le utility di Bootstrap (`border-0`, `shadow-none`, tipico in una card che fa da cornice) perde anche il suo
+   indicatore di focus (il bordo che cambia colore, l'alone): WCAG 1.4.11 / 2.4.7. L'anello del sito, dentro il campo, solo per questi casi: i campi normali
+   tengono lo stile di Bootstrap. */
+.form-control.border-0:focus-visible,
+.form-control.shadow-none:focus-visible,
+.form-select.border-0:focus-visible,
+.form-select.shadow-none:focus-visible {
+    outline: var(--focusRingWidth) solid var(--focusRingColor);
+    outline-offset: calc(-1 * var(--focusRingWidth));
+}
+
 :where(:focus:not(:focus-visible)) {
     outline: none;
     box-shadow: none;

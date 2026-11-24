@@ -4,7 +4,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { NotificationService } from '../../../core/engine/services/notification.service';
 import { TranslateService } from '../../../core/engine/services/translate.service';
 import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
-import { NavLinkComponent } from '../../../core/engine/components/nav-link/nav-link.component';
+import { LoginLinkDirective } from '../../../core/engine/directives/login-link.directive';
 import { ContestoSito } from '../../../site';
 import { NavLink } from '../../../core/engine/shell-nav';
 
@@ -14,7 +14,7 @@ import { NavLink } from '../../../core/engine/shell-nav';
  *  liberi, ma non path/nome-classe/selettore, altrimenti l'Engine non compila. */
 @Component({
     selector: 'app-user-nav',
-    imports: [TranslatePipe, NavLinkComponent],
+    imports: [TranslatePipe, LoginLinkDirective],
     templateUrl: './user-nav.component.html',
     styleUrl: './user-nav.component.scss',
     host: { class: 'contents' }

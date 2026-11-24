@@ -2,7 +2,11 @@
 
 .navbar {
     color: var(--colorNavText, var(--colorTemaText));
-    /* Bordo del toggler: allineato al testo navbar anziché al data-bs-theme Bootstrap */
+    /* Bordo del toggler: assente di serie (solo le tre barre); con `navbar.bordoMenu` allineato al testo navbar anziché al data-bs-theme Bootstrap. */
+    --bs-navbar-toggler-border-color: transparent;
+}
+
+.navbar .navbar-toggler--bordo {
     --bs-navbar-toggler-border-color: color-mix(in srgb, var(--colorNavText, var(--colorTemaText)) 55%, transparent);
 }
 
@@ -194,6 +198,20 @@
         min-height: var(--touchTarget);
         min-width: var(--touchTarget);
         justify-content: center;
+        // Aria attorno al pulsante: senza bordo l'anello del focus non deve sfiorare il selettore lingua.
+        margin-inline-start: var(--space-2);
+    }
+
+    // Focus: lo stesso anello degli altri controlli della navbar (outline del tema, `--focusRing*`), al posto del
+    // riquadro da 4px di Bootstrap, che senza bordo si appoggerebbe ai vicini.
+    .navbar-toggler:focus,
+    .navbar-toggler:focus-visible {
+        box-shadow: none;
+    }
+
+    .navbar-toggler:focus-visible {
+        outline: var(--focusRingWidth) solid currentColor;
+        outline-offset: var(--focusRingOffset);
     }
 
     .navbar .language-toggle,

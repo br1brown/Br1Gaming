@@ -1,5 +1,5 @@
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
-import { ApplicationRef, EnvironmentInjector, Injectable, PLATFORM_ID, TemplateRef, Type, createComponent, inject } from '@angular/core';
+import { ApplicationRef, DestroyRef, EffectRef, EnvironmentInjector, Injectable, PLATFORM_ID, TemplateRef, Type, createComponent, effect, inject } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { AppearanceService } from './appearance.service';
 import { TranslateService } from './translate.service';
@@ -7,6 +7,26 @@ import type { ProblemDetails } from './base-api.service';
 
 type SwalType = typeof import('sweetalert2').default;
 type ModalType = typeof import('bootstrap/js/src/modal.js').default;
+
+/** Un pulsante del piè di una modale (`ModalOptions.actions`): stessa forma di una voce di menu contestuale (testo, icona, funzione), più cosa fa alla modale. */
+export interface ModalAction {
+    /** Chiave i18n o testo del pulsante. */
+    label: string;
+    /** Classi di un glifo Font Awesome (`fa-solid fa-check`), facoltativo. */
+    icon?: string;
+    /** Eseguita al clic. Può essere asincrona: finché non finisce i pulsanti del piè sono disabilitati (`aria-busy`). Se risolve `false` o lancia, la modale resta aperta anche con `closes`. */
+    action?: () => void | boolean | Promise<void | boolean>;
+    /** Il pulsante chiude la modale, dopo l'azione e rispettando `canClose`. Default `false`. Senza `action` è un semplice «Annulla»/«Chiudi». */
+    closes?: boolean;
+    /** Aspetto: `primary` (azione principale), `secondary` (default), `danger`, `link`. */
+    variant?: 'primary' | 'secondary' | 'danger' | 'link';
+    /** Pulsante disabilitato quando la funzione dà `true`. Si legge in un `effect`: se legge dei signal, il pulsante li segue da solo finché la modale è aperta. */
+    disabled?: () => boolean;
+}
+
+const MODAL_ACTION_CLASS: Record<NonNullable<ModalAction['variant']>, string> = {
+    primary: 'btn-primary', secondary: 'btn-outline-secondary', danger: 'btn-danger', link: 'btn-link',
+};
 
 /** Opzioni di {@link NotificationService.modal}. */
 export interface ModalOptions {
@@ -24,10 +44,32 @@ export interface ModalOptions {
     dialogClass?: string;
     /** `true`: niente pannello `.modal-content` (il contenuto porta la sua `.card`, o è un'immagine). */
     bare?: boolean;
+    /** Titolo della modale (già tradotto): il servizio disegna da sé l'intestazione standard, con la X di chiusura (`.btn-close`, 44 px, «Chiudi»), e dà
+     *  al dialogo il titolo come nome (`aria-labelledby`). Il contenuto allora non scrive un suo `.modal-header`. Senza `title` né `closeButton` la modale resta com'era:
+     *  l'intestazione, se c'è, è del contenuto. Ignorato con `bare`. */
+    title?: string;
+    /** Glifo Font Awesome davanti al titolo (`fa-solid fa-pen`), decorativo. Solo con `title`. */
+    titleIcon?: string;
+    /** Pulsanti del piè, descritti come le voci di un menu contestuale (testo, icona, funzione) più `closes`: il servizio disegna il `.modal-footer` e le funzioni girano quando si preme.
+     *  Il contenuto resta il corpo della modale (`.modal-body`), senza piè scritto a mano. Ignorato con `bare`. */
+    actions?: readonly ModalAction[];
+    /** Con `title` la X c'è sempre (`false` la toglie: una modale che si chiude solo con un'azione sua). Da sola, senza `title`, `true` disegna un'intestazione con la sola X. */
+    closeButton?: boolean;
+    /** Con intestazione o piè disegnati dal servizio (`title`, `closeButton`, `actions`) il corpo scorre e intestazione e piè restano fermi (`modal-dialog-scrollable`). `false` lascia scorrere l'intera modale. Default `true`. */
+    scrollable?: boolean;
+    /** Una sola modale per chiave: se ce n'è già una aperta con la stessa `key`, `modal()` restituisce la sua maniglia invece di aprirne un'altra (un doppio clic sul bottone che apre non ne apre due).
+     *  Contenuto e opzioni della seconda chiamata si ignorano. */
+    key?: string;
+    /** Il componente (o servizio) che apre la modale: quando viene distrutto la modale si chiude da sé, senza `canClose` (`afterClosed` dice `'owner'`). Di solito `inject(DestroyRef)`. */
+    owner?: DestroyRef;
     /** `'none'`: il focus iniziale lo mette il contenuto, o se ci prova a modale ancora nascosta il suo `[autofocus]`
      *  (default: `[autofocus]`, `.btn-close`, primo focusabile). */
     initialFocus?: 'auto' | 'none';
 }
+
+/** Come si è chiusa una modale (`ModalRef.afterClosed`): `action` = un pulsante di `actions` con `closes`; `closed` = `ref.close()` chiamato dal codice (di solito a lavoro finito);
+ *  `dismiss` = la X, Escape o un clic fuori (l'utente ha rinunciato); `navigation` = cambio pagina; `owner` = il componente che l'aveva aperta è stato distrutto (`owner`). */
+export type ModalCloseReason = 'action' | 'closed' | 'dismiss' | 'navigation' | 'owner';
 
 /** Maniglia di una modale aperta con {@link NotificationService.modal}. */
 export interface ModalRef<T = unknown> {
@@ -35,8 +77,8 @@ export interface ModalRef<T = unknown> {
     readonly instance: T | null;
     /** Chiude rispettando `canClose`; `true` se chiusa davvero. */
     close(): Promise<boolean>;
-    /** Risolve alla chiusura, da qualunque via (anche un cambio pagina). */
-    readonly afterClosed: Promise<void>;
+    /** Risolve alla chiusura, da qualunque via (anche un cambio pagina), dicendo come (`ModalCloseReason`). */
+    readonly afterClosed: Promise<ModalCloseReason>;
 }
 
 const MODAL_FOCUS_TARGETS = '[autofocus], .btn-close, button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -67,8 +109,8 @@ export interface ToastOptions {
     position?: ToastPosition;
     /** Durata ms prima dell'auto-dismiss. `null` = persistente (niente timer, mostra il pulsante di chiusura). Default 3000. */
     durationMs?: number | null;
-    /** Bottone d'azione nel toast (es. "Ripristina"): se premuto esegue `run()`. */
-    action?: { text: string; run: () => void };
+    /** Bottone d'azione nel toast (es. "Ripristina"): se premuto esegue `run()`. Con `keepOpen`, `false` lascia il toast aperto; una stringa aggiorna il messaggio e lo lascia aperto. */
+    action?: { text: string; run: () => void | boolean | string | Promise<void | boolean | string>; keepOpen?: boolean };
 }
 
 /** Configurazione di {@link NotificationService.promise}: messaggi del ciclo di vita async. */
@@ -97,6 +139,8 @@ export class NotificationService {
     private modalPromise?: Promise<ModalType>;
     private shownOnceKeys = new Set<string>();   // chiavi già mostrate da toastOnce() in questa sessione
     private readonly openModalHosts: HTMLElement[] = [];   // modali Bootstrap aperte, l'ultima in cima
+    private readonly modalsByKey = new Map<string, ModalRef<unknown>>();
+    private modalSeq = 0;   // id univoci per i titoli delle modali
 
     private loadSwal(): Promise<SwalType> | null {
         if (!isPlatformBrowser(this.platformId)) return null;
@@ -122,6 +166,13 @@ export class NotificationService {
                 if (host?.isConnected && !host.contains(this.document.activeElement)) host.focus({ preventScroll: true });
             },
             buttonsStyling: false,
+            // Nome della X in italiano (o nella lingua del sito): di serie SweetAlert dice «Close this dialog» in inglese.
+            // Stringhe di serie di SweetAlert («OK», «Cancel», «No», «Close this dialog»): inglese a prescindere dalla lingua del sito. Qui nella lingua corrente
+            // (il mixin si ricrea a ogni chiamata, quindi segue un cambio lingua); chi passa i propri testi (`confirmText`…) li ha comunque vinti.
+            confirmButtonText: this.translate.translate('confermaAzione'),
+            denyButtonText: this.translate.translate('noAzione'),
+            cancelButtonText: this.translate.translate('annullaAzione'),
+            closeButtonAriaLabel: this.translate.translate('chiudiAzione'),
             customClass: {
                 confirmButton: 'btn btn-success',
                 cancelButton:  'btn btn-outline-secondary ms-2',
@@ -148,6 +199,8 @@ export class NotificationService {
      *  scroll bloccato e focus di ritorno li dà Bootstrap. Il contenuto può chiamare `confirm`/`toast`:
      *  il popup SweetAlert si apre dentro la modale (`swalTarget`). */
     modal<T>(content: Type<T> | TemplateRef<unknown>, options: ModalOptions = {}): ModalRef<T> {
+        const open = options.key != null ? this.modalsByKey.get(options.key) : undefined;
+        if (open) return open as ModalRef<T>;
         const host = this.document.createElement('div');
         host.className = 'modal fade';
         host.tabIndex = -1;
@@ -155,11 +208,45 @@ export class NotificationService {
         host.setAttribute('aria-modal', 'true');
         if (options.ariaLabel) host.setAttribute('aria-label', options.ariaLabel);
         const dialog = this.document.createElement('div');
-        dialog.className = `modal-dialog ${options.dialogClass ?? ''}`.trim();
+        // Un titolo vuoto o di soli spazi vale come nessun titolo: un `h2` vuoto lascerebbe il dialogo senza nome.
+        const title = options.title?.trim() || undefined;
+        const drawsChrome = !options.bare && (title != null || options.closeButton != null || (options.actions?.length ?? 0) > 0);
+        dialog.className = `modal-dialog ${drawsChrome && (options.scrollable ?? true) ? 'modal-dialog-scrollable' : ''} ${options.dialogClass ?? ''}`.replace(/\s+/g, ' ').trim();
         const slot = this.document.createElement('div');
         slot.className = options.bare ? 'modal-content modal-content-bare' : 'modal-content';
         dialog.appendChild(slot);
         host.appendChild(dialog);
+
+        // Intestazione standard (`title` / `closeButton`): titolo e X sono del servizio, così tutte le modali si chiudono allo stesso modo.
+        // `close` è definita più sotto: il clic arriva a modale già costruita.
+        const wantsX = options.closeButton ?? title != null;
+        if (!options.bare && (title != null || wantsX)) {
+            const header = this.document.createElement('div');
+            header.className = 'modal-header';
+            if (title != null) {
+                const titleEl = this.document.createElement('h2');
+                titleEl.className = 'modal-title h5 mb-0';
+                titleEl.id = `modal-title-${++this.modalSeq}`;
+                if (options.titleIcon) {
+                    const icon = this.document.createElement('i');
+                    icon.className = `${options.titleIcon} me-2`;
+                    icon.setAttribute('aria-hidden', 'true');
+                    titleEl.appendChild(icon);
+                }
+                titleEl.appendChild(this.document.createTextNode(title));
+                header.appendChild(titleEl);
+                if (!options.ariaLabel) host.setAttribute('aria-labelledby', titleEl.id);
+            }
+            if (wantsX) {
+                const x = this.document.createElement('button');
+                x.type = 'button';
+                x.className = 'btn-close';
+                x.setAttribute('aria-label', this.translate.translate('chiudiAzione'));
+                x.addEventListener('click', () => void closeWith('dismiss'));
+                header.appendChild(x);
+            }
+            slot.appendChild(header);
+        }
 
         let instance: T | null = null;
         let view: { destroy(): void };
@@ -172,15 +259,74 @@ export class NotificationService {
             const ref = createComponent(content, { environmentInjector: this.envInjector });
             for (const [name, value] of Object.entries(options.inputs ?? {})) ref.setInput(name, value);
             this.appRef.attachView(ref.hostView);
+            // Con intestazione/piè del servizio il suo `.modal-body` deve essere figlio diretto del pannello per scorrere: l'elemento host non fa da scatola.
+            if (drawsChrome) (ref.location.nativeElement as HTMLElement).style.display = 'contents';
             slot.appendChild(ref.location.nativeElement);
             instance = ref.instance;
             view = ref;
         }
+        const effectRefs: EffectRef[] = [];
+        // Intestazione o piè del servizio e contenuto senza un suo `.modal-body`: il servizio lo avvolge, così il corpo scorre e non viene tagliato.
+        if (drawsChrome && !slot.querySelector('.modal-body')) {
+            const body = this.document.createElement('div');
+            body.className = 'modal-body';
+            for (const node of Array.from(slot.childNodes)) if (!(node instanceof HTMLElement && node.classList.contains('modal-header'))) body.appendChild(node);
+            slot.appendChild(body);
+        }
+        // Piè standard (`actions`): pulsanti, uno alla volta in azione; `closes` chiude dopo la funzione.
+        if (!options.bare && options.actions?.length) {
+            const footer = this.document.createElement('div');
+            footer.className = 'modal-footer';
+            const buttons: { el: HTMLButtonElement; action: ModalAction; off: boolean }[] = [];
+            let busy = false;
+            const sync = (b: { el: HTMLButtonElement; action: ModalAction; off: boolean }): void => { b.el.disabled = busy || b.off; };
+            const setBusy = (value: boolean): void => {
+                busy = value;
+                for (const b of buttons) { sync(b); if (value) b.el.setAttribute('aria-busy', 'true'); else b.el.removeAttribute('aria-busy'); }
+            };
+            for (const action of options.actions) {
+                const button = this.document.createElement('button');
+                button.type = 'button';
+                button.className = `btn btn-touch ${MODAL_ACTION_CLASS[action.variant ?? 'secondary']}`;
+                if (action.icon) {
+                    const icon = this.document.createElement('i');
+                    icon.className = `${action.icon} me-2`;
+                    icon.setAttribute('aria-hidden', 'true');
+                    button.appendChild(icon);
+                }
+                button.appendChild(this.document.createTextNode(this.translate.translate(action.label)));
+                button.addEventListener('click', () => {
+                    if (busy) return;
+                    void (async () => {
+                        setBusy(true);
+                        let keepOpen = false;
+                        try {
+                            keepOpen = (await action.action?.()) === false;
+                        } finally {
+                            setBusy(false);
+                        }
+                        if (action.closes && !keepOpen) void closeWith('action');
+                    })();
+                });
+                const entry = { el: button, action, off: false };
+                buttons.push(entry);
+                if (action.disabled) {
+                    const fn = action.disabled;
+                    const ref = effect(() => { entry.off = fn(); sync(entry); }, { injector: this.envInjector });
+                    effectRefs.push(ref);
+                }
+                footer.appendChild(button);
+            }
+            slot.appendChild(footer);
+        }
+
         this.document.body.appendChild(host);
         this.openModalHosts.push(host);
 
-        let resolveClosed!: () => void;
-        const afterClosed = new Promise<void>(resolve => { resolveClosed = resolve; });
+        let resolveClosed!: (reason: ModalCloseReason) => void;
+        const afterClosed = new Promise<ModalCloseReason>(resolve => { resolveClosed = resolve; });
+        let reason: ModalCloseReason = 'closed';
+        let unregisterOwner: (() => void) | undefined;
         let allowed = false;
         let checking = false;
         let bsModal: InstanceType<ModalType> | null = null;
@@ -192,13 +338,18 @@ export class NotificationService {
             // Un popup SweetAlert ancora aperto qui dentro (es. cambio pagina) sopravvive alla modale.
             const swalContainer = host.querySelector('.swal2-container');
             if (swalContainer) this.document.body.appendChild(swalContainer);
+            for (const ref of effectRefs) ref.destroy();
             view.destroy();
             bsModal?.dispose();
             host.remove();
             options.returnFocusTo?.focus({ preventScroll: true });
-            resolveClosed();
+            unregisterOwner?.();
+            releaseKey();
+            resolveClosed(reason);
         };
-        const close = async (): Promise<boolean> => {
+        // La key si libera appena la chiusura è decisa, non a fine animazione: chi chiude e riapre subito la stessa modale ne ottiene una nuova, non la maniglia che sta sparendo.
+        const releaseKey = (): void => { if (options.key != null && this.modalsByKey.get(options.key) === ref) this.modalsByKey.delete(options.key); };
+        const closeWith = async (why: ModalCloseReason): Promise<boolean> => {
             if (allowed || checking || !host.isConnected) return false;
             checking = true;
             try {
@@ -206,9 +357,19 @@ export class NotificationService {
             } finally {
                 checking = false;
             }
+            reason = why;
             allowed = true;
+            releaseKey();
             hide();
             return true;
+        };
+        const close = (): Promise<boolean> => closeWith('closed');
+        // Chiusura imposta (cambio pagina, componente distrutto): senza `canClose`, nessuna domanda.
+        const force = (why: ModalCloseReason): void => {
+            if (!allowed) reason = why;
+            allowed = true;
+            releaseKey();
+            hide();
         };
         // Durante l'apertura Bootstrap ignora hide(): la modale resterebbe aperta, quindi si chiude appena aperta.
         const hide = (): void => {
@@ -217,16 +378,23 @@ export class NotificationService {
             else host.addEventListener('shown.bs.modal', () => bsModal?.hide(), { once: true });
         };
 
+        const ref: ModalRef<T> = { instance, close, afterClosed };
+        if (options.key != null) this.modalsByKey.set(options.key, ref as ModalRef<unknown>);
+        if (options.owner) {
+            try { unregisterOwner = options.owner.onDestroy(() => force('owner')); }
+            catch { queueMicrotask(() => force('owner')); }   // l'owner era già distrutto
+        }
+
         const loaded = this.loadModal();
         if (!loaded) {
             teardown();
-            return { instance, close, afterClosed };
+            return ref;
         }
         void loaded.then(Modal => {
             if (allowed) return;
             bsModal = new Modal(host, { backdrop: true, keyboard: options.escape ?? true, focus: true });
             // Escape, click fuori e hide(): tutto passa da qui, dove decide canClose.
-            host.addEventListener('hide.bs.modal', e => { if (!allowed) { e.preventDefault(); void close(); } });
+            host.addEventListener('hide.bs.modal', e => { if (!allowed) { e.preventDefault(); void closeWith('dismiss'); } });
             host.addEventListener('hidden.bs.modal', teardown);
             // A fine apertura Bootstrap mette il focus sulla modale: con 'none' torna dove l'ha messo il contenuto.
             let contentFocus: HTMLElement | null = null;
@@ -244,12 +412,11 @@ export class NotificationService {
         // non salvate può ancora annullarlo, e chiede dentro la modale ancora aperta.
         const nav = this.router.events.subscribe(e => {
             if (!(e instanceof NavigationEnd)) return;
-            allowed = true;
-            hide();
+            force('navigation');
         });
         void afterClosed.then(() => nav.unsubscribe());
 
-        return { instance, close, afterClosed };
+        return ref;
     }
 
     // --- FEEDBACK STANDARD ---
@@ -259,7 +426,7 @@ export class NotificationService {
         if (swal) {
             void swal.then(Swal =>
                 // titleText/text, mai title/html: SweetAlert2 non sanifica, e il messaggio può venire dal backend o da una notifica.
-                Swal.fire({ titleText: this.translate.translate('ottimoStato') + '!', text: message, icon: 'success' }).then(() => onClose?.())
+                Swal.fire({ titleText: this.translate.translate('ottimoStato') + '!', text: message, icon: 'success', confirmButtonText: this.translate.translate('chiudiAzione') }).then(() => onClose?.())
             );
         } else if (isPlatformBrowser(this.platformId)) {
             window.alert(message);
@@ -272,7 +439,7 @@ export class NotificationService {
         if (swal) {
             void swal.then(Swal => {
                 Swal.close();
-                void Swal.fire({ titleText: title, text: message, icon: 'error' });
+                void Swal.fire({ titleText: title, text: message, icon: 'error', confirmButtonText: this.translate.translate('chiudiAzione') });
             });
         } else if (isPlatformBrowser(this.platformId)) {
             window.alert(`${title}\n${message}`);
@@ -491,8 +658,18 @@ export class NotificationService {
                     if (toast.contains(this.document.activeElement)) focusBeforeToast?.focus({ preventScroll: true });
                 },
             });
-            void Toast.fire({ icon, titleText: message }).then(result => {
-                if (result.isConfirmed) action?.run();              // click sul bottone d'azione
+            // `keepOpen`: l'azione gira in `preConfirm`, prima che SweetAlert chiuda il toast; `false` lo lascia aperto.
+            const preConfirm = action?.keepOpen ? async (): Promise<boolean> => {
+                Swal.stopTimer();
+                let outcome: unknown = false;
+                try { outcome = await action.run(); } catch { /* resta aperto, si può riprovare */ }
+                if (outcome !== false && typeof outcome !== 'string') return true;
+                if (typeof outcome === 'string') queueMicrotask(() => Swal.update({ titleText: outcome as string }));
+                Swal.resumeTimer();
+                return false;
+            } : undefined;
+            void Toast.fire({ icon, titleText: message, preConfirm }).then(result => {
+                if (result.isConfirmed && action && !action.keepOpen) action.run();
             });
         });
     }

@@ -95,10 +95,12 @@ export class CookieConsentService {
         (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === ConsentCategory.Profiling)
     );
 
-    /** True se c'è almeno una voce Technical da DICHIARARE (banner/policy), a prescindere dal bisogno di consenso: cookie tecnici di progetto, `bearerToken` col login, e le memorie del consenso stesso quando un'altra categoria è attiva. Domanda diversa da `isCategoryAccepted` ("c'è da dichiarare?" vs "è permesso scrivere?"). Una nuova voce Technical built-in va aggiunta anche qui. */
+    /** True se c'è almeno una voce Technical da dichiarare in banner e policy: cookie tecnici del progetto, `bearerToken` col login,
+     *  `smokePaused` con lo smoke acceso, le memorie del consenso con un'altra categoria attiva. Una nuova voce Technical dell'Engine va aggiunta qui. */
     readonly hasTechnicalCategory = computed(() =>
         (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === ConsentCategory.Technical)
         || this.siteConfig.loginPage != null
+        || this.siteConfig.aspetto.smoke.enable
         || this.isTechnicalOptionalNeeded()
         || this.isAnalyticsNeeded()
         || this.isProfilingNeeded()
@@ -174,6 +176,9 @@ export class CookieConsentService {
         }
         if (this.siteConfig.loginPage != null) {
             engine['bearerToken'] = ENGINE_COOKIE_MAP['bearerToken'];
+        }
+        if (this.siteConfig.aspetto.smoke.enable) {
+            engine['smokePaused'] = ENGINE_COOKIE_MAP['smokePaused'];
         }
 
         this._activeEngine.set(engine);
@@ -453,8 +458,9 @@ export class CookieConsentService {
 
     // ─── HELPER INTERNI ───────────────────────────────────────────────
 
-    /** Technical è esente per legge (art. 122 Codice Privacy / art. 5.3 ePrivacy): SEMPRE true, senza condizioni. NON legarla a `hasTechnicalCategory()`: quel computed non vede tutte le vie con cui un cookie Technical built-in entra in `_cm` (es. `bearerToken` col login) — legarli bloccherebbe in silenzio siti solo-login. */
-    private isCategoryAccepted(category: ConsentCategory): boolean {
+    /** Il consenso a una categoria è dato adesso? Legge i signal, quindi un `computed`/`effect` lo segue. Technical è sempre `true`
+     *  (esente per legge), indipendente da `hasTechnicalCategory()`, che non vede ogni voce Technical (es. `bearerToken`). */
+    isCategoryAccepted(category: ConsentCategory): boolean {
         switch (category) {
             case ConsentCategory.Technical: return true;
             case ConsentCategory.TechnicalOptional: return this._technicalOptionalAccepted();

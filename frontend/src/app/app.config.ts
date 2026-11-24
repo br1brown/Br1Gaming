@@ -13,6 +13,7 @@ import { EngineRouteReuseStrategy } from './core/engine/route-reuse';
 import { AuthService } from './core/services/auth.service';
 import { AppearanceService } from './core/engine/services/appearance.service';
 import { SessionExpiryNoticeService } from './core/engine/services/session-expiry-notice.service';
+import { PagePrefetchService } from './core/engine/services/page-prefetch.service';
 import { TranslateService } from './core/engine/services/translate.service';
 import { SSR_API_PREFIX } from './core/engine/services/base-api.service';
 import { apiErrorInterceptor } from './core/engine/interceptors/api-error.interceptor';
@@ -71,6 +72,8 @@ export const appConfig: ApplicationConfig = {
             inject(AppearanceService);
             // Avvisi di scadenza della sessione (toast prima e alla scadenza, via dalle pagine riservate).
             inject(SessionExpiryNoticeService);
+            // Precaricamento delle pagine per intento (`prefetchOnIntent` in site.ts): non fa niente se è spento.
+            inject(PagePrefetchService);
 
             // I titoli delle pagine nelle route sono chiavi di traduzione
             // La lingua iniziale va quindi caricata prima che l'app cominci a usarli

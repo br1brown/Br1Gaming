@@ -1,0 +1,24 @@
+/* Touch: lo stato :hover non resta appiccicato. Su uno schermo che non ha il puntatore (`hover: none`) il browser, dopo un tocco, tiene `:hover`
+   sull'ultimo punto toccato finché non si tocca altrove: il bottone appena premuto (o quello che finisce sotto il dito dopo un cambio di layout)
+   resta colorato come se fosse sopra col mouse. Bootstrap non protegge i suoi `:hover` con `(hover: hover)`, quindi qui si riportano ai colori
+   di riposo, lasciando intatti gli stati che contano: premuto (`:active`), attivo, aperto, scelto (`btn-check`), disabilitato. Le variabili
+   `--bs-btn-*` sono quelle delle varianti (anche le `tone` dell'Engine), perciò vale per ogni bottone, senza elencarli. */
+@media (hover: none) {
+    .btn:hover:not(:active, .active, .show, :disabled, .disabled, .btn-check:checked + .btn, .btn-check:active + .btn) {
+        color: var(--bs-btn-color);
+        background-color: var(--bs-btn-bg);
+        border-color: var(--bs-btn-border-color);
+    }
+
+    .dropdown-item:hover:not(:active, .active, .disabled),
+    .list-group-item-action:hover:not(:active, .active, .disabled) {
+        color: var(--bs-dropdown-link-color, var(--bs-list-group-action-color));
+        background-color: transparent;
+    }
+
+    .page-link:hover:not(:active, .active, .disabled) {
+        color: var(--bs-pagination-color);
+        background-color: var(--bs-pagination-bg);
+        border-color: var(--bs-pagination-border-color);
+    }
+}

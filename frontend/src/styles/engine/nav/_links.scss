@@ -58,7 +58,9 @@ footer a {
 
 /* currentColor e non --focusRingColor: il toggle sta su --colorNavBg (spesso il brand), dove il colore
    link del tono può non staccarsi; il testo della navbar invece è già garantito su quello sfondo. */
-.nav-dropdown-toggle:focus-visible {
+.nav-dropdown-toggle:focus-visible,
+.navbar .nav-link:focus-visible,
+.navbar .navbar-brand:focus-visible {
     outline: var(--focusRingWidth) solid currentColor;
     outline-offset: var(--focusRingOffset);
 }

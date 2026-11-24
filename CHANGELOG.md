@@ -2,6 +2,213 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Test avversari su tutto: correzioni
+
+Una passata di prove cattive (22 casi nel browser per `notify.modal`, 23 token costruiti a mano, 40 ritorni al login malevoli, strutture strane per la mappa, stati dei bottoni su touch, e il nuovo `a11y-check.sh` sulle pagine vere dei quattro figli) ha trovato e fatto correggere:
+
+- **`notify.modal`**: chiudere e riaprire subito la stessa modale con la stessa `key` perdeva la seconda apertura (ora la `key` si libera all'inizio della chiusura); un titolo di soli spazi disegnava un'intestazione vuota e un dialogo senza nome (ora vale nessun titolo).
+- **Rinnovo di sessione**: un `sessionStart` vicino all'anno 9999 faceva traboccare il calcolo della scadenza e dava un 500 (ora l'inizio sessione non può essere nel futuro).
+- **Ritorno al login**: la pagina di login in un'altra lingua (`/login` da `/en/login`) non veniva riconosciuta e dopo l'accesso si tornava al form; il ripiego per una lingua che il sito non ha ora è `/`.
+- **SiteBuilder**: il conflitto con l'indirizzo della Mappa del sito dell'Engine ora dice come uscirne (`legal.siteMap: false`).
+- **`a11y-check.sh`**: una pagina 4xx/5xx passava «a posto» con zero elementi; ora è un errore.
+- **Focus**: un campo che si toglie bordo o ombra con `border-0` / `shadow-none` perdeva ogni indicatore di focus (visto sui due editor di Br1Gaming): ora tiene l'anello del sito.
+
+Provati e **senza difetti**: azioni di modale che lanciano o rifiutano, tre clic veloci su un'azione lenta, `canClose` che lancia, `owner` già distrutto, HTML nei titoli (resta testo), raffica di 15 aperture/chiusure, conferma SweetAlert sopra la modale, firme e algoritmi dei token (`none`, HS512, chiave sbagliata), login spento (la rotta non esiste), stati attivo/aperto/scelto/disabilitato dei bottoni su touch, mappa a tre livelli con sezioni omonime, riservate, parametriche e disabilitate.
+
+**Al merge**: nessuno.
+
+### `foldText`/`TextFold`: legature, larghezza piena e lettere senza accento scomponibile
+
+Provata la parità fra frontend e backend su 28 testi (0 differenze): erano uguali, ma buttavano le lettere che la scomposizione Unicode non riduce. «Straße» diventava `stra-e`, «Øresund Łódź» `resund-odz`, «ﬁne» `ne`, il testo a larghezza piena spariva. Ora entrambi usano la scomposizione di compatibilità (NFKD: legature, larghezza piena, `Ⅻ` → `xii`) e una tabella per `ß`, `æ`, `œ`, `ø`, `ł`, `đ`, `þ`, `ð`, `ı`, `ħ`: `strasse`, `oresund-lodz`, `fine`, `aesir-oeuvre`. Greco, cirillico e ideogrammi restano fuori dagli slug (si usa il `fallback`).
+
+**Al merge**: uno slug salvato da un nome con quelle lettere cambia al prossimo calcolo; con indirizzi «nome + codice» (la ricetta dei siti con molti dati) porta comunque alla scheda giusta. Una ricerca per «strasse» ora trova «Straße».
+
+### Revoca al millisecondo e toast «Resta connesso» che non sparisce su errore
+
+- **Revoca della sessione**: `AuthService` scrive anche `loginTimeMs` e la revoca confronta i millisecondi (`SessionRevocation.LoginTimeMs`). Prima un login nello stesso secondo di «esci da tutti i dispositivi» (o di un cambio password) dava un token respinto per tutta la sua durata. Un token con il solo `loginTime` vale come emesso a fine secondo, come prima.
+- **Toast con `action.keepOpen`**: l'azione ora gira prima che il toast si chiuda (`preConfirm`). Prima SweetAlert lo chiudeva al clic, e un rinnovo di sessione fallito non mostrava né l'errore né il «riprova».
+- **«Accedi» della navbar col ritorno**: il link di login è la direttiva `appLoginLink` su un `<a>` (classi e testo restano di chi la usa) e `user-nav` la usa al posto di `app-nav-link`: da qualunque pagina, dopo l'accesso si torna lì, parametri compresi, invece che alla home. Sul login mette `aria-current="page"`. `loginUrlWithReturn` diventa `loginUrlFrom(lang, here)`, che non annida il login dentro sé stesso.
+- **`returnUrl` in base64url**: il ritorno viaggia come un solo blocco `[A-Za-z0-9_-]` (`encodeReturnUrl`/`decodeReturnUrl`, `returnUrlParam`), senza `%` annidati anche con filtri lunghi e accentati; il limite sale da 2000 a 4000 caratteri decodificati. Un `?returnUrl=/percorso` in chiaro non vale più: si ripiega su `returnPageType` o sulla home.
+- **`app-embed`**: «Carica» porta il focus sul proprio player, non sul primo dello stesso provider nella pagina.
+- **`PasswordHasher`**: nuovi hash a 600 000 iterazioni (vedi sotto). `Verify` costa sempre almeno le iterazioni correnti: con `null` (account inesistente), un hash malformato o uno vecchio a 210 000 calcola il resto a vuoto, così il tempo di risposta non dice quali utenti esistono (misurato: circa 59 ms in tutti e cinque i casi).
+- **`app-motion-toggle`**: un `id` diverso per ogni copia (footer e impostazioni insieme non duplicano più `motion-toggle`).
+- **`LeaveGuardService.confirmDiscard(only)`**: una richiesta per le sole voci di una modale non riceve più la risposta del dialogo di uscita dalla pagina già aperto.
+
+**Al merge**: chi verificava gli account inesistenti contro un proprio `HashFinto` passa `null` (`Verify(pwd, account?.PasswordHash)`) e toglie la costante. `components/shared/user-nav/` è Dominio: un figlio che l'ha toccato riporta a mano lo scambio `app-nav-link` → `<a appLoginLink>` (quattro righe del template). Una `ISessionRevocation` propria che confronta `SessionRevocation.LoginTime` (secondi) funziona come prima; per la precisione al millisecondo passa a `LoginTimeMs` e salva l'istante di revoca in millisecondi.
+
+### Controlli di accessibilità live in CI: `scripts/test/a11y-check.sh`
+
+I difetti trovati a mano in questa tornata (focus sotto 3:1 su bottoni e navbar, X di 16 px, nome in inglese, tema scuro) li avrebbe visti solo chi provava il sito in un browser. Ora sono un controllo fisso (`a11y-check.sh BASE_URL [PATH…]`, motore `a11y-checks.mjs`, agganciato a `run-all.sh` e al workflow di CI dopo Pa11y/Lighthouse, senza dipendenze nuove: Puppeteer e axe-core sono già in `frontend/node_modules`). Su ogni pagina scoperta da `/health`, in tema **chiaro e scuro** (Pa11y guarda solo quello di serie): (1) `axe` WCAG 2.0/2.1/2.2 A e AA; (2) **indicatore di focus ≥ 3:1** su ogni elemento raggiunto con Tab (conta l'anello, l'ombra, il bordo dei campi e il bordo del riquadro che avvolge un editor); (3) per ogni `[aria-haspopup="dialog"]`: il dialogo ha un nome, la X ha nome e area ≥ 24 px (avviso sotto i 44 px dell'Engine), nessuna violazione `axe` dentro, si chiude con Escape e il focus torna al pulsante che l'ha aperto. Esce con 2 (saltato) se mancano le dipendenze. Provato sulla demo (22 pagine × 2 temi) e su ArchivioCase (tre dialoghi di ricerca); durante la prova ha segnalato un falso positivo sull'editor Markdown in tema scuro, corretto nel controllo.
+
+**Al merge**: nessuno.
+
+### Modali con intestazione, corpo e piè propri: il corpo scorre e il piè non si taglia
+
+Un componente mostrato con `notify.modal` che porta il suo `.modal-header/.modal-body/.modal-footer` (come `PasswordDialog` di ArchivioCase) restava dentro la scatola a blocco del suo elemento host: nel pannello flex il corpo non si restringeva e, su uno schermo basso (un telefono in orizzontale, 360 px), il piè con il pulsante finiva tagliato e irraggiungibile. Ora, nelle modali `modal-dialog-scrollable`, l'host del componente non fa da scatola (`display: contents`, in `_base.scss`): intestazione, corpo e piè tornano figli diretti del pannello. Un `form` che li avvolge è escluso, perché togliergli la scatola ne cambia il ruolo per alcune tecnologie assistive. La X di chiusura, inoltre, non si restringe più (`flex-shrink: 0`): in un'intestazione flex con un titolo lungo, a 320 px scendeva a 43 px. Provato su Pixel 7, iPhone SE (320×568) e telefono in orizzontale (740×360) con le modali di ArchivioCase, a mano e con dati di prova.
+
+**Al merge**: nessuno. Per vedere il corpo scorrere, la modale deve avere `modal-dialog-scrollable` (di serie solo quando il servizio disegna intestazione o pulsanti): una finestra con contenuto proprio lo aggiunge in `dialogClass`.
+
+### Controlli di qualità, avvisi del compilatore e del lint
+
+- **Avviso CS0108 nei figli: `EngineApiController.Sitemap` rinominata `SitemapNotifier`.** `Sitemap` è il nome naturale di un'azione che espone un catalogo `dynamicParams` (`GET strutture/sitemap`, la ricetta stessa dell'Engine): la proprietà dell'Engine la nascondeva e il compilatore avvisava in ogni figlio che la scriveva. Alternative considerate: `new` sull'azione del figlio (toglie l'avviso solo lì, e ogni figlio nuovo lo ritroverebbe), `NoWarn` (nasconde anche gli avvisi veri). Il nome ora è quello del suo tipo, che nessuna azione prenderebbe. **Breaking, un solo punto:** chi chiamava `Sitemap.NotifyChangedAsync(ct)` scrive `SitemapNotifier.NotifyChangedAsync(ct)`.
+- **Lint:** il file generato `global-settings.types.ts` è escluso da ESLint (la sua direttiva `eslint-disable` risultava «inutilizzata»).
+- **Stringhe di SweetAlert nella lingua del sito.** I dialoghi senza testi propri ricadevano sull'inglese di SweetAlert («OK», «Cancel», «No», «Close this dialog»). Ora i valori di serie del mixin sono `confermaAzione`, `noAzione`, `annullaAzione` e `chiudiAzione` nella lingua corrente, e i dialoghi di successo/errore hanno il loro «Chiudi». Verificato in inglese: il toast dell'avviso di sessione dice «Stay signed in» e la sua X «Close».
+- **Dopo il login si resta nella lingua.** `loginReturnTarget` ricadeva su `/` (la home della lingua di default): un login fatto da `/en/login` senza `returnUrl` riportava all'italiano. Ora il ripiego è la home della lingua corrente (`/en`). Chi passa un `fallback` esplicito non cambia.
+
+### `notify.modal({ title, actions, key, owner })`: intestazione, X, pulsanti, una sola istanza e chiusura col proprietario
+
+Prima ogni contenuto di modale scriveva il proprio `.modal-header` con la propria X (in ArchivioCase tre variazioni diverse): ognuna da tenere uguale alle altre. Ora `notify.modal(..., { title: 'Dove' })` disegna da sé l'intestazione standard, con il titolo (che dà il nome al dialogo, `aria-labelledby`) e la X (`.btn-close`, 44 px, «Chiudi», rispetta `canClose`). `closeButton: false` toglie la X (una modale che si chiude solo con un'azione sua); `closeButton: true` senza `title` disegna la sola X; con `bare` non si disegna niente. Senza `title` né `closeButton` la modale è identica a prima: l'intestazione, se c'è, resta del contenuto.
+
+Anche il piè: **`actions`** descrive i pulsanti come le voci di un menu contestuale: `{ label (chiave i18n o testo), icon?, action?, closes?, variant?, disabled? }`. `action` gira al clic (anche asincrona: i pulsanti restano disabilitati con `aria-busy` finché non finisce; se risolve `false` o lancia, la modale resta aperta); `closes: true` chiude dopo l'azione, rispettando `canClose`; `variant` è `primary` | `secondary` (default) | `danger` | `link`; `disabled` è una funzione che, se legge dei signal, il pulsante segue da sé (un `effect` che muore con la modale). Il contenuto resta il solo corpo (`.modal-body`).
+
+**Scorrimento.** Con intestazione o piè disegnati dal servizio, la modale è `modal-dialog-scrollable` di serie: se il contenuto è più alto dello schermo scorre solo il corpo, mentre il titolo con la X e i pulsanti restano fermi (prima, senza `modal-dialog-scrollable` nel `dialogClass`, scorreva l'intera modale e il piè usciva dallo schermo: provato su «Come dormite» di ArchivioCase a 420 px di altezza). Un contenuto senza un suo `.modal-body` viene avvolto dal servizio, e l'elemento host di un componente non fa da scatola (`display: contents`), così il corpo non viene tagliato. `scrollable: false` lascia scorrere l'intera modale. Le modali che non usano `title`, `closeButton` o `actions` non cambiano.
+
+Il corpo scorrevole ha **ombre sfumate in alto e in basso, solo dove c'è altro da scorrere** (spariscono a fine corsa; CSS puro, nessun testo né JS): il segnale standard che il contenuto continua. **`titleIcon`** mette un glifo Font Awesome davanti al titolo.
+
+Tre opzioni in più, tutte facoltative:
+- **`key`**: una sola modale per chiave; una seconda chiamata mentre la prima è aperta restituisce la stessa maniglia invece di aprirne un'altra (un doppio clic non ne apre due; contenuto e opzioni della seconda si ignorano).
+- **`owner`** (di solito `inject(DestroyRef)`): quando il componente che l'ha aperta viene distrutto (un `@if`, un cambio di scheda: non solo un cambio pagina) la modale si chiude da sé, senza `canClose`.
+- **`afterClosed` ora dice come si è chiusa**: `'action'` (un pulsante con `closes`), `'closed'` (`ref.close()` dal codice), `'dismiss'` (X, Escape, clic fuori), `'navigation'` (cambio pagina), `'owner'`. Chi usava `afterClosed.then(() => …)` non cambia.
+
+Più modali insieme funzionano (provato nel browser): una conferma sopra una modale (SweetAlert dentro la modale in cima) e due `notify.modal` impilate; Escape chiude solo quella in cima, la sotto resta, il cambio pagina le chiude tutte e ripulisce lo sfondo e `modal-open`.
+
+```typescript
+this.notify.modal(this.contenuto(), {
+    title: 'Dove', returnFocusTo: bottone, key: 'dove', owner: this.destroyRef,
+    actions: [
+        { label: 'togliZona', icon: 'fa-solid fa-rotate-left', action: () => this.togliZona(), disabled: () => this.nessunaZona() },
+        { label: 'applica', variant: 'primary', closes: true, action: () => this.applica() },
+    ],
+});
+```
+
+**Al merge**: nessuno. Per uniformare una modale: togliere il `.modal-header` dal suo template e passare `title`.
+
+### Le X di chiusura: area di tocco e nome
+
+Provate nelle modali e nei toast (lightbox, toast con chiusura, modali Bootstrap di ArchivioCase): chiudono tutte con clic, tocco ed Escape, e il focus torna al bottone che le ha aperte. Due difetti dell'Engine corretti:
+
+- **`.btn-close` di Bootstrap misurava 16×16 px**, sotto i 24 px di WCAG 2.5.8 e ai 44 px che l'Engine dà ad ogni controllo. Ora l'area cliccabile è `--touchTarget` (44 px), con l'icona sempre da 1 em, centrata.
+- **La X dei toast e dei dialoghi SweetAlert** si chiamava «Close this dialog» (inglese, di serie) e misurava 26×26 px: ora il nome è `chiudiAzione` («Chiudi», nella lingua del sito) e l'area è da 44 px.
+
+**Al merge**: nessuno. Le X proprie di un progetto (un `btn-outline-secondary btn-touch` con l'icona, come in ArchivioCase) funzionano e non cambiano; passare a `.btn-close` è facoltativo.
+
+### Pulsante del menu mobile: solo le tre barre
+
+Il pulsante del menu sotto `md` mostrava le tre barre, l'etichetta «Menu» e un bordo. Ora di serie sono **solo le tre barre**, senza bordo (area di tocco comunque da 44 px, nome accessibile invariato). Chi vuole l'etichetta o il bordo li accende nel design system: **`navbar.etichettaMenu`** e **`navbar.bordoMenu`** (booleani, default `false`; validati come gli altri campi). A desktop il pulsante resta nascosto come prima. Il focus da tastiera usa lo stesso anello del tema degli altri controlli della navbar (`--focusRing*`, ≥ 3:1: misurato circa 14:1 in chiaro) al posto del riquadro da 4px di Bootstrap, e il pulsante ha un po' d'aria dal selettore lingua.
+
+**Al merge**: un progetto che vuole l'aspetto di prima mette `navbar: { etichettaMenu: true, bordoMenu: true }` nel suo design system.
+
+### Sessione prolungabile, pausa dell'animazione, mappa del sito, touch senza hover appiccicato
+
+Dall'audit WCAG nel browser: tre funzioni mancanti e un difetto su touch. Tutto verificato con uno stack vero (backend, Node SSR, Chromium).
+
+- **«Resta connesso» (WCAG 2.2.1).** L'avviso di scadenza, due minuti prima, ora ha un pulsante che rinnova la sessione: nuovo endpoint dell'Engine `POST /session/refresh` (`EngineSessionController`, dietro login, assente col login spento) che rilascia un token con gli stessi claim di dominio (payload di sessione e ruoli) e una nuova scadenza. Il rinnovo ha un tetto, **`ExpirationSeconds × 9,5`** dal login (7 ore e 55 con i 50 minuti di serie; non si configura, segue la durata del token; nuovo claim `sessionStart`): oltre, `403` (non `401`, che farebbe scartare al client una sessione ancora valida) e l'avviso dice di salvare e accedere di nuovo. Una sessione revocata o scaduta non si rinnova (il middleware la respinge prima). Il redirect alla scadenza porta anche `returnUrl`: dopo il login si torna alla pagina con i suoi parametri. Testi `sessioneProlunga*` in `basic.*.json`.
+- **Pausa dell'effetto di sfondo (WCAG 2.2.2).** `AppearanceService` espone `smokeAvailable`, `smokePaused()` e `setSmokePaused()`; `SmokeEffectComponent` li ascolta (in pausa ferma il loop e svuota il canvas: anche meno CPU). Il controllo pronto è `<app-motion-toggle />`, che **non compare se il design system non accende lo smoke**: nessuna pagina di impostazioni da tenere per un effetto che non c'è. La scelta si ricorda sul dispositivo (`smokePaused` in `ENGINE_COOKIE_MAP`, categoria `Technical`: preferenza chiesta dall'utente, esente da consenso; elencata nella Cookie Policy solo con lo smoke acceso). La demo lo monta nel footer con `addCustom`. Lo smoke che il design system accende ma **nessuna pagina mostra** (tutti i ruoli senza pannello, a tutto schermo o con `showSmoke: false`) conta come spento: `smokeAvailable` è `false`, il controllo di pausa non compare e la voce `smokePaused` non entra nella Cookie Policy (scoperto su Br1Gaming, dove lo smoke è acceso ma nessuna pagina lo vede).
+- **Mappa del sito (WCAG 2.4.5), accesa di serie.** L'Engine aggiunge da sé la pagina «Mappa del sito» (`/mappa-del-sito`, `/en/site-map`…, un segmento per lingua) e il suo link nella **fascia delle policy del footer**, senza dichiarare niente in `site.ts`: l'elenco in HTML delle pagine pubbliche nella lingua corrente, derivato da `getSiteMapPages()`: le pagine pubbliche senza segmenti `:param`, **anche quelle fuori indice** (a differenza della `sitemap.xml`: in ArchivioCase la home e la ricerca sono `noindex`, e una mappa derivata dalla `sitemap.xml` sarebbe uscita vuota), tranne le riservate, il login e le pagine con **`inSiteMap: false`** (nuovo campo di pagina, per un «grazie» dopo un modulo e simili). Una pagina nuova compare da sola. La pagina della mappa è fuori indice come le policy. `legal: { siteMap: false }` la spegne, rotta e link compresi (404). Il componente `<app-site-map />` resta usabile da solo. Una ricerca nel sito non è dell'Engine: dipende dai contenuti del progetto (scelta: ci si ferma alla mappa).
+  - **Per sezioni.** La mappa mostra la struttura che il sito dichiara: i contenitori dell'albero delle pagine (es. «Policy» con le sue cinque pagine legali) diventano sezioni con un titolo, rientro con un filo a sinistra e due colonne da `md`. Una sezione con una sola pagina non fa gruppo. Solo classi Bootstrap, nessun CSS proprio; i titoli di sezione sono intestazioni (`aria-level` cresce con la profondità). `getSiteMapPages()` porta per ogni pagina la sua `trail` (i titoli dei contenitori).
+- **Touch: lo `:hover` non resta appiccicato.** Sugli schermi senza puntatore (`hover: none`) il browser tiene `:hover` sull'ultimo punto toccato, e il bottone appena premuto (o quello che finisce sotto il dito dopo un cambio di layout) restava colorato come premuto. Nuovo `styles/engine/base/_touch.scss`: `.btn`, `.dropdown-item`, `.list-group-item-action` e `.page-link` tornano ai colori di riposo in `hover: none`, lasciando intatti premuto, attivo, aperto, scelto (`btn-check`) e disabilitato; le voci dei menu della navbar mettono lo stato al passaggio in `@media (hover: hover)`. Su desktop non cambia niente (verificato: l'hover dei bottoni resta).
+
+**Al merge**: nessuno, salvo che la mappa del sito compare da sola: chi la vuole spenta o ne ha già una propria mette `siteMap: false` in `legal`.
+
+### Accessibilità: correzioni emerse dall'audit WCAG nel browser
+
+Verificate su demo e matrice dei temi con Chromium e `axe-core`:
+
+- **2.5.3 Etichetta nel nome.** Il pulsante del menu della navbar ora ha come nome accessibile «Menu: Apri/chiudi navigazione», che contiene il testo visibile.
+- **1.4.11 Contrasto dell'indicatore di focus.** Bottoni, `btn-check`, chiusure, paginazione, accordion, voci di lista, checkbox, voci e brand della navbar e il footer a sfondo tema mostrano l'anello di focus del tema (≥ 3:1), dove prima lo copriva lo stile di Bootstrap o aveva lo stesso colore dello sfondo. Sulla demo, 183 elementi su 185 col focus hanno l'indicatore ≥ 3:1; i due rimanenti (textarea dell'editor Markdown, slider) lo mostrano con un box-shadow sul contenitore.
+
+**Al merge**: nessuno.
+
+### Correzioni emerse dalla prova nel browser e con le API vere
+
+Provato con uno stack vero (backend, Node SSR, Chromium, `axe-core`) prima di adottare le novità nei figli. Quattro difetti che i test in jsdom non vedevano, tutti corretti:
+
+- **`app-field-error` produceva id duplicati.** `<app-field-error id="x">` lasciava l'attributo `id` sull'elemento ospite **e** lo metteva sul `<div>` del messaggio: `aria-describedby` risolveva l'ospite, non il messaggio (regola `duplicate-id`). L'ospite ora non tiene l'attributo. Chi lo aveva già adottato non cambia niente nei template.
+- **I token con un orologio finto nel passato nascevano «non ancora validi».** `AuthService` ora scrive anche `nbf` e `iat` dal `TimeProvider` (il gestore JWT li riempiva con l'orologio di sistema): con un orologio fisso del 2020 su una macchina del 2026 il token era rifiutato. In produzione, con l'orologio di sistema, non cambia niente.
+- **Il dialogo delle modifiche non salvate spariva con un doppio clic.** Il secondo clic cadeva sul fondo del dialogo, già aperto, e SweetAlert lo leggeva come «fuori» (= Annulla). Il dialogo ora ignora i clic sullo sfondo (`allowOutsideClick: false`): si esce con «Annulla» o Escape.
+- **Il contrasto delle voci del riepilogo errori era sotto la soglia** (bottoni in stile link sullo sfondo dell'avviso): ora ereditano il colore del testo dell'avviso, quindi seguono il tema.
+
+Misurato, e ora documentato: `app-embed` **richiede `frame-src`** (`frontend/README.md` «Estendere la CSP»); il precaricamento per intento anticipa l'88% dei byte della pagina più pesante della demo (non i blocchi che la pagina carica da sé).
+
+**Al merge**: nessuno.
+
+### Documentazione: «Un sito con molti dati» e la mappa aggiornata
+
+Solo testo, nessun codice. Dal metodo con cui è stato costruito il figlio più ricco di dati, la ricetta in `AGENTS.md` (**«Un sito con molti dati (database, ricerca, test)»**): `IDbContextFactory` nei singleton, la fotografia immutabile in memoria con i numeri misurati (910 righe → 3,6 MB e circa 6 ms a ricerca; oltre circa 10.000 righe conviene spingere il filtro in SQL, estrapolazione dichiarata come tale), la lista bianca dei filtri, lo storico che non si sovrascrive con lo stato derivato ricalcolabile (test di idempotenza e servizio in background), URL «nome + codice breve», `TextFold` al posto di un `LIKE` rifatto a mano, il backup di un `.db` acceso con l'API di SQLite. E il metodo di test, che resta del progetto: seme anonimo nel repo («mai un dato vero»), orologio fisso, test differenziale, test avversari, confronto profondo del JSON. `README.md`: nuove righe nella mappa delle aree («Siti grandi», «Form e contenuti incorporati») e le righe di sicurezza, persistenza, cache e test aggiornate.
+
+**Al merge**: nessuno.
+
+### Contenuti di terze parti con consenso: `app-embed`
+
+Emerso da un figlio con un componente per i player incorporati (YouTube, Spreaker): il commento prometteva «carica l'iframe al clic», ma il clic apriva un'altra scheda e l'iframe compariva solo con `autoload`; e la sanificazione dell'indirizzo era saltata su una stringa qualunque. Additivo.
+
+- **`app-embed`** (`[source]`, `[providers]`): un contenuto di terzi **senza nessuna richiesta a terzi finché chi legge non lo vuole**. Si descrive con **un oggetto** (`EmbedSource`): `{ url, title }` (il provider si riconosce dall'indirizzo) oppure `{ provider, id, title }`, più `subtitle`, `cover`, `height`, `link`. Può arrivare tale e quale dal backend o da un file: una pagina disegna l'elenco con un `@for`.
+- **Prima: la facade** (nome, avviso su con chi si condividono i dati, «Carica il player», privacy del provider, «Apri su…»). **Il clic carica il player di quel contenuto** e porta il focus sul player; **con la categoria accettata nel banner** (di serie `Profiling`) si carica da solo, ma solo dopo l'idratazione (il server disegna sempre la facade: niente errore di hydration). Un consenso revocato riporta alla facade i player non cliccati.
+- **Provider di serie**: `youtube` (con `youtube-nocookie.com`), `vimeo` (con `dnt=1`), `spotify`, `spreaker`; uno proprio con `defineEmbedProvider`. Chiavi `embedCarica`, `embedAvviso`, `embedPrivacy`, `embedApriSu`.
+- **Sicurezza**: l'indirizzo dell'iframe nasce solo da un id validato dal provider, `https:` senza credenziali né porta, host fra quelli del provider; altrimenti non si disegna niente (`resolveEmbed` non lancia mai). `sandbox`, `referrerpolicy="strict-origin-when-cross-origin"`, `loading="lazy"`. In sviluppo un host bloccato dalla CSP dice quale riga aggiungere a `frame-src`.
+- **`CookieConsentService.isCategoryAccepted(categoria)`** ora è pubblico (reattivo: legge i signal).
+
+**Al merge**: nessuno. **Da fare in un figlio che usa `app-embed`**: l'host del player in `frame-src` (`security-headers.override.json`; per YouTube `https://www.youtube-nocookie.com`, al posto di `www.youtube.com`) e una voce in `COOKIE_MAP` per provider (resta com'è se c'era già). Un figlio con un proprio componente di embed lo sostituisce: `[embedSrc]`, `[externalUrl]`, `[autoload]`… diventano un `[source]`.
+
+### Le pagine si scaricano prima del clic (`prefetchOnIntent`)
+
+Il template carica ogni pagina a richiesta (`loadComponent`): al clic parte il download del suo codice. Opt-in, spento di serie: nessun figlio cambia comportamento al merge.
+
+- **`prefetchOnIntent: true`** in `site.ts`: il puntatore fermo su un link per 100 ms, il focus da tastiera o l'inizio di un tocco scaricano il codice della pagina di destinazione; il clic la apre subito. **Un ascolto delegato su tutti i link interni** (navbar, footer, breadcrumb, contenuti, Markdown): niente da aggiungere ai template. Una pagina una volta sola, al massimo due scaricamenti insieme; niente a scheda nascosta, con `saveData` o su 2G; link esterni, `target` diversi da `_self`, `download` e `mailto:` esclusi. Non è `PreloadAllModules`: non scarica tutto all'avvio.
+- **Il guadagno cresce con il peso delle pagine.** Nella demo le pagine pesano da meno di 1 kB a circa 43 kB trasferiti: per quelle piccole non si vede. Pensato per siti con pagine pesanti o chi naviga da rete lenta; si misura con la build di produzione.
+- Nuovi: `core/engine/services/page-prefetch.ts` (parte pura), `core/engine/services/page-prefetch.service.ts`, attivato in `app.config.ts`.
+
+**Al merge**: nessuno. Per usarlo: `prefetchOnIntent: true` in `buildSite({...})`.
+
+### Validatori pronti e riepilogo degli errori del form (`form-validators.ts`, `app-error-summary`)
+
+Emerso da due figli: uno aveva un file di validatori (intero, decimale, coordinate, email, telefono) e tre varianti dello stesso riepilogo errori con focus sul primo campo; l'altro confrontava a mano la conferma della password. Additivo.
+
+- **`core/engine/components/field-error/form-validators.ts`**: `requiredTrimmed`, `integer`, `decimal`, `coordinate`/`latitude`/`longitude`, `emailPlausible`, `phone` e `sameAs`, con i codici che `app-field-error` spiega da sé (nuovi: `integer`, `decimal`, `phone`, `sameAs`, `latitude`, `longitude`, `coordinate`; chiavi `fieldError*` in `basic.*.json`). **Un campo vuoto è valido per tutti tranne `requiredTrimmed`**: un facoltativo è `[integer()]`, un obbligatorio `[requiredTrimmed, integer()]`. `min`/`max` rendono la forma di `Validators.min`/`max`. `integer` è non negativo e arriva a 9 cifre (il limite di `parseLooseInteger`); per negativi e decimali `decimal`.
+- **`sameAs('altroCampo')`** si ricalcola da sé quando cambia **l'altro** campo: senza, una conferma uguale restava «valida» dopo la modifica della password (un validatore gira solo quando cambia il suo campo). Una iscrizione per controllo, senza emettere eventi: due `sameAs` reciproci non si richiamano all'infinito.
+- **`app-error-summary`** (`[items]`, `[general]`, `[heading]`) con `collectFieldErrors`, `showFormErrors` e `focusFirstInvalid` (`core/engine/components/error-summary/form-errors.ts`): in cima al form, titolo, una voce per campo con nome e messaggio, un clic porta il focus sul campo. **Letto dal DOM** (`aria-invalid` e `aria-describedby` che `appFieldError` già mette), quindi il messaggio è per costruzione quello sotto il campo e funziona con campi in componenti figli, modali e stepper. **Il focus va al riepilogo** a ogni nuovo elenco (non al primo campo), il titolo della pagina prende «Errore: » finché il riepilogo è visibile. Chiavi `errorSummaryTitolo`, `errorSummaryTitlePrefix`.
+- **`app-field-error`** conosce i codici nuovi; i `[messages]` del progetto continuano a vincere.
+
+**Al merge**: nessuno. Per adottare: un file di validatori di progetto con le stesse regole si cancella (il telefono con +39, o un importo che dipende da un altro campo, restano del progetto); un componente d'errore di campo con una mappa codici → chiavi diventa `app-field-error` con `[messages]` per i codici suoi; i riepiloghi scritti a mano diventano `app-error-summary` e `showFormErrors`; la conferma password confrontata a mano diventa `sameAs`. Le chiavi `fieldError*` e `errorSummary*` sono nuove in `basic`: una chiave del figlio con lo stesso nome in `addon` vince.
+
+### Pronto per i siti grandi: sitemap spezzata in più file e orologio dei token iniettabile
+
+Emerso misurando un figlio con molti dati (circa mille schede indicizzabili): il template regge fino a qualche decina di migliaia di pagine, e due limiti erano scritti nel codice come «non ancora fatto». Additivo: sotto i limiti non cambia niente.
+
+- **Sitemap-index.** Oltre 50.000 URL o 50 MB per file (limiti del protocollo) `/sitemap.xml` diventa da sé un `<sitemapindex>` e le pagine escono da `/sitemap-1.xml`, `/sitemap-2.xml`… Entro i limiti è la stessa `<urlset>` unica di prima, byte per byte, e `robots.txt` non cambia. Le varianti-lingua di una pagina stanno sempre nello stesso file (le alternate hreflang puntano a URL dello stesso file); si contano i byte reali, non i caratteri; `<lastmod>` di una voce dell'indice è il più recente fra le sue pagine, omesso se nessuna ne ha uno. Con 25.000 pagine in due lingue si superano già i 50.000 URL. `buildSitemapSet` in `services/sitemap-xml.ts` (pura); `buildSitemapXml` resta com'era. Rotta `/sitemap-N.xml` (N senza zeri iniziali: `/sitemap-01.xml` è 404, un contenuto non ha due indirizzi). Variabile **`SITEMAP_MAX_URLS`** (1-50.000, `DOCKER_README.md`) per abbassare il tetto per file.
+- **`ctx.fetchBackendPages<T>(path, { pageSize?, maxPages? })`** nella `dynamicParams`, accanto a `fetchBackendJson`: un catalogo grosso a pagine (`?page=N&pageSize=M`, array o `{ items: [] }`), invece di una risposta unica che può superare il timeout del proxy. Un backend che ignora `page` si ferma a `maxPages` con un errore chiaro. `DynamicParamsContext` ha un campo in più: un figlio che costruisce da sé un contesto di prova lo aggiunge.
+- **Orologio dei token.** `AuthService` (claim `exp` e `loginTime`), `MemorySessionRevocation` e il controllo di scadenza del middleware JWT leggono il `TimeProvider` registrato in DI (di serie `TimeProvider.System`, registrato con `TryAdd`). Un test registra un orologio fisso e prova scadenza e revoca senza aspettare. Il controllo di scadenza è un `LifetimeValidator` dell'Engine con le stesse regole e le stesse eccezioni di quello di serie (IdentityModel 8.x non ha un punto di iniezione). I costruttori di `AuthService` e `MemorySessionRevocation` hanno un parametro in più **facoltativo**: `new AuthService(options)` funziona come prima.
+
+**Al merge**: nessuno. Un figlio che registrava già `AddSingleton(TimeProvider.System)` (o un orologio fisso nei test) continua a funzionare: la sua registrazione, fatta dopo, vince; fatta prima, vince comunque sul `TryAdd`. Con più di 50.000 URL e un `dynamicParams` che scarica tutto in una volta, conviene passare a `fetchBackendPages`.
+
+### Modifiche non salvate: un oggetto, un dialogo (`LeaveGuardService.registerDirty` e `confirmDiscard`)
+
+Emerso in due figli: uno aveva un registro sopra `LeaveGuardService` con un dialogo «Salva / Non salvare / Annulla» e un solo dialogo per più editor; l'altro aveva lo stesso dialogo scritto a mano in due punti (una pagina e la `canClose` di una modale), con gli stessi testi duplicati. Additivo: `register({ dirty, confirm })` resta com'era.
+
+- **`registerDirty({ dirty, save?, label?, message? }, destroyRef)`**: chi ha modifiche non salvate descrive il proprio stato con un oggetto e il dialogo è dell'Engine. Più editor sporchi nella stessa pagina producono **un solo dialogo** («…in più sezioni: FAQ, Orari»). Con `save` su **tutte** le voci sporche il dialogo ha tre vie (Salva / Non salvare / Annulla); se anche una sola non ha `save`, ne ha due (Esci senza salvare / Resta qui, in rosso): salvare le une e perdere le altre sarebbe ambiguo.
+- **«Salva» è sicuro**: si esce solo se ogni `save` è riuscito **e** nessuna voce resta sporca; un salvataggio che lancia, rifiuta o non azzera `dirty` (una validazione che rifiuta) lascia l'utente dov'è, con la sua pagina. Niente eccezioni non gestite.
+- **`confirmDiscard(only?)`**: la stessa domanda per le uscite che non sono navigazioni: la `canClose` di una modale (`confirmDiscard([{ dirty, label }])`, solo le proprie modifiche, senza coinvolgere il resto della pagina) o un cambio di scheda (senza argomenti: tutte le voci registrate). `canLeave()` la chiama dopo i `confirm` delle voci registrate con `register`.
+- **Due navigazioni insieme** (un doppio clic) condividono lo stesso dialogo.
+- **Chiavi nuove** in `basic.*.json`: `modificheNonSalvateTitolo`, `modificheNonSalvateTesto`, `modificheNonSalvateIn`, `modificheNonSalvateInPiu`, `modificheSalva`, `modificheNonSalvare`, `modificheEsci`, `modificheResta`. `message` sostituisce il testo di serie quando serve dire cosa si perde davvero.
+- **`LeaveGuardService` ora inietta `NotificationService` e `TranslateService`** (nessun ciclo: verificato).
+
+**Al merge**: nessuno. Per adottare: un registro di progetto con la stessa funzione (`UnsavedChangesService`) si cancella e gli editor chiamano `leaveGuard.registerDirty({ dirty, save, label }, destroyRef)`; un dialogo di uscita scritto a mano (pagina o `canClose`) diventa `registerDirty` / `confirmDiscard`, e le sue chiavi i18n duplicate si tolgono.
+
+### Dai figli all'Engine: ritorno dopo il login, pagine per ruolo, testo senza accenti, controllo segmentato, errore di campo, hash password, revoca persistente
+
+Emerso da un confronto fra i figli: lo stesso codice scritto più volte (la logica di ritorno nelle pagine di login, cinque copie del confronto senza accenti, `PasswordHasher` identico byte per byte in due progetti) e un buco che un figlio segnalava da sé (il DSL non poteva proteggere una pagina per ruolo). Tutto **additivo**: niente cambia finché un figlio non lo adotta.
+
+- **Ritorno dopo il login** (`core/engine/login-return.ts`): `validReturnUrl` (solo indirizzi interni: un `//altro.it` o `/\altro.it` scritto in `?returnUrl=` vale `null`, niente open redirect), `loginUrlFrom`, `loginReturnTarget(params, lang, fallback)` (ordine: `returnUrl`, poi `returnPageType`, poi il ripiego). **`authGuard` ora manda anche `returnUrl`** (l'indirizzo esatto richiesto, parametri compresi, in base64url: una pagina `/scheda/:id` torna alla scheda, non alla home) accanto a `returnPageType`, che resta. Nuova direttiva **`appLoginLink`** (`<a appLoginLink>`): il link «Accedi» che riporta alla pagina in cui si è. La pagina di login di Dominio diventa una riga: `navigateByUrl(loginReturnTarget(...))` (la demo lo fa).
+- **Pagine per ruolo**: `requiresRole: 'admin' | ['admin', 'editor']` nel DSL (basta un ruolo). Implica `requiresAuth` (login, SSR spento); chi è loggato senza il ruolo va a `/error/403`; su una pagina contenitore vale per il sottoalbero; `requiresAuth: false` insieme a `requiresRole` o un ruolo vuoto fermano il build. I ruoli si leggono da `roles` nel payload di sessione. La protezione vera resta `[Authorize(Roles = "...")]`. `roles` deve essere un array: una stringa non vale nessun ruolo (`'superadmin'` non è `'admin'`), e un `requiresRole` malformato nei dati della rotta chiude la pagina (403), non la apre. Padre e figlio con ruoli diversi li richiedono entrambi. Un figlio con un proprio `adminGuard` e un controllo da sé all'avvio delle pagine admin li sostituisce con la dichiarazione.
+- **Testo senza maiuscole e accenti**: `core/engine/text-fold.ts` (`foldText`, `containsFolded`, `slugify`) e la gemella `Backend.Engine.TextFold` (`Fold`, `Slugify`): stesso risultato lato client e lato server (verificato su 20 000 stringhe casuali: accenti, segni combinanti, devanagari, sigma greco finale). Tolgono tutti i segni Unicode (categoria M), non solo gli accenti.
+- **`app-segmented-control`**: scelta di una voce fra 2-6, come campo di form (`formControlName`/`ngModel`) o con `[(value)]`; varianti `group` e `pill`; bottoni da 44 px con `aria-pressed`. `YES_NO_OPTIONS` e `YES_NO_UNKNOWN_OPTIONS` per sì/no/non indicato. Chiavi `segmentedSi`, `segmentedNo`, `segmentedNonIndicato`.
+- **`app-field-error`**: il messaggio sotto il campo, per i validatori di Angular (`required`, `email`, `minlength`, `maxlength`, `min`, `max`, `pattern`) e per i propri (`[messages]="{ codice: 'chiaveI18n' }"`); un errore `server` stringa passa com'è. Si lega al campo con `appFieldError`. Chiavi `fieldError*`.
+- **`PasswordHasher`** (`Backend.Security`, `Engine/Security/PasswordHasher.cs`): PBKDF2-HMACSHA256, stesso formato `{iterazioni}.{sale}.{hash}` di quelli già salvati nei figli, più `NeedsRehash` e un tetto alle iterazioni lette da un hash salvato (`MaxIterations`, 10 milioni: un record manomesso non blocca il login). I nuovi hash usano 600 000 iterazioni (OWASP per SHA-256); quelli a 210 000 dei figli restano validi e `NeedsRehash` li segnala al primo login riuscito, che li riscrive. Un figlio che ne ha una copia propria (`Services/PasswordHasher.cs`) la cancella e cambia il `using`: gli hash già nel database restano validi.
+- **Revoca sessione persistente**: base astratta `CachedSessionRevocation` (`Engine/Security/CachedSessionRevocation.cs`) per una `ISessionRevocation` che vive nel database. Si implementano tre metodi (`AccountKey`, `LoadState`, `SaveValidFrom`); stato in cache 30 secondi, `Forget`/`RevokeAccount` per l'effetto immediato, account inesistente o disabilitato = token respinto, token senza `loginTime` respinto se c'è una revoca. Un figlio con una revoca scritta a mano (per gruppo, per utente) la riscrive sopra questa base.
+
+**Al merge**: nessuno. Per adottare: `login.component.ts` con `loginReturnTarget`; `requiresRole` al posto di un guard di progetto; `foldText`/`slugify`/`TextFold` al posto delle copie locali; `app-segmented-control`/`app-field-error` al posto di componenti propri equivalenti (chiavi `fieldError*`: le chiavi del figlio con lo stesso nome vanno in `addon`); `Backend.Security.PasswordHasher` al posto della copia.
+
 ### Il menu azioni a «⋮» si apre con un click (`app-action-menu`)
 
 Emerso in un figlio: la scheda di un elemento e le card di un'area riservata avevano una fila di pulsanti (modifica, conferma, abilita, password…). Il menu contestuale dell'Engine c'era già, ma si apriva solo con tasto destro o pressione lunga: nessuno lo scopre da solo, e il figlio non poteva ridurre i pulsanti.

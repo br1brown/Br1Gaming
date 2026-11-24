@@ -3,7 +3,7 @@ import type { PageType } from '../../site';
 import type { PageBaseComponent } from './pages/page-base.component';
 import { environment } from '../../../environments/environment';
 import { hasCookiesConfigured } from './services/cookie/cookie-utils';
-import { buildPolicySection, filterManagedLegalPages, resolveLegalPages, type LegalDefinition, type LegalPageSpec } from './legal/legal-pages';
+import { SITE_MAP_PAGE, buildPolicySection, buildSiteMapPage, filterManagedLegalPages, resolveLegalPages, type LegalDefinition, type LegalPageSpec } from './legal/legal-pages';
 import type { StructuredDataInput } from './services/structured-data';
 import type { BreadcrumbItem, BreadcrumbContext } from './services/breadcrumb';
 import type { NavLink } from './shell-nav';
@@ -100,6 +100,8 @@ export interface SiteConfig {
     cookiePolicy: PageType | null;
     /** Cache in-process per l'endpoint `/sitemap.xml` delle pagine con `dynamicParams`. */
     dynamicSitemapCache: boolean;
+    /** Scarica il codice di una pagina quando chi naviga mostra l'intento (puntatore fermo su un link, focus, inizio di un tocco): vedi {@link SiteDefinition.prefetchOnIntent}. */
+    prefetchOnIntent: boolean;
     /** Override del calcolo breadcrumb per-PageType. */
     resolveBreadcrumb?: (pageType: PageType, ctx: BreadcrumbContext) => BreadcrumbItem[] | null;
     /** Percorso backend per un'immagine blob dinamica dato il GUID (og:image, icona di brand...).
@@ -128,8 +130,15 @@ type BasePageInput = {
     enabled?: boolean;
     /** Richiede autenticazione per l'accesso (forza `renderMode: 'client'`). */
     requiresAuth?: boolean;
+    /** Richiede uno dei ruoli indicati (basta averne uno), letti da `roles` nel payload di sessione. Implica
+     *  `requiresAuth` (login, SSR spento); chi è loggato ma senza il ruolo va alla pagina 403. Su una pagina
+     *  contenitore vale per l'intero sottoalbero. La protezione vera resta `[Authorize(Roles = "...")]` nel backend. */
+    requiresRole?: string | readonly string[];
     /** Dati arbitrari aggiuntivi associati alla pagina. */
     data?: Record<string, unknown>;
+    /** Compare nella Mappa del sito in HTML (`legal.siteMap`). Default `true` per ogni pagina pubblica senza `:param`, anche `noindex`;
+     *  `false` per una pagina che non è una meta (un «grazie»). Login e pagine riservate non compaiono mai. */
+    inSiteMap?: boolean;
 };
 
 /** Discriminante esplicito delle varianti di pagina supportate dalla DSL. */
@@ -213,6 +222,7 @@ export type ExternalPageInput = Omit<BasePageInput, 'path'> & {
     /** Un link esterno non passa da `routing.ts` (nessun `canActivate`): "richiedi login" non ha
      *  un effetto da applicare. Per nasconderlo a chi non è loggato usa `authOnly` su `addLink`. */
     requiresAuth?: never;
+    requiresRole?: never;
 };
 
 /** Un elemento dell'albero pagine, dichiarato nel file di area (`pages/*.pages.ts`), non in site.ts (che assembla più aree con uno spread). `kind` è opzionale: il builder lo ricava dalla forma dell'oggetto. */
@@ -292,6 +302,17 @@ const normalizeSitePage = (
     context: string,
     ruoli: RuoliDelSito
 ): SitePage => {
+    if (!isExternalPageInput(page) && page.requiresRole !== undefined) {
+        if (page.requiresAuth === false) {
+            throw new Error(`[SiteBuilder] Pagina non valida in ${context}: requiresRole richiede il login, ma requiresAuth è false.`);
+        }
+        const roles: readonly unknown[] = [page.requiresRole].flat();
+        if (roles.length === 0 || roles.some(r => typeof r !== 'string' || r.trim() === '')) {
+            throw new Error(`[SiteBuilder] Pagina non valida in ${context}: requiresRole vuole un ruolo (o un elenco di ruoli) non vuoti.`);
+        }
+        page = { ...page, requiresAuth: true }; // requiresRole implica il login: spegne l'SSR e mette authGuard, come requiresAuth.
+    }
+
     if (isParentPageInput(page)) {
         assertDeclaredKind(page, 'parent', context);
 
@@ -303,7 +324,9 @@ const normalizeSitePage = (
             // metterebbe il guard sul padre, ma i figli resterebbero SSR, in sitemap e indicizzabili.
             children: page.children.map((child, index) =>
                 normalizeSitePage(
-                    page.requiresAuth && !isExternalPageInput(child) ? { ...child, requiresAuth: child.requiresAuth ?? true } : child,
+                    page.requiresAuth && !isExternalPageInput(child)
+                        ? { ...child, requiresAuth: child.requiresAuth ?? true, requiresRole: child.requiresRole ?? page.requiresRole }
+                        : child,
                     `${context}.children[${index}]`, ruoli)
             )
         };
@@ -409,6 +432,9 @@ export interface SiteDefinition {
     isWebApp?: boolean;
     /** Cache in-process per l'endpoint `/sitemap.xml` delle pagine con `dynamicParams`. */
     dynamicSitemapCache?: boolean;
+    /** Scarica il codice di una pagina interna prima del clic (puntatore fermo 100 ms, focus, tocco), una volta per pagina; non con `saveData`,
+     *  in 2G o a scheda nascosta (`PagePrefetchService`). Default `false`. */
+    prefetchOnIntent?: boolean;
     /** Override per-`PageType` del calcolo breadcrumb. */
     resolveBreadcrumb?: (pageType: PageType, ctx: BreadcrumbContext) => BreadcrumbItem[] | null;
     /** Override del percorso backend per un'immagine blob dinamica (og:image). Vedi {@link SiteConfig.resolveBlobImageUrl}. */
@@ -478,6 +504,8 @@ export interface BuiltSite {
     getLegalPage: (type: PageType) => LegalPageSpec | null;
     /** Voci della sitemap per ogni pagina e lingua. */
     getSitemapEntries: () => SitemapEntry[];
+    /** Pagine della Mappa del sito in HTML, per ogni lingua: le pubbliche senza `:param`, anche fuori indice, tranne login e `inSiteMap: false`. */
+    getSiteMapPages: () => SitemapEntry[];
     /** Percorsi pubblici SSR per gli audit live. */
     getAuditPaths: () => string[];
     /** Pagine con `dynamicParams` dichiarato per la sitemap dinamica. */
@@ -498,6 +526,8 @@ export type SitemapEntry = {
     lastmod?: string | null;
     /** Chiave di raggruppamento hreflang aggiuntiva. */
     groupKey?: string;
+    /** Titoli (chiave i18n o testo) dei contenitori che portano alla pagina, dal più esterno: la struttura della Mappa del sito in HTML. Solo in `getSiteMapPages()`. */
+    trail?: readonly string[];
 };
 
 // ======================================================
@@ -670,6 +700,7 @@ function buildFinalConfig(definition: SiteDefinition): { config: SiteConfig; ruo
             codiceFiscale: definition.jsonld?.codiceFiscale ?? false,
         },
         dynamicSitemapCache: definition.dynamicSitemapCache ?? true,
+        prefetchOnIntent: definition.prefetchOnIntent ?? false,
         resolveBreadcrumb: definition.resolveBreadcrumb,
         resolveBlobImageUrl: definition.resolveBlobImageUrl,
         errorChrome: resolveRuoloPagina('error', ruoli),
@@ -695,10 +726,11 @@ function processPages(
     loginPageType: PageType | null,
     lang: string,
     defaultLang: string,
+    siteMapPages: SitemapEntry[],
 ): SitemapEntry[] {
-    const seenInternalPaths = new Set<string>();
+    const seenInternalPaths = new Map<string, PageType>();
 
-    const walk = (nodes: SitePage[], parent: string): SitemapEntry[] =>
+    const walk = (nodes: SitePage[], parent: string, trail: readonly string[]): SitemapEntry[] =>
         nodes.flatMap((page) => {
             if (!page.enabled) return [];
 
@@ -714,16 +746,19 @@ function processPages(
             const resolvedSegment = resolvePagePath(page.path, lang, defaultLang);
             const fullPath = `/${[parent, resolvedSegment].filter(Boolean).join('/')}`.replace(/\/+/g, '/');
 
-            if (isParentPage(page)) return walk(page.children, fullPath);
+            if (isParentPage(page)) return walk(page.children, fullPath, page.title ? [...trail, page.title] : trail);
 
             if (seenInternalPaths.has(fullPath)) {
-                throw new Error(`[SiteBuilder] Path interno duplicato rilevato: "${fullPath}".`);
+                const engineMap = page.pageType === SITE_MAP_PAGE || seenInternalPaths.get(fullPath) === SITE_MAP_PAGE;
+                throw new Error(`[SiteBuilder] Path interno duplicato rilevato: "${fullPath}".` + (engineMap
+                    ? ' È l\'indirizzo della Mappa del sito che l\'Engine aggiunge da sé: per usare una tua pagina dichiara `legal: { siteMap: false }` in site.ts (oppure scegli un altro percorso).'
+                    : ''));
             }
             const key = pageMapKey(page.pageType, lang, defaultLang);
             if (pageMap.has(key)) {
                 throw new Error(`[SiteBuilder] PageType duplicato rilevato: "${String(page.pageType)}" (lingua "${lang}"). Ogni pagina deve avere un pageType unico.`);
             }
-            seenInternalPaths.add(fullPath);
+            seenInternalPaths.set(fullPath, page.pageType);
             const noindex = page.pageType === loginPageType ? (page.noindex ?? true) : !!page.noindex;
             pageMap.set(key, {
                 title: page.title,
@@ -745,6 +780,10 @@ function processPages(
                 auditPaths.push(fullPath);
             }
 
+            // Mappa del sito in HTML: anche le pagine fuori indice, che la `sitemap.xml` non elenca ma sono posti dove andare.
+            if (!page.requiresAuth && page.inSiteMap !== false && page.pageType !== loginPageType && !hasUnresolvedPathParam(fullPath)) {
+                siteMapPages.push({ path: fullPath, description: page.description, lang, pageType: page.pageType, trail });
+            }
             if (page.requiresAuth || noindex) return [];
             if (hasUnresolvedPathParam(fullPath)) {
                 if (page.dynamicParams) {
@@ -767,7 +806,7 @@ function processPages(
             return [{ path: fullPath, description: page.description, lang, pageType: page.pageType }];
         });
 
-    return walk(pages, resolveLangPrefix(lang, defaultLang));
+    return walk(pages, resolveLangPrefix(lang, defaultLang), []);
 }
 
 /** Lancia errore se lo slot punta a un PageType non registrato o disabilitato. */
@@ -802,6 +841,9 @@ export interface SlugNode {
 /** Contesto passato a `LeafPageInput.dynamicParams`. */
 export interface DynamicParamsContext {
     fetchBackendJson: <T>(path: string) => Promise<T>;
+    /** Chiama `path` con `?page=N&pageSize=M` (N da 1) finché una pagina è più corta di `pageSize` e rende tutti gli elementi; la risposta
+     *  è un array o `{ items }`. Oltre `maxPages` (di serie 1000) lancia: il backend ignora forse `page`. */
+    fetchBackendPages: <T>(path: string, options?: { pageSize?: number; maxPages?: number }) => Promise<T[]>;
 }
 
 /** Contesto passato a `LeafPageInput.contentLoader`. */
@@ -903,19 +945,31 @@ export function applyPathParams(path: string, params: Record<string, string> | u
         .join('/');
 }
 
-/** Risolve `legalPages` (non filtrata dall'override) in `NavLink[]` per la fascia "small prints". Una voce che non risolve in `pageMap` resta semplicemente assente, come `resolveNavItems` in shell-nav.ts. */
+/** Risolve `legalPages` (non filtrata dall'override) più la mappa del sito, se accesa, in `NavLink[]` per la fascia "small prints". Una voce che non risolve in `pageMap` resta semplicemente assente, come `resolveNavItems` in shell-nav.ts. */
 function resolveLegalFooterLinks(
     legalPages: readonly LegalPageSpec[],
     pageMap: Map<string, PageInfo>,
     lang: string,
     defaultLang: string,
+    siteMap: boolean,
 ): NavLink[] {
-    return legalPages
-        .map((spec): NavLink | null => {
-            const entry = pageMap.get(pageMapKey(spec.page, lang, defaultLang));
+    return [...legalPages.map(spec => spec.page), ...(siteMap ? [SITE_MAP_PAGE] : [])]
+        .map((page): NavLink | null => {
+            const entry = pageMap.get(pageMapKey(page, lang, defaultLang));
             return entry ? { label: entry.title, path: entry.path, isExternal: entry.isExternal } : null;
         })
         .filter((item): item is NavLink => item !== null);
+}
+
+/** Almeno una pagina mostra lo smoke? Stessa regola di `AppComponent.showSmoke`: il ruolo della pagina può dirlo (`showSmoke`), altrimenti c'è dove c'è il pannello e la vista non è a tutto schermo. */
+function anyPageShowsSmoke(pages: readonly SitePage[], pannello: boolean): boolean {
+    return pages.some(page => {
+        if (!page.enabled) return false;
+        if (isParentPage(page)) return anyPageShowsSmoke(page.children, pannello);
+        if (page.kind !== 'leaf') return false;
+        const { showSmoke, showPanel, fitViewport } = page.chrome;
+        return showSmoke ?? (pannello && (showPanel ?? true) && !(fitViewport ?? false));
+    });
 }
 
 /** Spegne (`enabled: false`) la pagina con quel PageType, ovunque sia nell'albero. */
@@ -943,7 +997,14 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
     const managedLegalPages = filterManagedLegalPages(allLegalPages, declaredPageTypes);
 
     const policySection = buildPolicySection(managedLegalPages);
-    const sitePages = normalizeSitePages(policySection ? [...declaredPages, policySection] : declaredPages, ruoli);
+    // Mappa del sito: accesa di serie (`legal.siteMap: false` la spegne), in coda alle pagine dichiarate e alle policy.
+    const siteMapOn = definition.legal.siteMap !== false;
+    const sitePages = normalizeSitePages([...declaredPages, ...(policySection ? [policySection] : []), ...(siteMapOn ? [buildSiteMapPage()] : [])], ruoli);
+    // Lo smoke acceso dal design system ma che nessuna pagina mostra (tutti i ruoli senza pannello o a tutto schermo) è come spento: così `AppearanceService.smokeAvailable`
+    // e il controllo di pausa non compaiono per un effetto che non si vede mai, e la voce `smokePaused` non entra nella Cookie Policy.
+    if (finalConfig.aspetto.smoke.enable && !anyPageShowsSmoke(sitePages, finalConfig.aspetto.pannello)) {
+        finalConfig.aspetto.smoke.enable = false;
+    }
     // Login spento (Features.Login): la pagina puntata da `loginPage` resta dichiarata ma non viene
     // creata, come una pagina con `enabled: false`.
     if (definition.loginPage != null && !environment.features?.login) {
@@ -957,10 +1018,11 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
     const auditPaths: string[] = [];
     const defaultLang = environment.defaultLang;
     let sitemap: SitemapEntry[] = [];
+    const siteMapPages: SitemapEntry[] = [];
 
     for (const lang of environment.availableLanguages) {
         sitemap = sitemap.concat(
-            processPages(sitePages, pageMap, serverRenderEntries, dynamicPages, contentLoaders, auditPaths, finalConfig.loginPage ?? null, lang, defaultLang)
+            processPages(sitePages, pageMap, serverRenderEntries, dynamicPages, contentLoaders, auditPaths, finalConfig.loginPage ?? null, lang, defaultLang, siteMapPages)
         );
     }
 
@@ -968,7 +1030,7 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
 
     const legalFooterLinksByLang = new Map<string, NavLink[]>();
     for (const lang of environment.availableLanguages) {
-        legalFooterLinksByLang.set(lang, resolveLegalFooterLinks(allLegalPages, pageMap, lang, defaultLang));
+        legalFooterLinksByLang.set(lang, resolveLegalFooterLinks(allLegalPages, pageMap, lang, defaultLang, siteMapOn));
     }
 
     return {
@@ -981,6 +1043,7 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
         hasLoginPageSlot: definition.loginPage != null,
         getLegalPage: (type: PageType) => managedLegalPages.find(spec => spec.page === type) ?? null,
         getSitemapEntries: () => sitemap,
+        getSiteMapPages: () => siteMapPages,
         getAuditPaths: () => auditPaths,
         getDynamicPages: () => Array.from(dynamicPages.values()),
         getContentLoader: (type: PageType) => contentLoaders.get(type) ?? null,

@@ -3,14 +3,17 @@ import {
     DestroyRef,
     ElementRef,
     afterNextRender,
+    effect,
     inject,
     input,
     viewChild,
 } from '@angular/core';
 import { SmokeSettings } from '../../../../site';
+import { AppearanceService } from '../../services/appearance.service';
 
 /** Effetto decorativo a particelle di fumo su `<canvas>`, parametri dal design system attivo.
- *  Anima via `requestAnimationFrame`, disattivato (canvas vuoto) con `prefers-reduced-motion`. */
+ *  Anima via `requestAnimationFrame`, disattivato (canvas vuoto) con `prefers-reduced-motion` e fermabile dall'utente
+ *  (`AppearanceService.setSmokePaused`, WCAG 2.2.2): in pausa il loop si ferma e il canvas si svuota, alla ripresa le particelle ripartono da dove erano. */
 @Component({
     selector: 'app-smoke-effect',
     templateUrl: './smoke-effect.component.html',
@@ -24,6 +27,8 @@ export class SmokeEffectComponent {
 
     private readonly canvasRef = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
     private readonly destroyRef = inject(DestroyRef);
+    private readonly paused = inject(AppearanceService).smokePaused;
+    private ctx: CanvasRenderingContext2D | null = null;
 
     private animationId = 0;
     private particles: Particle[] = [];
@@ -54,12 +59,27 @@ export class SmokeEffectComponent {
             this.rgb = SmokeEffectComponent.parseHexColor(this.config().color);
 
             this.initParticles(canvas);
-            // Zoneless: requestAnimationFrame non innesca change detection, quindi il loop
-            // di animazione non tiene mai l'app "instabile". Nessun wrapping NgZone necessario.
-            this.animate(canvas, ctx);
-
+            this.ctx = ctx;
             this.destroyRef.onDestroy(() => cancelAnimationFrame(this.animationId));
+            // Avvio e pausa li decide l'effect qui sotto: nasce con `ready` e col canvas pronti.
+            this.syncPause();
         });
+        effect(() => { this.paused(); this.syncPause(); });
+    }
+
+    /** Allinea il loop alla pausa: ferma e svuota, o (ri)parte una volta sola. Prima del setup (o con reduced-motion) non fa niente. */
+    private syncPause(): void {
+        if (!this.ready || !this.ctx) return;
+        const canvas = this.canvasRef().nativeElement;
+        cancelAnimationFrame(this.animationId);
+        this.animationId = 0;
+        if (this.paused()) {
+            this.ctx.clearRect(0, 0, canvas.width, canvas.height);
+            return;
+        }
+        // Zoneless: requestAnimationFrame non innesca change detection, quindi il loop
+        // di animazione non tiene mai l'app "instabile". Nessun wrapping NgZone necessario.
+        this.animate(canvas, this.ctx);
     }
 
     onResize(): void {

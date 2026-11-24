@@ -40,8 +40,9 @@ public abstract class EngineApiController : ControllerBase
     /// <summary>Consegna esiti con switch realtime/email: <c>Delivery.DeliverAsync(message)</c>.</summary>
     protected IDeliveryService Delivery => HttpContext.RequestServices.GetRequiredService<IDeliveryService>();
 
-    /// <summary>Invalida la cache sitemap (<c>Sitemap.NotifyChangedAsync()</c>); no-op silenzioso finché <c>Frontend.Origin</c> non è configurato.</summary>
-    protected SitemapNotifier Sitemap => HttpContext.RequestServices.GetRequiredService<SitemapNotifier>();
+    /// <summary>Invalida la cache sitemap (<c>SitemapNotifier.NotifyChangedAsync()</c>); no-op silenzioso finché <c>Frontend.Origin</c> non è configurato.
+    /// Si chiama come il suo tipo e non <c>Sitemap</c> apposta: <c>Sitemap</c> è il nome naturale di un'azione del controller (<c>GET strutture/sitemap</c> per un catalogo <c>dynamicParams</c>) e la nasconderebbe (CS0108).</summary>
+    protected SitemapNotifier SitemapNotifier => HttpContext.RequestServices.GetRequiredService<SitemapNotifier>();
 
     /// <summary>connectionId della SSE del chiamante (header X-Connection-Id) o null; targeta "questa scheda" senza un parametro nelle firme degli endpoint.</summary>
     protected string? ConnectionId
