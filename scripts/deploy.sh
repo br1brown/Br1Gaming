@@ -350,7 +350,11 @@ echo -e "${BOLD}Pubblicazione${RESET}"
 info "Build delle immagini di produzione (dalla cache del preflight)..."
 docker compose "${compose_files[@]}" build "${services[@]}"
 info "Sostituzione dei container di produzione..."
-docker compose "${compose_files[@]}" up -d --wait --wait-timeout 120 "${services[@]}"
+# Se l'ApiKey è ruotata, un servizio con immagine invariata NON verrebbe ricreato da `up`
+# e terrebbe in cache la chiave vecchia (→ 401 su ogni /api). Forziamo la ricreazione.
+up_flags=(-d --wait --wait-timeout 120)
+[[ "$KEY_CHANGED" == true ]] && up_flags+=(--force-recreate)
+docker compose "${compose_files[@]}" up "${up_flags[@]}" "${services[@]}"
 ok "Container avviati e sani"
 
 echo
