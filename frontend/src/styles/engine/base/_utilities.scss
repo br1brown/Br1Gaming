@@ -91,8 +91,8 @@ code {
    Sempre sopra il target di tocco (--touchTarget); più grande sotto md, dove si usa col pollice.
    Sempre opaco: l'icona è un controllo (WCAG 1.4.11, 3:1) e una trasparenza ne mangia il contrasto. */
 .fab {
-    width: 3rem;
-    height: 3rem;
+    width: var(--fabSize);
+    height: var(--fabSize);
     cursor: pointer;
     box-shadow: var(--shadowElevated),
                 0 0 0 1px color-mix(in srgb, currentColor 38%, transparent);
@@ -114,9 +114,8 @@ code {
 }
 
 @media (max-width: #{lib.$bp-md - 0.02px}) {
-    .fab {
-        width: 3.25rem;
-        height: 3.25rem;
+    :root {
+        --fabSize: 3.25rem;
     }
 }
 

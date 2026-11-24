@@ -55,6 +55,8 @@
     /* Target di tocco minimo (WCAG 2.5.5, 44px): ogni controllo cliccabile da solo — bottone icona,
        voce di menu, toggle — non scende sotto. Unica eccezione: toolbar dense .btn-sm (2.5.8, 24px). */
     --touchTarget: 2.75rem;
+    /* Pulsante flottante (.fab: «torna su», cookie standard): sopra il target di tocco, più grande sotto md (_utilities.scss). */
+    --fabSize: 3rem;
 
     /* Icone: glifo in un controllo (sm in .btn-sm, md in .btn), lg per icone di stato isolate.
        --iconBadgeSize è la pastiglia tonda dei contatti/social: pari al target di tocco. */

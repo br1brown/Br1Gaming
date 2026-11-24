@@ -581,7 +581,8 @@ Un pannello fixed con z-index alto dentro un componente finisce comunque dentro 
 #### Accessibilità (WCAG 2.2 A/AA): cosa arriva dall'Engine e cosa resta al progetto
 Verificato nel browser reale (Chromium, `axe-core`, matrice dei temi); un figlio che non tocca l'Engine li eredita. Cosa non basta aspettarsi e cosa va acceso:
 - **Già dell'Engine**: la **mappa del sito** (2.4.5: pagina e link nella fascia delle policy del footer, accese da sole; `legal.siteMap: false` per spegnerle), contrasto del testo e degli indicatori di focus su ogni tema (1.4.3, 1.4.11, 2.4.7), nome accessibile dei controlli (2.5.3), skip link e landmark (2.4.1), titolo di pagina e focus alla navigazione (2.4.2, 2.4.3), errori di form collegati ai campi con riepilogo (3.3.1, 3.3.3, `app-field-error`, `app-error-summary`), riflusso e zoom, `prefers-reduced-motion`, lingua della pagina, annunci `role="alert"`/`status` (4.1.3), avviso e **prolungamento della sessione** (2.2.1, «Resta connesso» → `POST /session/refresh`, tetto `ExpirationSeconds × 9,5`).
-- **Da accendere**: pausa dell'effetto di sfondo (2.2.2) con `<app-motion-toggle />` (si nasconde da sola senza smoke); la dichiarazione di accessibilità (`legal.accessibility`).
+- **Già acceso**: pausa dell'effetto di sfondo (2.2.2), pulsante flottante `app-motion-pause` montato dalla shell; `<app-motion-toggle />` solo se serve una voce in più.
+- **Da accendere**: la dichiarazione di accessibilità (`legal.accessibility`).
 - **Del contenuto, non garantibili**: testi alternativi (1.1.1), sottotitoli e trascrizioni (1.2.x), ordine e senso dei contenuti (1.3.x), il colore come unico segnale (1.4.1), l'aiuto contestuale (3.3.5). Un `<img>` senza `alt` o un video senza sottotitoli lo porta il progetto.
 - Su **touch** lo `:hover` non resta appiccicato (`base/_touch.scss`): un effetto al passaggio nuovo va in `@media (hover: hover)`, come fanno `lift-on-hover` e gli altri.
 

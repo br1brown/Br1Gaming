@@ -1,26 +1,18 @@
-<!-- Nessun margine sopra: il distacco dal contenuto lo dà <main> (_layout.scss). Colonne sulla linea
-     del contenuto (.shell-line), non sulla griglia a scatti di .container. -->
+<!-- Solo utility di Bootstrap. Il distacco dal contenuto lo dà <main>; colonne sulla linea del contenuto (.shell-line).
+     Link del progetto, poi una barra (copyright | mappa e pagine legali, in colonna sotto md) e la descrizione.
+     Il fondo è la corsia dei pulsanti fissi («torna su», cookie): padding-bottom di .site-footer in _footer.scss. -->
 <footer class="theme-bg site-footer">
-    <div class="shell-line py-5">
+    <div class="shell-line pt-4 pb-2">
         <app-footer-nav [links]="footerNavLinks()" />
 
-        @if (legalFooterLinks().length > 0) {
-            <div class="row pb-3">
-                <div class="col">
-                    <app-footer-link-row [links]="legalFooterLinks()" />
-                </div>
-            </div>
-            <hr />
-        }
-
-        <div class="row pt-3">
-            <div class="col text-center footer-fineprint">
-                <p class="mb-1" [innerHTML]="footerCopyright() | markdownLite"></p>
-                @if (description()) {
-                <p class="italic">{{ description() }}</p>
-                }
-            </div>
+        <div class="d-flex flex-column flex-md-row justify-content-md-between align-items-center gap-2 small text-center text-md-start">
+            <p class="mb-0 text-break" [innerHTML]="footerCopyright() | markdownLite"></p>
+            @if (legalFooterLinks().length > 0) {
+                <app-footer-link-row [links]="legalFooterLinks()" align="end" />
+            }
         </div>
-
+        @if (description()) {
+            <p class="mt-2 mb-0 small fst-italic text-center text-md-start text-break">{{ description() }}</p>
+        }
     </div>
 </footer>

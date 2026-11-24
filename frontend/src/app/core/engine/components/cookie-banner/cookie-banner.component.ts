@@ -19,11 +19,10 @@ export class CookieBannerComponent {
     readonly cookieConsent = inject(CookieConsentService);
     readonly theme = inject(AppearanceService);
     private readonly translate = inject(TranslateService);
-    private readonly pagemeta = inject(PageMetaService);
-    
-    readonly isCookiePolicy = computed(() => {
-        return ContestoSito.config.cookiePolicy != null && this.pagemeta.currentPageType() === ContestoSito.config.cookiePolicy;
-    });
+    private readonly pageMeta = inject(PageMetaService);
+    /** Pulsante di riapertura a schermo: consenso già dato, fuori dalla Cookie Policy (lì c'è il pannello). */
+    readonly reopenVisible = computed(() => this.cookieConsent.responded()
+        && !(ContestoSito.config.cookiePolicy != null && this.pageMeta.currentPageType() === ContestoSito.config.cookiePolicy));
 
     /** `'discreto'` (default): FAB di riapertura più piccolo del `.fab`
      *  standard. `'standard'`: stessa dimensione di `.fab` (es. `back-to-top`) — il LATO

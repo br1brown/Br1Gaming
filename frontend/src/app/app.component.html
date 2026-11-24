@@ -49,6 +49,11 @@
     }
 </main>
 
+<!-- Pausa dello smoke: sticky alto 0 fra <main> e footer, flotta in fondo e si ferma da sola dove il footer inizia. -->
+@if (showSmoke()) {
+    <app-motion-pause />
+}
+
 @if (showFooter()) {
     <app-footer />
 }

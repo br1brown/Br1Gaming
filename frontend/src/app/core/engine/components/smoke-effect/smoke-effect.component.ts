@@ -10,10 +10,11 @@ import {
 } from '@angular/core';
 import { SmokeSettings } from '../../../../site';
 import { AppearanceService } from '../../services/appearance.service';
+import { injectPrefersReducedMotion } from '../../breakpoints';
 
 /** Effetto decorativo a particelle di fumo su `<canvas>`, parametri dal design system attivo.
- *  Anima via `requestAnimationFrame`, disattivato (canvas vuoto) con `prefers-reduced-motion` e fermabile dall'utente
- *  (`AppearanceService.setSmokePaused`, WCAG 2.2.2): in pausa il loop si ferma e il canvas si svuota, alla ripresa le particelle ripartono da dove erano. */
+ *  Anima via `requestAnimationFrame`. Fermo (canvas vuoto) con `prefers-reduced-motion`, anche cambiata a pagina aperta, o in
+ *  pausa (`AppearanceService.setSmokePaused`, WCAG 2.2.2); alla ripresa le particelle ripartono da dove erano. */
 @Component({
     selector: 'app-smoke-effect',
     templateUrl: './smoke-effect.component.html',
@@ -28,14 +29,13 @@ export class SmokeEffectComponent {
     private readonly canvasRef = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
     private readonly destroyRef = inject(DestroyRef);
     private readonly paused = inject(AppearanceService).smokePaused;
+    private readonly reducedMotion = injectPrefersReducedMotion();
     private ctx: CanvasRenderingContext2D | null = null;
 
     private animationId = 0;
     private particles: Particle[] = [];
     private rgb: { r: number; g: number; b: number } = { r: 0, g: 0, b: 0 };
-    // true solo dopo il setup in afterNextRender (canvas pronto, reduced-motion non attivo):
-    // onResize() può scattare (evento asincrono) prima che il setup sia completo, o non scattare
-    // mai se l'utente preferisce animazioni ridotte — in entrambi i casi non deve toccare il canvas.
+    // true solo dopo il setup in afterNextRender (canvas pronto): onResize() può scattare prima.
     private ready = false;
 
     constructor() {
@@ -45,11 +45,6 @@ export class SmokeEffectComponent {
             const canvas = this.canvasRef().nativeElement;
             const ctx = canvas.getContext('2d');
             if (!ctx) return;
-
-            // Il check per `prefers-reduced-motion` viene fatto qui (lato client) e non con un `@if`
-            // per evitare un mismatch di idratazione con SSR. Se l'utente non vuole animazioni,
-            // il canvas rimane nel DOM ma non avvia alcun loop e resta invisibile.
-            if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
 
             this.resizeCanvas(canvas);
             this.ready = true;
@@ -64,16 +59,17 @@ export class SmokeEffectComponent {
             // Avvio e pausa li decide l'effect qui sotto: nasce con `ready` e col canvas pronti.
             this.syncPause();
         });
-        effect(() => { this.paused(); this.syncPause(); });
+        // Niente `@if` su reduced-motion (mismatch di idratazione con l'SSR): il canvas resta, il loop no.
+        effect(() => { this.paused(); this.reducedMotion(); this.syncPause(); });
     }
 
-    /** Allinea il loop alla pausa: ferma e svuota, o (ri)parte una volta sola. Prima del setup (o con reduced-motion) non fa niente. */
+    /** Allinea il loop a pausa e reduced-motion: ferma e svuota, o (ri)parte una volta sola. Prima del setup non fa niente. */
     private syncPause(): void {
         if (!this.ready || !this.ctx) return;
         const canvas = this.canvasRef().nativeElement;
         cancelAnimationFrame(this.animationId);
         this.animationId = 0;
-        if (this.paused()) {
+        if (this.paused() || this.reducedMotion()) {
             this.ctx.clearRect(0, 0, canvas.width, canvas.height);
             return;
         }

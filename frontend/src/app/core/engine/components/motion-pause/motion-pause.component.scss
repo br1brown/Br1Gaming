@@ -1,0 +1,19 @@
+/* Host sticky alto quanto la sua corsia: fermo sopra il footer non copre il contenuto, mentre flotta lascia passare i click.
+   L'offset `bottom` conta solo mentre flotta; --mp-lift (sopra il pulsante dei cookie) lo imposta _layout.scss. */
+:host {
+    --mp-size: var(--touchTarget);
+    --mp-lift: 0px;
+    height: calc(var(--space-3) + var(--mp-size));
+    pointer-events: none;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + var(--mp-lift) + var(--bottomBarOffset, 0px));
+}
+/* `'standard'` (`fab.cookie`): la misura di `.fab`; `'discreto'`: il target di tocco, come il pulsante dei cookie. */
+:host(.motion-pause--standard) { --mp-size: var(--fabSize); }
+
+.motion-pause-btn {
+    bottom: var(--space-3);
+    inset-inline-start: var(--space-3);
+    width: var(--mp-size);
+    height: var(--mp-size);
+    pointer-events: auto;
+}

@@ -60,6 +60,7 @@
         color: inherit !important;
         border-top: none !important;
         margin-top: 1rem !important;
+        padding-bottom: 0 !important;   /* niente corsia dei pulsanti fissi su carta */
 
         app-loading,
         app-footer-nav {

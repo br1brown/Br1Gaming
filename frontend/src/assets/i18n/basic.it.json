@@ -356,6 +356,8 @@
   "durataPreferenzaListaCookie": "Finché non cambi la scelta",
   "motionToggleLabel": "Animazione di sfondo",
   "motionToggleAiuto": "Fermala se il movimento ti disturba.",
+  "motionPauseFerma": "Ferma l'animazione di sfondo",
+  "motionPauseRiprendi": "Riprendi l'animazione di sfondo",
   "siteMapMenu": "Mappa del sito",
   "siteMapDescrizione": "Tutte le pagine del sito in un elenco.",
   "paginationNav": "Pagine dei risultati",

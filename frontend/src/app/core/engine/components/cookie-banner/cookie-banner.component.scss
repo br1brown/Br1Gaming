@@ -1,15 +1,12 @@
 @use 'engine/base/lib' as lib;
 
+/* In fondo allo schermo fino in fondo alla pagina; --bottomBarOffset è la fascia offline (0 se non c'è).
+   inset-inline-start: lato opposto a «torna su» anche in RTL. */
 app-cookie-banner .cookie-reopen-btn {
     position: fixed;
-    /* --bottomBarOffset: altezza di una fascia fissa in fondo (stato offline), 0 se non c'è. */
     bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-3) + var(--bottomBarOffset, 0px));
-    /* inset-inline-start, non left: resta a "inizio riga" anche in RTL, lato opposto a back-to-top. */
     inset-inline-start: var(--space-3);
-    /* Scala z-index del template: vedi base.scss §variabili */
     z-index: var(--z-cookie-banner);
-    border: none;
-    padding: 0;
 }
 
 /* `'discreto'` (default): più piccolo del `.fab` standard, ma mai sotto il target di tocco
@@ -17,12 +14,6 @@ app-cookie-banner .cookie-reopen-btn {
 app-cookie-banner .cookie-reopen-btn:not(.cookie-reopen-btn--standard) {
     width: var(--touchTarget);
     height: var(--touchTarget);
-}
-
-@media (max-width: #{lib.$bp-md - 0.02px}) {
-    app-cookie-banner .cookie-reopen-btn {
-        bottom: calc(env(safe-area-inset-bottom, 0px) + 5rem + var(--bottomBarOffset, 0px));
-    }
 }
 
 app-cookie-banner .cookie-banner {
@@ -157,7 +148,6 @@ app-cookie-banner .cookie-category summary::after {
     transform: rotate(-45deg);
     transition: transform var(--movimentoMicro, 0.15s);
     flex-shrink: 0;
-    margin-left: auto;
 }
 
 app-cookie-banner .cookie-category[open] summary::after {
@@ -175,7 +165,7 @@ app-cookie-banner .cookie-category[open] summary::after {
 app-cookie-banner .cookie-switch-hit {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-end;   /* lo switch finisce sul bordo destro della riga, come il badge «Necessari» */
     min-width: var(--touchTarget);
     min-height: var(--touchTarget);
     cursor: pointer;

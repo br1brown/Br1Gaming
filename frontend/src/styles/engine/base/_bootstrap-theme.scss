@@ -66,6 +66,12 @@
     outline-color: var(--colorNavText);
 }
 
+/* Interruttori nel footer a tinta del brand: acceso, la pista di Bootstrap è `primary`, cioè spesso lo stesso colore del
+   footer, e restava visibile solo il pallino (WCAG 1.4.11). Bordo del colore del testo della fascia, come l'anello di focus. */
+.site-footer.theme-bg .form-check-input {
+    border-color: var(--colorNavText);
+}
+
 /* Il brand della navbar di serie usa il colore dei titoli, spesso illeggibile su --colorNavBg. Globale e non
    nello stile del componente: sulle rotte solo client lo <style> scoped può arrivare senza nonce CSP. */
 .navbar.theme-bg {

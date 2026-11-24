@@ -1,0 +1,52 @@
+import { ChangeDetectionStrategy, Component, afterNextRender, computed, inject, signal } from '@angular/core';
+import { AppearanceService } from '../../services/appearance.service';
+import { CookieConsentService } from '../../services/cookie-consent.service';
+import { TranslatePipe } from '../../pipes/translate.pipe';
+import { injectPrefersReducedMotion } from '../../breakpoints';
+import { ContestoSito } from '../../../../site';
+
+/** Pulsante che ferma o riprende lo smoke (WCAG 2.2.2). Host `sticky-bottom` fra `<main>` e footer, alto quanto la sua corsia:
+ *  flotta in fondo e si ferma da solo sopra il footer; sopra il pulsante dei cookie lo porta `_layout.scss` (`:has()`).
+ *  Sparisce col banner dei cookie aperto e con «riduci movimento». */
+@Component({
+    selector: 'app-motion-pause',
+    imports: [TranslatePipe],
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    styleUrl: './motion-pause.component.scss',
+    host: {
+        class: 'sticky-bottom d-print-none',
+        // Nascosto, l'host non tiene la sua corsia vuota sopra il footer.
+        '[class.d-block]': 'visible()',
+        '[class.d-none]': '!visible()',
+        '[class.motion-pause--standard]': 'standard',
+    },
+    template: `
+        @if (visible()) {
+            @let key = appearance.smokePaused() ? 'motionPauseRiprendi' : 'motionPauseFerma';
+            <button type="button"
+                    class="motion-pause-btn surface-elevated fab rounded-circle border-0 p-0 d-flex align-items-center justify-content-center position-absolute"
+                    [attr.aria-label]="key | translate" [attr.title]="key | translate"
+                    (click)="appearance.setSmokePaused(!appearance.smokePaused())">
+                <i class="fa-solid icon-md" [class.fa-pause]="!appearance.smokePaused()" [class.fa-play]="appearance.smokePaused()" aria-hidden="true"></i>
+            </button>
+        }
+    `,
+})
+export class MotionPauseComponent {
+    protected readonly appearance = inject(AppearanceService);
+    private readonly cookie = inject(CookieConsentService);
+    private readonly reducedMotion = injectPrefersReducedMotion();
+    // Solo dopo l'idratazione: in SSR non si sa né lo stato dei cookie né la preferenza di movimento.
+    private readonly hydrated = signal(false);
+
+    /** Stessa misura del pulsante dei cookie (`fab.cookie` del design system). */
+    protected readonly standard = ContestoSito.config.aspetto.fab.cookie === 'standard';
+
+    protected readonly visible = computed(() =>
+        this.hydrated() && this.appearance.smokeAvailable && !this.reducedMotion()
+        && !(this.cookie.isNeeded() && !this.cookie.responded()));
+
+    constructor() {
+        afterNextRender(() => this.hydrated.set(true));
+    }
+}
