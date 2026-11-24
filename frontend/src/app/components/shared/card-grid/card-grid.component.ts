@@ -3,6 +3,7 @@ import { EmptyStateComponent } from '../../../core/engine/components/empty-state
 import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
 import { ContentCardComponent } from '../content-card/content-card.component';
 import { PageType } from '../../../site';
+import { foldText as fold } from '../../../core/engine/text-fold';
 
 /** Una voce della griglia: titolo, sottotitolo, immagine e pagina di destinazione. */
 export interface CardEntry {
@@ -12,11 +13,6 @@ export interface CardEntry {
     pageType: PageType;
     /** Valori per gli eventuali segmenti `:xxx` del path (pagine parametriche, es. i generatori). */
     params?: Record<string, string>;
-}
-
-/** Minuscolo + senza accenti: rende la ricerca tollerante a maiuscole e diacritici ("città" ≈ "citta"). */
-function fold(text: string): string {
-    return text.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
 }
 
 /**
