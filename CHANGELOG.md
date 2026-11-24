@@ -2,6 +2,12 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Deploy con ApiKey ruotata: i servizi pubblicati si ricreano sempre
+
+Se la chiave cambiava e un servizio aveva l'immagine invariata (deploy parziale), `docker compose up` non lo ricreava: frontend e backend tengono l'ApiKey in cache dall'avvio, e il lato non ricreato rispondeva 401 su ogni `/api`. `deploy.sh` e `deploy-release.sh` ora passano `--force-recreate` a `up` quando `KEY_CHANGED` è vero; gli altri deploy restano com'erano. Il blocco «Coerenza frontend↔backend» continua a riallineare il lato non pubblicato.
+
+**Al merge**: nessuno (scripts/ è Engine/scaffold: vince il template).
+
 ### `generate:statics` toglie i vecchi `sitemap.xml`, `llms.txt` e `security.txt` da `public/`
 
 Da quando sono rotte del server SSR non si generano più, ma una copia rimasta in `frontend/public/` dalle versioni precedenti restava lì: `ng serve` la serviva al posto della rotta vera, con dati vecchi (su Br1Gaming la sitemap elencava due generatori tolti dal backend, che rispondevano 404). Ora `generate:statics` li toglie a ogni avvio e build. `public/` è gitignored, quindi lì c'è solo roba generata: niente di scritto a mano va perso. In produzione non cambiava niente: il server monta le rotte prima dei file statici.
