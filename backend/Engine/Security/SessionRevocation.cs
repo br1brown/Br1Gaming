@@ -46,13 +46,13 @@ public static class SessionRevocation
     /// <summary>Claim con l'istante di emissione in millisecondi Unix, accanto a <see cref="LoginTimeClaimType"/>: una revoca e un login nello stesso secondo restano distinti.</summary>
     public const string LoginTimeMsClaimType = "loginTimeMs";
 
-    /// <summary>Istante di emissione in millisecondi: da <see cref="LoginTimeMsClaimType"/>, o dalla fine del secondo di <see cref="LoginTimeClaimType"/>
-    /// per un token che ha solo quello (nel dubbio vale come emesso fino alla revoca). <c>null</c> se mancano entrambi.</summary>
+    /// <summary>Istante di emissione in millisecondi: da <see cref="LoginTimeMsClaimType"/>, o dall'inizio del secondo di <see cref="LoginTimeClaimType"/>
+    /// per un token che ha solo quello: una revoca nello stesso secondo lo respinge. <c>null</c> se mancano entrambi.</summary>
     public static long? LoginTimeMs(ClaimsPrincipal user)
     {
         var raw = user.FindFirst(LoginTimeMsClaimType)?.Value;
         if (long.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out var ms)) return ms;
-        return LoginTime(user) is { } seconds && seconds < long.MaxValue / 1000 ? seconds * 1000 + 999 : null;
+        return LoginTime(user) is { } seconds && seconds < long.MaxValue / 1000 ? seconds * 1000 : null;
     }
 }
 
