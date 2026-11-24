@@ -17,6 +17,12 @@ Provati e **senza difetti**: azioni di modale che lanciano o rifiutano, tre clic
 
 **Al merge**: nessuno.
 
+### `foldText`/`TextFold`: legature, larghezza piena e lettere senza accento scomponibile
+
+Provata la parità fra frontend e backend su 28 testi (0 differenze): erano uguali, ma buttavano le lettere che la scomposizione Unicode non riduce. «Straße» diventava `stra-e`, «Øresund Łódź» `resund-odz`, «ﬁne» `ne`, il testo a larghezza piena spariva. Ora entrambi usano la scomposizione di compatibilità (NFKD: legature, larghezza piena, `Ⅻ` → `xii`) e una tabella per `ß`, `æ`, `œ`, `ø`, `ł`, `đ`, `þ`, `ð`, `ı`, `ħ`: `strasse`, `oresund-lodz`, `fine`, `aesir-oeuvre`. Greco, cirillico e ideogrammi restano fuori dagli slug (si usa il `fallback`).
+
+**Al merge**: uno slug salvato da un nome con quelle lettere cambia al prossimo calcolo; con indirizzi «nome + codice» (la ricetta dei siti con molti dati) porta comunque alla scheda giusta. Una ricerca per «strasse» ora trova «Straße».
+
 ### Revoca al millisecondo e toast «Resta connesso» che non sparisce su errore
 
 - **Revoca della sessione**: `AuthService` scrive anche `loginTimeMs` e la revoca confronta i millisecondi (`SessionRevocation.LoginTimeMs`). Prima un login nello stesso secondo di «esci da tutti i dispositivi» (o di un cambio password) dava un token respinto per tutta la sua durata. Un token con il solo `loginTime` vale come emesso a fine secondo, come prima.
