@@ -26,18 +26,19 @@ public static class PasswordHasher
         return $"{DefaultIterations}.{Convert.ToBase64String(salt)}.{Convert.ToBase64String(hash)}";
     }
 
-    /// <summary>Verifica una password contro un hash prodotto da <see cref="Hash"/>, con confronto a tempo costante; <c>false</c> su un formato non valido.
-    /// Con <paramref name="encodedHash"/> <c>null</c> (account inesistente) calcola comunque un hash a <see cref="DefaultIterations"/> e dà <c>false</c>:
-    /// il tempo di risposta non dice se l'account esiste.</summary>
+    /// <summary>Verifica una password contro un hash prodotto da <see cref="Hash"/>, con confronto a tempo costante. Costa sempre almeno
+    /// <see cref="DefaultIterations"/>: con <paramref name="encodedHash"/> <c>null</c> (account inesistente), malformato o con meno iterazioni
+    /// si calcola il resto su un sale fisso, così il tempo di risposta non dice se l'account esiste. <c>false</c> se non è un hash valido.</summary>
     public static bool Verify(string password, string? encodedHash)
     {
-        if (encodedHash is null)
+        if (encodedHash is null || !TryParse(encodedHash, out var iterations, out var salt, out var expected))
         {
-            Verify(password, MissingAccountHash.Value);
+            Rfc2898DeriveBytes.Pbkdf2(password, PaddingSalt, DefaultIterations, HashAlgorithmName.SHA256, HashSize);
             return false;
         }
-        if (!TryParse(encodedHash, out var iterations, out var salt, out var expected)) return false;
         var actual = Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, HashAlgorithmName.SHA256, expected.Length);
+        if (iterations < DefaultIterations)
+            Rfc2898DeriveBytes.Pbkdf2(password, PaddingSalt, DefaultIterations - iterations, HashAlgorithmName.SHA256, HashSize);
         return CryptographicOperations.FixedTimeEquals(actual, expected);
     }
 
@@ -46,8 +47,8 @@ public static class PasswordHasher
     public static bool NeedsRehash(string encodedHash) =>
         TryParse(encodedHash, out var iterations, out _, out _) && iterations < DefaultIterations;
 
-    // Hash di una password casuale, calcolato una volta con le iterazioni correnti: la verifica di un account inesistente costa quanto una vera.
-    private static readonly Lazy<string> MissingAccountHash = new(() => Hash(Convert.ToBase64String(RandomNumberGenerator.GetBytes(16))));
+    // Sale del calcolo a vuoto di Verify (account inesistente, hash malformato, iterazioni mancanti): il risultato si scarta.
+    private static readonly byte[] PaddingSalt = RandomNumberGenerator.GetBytes(SaltSize);
 
     private static bool TryParse(string encodedHash, out int iterations, out byte[] salt, out byte[] hash)
     {

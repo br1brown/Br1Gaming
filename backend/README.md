@@ -1158,7 +1158,7 @@ Ricetta rapida: [AGENTS.md](../AGENTS.md#leggere-la-sessione).
 
 ### Hash delle password: `PasswordHasher`
 
-`Backend.Security.PasswordHasher` (`Engine/Security/PasswordHasher.cs`): `Hash(password)` e `Verify(password, hash)` con PBKDF2-HMACSHA256 (600 000 iterazioni, sale casuale, confronto a tempo costante). Formato `{iterazioni}.{saltBase64}.{hashBase64}`: i parametri viaggiano con l'hash, quindi `NeedsRehash(hash)` dice quando un hash vecchio va riscritto al prossimo login riuscito. Un formato non valido è `false`, non un'eccezione. Il formato è un contratto: uno script esterno che produce hash per lo stesso database lo replica identico. Per un account inesistente si passa `null` come hash (`Verify(pwd, account?.PasswordHash)`): calcola comunque un hash con le iterazioni correnti e risponde `false`, così il tempo di risposta non rivela quali utenti esistono, anche dopo un cambio di iterazioni.
+`Backend.Security.PasswordHasher` (`Engine/Security/PasswordHasher.cs`): `Hash(password)` e `Verify(password, hash)` con PBKDF2-HMACSHA256 (600 000 iterazioni, sale casuale, confronto a tempo costante). Formato `{iterazioni}.{saltBase64}.{hashBase64}`: i parametri viaggiano con l'hash, quindi `NeedsRehash(hash)` dice quando un hash vecchio va riscritto al prossimo login riuscito. Un formato non valido è `false`, non un'eccezione. Il formato è un contratto: uno script esterno che produce hash per lo stesso database lo replica identico. Per un account inesistente si passa `null` come hash (`Verify(pwd, account?.PasswordHash)`). `Verify` costa sempre almeno le iterazioni correnti, anche con `null`, un hash malformato o uno con meno iterazioni: il tempo di risposta non rivela quali utenti esistono.
 
 ### Logout e revoca della sessione
 
