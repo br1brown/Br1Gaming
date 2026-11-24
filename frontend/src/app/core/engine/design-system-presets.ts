@@ -273,6 +273,10 @@ export interface DesignSystemPreset {
         superficie?: 'brand' | 'body';
         /** Icona di brand nella navbar; `false` la toglie ovunque, qualunque ruolo. Default `true`. */
         icona?: boolean;
+        /** Etichetta «Menu» accanto alle tre barre del pulsante mobile (da chiuso). Default `false`: solo le tre barre (il nome accessibile resta). */
+        etichettaMenu?: boolean;
+        /** Bordo attorno al pulsante mobile del menu. Default `false`: solo le tre barre. */
+        bordoMenu?: boolean;
     };
     footer?: {
         /** `false`: niente footer su nessuna pagina, qualunque ruolo. Default `true`. */
@@ -557,7 +561,7 @@ const REGOLE_GRUPPI: { [G in Gruppo]: Record<keyof NonNullable<DesignSystemPrese
         palette: 'a parte',
     },
     elevazione: { ombra: valoriDi(OMBRA_TIERS), angoli: valoriDi(ANGOLI_TIERS) },
-    navbar: { show: 'boolean', fissa: 'boolean', superficie: valoriDi<'brand' | 'body'>({ brand: 1, body: 1 }), icona: 'boolean' },
+    navbar: { show: 'boolean', fissa: 'boolean', superficie: valoriDi<'brand' | 'body'>({ brand: 1, body: 1 }), icona: 'boolean', etichettaMenu: 'boolean', bordoMenu: 'boolean' },
     footer: { show: 'boolean' },
     breadcrumb: { show: 'boolean', stile: valoriDi(BREADCRUMB_SEPARATORE), maxVoci: 'a parte' },
     fab: { tornaSuSoglia: valoriDi(BACK_TO_TOP_SOGLIA_PX), cookie: valoriDi<CookieReopenStile>({ discreto: 1, standard: 1 }) },
@@ -831,7 +835,7 @@ export interface Aspetto {
     pulsazione: PulsazioneAttiva;
     elevazione: { ombra: Ombra; angoli: Angoli };
     densita: Densita;
-    navbar: { show: boolean; fissa: boolean; superficie: 'brand' | 'body'; icona: boolean };
+    navbar: { show: boolean; fissa: boolean; superficie: 'brand' | 'body'; icona: boolean; etichettaMenu: boolean; bordoMenu: boolean };
     footer: { show: boolean };
     breadcrumb: { show: boolean; stile: BreadcrumbStile; maxVoci: number | 'none' };
     fab: { tornaSuSoglia: BackToTopSoglia; cookie: CookieReopenStile };
@@ -878,6 +882,8 @@ export function risolviAspetto(preset: DesignSystemPreset | undefined): Aspetto 
             fissa: p.navbar?.fissa ?? false,
             superficie: p.navbar?.superficie ?? 'brand',
             icona: p.navbar?.icona ?? true,
+            etichettaMenu: p.navbar?.etichettaMenu ?? false,
+            bordoMenu: p.navbar?.bordoMenu ?? false,
         },
         footer: { show: p.footer?.show ?? true },
         breadcrumb: { show: p.breadcrumb?.show ?? false, stile: p.breadcrumb?.stile ?? 'traccia', maxVoci: p.breadcrumb?.maxVoci ?? 4 },

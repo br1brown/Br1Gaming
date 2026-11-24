@@ -43,10 +43,17 @@
 
 /* Il tint di sfondo è un feedback in più, non il solo indicatore di focus: da solo (10% su sfondo
    già scuro) è sotto la soglia di percepibilità per molti utenti (WCAG 2.4.7), quindi l'anello globale resta, nessun outline:none. */
-.navbar .dropdown-item:hover,
 .navbar .dropdown-item:focus-visible {
     background-color: color-mix(in srgb, currentColor 10%, transparent);
     color: inherit;
+}
+
+/* Al passaggio solo dove un puntatore esiste: su touch lo :hover resta appiccicato dopo il tocco (vedi base/_touch.scss). */
+@media (hover: hover) {
+    .navbar .dropdown-item:hover {
+        background-color: color-mix(in srgb, currentColor 10%, transparent);
+        color: inherit;
+    }
 }
 
 /* Bootstrap .dropdown-item.active usa --bs-dropdown-link-active-bg (primary).
@@ -190,9 +197,15 @@
         display: none;
     }
 
-    #navbar-menu .dropdown-item:hover,
     #navbar-menu .dropdown-item:focus-visible {
         background-color: transparent;
         text-decoration: underline;
+    }
+
+    @media (hover: hover) {
+        #navbar-menu .dropdown-item:hover {
+            background-color: transparent;
+            text-decoration: underline;
+        }
     }
 }

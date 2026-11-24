@@ -116,6 +116,15 @@ export const ENGINE_COOKIE_MAP = {
         descriptionKey: 'bearerTokenDescrizioneListaCookie',
         durationKey: 'durataAccessoListaCookie',
     },
+    /** localStorage. Preferenza dell'utente: effetto di sfondo animato in pausa (`AppearanceService.setSmokePaused`). Scelta esplicita dell'utente
+     *  su come vuole vedere il sito → Technical (esente), mai cancellata dalla revoca. Incluso solo se il design system accende lo smoke. */
+    smokePaused: {
+        category: ConsentCategory.Technical,
+        storage: 'local',
+        valueType: 'boolean',
+        descriptionKey: 'smokePausedDescrizioneListaCookie',
+        durationKey: 'durataPreferenzaListaCookie',
+    },
     ...CONSENT_COOKIE_MAP
 } as const satisfies Readonly<Record<string, CookieConfig>>;
 
@@ -123,4 +132,4 @@ export type EngineCookieKey = keyof typeof ENGINE_COOKIE_MAP;
 
 /** Chiavi delle voci essenziali del motore su Web Storage: elencate in policy ma MAI cancellate
  *  alla revoca (ultima scelta di consenso + autenticazione). */
-export const ESSENTIAL_ENGINE_STORAGE_KEYS = ['consent_log', 'bearerToken'] as const;
+export const ESSENTIAL_ENGINE_STORAGE_KEYS = ['consent_log', 'bearerToken', 'smokePaused'] as const;

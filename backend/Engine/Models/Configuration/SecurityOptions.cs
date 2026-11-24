@@ -53,6 +53,10 @@ public class TokenOptions
     /// </summary>
     public int ExpirationSeconds { get; set; } = 3000;
 
+    /// <summary>Durata massima di una sessione dal login, rinnovi compresi (<c>POST /session/refresh</c>): <see cref="ExpirationSeconds"/> × 9,5,
+    /// con i 50 minuti di serie 7 ore e 55. Non si configura; passato il tetto serve un nuovo login.</summary>
+    public int MaxSessionSeconds => (int)Math.Min(int.MaxValue, ExpirationSeconds * 9.5);
+
     /// <summary>Costruisce la chiave simmetrica per JWT. Lancia se <see cref="SecretKey"/> è vuota, ha spazi iniziali/finali o è più corta di 32 byte UTF-8 (HMAC-SHA256): non viene espansa automaticamente, per non mascherare segreti deboli con l'entropia originale.</summary>
     public SymmetricSecurityKey GetSigningKey()
     {

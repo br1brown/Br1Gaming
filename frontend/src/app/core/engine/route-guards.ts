@@ -4,8 +4,10 @@ import { ContestoSito } from '../../site';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../services/auth.service';
 import { NotificationService } from './services/notification.service';
+import { TokenService } from './services/token.service';
 import { TranslateService } from './services/translate.service';
 import { LeaveGuardService } from './services/leave-guard.service';
+import { returnUrlParam } from './login-return';
 
 /** Prima di lasciare una pagina foglia (link navbar, [appPage], back del browser): chiede a
  *  `LeaveGuardService` se c'è qualcosa di non salvato e cosa farne. Messo su ogni rotta foglia
@@ -30,7 +32,7 @@ export const languageSyncGuard: CanActivateFn = async (route) => {
  * GUARD DI AUTENTICAZIONE — protegge le route con `requiresAuth: true`.
  * Se l'utente non è loggato: rediregere al login (se configurato) o mostrare una modale di errore.
  */
-export const authGuard: CanActivateFn = async (route) => {
+export const authGuard: CanActivateFn = async (route, state) => {
     const authService = inject(AuthService);
     const router = inject(Router);
     const notification = inject(NotificationService);
@@ -52,9 +54,14 @@ export const authGuard: CanActivateFn = async (route) => {
         const path = ContestoSito.getPath(redirectPage, lang); // path del login NELLA lingua della pagina target.
         if (path) {
             return router.createUrlTree([path], {
-                // returnPageType: dove tornare dopo il login (letto da LoginComponent.onLoggedIn()).
-                // reason: 'auth' fa mostrare a LoginComponent l'avviso inline "richiesto login".
-                queryParams: { returnPageType: route.data['pageType'], reason: 'auth' }
+                // returnUrl: l'indirizzo esatto richiesto (parametri compresi) in base64url, letto da loginReturnTarget().
+                // returnPageType: ripiego per chi non legge returnUrl. reason: 'auth' fa mostrare a
+                // LoginComponent l'avviso inline "richiesto login".
+                queryParams: {
+                    returnUrl: returnUrlParam(state.url, lang),
+                    returnPageType: route.data['pageType'],
+                    reason: 'auth',
+                }
             });
         }
     }
@@ -70,4 +77,20 @@ export const authGuard: CanActivateFn = async (route) => {
         translate.translate('errore401Descrizione')
     );
     return false; // blocca la navigazione, l'utente resta sulla pagina di partenza.
+};
+
+/** GUARD DI RUOLO — su `requiresRole`, dopo `authGuard`: passa chi ha almeno uno dei ruoli in `roles` del payload di sessione,
+ *  gli altri vanno a `/error/403`. Un `requiresRole` malformato o un `roles` che non è un array non fanno passare nessuno. */
+export const roleGuard: CanActivateFn = (route) => {
+    const declared: unknown = route.data['requiresRole'];
+    if (declared === undefined) return true; // la rotta non chiede un ruolo
+    // Chiuso nel dubbio: un `requiresRole` presente ma senza nemmeno un ruolo valido (dato malformato) non apre la pagina.
+    const required = [declared].flat().filter((r): r is string => typeof r === 'string' && r.trim() !== '');
+    if (required.length === 0) return inject(Router).createUrlTree(['/error/403']);
+
+    // Solo `roles` del payload: il resto di SessionInfo è del progetto e l'Engine non lo conosce.
+    // Un `roles` che non è un array (una stringa: `'superadmin'.includes('admin')` è vero) non vale nessun ruolo.
+    const claimed: unknown = inject(TokenService).session<{ roles?: unknown }>()?.roles;
+    const roles = Array.isArray(claimed) ? claimed : [];
+    return required.some(r => roles.includes(r)) ? true : inject(Router).createUrlTree(['/error/403']);
 };

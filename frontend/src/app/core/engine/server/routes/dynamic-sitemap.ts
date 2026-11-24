@@ -4,7 +4,7 @@ import { environment } from '../../../../../environments/environment';
 import { ContestoSito } from '../../../../site';
 import { serverEnv } from '../server-env';
 import { flattenDynamicParams, applyPathParams, type SitemapEntry, type DynamicParamsContext } from '../../siteBuilder';
-import { buildSitemapXml } from '../../services/sitemap-xml';
+import { buildSitemapSet, SITEMAP_LIMITS, type SitemapSet } from '../../services/sitemap-xml';
 
 /** Endpoint `/sitemap.xml`: combina le entry statiche (`ContestoSito`) con l'espansione delle
  *  pagine `dynamicParams` (catalogo da API, non enumerabile a build time). Cache in-process
@@ -15,6 +15,11 @@ import { buildSitemapXml } from '../../services/sitemap-xml';
 const _ttlMs = Number(process.env['SITEMAP_CACHE_TTL_MS']);
 const CACHE_TTL_MS = Number.isFinite(_ttlMs) && _ttlMs > 0 ? _ttlMs : 7 * 24 * 60 * 60 * 1000;
 
+// Oltre questo numero di URL per file `/sitemap.xml` diventa un indice di sotto-sitemap (`/sitemap-N.xml`). Di serie il limite del
+// protocollo (50.000); un valore più basso (`SITEMAP_MAX_URLS`) dà file più piccoli da generare e da leggere.
+const _maxUrls = Number(process.env['SITEMAP_MAX_URLS']);
+const MAX_URLS = Number.isInteger(_maxUrls) && _maxUrls >= 1 && _maxUrls <= SITEMAP_LIMITS.maxUrls ? _maxUrls : SITEMAP_LIMITS.maxUrls;
+
 interface SitemapCacheEntry {
     xml: string;
     expiresAt: number;
@@ -23,8 +28,8 @@ interface SitemapCacheEntry {
 // Cache in-memory locale al processo Node: in un cluster multi-nodo la revalidazione pulisce solo
 // il nodo che riceve la POST, gli altri servono la sitemap vecchia fino al TTL. Per scale-out
 // spinto serve Redis (o si accetta il TTL sui nodi non notificati).
-let cached: SitemapCacheEntry | null = null;
-let inFlight: Promise<string> | null = null;
+let cached: { set: SitemapSet; expiresAt: number } | null = null;
+let inFlight: Promise<SitemapSet> | null = null;
 
 // Stessa cache/dedup della XML sopra, ma sulle SitemapEntry[] grezze (pre-serializzazione):
 // condivisa fra computeSitemapXml() sotto e dynamicAuditPathsHandler (in fondo al file), così
@@ -60,13 +65,29 @@ async function fetchBackendJson<T>(path: string): Promise<T> {
     return response.json() as Promise<T>;
 }
 
+/** Implementazione di `DynamicParamsContext.fetchBackendPages`: vedi la doc del tipo. */
+export async function fetchBackendPages<T>(path: string, options?: { pageSize?: number; maxPages?: number }): Promise<T[]> {
+    const pageSize = Number.isInteger(options?.pageSize) && options!.pageSize! >= 1 ? options!.pageSize! : 5000;
+    const maxPages = Number.isInteger(options?.maxPages) && options!.maxPages! >= 1 ? options!.maxPages! : 1000;
+    const items: T[] = [];
+    for (let page = 1; page <= maxPages; page++) {
+        const separator = path.includes('?') ? '&' : '?';
+        const body = await fetchBackendJson<T[] | { items?: T[] }>(`${path}${separator}page=${page}&pageSize=${pageSize}`);
+        const batch = Array.isArray(body) ? body : body?.items;
+        if (!Array.isArray(batch)) throw new Error(`[dynamic-sitemap] fetchBackendPages("${path}") pagina ${page}: attesi un array o { items: [] }.`);
+        items.push(...batch);
+        if (batch.length < pageSize) return items;
+    }
+    throw new Error(`[dynamic-sitemap] fetchBackendPages("${path}") oltre ${maxPages} pagine: il backend ignora forse page/pageSize.`);
+}
+
 /** Espande ogni pagina con `dynamicParams` in `SitemapEntry[]` concrete. Chiamata una volta per
  *  pagina, non per lingua (il catalogo di slug è dato di dominio, indipendente dalla lingua). */
 async function computeDynamicEntries(): Promise<SitemapEntry[]> {
     const dynamicPages = ContestoSito.getDynamicPages();
     if (dynamicPages.length === 0) return [];
 
-    const ctx: DynamicParamsContext = { fetchBackendJson };
+    const ctx: DynamicParamsContext = { fetchBackendJson, fetchBackendPages };
 
     // Parallelizza le richieste `dynamicParams` verso il backend. Niente try/catch per pagina
     // di proposito: una sitemap monca de-indicizzerebbe URL su Google in silenzio, meglio far
@@ -96,48 +117,66 @@ async function computeDynamicEntries(): Promise<SitemapEntry[]> {
     return nestedResults.flat();
 }
 
-async function computeSitemapXml(): Promise<string> {
+async function computeSitemapSet(): Promise<SitemapSet> {
     const [staticEntries, dynamicEntries] = [ContestoSito.getSitemapEntries(), await getDynamicEntries()];
     const baseUrl = serverEnv.site.baseUrl || 'https://example.com';
     if (baseUrl === 'https://example.com') {
         console.warn('[dynamic-sitemap] FRONTEND_BASE_URL non configurato — sitemap generata con URL placeholder.');
     }
-    return buildSitemapXml([...staticEntries, ...dynamicEntries], {
+    return buildSitemapSet([...staticEntries, ...dynamicEntries], {
         baseUrl,
         defaultLang: environment.defaultLang,
         availableLangs: environment.availableLanguages,
-    });
+    }, { ...SITEMAP_LIMITS, maxUrls: MAX_URLS });
+}
+
+/** Le sitemap di adesso: dalla cache se valida, altrimenti ricalcolate (una sola generazione per volta, condivisa dalle richieste in corso).
+ *  Backend giù ma una cache scaduta ancora c'è: meglio quella di un 500 (un crawler la rilegge al giro successivo). */
+async function getSitemapSet(): Promise<SitemapSet> {
+    // Letto ad ogni richiesta, non a module-load: tiene il file disaccoppiato dall'ordine di
+    // inizializzazione (il valore comunque non cambia più a runtime una volta avviato il server).
+    const cacheEnabled = ContestoSito.config.dynamicSitemapCache;
+    const now = Date.now();
+    if (cacheEnabled && cached && cached.expiresAt > now) return cached.set;
+
+    try {
+        // La dedup resta attiva anche a cache disattivata (vedi doc del modulo).
+        inFlight ??= computeSitemapSet().finally(() => { inFlight = null; });
+        const set = await inFlight;
+        if (cacheEnabled) cached = { set, expiresAt: now + CACHE_TTL_MS };
+        return set;
+    } catch (err) {
+        console.error('[dynamic-sitemap] generazione fallita:', err);
+        // Solo a cache attiva: a `false` non c'è mai una `cached` da cui ripiegare, per costruzione.
+        if (cacheEnabled && cached) return cached.set;
+        throw err;
+    }
 }
 
 export async function dynamicSitemapHandler(_req: Request, res: Response): Promise<void> {
     // `no-cache` (non `no-store`): permette la cache a browser/CDN ma sempre con revalidazione.
     // Express genera già un ETag debole su `res.send()` di una stringa, quindi è "gratis".
     res.set('Cache-Control', 'no-cache');
-
-    // Letto ad ogni richiesta, non a module-load: tiene il file disaccoppiato dall'ordine di
-    // inizializzazione (il valore comunque non cambia più a runtime una volta avviato il server).
-    const cacheEnabled = ContestoSito.config.dynamicSitemapCache;
-    const now = Date.now();
-    if (cacheEnabled && cached && cached.expiresAt > now) {
-        res.type('application/xml').send(cached.xml);
-        return;
-    }
-
     try {
-        // La dedup resta attiva anche a cache disattivata (vedi doc del modulo).
-        inFlight ??= computeSitemapXml().finally(() => { inFlight = null; });
-        const xml = await inFlight;
-        if (cacheEnabled) cached = { xml, expiresAt: now + CACHE_TTL_MS };
-        res.type('application/xml').send(xml);
-    } catch (err) {
-        console.error('[dynamic-sitemap] generazione fallita:', err);
-        if (cacheEnabled && cached) {
-            // Backend giù ma abbiamo ancora una sitemap valida (pure scaduta): meglio quella di
-            // un 500 — un crawler la rilegge comunque al giro successivo. Solo a cache attiva:
-            // a `false` non c'è mai una `cached` da cui ripiegare, per costruzione.
-            res.type('application/xml').send(cached.xml);
+        res.type('application/xml').send((await getSitemapSet()).root);
+    } catch {
+        res.status(500).type('text/plain').send('Errore nella generazione della sitemap.');
+    }
+}
+
+/** `/sitemap-:n.xml`: la n-esima sotto-sitemap, quando `/sitemap.xml` è un indice (oltre `MAX_URLS`). Senza indice, o con un numero che
+ *  non c'è (zero, troppo grande, non intero), 404: nessun file è mai mostrato al posto di un altro. */
+export async function dynamicSitemapPartHandler(req: Request, res: Response): Promise<void> {
+    res.set('Cache-Control', 'no-cache');
+    const n = Number(req.params['0']);
+    try {
+        const { parts } = await getSitemapSet();
+        if (!Number.isInteger(n) || n < 1 || n > parts.length) {
+            res.status(404).type('text/plain').send('Sitemap non trovata.');
             return;
         }
+        res.type('application/xml').send(parts[n - 1]);
+    } catch {
         res.status(500).type('text/plain').send('Errore nella generazione della sitemap.');
     }
 }

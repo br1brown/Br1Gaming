@@ -4,6 +4,8 @@ import { Router } from '@angular/router';
 import { ContestoSito, type PageType } from '../../../site';
 import { environment } from '../../../../environments/environment';
 import { TokenService } from './token.service';
+import { SessionRefreshService } from './session-refresh.service';
+import { returnUrlParam } from '../login-return';
 import { NotificationService } from './notification.service';
 import { TranslateService } from './translate.service';
 
@@ -11,9 +13,8 @@ import { TranslateService } from './translate.service';
  *  (token brevi di sviluppo, o sessione ripristinata all'ultimo): si passa direttamente alla scadenza. */
 const AVVISO_PRIMA_MS = 2 * 60 * 1000;
 
-/** `TokenService` scarta il token scaduto in silenzio: una pagina `requiresAuth` resta con contenuto
- *  vecchio finché l'utente non ci clicca sopra. Qui: un toast prima e uno alla scadenza, con lo
- *  stesso redirect al login del guard. Un logout voluto (token tolto prima) non produce niente. */
+/** Toast due minuti prima della scadenza del token, con «Resta connesso» (`POST /session/refresh`), e uno alla scadenza che da una pagina
+ *  riservata porta al login col ritorno. Un logout voluto (token tolto prima della scadenza) non mostra niente. */
 @Injectable({ providedIn: 'root' })
 export class SessionExpiryNoticeService {
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
@@ -21,6 +22,7 @@ export class SessionExpiryNoticeService {
     private readonly notify = inject(NotificationService);
     private readonly translate = inject(TranslateService);
     private readonly router = inject(Router);
+    private readonly refresher = inject(SessionRefreshService);
     private avvisoTimer: ReturnType<typeof setTimeout> | null = null;
     /** Ultima scadenza vista: distingue "scaduto" (arrivata) da "logout" (tolto prima). */
     private ultimaScadenza: number | null = null;
@@ -48,8 +50,25 @@ export class SessionExpiryNoticeService {
         if (traQuanto < 5000) return;
         this.avvisoTimer = setTimeout(() => {
             if (this.token.expiresAt() !== expiresAt) return;   // sessione cambiata nel frattempo
-            this.notify.toast(this.translate.translate('sessioneScadeTraAvviso', Math.round(AVVISO_PRIMA_MS / 60000)), 'warning');
+            this.notify.toast(this.translate.translate('sessioneScadeTraAvviso', Math.round(AVVISO_PRIMA_MS / 60000)), 'warning', {
+                durationMs: null,   // resta finché l'utente non sceglie: alla scadenza lo sostituisce l'avviso di scadenza
+                action: { text: this.translate.translate('sessioneProlunga'), keepOpen: true, run: () => this.prolunga() },
+            });
         }, Math.min(traQuanto, 2147483647));
+    }
+
+    /** `true` chiude l'avviso; un messaggio lo aggiorna lasciandolo aperto per consentire un nuovo tentativo. */
+    private async prolunga(): Promise<boolean | string> {
+        const esito = await this.refresher.refresh();
+        if (esito === 'ok') {
+            this.notify.toast(this.translate.translate('sessioneProlungata'), 'success');
+            return true;
+        }
+        if (esito === 'limit') {
+            this.notify.toast(this.translate.translate('sessioneNonProlungabile'), 'warning', { durationMs: 8000 });
+            return true;
+        }
+        return this.translate.translate('sessioneProlungaErrore');
     }
 
     private onScaduta(): void {
@@ -63,7 +82,7 @@ export class SessionExpiryNoticeService {
         if (loginPage == null) return;
         const lang = (route.data['lang'] as string | undefined) ?? environment.defaultLang;
         const path = ContestoSito.getPath(loginPage, lang);
-        if (path) void this.router.navigate([path], { queryParams: { returnPageType: pageType, reason: 'auth' } });
+        if (path) void this.router.navigate([path], { queryParams: { returnUrl: returnUrlParam(this.router.url, lang), returnPageType: pageType, reason: 'auth' } });
     }
 
     private clearTimer(): void {

@@ -280,6 +280,9 @@ jobs:
       - name: Audit live (Pa11y + Lighthouse)
         run: bash scripts/test/live-test.sh http://localhost:8088
 
+      - name: Accessibilità live (temi chiaro/scuro, focus da tastiera, dialoghi)
+        run: bash scripts/test/a11y-check.sh http://localhost:8088
+
       - name: Butta giù
         if: always()
         run: |

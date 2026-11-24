@@ -96,6 +96,7 @@ run_test "Dipendenze cicliche"  "${SCRIPT_DIR}/circular-deps-check.sh"
 run_test "Invarianti SiteBuilder" "${SCRIPT_DIR}/site-builder-check.sh"
 run_test "Endpoint system-font (Vitest)" "${SCRIPT_DIR}/system-font-check.sh"
 run_test "Audit live (Pa11y + Lighthouse)" "${SCRIPT_DIR}/live-test.sh" "${BASE_URL}"
+run_test "Accessibilità live (temi, focus, dialoghi)" "${SCRIPT_DIR}/a11y-check.sh" "${BASE_URL}"
 
 echo
 

@@ -47,7 +47,7 @@ Documenti: nel figlio sparisce un file e uno soltanto, questo README, perché è
 - **Frontend:** `cd frontend && npm install && npm run start` — **Backend:** `cd backend && dotnet run` (`/health` anonimo; senza `Security.ApiConfig.Keys` nel `.local`, ogni chiamata risponde `401`). Il template ha `Features.PublicLogin` acceso per la demo, che vuole la `SecretKey` nel `.local`: se il file manca, lo crea con chiavi generate il primo che parte fra `generate:statics` e il backend (solo Development), come `node setup.mjs`.
 - **Tema e file generati:** `start`, `dev`, `build` e `watch` eseguono prima `npm run generate:statics`, che compila il tema (`src/styles/engine/generated/_theme.scss`) e l'elenco dei testi legali. `ng serve` lanciato a mano vuole prima `npm run generate:statics`. Il tema si compila all'avvio: dopo aver cambiato design system, `site.colorTema` o i file in `src/assets/legal/` con il dev server acceso, riavvialo.
 - **Nuovo progetto figlio:** `node setup.mjs "Nome Progetto"`.
-- **Qualità (gate = CI, GitHub Actions):** lint, i18n, tsc, dipendenze circolari, endpoint system-font (`system-font-check.sh`), invarianti SiteBuilder, audit live Pa11y+Lighthouse, `npm audit`, vulnerabilità NuGet, gitleaks, CodeQL. In locale on-demand: `./scripts/test/run-all.sh`. Niente hook pre-push: non re-introdurlo. I test unitari sono privati di ogni progetto.
+- **Qualità (gate = CI, GitHub Actions):** lint, i18n, tsc, dipendenze circolari, endpoint system-font (`system-font-check.sh`), invarianti SiteBuilder, audit live Pa11y+Lighthouse, **accessibilità live** (`a11y-check.sh`: `axe` in tema chiaro e scuro, contrasto del focus da tastiera ≥ 3:1 e dialoghi con nome, X e Escape), `npm audit`, vulnerabilità NuGet, gitleaks, CodeQL. In locale on-demand: `./scripts/test/run-all.sh`. Niente hook pre-push: non re-introdurlo. I test unitari sono privati di ogni progetto.
 
 ## Commit
 
@@ -106,6 +106,7 @@ legal: {
     page: PageType.AccessibilityStatement, updated: new Date('2026-09-23'),
     nonAccessibili: [{ descrizioneKey: 'accMappa', motivo: 'fuori-ambito', alternativaKey: 'accMappaAlternativa' }],
   },
+  siteMap: false,   // facoltativo: la Mappa del sito (HTML, WCAG 2.4.5) si aggiunge da sola nella fascia delle policy del footer, `false` la spegne
   extra: [{ page: PageType.WithdrawalPolicy, path: { it: 'recesso', en: 'withdrawal' }, titleKey: 'recessoPolicyMenu',
             descriptionKey: 'recessoPolicyDescrizione', markdown: 'recesso', updated: new Date('2026-09-22') }],  // assets/legal/recesso.<lingua>.md
 },
@@ -124,6 +125,68 @@ Da sapere scrivendo codice o testi:
 - I fatti che alimentano i dati di navigazione (`LegalFacts`) sono **pubblici**: viaggiano nel `TransferState` di ogni pagina renderizzata dal server e su `/internal/legal-facts`, senza autenticazione. Per questo l'SSR li riduce a ciò che il testo scrive, prima di passarli: il limite di richieste è un solo numero di secondi o `null` se spento (mai "attivo: false"), la finestra dei login entra solo col login acceso, dei log applicativi restano tipo e conservazione. Se aggiungi un fatto a `computeLegalFacts`, chiediti se lo scriveresti nell'informativa: se no, non va lì.
 
 Ordine della pagina, slot per slot, controlli e fatti dell'installazione: [frontend/README.md](frontend/README.md) «Pagine legali (`legal`)».
+
+#### Pagine per ruolo e ritorno dopo il login
+```typescript
+// pages/*.pages.ts — un ruolo, o un elenco (basta uno): implica requiresAuth; senza il ruolo → /error/403
+{ path: 'admin', pageType: AppPages.Admin, requiresRole: 'admin', component: () => import('./admin/admin.component').then(m => m.AdminComponent) },
+```
+Il backend resta il vero controllo (`[Authorize(Roles = "admin")]`); `requiresRole` evita solo la pagina che le sue chiamate rifiuterebbero, e non nasconde la voce di menu (`authOnly`). La pagina di login di Dominio chiude con una riga, e `<a appLoginLink>` (anche la voce «Accedi» della navbar) porta al login chi non è loggato e ci torna:
+```typescript
+protected async onLoggedIn(): Promise<void> {
+    await this.router.navigateByUrl(loginReturnTarget(this.route.snapshot.queryParamMap, this.translate.currentLang(), '/home'));
+}   // returnUrl (messo da authGuard e da appLoginLink), poi returnPageType, poi il ripiego
+```
+```html
+@if (!auth.isLoggedIn()) { <a appLoginLink class="btn btn-link">{{ 'accediPerModificare' | translate }}</a> }   <!-- solo dopo l'idratazione: la sessione sta nel browser -->
+```
+
+#### Modifiche non salvate (editor, modali, cambio scheda)
+Mai un dialogo di uscita scritto a mano: `LeaveGuardService.registerDirty` con un oggetto. Il dialogo, i testi (it/en) e il comportamento sicuro («Salva» esce solo se il salvataggio è riuscito e non resta niente di sporco) sono dell'Engine; più editor sporchi fanno un dialogo solo.
+```typescript
+private readonly leaveGuard = inject(LeaveGuardService);
+protected readonly dirty = signal(false);
+
+constructor() {
+    // save presente su tutte le voci sporche → Salva / Non salvare / Annulla; assente → Esci senza salvare / Resta qui
+    this.leaveGuard.registerDirty({ dirty: this.dirty, save: () => this.save(), label: 'FAQ' }, inject(DestroyRef));
+}
+// il testo di serie non dice cosa si perde davvero? `message: 'Quello che hai scritto dopo l'ultimo «Salva bozza» andrà perso.'`
+
+// modale: solo le proprie modifiche, non quelle del resto della pagina
+this.notify.modal(MioEditor, { canClose: () => this.leaveGuard.confirmDiscard([{ dirty: () => ref.instance?.haModifiche() ?? false }]) });
+// cambio scheda (non è una navigazione): if (!(await this.leaveGuard.confirmDiscard())) return;
+```
+
+#### Un video, un podcast, un player di terzi (con consenso)
+Mai un `<iframe>` scritto a mano né un'`autoload` legata a un booleano: `app-embed`, che non fa **nessuna** richiesta a terzi finché chi legge non preme «Carica» o non ha accettato la categoria del provider. L'oggetto descrive tutto, e può arrivare tale e quale dal backend:
+```html
+<app-embed [source]="{ url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', title: 'Ultimo video' }" />
+<app-embed [source]="{ provider: 'spreaker', id: 'episode/12345', title: 'Episodio 12' }" />
+```
+Tre cose restano al progetto: l'host del player in `frame-src` (`security-headers.override.json`: `https://www.youtube-nocookie.com`, `https://widget.spreaker.com`…), una voce in `COOKIE_MAP` con la categoria del provider (così compare in banner e Cookie Policy), e il titolo (già tradotto). Provider di serie: `youtube`, `vimeo`, `spotify`, `spreaker`; un altro con `defineEmbedProvider`. Dettagli in [frontend/README.md](frontend/README.md) «Contenuti di terze parti con consenso».
+
+#### Scelta fra poche voci, validatori e messaggi d'errore
+Una domanda con 2-6 risposte visibili non è un `<select>` né tre bottoni scritti a mano: `app-segmented-control`, campo di form o `[(value)]`. Il messaggio sotto un campo non è un `@if` per validatore: `app-field-error`.
+```html
+<label id="casa-l" class="form-label">C'è una casa?</label>
+<app-segmented-control labelledBy="casa-l" [options]="sino" formControlName="haCasa" />   <!-- sino = YES_NO_UNKNOWN_OPTIONS -->
+<input id="tel" class="form-control" formControlName="tel" appFieldError="tel-error" />
+<app-field-error id="tel-error" [control]="form.controls.tel" [messages]="{ telefono: 'formTelefono' }" />   <!-- required/email/min/max… di serie -->
+```
+Un validatore non si scrive a mano per un numero, una coordinata, un telefono o una conferma: `core/engine/components/field-error/form-validators.ts` (`requiredTrimmed`, `integer`, `decimal`, `latitude`/`longitude`, `emailPlausible`, `phone`, `sameAs`), con i codici che `app-field-error` già spiega. Regola: un campo vuoto è valido per tutti tranne `requiredTrimmed`. All'invio di un form non valido, in cima, `app-error-summary`:
+```typescript
+form = this.fb.group({ email: ['', [requiredTrimmed, emailPlausible]], conferma: ['', [requiredTrimmed, sameAs('email')]], posti: ['', [integer({ min: 1 })]] });
+protected async invia() { this.errori.set(await showFormErrors(this.form, this.host.nativeElement)); if (this.form.valid) … }   // <app-error-summary [items]="errori()" />
+```
+Dettagli (varianti, tabelle dei testi e dei validatori) in [frontend/README.md](frontend/README.md) «Scelta fra poche voci», «Errore sotto il campo», «Validatori pronti» e «Riepilogo degli errori».
+
+#### Cercare senza badare a maiuscole e accenti; indirizzi leggibili
+Mai un `normalize('NFD').replace(...)` a mano (se ne trovano cinque versioni diverse nei figli): `foldText`/`containsFolded`/`slugify` da `core/engine/text-fold.ts`; nel backend `TextFold.Fold`/`Slugify` (`using Backend.Engine`), con lo stesso risultato.
+```typescript
+const trovati = voci.filter(v => containsFolded(v.nome, ricerca));   // «forli» trova «Forlì»
+const slug = slugify(nome, 60, 'struttura');                          // pozzolo-di-bore-citta
+```
 
 #### Accendere il login (pubblico o riservato)
 ```json
@@ -213,7 +276,7 @@ Un componente (Engine o di progetto) non sceglie padding, taglie di testo, altez
 <!-- Layout di pagina: classi Bootstrap (la demo le usa apposta), niente utility parallele -->
 <section class="mb-5"> <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3"> … </div> </section>
 ```
-Modifiche non salvate in un editor: registrati in `LeaveGuardService` (`register({ dirty, confirm }, destroyRef)`): il `canDeactivate` che l'Engine mette su ogni rotta foglia e il `beforeunload` chiedono conferma prima di lasciare la pagina, da qualunque link (navbar compresa). Tempo relativo ("2 ore fa"): `localization.formatter.relativeTime(iso)`. Animazioni JS (canvas, timer): `injectPrefersReducedMotion()` da `core/engine/breakpoints.ts`. Link a una mappa: `ContactUrl.maps(indirizzo)`. Card/tile che si sollevano al passaggio: classe `lift-on-hover`, mai un `:hover { transform }` a mano.
+Modifiche non salvate in un editor: `LeaveGuardService.registerDirty` (ricetta «Modifiche non salvate» sopra). Tempo relativo ("2 ore fa"): `localization.formatter.relativeTime(iso)`. Animazioni JS (canvas, timer): `injectPrefersReducedMotion()` da `core/engine/breakpoints.ts`. Link a una mappa: `ContactUrl.maps(indirizzo)`. Card/tile che si sollevano al passaggio: classe `lift-on-hover`, mai un `:hover { transform }` a mano.
 Per un pannello a comparsa tuo (dropdown, popover non-CDK): `injectDismiss({ open, close, returnFocus })` da `core/engine/dismiss.ts` dà Escape "a pila" (chiude solo il più interno) e click fuori, con focus di ritorno al trigger.
 
 #### Caricare file da un form (upload)
@@ -434,7 +497,8 @@ Per un flag/variante che un CRO/SEM specialist deve poter cambiare senza toccare
 // A differenza di requiresAuth NON forza il client-render. Default: noindex false.
 { path: 'grazie', pageType: PageType.Grazie,
   component: () => import('./grazie/grazie.component').then(m => m.GrazieComponent),
-  otherSEO: { noindex: true } }
+  otherSEO: { noindex: true },
+  inSiteMap: false }   // facoltativo: una pagina fuori indice resta comunque nella Mappa del sito (è un posto dove andare); `false` per un «grazie» e simili
 ```
 
 #### Gestire la UX di aggiornamento versione (PWA / Polling)
@@ -512,7 +576,14 @@ otherSEO: { structuredData: { kind: 'faq', questions: [{ question: 'Come?', answ
 ```
 
 #### Overlay/modali custom (mai `position: fixed` a mano)
-Un pannello fixed con z-index alto dentro un componente finisce comunque dentro lo stacking context di `main#main-content` (z-index: 1 apposta per stare sopra sfondo/effetti) e rischia di finire sotto la navbar o i suoi dropdown. Passa sempre da CDK Overlay (Escape, backdrop e focus trap di CDK; per un dialog `cdkTrapFocus` + `role="dialog" aria-modal="true"`, come il lightbox) (già importato, monta in `.cdk-overlay-container`, `z-index: var(--z-cdk-overlay)` in `_a11y.scss`) — vedi `ContextMenuDirective`/`ImageLightboxService` come riferimento. Per una modale che ospita un componente: `notify.modal(componente | ng-template, { returnFocusTo, inputs, canClose, escape, dialogClass, bare })` (`NotificationService`, sotto c'è la Modal di Bootstrap: focus trap, Escape, backdrop, scroll). Tutto ciò che è dialogico passa da `NotificationService`, il chiamante non sa la libreria: messaggi e domande (`confirm`/`choose`/`prompt`, SweetAlert, un popup alla volta) e modali di contenuto (`modal`, che può a sua volta chiamare `confirm` o `toast`). Come contenitore del pannello usa una `.card`: sfondo `--colorSurface` e bordo dal tema, niente colori da scrivere. Il `.cdk-overlay-container` sta fuori dal pannello contenuti: l'overlay prende il tono della pagina, anche se parte da un pannello di tono diverso.
+Un pannello fixed con z-index alto dentro un componente finisce comunque dentro lo stacking context di `main#main-content` (z-index: 1 apposta per stare sopra sfondo/effetti) e rischia di finire sotto la navbar o i suoi dropdown. Passa sempre da CDK Overlay (Escape, backdrop e focus trap di CDK; per un dialog `cdkTrapFocus` + `role="dialog" aria-modal="true"`, come il lightbox) (già importato, monta in `.cdk-overlay-container`, `z-index: var(--z-cdk-overlay)` in `_a11y.scss`) — vedi `ContextMenuDirective`/`ImageLightboxService` come riferimento. Per una modale che ospita un componente: `notify.modal(componente | ng-template, { returnFocusTo, inputs, canClose, escape, dialogClass, bare, title, actions, key, owner })` (con `title` l'intestazione e la X di chiusura, con `actions` i pulsanti del piè — `{ label, icon?, action?, closes?, variant?, disabled? }` come una voce di menu contestuale — le disegna il servizio: tutte le modali sono uguali, il contenuto è il solo corpo e non scrive né `.modal-header` né `.modal-footer`; `key` = una sola istanza, `owner` = si chiude col componente che l'ha aperta, `afterClosed` dice come si è chiusa) (`NotificationService`, sotto c'è la Modal di Bootstrap: focus trap, Escape, backdrop, scroll). Tutto ciò che è dialogico passa da `NotificationService`, il chiamante non sa la libreria: messaggi e domande (`confirm`/`choose`/`prompt`, SweetAlert, un popup alla volta) e modali di contenuto (`modal`, che può a sua volta chiamare `confirm` o `toast`). Come contenitore del pannello usa una `.card`: sfondo `--colorSurface` e bordo dal tema, niente colori da scrivere. Il `.cdk-overlay-container` sta fuori dal pannello contenuti: l'overlay prende il tono della pagina, anche se parte da un pannello di tono diverso.
+
+#### Accessibilità (WCAG 2.2 A/AA): cosa arriva dall'Engine e cosa resta al progetto
+Verificato nel browser reale (Chromium, `axe-core`, matrice dei temi); un figlio che non tocca l'Engine li eredita. Cosa non basta aspettarsi e cosa va acceso:
+- **Già dell'Engine**: la **mappa del sito** (2.4.5: pagina e link nella fascia delle policy del footer, accese da sole; `legal.siteMap: false` per spegnerle), contrasto del testo e degli indicatori di focus su ogni tema (1.4.3, 1.4.11, 2.4.7), nome accessibile dei controlli (2.5.3), skip link e landmark (2.4.1), titolo di pagina e focus alla navigazione (2.4.2, 2.4.3), errori di form collegati ai campi con riepilogo (3.3.1, 3.3.3, `app-field-error`, `app-error-summary`), riflusso e zoom, `prefers-reduced-motion`, lingua della pagina, annunci `role="alert"`/`status` (4.1.3), avviso e **prolungamento della sessione** (2.2.1, «Resta connesso» → `POST /session/refresh`, tetto `ExpirationSeconds × 9,5`).
+- **Da accendere**: pausa dell'effetto di sfondo (2.2.2) con `<app-motion-toggle />` (si nasconde da sola senza smoke); la dichiarazione di accessibilità (`legal.accessibility`).
+- **Del contenuto, non garantibili**: testi alternativi (1.1.1), sottotitoli e trascrizioni (1.2.x), ordine e senso dei contenuti (1.3.x), il colore come unico segnale (1.4.1), l'aiuto contestuale (3.3.5). Un `<img>` senza `alt` o un video senza sottotitoli lo porta il progetto.
+- Su **touch** lo `:hover` non resta appiccicato (`base/_touch.scss`): un effetto al passaggio nuovo va in `@media (hover: hover)`, come fanno `lift-on-hover` e gli altri.
 
 ## Ricette — backend
 
@@ -542,6 +613,14 @@ Un tipo nuovo = una sottoclasse di `ApiException` (in una classe del tuo dominio
 public class PaymentRequiredException : ApiException {
     public PaymentRequiredException() : base("error_payment_required", 402) { }
 }
+```
+
+#### Hash di una password
+Mai un hash scritto a mano né una copia nel progetto: `PasswordHasher` (`Backend.Security`), PBKDF2 con sale e iterazioni dentro la stringa.
+```csharp
+var hash = PasswordHasher.Hash(password);                    // salva questo, mai la password
+if (!PasswordHasher.Verify(pwd ?? "", account?.PasswordHash ?? HashFinto)) return null;   // HashFinto: stesso costo anche se l'account non esiste
+if (PasswordHasher.NeedsRehash(account.PasswordHash)) account.PasswordHash = PasswordHasher.Hash(pwd);   // al login riuscito
 ```
 
 #### Leggere la sessione
@@ -575,10 +654,14 @@ public class AccountController : EngineProtectedController
 Da sapere prima di contarci:
 - **La chiave è il payload di sessione** (claim `session`, il tuo `SessionInfo`): deve restare deterministico per utente, solo dati identificativi, com'è già per contratto. Un timestamp o un nonce nel payload rende ogni token una sessione a sé, e la revoca coprirebbe solo il token che l'ha chiesta.
 - **`loginTime` lo scrive `AuthService`**: un token emesso in altro modo, senza quel claim, viene respinto se la sua sessione è revocata.
-- **Il default è in memoria, per processo** (`MemorySessionRevocation`): regge un backend solo, anche con frontend su un altro server e dietro reverse proxy, perché la revoca vive dove si validano i token. Non regge due istanze del backend dietro un bilanciatore, e un riavvio la perde (i token emessi prima tornano validi fino a `exp`, al massimo `Security.Token.ExpirationSeconds`). Oltre l'istanza singola registri la tua, come per `IIdentityStore`, riusando `SessionRevocation.SessionKey`/`LoginTime`:
+- **Il default è in memoria, per processo** (`MemorySessionRevocation`): regge un backend solo, anche con frontend su un altro server e dietro reverse proxy, perché la revoca vive dove si validano i token. Non regge due istanze del backend dietro un bilanciatore, e un riavvio la perde (i token emessi prima tornano validi fino a `exp`, al massimo `Security.Token.ExpirationSeconds`). Oltre l'istanza singola registri la tua, come per `IIdentityStore`. Con gli account nel database estendi `CachedSessionRevocation`: tre metodi (`AccountKey`, `LoadState`, `SaveValidFrom`), e cache per account, confronto con l'istante di emissione e account disabilitato o inesistente = token respinto sono già fatti. Per Redis o altro implementi `ISessionRevocation` riusando `SessionRevocation.SessionKey`/`LoginTimeMs`:
 ```csharp
+// Store/AccountSessionRevocation.cs — il codice completo è in backend/README.md «Logout e revoca della sessione»
+public sealed class AccountSessionRevocation : CachedSessionRevocation { /* AccountKey, LoadState, SaveValidFrom */ }
 // Program.cs, blocco "── SERVIZI APPLICATIVI ──"
-builder.Services.AddSingleton<ISessionRevocation, RedisSessionRevocation>();   // vince sul default (TryAddSingleton)
+builder.Services.AddSingleton<AccountSessionRevocation>();
+builder.Services.AddSingleton<ISessionRevocation>(sp => sp.GetRequiredService<AccountSessionRevocation>());   // vince sul default (TryAddSingleton)
+// dopo aver cambiato un account dall'app: revoca.RevokeAccount(id) (scrive e dimentica) oppure revoca.Forget(id) (solo la cache)
 ```
 Dettagli (garanzie e limiti) in [backend/README.md](backend/README.md) §"Logout e revoca della sessione".
 
@@ -621,6 +704,37 @@ Vince l'ultima registrazione:
 builder.Services.AddSingleton<IIdentityStore, DbIdentityStore>();
 ```
 Sostituendo `IIdentityStore`: nessun controllo di build dipende più da `backend/data/identity.json` — l'identità è sempre e solo runtime, da `GET /identity`, qualunque sia lo store. Il file resta il default (`FileIdentityStore`), non un requisito del build.
+
+#### Un sito con molti dati (database, ricerca, test)
+Un sito dove il dato è il prodotto (un archivio, un catalogo, un elenco con filtri) sta nel database dell'Engine (EF Core + SQLite, `Migrations/` applicate all'avvio) e segue poche scelte che reggono la scala. Misurato su un figlio con circa mille schede indicizzabili e una ricerca a decine di filtri, il template non ha chiesto altro che il dominio.
+```csharp
+// Program.cs, blocco "── SERVIZI APPLICATIVI ──": un servizio singleton usa la FACTORY, mai un DbContext iniettato (captive dependency, vedi backend/README.md)
+builder.Services.AddDbContextFactory<AppDbContext>(o => o.UseSqlite($"Data Source={Path.Combine(dbDirectory, "app.db")}"));
+builder.Services.AddSingleton<ArchivioService>();
+
+// La ricerca: una fotografia IMMUTABILE delle righe già risolte, caricata una volta e scartata a ogni scrittura
+private volatile Fotografia? _cache;
+private Fotografia Corrente() => _cache ??= Fotografia.Carica(_db);   // dopo ogni modifica: _cache = null
+// La lista bianca: la richiesta nomina solo queste chiavi, nessun nome di colonna e nessun SQL viene dalla richiesta (sconosciuta → 400)
+internal static readonly IReadOnlyDictionary<string, Func<Riga, object?>> Filtri =
+    new Dictionary<string, Func<Riga, object?>>(StringComparer.Ordinal) { ["prezzo"] = r => r.Prezzo, ["regione"] = r => r.Regione /* … */ };
+```
+- **Quanto regge la fotografia in memoria.** Misurato (Debug, `dotnet test`): 910 righe → 3,6 MB e circa 6 ms a ricerca (testo + regione). Estrapolato in modo lineare, **non misurato a quella scala**: circa 10.000 righe → 36 MB e 60 ms (va bene); circa 100.000 → 360 MB e 0,6 s (no: il filtro va spinto dentro SQL). La lista bianca e il test differenziale qui sotto rendono quello spostamento sicuro: gli stessi test confrontano i due modi.
+- **Lo storico non si sovrascrive.** Ogni modifica è una riga nuova datata e firmata (chi, quando); lo stato che si legge è **derivato** dall'ultima. Uno stato derivato si può ricalcolare: un test dice che «ricalcolare tutto non cambia niente» (idempotenza), e un servizio in background (`BackgroundService`) lo rifà quando cambia ciò da cui dipende (un anno, una soglia), scrivendo il segno del lavoro fatto **solo a ricalcolo riuscito**, così un arresto a metà si ripete.
+- **L'indirizzo leggibile è nome + codice breve**: `TextFold.Slugify(nome)` e i primi 8 caratteri del GUID (`pozzolo-di-bore-234cab22`). Conta solo il codice: un nome cambiato porta comunque alla scheda giusta. La sitemap porta la data vera dell'ultima modifica (`dynamicParams` → `lastModified`) e un catalogo grosso si scarica con `ctx.fetchBackendPages`.
+- **Il confronto di testi è `TextFold`/`foldText`**, mai `LIKE` ricostruito a mano: SQLite ignora le maiuscole solo per le lettere ASCII (`è` ≠ `È`) e `%`/`_` sono jolly anche se li scrive l'utente. Un test differenziale (sotto) l'ha scoperto prima degli utenti.
+- **Il backup di un `.db` acceso si fa con l'API di SQLite** (`sqlite3 app.db ".backup copia.db"`), mai con `cp`: perde le scritture ancora nel file `-wal`.
+
+**I test sono del progetto** (il template non ne porta, per scelta di isolamento), ma il metodo è questo:
+1. **Un seme anonimo nel repo**: una copia della produzione con i dati veri e senza persone (contatti, nomi nei testi, account). Ogni classe di test parte da un db nuovo costruito dalle migrazioni più il seme. Regola scritta nel README del seme: **mai un dato vero nel repo**, nemmeno per un momento; uno script (`anonimizza`) lo produce, e prima del commit si cerca un cognome noto (deve dare 0).
+2. **Un orologio fisso**: `TimeProvider` (l'Engine lo registra e lo usa per emissione e scadenza dei token; un test lo sostituisce), così lo stato derivato, le scadenze e i ricalcoli sono deterministici. Una data dei test dopo l'ultimo dato del seme, così uno snapshot scritto dai test è sempre il più recente.
+```csharp
+sealed class OrologioFisso(DateTimeOffset adesso) : TimeProvider { public override DateTimeOffset GetUtcNow() => adesso; }
+services.AddSingleton<TimeProvider>(new OrologioFisso(new(2026, 12, 1, 0, 0, 0, TimeSpan.Zero)));
+```
+3. **Un test differenziale** per ogni filtro: la stessa condizione valutata in memoria e in SQL sulla stessa base dati, confronto riga per riga. Trova la differenza fra i due, non solo un errore.
+4. **Test avversari per area** (valori vuoti, enormi, con maiuscole e accenti, concorrenza, ordine di arrivo), scritti **prima** del commit, e un confronto profondo del JSON di risposta contro un atteso con tolleranza numerica.
+5. **Dopo un ricalcolo che cambia dati**, i numeri attesi dei test che cambiano con i dati (conteggi, totali) si aggiornano: sono dati nuovi, non errori.
 
 #### Esportare e cancellare i dati personali
 `GET`/`DELETE /me/data` esistono già (protetti da login, export in JSON leggibile) e il punto da riempire pure: `Store/AppPersonalDataStore.cs`, l'unica `IPersonalDataStore` del sito (già registrata in `Program.cs`, non un export per controller di dominio). Aggreghi lì i tuoi store:

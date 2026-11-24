@@ -220,7 +220,7 @@ Il colore del brand è `colorTema` (`site.colorTema` in `global-settings.json`);
 
 Estendi il client API aggiungendo path e metodo pubblico in `api.service.ts` (con `{ silent: true }` per gestire l'errore con una UI tua); accendi le notifiche realtime con il campanellino via `shell: { showNotifications: true }`; registri un cookie o una voce di Web Storage aggiungendo una riga a `COOKIE_MAP`; adatti i DTO di sessione e login in `core/dto/` (`session.dto.ts` e `auth.dto.ts`, allineati ai record C#). Ricette rapide: [AGENTS.md](../AGENTS.md#aggiungere-un-endpoint-al-client) (endpoint), [AGENTS.md](../AGENTS.md#persistere-dati-lato-client-cookie-web-storage-consenso) (cookie/Web Storage).
 
-Per comporre le UI riusi le direttive dichiarative (`[appPage]` per i link interni, `[appImgRender]`/`[appQrContent]` per immagini e QR generati, `[appContextMenu]` per i menu contestuali), la pipe `markdown` (sanitizzata), l'editor `app-markdown-editor` e i componenti pronti (`app-link-badge` e le famiglie azione/contatto). Per una modale di progetto c'è `notify.modal()` (Modal di Bootstrap: focus trap, Escape, backdrop e `canClose`, stesso `NotificationService` di messaggi e toast), per le modifiche non salvate `LeaveGuardService` (consultato dal `canDeactivate` di ogni pagina e da `beforeunload`), per il tempo relativo `formatter.relativeTime`, per le animazioni JS `injectPrefersReducedMotion()`, per le mappe `ContactUrl.maps`, per le card che si sollevano la classe `lift-on-hover`. La PWA si attiva con `isWebApp`. Vedi «Aggiungere un Endpoint», «Errori Silenziosi per UI Custom», «NotificationStreamService», «Aggiungere voci in `COOKIE_MAP`», «DTO di Sessione e Login», «`[appPage]`», «Directive di Rendering Dichiarativo», «Editor Markdown», «Componenti di Azione», «Componenti di Contatto».
+Per comporre le UI riusi le direttive dichiarative (`[appPage]` per i link interni, `[appImgRender]`/`[appQrContent]` per immagini e QR generati, `[appContextMenu]` per i menu contestuali), la pipe `markdown` (sanitizzata), l'editor `app-markdown-editor` e i componenti pronti (`app-link-badge` e le famiglie azione/contatto). Per una modale di progetto c'è `notify.modal()` (Modal di Bootstrap: focus trap, Escape, backdrop e `canClose`, stesso `NotificationService` di messaggi e toast; con `title` disegna da sé l'intestazione e la X di chiusura e con `actions` il piè coi pulsanti, descritti come le voci di un menu contestuale: così tutte le modali sono uguali; con intestazione e piè del servizio il corpo scorre e i pulsanti restano in basso (`scrollable: false` per toglierlo); `key` impedisce due istanze, `owner` la chiude con il componente che l'ha aperta, `afterClosed` dice come si è chiusa), per le modifiche non salvate `LeaveGuardService` (consultato dal `canDeactivate` di ogni pagina e da `beforeunload`), per il tempo relativo `formatter.relativeTime`, per le animazioni JS `injectPrefersReducedMotion()`, per le mappe `ContactUrl.maps`, per le card che si sollevano la classe `lift-on-hover`. La PWA si attiva con `isWebApp`. Vedi «Aggiungere un Endpoint», «Errori Silenziosi per UI Custom», «NotificationStreamService», «Aggiungere voci in `COOKIE_MAP`», «DTO di Sessione e Login», «`[appPage]`», «Directive di Rendering Dichiarativo», «Editor Markdown», «Componenti di Azione», «Componenti di Contatto».
 
 ### Bundling & build (`angular.json`)
 
@@ -256,7 +256,7 @@ Per l'URL canonico della pagina corrente (condivisioni, link assoluti, `<link re
 
 ## 🔐 Sistema di Autenticazione (JWT)
 
-**Scadenza della sessione.** Il JWT ha una durata (`Security.Token.ExpirationSeconds`) e allo scadere `TokenService` lo scarta. `SessionExpiryNoticeService` (Engine, attivato da `app.config.ts`) la rende visibile: un toast due minuti prima ("salva quello che stai facendo"), alla scadenza un toast chiaro e, se la pagina corrente è `requiresAuth`, lo stesso redirect al login del guard (con ritorno alla pagina). Un logout voluto non produce niente; con una vita residua sotto i due minuti l'avviso è saltato. Senza refresh token non c'è un "resta connesso": l'avviso in anticipo è la parte che salva il lavoro. Testi `sessioneScadeTraAvviso` (con `{0}` = minuti) e `sessioneScadutaAvviso`.
+**Scadenza della sessione.** Il JWT ha una durata (`Security.Token.ExpirationSeconds`) e allo scadere `TokenService` lo scarta. `SessionExpiryNoticeService` (Engine, attivato da `app.config.ts`) la rende visibile: due minuti prima un avviso con il pulsante **«Resta connesso»** (WCAG 2.2.1: il limite di tempo lo prolunga l'utente), che chiama `POST /session/refresh` (`SessionRefreshService`) e sostituisce il token con uno nuovo, stessi dati e nuova scadenza; il toast resta finché non si sceglie. Il rinnovo ha un tetto, `ExpirationSeconds × 9,5` dal login (7 ore e 55 con i 50 minuti di serie, non configurabile: segue la durata del token): oltre, il backend risponde `403` e l'avviso dice di salvare e accedere di nuovo. Alla scadenza un toast e, se la pagina corrente è `requiresAuth`, lo stesso redirect al login del guard, con `returnUrl` (si torna alla pagina, parametri compresi). Un logout voluto non produce niente; con una vita residua sotto i due minuti l'avviso è saltato. Testi `sessioneScadeTraAvviso` (con `{0}` = minuti), `sessioneProlunga`, `sessioneProlungata`, `sessioneNonProlungabile`, `sessioneProlungaErrore`, `sessioneScadutaAvviso`.
 
 Il login è opzionale e si accende in `Features` di `global-settings.json` (letto a compilazione e scritto in `environment.features`), con `Security.Token.SecretKey` (`global-settings.local.json`) come requisito:
 - `Features.Login`: login riservato agli amministratori. La pagina esiste ma non è linkata in navbar, e la Privacy Policy non ne parla.
@@ -265,6 +265,10 @@ Il login è opzionale e si accende in `Features` di `global-settings.json` (lett
 - Login acceso senza `loginPage` in `site.ts` = errore al build. `Features` va scritto esattamente come da schema (chiavi note, valori `true`/`false`, mai nel `.local`): altrimenti il build si ferma.
 
 La pagina di login è `noindex` e fuori dalla sitemap di default; `otherSEO: { noindex: false }` sulla sua dichiarazione la riporta nell'indice.
+
+**Ritorno dopo il login.** `authGuard` rimanda al login con `?returnUrl=` (l'indirizzo richiesto, parametri compresi, in base64url: `returnUrlParam`/`decodeReturnUrl`, al più 4000 caratteri) e `returnPageType`; la direttiva `appLoginLink` (`<a appLoginLink class="…">Accedi</a>`) fa lo stesso da qualunque link: la usa la voce «Accedi» della navbar (`user-nav`), così da ogni pagina dopo l'accesso si torna lì, e un'azione che chi non è loggato non vede («Modifica»). Sul login mette `aria-current="page"`; `#l="appLoginLink"` espone `onLoginPage()` per le classi dello stato attivo. La pagina di login di Dominio chiude con una riga: `await router.navigateByUrl(loginReturnTarget(route.snapshot.queryParamMap, translate.currentLang(), fallback))` (`core/engine/login-return.ts`). Ordine: `returnUrl`, poi `returnPageType` (scartato se il percorso ha un segmento `:param`), poi `fallback` (di serie la home della lingua corrente). `validReturnUrl` accetta solo indirizzi interni (una sola `/` iniziale, niente spazi né `\`, non la pagina di login stessa): un `//altro.it` o un `https://…` codificato vale `null`, nessun open redirect.
+
+**Pagine per ruolo.** `requiresRole: 'admin'` (o `['admin', 'editor']`, basta uno) accanto a `requiresAuth` nella dichiarazione della pagina: implica il login e SSR spento; chi è loggato senza il ruolo va a `/error/403`. Su una pagina contenitore vale per l'intero sottoalbero. I ruoli sono `roles` nel payload di sessione (`SessionInfo.roles`, un array: gli stessi che `AuthController` emette come claim di ruolo; una stringa non vale nessun ruolo). Il guard è chiuso nel dubbio: `requiresRole` malformato → 403. Con padre e figlio che dichiarano ruoli diversi servono entrambi. Il guard evita solo di mostrare una pagina che le sue chiamate rifiuterebbero: la protezione vera è `[Authorize(Roles = "admin")]` nel backend. Come `requiresAuth`, non nasconde la voce di menu (`authOnly`).
 
 Sul frontend serve:
 
@@ -330,6 +334,8 @@ Aggiungere un campo al profilo di sessione (es. `brandColor`) è un'unica modifi
 | `FieldErrorDirective` (Engine, `core/engine/directives/field-error.directive.ts`) | `[appFieldError]="id-errore"` | Su un campo di form: `.is-invalid`, `aria-invalid` e `aria-describedby` verso il messaggio, insieme e solo a campo toccato (o form inviato con `markAllAsTouched`). `[appFieldHint]` aggiunge l'id di un testo d'aiuto sempre letto. Il messaggio va mostrato con la stessa condizione (`touched && invalid`). |
 | `BusyIconComponent` (Engine) | `app-busy-icon` | Glifo di un bottone che diventa spinner nello stesso box (il bottone non cambia misura). Il bottone porta `[disabled]` e `[attr.aria-busy]`: è il pattern di ogni azione asincrona (bottoni azione, login, upload). |
 | `EmptyStateComponent` (Engine) | `app-empty-state` | Lista, ricerca o filtro senza risultati: icona, messaggio (`titleKey`), spiegazione (`descriptionKey`) e un'azione proiettata per uscirne. `[compact]` dentro dropdown e card piccole. |
+| `MotionToggleComponent` (Engine, `core/engine/components/motion-toggle/`) | `app-motion-toggle` | Interruttore «Animazione di sfondo» (WCAG 2.2.2): ferma o riprende l'effetto smoke e ricorda la scelta sul dispositivo (`AppearanceService.setSmokePaused`). **Non compare se il design system non accende lo smoke**: lo si mette dove serve (impostazioni, `addCustom` del footer) senza `@if`, e un sito senza effetto non ha un controllo che non fa niente. `[hint]="false"` toglie il testo d'aiuto. |
+| `SiteMapComponent` (Engine, `core/engine/components/site-map/`) | `app-site-map` | Mappa del sito in HTML (WCAG 2.4.5): l'elenco delle pagine pubbliche nella lingua corrente, anche fuori indice (`getSiteMapPages()`; riservate, login, rotte con `:param` e pagine con `inSiteMap: false` no; una pagina nuova compare da sola). **L'Engine la monta già da sé** come pagina e link nella fascia delle policy del footer (`legal.siteMap: false` la spegne): il componente serve solo a chi la vuole dentro una pagina sua. |
 | `LoadingComponent` (Engine) | `app-loading` | Blocco di contenuto in attesa (`[loading]`): spinner con `role="status"`, poi il contenuto proiettato. Per un bottone si usa `BusyIconComponent`. |
 | `ImgFallbackDirective` (Engine) | `img[appImgFallback]` | Per un `<img>` con `src` diretto: segnaposto neutro se il file non si carica (`[appAsset]` lo fa già da sé). Un'immagine decorativa (`alt=""`) invece sparisce. |
 | `OfflineBannerComponent` (Engine) | `app-offline-banner` | Fascia fissa in fondo allo schermo quando la rete del browser cade ("Sei offline…"), che diventa "Connessione ripristinata" per pochi secondi al ritorno; `role="status"`, annunciata senza interrompere. Distinta dall'errore API (backend giù ≠ telefono senza rete). Finché è visibile scrive la propria altezza in `--bottomBarOffset` su `<html>`, che i FAB (torna su, cookie) sommano al loro `bottom` per non finire coperti. Montata dalla shell accanto al cookie banner; testi `offlineAvviso`/`offlineRipristinato`, sovrascrivibili in `addon.<lang>.json`. |
@@ -360,7 +366,7 @@ Per cambiare anche la logica (un altro endpoint, un campo aggiuntivo nel form, u
 
 ### Ciclo di Vita del Token
 
-Il token sta in `localStorage` (chiave `bearerToken`), come fanno i siti con sessione persistente: sopravvive a F5, nuove schede e chiusura del browser, e all'avvio ogni scheda lo rilegge da lì (`AuthService.restoreSession()`), senza che le schede si parlino. Vale finché il JWT non scade (`Security.Token.ExpirationSeconds`, 50 minuti di serie: nessun refresh token, alla scadenza serve un nuovo login) o l'utente esce. `TokenService` (Engine, intoccabile) avvia un timer che esegue il logout allo scadere dell'`exp` del JWT, e gestisce il limite JavaScript di 24 giorni con un rescheduling ricorsivo.
+Il token sta in `localStorage` (chiave `bearerToken`), come fanno i siti con sessione persistente: sopravvive a F5, nuove schede e chiusura del browser, e all'avvio ogni scheda lo rilegge da lì (`AuthService.restoreSession()`), senza che le schede si parlino. Vale finché il JWT non scade (`Security.Token.ExpirationSeconds`, 50 minuti di serie, prolungabile dall'utente con «Resta connesso» fino a `ExpirationSeconds × 9,5` dal login, vedi «Scadenza della sessione») o l'utente esce. `TokenService` (Engine, intoccabile) avvia un timer che esegue il logout allo scadere dell'`exp` del JWT, e gestisce il limite JavaScript di 24 giorni con un rescheduling ricorsivo.
 
 > Più schede: il logout o la scadenza in una scheda non sloggano le altre già aperte, che tengono il token in memoria fino alla sua `exp` (e al loro prossimo avvio non lo trovano più). È il compromesso di non far parlare le schede tra loro. Un login fatto in una scheda non viene cancellato dalla scadenza di un token più vecchio tenuto da un'altra. Il token sta in chiaro in `localStorage`, leggibile da qualsiasi script della pagina: la difesa è la CSP (`security-headers.json`) e la breve durata. Una sessione più lunga di 50 minuti, o fuori dalla portata di uno script (cookie `HttpOnly`), vuole un refresh token e va oltre `TokenService`.
 
@@ -610,6 +616,8 @@ Ogni campo è facoltativo; il default è quello che vale senza design system. Og
 | `navbar.show` | `boolean` | `true` | `false`: nessuna navbar, su nessuna pagina |
 | `navbar.fissa` | `boolean` | `false` | Navbar agganciata in cima allo scroll (sticky); si sgancia da sola oltre un quinto dell'altezza visibile |
 | `navbar.superficie` | `'brand'` / `'body'` | `'brand'` | Sfondo di navbar e footer: immersivo di brand o uguale alla pagina |
+| `navbar.etichettaMenu` | `boolean` | `false` | Etichetta «Menu» accanto alle tre barre del pulsante mobile (da chiuso). Spenta: solo le tre barre; il nome accessibile («Menu: Apri/chiudi navigazione») resta |
+| `navbar.bordoMenu` | `boolean` | `false` | Bordo attorno al pulsante mobile del menu. Spento: solo le tre barre (area di tocco comunque da 44 px) |
 | `navbar.icona` | `boolean` | `true` | Icona di brand in navbar |
 | `footer.show` | `boolean` | `true` | `false`: nessun footer, su nessuna pagina |
 | `breadcrumb.show` | `boolean` | `false` | Breadcrumb sulle pagine (mai sulla home) |
@@ -857,6 +865,13 @@ Un'animazione di particelle dietro il pannello contenuti, puramente decorativa, 
 
 ```typescript
 smoke: { enable: true, color: '#1f40ff', opacity: 0.4, intensita: 'bruma' },
+```
+
+**Pausa (WCAG 2.2.2).** Un movimento che parte da solo e dura più di 5 secondi deve potersi fermare. `prefers-reduced-motion` lo spegne già per chi lo ha chiesto al sistema; per tutti gli altri `AppearanceService` espone `smokeAvailable` (il design system lo accende?), `smokePaused()` e `setSmokePaused(paused)`; il `SmokeEffectComponent` li ascolta (in pausa il loop si ferma e il canvas si svuota, alla ripresa le particelle ripartono da dove erano). La scelta si ricorda sul dispositivo (voce `smokePaused`, `Technical`: preferenza chiesta dall'utente, esente da consenso, elencata nella Cookie Policy solo se lo smoke è acceso). Il controllo pronto è `<app-motion-toggle />`, che non compare da solo se lo smoke è spento **o se nessuna pagina lo mostra** (il builder lo conta come spento): un sito senza effetto non ha niente da fermare e non ha bisogno di una pagina di impostazioni per questo.
+
+```typescript
+// nav.ts — nel footer (o in una pagina di impostazioni: `<app-motion-toggle />`)
+g.addCustom(MotionToggleComponent, { inputs: { hint: false } });
 ```
 
 - `color`: hex a 3, 6 o 8 cifre (alpha ammesso). `opacity`: numero finito fra 0 e 1 (default 0.5).
@@ -1825,6 +1840,7 @@ shell: {
 },
 
 isWebApp: false,                   // funzionalità PWA (Service Worker, aggiornamenti, install offline), default false, opt-in
+prefetchOnIntent: false,           // scarica la pagina prima del clic (puntatore fermo, focus, tocco), default false, opt-in → vedi «Precaricamento per intento»
 
 legal: { /* … */ },                // pagine legali → vedi «Pagine legali (`legal`)»
 jsonld: { /* … */ },               // dati di identity esposti nel JSON-LD → vedi «JSON-LD Strutturato»
@@ -1842,6 +1858,16 @@ I profili social del brand e la natura dell'entità sono dati d'identità: vivon
 Per un sito personale/portfolio imposta `personal: true` in `identity.json`: l'entità brand diventa `Person` invece di `Organization` (default). Cambia il `@type` e l'icona passa da `logo` a `image`; il nome dell'entità è la `ragioneSociale` (fallback al nome del sito). Il default è `Organization` perché è il meno penalizzante per Google: dichiarare `Person` per un'azienda è peggio del contrario. Identità assente → esce comunque un grafo valido (Organization, senza sameAs).
 
 > `isWebApp: false` rende il sito non installabile: il Service Worker non si registra (e `CookieConsentService` lo de-registra a runtime), `generate-statics.ts` non genera `manifest.webmanifest` e toglie da `index.html` i trigger di installabilità (`<link rel="manifest">`, `mobile-web-app-capable`, i meta `apple-mobile-web-app-*`), e il server SSR risponde `404` al manifest. Così non compare il prompt "Aggiungi a schermata Home" (a Chrome Android per l'installabilità basta il manifest, anche senza Service Worker). Con `isWebApp: true` la PWA è completa. Favicon e `<link rel="apple-touch-icon">` restano presenti in ogni caso: "Aggiungi a Home" su iOS/Safari funziona anche senza manifest/Service Worker, e anche un sito non installabile ha un'icona vera in home invece del placeholder screenshot.
+
+### Precaricamento per intento (`prefetchOnIntent`)
+
+Con `prefetchOnIntent: true` in `site.ts` il codice di una pagina si scarica **prima del clic**, appena chi naviga mostra l'intento: il puntatore fermo su un link per 100 ms, il focus da tastiera, l'inizio di un tocco. Il clic trova il codice già in cache e la pagina si apre subito. Spento di serie.
+
+- **Vale per ogni link interno** (navbar, footer, breadcrumb, contenuti, Markdown), senza toccare i template: un solo ascolto delegato sul documento, non una direttiva da mettere sui link. Un link esterno, un `target` diverso da `_self`, un `download`, un `mailto:` o una pagina che non c'è non scaricano niente.
+- **Quanto costa**: una pagina si scarica una volta sola, al massimo due scaricamenti insieme, mai a scheda nascosta, né con `saveData` o una connessione 2G. Un passaggio in volo del puntatore (verso un altro link) non scarica niente. Un errore di rete non si segnala: il clic ritenta da sé. Non c'è traffico dal server: sono richieste dei chunk al solito hosting statico.
+- **Il guadagno è proporzionale al peso della pagina.** Nella demo le pagine pesano da meno di 1 kB a circa 43 kB trasferiti: per quelle da pochi kB non cambia niente che si veda. Ha senso per un sito con pagine pesanti (editor, tabelle, mappe) o per chi naviga da rete lenta; misurala prima con la build di produzione (`ng build` elenca i chunk pigri).
+- **Cosa scarica e cosa no (misurato nel browser).** Scarica il codice della **rotta** (`loadComponent` e ciò che importa staticamente), non i blocchi che la pagina carica poi da sé (`@defer`, `import()` dentro il componente). Sulla pagina più pesante della demo, in build di sviluppo e byte non compressi: **669 kB su 763 kB (l'88%) arrivano prima del clic**, 94 kB dopo. Un componente che importa dinamicamente le sue parti pesanti anticipa meno.
+- Non è `PreloadAllModules` (che scarica tutte le pagine all'avvio e gonfia il traffico): qui si scarica solo ciò che si sta per aprire.
 
 ### Pagina esterna (`externalUrl`) e on/off (`enabled`)
 
@@ -2652,6 +2678,116 @@ Nel template chiami `onClick()` sul bottone, leggi `displayLabel()` per il testo
 
 ---
 
+### Modifiche non salvate: `LeaveGuardService.registerDirty`
+
+Perché esiste: ogni editor con modifiche in sospeso doveva scrivere il proprio dialogo di uscita (testi, tre vie, errore di salvataggio, doppio clic). `registerDirty` prende un oggetto e fa tutto da sé; più editor sporchi nella stessa pagina producono un solo dialogo.
+
+| Campo di `DirtyEntry` | Effetto |
+| :--- | :--- |
+| `dirty` | Vero se c'è qualcosa da non perdere (un `signal` va bene così com'è). |
+| `save` | Se **tutte** le voci sporche lo hanno: «Salva / Non salvare / Annulla»; se manca anche su una sola: «Esci senza salvare / Resta qui». «Salva» esce solo se ogni `save` è riuscito e nessuna voce resta sporca. |
+| `label` | La sezione citata nel dialogo («…in "FAQ"»; più voci: «…in più sezioni: FAQ, Orari»). |
+| `message` | Il testo al posto di quello di serie, per dire cosa si perde davvero. |
+
+`leaveGuard.confirmDiscard([voci])` serve le uscite che non sono navigazioni: la `canClose` di una modale (solo le proprie modifiche) o un cambio scheda (senza argomenti: tutte le voci registrate). Si copre anche la chiusura della scheda del browser (`beforeunload`). `register({ dirty, confirm })` con un dialogo proprio resta valido.
+
+### Scelta fra poche voci: `app-segmented-control`
+
+Una domanda con 2-6 risposte tutte visibili (sì/no/non indicato, una variante, una modalità): campo di form o `[(value)]`. Ogni segmento è un bottone da 44 px con `aria-pressed`; il selezionato è pieno e porta una spunta (lo stato non è solo colore). Per più di sei voci o una scelta che si apre e si chiude, `<select>` o menu.
+```html
+<label id="casa-l" class="form-label">C'è una casa?</label>
+<app-segmented-control labelledBy="casa-l" [options]="sino" formControlName="haCasa" />          <!-- YES_NO_UNKNOWN_OPTIONS -->
+<app-segmented-control variant="pill" label="Tipo di locale" [options]="tipi" [(value)]="tipo" />  <!-- cursore che scorre -->
+```
+`options` è `{ value, label, icon? }[]` (`label` chiave i18n o testo, e anche chiave del segmento: diverse fra loro). `YES_NO_OPTIONS` e `YES_NO_UNKNOWN_OPTIONS` (`null` = non indicato) sono pronte. `variant="pill"` si ferma con `prefers-reduced-motion`.
+
+### Errore sotto il campo: `app-field-error`
+
+```html
+<input id="tel" class="form-control" formControlName="tel" appFieldError="tel-error" />
+<app-field-error id="tel-error" [control]="form.controls.tel" [messages]="{ telefono: 'formTelefono' }" />
+```
+Compare con il campo toccato e non valido. Testi di serie per `required`, `email`, `minlength`, `maxlength`, `min`, `max`, `pattern` (chiavi `campoObbligatorioErrore`, `fieldError*`; `{0}` = la lunghezza o il limite); un validatore del progetto (`{ telefono: true }`) si spiega con `[messages]` (codice → chiave i18n, vince sul testo di serie); un errore `server` di tipo stringa porta già il messaggio del backend. L'`id` è quello che il campo dichiara in `appFieldError`.
+
+### Validatori pronti: `core/engine/components/field-error/form-validators.ts`
+
+Funzioni pure per i reactive forms, con i codici d'errore che `app-field-error` spiega da sé: niente validatore scritto a mano per un numero, un telefono o una conferma.
+
+| Validatore | Codice d'errore | Cosa controlla |
+| :--- | :--- | :--- |
+| `requiredTrimmed` | `required` | Obbligatorio senza contare gli spazi (`Validators.required` lascia passare «   »). `0` e `false` sono valori. |
+| `integer({ min?, max?, locale? })` | `integer`, `min`, `max` | Un intero **non negativo** letto come lo scrive la gente («40 letti», «circa 40», «1.000»; fino a 9 cifre, come `parseLooseInteger`). |
+| `decimal({ min?, max?, locale?, thousands? })` | `decimal`, `min`, `max` | Un numero con decimali («6 €», «1.200,50»), anche negativo. `thousands: false` per misure e coordinate. |
+| `coordinate(min, max, codice?)`, `latitude`, `longitude` | `coordinate` / `latitude` / `longitude` | «44,5 N», «3.2 W» dentro l'intervallo. |
+| `emailPlausible` | `email` | `a@dominio.it` con estensione di almeno due lettere (più severo di `Validators.email`, che accetta `a@b`). |
+| `phone` | `phone` | Un solo numero (`Validation.phone.isValid`: cifre e separatori, 6-15 cifre, niente lettere). Il prefisso e la normalizzazione di un Paese restano al progetto. |
+| `sameAs('altroCampo', { ignoreCase? })` | `sameAs` | Uguale a un altro campo dello stesso gruppo (conferma di email o password), messaggio sul campo di conferma. |
+
+**Una regola**: un campo **vuoto è valido** per tutti tranne `requiredTrimmed`. Un campo facoltativo si scrive `[integer()]`, uno obbligatorio `[requiredTrimmed, integer({ min: 1 })]`. `min`/`max` rendono la stessa forma di `Validators.min`/`max` (`{ min: { min, actual } }`): hanno già un testo.
+
+**`sameAs` si ricalcola da sé quando cambia l'altro campo.** Un validatore gira solo quando cambia il suo campo: senza questo, una conferma uguale resterebbe «valida» dopo che la password è cambiata. `sameAs` si collega al `valueChanges` dell'altro campo una volta sola, senza emettere eventi (due `sameAs` che si guardano a vicenda non si richiamano all'infinito). Funziona dentro un `FormGroup`.
+```typescript
+form = this.fb.group({
+    email: ['', [requiredTrimmed, emailPlausible]],
+    conferma: ['', [requiredTrimmed, sameAs('email', { ignoreCase: true })]],
+    posti: ['', [requiredTrimmed, integer({ min: 1, max: 10000 })]],
+    lat: ['', [latitude]],
+});
+```
+
+### Contenuti di terze parti con consenso: `app-embed`
+
+Un video, un podcast, un player di un altro sito, **senza nessuna richiesta a terzi finché chi legge non lo vuole**. Si descrive con **un oggetto** (`EmbedSource`), non con una dozzina di input: o un indirizzo, o un provider con il suo id, più titolo e presentazione.
+```html
+<app-embed [source]="{ url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', title: 'Ultimo video' }" />
+<app-embed [source]="{ provider: 'spreaker', id: 'episode/12345', title: 'Episodio 12', cover: 'copertina' }" />
+@for (e of contenuti().embeds; track e.title) { <app-embed [source]="e" /> }   <!-- l'array arriva tale e quale dal backend o da un file -->
+```
+| Campo di `EmbedSource` | Significato |
+| :--- | :--- |
+| `url` **oppure** `provider` + `id` | L'indirizzo (la pagina pubblica o quello dell'embed: il provider si riconosce da sé, come `detectSocialKey` per i social) oppure il provider (chiave o oggetto) con il suo id. |
+| `title` (obbligatorio) | Il nome del contenuto, già tradotto: titolo della facade e `title` dell'iframe. |
+| `subtitle`, `cover`, `height`, `link` | Sottotitolo; id di un asset per la copertina; altezza in px; dove porta «Apri su…» (solo `https:`). |
+
+| Provider | `id` | Host dell'iframe (da mettere in `frame-src`) |
+| :--- | :--- | :--- |
+| `youtube` | `dQw4w9WgXcQ` (11 caratteri) | `https://www.youtube-nocookie.com` |
+| `vimeo` | `123456` o `123456/hash` (video non in elenco) | `https://player.vimeo.com` |
+| `spotify` | `episode/<22 car.>`, `show/…`, `track/…`, `album/…`, `playlist/…` | `https://open.spotify.com` |
+| `spreaker` | `episode/12345` o `show/678` (l'ultimo episodio) | `https://widget.spreaker.com` |
+
+- **Prima del consenso: la facade.** Nessun iframe e nessuna richiesta a terzi: il nome del contenuto, un avviso («caricando il player il tuo browser contatta YouTube…»), il pulsante «Carica il player», il link alla privacy del provider e «Apri su…». Un clic su «Carica» carica il player **di quel contenuto**, per questa visita, e porta il focus sul player.
+- **Con la categoria accettata nel banner** (di serie `Profiling`, la dichiara il provider) il player si carica da solo, ma **solo dopo l'idratazione**: il server non conosce il consenso e disegna sempre la facade. Revocando il consenso, un player non cliccato torna facade; uno caricato con un clic resta (è una scelta di quel contenuto).
+- **`youtube-nocookie.com`**: il player di YouTube senza cookie finché non si preme play. L'host va in `frame-src` di `security-headers.override.json` (`"frame-src": ["https://www.youtube-nocookie.com"]`): senza, il browser lo blocca; in sviluppo la console dice quale riga aggiungere.
+- **Sicurezza**: l'indirizzo dell'iframe nasce **solo** da un id validato dal provider (mai da una stringa libera), deve essere `https:` senza credenziali né porta, e il suo host deve stare nella lista del provider. Un oggetto non valido (provider sconosciuto, id sbagliato, host fuori lista) non disegna niente e in sviluppo lo dice in console. L'iframe ha `sandbox`, `referrerpolicy="strict-origin-when-cross-origin"` (YouTube lo richiede) e `loading="lazy"`; il link «Apri su…» è solo `https:`.
+- **Il provider nell'elenco della Cookie Policy**: una voce in `COOKIE_MAP` (`cookie-registry.ts`), con la stessa categoria del provider, fa comparire YouTube/Spreaker… nel banner e nella policy: la voce dichiara, non imposta niente.
+- **Un provider tuo** si scrive con `defineEmbedProvider({ key, label, glyph, category, privacyUrl, hosts, idPattern, embedUrl, openUrl, parseUrl, size })` (rifiuta subito un host con schema o percorso, un `idPattern` con flag `g`) e si passa come oggetto (`provider: mio`) o, se nei contenuti lo nomina una chiave, con `[providers]="{ ...EMBED_PROVIDERS, mio }"`.
+- Le funzioni pure `resolveEmbed` e `detectEmbed` (`core/engine/components/embed/embed.ts`) servono anche fuori dal componente (un elenco di contenuti da validare lato client).
+
+### Riepilogo degli errori: `app-error-summary`, `showFormErrors`, `focusFirstInvalid`
+
+Il messaggio sotto ogni campo (`app-field-error`) dice cosa non va in quel campo; il riepilogo in cima dice **subito quanti e quali** campi non vanno, anche quando il primo è fuori vista (WCAG 3.3.1 chiede che l'errore sia identificato e descritto in testo: il riepilogo si somma al messaggio sul campo, non lo sostituisce). Lo schema è quello dei design system pubblici: titolo, una voce per campo, ogni voce porta il focus sul campo.
+
+```html
+<app-error-summary [items]="errori()" [general]="generali()" />
+```
+```typescript
+protected async invia(): Promise<void> {
+    // tocca ogni campo, aspetta il disegno, raccoglie i campi da correggere; form valido → []
+    this.errori.set(await showFormErrors(this.form, this.host.nativeElement));
+    if (this.form.valid) await this.salva();
+}
+```
+- **Letto dal DOM, non dal form**: `collectFieldErrors(root)` raccoglie i campi `aria-invalid="true"` (lo mette `appFieldError` quando il campo è toccato e non valido) o `.is-invalid`. Per ognuno `{ id, label, message }`: il nome da `aria-labelledby`, `label[for]`, la `label` che lo contiene o `aria-label` (asterischi e due punti tolti); il messaggio dal testo sotto il campo, quindi **uguale per costruzione**. Funziona anche con campi in componenti figli, modali e stepper, che un `FormGroup` non sa nominare. La convenzione è una sola: i campi usano `appFieldError` e un nome (etichetta). Un campo senza id ne riceve uno; disabilitati e nascosti sono fuori; di un gruppo di radio entra il primo.
+- **Il focus va al riepilogo** a ogni nuovo elenco (anche con gli stessi errori: ogni invio passa un array nuovo), non al primo campo: chi usa un lettore di schermo lo sente (`role="alert"`) e sceglie da dove partire; un clic su una voce porta il focus (e la vista) sul campo. Le voci sono bottoni, non `<a href="#id">`: con `<base href>` un'àncora porterebbe via dalla pagina.
+- **Il titolo della pagina** si fa precedere da «Errore: » (`errorSummaryTitlePrefix`) finché il riepilogo è visibile, e lo perde quando sparisce o il componente è distrutto.
+- `general` sono i messaggi che non appartengono a un campo (un errore del server, una regola fra campi), voci senza link. `heading` cambia il titolo (chiave `errorSummaryTitolo`).
+- `focusFirstInvalid(root)` per chi non vuole il riepilogo (un editor in una modale, una sezione di uno stepper): il focus sul primo campo da correggere.
+
+### Testo senza maiuscole né accenti: `core/engine/text-fold.ts`
+
+`foldText('Forlì')` → `forli`, `containsFolded(testo, ricerca)`, `slugify('Pozzolo di Bore (Città)!')` → `pozzolo-di-bore-citta` (`maxLength` 60, `fallback` se non resta niente). Una sola regola per filtri e ricerche; la gemella C# è `TextFold.Fold`/`Slugify` (`using Backend.Engine`), stesso risultato.
+
 ## 🏗️ Script di Build: `generate-statics.ts`
 
 Lo script sincronizza i file statici e inietta nel frontend (via `src/environments/environment.ts`) l'identità minima del progetto: `project.name`/`project.version`, i codici lingua (`Localization`), `site.description` e `site.colorTema`, e `Features` da `global-settings.json`. I codici lingua sono il seed di build (shell, fallback `pickLocaleText`, routing per lingua); la cultura runtime (nomi nativi, giorni, formattazione) la deriva il frontend via `Intl`. Struttura e comportamento (pagine, `shell`, design system, `isWebApp`, `loginPage`, `legal`) restano in `site.ts`; il menu vive in `nav.ts`. Va eseguito a ogni modifica di `global-settings.json`, di `site.ts`, del design system o dei testi legali: è il pre-hook di `start`, `start:docker`, `dev`, `build` e `watch`; in Docker la config arriva con l'ARG `BR1_PROJECT_JSON`.
@@ -2686,6 +2822,16 @@ npm run generate:statics
 ### sitemap.xml: endpoint runtime, non file statico
 
 `sitemap.xml` non è un file generato al build: è un endpoint (`GET /sitemap.xml`, `server/routes/dynamic-sitemap.ts`), montato in `server.ts` prima dello static handler. Usa gli stessi calcoli di `generate-statics` (via `services/sitemap-xml.ts`, condiviso) più l'espansione delle pagine con `dynamicParams` (campo opzionale di `LeafPageInput`, in `siteBuilder.ts`: una funzione che recupera dal backend l'albero `SlugNode[]` degli slug accettati per una rotta con `:segmenti`), non enumerabili a build time perché il catalogo arriva da un'API. Cache in-process con TTL (default 7 giorni, env var `SITEMAP_CACHE_TTL_MS` in millisecondi): l'aggiornamento primario è la notifica on-demand dal backend (`POST /internal/revalidate-sitemap`, `SitemapNotifier`, vedi backend/README.md) dopo una scrittura su un catalogo `dynamicParams`, e il TTL è il fallback per una notifica persa. Il consumer è quasi sempre un crawler e non serve ricalcolare a ogni accesso; gli accessi concorrenti durante un ricalcolo condividono la stessa promise, e se il ricalcolo fallisce con una cache scaduta disponibile si serve quella invece di un errore. `robots.txt` punta allo stesso URL (`Sitemap: <base>/sitemap.xml`).
+
+**Siti grandi: sitemap-index.** Il protocollo ammette al massimo 50.000 URL o 50 MB (non compressi) per file. Oltre, `/sitemap.xml` diventa da sé un `<sitemapindex>` e le pagine escono da `/sitemap-1.xml`, `/sitemap-2.xml`… (`buildSitemapSet`, in `services/sitemap-xml.ts`); entro i limiti è la solita `<urlset>` unica, byte per byte uguale a prima: un sito piccolo non nota niente, e `robots.txt` continua a puntare a `/sitemap.xml`. Le varianti-lingua di una stessa pagina stanno sempre nello stesso file (ogni `<url>` elenca tutte le sue varianti hreflang: separarle farebbe puntare un file a URL di un altro). `<lastmod>` di una voce dell'indice è la data più recente fra le sue pagine, omesso se nessuna ne ha una. `SITEMAP_MAX_URLS` (variabile d'ambiente del Node SSR, tra 1 e 50.000) abbassa il tetto per file: file più piccoli da generare e da leggere. Con 25.000 pagine in due lingue si passa già dai 50.000 URL.
+
+**Un catalogo grosso nella `dynamicParams`.** `ctx.fetchBackendPages<T>(path, { pageSize?, maxPages? })` accanto a `ctx.fetchBackendJson`: chiama `path?page=N&pageSize=M` finché la pagina non è più corta di `pageSize` e rende tutti gli elementi in fila (di serie 5.000 per pagina; la risposta è un array o `{ items: [] }`). Decine di migliaia di slug in una sola risposta possono superare il timeout del proxy; a pagine ogni richiesta resta piccola. Un backend che ignora `page` (ripete la stessa pagina) si ferma a `maxPages` (1000) con un errore chiaro, non gira all'infinito.
+```typescript
+dynamicParams: async (ctx) => {
+    const strutture = await ctx.fetchBackendPages<{ slug: string; lastModified: string | null }>('strutture/sitemap', { pageSize: 5000 });
+    return strutture.map(s => ({ slug: s.slug, lastModified: s.lastModified }));
+},
+```
 
 ### Icone del sito automatiche (`generate-icons.ts`)
 
@@ -2838,8 +2984,26 @@ Un servizio di terze parti (tile di una mappa, analytics, font da CDN, un player
 | `<script>` da CDN | `script-src` |
 | Immagini da host esterni | `img-src` |
 | Font da CDN (es. Google Fonts) | `font-src` (+ `style-src-elem` per il `<link>` del CSS del font; `style-src` è ignorato per `<link>`/`<style>` quando c'è `style-src-elem`) |
-| `<iframe>` embed (YouTube, Spotify, ...) | `frame-src` |
+| `<iframe>` embed (YouTube, Vimeo, Spotify, Spreaker, ...) | `frame-src` (vedi sotto: **obbligatorio** per `app-embed`) |
 | Audio/video diretti | `media-src` |
+
+**`app-embed` e `frame-src`: senza, l'iframe è bloccato.** La CSP del template ha `default-src 'self'` e **nessun** `frame-src`: un iframe ricade su `default-src` e il browser rifiuta ogni host di terzi, **anche dopo il clic su «Carica il player»**. Il risultato è un riquadro bianco con questo messaggio in console: `Framing 'https://www.youtube-nocookie.com/' violates the following Content Security Policy directive: "default-src 'self'". The request has been blocked.` (verificato nel browser). Ogni figlio che usa `app-embed` aggiunge l'host del player che usa in `security-headers.override.json` — solo quelli che usa, mai un jolly (`*`):
+
+| Provider di `app-embed` | Host da aggiungere a `frame-src` |
+| :--- | :--- |
+| `youtube` | `https://www.youtube-nocookie.com` (**non** `www.youtube.com`: l'embed passa dall'host senza cookie) |
+| `vimeo` | `https://player.vimeo.com` |
+| `spotify` | `https://open.spotify.com` |
+| `spreaker` | `https://widget.spreaker.com` |
+
+```json
+{
+  "csp": {
+    "frame-src": ["https://www.youtube-nocookie.com", "https://widget.spreaker.com"]
+  }
+}
+```
+Chi aveva già `https://www.youtube.com` per un embed scritto a mano lo **sostituisce** (non serve più, se tutti gli embed passano da `app-embed`). Dopo la modifica il server SSR si riavvia: l'override si legge all'avvio. In sviluppo `app-embed` stesso dice cosa manca: se il browser blocca un host, la console scrive `[app-embed] la CSP ha bloccato https://… : aggiungilo a "csp.frame-src" in security-headers.override.json`. Il resto della CSP non cambia: lo `<iframe>` del player ha il suo `sandbox` e il player carica i propri script nel proprio contesto, che la CSP del sito non governa.
 
 Esempio: abilitare Mapbox:
 ```json

@@ -70,6 +70,9 @@ export class NavbarComponent {
      *  quindi anche i bot vedono solo le voci pubbliche. */
     readonly menuItems = computed(() => filterNavByAuth(this.rawMenuItems(), this.tokenService.isLoggedIn()));
     readonly fixTop = ContestoSito.config.aspetto.navbar.fissa;
+    /** Pulsante del menu mobile: etichetta «Menu» e bordo, entrambi spenti di serie (`navbar.etichettaMenu` / `navbar.bordoMenu` del design system). */
+    readonly menuLabel = ContestoSito.config.aspetto.navbar.etichettaMenu;
+    readonly menuBorder = ContestoSito.config.aspetto.navbar.bordoMenu;
     /** Se comparire — calcolato da `AppComponent` (`aspetto.navbar.icona && (RouteChrome.showBrandIcon ?? true)`):
      *  il ruolo della rotta può solo spegnerla. QUALE icona resta un'altra fonte (sotto). */
     readonly showBrandIcon = input<boolean>(true);

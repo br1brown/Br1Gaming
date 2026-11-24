@@ -3,7 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { LoginFormComponent } from '../../components/shared/login-form/login-form.component';
-import { ContestoSito, PageType } from '../../site';
+import { loginReturnTarget } from '../../core/engine/login-return';
 
 @Component({
     selector: 'app-login',
@@ -12,7 +12,7 @@ import { ContestoSito, PageType } from '../../site';
 })
 /**
  * Pagina di login: contiene `LoginFormComponent` e gestisce il ritorno — dopo il login riapre la
- * pagina indicata da `returnPageType` in querystring (settata dall'authGuard al redirect).
+ * pagina richiesta (`returnUrl` o `returnPageType` in querystring, messi dall'authGuard al redirect; `loginReturnTarget`).
  */
 export class LoginComponent extends PageBaseComponent<void> {
     private readonly router = inject(Router);
@@ -28,21 +28,10 @@ export class LoginComponent extends PageBaseComponent<void> {
             : null
     );
 
-    /** Login riuscito: torna alla pagina richiesta (`returnPageType`) o alla home. */
+    /** Login riuscito: torna alla pagina richiesta (`returnUrl`, o `returnPageType` messo dall'authGuard) o alla home. */
     protected async onLoggedIn(): Promise<void> {
-        const returnPageType = this.getReturnPageType();
-        const path = returnPageType != null
-            // currentLang() qui è sicuro (a differenza del resolver/guard): scatta dopo un login
-            // riuscito, cioè dopo un'interazione utente reale — la lingua è già sincronizzata da un pezzo.
-            ? ContestoSito.getPath(returnPageType, this.translate.currentLang())
-            : null;
-        await this.router.navigateByUrl(path ?? '/'); // '/' = home (lingua default) se non c'è un returnPageType valido.
-    }
-
-    /** Legge il `returnPageType` dalla querystring e lo valida come `PageType` registrato. */
-    private getReturnPageType(): PageType | null {
-        const raw = this.route.snapshot.queryParamMap.get('returnPageType');
-        if (raw == null) return null;
-        return (Object.values(PageType) as string[]).includes(raw) ? (raw as PageType) : null;
+        // currentLang() qui è sicuro (a differenza del resolver/guard): scatta dopo un login
+        // riuscito, cioè dopo un'interazione utente reale — la lingua è già sincronizzata da un pezzo.
+        await this.router.navigateByUrl(loginReturnTarget(this.route.snapshot.queryParamMap, this.translate.currentLang()));
     }
 }

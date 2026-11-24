@@ -142,6 +142,9 @@ export interface LegalDefinition {
     accessibility?: AccessibilitySlot;
     /** Pagine legali in più, in coda alle standard. */
     extra?: readonly ExtraLegalPage[];
+    /** Mappa del sito in HTML (WCAG 2.4.5, secondo modo di trovare le pagine): **accesa di serie**, nella fascia delle policy del footer, senza dichiarare niente.
+     *  `false` la spegne (e con lei la rotta e il link). Non è una pagina legale: ne condivide solo la fascia del footer. */
+    siteMap?: boolean;
 }
 
 /** Pagina legale risolta: quella che l'Engine crea davvero. */
@@ -223,7 +226,7 @@ function checkMarkdownName(name: string, where: string, seen: Set<string>): void
 
 /** Segmento per ogni lingua del sito: quello dichiarato dal progetto, poi quello dell'Engine, poi
  *  l'inglese dell'Engine per una lingua che nessuno dei due nomina (es. `fr`). */
-function pathPerLingua(engine: LegalPath, progetto: LegalPath | undefined): LegalPath {
+export function pathPerLingua(engine: LegalPath, progetto: LegalPath | undefined): LegalPath {
     if (typeof progetto === 'string') return progetto;
     if (typeof engine === 'string' && progetto == null) return engine;
     const base: Partial<Record<string, string>> = typeof engine === 'string' ? {} : engine;
@@ -310,4 +313,23 @@ export function buildPolicySection(managed: readonly LegalPageSpec[]): ParentPag
         otherSEO: { noindex: true },
     }));
     return { path: 'policy', title: 'policies', children };
+}
+
+
+/** `PageType` della mappa del sito dell'Engine: non lo sceglie il progetto (la pagina si imposta da sola), ma `[appPage]` e `[routerLink]` lo risolvono come gli altri. */
+const SITE_MAP_PAGE_ID: string = 'engine.siteMap';
+export const SITE_MAP_PAGE = SITE_MAP_PAGE_ID as PageType;
+
+/** Mappa del sito: pagina di servizio in fondo all'albero, fuori indice (come le policy). Il ruolo `legal` le dà il chrome da testo lungo. */
+export function buildSiteMapPage(): SitePageInput {
+    return {
+        path: pathPerLingua({ it: 'mappa-del-sito', en: 'site-map' }, undefined),
+        title: 'siteMapMenu',
+        description: 'siteMapDescrizione',
+        pageType: SITE_MAP_PAGE,
+        component: () => import('../pages/site-map/site-map-page.component').then(m => m.SiteMapPageComponent),
+        layout: { role: 'legal' },
+        otherSEO: { noindex: true },
+        inSiteMap: false,   // non elenca sé stessa
+    };
 }

@@ -6,7 +6,7 @@ import { ContestoSito } from '../../site';
 import { environment } from '../../../environments/environment';
 import { contentLoaderResolver } from './pages/content.resolver';
 import { InternalSitePage, isInternalPage, isParentPage, resolvePagePath, RouteChrome, CHROME_DATA_KEY } from './siteBuilder';
-import { authGuard, languageSyncGuard, leaveGuard } from './route-guards';
+import { authGuard, languageSyncGuard, leaveGuard, roleGuard } from './route-guards';
 import { KEEP_OLD_INSTANCE_DATA_KEY } from './route-reuse';
 
 /**
@@ -77,6 +77,8 @@ function toAngularRoute(page: InternalSitePage, lang: string): Route {
     const canActivate: CanActivateFn[] = [languageSyncGuard];
     // authGuard solo se la pagina lo richiede esplicitamente in site.ts (requiresAuth: true).
     if (page.requiresAuth) canActivate.push(authGuard);
+    // requiresRole (implica requiresAuth): dopo authGuard, così il ruolo si controlla solo su un utente loggato.
+    if (page.requiresRole !== undefined) canActivate.push(roleGuard);
 
     const route: Route = {
         // Segmento dichiarato in site.ts, risolto sulla lingua corrente — letterale o per-lingua
@@ -88,6 +90,7 @@ function toAngularRoute(page: InternalSitePage, lang: string): Route {
         data: {
             ...page.data,       // data liberi del figlio (site.ts) — diventano @Input() via withComponentInputBinding.
             pageType: page.pageType, // identità stabile della pagina — letto da guard/resolver/PageBaseComponent.
+            requiresRole: page.requiresRole, // letto da roleGuard.
             lang,                // lingua della rotta: da qui PageBaseComponent sincronizza TranslateService.
         }
     };
@@ -104,6 +107,7 @@ function toAngularRoute(page: InternalSitePage, lang: string): Route {
         route.data = {
             ...route.data,
             pageType: page.pageType,
+            requiresRole: page.requiresRole, // ripetuto come lang: route.data viene riscritto per intero.
             lang, // ripetuto: qui route.data viene RISCRITTO per intero, non è un duplicato accidentale.
             // pageFade: acceso solo con le transizioni del design system (config.aspetto.transizioni);
             // il ruolo (page.pageFade, da ruoloPagina.<ruolo>.pageFade) può solo spegnerlo.

@@ -2,6 +2,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { Injectable, PLATFORM_ID, Signal, WritableSignal, inject, isDevMode, signal, DOCUMENT } from '@angular/core';
 import { ContestoSito } from '../../../site';
 import type { SiteConfig } from '../siteBuilder';
+import { CookieConsentService } from './cookie-consent.service';
 
 /** I colori semantici di Bootstrap che un design system può rimpiazzare oltre a `secondary`/`info`. */
 export type ColoreSemantico = 'success' | 'warning' | 'danger';
@@ -152,6 +153,22 @@ export class AppearanceService {
 
     private readonly document = inject(DOCUMENT);
     private readonly platformId = inject(PLATFORM_ID);
+    private readonly consent = inject(CookieConsentService);
+
+    /** Il design system accende l'effetto di sfondo animato (`smoke.enable`)? Se `false` non c'è niente da fermare: un controllo di pausa
+     *  (una voce nelle impostazioni) non ha senso e non va mostrato. `<app-motion-toggle>` lo sa e non compare da solo. */
+    readonly smokeAvailable: boolean = ContestoSito.config.aspetto.smoke.enable;
+    private readonly _smokePaused = signal(false);
+    /** L'utente ha messo in pausa l'effetto di sfondo (WCAG 2.2.2: un movimento che parte da solo e dura più di 5 secondi si può fermare).
+     *  Ricordato sul dispositivo; lo `SmokeEffectComponent` lo ascolta. Non cambia l'HTML, solo l'animazione: nessun effetto sull'idratazione. */
+    readonly smokePaused: Signal<boolean> = this._smokePaused.asReadonly();
+
+    /** Ferma o riprende l'effetto di sfondo e ricorda la scelta. Senza smoke acceso non fa niente. */
+    setSmokePaused(paused: boolean): void {
+        if (!this.smokeAvailable) return;
+        this._smokePaused.set(paused);
+        this.consent.set('smokePaused', paused);
+    }
 
     /** Colore brand (`site.colorTema`). */
     readonly colorTema: Signal<string> = signal(this._palette.colorTema).asReadonly();
@@ -178,6 +195,7 @@ export class AppearanceService {
     readonly themeTone: Signal<'light' | 'dark'> = this._themeTone.asReadonly();
 
     constructor() {
+        if (isPlatformBrowser(this.platformId) && this.smokeAvailable) this._smokePaused.set(this.consent.get('smokePaused') === true);
         if (!isPlatformBrowser(this.platformId) || this._forcedThemeTone) return;
         const query = window.matchMedia('(prefers-color-scheme: dark)');
         const apply = (dark: boolean): void => {

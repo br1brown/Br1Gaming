@@ -59,6 +59,13 @@
     box-shadow: var(--shadowFooter);
 }
 
+/* Anello di focus nel footer a tinta del brand: come per la navbar (nav/_links.scss), il colore del TESTO della fascia, che il tema
+   garantisce su quello sfondo. `--focusRingColor` è scelto contro la superficie di pagina: sul brand scuro scendeva a 2,67:1
+   (WCAG 1.4.11 chiede 3:1). */
+.site-footer.theme-bg :focus-visible {
+    outline-color: var(--colorNavText);
+}
+
 /* Il brand della navbar di serie usa il colore dei titoli, spesso illeggibile su --colorNavBg. Globale e non
    nello stile del componente: sulle rotte solo client lo <style> scoped può arrivare senza nonce CSP. */
 .navbar.theme-bg {
@@ -90,4 +97,10 @@
     --swal2-footer-color: var(--colorMutedText);
     --swal2-close-button-color: var(--colorSurfaceText);
     --swal2-toast-border: 1px solid var(--colorSurfaceBorder);
+}
+
+/* La X di SweetAlert (toast persistenti e dialoghi con chiusura): area di tocco da 44px, come ogni controllo (di serie è 26px). */
+.swal2-container .swal2-close {
+    min-width: var(--touchTarget);
+    min-height: var(--touchTarget);
 }

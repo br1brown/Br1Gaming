@@ -25,7 +25,7 @@ import { fileExists } from './fs-utils';
 import { apiProxyHandler } from './routes/api-proxy';
 import { cdnAssetHandler } from './routes/cdn-asset';
 import { ogPreviewHandler } from './routes/og-preview';
-import { dynamicSitemapHandler, revalidateSitemapHandler, dynamicAuditPathsHandler, dynamicLlmsTxtHandler } from './routes/dynamic-sitemap';
+import { dynamicSitemapHandler, dynamicSitemapPartHandler, revalidateSitemapHandler, dynamicAuditPathsHandler, dynamicLlmsTxtHandler } from './routes/dynamic-sitemap';
 import { legalFactsHandler } from './routes/legal-facts';
 import { securityTxtHandler } from './routes/dynamic-security-txt';
 import { systemFontHandler } from './routes/system-font';
@@ -282,6 +282,8 @@ app.get(SYSTEM_FONT_PATH, systemFontHandler);
 
 /** Endpoint sitemap.xml generato a runtime. */
 app.get('/sitemap.xml', dynamicSitemapHandler);
+/** Sotto-sitemap, solo quando `/sitemap.xml` è un indice (oltre `SITEMAP_MAX_URLS` URL). */
+app.get(/^\/sitemap-([1-9]\d*)\.xml$/, dynamicSitemapPartHandler);
 app.get('/llms.txt', dynamicLlmsTxtHandler);
 
 /** Invalidazione on-demand della cache sitemap da backend. */

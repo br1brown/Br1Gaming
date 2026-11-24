@@ -42,6 +42,18 @@ public static class SessionRevocation
         var raw = user.FindFirst(LoginTimeClaimType)?.Value;
         return long.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out var t) ? t : null;
     }
+
+    /// <summary>Claim con l'istante di emissione in millisecondi Unix, accanto a <see cref="LoginTimeClaimType"/>: una revoca e un login nello stesso secondo restano distinti.</summary>
+    public const string LoginTimeMsClaimType = "loginTimeMs";
+
+    /// <summary>Istante di emissione in millisecondi: da <see cref="LoginTimeMsClaimType"/>, o dalla fine del secondo di <see cref="LoginTimeClaimType"/>
+    /// per un token che ha solo quello (nel dubbio vale come emesso fino alla revoca). <c>null</c> se mancano entrambi.</summary>
+    public static long? LoginTimeMs(ClaimsPrincipal user)
+    {
+        var raw = user.FindFirst(LoginTimeMsClaimType)?.Value;
+        if (long.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out var ms)) return ms;
+        return LoginTime(user) is { } seconds && seconds < long.MaxValue / 1000 ? seconds * 1000 + 999 : null;
+    }
 }
 
 /// <summary>Default dell'Engine: registro in memoria (<see cref="IMemoryCache"/>), per istanza. Una voce vive quanto un token
@@ -53,12 +65,14 @@ public sealed class MemorySessionRevocation : ISessionRevocation
 {
     private readonly IMemoryCache _cache;
     private readonly TimeSpan _lifetime;
+    private readonly TimeProvider _clock;
 
     /// <inheritdoc cref="MemorySessionRevocation"/>
-    public MemorySessionRevocation(IMemoryCache cache, IOptions<SecurityOptions> security)
+    public MemorySessionRevocation(IMemoryCache cache, IOptions<SecurityOptions> security, TimeProvider? clock = null)
     {
         _cache = cache;
-        // Un secondo di margine: loginTime è in secondi interi, la scadenza del token no.
+        _clock = clock ?? TimeProvider.System;
+        // Un secondo di margine sulla durata di un token.
         _lifetime = TimeSpan.FromSeconds(security.Value.Token.ExpirationSeconds + 1);
     }
 
@@ -67,7 +81,7 @@ public sealed class MemorySessionRevocation : ISessionRevocation
     {
         var key = SessionRevocation.SessionKey(user);
         if (key is null) return;
-        _cache.Set(key, DateTimeOffset.UtcNow.ToUnixTimeSeconds(), _lifetime);
+        _cache.Set(key, _clock.GetUtcNow().ToUnixTimeMilliseconds(), _lifetime);
     }
 
     /// <inheritdoc />
@@ -75,7 +89,7 @@ public sealed class MemorySessionRevocation : ISessionRevocation
     {
         var key = SessionRevocation.SessionKey(user);
         if (key is null || !_cache.TryGetValue(key, out long revokedAt)) return false;
-        var loginTime = SessionRevocation.LoginTime(user);
+        var loginTime = SessionRevocation.LoginTimeMs(user);
         return loginTime is null || loginTime <= revokedAt;
     }
 }
