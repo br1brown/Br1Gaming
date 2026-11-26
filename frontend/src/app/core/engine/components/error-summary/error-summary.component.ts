@@ -18,7 +18,7 @@ import { focusElement, type FieldErrorItem } from './form-errors';
                     <ul class="mb-0 ps-3">
                         @for (item of items(); track item.id) {
                             <li>
-                                <button type="button" class="btn btn-link p-0 text-start align-baseline text-reset text-decoration-underline fw-semibold" (click)="go(item)">{{ item.label }}@if (item.message) {: {{ item.message }}}</button>
+                                <button type="button" class="btn btn-link p-0 text-start align-top text-reset text-decoration-underline fw-semibold" (click)="go(item)">{{ item.label }}@if (item.message) {: {{ item.message }}}</button>
                             </li>
                         }
                         @for (message of general(); track $index) { <li>{{ message }}</li> }

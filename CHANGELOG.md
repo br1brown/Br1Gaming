@@ -2,6 +2,12 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Riepilogo degli errori: punteggiatura dei messaggi e pallino sulla prima riga
+
+`app-error-summary` toglieva asterischi e due punti anche dal messaggio del campo, non solo dal nome: «Inserisci il numero: da 13 a 19 cifre» diventava «Inserisci il numero da 13 a 19 cifre». Ora la pulizia vale solo per il nome («Numero *:» → «Numero»), il messaggio resta com'è scritto. Una voce che va a capo ha il pallino sulla prima riga, non sull'ultima.
+
+**Al merge**: nessuno.
+
 ### Footer: l'input di allineamento di `app-footer-link-row` si chiama `justify`
 
 `app-footer-link-row` aveva un input `align`, e scritto come attributo (`align="end"`) finiva nel DOM come attributo HTML `align`, che Pa11y segnala (H49) su ogni pagina. L'input si chiama `justify` (`center` di serie, `end`), come il `justify-content` di Bootstrap che comanda. I due usi sono nell'Engine (`footer.component.html`, `footer-nav.component.html`).

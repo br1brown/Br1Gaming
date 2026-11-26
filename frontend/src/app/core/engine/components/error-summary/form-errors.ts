@@ -11,7 +11,9 @@ export interface FieldErrorItem {
 const INVALID = '[aria-invalid="true"], input.is-invalid, select.is-invalid, textarea.is-invalid';
 let nextId = 1;
 
-const clean = (text: string | null | undefined): string => (text ?? '').replace(/[*:]/g, ' ').replace(/\s+/g, ' ').trim();
+const spaces = (text: string | null | undefined): string => (text ?? '').replace(/\s+/g, ' ').trim();
+/** Il nome del campo senza l'asterisco dell'obbligatorio né i due punti dell'etichetta («Nome *:» → «Nome»). */
+const clean = (text: string | null | undefined): string => spaces((text ?? '').replace(/[*:]/g, ' '));
 const textOfIds = (root: Document, ids: string | null): string => (ids ?? '').split(/\s+/).filter(Boolean).map(id => root.getElementById(id)?.textContent ?? '').join(' ');
 
 /** Il nome del campo come lo vede chi lo compila: `aria-labelledby`, poi `label[for]`, poi la `label` che lo contiene, poi `aria-label`. */
@@ -33,7 +35,7 @@ function messageOf(el: HTMLElement, doc: Document): string {
     const ids = (el.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean);
     const nodes = ids.map(id => doc.getElementById(id)).filter((n): n is HTMLElement => n !== null);
     const target = nodes.find(n => n.classList.contains('invalid-feedback')) ?? nodes.at(-1);
-    return clean(target?.textContent);
+    return spaces(target?.textContent);
 }
 
 /** I campi non validi dentro `root` (`aria-invalid="true"` o `.is-invalid`), in ordine di pagina, con id, nome e messaggio letti dal DOM.
