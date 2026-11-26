@@ -18,7 +18,8 @@
 <!-- Sloggato: link di login solo se showLoginInHeader (loginLink lo incapsula già). -->
 <ul class="navbar-nav ms-md-auto">
     <li class="nav-item">
-        <!-- Porta al login col ritorno alla pagina in cui si è. -->
+        <!-- Porta al login col ritorno alla pagina in cui si è. L'href lo mette appLoginLink: link focalizzabile, Invio incluso. -->
+        <!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -->
         <a appLoginLink #login="appLoginLink"
            class="nav-link"
            [class.nav-current-link]="login.onLoginPage()"
