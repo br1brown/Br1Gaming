@@ -3,6 +3,8 @@ import { Router } from '@angular/router';
 import type { SitePageInput, ContentLoader, ContentLoaderResult, PageInfo } from '../core/engine/siteBuilder';
 import { ApiService } from '../core/services/api.service';
 import { ApiError } from '../core/engine/services/base-api.service';
+import { LandingPage } from '../core/dto/landing.dto';
+import { CHECKOUT_QUERY_PARAM, decodeCheckout } from '../core/services/checkout-link';
 import { GeneratorInfo, GenerateResponse, GeneratorPageContent, PiaciutiPageContent, ShareEntry } from '../core/dto/generator.dto';
 
 /** Titolo della pagina dalla frase generata (frase condivisa, `/generatori/<slug>/:id`). Qui si
@@ -10,6 +12,16 @@ import { GeneratorInfo, GenerateResponse, GeneratorPageContent, PiaciutiPageCont
  *  valle (setPageMeta / og-preview), che è l'unico punto dove si decide come tagliare. */
 function titleFromGeneration(text: string): string {
     return text.replace(/\s+/g, ' ').trim();
+}
+
+/** Solo un 404 vero del backend vale «non trovato» (il loader lo trasforma in pagina 404): ogni altro
+ *  errore (backend irraggiungibile, 5xx, SSR senza backend) risale al resolver, che lo gestisce come
+ *  errore di disponibilità invece di mostrare una falsa «Pagina non trovata». */
+function nullOn404<T>(request: Promise<T>): Promise<T | null> {
+    return request.catch((error: unknown) => {
+        if (error instanceof ApiError && error.status === 404) return null;
+        throw error;
+    });
 }
 
 /** ContentLoader del playground di un generatore (`/generatori/:slug`): un solo componente/rotta
@@ -22,7 +34,7 @@ function generatorContentLoader(): ContentLoader {
         return (async (): Promise<ContentLoaderResult> => {
             const slug = ctx.params['slug'];
             if (!slug) return { content: null };
-            const gen = await api.getGenerator(slug).catch(() => null);
+            const gen = await nullOn404(api.getGenerator(slug));
             if (!gen) throw new ApiError(404, null);
             const info: Partial<PageInfo> = { title: gen.name, description: gen.description, ogImage: { id: `generator.${slug}.og` } };
             return { content: { generator: gen, result: null, recovered: false } satisfies GeneratorPageContent, info };
@@ -44,8 +56,8 @@ function generatorSharedContentLoader(): ContentLoader {
             const id = ctx.params['id'];
             if (!slug || !id) return { content: null };
             const [gen, entry] = await Promise.all([
-                api.getGenerator(slug).catch(() => null),
-                api.getGeneration(id).catch(() => null),
+                nullOn404(api.getGenerator(slug)),
+                nullOn404(api.getGeneration(id)),
             ]);
             if (!gen || !entry) throw new ApiError(404, null);
             // sig vuota: una generazione recuperata è già nei condivisi, non si ri-condivide.
@@ -67,11 +79,36 @@ function storyContentLoader(): ContentLoader {
         return (async (): Promise<ContentLoaderResult> => {
             const slug = ctx.params['slug'];
             if (!slug) return { content: null };
-            const story = await api.getStory(slug).catch(() => null);
+            const story = await nullOn404(api.getStory(slug));
             if (!story) throw new ApiError(404, null);
             const info: Partial<PageInfo> = { title: story.title, description: story.description, ogImage: { id: `story.${slug}.og` } };
             return { content: story, info };
         })();
+    };
+}
+
+/** ContentLoader della landing parodia EteroInAffitto: un solo endpoint porta titolo, descrizione e
+ *  tutte le sezioni; titolo e descrizione SEO arrivano da lì. */
+function eteroInAffittoContentLoader(): ContentLoader {
+    return () => {
+        const api = inject(ApiService);
+        return (async (): Promise<ContentLoaderResult> => {
+            const page = await api.getEteroInAffitto();
+            const info: Partial<PageInfo> = { title: page.title, description: page.description };
+            return { content: page satisfies LandingPage, info };
+        })();
+    };
+}
+
+/** ContentLoader del checkout condiviso (`/checkout?vdc=…`): i dati arrivano dall'URL, non dal backend.
+ *  `vdc` mancante o non valido → 404 vero. Si legge dal Router perché `ctx.params` porta solo i `:segmenti`. */
+function checkoutContentLoader(): ContentLoader {
+    return () => {
+        const router = inject(Router);
+        const tree = router.getCurrentNavigation()?.finalUrl ?? router.parseUrl(router.url);
+        const request = decodeCheckout(tree.queryParamMap.get(CHECKOUT_QUERY_PARAM));
+        if (!request) throw new ApiError(404, null);
+        return Promise.resolve<ContentLoaderResult>({ content: request, info: { title: request.title } });
     };
 }
 
@@ -123,6 +160,10 @@ export const AppPages = {
     // Utility: strumenti che non sono giochi (il radar chiese, spostato qui, e il traduttore).
     UtilityRadar: 'app.utility.radar',
     UtilityTranslator: 'app.utility.translator',
+    // Landing parodie (vibe coding): pagine finte che prendono in giro le app nate con un prompt.
+    AppEteroInAffitto: 'app.parodia.eteroinaffitto',
+    // Checkout condiviso (/checkout?vdc=…): pagina di pagamento finta, riusabile da qualunque parte.
+    Checkout: 'app.checkout',
 } as const;
 
 /** Dichiarazioni pagina di quest'area, assemblate in site.ts → pages(). */
@@ -222,9 +263,8 @@ export const appPagesDecl: SitePageInput[] = [
         description: 'Indovina se la persona è un duce o non duce',
         pageType: AppPages.GameDuceNonDuce,
         layout: { role: 'giochini' },
-        // Eccezione: qui la card NON diventa trasparente (è normale sia con Valerio Lundini),
-        // quindi niente OG separata — l'immagine della card fa già da anteprima social.
-        otherSEO: { ogImage: { id: 'game.ducenonduce' } },
+        // Anteprima social: OG intera, senza favicon né titolo sopra.
+        otherSEO: { ogImage: { id: 'og.ducenonduce', soloSfondo: true } },
         component: () => import('./duce-non-duce/duce-non-duce.component')
             .then(m => m.DuceNonDuceComponent),
     },
@@ -235,8 +275,8 @@ export const appPagesDecl: SitePageInput[] = [
         description: 'Attraversa la città a colpi di passaggi in auto e chiudi la pratica prima che chiudano gli sportelli.',
         pageType: AppPages.GameBurocrazia,
         layout: { role: 'giochini' },
-        // OG opaca dedicata (la card può diventare trasparente senza rovinare l'anteprima social).
-        otherSEO: { ogImage: { id: 'game.burocrazia.og' } },
+        // Anteprima social: OG intera, senza favicon né titolo sopra.
+        otherSEO: { ogImage: { id: 'og.burocrazia', soloSfondo: true } },
         component: () => import('./burocrazia/burocrazia.component')
             .then(m => m.BurocraziaComponent),
     },
@@ -248,7 +288,8 @@ export const appPagesDecl: SitePageInput[] = [
         pageType: AppPages.GameUmarell,
         // "Il vecchio che guarda i cantieri": naked (niente nav/footer/pannello) + fitViewport.
         layout: { role: 'cantiere' },
-        otherSEO: { ogImage: { id: 'game.umarell.og' } },
+        // Anteprima social: OG intera, senza favicon né titolo sopra.
+        otherSEO: { ogImage: { id: 'og.umarell', soloSfondo: true } },
         component: () => import('./umarell/umarell.component')
             .then(m => m.UmarellComponent),
     },
@@ -262,6 +303,8 @@ export const appPagesDecl: SitePageInput[] = [
         // sbagliato con un verdetto di lunghezza variabile) — solo il footer sparisce, per il resto
         // è una pagina normale che scorre da sé (vedi lombroso.component.css).
         layout: { role: 'NoFooter' },
+        // Anteprima social: OG intera, senza favicon né titolo sopra.
+        otherSEO: { ogImage: { id: 'og.lombroso', soloSfondo: true } },
         component: () => import('./lombroso/lombroso.component')
             .then(m => m.LombrosoComponent),
     },
@@ -278,8 +321,8 @@ export const appPagesDecl: SitePageInput[] = [
                 title: 'radar',
                 description: 'Il radar delle chiese intorno a te',
                 pageType: AppPages.UtilityRadar,
-                // OG opaca dedicata (la card può diventare trasparente senza rovinare l'anteprima social).
-                otherSEO: { ogImage: { id: 'game.radar.og' } },
+                // Anteprima social: OG intera, senza favicon né titolo sopra.
+                otherSEO: { ogImage: { id: 'og.radar', soloSfondo: true } },
                 // Riusa 'giochini' solo per fitViewport: stessa esigenza tecnica, non è un gioco.
                 layout: { role: 'giochini' },
                 component: () => import('./radar/radar.component')
@@ -290,9 +333,46 @@ export const appPagesDecl: SitePageInput[] = [
                 title: 'translator',
                 description: 'Traduttore italiano spagnolo, ma giuro che traduce le cose vere, giuste e perfette',
                 pageType: AppPages.UtilityTranslator,
+                // Anteprima social: OG intera, senza favicon né titolo sopra.
+                otherSEO: { ogImage: { id: 'og.translator', soloSfondo: true } },
                 component: () => import('./translator/translator.component')
                     .then(m => m.TranslatorComponent),
             },
         ],
+    },
+
+    // ── Parodie sotto /app ───────────────────────────────────────
+    // Parent senza component: solo prefisso di path (URL figlio /app/etero-in-affitto).
+    {
+        path: 'app',
+        title: 'appFinte',
+        children: [
+            {
+                path: 'etero-in-affitto',
+                title: 'Etero in Affitto',
+                pageType: AppPages.AppEteroInAffitto,
+                // Pagina di sola lettura, tutta dal backend: il titolo/descrizione vengono dal contentLoader.
+                // Anteprima social: la OG fatta a mano (col testo), intera, senza favicon né titolo sopra.
+                otherSEO: { ogImage: { id: 'app.eteroinaffitto.og', soloSfondo: true } },
+                component: () => import('./etero-in-affitto/etero-in-affitto.component')
+                    .then(m => m.EteroInAffittoComponent),
+                contentLoader: eteroInAffittoContentLoader(),
+            },
+        ],
+    },
+
+    // ── Checkout condiviso ───────────────────────────────────────
+    // Pagina di pagamento finta e generica: quello che mostra (venditore, voci di costo, esito) lo decide
+    // chi ci manda l'utente, nel parametro `vdc` (vedi core/services/checkout-link.ts). Nuda come una
+    // vera pagina di pagamento, fuori da indice e sitemap, e non salva né invia niente di ciò che si digita.
+    {
+        path: 'checkout',
+        title: 'checkout',
+        pageType: AppPages.Checkout,
+        layout: { role: 'naked' },
+        otherSEO: { noindex: true },
+        inSiteMap: false,
+        component: () => import('./checkout/checkout.component').then(m => m.CheckoutComponent),
+        contentLoader: checkoutContentLoader(),
     },
 ];

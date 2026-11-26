@@ -25,6 +25,7 @@ public class BaseController : EngineApiController
     private readonly IValidator<StoryPlayRequestDto> _playValidator;
     private readonly FintoSpagnoloTranslator _translator;
     private readonly LombrosoScanner _lombroso;
+    private readonly LandingService _landing;
 
     /// <summary>Inizializza il controller con i servizi di dominio, il validator del play e il logger.</summary>
     public BaseController(
@@ -35,6 +36,7 @@ public class BaseController : EngineApiController
         IValidator<StoryPlayRequestDto> playValidator,
         FintoSpagnoloTranslator translator,
         LombrosoScanner lombroso,
+        LandingService landing,
         ILogger<BaseController> logger)
         : base(logger)
     {
@@ -45,6 +47,7 @@ public class BaseController : EngineApiController
         _playValidator = playValidator;
         _translator = translator;
         _lombroso = lombroso;
+        _landing = landing;
     }
 
     // ── Storie ───────────────────────────────────────────────────────
@@ -133,6 +136,16 @@ public class BaseController : EngineApiController
         var verdict = _lombroso.VerdictFor(hash);
         return Ok(new LombrosoVerdictDto(verdict.Title, verdict.Desc));
     }
+
+    // ── Landing EteroInAffitto (parodia) ──────────────────────────────
+
+    /// <summary>
+    /// Intera pagina "EteroInAffitto" in un colpo solo: titolo, descrizione e sezioni tipizzate, nella
+    /// lingua della richiesta (<c>Accept-Language</c>), dal JSON localizzato in <c>data/</c>.
+    /// </summary>
+    [HttpGet("landing/etero-in-affitto")]
+    public async Task<IActionResult> GetEteroInAffitto(CancellationToken ct)
+        => Ok(await _landing.GetEteroInAffittoAsync(CurrentLanguage, ct));
 
     // ── Condivisi (raccolta pubblica) ──────────────────────────────────
 

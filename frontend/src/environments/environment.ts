@@ -36,12 +36,12 @@ export const environment: AppEnvironment = {
     defaultLang: 'it',
     availableLanguages: ["it"],
     config: {
-            "colorTema": "#add8e6",
+            "colorTema": "#38bdf8",
             "description": {
-                    "it": "Generatori ignoranti, avventure interattive, universo Br1."
+                    "it": "Generatori demenziali, avventure interattive, universo Br1."
             }
     },
     features: {"login":false,"publicLogin":false,"mail":false,"errorReporting":false,"forms":false},
-    configFingerprint: "4d4bf6e73b36",
+    configFingerprint: "c4167022b526",
     legalFiles: {"privacy":["analytics","cookiePolicy","cookiePolicy/off","errorReporting","form","form/off","intro","login","mail","outro","profiling"],"cookie":["intro","tracking"]}
 };

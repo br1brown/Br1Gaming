@@ -6,7 +6,7 @@ import { isAvailabilityError, RETRY_QUERY_PARAM } from '../../core/engine/pages/
 import { TranslateService } from '../../core/engine/services/translate.service';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { PageDirective } from '../../core/engine/directives/page.directive';
-import { ContestoSito } from '../../site';
+import { ContestoSito, PageType } from '../../site';
 import { injectCurrentUrl } from '../../core/engine/routing';
 import { detectLangFromPath } from '../../core/engine/siteBuilder';
 import { environment } from '../../../environments/environment';
@@ -16,6 +16,7 @@ import { environment } from '../../../environments/environment';
     selector: 'app-error',
     imports: [TranslatePipe, PageDirective],
     templateUrl: './error.component.html',
+    styleUrl: './error.component.css',
     host: { class: 'd-flex align-items-center justify-content-center', style: 'min-height: 60vh;' }
 })
 export class ErrorComponent {
@@ -52,6 +53,8 @@ export class ErrorComponent {
             this.titleService.setTitle(`${this.errorInfo()} | ${ContestoSito.config.appName}`);
         });
     }
+
+    protected readonly PageType = PageType;
 
     /** Pagina home dal contesto (slot `homePage`): il pulsante "torna alla home" compare solo se valorizzata. */
     protected readonly homePage = ContestoSito.config.homePage;

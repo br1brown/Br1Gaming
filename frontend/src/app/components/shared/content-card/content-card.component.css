@@ -9,7 +9,7 @@
     gap: .35rem;
     padding: 1.1rem 2.5rem 1.1rem 1.1rem;
     isolation: isolate;
-    border-radius: 1.5rem;
+    border-radius: var(--elevazioneRaggio);
     min-height: 9rem;
     color: var(--colorSurfaceText);
     transition: background-color .15s ease, transform .15s ease;

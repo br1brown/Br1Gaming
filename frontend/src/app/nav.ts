@@ -1,6 +1,7 @@
 import { inject } from '@angular/core';
-import type { ShellNavResolver } from './core/engine/shell-nav';
-import { PageType } from './site';
+import { defaultFooterCopyright, type ShellNavResolver } from './core/engine/shell-nav';
+import { ContestoSito, PageType } from './site';
+import { TranslateService } from './core/engine/services/translate.service';
 import { ApiService } from './core/services/api.service';
 import type { GeneratorInfo } from './core/dto/generator.dto';
 import type { StorySummary } from './core/dto/story.dto';
@@ -47,6 +48,10 @@ export const navResolver: ShellNavResolver = {
             g.addPage(PageType.UtilityRadar);
             g.addPage(PageType.UtilityTranslator);
         });
+        // Parodie delle app nate col vibe coding.
+        nav.addGroup('appFinte', (g) => {
+            g.addPage(PageType.AppEteroInAffitto);
+        });
     },
 
     // Le pagine legali sono gestite automaticamente da `footer.component` in una fascia
@@ -56,5 +61,13 @@ export const navResolver: ShellNavResolver = {
     // tenerlo minimale (solo link GitHub), anche ora che `data/identity.json` esiste.
     footer: (f) => {
         f.addLink('githubDesc', 'https://github.com/br1brown/Br1Gaming');
+    },
+
+    // Riga «small print»: il copyright di serie dell'Engine più l'avviso di parodia. L'app «Etero in Affitto» è finta e la
+    // sua pagina di pagamento non invia né salva niente: lo dice in ogni pagina con il footer (il checkout, nudo, non ne ha).
+    footerCopyright: () => {
+        const translate = inject(TranslateService);
+        const base = defaultFooterCopyright(ContestoSito.config.appName, new Date().getFullYear(), key => translate.translate(key));
+        return `${base} | ${translate.translate('footerParodia')}`;
     },
 };

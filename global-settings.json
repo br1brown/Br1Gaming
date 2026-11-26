@@ -12,9 +12,9 @@
   },
   "site": {
     "description": {
-      "it": "Generatori ignoranti, avventure interattive, universo Br1."
+      "it": "Generatori demenziali, avventure interattive, universo Br1."
     },
-    "colorTema": "#add8e6"
+    "colorTema": "#38bdf8"
   },
   "Security": {
     "BehindProxy": true

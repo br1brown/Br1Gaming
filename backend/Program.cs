@@ -148,6 +148,10 @@ builder.Services.AddSingleton<FintoSpagnoloTranslator>();
 // deve comparire in "generators". LombrosoScanner lo compila e sceglie l'archetipo dall'hash che
 // il client calcola dal frame — la foto non lascia mai il browser, solo l'hash arriva qui.
 builder.Services.AddSingleton<LombrosoScanner>();
+// Landing parodia EteroInAffitto: contenuto in data/landing-etero-in-affitto.json, lingua risolta dall'Engine.
+// Frasi «acquirenti in questo momento» della landing: generatore NASCOSTO (come Lombroso), fuori da GET /generators.
+builder.Services.AddSingleton<AcquirentiFeed>();
+builder.Services.AddSingleton<LandingService>();
 // Generatori: factory di registrazione che auto-scopre gli IGenerator dell'assembly e li indicizza
 // (vedi GeneratorRegistration). Aggiungere un generatore = creare la classe.
 builder.Services.AddGenerators();

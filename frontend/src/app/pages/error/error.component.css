@@ -1,0 +1,16 @@
+/* «System glitch»: etichetta da terminale (font aggiuntivo del design system). */
+.error-kicker {
+    font-family: var(--fontFamily-LiberationMono);
+    font-size: var(--fs-sm);
+    letter-spacing: var(--ls-wide);
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+}
+
+.error-try {
+    margin-top: var(--space-4);
+    margin-bottom: var(--space-1);
+    color: var(--bs-secondary-color);
+}
+
+.error-links { margin-bottom: 0; }

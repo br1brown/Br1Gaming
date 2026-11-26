@@ -11,6 +11,21 @@
          (BR1-DEV §1 "Layout Engine"). -->
     <div class="bento">
 
+        <!-- 0. La parodia in evidenza: il blocco più grande della home. Un solo link a tutta card (stretched), l'immagine è
+             decorativa: il nome accessibile è il testo. -->
+        <section class="bento-cell bento-app" aria-labelledby="home-app-titolo">
+            <a class="app-feature lift-on-hover" [appPage]="PageType.AppEteroInAffitto">
+                <img class="app-feature__bg" [src]="appBanner" alt="" width="1200" height="630" fetchpriority="high">
+                <span class="app-feature__scrim" aria-hidden="true"></span>
+                <div class="app-feature__body">
+                    <span class="app-feature__kicker">{{ 'homeAppKicker' | translate }}</span>
+                    <h2 id="home-app-titolo" class="app-feature__title">{{ 'homeAppTitolo' | translate }}</h2>
+                    <p class="app-feature__tagline">{{ 'homeAppTagline' | translate }}</p>
+                    <span class="btn btn-primary btn-touch app-feature__cta">{{ 'homeAppCta' | translate }} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+                </div>
+            </a>
+        </section>
+
         <!-- A. I Pesi Massimi + Generatori: idratato subito, è il blocco dominante above-the-fold. -->
         <section class="bento-cell bento-simulators">
             <app-simulators-hero />

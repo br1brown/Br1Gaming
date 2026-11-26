@@ -1,0 +1,243 @@
+// Stile «2026» della landing: superfici di vetro, gradienti morbidi, tipografia grande. Tutto da
+// token del design system (--space-*, --colorX, --elevazione*, --movimento*): nessuna misura a
+// occhio, il tema chiaro/scuro si adegua da sé, e il movimento si spegne con prefers-reduced-motion.
+:host { display: block; }
+
+.landing__section { margin-block: var(--space-5); }
+
+// Vetro: superficie semitrasparente con bordo sottile, sopra lo sfondo di pagina.
+@mixin glass {
+    background: color-mix(in srgb, var(--colorSurface) 78%, transparent);
+    backdrop-filter: blur(var(--space-3));
+    border: 1px solid color-mix(in srgb, var(--colorSurfaceBorder) 70%, transparent);
+    border-radius: var(--elevazioneRaggio);
+    box-shadow: var(--shadowElevated);
+}
+
+// ── Hero ──────────────────────────────────────────────────────────
+.hero {
+    position: relative;
+    isolation: isolate;
+    // Sopra l'hero (spazio dato dalla barra o dal design system) e sotto (lo dà il margine della sezione dopo) il ritmo
+    // è quello di tutte le altre sezioni: il padding sotto sommato al margine raddoppiava il vuoto.
+    padding-block: var(--space-5) 0;
+
+    // Macchie di colore dietro il titolo: decorative, non portano contenuto.
+    &::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background:
+            radial-gradient(ellipse 45% 40% at 28% 35%, color-mix(in srgb, var(--colorPrimary) 22%, transparent), transparent),
+            radial-gradient(ellipse 30% 35% at 70% 62%, color-mix(in srgb, var(--colorSecondary) 20%, transparent), transparent);
+    }
+}
+// In cima conta solo lo spazio del design system: il primo elemento della pagina non ne aggiunge di suo.
+.landing > .hero:first-child { padding-block-start: 0; }
+.hero__image { max-height: 12rem; }
+.hero__brand { letter-spacing: -0.03em; }
+.hero__text { max-width: 42rem; }
+// Evidenziatore sul claim: tinta del brand sotto la metà inferiore del testo, il testo resta a contrasto pieno.
+.hero__marker {
+    background: linear-gradient(transparent 62%, color-mix(in srgb, var(--colorPrimary) 28%, transparent) 62%);
+    padding-inline: var(--space-1);
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .hero > * { animation: rise var(--movimentoPagina) ease-out both; }
+    .hero > :nth-child(2) { animation-delay: 60ms; }
+    .hero > :nth-child(3) { animation-delay: 120ms; }
+    .hero > :nth-child(n + 4) { animation-delay: 180ms; }
+}
+@keyframes rise {
+    from { opacity: 0; transform: translateY(var(--space-3)); }
+}
+
+// ── Titoli di sezione ─────────────────────────────────────────────
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+
+    &::before {
+        content: '';
+        flex: none;
+        inline-size: var(--space-2);
+        block-size: 1em;
+        border-radius: var(--bs-border-radius-pill);
+        background: linear-gradient(var(--colorPrimary), var(--colorSecondary));
+    }
+}
+
+// ── Il Matching: tessere di vetro ─────────────────────────────────
+.tile {
+    @include glass;
+    padding: var(--space-3);
+}
+
+// ── Come funziona: passi numerati ─────────────────────────────────
+.steps {
+    counter-reset: passo;
+    display: grid;
+    gap: var(--space-3);
+}
+.steps__item {
+    @include glass;
+    counter-increment: passo;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-3);
+
+    &::before {
+        content: counter(passo);
+        flex: none;
+        display: grid;
+        place-items: center;
+        inline-size: var(--touchTarget);
+        block-size: var(--touchTarget);
+        border-radius: 50%;
+        font-weight: 700;
+        background: var(--colorPrimary);
+        color: var(--colorPrimaryText);
+    }
+}
+
+// ── Piani ─────────────────────────────────────────────────────────
+.plan {
+    @include glass;
+    padding: var(--space-4);
+}
+// Intestazione di altezza fissa: il badge «Più scelto» è più alto del testo e, senza, farebbe scendere
+// il prezzo del piano in evidenza rispetto agli altri due.
+.plan__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1);
+    min-block-size: var(--touchTarget);
+}
+.plan__price { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+// Piano in evidenza: bordo a gradiente (due sfondi, uno sul padding-box e uno sul border-box).
+.plan--featured {
+    border: 2px solid transparent;
+    // Il bordo è 1px più spesso degli altri piani: il padding lo compensa, così il contenuto non scende.
+    padding: calc(var(--space-4) - 1px);
+    background:
+        linear-gradient(var(--colorSurface), var(--colorSurface)) padding-box,
+        linear-gradient(135deg, var(--colorPrimary), var(--colorSecondary)) border-box;
+}
+
+// ── FAQ: domande a scomparsa native ───────────────────────────────
+.faq { display: grid; gap: var(--space-2); }
+.faq__item {
+    @include glass;
+    padding-inline: var(--space-3);
+
+    summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-3);
+        min-block-size: var(--touchTarget);
+        cursor: pointer;
+        list-style: none;
+        &::-webkit-details-marker { display: none; }
+        // Freccia che ruota all'apertura.
+        &::after {
+            content: '';
+            flex: none;
+            inline-size: 0.5em;
+            block-size: 0.5em;
+            border-inline-end: 2px solid currentColor;
+            border-block-end: 2px solid currentColor;
+            transform: rotate(45deg);
+            transition: transform var(--movimentoMicro);
+        }
+    }
+    &[open] summary::after { transform: rotate(-135deg); }
+    &[open] { padding-block-end: var(--space-3); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .faq__item summary::after { transition: none; }
+}
+
+// ── Chiusura ──────────────────────────────────────────────────────
+.cta {
+    margin-block: var(--space-5);
+    padding: var(--space-5) var(--space-3);
+    border-radius: var(--radiusSheet);
+    background: linear-gradient(135deg,
+        color-mix(in srgb, var(--colorPrimary) 16%, var(--colorSurface)),
+        color-mix(in srgb, var(--colorSecondary) 16%, var(--colorSurface)));
+    border: 1px solid color-mix(in srgb, var(--colorSurfaceBorder) 70%, transparent);
+}
+
+// ── Pressione sul visitatore (parodia di dark pattern) ────────────
+.pressure-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    margin-block: 0 var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--elevazioneRaggio);
+    border: 1px solid color-mix(in srgb, var(--bs-danger) 55%, transparent);
+    background: color-mix(in srgb, var(--bs-danger) 20%, var(--colorSurface));
+    color: var(--colorSurfaceText);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+
+    i { color: var(--bs-danger-text-emphasis); }
+}
+
+// Spettatori e scarsità stanno sopra il pulsante; il blocco ha altezza minima uguale nei piani che lo hanno,
+// così la prima riga cade alla stessa quota e i pulsanti restano allineati.
+.plan__pressure {
+    min-block-size: 7em;
+    font-size: var(--fs-sm);
+    color: var(--bs-secondary-color);
+
+    p { margin: 0 0 var(--space-1); }
+    i { margin-inline-end: var(--space-1); }
+}
+.plan__scarcity { color: var(--bs-danger-text-emphasis); font-weight: 600; }
+
+// ── Badge «Scarica», sul modello di quelli dei negozi ─────────────
+.store-badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-3);
+    margin-top: var(--space-4);
+}
+.store-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-block-size: var(--touchTarget);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--elevazioneRaggio);
+    border: 1px solid var(--colorSurfaceBorder);
+    background: var(--colorSurface);
+    color: var(--colorSurfaceText);
+    text-align: start;
+    transition: transform var(--movimentoMicro);
+
+    > i { font-size: var(--iconSize-lg); }
+    &__text { display: flex; flex-direction: column; line-height: 1.1; }
+    small { font-size: var(--fs-xs); color: var(--bs-secondary-color); }
+    strong { font-size: 1.15rem; }
+}
+@media (hover: hover) {
+    .store-badge:hover { transform: translateY(-2px); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .store-badge { transition: none; }
+    .store-badge:hover { transform: none; }
+}

@@ -3,29 +3,36 @@
     height: 100%;
 }
 
+/* La card segue la superficie del tema (come il widget del traduttore accanto): chiara o scura a
+   seconda del tono, mai una lastra nera su un fondo chiaro. Resta scuro solo lo «schermo» dello
+   strumento (.lw-scope), e un filo di fosforo nel bordo richiama il verde del gadget. */
 .lw {
     display: flex;
     align-items: center;
     gap: 1.1rem;
     height: 100%;
     padding: 1.1rem;
-    border-radius: 1.75rem;
-    background: #06120a;
-    border: 1px solid color-mix(in srgb, #39ff14 30%, transparent);
-    color: #d6ffdc;
+    border-radius: var(--elevazioneRaggio);
+    background: var(--colorSurface);
+    border: 1px solid color-mix(in srgb, var(--campioneFosforo) 35%, var(--colorSurfaceBorder));
+    color: var(--colorSurfaceText);
     overflow: hidden;
 }
 
 /* Stesso mirino a quattro angoli della pagina /lombroso (.lombroso-corner), miniaturizzato: il
    widget promette esattamente quello che la pagina vera mostra, non un'estetica inventata qui. */
+.lw {
+    --lw-size: 96px;
+}
+
 .lw-scope {
     position: relative;
     flex-shrink: 0;
-    width: 96px;
-    height: 96px;
+    width: var(--lw-size);
+    height: var(--lw-size);
     border-radius: .75rem;
     background: radial-gradient(circle, #0c2013 0%, #061109 78%, #030704 100%);
-    box-shadow: inset 0 0 12px rgba(57, 255, 20, 0.35);
+    box-shadow: inset 0 0 12px color-mix(in srgb, var(--campioneFosforo) 35%, transparent);
     overflow: hidden;
 }
 
@@ -33,7 +40,7 @@
     position: absolute;
     width: 22%;
     height: 22%;
-    border: 2px solid rgba(57, 255, 20, 0.55);
+    border: 2px solid color-mix(in srgb, var(--campioneFosforo) 55%, transparent);
 }
 
 .lw-corner--tl { top: 8%; left: 8%; border-right: none; border-bottom: none; }
@@ -46,8 +53,8 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    font-size: 2.1rem;
-    color: rgba(57, 255, 20, 0.35);
+    font-size: calc(var(--lw-size) * 0.22);
+    color: color-mix(in srgb, var(--campioneFosforo) 35%, transparent);
 }
 
 /* Stessa linea di scansione della pagina vera (.lombroso-scan-line), qui in loop verticale continuo
@@ -57,8 +64,8 @@
     left: 8%;
     right: 8%;
     height: 2px;
-    background: #39ff14;
-    box-shadow: 0 0 6px #39ff14, 0 0 12px #39ff14;
+    background: var(--campioneFosforo);
+    box-shadow: 0 0 6px var(--campioneFosforo), 0 0 12px var(--campioneFosforo);
     animation: lw-scan 2.4s linear infinite;
 }
 
@@ -71,8 +78,8 @@
     min-width: 0;
 }
 
-.lw-readout h2 { color: #d6ffdc; }
-.lw-readout p { color: rgba(214, 255, 220, 0.65); }
+.lw-readout h2 { color: var(--colorHeading); font-family: var(--fontFamily-LiberationMono); letter-spacing: -0.02em; }
+.lw-readout p { color: var(--bs-secondary-color); }
 
 .lw-cta {
     padding: .5rem 1rem;
@@ -82,4 +89,16 @@
 
 @media (prefers-reduced-motion: reduce) {
     .lw-sweep { animation: none; top: 48%; }
+}
+
+/* Da lg la griglia della home mette Lombroso in una colonna alta quanto le due card accanto: in
+   orizzontale resterebbe mezzo vuoto sopra e sotto, in verticale lo schermo è il protagonista. */
+@media (min-width: 62rem) {
+    .lw {
+        --lw-size: 9.5rem;
+        flex-direction: column;
+        justify-content: center;
+        text-align: center;
+        gap: 1.5rem;
+    }
 }

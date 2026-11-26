@@ -26,7 +26,8 @@
     overflow: hidden;
     isolation: isolate;
     border-radius: var(--elevazioneRaggio, 1.5rem);
-    aspect-ratio: 4 / 5;
+    aspect-ratio: 16 / 11;
+    min-height: 17rem;
     background-color: var(--colorSurface);
     border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
     box-shadow: var(--shadowElevated);
@@ -49,7 +50,7 @@
 /* 4/3, non 16/11: con tre colonne (non più due) uno sportello più largo che alto avrebbe
    schiacciato troppo il testo del body. */
 @media (min-width: #{lib.$bp-md}) {
-    .sim-tile { aspect-ratio: 4 / 3; }
+    .sim-tile { aspect-ratio: 4 / 3; min-height: 0; }
 }
 
 /* Sollevamento al passaggio: .lift-on-hover (Engine, nel template). */

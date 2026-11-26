@@ -3,16 +3,19 @@
     height: 100%;
 }
 
+/* La card segue la superficie del tema (come il widget del traduttore accanto): chiara o scura a
+   seconda del tono, mai una lastra nera su un fondo chiaro. Resta scuro solo lo «schermo» dello
+   strumento (.rw-scope), e un filo di fosforo nel bordo richiama il verde del gadget. */
 .rw {
     display: flex;
     align-items: center;
     gap: 1.1rem;
     height: 100%;
     padding: 1.1rem;
-    border-radius: 1.75rem;
-    background: #06120a;
-    border: 1px solid color-mix(in srgb, #39ff14 30%, transparent);
-    color: #d6ffdc;
+    border-radius: var(--elevazioneRaggio);
+    background: var(--colorSurface);
+    border: 1px solid color-mix(in srgb, var(--campioneFosforo) 35%, var(--colorSurfaceBorder));
+    color: var(--colorSurfaceText);
     overflow: hidden;
 }
 
@@ -23,13 +26,13 @@
     height: 96px;
     border-radius: 50%;
     background: radial-gradient(circle, #0c2013 0%, #061109 78%, #030704 100%);
-    box-shadow: inset 0 0 12px rgba(57, 255, 20, 0.35);
+    box-shadow: inset 0 0 12px color-mix(in srgb, var(--campioneFosforo) 35%, transparent);
     overflow: hidden;
 }
 
 .rw-ring {
     position: absolute;
-    border: 1px solid rgba(57, 255, 20, 0.25);
+    border: 1px solid color-mix(in srgb, var(--campioneFosforo) 25%, transparent);
     border-radius: 50%;
 }
 
@@ -39,7 +42,7 @@
 
 .rw-crosshair {
     position: absolute;
-    background: rgba(57, 255, 20, 0.2);
+    background: color-mix(in srgb, var(--campioneFosforo) 20%, transparent);
 }
 
 .rw-crosshair-h { top: 50%; left: 4%; right: 4%; height: 1px; }
@@ -53,15 +56,15 @@
     height: 6px;
     margin: -3px 0 0 -3px;
     border-radius: 50%;
-    background: #39ff14;
-    box-shadow: 0 0 6px #39ff14;
+    background: var(--campioneFosforo);
+    box-shadow: 0 0 6px var(--campioneFosforo);
 }
 
 /* Il "braccio" del sonar: un cuneo che ruota di continuo, come su un vero radar tattico. */
 .rw-sweep {
     position: absolute;
     inset: 0;
-    background: conic-gradient(from 0deg, rgba(57, 255, 20, 0.55), transparent 24%, transparent 100%);
+    background: conic-gradient(from 0deg, color-mix(in srgb, var(--campioneFosforo) 55%, transparent), transparent 24%, transparent 100%);
     animation: rw-spin 3.2s linear infinite;
 }
 
@@ -75,7 +78,7 @@
     line-height: 1;
     transform: translate(-50%, -50%);
     animation: rw-blip 2.6s ease-in-out infinite;
-    filter: drop-shadow(0 0 3px rgba(57, 255, 20, 0.7));
+    filter: drop-shadow(0 0 3px color-mix(in srgb, var(--campioneFosforo) 70%, transparent));
 }
 
 @keyframes rw-blip {
@@ -87,8 +90,8 @@
     min-width: 0;
 }
 
-.rw-readout h2 { color: #d6ffdc; }
-.rw-readout p { color: rgba(214, 255, 220, 0.65); }
+.rw-readout h2 { color: var(--colorHeading); font-family: var(--fontFamily-LiberationMono); letter-spacing: -0.02em; }
+.rw-readout p { color: var(--bs-secondary-color); }
 
 /* .btn-skeuo-phosphor (styles/app/_skeuo.scss) dà il rilievo fisico; qui solo le rifiniture
    specifiche del gadget: dimensione compatta e niente sottolineatura da link. */

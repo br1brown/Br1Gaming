@@ -17,6 +17,7 @@ import { SpeechActionComponent } from '../../core/engine/components/speech-actio
     standalone: true,
     imports: [TranslatePipe, CopyActionComponent, ShareActionComponent, SpeechActionComponent],
     templateUrl: './translator.component.html',
+    styleUrl: './translator.component.css',
 })
 export class TranslatorComponent extends PageBaseComponent<unknown> implements OnDestroy {
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));

@@ -11,7 +11,7 @@
 
             <!-- Sorgente: italiano -->
             <div class="flex-fill d-flex flex-column">
-                <div class="d-flex align-items-center justify-content-between px-3 pt-3 pb-2">
+                <div class="tr-head">
                     <span class="fw-semibold text-body-secondary text-uppercase small">{{ 'translatorItaliano' | translate }}</span>
                     @if (testo()) {
                     <button type="button"
@@ -23,7 +23,7 @@
                     </button>
                     }
                 </div>
-                <textarea class="form-control border-0 shadow-none rounded-0 flex-grow-1 fs-5"
+                <textarea class="form-control border-0 shadow-none rounded-0 flex-grow-1 fs-5 bg-transparent"
                           rows="6"
                           [value]="testo()"
                           (input)="onInput($event)"
@@ -42,7 +42,7 @@
 
             <!-- Destinazione: spagnolo (leggero sfondo per distinguerla, come DeepL) -->
             <div class="flex-fill d-flex flex-column bg-body-tertiary">
-                <div class="px-3 pt-3 pb-2">
+                <div class="tr-head">
                     <span class="fw-semibold text-body-secondary text-uppercase small">{{ 'translatorSpagnolo' | translate }}</span>
                 </div>
                 <textarea class="form-control border-0 shadow-none rounded-0 flex-grow-1 fs-5 bg-body-tertiary"

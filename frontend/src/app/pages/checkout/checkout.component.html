@@ -1,0 +1,161 @@
+@if (pageContent(); as c) {
+@if (ricevuta(); as r) {
+<div class="col-12 col-md-9 col-lg-6 mx-auto pb-4 pb-md-5">
+
+    <article #boxRicevuta class="card checkout-card receipt" aria-labelledby="rc-titolo" tabindex="-1">
+        <div class="card-body">
+            <header class="d-flex align-items-start justify-content-between gap-3 mb-3">
+                <div>
+                    <p class="h5 fw-bold mb-0">{{ r.merchant }}</p>
+                    <h1 id="rc-titolo" class="h6 fw-normal text-body-secondary mb-0">{{ r.labels.ricevuta }}</h1>
+                </div>
+                <span class="receipt__stamp">{{ r.labels.pagato }}</span>
+            </header>
+
+            <dl class="receipt__meta">
+                <dt>{{ r.labels.numero }}</dt><dd>{{ r.numero }}</dd>
+                <dt>{{ r.labels.data }}</dt><dd>{{ r.data }}</dd>
+            </dl>
+
+            <ul class="list-unstyled mb-3">
+                @for (riga of r.righe; track $index) {
+                <li class="d-flex justify-content-between gap-3 py-2 border-bottom">
+                    <span>
+                        {{ riga.label }}
+                        @if (riga.note) {
+                        <small class="d-block mt-1 text-body-secondary"><i class="me-1" [class]="riga.icon" aria-hidden="true"></i>{{ riga.note }}</small>
+                        }
+                    </span>
+                    <span class="text-nowrap">{{ riga.importo }}</span>
+                </li>
+                }
+                @if (r.iva; as iva) {
+                <li class="d-flex justify-content-between gap-3 py-2 border-bottom">
+                    <span>{{ iva.label }}</span>
+                    <span class="text-nowrap">{{ iva.importo }}</span>
+                </li>
+                }
+            </ul>
+            <p class="d-flex justify-content-between fw-bold fs-5 mb-0">
+                <span>{{ r.labels.totale }}</span>
+                <span>{{ r.totale }}</span>
+            </p>
+            @if (r.nota) {
+            <p class="fst-italic text-body-secondary mt-3 mb-0">{{ r.nota }}</p>
+            }
+        </div>
+    </article>
+
+    <!-- Azioni: fuori dalla stampa (d-print-none), così sul foglio resta solo la ricevuta. -->
+    <div class="d-flex flex-wrap justify-content-center gap-2 mt-3 d-print-none">
+        <app-print-action label="checkoutStampa" [showLabel]="true" />
+        <app-download-action label="checkoutScarica" [showLabel]="true" [action]="scaricaHtml" [filename]="nomeFile()" />
+        <button type="button" class="btn btn-link btn-touch" (click)="torna()">{{ 'checkoutTornaIndietro' | translate }}</button>
+    </div>
+</div>
+} @else {
+<div class="col-12 col-lg-10 col-xl-8 mx-auto pb-4 pb-md-5">
+
+    <header class="d-flex align-items-center justify-content-between mb-4">
+        <p class="h4 fw-bold mb-0">{{ c.merchant }}</p>
+        <p class="small mb-0 text-body-secondary"><i class="fa-solid fa-lock me-1" aria-hidden="true"></i>{{ 'checkoutSicuro' | translate }}</p>
+    </header>
+
+    <div class="row g-4">
+
+        <!-- Riepilogo ordine -->
+        <section class="col-12 col-md-5 order-md-2" aria-labelledby="co-riepilogo">
+            <div class="card checkout-card h-100">
+                <div class="card-body">
+                    <h1 id="co-riepilogo" class="h5 fw-bold mb-3">{{ c.title }}</h1>
+                    <ul class="list-unstyled mb-3">
+                        @for (item of c.items; track $index) {
+                        <li class="d-flex justify-content-between gap-3 py-2 border-bottom">
+                            <span>
+                                {{ item.label }}
+                                @if (item.note) {
+                                <small class="d-block mt-1 text-body-secondary"><i class="me-1" [class]="noteIcon(item)" aria-hidden="true"></i>{{ item.note }}</small>
+                                }
+                            </span>
+                            <span class="text-nowrap">{{ formatAmount(item.amount) }}</span>
+                        </li>
+                        }
+                        <!-- Ultima voce, aggiunta dalla pagina: l'IVA sulla somma delle voci sopra. -->
+                        @if (riepilogo(); as r) {
+                        @if (r.aliquota > 0) {
+                        <li class="d-flex justify-content-between gap-3 py-2 border-bottom">
+                            <span>{{ 'checkoutIva' | translate: r.aliquota }}</span>
+                            <span class="text-nowrap">{{ formatAmount(r.iva) }}</span>
+                        </li>
+                        }
+                        }
+                    </ul>
+                    <p class="d-flex justify-content-between fw-bold fs-5 mb-0">
+                        <span>{{ 'checkoutTotale' | translate }}</span>
+                        <span>{{ totale() }}</span>
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Dati di pagamento -->
+        <section class="col-12 col-md-7 order-md-1" aria-labelledby="co-pagamento">
+            <form class="card checkout-card" [formGroup]="form" (ngSubmit)="paga()" novalidate>
+                <div class="card-body">
+                    <h2 id="co-pagamento" class="h5 fw-bold mb-3">{{ 'checkoutDatiPagamento' | translate }}</h2>
+
+                    <app-error-summary [items]="errori()" />
+
+                    <div class="mb-3">
+                        <label class="form-label" for="cc-name">{{ 'checkoutIntestatario' | translate }} <span aria-hidden="true">*</span></label>
+                        <input id="cc-name" name="ccname" class="form-control" formControlName="nome"
+                               type="text" autocomplete="cc-name" autocapitalize="words" required appFieldError="cc-name-error" />
+                        <app-field-error id="cc-name-error" [control]="form.controls.nome" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="cc-number">{{ 'checkoutNumeroCarta' | translate }} <span aria-hidden="true">*</span></label>
+                        <input id="cc-number" name="cardnumber" class="form-control" formControlName="numero"
+                               type="text" inputmode="numeric" autocomplete="cc-number" spellcheck="false" placeholder="1234 5678 9012 3456"
+                               required appFieldError="cc-number-error" (input)="formatNumero($event)" />
+                        <app-field-error id="cc-number-error" [control]="form.controls.numero" [messages]="{ cardNumber: 'checkoutErroreNumero' }" />
+                    </div>
+
+                    <div class="checkout-pair mb-3">
+                        <div>
+                            <label class="form-label" for="cc-exp">{{ 'checkoutScadenza' | translate }} <span aria-hidden="true">*</span></label>
+                            <input id="cc-exp" name="exp-date" class="form-control" formControlName="scadenza"
+                                   type="text" inputmode="numeric" autocomplete="cc-exp" spellcheck="false" placeholder="MM/AA"
+                                   required appFieldError="cc-exp-error" (input)="formatScadenza($event)" />
+                            <app-field-error id="cc-exp-error" [control]="form.controls.scadenza" [messages]="{ cardExpiry: 'checkoutErroreScadenza', cardExpired: 'checkoutErroreScaduta' }" />
+                        </div>
+                        <div>
+                            <label class="form-label" for="cc-csc">{{ 'checkoutCodice' | translate }} <span aria-hidden="true">*</span></label>
+                            <input id="cc-csc" name="cvc" class="form-control" formControlName="codice"
+                                   type="password" inputmode="numeric" autocomplete="cc-csc" maxlength="4"
+                                   required appFieldError="cc-csc-error" />
+                            <app-field-error id="cc-csc-error" [control]="form.controls.codice" [messages]="{ cardCode: 'checkoutErroreCodice' }" />
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label" for="cc-pin">{{ 'checkoutPin' | translate }} <span aria-hidden="true">*</span></label>
+                        <!-- Per il PIN non esiste un token autocomplete: nessun checkout vero lo chiede. -->
+                        <input id="cc-pin" name="pin" class="form-control" formControlName="pin"
+                               type="password" inputmode="numeric" autocomplete="off" maxlength="6"
+                               required appFieldError="cc-pin-error" />
+                        <app-field-error id="cc-pin-error" [control]="form.controls.pin" [messages]="{ cardPin: 'checkoutErrorePin' }" />
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg btn-touch w-100" [disabled]="busy()" [attr.aria-busy]="busy() || null">
+                        <app-busy-icon glyph="fa-solid fa-lock" [busy]="busy()" />
+                        {{ busy() ? ('checkoutElaborazione' | translate) : c.payLabel }}
+                    </button>
+                    <button type="button" class="btn btn-link w-100 mt-2" [disabled]="busy()" (click)="torna()">{{ 'checkoutIndietro' | translate }}</button>
+                </div>
+            </form>
+        </section>
+    </div>
+</div>
+}
+}

@@ -1,0 +1,48 @@
+// Card dei due pannelli: raggio e ombra dal design system, nessun valore scritto a occhio.
+.checkout-card {
+    border-radius: var(--elevazioneRaggio);
+    box-shadow: var(--shadowElevated);
+}
+
+// Scadenza e codice affiancati: ogni campo occupa tre righe (etichetta, campo, errore) di una griglia
+// condivisa (subgrid), così i campi restano alla stessa altezza anche se un'etichetta va a capo o
+// se solo uno dei due mostra un errore.
+.checkout-pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-3);
+
+    > div {
+        display: grid;
+        grid-row: span 3;
+        grid-template-rows: subgrid;
+    }
+}
+
+// ── Ricevuta ──────────────────────────────────────────────────────
+.receipt__stamp {
+    flex: none;
+    padding: 0.1rem var(--space-2);
+    border: 2px solid currentColor;
+    border-radius: var(--bs-border-radius-sm);
+    color: var(--bs-success-text-emphasis);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    transform: rotate(-4deg);
+}
+.receipt__meta {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0 var(--space-3);
+    margin-bottom: var(--space-3);
+    color: var(--bs-secondary-color);
+
+    dt { font-weight: 600; }
+    dd { margin: 0; }
+}
+
+// Su carta resta la sola ricevuta: niente ombra, bordo pieno.
+@media print {
+    .checkout-card { box-shadow: none; border: 1px solid #000; }
+    .receipt__stamp { color: #000; }
+}

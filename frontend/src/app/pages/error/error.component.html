@@ -20,4 +20,10 @@
         </a>
         }
     </div>
+    <p class="error-try">{{ 'erroreProva' | translate }}</p>
+    <ul class="error-links list-inline">
+        <li class="list-inline-item"><a [appPage]="PageType.Generatori">{{ 'generatori' | translate }}</a></li>
+        <li class="list-inline-item"><a [appPage]="PageType.GameBurocrazia">{{ 'burocrazia' | translate }}</a></li>
+        <li class="list-inline-item"><a [appPage]="PageType.UtilityTranslator">{{ 'translator' | translate }}</a></li>
+    </ul>
 </div>

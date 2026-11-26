@@ -3,7 +3,7 @@
 }
 
 .hub {
-    border-radius: 1.75rem;
+    border-radius: var(--elevazioneRaggio);
     border: 1px solid var(--colorSurfaceBorder);
     background: var(--colorSurface);
     color: var(--colorSurfaceText);

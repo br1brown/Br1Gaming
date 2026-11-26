@@ -1,0 +1,297 @@
+{
+  "title": "Etero in Affitto",
+  "description": "L'unica app per trovare i fidanzat* di comodo. La soluzione discreta per le occasioni che contano.",
+  "sections": [
+    {
+      "type": "pressure",
+      "id": "pressione",
+      "countdown": {
+        "text": "Offerta valida ancora {0}: poi il partner perfetto lo prende qualcun altro.",
+        "minutes": 10
+      },
+      "exit": {
+        "title": "Aspetta, non andare!",
+        "message": "Il tuo partner di comodo ti sta aspettando. Se esci adesso lo diamo a qualcun altro.",
+        "confirmLabel": "Ok, resto"
+      },
+      "purchases": {
+        "intervalSeconds": 20,
+        "max": 4,
+        "generate": 10
+      }
+    },
+    {
+      "type": "hero",
+      "id": "hero",
+      "brand": "Etero in Affitto",
+      "headline": "L'unica app per trovare i fidanzat* di comodo!",
+      "subheadline": "La soluzione discreta per le occasioni che contano.",
+      "body": [
+        "Hai una condizione che in certe situazioni sociali ancora crea problemi? Affitta oggi stesso il partner eterosessuale perfetto per rassicurare i tuoi genitori, pacificare i parenti e dimostrare di aver finalmente messo la testa a posto.",
+        "Senza spiegazioni. Senza tensioni. Solo la presenza di cui hai bisogno."
+      ],
+      "image": {
+        "asset": "app.eteroinaffitto.logo",
+        "alt": "Logo di Etero in Affitto: un cuore spezzato in due profili, uno rosso e uno azzurro, con un occhio in alto e un cartellino con i simboli maschile e femminile"
+      }
+    },
+    {
+      "type": "featureList",
+      "id": "matching",
+      "heading": "Il Matching",
+      "intro": "Il nostro sistema di matching non cerca l'amore: seleziona l'approvazione sociale. Configura i parametri del partner del sesso opposto filtrando per i valori che la tua famiglia si aspetta di vedere:",
+      "items": [
+        {
+          "title": "Stabilità certificata",
+          "text": "lavoro a tempo indeterminato, mutuo già avviato, affidabilità e senso di responsabilità."
+        },
+        {
+          "title": "Estetica rassicurante",
+          "text": "assenza di tatuaggi visibili, moderazione nei modi e nell'abbigliamento."
+        },
+        {
+          "title": "Valori tradizionali",
+          "text": "fede nella sacralità del matrimonio, esplicito desiderio di maternità e propensione all'impegno a lungo termine."
+        },
+        {
+          "title": "Etichetta e gerarchia",
+          "text": "ruoli di genere ben definiti, cortesia d'altri tempi, disponibilità a prendersi cura dell'altro e profondo rispetto per gli anziani, le istituzioni e i legami familiari."
+        }
+      ]
+    },
+    {
+      "type": "steps",
+      "id": "come-funziona",
+      "heading": "Come funziona in 4 semplici mosse",
+      "headingLevel": 3,
+      "items": [
+        {
+          "title": "Accetta la tua condizione",
+          "text": "scegli il tuo livello di coinvolgimento. Puoi entrare gratis accettando di diventare tu stesso parte del catalogo, oppure pagare per goderti lo spettacolo senza doveri."
+        },
+        {
+          "title": "Imposta i filtri sociali",
+          "text": "seleziona il profilo che incarna al meglio l'ideale di normalità richiesto dal tuo contesto familiare (oppure attiva la modalità sovversiva per ribaltare il tavolo)."
+        },
+        {
+          "title": "Definisci il contratto",
+          "text": "stabilisci la data di inizio, il livello di recitazione richiesto e la durata della relazione: minimo un mese, il tempo necessario per accreditarsi come un nucleo familiare solido e credibile."
+        },
+        {
+          "title": "Si va in scena",
+          "text": "presentati agli eventi di famiglia, mostra la tua nuova vita perfetta, fai bella figura con tutti e, allo scadere del contratto, chiudi la relazione senza strascichi."
+        }
+      ]
+    },
+    {
+      "type": "prose",
+      "id": "perche",
+      "heading": "Perché Etero in Affitto",
+      "paragraphs": [
+        "Perché sappiamo che, purtroppo, essere normali può ancora fare la differenza. Etero in Affitto esiste per colmare questo spazio in modo pratico, riservato e professionale.",
+        "Un servizio pensato per chi vuole gestire la propria condizione con discrezione, senza dover affrontare ogni volta la stessa discussione."
+      ]
+    },
+    {
+      "type": "pricing",
+      "id": "piani",
+      "heading": "Scegli il tuo piano",
+      "plans": [
+        {
+          "id": "reciprocita",
+          "name": "Piano Reciprocità",
+          "price": "0 €",
+          "period": "mese",
+          "featured": false,
+          "ctaLabel": "Accetta la condizione",
+          "details": [
+            {
+              "label": "La tua condizione",
+              "lead": "Partner su chiamata.",
+              "text": "Accedi gratis, ma se un altro utente ti sceglie sei obbligato ad accettare per non perdere l'account."
+            },
+            {
+              "label": "Tipologia partner",
+              "text": "Eterosessuale matchato automaticamente."
+            },
+            {
+              "label": "Obiettivo",
+              "text": "Raggiungere la normalità attraverso il mutuo soccorso."
+            },
+            {
+              "label": "Durata minima",
+              "text": "Variabile"
+            }
+          ],
+          "dialog": {
+            "title": "Piano Reciprocità",
+            "message": "Hai scelto di entrare gratis: un giorno qualcuno potrebbe sceglierti, e a quel punto il partner di comodo sarai tu.",
+            "confirmLabel": "Accetto la mia condizione"
+          }
+        },
+        {
+          "id": "facciata",
+          "name": "Piano Facciata",
+          "badge": "Più scelto",
+          "price": "10 €",
+          "period": "mese",
+          "featured": true,
+          "ctaLabel": "Abbonati ora",
+          "details": [
+            {
+              "label": "La tua condizione",
+              "lead": "Solo cliente.",
+              "text": "Vieni escluso dalle selezioni attive e ti limiti a usufruire del servizio."
+            },
+            {
+              "label": "Tipologia partner",
+              "text": "Eterosessuale (con filtri normalità)."
+            },
+            {
+              "label": "Obiettivo",
+              "text": "Esibire la normalità su misura senza impegni."
+            },
+            {
+              "label": "Durata minima",
+              "text": "1 mese garantito"
+            }
+          ],
+          "checkout": {
+            "merchant": "Etero in Affitto",
+            "title": "Riepilogo ordine",
+            "items": [
+              {
+                "label": "Piano Facciata · abbonamento mensile",
+                "amount": 10,
+                "note": "Detraibile al 19% come spesa sanitaria (730, rigo E1): per il Fisco, la normalità è una cura.",
+                "noteIcon": "fa-solid fa-notes-medical"
+              }
+            ],
+            "currency": "EUR",
+            "payLabel": "Paga ora",
+            "outcome": {
+              "title": "Pagamento riuscito",
+              "message": "Ora possiamo fare tutto noi, grazie alle tue informazioni così puntuali.",
+              "confirmLabel": "Ho capito"
+            },
+            "vatRate": 22,
+            "receiptNote": "Conserva la ricevuta insieme al 730: il Fisco ringrazia."
+          },
+          "viewers": {
+            "text": "{0} persone stanno guardando questo piano",
+            "min": 3,
+            "max": 9
+          },
+          "scarcity": "Ultimi 2 partner disponibili nella tua zona"
+        },
+        {
+          "id": "colpo-di-scena",
+          "name": "Piano Colpo di Scena",
+          "price": "60 €",
+          "period": "mese",
+          "featured": false,
+          "ctaLabel": "Sovverti le aspettative",
+          "details": [
+            {
+              "label": "La tua condizione",
+              "lead": "Regista del caos.",
+              "text": "Nessun obbligo di reciprocità e controllo totale sulla narrazione."
+            },
+            {
+              "label": "Cosa include",
+              "lead": "Tutto il Piano Facciata.",
+              "text": "Il partner eterosessuale con i filtri normalità resta a tua disposizione, quando ti serve."
+            },
+            {
+              "label": "In più",
+              "lead": "Un partner omosessuale",
+              "text": "su richiesta specifica, da presentare a chi magari non ti parla più."
+            },
+            {
+              "label": "Obiettivo",
+              "text": "Non devi nascondere niente: devi sorprendere. Invertire la dinamica e scioccare chi non se lo aspetta."
+            },
+            {
+              "label": "Durata minima",
+              "text": "Evento singolo o pacchetto mensile"
+            }
+          ],
+          "checkout": {
+            "merchant": "Etero in Affitto",
+            "title": "Riepilogo ordine",
+            "items": [
+              {
+                "label": "Piano Colpo di Scena · abbonamento mensile",
+                "amount": 60
+              }
+            ],
+            "currency": "EUR",
+            "payLabel": "Paga ora",
+            "outcome": {
+              "title": "Pagamento riuscito",
+              "message": "Ora possiamo fare tutto noi, grazie alle tue informazioni così puntuali.",
+              "confirmLabel": "Ho capito"
+            },
+            "vatRate": 22,
+            "receiptNote": "Questa spesa non è detraibile: la sorpresa non è una cura."
+          },
+          "viewers": {
+            "text": "{0} persone stanno guardando questo piano",
+            "min": 2,
+            "max": 3
+          },
+          "scarcity": "Ultimo partner disponibile nella tua zona"
+        }
+      ]
+    },
+    {
+      "type": "faq",
+      "id": "faq",
+      "heading": "Domande Frequenti (FAQ)",
+      "items": [
+        {
+          "question": "Cosa succede se rifiuto una richiesta nel piano gratuito?",
+          "answer": "La tua condizione di utente gratuito si basa sullo scambio equo. Rifiutare una convocazione comporta la sospensione immediata dell'account e il ritorno alle domande dei tuoi zii sul perché sei ancora single."
+        },
+        {
+          "question": "Perché la durata minima è di un mese?",
+          "answer": "Una singola cena non basta a dissipare i dubbi. Trenta giorni permettono di costruire una narrazione credibile fatta di foto, chiamate di cortesia e progetti futuri, consolidando l'immagine della perfetta famiglia tradizionale."
+        },
+        {
+          "question": "Perché dovrei pagare 60 € per fare coming out?",
+          "answer": "Il coming out è gratis: quello che paghi è l'effetto. Se usi questa app, la tua condizione la diamo per assodata. Il piano da 60 € comprende tutto quello del piano da 10 € e in più ti permette di scegliere un partner omosessuale da presentare a chi magari non ti parla più. Invece di anelare alla normalità prestabilita, trasformi la classica riunione di famiglia in un momento di pura, indimenticabile sorpresa."
+        }
+      ]
+    },
+    {
+      "type": "cta",
+      "id": "cta",
+      "heading": "Pronto a rendere fiera la tua famiglia?",
+      "body": [
+        "La serenità dei tuoi genitori è a un clic di distanza. La tua vita privata resta tua. Scegli la tua condizione e inizia subito. Noi ti forniamo solo la presenza di cui hai bisogno, quando ne hai bisogno."
+      ],
+      "badges": [
+        {
+          "subLabel": "Disponibile sulle piattaforme",
+          "label": "Scarica",
+          "icon": "fa-solid fa-mobile-screen-button",
+          "dialog": {
+            "title": "Scarica",
+            "message": "Non è ancora disponibile: nessuna piattaforma ci vuole.",
+            "confirmLabel": "Ho capito"
+          }
+        },
+        {
+          "subLabel": "Disponibile sulle altre piattaforme",
+          "label": "Scarica",
+          "icon": "fa-solid fa-download",
+          "dialog": {
+            "title": "Scarica",
+            "message": "Neanche questa: nessuna piattaforma ci vuole, nemmeno le altre.",
+            "confirmLabel": "Ho capito"
+          }
+        }
+      ]
+    }
+  ]
+}

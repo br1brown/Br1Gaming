@@ -1,0 +1,10 @@
+/* Intestazioni dei due pannelli: stessa altezza e stessa struttura, così «ITALIANO» e «SPAGNOLO»
+   stanno sulla stessa riga e la X di «pulisci» che compare non sposta niente. */
+.tr-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-block-size: var(--touchTarget);
+    padding-inline: var(--space-3);
+    padding-top: var(--space-2);
+}

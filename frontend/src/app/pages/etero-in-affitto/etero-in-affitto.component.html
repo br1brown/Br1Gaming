@@ -1,0 +1,136 @@
+<div class="col-12 col-lg-10 offset-lg-1 landing">
+
+    @for (section of sections(); track section.id) {
+    @switch (section.type) {
+
+    @case ('pressure') {
+    @if (countdownText(); as t) {
+    <div [id]="section.id" class="pressure-bar" role="timer">
+        <i class="fa-solid fa-hourglass-half" aria-hidden="true"></i>
+        <span>{{ t }}</span>
+    </div>
+    }
+    }
+
+    @case ('hero') {
+    <header [id]="section.id" class="hero text-center">
+        @if (section.image; as img) {
+        <img class="mb-3 img-fluid hero__image" [src]="asset.getUrl(img.asset)" [alt]="img.alt">
+        }
+        <h1 class="display-3 fw-bold hero__brand">{{ section.brand }}</h1>
+        <p class="fs-3 fw-semibold mb-3"><span class="hero__marker">{{ section.headline }}</span></p>
+        <p class="fst-italic fs-5 text-body-secondary mb-4">{{ section.subheadline }}</p>
+        @for (p of section.body; track $index) { <p class="lead mb-3 mx-auto hero__text">{{ p }}</p> }
+    </header>
+    }
+
+    @case ('featureList') {
+    <section [id]="section.id" class="landing__section" [attr.aria-labelledby]="section.id + '-h'">
+        <h2 [id]="section.id + '-h'" class="h2 fw-bold section-title">{{ section.heading }}</h2>
+        @if (section.intro) { <p class="mb-4">{{ section.intro }}</p> }
+        <ul class="list-unstyled row row-cols-1 row-cols-md-2 g-3">
+            @for (item of section.items; track $index) {
+            <li class="col">
+                <div class="tile lift-on-hover h-100"><strong class="d-block mb-1">{{ item.title }}</strong>{{ item.text }}</div>
+            </li>
+            }
+        </ul>
+    </section>
+    }
+
+    @case ('steps') {
+    <section [id]="section.id" class="landing__section" [attr.aria-labelledby]="section.id + '-h'">
+        @if (section.headingLevel === 2) { <h2 [id]="section.id + '-h'" class="h2 fw-bold section-title">{{ section.heading }}</h2> }
+        @else { <h3 [id]="section.id + '-h'" class="h3 fw-bold section-title">{{ section.heading }}</h3> }
+        <ol class="steps list-unstyled">
+            @for (item of section.items; track $index) {
+            <li class="steps__item"><div><strong class="d-block">{{ item.title }}</strong>{{ item.text }}</div></li>
+            }
+        </ol>
+    </section>
+    }
+
+    @case ('prose') {
+    <section [id]="section.id" class="landing__section" [attr.aria-labelledby]="section.id + '-h'">
+        <h2 [id]="section.id + '-h'" class="h2 fw-bold section-title">{{ section.heading }}</h2>
+        @for (p of section.paragraphs; track $index) { <p>{{ p }}</p> }
+    </section>
+    }
+
+    @case ('pricing') {
+    <section [id]="section.id" class="landing__section" [attr.aria-labelledby]="section.id + '-h'">
+        <h2 [id]="section.id + '-h'" class="h2 fw-bold section-title">{{ section.heading }}</h2>
+        <div class="row row-cols-1 row-cols-lg-3 g-4">
+            @for (plan of section.plans; track plan.id) {
+            <div class="col">
+                <article class="plan lift-on-hover h-100" [class.plan--featured]="plan.featured">
+                    <div class="d-flex flex-column h-100">
+                        <h3 class="h5 fw-bold mb-1 plan__head">{{ plan.name }}
+                            @if (plan.badge) { <span class="badge rounded-pill text-bg-primary ms-1 align-middle">{{ plan.badge }}</span> }
+                        </h3>
+                        <p class="display-5 fw-bold mb-3 plan__price">{{ plan.price }} <span class="fs-6 fw-normal text-body-secondary">/ {{ plan.period }}</span></p>
+                        <dl class="mb-4">
+                            @for (d of plan.details; track d.label) {
+                            <dt class="small text-body-secondary text-uppercase">{{ d.label }}</dt>
+                            <dd class="mb-3">@if (d.lead) { <strong>{{ d.lead }}</strong> } {{ d.text }}</dd>
+                            }
+                        </dl>
+                        <!-- Contenitore ancorato in fondo: spettatori, scarsità e pulsante stanno alla stessa quota in ogni piano. -->
+                        <div class="mt-auto">
+                            @if (plan.viewers || plan.scarcity) {
+                            <div class="plan__pressure">
+                                @if (viewersText(plan); as vt) { <p><i class="fa-solid fa-eye" aria-hidden="true"></i>{{ vt }}</p> }
+                                @if (plan.scarcity) { <p class="plan__scarcity"><i class="fa-solid fa-fire" aria-hidden="true"></i>{{ plan.scarcity }}</p> }
+                            </div>
+                            }
+                            @if (plan.checkout) {
+                            <a class="btn btn-touch w-100" [class.btn-primary]="plan.featured" [class.btn-outline-primary]="!plan.featured"
+                               [appPage]="PageType.Checkout" [appPageQueryParams]="checkoutQuery()[plan.id]">{{ plan.ctaLabel }}</a>
+                            } @else {
+                            <button type="button" class="btn btn-touch w-100" [class.btn-primary]="plan.featured" [class.btn-outline-primary]="!plan.featured"
+                                    (click)="openPlan(plan)">{{ plan.ctaLabel }}</button>
+                            }
+                        </div>
+                    </div>
+                </article>
+            </div>
+            }
+        </div>
+    </section>
+    }
+
+    @case ('faq') {
+    <section [id]="section.id" class="landing__section" [attr.aria-labelledby]="section.id + '-h'">
+        <h2 [id]="section.id + '-h'" class="h2 fw-bold section-title">{{ section.heading }}</h2>
+        <div class="faq">
+            @for (item of section.items; track $index) {
+            <details class="faq__item">
+                <summary class="fw-semibold">{{ item.question }}</summary>
+                <p class="mb-0 mt-2">{{ item.answer }}</p>
+            </details>
+            }
+        </div>
+    </section>
+    }
+
+    @case ('cta') {
+    <section [id]="section.id" class="cta text-center" [attr.aria-labelledby]="section.id + '-h'">
+        <h2 [id]="section.id + '-h'" class="h2 fw-bold mb-3">{{ section.heading }}</h2>
+        @for (p of section.body; track $index) { <p class="lead mx-auto hero__text">{{ p }}</p> }
+        @if (section.note) { <p class="fst-italic text-body-secondary mb-0">{{ section.note }}</p> }
+        @if (section.badges?.length) {
+        <div class="store-badges">
+            @for (b of section.badges; track $index) {
+            <button type="button" class="store-badge" (click)="showAlert(b.dialog)">
+                <i [class]="b.icon" aria-hidden="true"></i>
+                <span class="store-badge__text"><small>{{ b.subLabel }}</small><strong>{{ b.label }}</strong></span>
+            </button>
+            }
+        </div>
+        }
+    </section>
+    }
+
+    }
+    }
+</div>

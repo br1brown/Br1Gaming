@@ -48,7 +48,7 @@
     position: absolute;
     width: 2rem;
     height: 2rem;
-    border: 3px solid #39ff14;
+    border: 3px solid var(--campioneFosforo);
 }
 
 .lombroso-corner--tl { top: 0; left: 0; border-right: none; border-bottom: none; }
@@ -87,8 +87,8 @@
     left: 0;
     right: 0;
     height: 3px;
-    background: #39ff14;
-    box-shadow: 0 0 8px #39ff14, 0 0 16px #39ff14;
+    background: var(--campioneFosforo);
+    box-shadow: 0 0 8px var(--campioneFosforo), 0 0 16px var(--campioneFosforo);
     animation: lombroso-sweep 1.8s ease-in-out infinite;
 }
 

@@ -1,20 +1,22 @@
-<div class="col-12 col-md-10 offset-md-1 py-3">
+<div class="col-12 col-md-10 offset-md-1 pb-3">
 
-    <h1 class="h3 fw-bold mb-1">{{ 'condivisi' | translate }}</h1>
+    <h1 class="h3 fw-bold mb-1 text-center">{{ 'condivisi' | translate }}</h1>
 
     @if (filterName(); as name) {
-    <p class="mb-4">
+    <p class="mb-4 text-center">
         <a [appPage]="PageType.Piaciuti" class="text-decoration-none small">{{ 'condivisiTuttiIGeneratori' | translate }}</a>
         <span class="text-body-secondary mx-2">/</span>
         <span class="fw-semibold">{{ name }}</span>
     </p>
     } @else {
-    <p class="text-body-secondary mb-4">{{ 'condivisiSottotitolo' | translate }}</p>
+    <p class="text-body-secondary mb-4 text-center">{{ 'condivisiSottotitolo' | translate }}</p>
     }
 
     @if (groups(); as list) {
         @if (list.length === 0) {
-        <app-empty-state titleKey="condivisiVuota" icon="fa-regular fa-heart" />
+        <app-empty-state titleKey="condivisiVuota" icon="fa-regular fa-heart">
+            <a [appPage]="PageType.Generatori" class="btn btn-primary btn-touch">{{ 'condivisiVaiGeneratori' | translate }}</a>
+        </app-empty-state>
         } @else {
             @for (group of list; track group.slug) {
             <section class="mb-5">

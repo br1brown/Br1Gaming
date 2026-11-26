@@ -7,6 +7,7 @@ import { GeneratorInfo, GenerateResponse, ShareEntry, ShareSaveResult } from '..
 import { LoginResult, LoginRequest } from '../dto/auth.dto';
 import { TranslateResult } from '../dto/translator.dto';
 import { LombrosoVerdict } from '../dto/lombroso.dto';
+import { LandingPage } from '../dto/landing.dto';
 
 /** Endpoint backend. Aggiungere il path qui, poi il metodo pubblico sotto. */
 const API = {
@@ -25,6 +26,7 @@ const API = {
     sharesCounts: 'shares/counts',
     translate: 'translate',
     lombrosoVerdict: 'lombroso/verdict',
+    landingEteroInAffitto: 'landing/etero-in-affitto',
 } as const;
 
 /**
@@ -198,5 +200,12 @@ export class ApiService extends BaseApiService {
      */
     lombrosoVerdict(hash: number): Promise<LombrosoVerdict> {
         return this.api_get<LombrosoVerdict>(API.lombrosoVerdict, new HttpParams().set('hash', hash), { silent: true });
+    }
+
+    // ─── Landing parodia ──────────────────────────────────────────────────
+
+    /** L'intera pagina «EteroInAffitto» (titolo, descrizione e sezioni tipizzate) in un'unica chiamata. */
+    getEteroInAffitto(): Promise<LandingPage> {
+        return this.api_get<LandingPage>(API.landingEteroInAffitto);
     }
 }

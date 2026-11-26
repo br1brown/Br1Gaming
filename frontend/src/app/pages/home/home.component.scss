@@ -13,6 +13,7 @@
     min-width: 0;
 }
 
+.bento-app { grid-column: 1 / -1; }
 .bento-simulators { grid-column: 1 / -1; }
 
 .bento-tools {
@@ -32,7 +33,103 @@
 .bento-skeleton {
     height: 100%;
     padding: 1.25rem;
-    border-radius: 1.75rem;
+    border-radius: var(--elevazioneRaggio);
     border: 1px solid var(--colorSurfaceBorder);
     background: var(--colorSurface);
+}
+
+/* ── La parodia in evidenza ─────────────────────────────────────────
+   Su telefono: immagine sopra, testo sotto (il cuore non viene coperto). Da md: l'immagine riempie la card e il
+   testo sta sulla sinistra, che nella OG è libera e scura; lo scrim garantisce la leggibilità. */
+.app-feature {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    isolation: isolate;
+    border-radius: var(--elevazioneRaggio);
+    border: 1px solid var(--colorSurfaceBorder);
+    background: var(--colorSurface);
+    box-shadow: var(--shadowElevated);
+    color: var(--colorSurfaceText);
+    text-decoration: none;
+}
+.app-feature__bg {
+    display: block;
+    inline-size: 100%;
+    block-size: auto;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+    object-position: 80% center;
+}
+.app-feature__scrim { display: none; }
+.app-feature__body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-4);
+}
+.app-feature__kicker {
+    font-family: var(--fontFamily-LiberationMono);
+    font-size: var(--fs-sm);
+    letter-spacing: var(--ls-wide);
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+}
+.app-feature__title {
+    margin: 0;
+    font-size: clamp(2rem, 6vw, 3.25rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+}
+.app-feature__tagline {
+    margin: 0;
+    max-inline-size: 28ch;
+    font-size: 1.15rem;
+    color: var(--bs-secondary-color);
+}
+.app-feature__cta { margin-top: var(--space-2); }
+
+@media (min-width: #{lib.$bp-md}) {
+    .app-feature {
+        display: block;
+        aspect-ratio: 21 / 9;
+        color: #fff;
+    }
+    .app-feature__bg {
+        position: absolute;
+        inset: 0;
+        inline-size: 100%;
+        block-size: 100%;
+        aspect-ratio: auto;
+        object-position: right center;
+        z-index: -2;
+    }
+    .app-feature__scrim {
+        display: block;
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: linear-gradient(90deg, rgba(0, 0, 0, 0.78) 0%, rgba(0, 0, 0, 0.5) 40%, transparent 68%);
+    }
+    .app-feature__body {
+        position: absolute;
+        inset-block: 0;
+        inset-inline-start: 0;
+        justify-content: center;
+        inline-size: 55%;
+        padding: var(--space-5);
+    }
+    .app-feature__kicker,
+    .app-feature__tagline { color: rgba(255, 255, 255, 0.85); }
+}
+
+@media (hover: hover) {
+    .app-feature:hover .app-feature__cta i { transform: translateX(3px); }
+}
+.app-feature__cta i { transition: transform var(--movimentoMicro); }
+@media (prefers-reduced-motion: reduce) {
+    .app-feature__cta i { transition: none; }
 }

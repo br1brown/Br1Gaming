@@ -56,16 +56,19 @@
 // non un colore nuovo, solo lo stesso accento reso fisico.
 .btn-skeuo-phosphor {
     color: #06120a;
-    background: linear-gradient(180deg, #6dff4b 0%, #39ff14 55%, #22b30a 100%);
+    background: linear-gradient(180deg,
+        color-mix(in srgb, white 32%, var(--campioneFosforo)) 0%,
+        var(--campioneFosforo) 55%,
+        color-mix(in srgb, black 30%, var(--campioneFosforo)) 100%);
     box-shadow:
-        0 3px 0 #1c8c08,
+        0 3px 0 color-mix(in srgb, black 50%, var(--campioneFosforo)),
         0 8px 16px rgba(0, 0, 0, .35),
         inset 0 1px 0 rgba(255, 255, 255, .5);
 }
 
 .btn-skeuo-phosphor:active:not(:disabled) {
     box-shadow:
-        0 1px 0 #1c8c08,
+        0 1px 0 color-mix(in srgb, black 50%, var(--campioneFosforo)),
         0 3px 6px rgba(0, 0, 0, .28),
         inset 0 1px 3px rgba(0, 0, 0, .3);
 }

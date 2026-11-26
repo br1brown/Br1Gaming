@@ -6,6 +6,8 @@ import { RadarWidgetComponent } from '../../components/shared/radar-widget/radar
 import { LombrosoWidgetComponent } from '../../components/shared/lombroso-widget/lombroso-widget.component';
 import { DilemmaSectionComponent } from './dilemma-section/dilemma-section.component';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
+import { PageDirective } from '../../core/engine/directives/page.directive';
+import { PageType } from '../../site';
 import { SITE_CONFIG } from '../../core/engine/siteBuilder';
 
 /**
@@ -26,6 +28,7 @@ import { SITE_CONFIG } from '../../core/engine/siteBuilder';
         RadarWidgetComponent,
         LombrosoWidgetComponent,
         DilemmaSectionComponent,
+        PageDirective,
     ],
     templateUrl: './home.component.html',
     styleUrl: './home.component.scss',
@@ -33,4 +36,8 @@ import { SITE_CONFIG } from '../../core/engine/siteBuilder';
 export class HomeComponent extends PageBaseComponent<unknown> {
     /** Nome del sito dalla config (niente stringhe hardcoded nell'hero). */
     protected readonly appName = inject(SITE_CONFIG).appName;
+
+    protected readonly PageType = PageType;
+    /** Immagine del banner della parodia in evidenza: la grafica con la sinistra libera, dove sta il testo. */
+    protected readonly appBanner = this.asset.getUrl('app.eteroinaffitto.banner');
 }
