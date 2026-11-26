@@ -39,7 +39,7 @@ let entriesCache: { entries: SitemapEntry[]; expiresAt: number } | null = null;
 let entriesInFlight: Promise<SitemapEntry[]> | null = null;
 
 async function getDynamicEntries(): Promise<SitemapEntry[]> {
-    const cacheEnabled = ContestoSito.config.dynamicSitemapCache;
+    const cacheEnabled = ContestoSito.config.configSEO.dynamicSitemapCache;
     const now = Date.now();
     if (cacheEnabled && entriesCache && entriesCache.expiresAt > now) return entriesCache.entries;
 
@@ -135,7 +135,7 @@ async function computeSitemapSet(): Promise<SitemapSet> {
 async function getSitemapSet(): Promise<SitemapSet> {
     // Letto ad ogni richiesta, non a module-load: tiene il file disaccoppiato dall'ordine di
     // inizializzazione (il valore comunque non cambia più a runtime una volta avviato il server).
-    const cacheEnabled = ContestoSito.config.dynamicSitemapCache;
+    const cacheEnabled = ContestoSito.config.configSEO.dynamicSitemapCache;
     const now = Date.now();
     if (cacheEnabled && cached && cached.expiresAt > now) return cached.set;
 
@@ -205,7 +205,7 @@ async function computeLlmsTxt(): Promise<string> {
 export async function dynamicLlmsTxtHandler(_req: Request, res: Response): Promise<void> {
     res.set('Cache-Control', 'no-cache');
 
-    const cacheEnabled = ContestoSito.config.dynamicSitemapCache;
+    const cacheEnabled = ContestoSito.config.configSEO.dynamicSitemapCache;
     const now = Date.now();
     if (cacheEnabled && llmsCached && llmsCached.expiresAt > now) {
         res.type('text/plain').send(llmsCached.xml);

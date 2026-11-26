@@ -41,6 +41,17 @@ function normalizeAndTruncate(text: string, max: number): string {
  *  processo, non uno per richiesta og. */
 const warnedOgFonts = new Set<string>();
 
+/** Sorgenti immagine (`id` o `blobGuid`) già segnalate come non trovate: una riga di log per sorgente, non una per richiesta di un crawler. */
+const warnedMissingSources = new Set<string>();
+
+/** Segnala (una volta per sorgente) un'immagine di anteprima che non si trova: l'og:image della pagina risponde 404. */
+function warnMissingSource(ref: PreviewImageRef): void {
+    const label = ref.blobGuid ? `blobGuid "${ref.blobGuid}"` : `id "${ref.id}"`;
+    if (warnedMissingSources.has(label)) return;
+    warnedMissingSources.add(label);
+    console.warn(`[og-preview] immagine non trovata (${label}): l'og:image della pagina risponde 404.`);
+}
+
 /** Segnala (una volta per valore) un font di `og.testo` né `SystemFont` né custom del catalogo. */
 function warnInvalidOgFont(font: FontChoice): void {
     const key = typeof font === 'string' ? font : `${font?.key}`;
@@ -169,7 +180,7 @@ type PreviewImageRef = { id: string; blobGuid: string };
  *  all'originale solo sulla convenzione di default. `id` resta l'asset statico. */
 async function resolveImageSource(ref: PreviewImageRef): Promise<ImageSource | null> {
     if (ref.blobGuid) {
-        const override = ContestoSito.config.resolveBlobImageUrl;
+        const override = ContestoSito.config.configSEO.resolveBlobImageUrl;
         const path = override?.(ref.blobGuid) ?? defaultBlobUrl(ref.blobGuid);
         let buffer = await fetchBackendImage(path);
         if (!buffer && !override) buffer = await fetchBackendImage(defaultBlobUrlRaw(ref.blobGuid));
@@ -184,7 +195,7 @@ async function renderPreviewWithImage(
     res: Response, ref: PreviewImageRef, title: string, subtitle: string, plain: boolean, font: FontChoice,
 ): Promise<void> {
     const source = await resolveImageSource(ref);
-    if (!source) { res.status(404).send('Asset not found'); return; }
+    if (!source) { warnMissingSource(ref); res.status(404).send('Asset not found'); return; }
     // Impronta del contenuto: un'immagine cambiata sotto lo stesso id rigenera l'anteprima.
     const sourceFingerprint = source.kind === 'path' ? await fileFingerprint(source.path) : contentFingerprint(source.buffer);
 

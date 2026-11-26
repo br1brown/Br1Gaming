@@ -63,8 +63,6 @@ export interface JsonLdContactExposure {
 export interface SiteConfig {
     /** Nome applicativo del sito. */
     appName: string;
-    /** Personalizza il tag `<title>` (e og:title/twitter:title/og:image:alt). Solo da `SiteDefinition.formatBrowserTitle`. Default: `"${pageTitle} | ${appName}"`. */
-    formatBrowserTitle?: (pageTitle: string, appName: string) => string;
     /** Il design system attivo con ogni default applicato (`risolviAspetto`): unica fonte per navbar,
      *  footer, pannello, colori, movimento e il resto dell'aspetto del sito. */
     aspetto: Aspetto;
@@ -72,8 +70,8 @@ export interface SiteConfig {
     fonts: ResolvedFonts;
     /** Catalogo grezzo di ogni `CustomFontDef` del sito (`font.principale` + `font.aggiuntivi`, deduplicati per key), non risolto per ruolo: serve a risolvere QUALUNQUE font custom registrato, anche quelli mai scelti come attivo. */
     customFontsCatalog: readonly CustomFontDef[];
-    /** Dati facoltativi di `identity` esposti nel JSON-LD del brand. */
-    jsonld: JsonLdContactExposure;
+    /** Configurazione SEO di sito con ogni default applicato (`SiteDefinition.configSEO`). */
+    configSEO: ConfigSEORisolta;
     /** Versione canonica dell'applicazione (es. "1.2.0"). */
     version: string;
     /** Descrizione generale del sito per-lingua (chiavi = tag lingua). */
@@ -98,16 +96,10 @@ export interface SiteConfig {
     legalPages: readonly LegalPageSpec[];
     /** `PageType` della Cookie Policy, o `null` se il sito non usa cookie (nessuna Cookie Policy). */
     cookiePolicy: PageType | null;
-    /** Cache in-process per l'endpoint `/sitemap.xml` delle pagine con `dynamicParams`. */
-    dynamicSitemapCache: boolean;
     /** Scarica il codice di una pagina quando chi naviga mostra l'intento (puntatore fermo su un link, focus, inizio di un tocco): vedi {@link SiteDefinition.prefetchOnIntent}. */
     prefetchOnIntent: boolean;
     /** Override del calcolo breadcrumb per-PageType. */
     resolveBreadcrumb?: (pageType: PageType, ctx: BreadcrumbContext) => BreadcrumbItem[] | null;
-    /** Percorso backend per un'immagine blob dinamica dato il GUID (og:image, icona di brand...).
-     *  Default: convenzione `BlobController` (`blob/{guid}?webopt=true`) — un endpoint blob
-     *  diverso nel progetto figlio sovrascrive solo questo hook. */
-    resolveBlobImageUrl?: (guid: string) => string;
     /** Intervallo (ms) del polling `VersionCheckService` sul meta `app-version` di `index.html`.
      *  Default 10 minuti. Un sito con contenuto che cambia raramente può volerlo più diradato
      *  (meno richieste); non tocca `SwUpdate` (PWA), che resta guidato dal Service Worker. */
@@ -161,8 +153,58 @@ export type ParentPageInput = BasePageInput & {
 };
 
 /** Immagine di anteprima social: `id` = asset statico (mapping.json); `blobGuid` = immagine
- *  caricata nel backend, risolta a runtime. Entrambi valorizzati → vince `blobGuid`. */
-export type OgImageRef = { id?: string; blobGuid?: string };
+ *  caricata nel backend, risolta a runtime. Entrambi valorizzati → vince `blobGuid`.
+ *  `soloSfondo`: `true` = immagine intatta, senza titolo né favicon; `false` = con titolo e favicon;
+ *  omesso = vale `configSEO.ogImage.soloSfondo` di `site.ts`. Ha effetto solo con un'immagine (`id` o `blobGuid`). */
+export type OgImageRef = { id?: string; blobGuid?: string; soloSfondo?: boolean };
+
+/** Configurazione SEO di sito (`SiteDefinition.configSEO`): valori che valgono per tutto il sito.
+ *  `ogImage.soloSfondo` si cambia per una pagina con `otherSEO.ogImage.soloSfondo`. */
+export interface ConfigSEO {
+    /** Anteprima social generata. */
+    ogImage?: {
+        /** `true` = og:image con l'immagine intatta, senza titolo né favicon. Default `false`.
+         *  Una pagina lo cambia con `otherSEO.ogImage.soloSfondo` ({@link OgImageRef}). */
+        soloSfondo?: boolean;
+    };
+    /** Percorso backend per un'immagine blob dinamica dato il GUID (og:image, icona di brand...).
+     *  Default: convenzione `BlobController` (`blob/{guid}?webopt=true`) — un endpoint blob
+     *  diverso nel progetto figlio sovrascrive solo questo hook. */
+    resolveBlobImageUrl?: (guid: string) => string;
+    /** Personalizza il tag `<title>` (e og:title/twitter:title/og:image:alt). Default: `"${pageTitle} | ${appName}"`. */
+    formatBrowserTitle?: (pageTitle: string, appName: string) => string;
+    /** Quali dati facoltativi di `identity` finiscono nel JSON-LD del brand. */
+    jsonld?: JsonLdContactExposure;
+    /** Cache in-process per l'endpoint `/sitemap.xml` delle pagine con `dynamicParams`. Default `true`. */
+    dynamicSitemapCache?: boolean;
+}
+
+/** {@link ConfigSEO} con ogni default applicato. */
+export interface ConfigSEORisolta {
+    ogImage: { soloSfondo: boolean };
+    resolveBlobImageUrl?: (guid: string) => string;
+    formatBrowserTitle?: (pageTitle: string, appName: string) => string;
+    jsonld: JsonLdContactExposure;
+    dynamicSitemapCache: boolean;
+}
+
+/** Fonde l'`ogImage` di un `contentLoader` con quello statico: un `id`/`blobGuid` non vuoto del loader sostituisce
+ *  l'immagine della pagina, altrimenti resta quella della pagina (o la card generata); `soloSfondo` del loader vince
+ *  se dichiarato. `false` del loader = nessuna og:image. */
+export function mergeOgImage(base: OgImageRef | false | undefined, over: OgImageRef | false | undefined): OgImageRef | false | undefined {
+    if (over === false) return false;
+    if (!over || typeof over !== 'object') return base;
+    const pagina = base && typeof base === 'object' ? base : undefined;
+    const soloSfondo = over.soloSfondo ?? pagina?.soloSfondo;
+    const immagine = over.id || over.blobGuid ? over : pagina;
+    // Senza immagine né nel loader né nella pagina resta il valore della pagina (assente o `false`): card generata o niente.
+    if (!immagine) return base;
+    const ref: OgImageRef = {};
+    if (immagine.id) ref.id = immagine.id;
+    if (immagine.blobGuid) ref.blobGuid = immagine.blobGuid;
+    if (soloSfondo !== undefined) ref.soloSfondo = soloSfondo;
+    return ref;
+}
 
 /** Pagina interna con componente lazy e rotta Angular. */
 export type LeafPageInput = BasePageInput & {
@@ -430,23 +472,17 @@ export interface SiteDefinition {
     shell?: SiteShellConfig;
     /** Abilita funzionalità PWA. Default: `false`. */
     isWebApp?: boolean;
-    /** Cache in-process per l'endpoint `/sitemap.xml` delle pagine con `dynamicParams`. */
-    dynamicSitemapCache?: boolean;
     /** Scarica il codice di una pagina interna prima del clic (puntatore fermo 100 ms, focus, tocco), una volta per pagina; non con `saveData`,
      *  in 2G o a scheda nascosta (`PagePrefetchService`). Default `false`. */
     prefetchOnIntent?: boolean;
     /** Override per-`PageType` del calcolo breadcrumb. */
     resolveBreadcrumb?: (pageType: PageType, ctx: BreadcrumbContext) => BreadcrumbItem[] | null;
-    /** Override del percorso backend per un'immagine blob dinamica (og:image). Vedi {@link SiteConfig.resolveBlobImageUrl}. */
-    resolveBlobImageUrl?: (guid: string) => string;
-    /** Override della strategia di formattazione del `<title>` del browser. Vedi {@link SiteConfig.formatBrowserTitle}. */
-    formatBrowserTitle?: (pageTitle: string, appName: string) => string;
     /** Intervallo di polling di `VersionCheckService`. Vedi {@link SiteConfig.versionCheckIntervalMs}. */
     versionCheckIntervalMs?: number;
     /** Override della UX di aggiornamento versione. Vedi {@link SiteConfig.onVersionUpdateAvailable}. */
     onVersionUpdateAvailable?: (apply: () => void) => void;
-    /** Esposizione dati di `identity` nel JSON-LD del brand. */
-    jsonld?: JsonLdContactExposure;
+    /** Configurazione SEO di sito (og:image, titolo, JSON-LD, sitemap). Vedi {@link ConfigSEO}. */
+    configSEO?: ConfigSEO;
     /** Factory dell'albero pagine. */
     pages: (ctx: SitePageContext) => SitePageInput[];
 }
@@ -647,6 +683,45 @@ function resolveRuoloPagina(role: PageRole, ruoli: RuoliDelSito): SpecRuoloPagin
     return spentoSeSpentoNelSito({ ...base, ...specDi(ruoli, role) }, ruoli.aspetto);
 }
 
+/** Un booleano di `configSEO`: se dichiarato deve esserlo davvero, altrimenti il build si ferma. */
+function booleanoSEO(percorso: string, valore: unknown, predefinito: boolean): boolean {
+    if (valore !== undefined && typeof valore !== 'boolean') {
+        throw new Error(`[SiteBuilder] ${percorso}=${JSON.stringify(valore)} deve essere un booleano.`);
+    }
+    return valore ?? predefinito;
+}
+
+/** Una funzione di `configSEO`: se dichiarata deve esserlo davvero. */
+function funzioneSEO<F extends (...args: never[]) => unknown>(percorso: string, valore: F | undefined): F | undefined {
+    if (valore !== undefined && typeof valore !== 'function') {
+        throw new Error(`[SiteBuilder] ${percorso} deve essere una funzione.`);
+    }
+    return valore;
+}
+
+/** Risolve `SiteDefinition.configSEO` con ogni default applicato. */
+function risolviConfigSEO(definition: SiteDefinition): ConfigSEORisolta {
+    const seo = definition.configSEO;
+    for (const [percorso, valore] of [['configSEO', seo], ['configSEO.ogImage', seo?.ogImage], ['configSEO.jsonld', seo?.jsonld]] as const) {
+        if (valore !== undefined && (typeof valore !== 'object' || valore === null || Array.isArray(valore))) {
+            throw new Error(`[SiteBuilder] ${percorso}=${JSON.stringify(valore)} deve essere un oggetto.`);
+        }
+    }
+    return {
+        ogImage: { soloSfondo: booleanoSEO('configSEO.ogImage.soloSfondo', seo?.ogImage?.soloSfondo, false) },
+        resolveBlobImageUrl: funzioneSEO('configSEO.resolveBlobImageUrl', seo?.resolveBlobImageUrl),
+        formatBrowserTitle: funzioneSEO('configSEO.formatBrowserTitle', seo?.formatBrowserTitle),
+        jsonld: {
+            email: booleanoSEO('configSEO.jsonld.email', seo?.jsonld?.email, false),
+            telefono: booleanoSEO('configSEO.jsonld.telefono', seo?.jsonld?.telefono, false),
+            indirizzo: booleanoSEO('configSEO.jsonld.indirizzo', seo?.jsonld?.indirizzo, false),
+            partitaIva: booleanoSEO('configSEO.jsonld.partitaIva', seo?.jsonld?.partitaIva, true),
+            codiceFiscale: booleanoSEO('configSEO.jsonld.codiceFiscale', seo?.jsonld?.codiceFiscale, false),
+        },
+        dynamicSitemapCache: booleanoSEO('configSEO.dynamicSitemapCache', seo?.dynamicSitemapCache, true),
+    };
+}
+
 /** Assembla e normalizza la SiteConfig finale combinando environment e definition. Espone anche i
  *  ruoli del design system attivo: servono a `normalizeSitePages` per interpretare i ruoli di pagina,
  *  senza rieseguire `shell.designSystem`. */
@@ -671,7 +746,6 @@ function buildFinalConfig(definition: SiteDefinition): { config: SiteConfig; ruo
     const cookiePage = cookieSlot == null ? null : typeof cookieSlot === 'object' ? cookieSlot.page : cookieSlot;
     const config: SiteConfig = {
         appName: environment.appName,
-        formatBrowserTitle: definition.formatBrowserTitle,
         versionCheckIntervalMs: definition.versionCheckIntervalMs,
         onVersionUpdateAvailable: definition.onVersionUpdateAvailable,
         version: normalizeVersion(environment.version) || '1.0.0',
@@ -692,17 +766,9 @@ function buildFinalConfig(definition: SiteDefinition): { config: SiteConfig; ruo
             for (const font of [...defaultCustom, ...addonCustoms]) if (!byKey.has(font.key)) byKey.set(font.key, font);
             return [...byKey.values()];
         })(),
-        jsonld: {
-            email: definition.jsonld?.email ?? false,
-            telefono: definition.jsonld?.telefono ?? false,
-            indirizzo: definition.jsonld?.indirizzo ?? false,
-            partitaIva: definition.jsonld?.partitaIva ?? true,
-            codiceFiscale: definition.jsonld?.codiceFiscale ?? false,
-        },
-        dynamicSitemapCache: definition.dynamicSitemapCache ?? true,
+        configSEO: risolviConfigSEO(definition),
         prefetchOnIntent: definition.prefetchOnIntent ?? false,
         resolveBreadcrumb: definition.resolveBreadcrumb,
-        resolveBlobImageUrl: definition.resolveBlobImageUrl,
         errorChrome: resolveRuoloPagina('error', ruoli),
         loginPage: login.page,
         homePage: definition.homePage ?? null,
@@ -859,13 +925,74 @@ export interface ContentLoaderResult {
     structuredData?: StructuredDataInput | null;
 }
 
-/** I metadati che un `contentLoader` fonde sopra il `PageInfo` statico della pagina (titolo, descrizione, `noindex`…). */
+/** I metadati che un `contentLoader` fonde sopra il `PageInfo` statico della pagina (titolo, descrizione, `noindex`…).
+ *  Un campo assente, `undefined` o `null` vale «nessun valore»: resta quello della pagina (`mergeLoaderInfo`). */
 export type ContentLoaderInfo = Partial<Omit<PageInfo, 'updatedOn'>> & {
     /** Ultimo aggiornamento REALE del contenuto caricato (es. la data dell'articolo o della scheda), per
      *  `og:updated_time` e `dateModified` del JSON-LD. `Date` o stringa ISO 8601 (`2026-09-22` o con l'ora);
      *  assente, `null` o non valida = resta la data di build. */
     updatedOn?: Date | string | null;
 };
+
+/** I campi di {@link PageInfo} che un `contentLoader` può restituire, ognuno col tipo che il resolver accetta. */
+const CAMPI_INFO_DEL_LOADER: Record<string, (valore: unknown) => boolean> = {
+    title: v => typeof v === 'string',
+    path: v => typeof v === 'string',
+    description: v => typeof v === 'string',
+    ogType: v => typeof v === 'string',
+    isExternal: v => typeof v === 'boolean',
+    noindex: v => typeof v === 'boolean',
+    structuredData: v => typeof v === 'object' && v !== null,
+};
+
+/** Un `ogImage` di loader ammesso: `false` (nessuna immagine) o un oggetto con `id`/`blobGuid` stringhe e `soloSfondo` booleano. */
+function ogImageValido(valore: unknown): boolean {
+    if (valore === false) return true;
+    if (typeof valore !== 'object' || valore === null || Array.isArray(valore)) return false;
+    const { id, blobGuid, soloSfondo } = valore as Record<string, unknown>;
+    return (id === undefined || typeof id === 'string') && (blobGuid === undefined || typeof blobGuid === 'string')
+        && (soloSfondo === undefined || typeof soloSfondo === 'boolean');
+}
+
+/** Filtra l'`info` di un `contentLoader` prima della fusione col `PageInfo` statico.
+ *  - Un campo assente, `undefined` o `null` (e un `ogType` vuoto) è «nessun valore»: non entra, e vale quello della pagina.
+ *    Il «no» esplicito si scrive `ogImage: false`, `noindex: false`.
+ *  - Un campo noto col tipo sbagliato, e ogni campo sconosciuto, non entra: la pagina tiene il suo valore, e `onScartato` lo segnala.
+ *  `updatedOn` è a parte (`mergeLoaderInfo`). */
+export function sanitizeContentLoaderInfo(
+    info: Record<string, unknown>,
+    onScartato: (campo: string, valore: unknown) => void,
+): Partial<Omit<PageInfo, 'updatedOn'>> {
+    const pulita: Record<string, unknown> = {};
+    for (const [campo, valore] of Object.entries(info)) {
+        if (valore === undefined || valore === null) continue;
+        if (campo === 'ogType' && typeof valore === 'string' && valore.trim() === '') continue;
+        if (campo === 'ogImage') {
+            if (ogImageValido(valore)) pulita[campo] = valore; else onScartato(campo, valore);
+            continue;
+        }
+        // Solo le chiavi PROPRIE: `'__proto__'`, `'constructor'` e `'toString'` non sono campi del loader.
+        const ammesso = Object.hasOwn(CAMPI_INFO_DEL_LOADER, campo) ? CAMPI_INFO_DEL_LOADER[campo] : undefined;
+        if (ammesso?.(valore)) pulita[campo] = valore; else onScartato(campo, valore);
+    }
+    return pulita as Partial<Omit<PageInfo, 'updatedOn'>>;
+}
+
+/** Fonde l'`info` di un `contentLoader` sul `PageInfo` statico della pagina: ciò che il loader dichiara (filtrato da
+ *  {@link sanitizeContentLoaderInfo}) vince, il resto resta quello della pagina; `ogImage` si fonde con {@link mergeOgImage};
+ *  `updatedOn` entra già in ISO, o non entra (resta la data di build). */
+export function mergeLoaderInfo(
+    base: PageInfo,
+    loaderInfo: ContentLoaderInfo,
+    onScartato: (campo: string, valore: unknown) => void,
+): PageInfo {
+    const { updatedOn, ...grezzo } = loaderInfo;
+    const rest = sanitizeContentLoaderInfo(grezzo, onScartato);
+    const iso = normalizeUpdatedOn(updatedOn);
+    const info: PageInfo = { ...base, ...rest, ...(iso && { updatedOn: iso }) };
+    if ('ogImage' in rest) info.ogImage = mergeOgImage(base.ogImage, rest.ogImage);
+    return info;
+}
 
 /** `info.updatedOn` di un `contentLoader` in stringa ISO: una `Date` diventa `YYYY-MM-DD` (come le pagine legali),
  *  una stringa valida resta com'è. Una data non valida non diventa un meta sbagliato: torna null. */

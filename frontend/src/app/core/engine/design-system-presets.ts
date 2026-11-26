@@ -318,8 +318,6 @@ export interface DesignSystemPreset {
         scala?: number;
     };
     og?: {
-        /** og:image con solo lo sfondo, senza titolo e icona. Default `false`. */
-        soloSfondo?: boolean;
         /** Testo/font della sola og:image. Il font ammesso è una voce di `SystemFont` o un font custom
          *  del catalogo (`principale`/`aggiuntivi`, riconosciuto per `key`); un valore diverso è ignorato
          *  (resta il font del sito) con un avviso per ogni valore distinto. */
@@ -566,7 +564,7 @@ const REGOLE_GRUPPI: { [G in Gruppo]: Record<keyof NonNullable<DesignSystemPrese
     breadcrumb: { show: 'boolean', stile: valoriDi(BREADCRUMB_SEPARATORE), maxVoci: 'a parte' },
     fab: { tornaSuSoglia: valoriDi(BACK_TO_TOP_SOGLIA_PX), cookie: valoriDi<CookieReopenStile>({ discreto: 1, standard: 1 }) },
     font: { principale: 'a parte', aggiuntivi: 'a parte', scala: 'a parte' },
-    og: { soloSfondo: 'boolean', testo: 'function' },
+    og: { testo: 'function' },
     smoke: { enable: 'boolean', color: 'a parte', opacity: 'a parte', intensita: valoriDi(SMOKE_INTENSITY) },
 };
 
@@ -845,7 +843,7 @@ export interface Aspetto {
     lightboxArrotondato: boolean;
     smoke: SmokeSettings;
     font: { principale?: FontChoice; aggiuntivi: readonly FontChoice[]; scala: number };
-    og: { soloSfondo: boolean; testo?: (input: OgTextTransformInput) => OgTextTransformResult };
+    og: { testo?: (input: OgTextTransformInput) => OgTextTransformResult };
 }
 
 /** 0 = nero/bianco appena tinto, 1 = superfici con la lucentezza del brand, 0.5 a metà strada. */
@@ -899,7 +897,7 @@ export function risolviAspetto(preset: DesignSystemPreset | undefined): Aspetto 
             ...SMOKE_INTENSITY[p.smoke?.intensita ?? 'pulviscolo'],
         },
         font: { principale: p.font?.principale, aggiuntivi: p.font?.aggiuntivi ?? [], scala: p.font?.scala ?? 1 },
-        og: { soloSfondo: p.og?.soloSfondo ?? false, testo: p.og?.testo },
+        og: { testo: p.og?.testo },
     };
 }
 

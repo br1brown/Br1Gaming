@@ -2,6 +2,34 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Footer: l'input di allineamento di `app-footer-link-row` si chiama `justify`
+
+`app-footer-link-row` aveva un input `align`, e scritto come attributo (`align="end"`) finiva nel DOM come attributo HTML `align`, che Pa11y segnala (H49) su ogni pagina. L'input si chiama `justify` (`center` di serie, `end`), come il `justify-content` di Bootstrap che comanda. I due usi sono nell'Engine (`footer.component.html`, `footer-nav.component.html`).
+
+**Al merge**: nessuno per i figli che popolano i link del footer da `nav.ts`. Chi usa `<app-footer-link-row align="…">` in un proprio template passa a `justify`.
+
+### `/cdn-cgi/preview`: una riga di log per ogni immagine non trovata
+
+Quando la sorgente di un'anteprima (`id` o `blobGuid`) non si trova, la route risponde 404 e scrive una riga di log, `[og-preview] immagine non trovata (id "…")` o `(blobGuid "…")`, una volta per sorgente.
+
+**Al merge**: nessuno.
+
+### L'`info` di un `contentLoader`: un campo senza valore non cancella quello della pagina
+
+L'`info` che un `contentLoader` restituisce si fonde sopra quella statica della pagina, e ora un campo assente, `undefined` o `null` (per `ogType` anche vuoto) vale «nessun valore»: resta quello della pagina, e `'website'` si usa solo se né il loader né la pagina dichiarano un `ogType`. Per dire «no» ci sono `ogImage: false` e `noindex: false`. È la stessa regola già scritta per `updatedOn` («assente, `null` o non valida = resta la data di build»), estesa a tutti i campi. Un loader che per un contenuto senza immagine propria restituisce `ogImage: undefined` tiene così l'immagine di ripiego della pagina, e un `noindex` dichiarato sulla pagina non cade per un campo mancante.
+
+L'`info` può venire da un JSON del backend, dove `"false"` è una stringa truthy e nessun campo ha un tipo garantito: `sanitizeContentLoaderInfo` ammette solo i campi noti col loro tipo (`title`, `path`, `description` e `ogType` stringhe, `noindex` e `isExternal` booleani, `structuredData` oggetto, `ogImage` `false` o un oggetto con `id`/`blobGuid` stringhe e `soloSfondo` booleano, più `updatedOn`). Un campo col tipo sbagliato o sconosciuto è ignorato: vale la pagina, e il log lo segnala una volta per pagina e campo (nel server alla prima visita, nella console del browser nelle navigazioni successive). Un `noindex: "false"` non toglie una pagina dall'indice. La fusione sta in `mergeLoaderInfo` (`siteBuilder.ts`), chiamata da `content.resolver.ts`.
+
+**Al merge**: nessuno per un loader che restituisce valori veri. Cambia solo per chi restituiva `undefined`, `null` o un `ogType` vuoto per sovrascrivere un valore della pagina: ora vale quello della pagina.
+
+### `configSEO` in `site.ts`: i default SEO di sito in un posto solo (breaking)
+
+Le impostazioni SEO di sito stavano sparse al primo livello di `buildSite`; ora stanno in `configSEO`: `jsonld`, `formatBrowserTitle`, `resolveBlobImageUrl` e `dynamicSitemapCache`, più il nuovo `ogImage.soloSfondo` (default `false`: titolo e favicon sull'og:image; `true`: immagine intatta). Anche `SiteConfig` le espone sotto `configSEO`. Un valore col tipo sbagliato (un booleano che non lo è, una funzione che non lo è) ferma il build.
+
+`og.soloSfondo` esce dal design system e si scrive in `configSEO.ogImage.soloSfondo`. Una pagina fa eccezione con `otherSEO.ogImage: { id: 'img4k', soloSfondo: true }`, o con l'`ogImage` del `PageInfo` di un `contentLoader`, in entrambe le direzioni; serve un'immagine (`id` o `blobGuid`) e conta solo un booleano. Il valore entra nel payload cifrato, quindi URL e cache dell'og:image sono per pagina. L'`ogImage` di un `contentLoader` si fonde con quello statico (`mergeOgImage` in `siteBuilder.ts`): un `id`/`blobGuid` non vuoto del loader vince; vuoto, `undefined` o assente non cancella l'immagine della pagina (né la card generata, se la pagina non ne ha); `soloSfondo` è quello del loader se lo dichiara, altrimenti quello della pagina; `ogImage: false` del loader toglie l'og:image. La demo mostra entrambi i livelli: `configSEO` in `site.ts` e `soloSfondo: true` sulla pagina «Che faccio». Dettagli in `frontend/README.md` («`OgImageRef`», «og:image generata», «JSON-LD Strutturato»), ricetta in `AGENTS.md`, interni in `ENGINE.md`.
+
+**Al merge**: un figlio che non ha configurato niente di tutto questo non deve fare nulla: i default risolti sono gli stessi di prima. Chi ha usato i campi spostati: i quattro campi al primo livello di `buildSite` e `og.soloSfondo` nel design system li segnala `tsc` (`og.soloSfondo` anche la validazione, come campo sconosciuto). Anche `configSEO`, `configSEO.ogImage` o `configSEO.jsonld` scritti come non oggetto fermano il build. In `site.ts`: `buildSite({ jsonld, formatBrowserTitle, resolveBlobImageUrl, dynamicSitemapCache })` diventa `buildSite({ configSEO: { jsonld, formatBrowserTitle, resolveBlobImageUrl, dynamicSitemapCache } })`, e `og: { soloSfondo }` del design system diventa `configSEO: { ogImage: { soloSfondo } }`. `og.testo` resta nel design system. Il codice del figlio che legge `ContestoSito.config.jsonld`, `.formatBrowserTitle`, `.resolveBlobImageUrl` o `.dynamicSitemapCache` passa a `ContestoSito.config.configSEO.<campo>`, e `ContestoSito.config.aspetto.og.soloSfondo` a `ContestoSito.config.configSEO.ogImage.soloSfondo` (`tsc` li segnala). La demo (`site.ts`, pagina «Che faccio» in `pages/app.pages.ts`) mostra `configSEO` e `soloSfondo`: sono file di Dominio, e se il figlio ha toccato quelle stesse righe il merge va in conflitto e vince il figlio (`git checkout --ours <file>`).
+
 ### Deploy con ApiKey ruotata: i servizi pubblicati si ricreano sempre
 
 Se la chiave cambiava e un servizio aveva l'immagine invariata (deploy parziale), `docker compose up` non lo ricreava: frontend e backend tengono l'ApiKey in cache dall'avvio, e il lato non ricreato rispondeva 401 su ogni `/api`. `deploy.sh` e `deploy-release.sh` ora passano `--force-recreate` a `up` quando `KEY_CHANGED` è vero; gli altri deploy restano com'erano. Il blocco «Coerenza frontend↔backend» continua a riallineare il lato non pubblicato.

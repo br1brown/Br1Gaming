@@ -36,7 +36,7 @@ export async function cdnAssetHandler(req: Request, res: Response): Promise<void
         if (!sharpSource) {
             // Non è una chiave di mapping.json: prova come GUID di un blob del backend (es. icona
             // di brand dinamica). Mapping prima (fonte reale), blob come fallback.
-            const override = ContestoSito.config.resolveBlobImageUrl;
+            const override = ContestoSito.config.configSEO.resolveBlobImageUrl;
             const path = override?.(id) ?? defaultBlobUrl(id);
             sharpSource = await fetchBackendImage(path);
             if (!sharpSource && !override) sharpSource = await fetchBackendImage(defaultBlobUrlRaw(id));

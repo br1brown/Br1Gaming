@@ -185,7 +185,7 @@ Le pagine vivono nei file di area `pages/*.pages.ts` (uno per gruppo tematico, e
 | `path`, `pageType`, `title`, `component` (lazy) | `homePage` / `loginPage` (brand link, redirect auth) |
 | `requiresAuth` (guard + SSR off), `renderMode` | `legal` (quali pagine legali esistono) |
 | `layout` (il `role`: CHE COSA è la pagina) | `shell`: `designSystem` (tono, colori, navbar/footer/pannello e il comportamento per ruolo via `ruoloPagina`) e `showNotifications` |
-| `description`, `otherSEO` (`ogImage`, `ogType`, `structuredData`, `noindex`) | `isWebApp` (l'og:image senza scritte è `og.soloSfondo` del design system, vedi «og:image generata») |
+| `description`, `otherSEO` (`ogImage`, `ogType`, `structuredData`, `noindex`) | `isWebApp`, `configSEO` (i default SEO del sito: `ogImage`, `jsonld`, `formatBrowserTitle`, `resolveBlobImageUrl`, `dynamicSitemapCache`; l'og:image senza scritte è `configSEO.ogImage.soloSfondo`, sovrascrivibile per pagina con `ogImage: { …, soloSfondo }`, vedi «`OgImageRef`») |
 | `children` (gruppo di menu annidato, es. le `/policy/*` dell'Engine) o `externalUrl` (link esterno) | — |
 | `enabled: false` (spegne la pagina ovunque in un colpo: rotta, menu, sitemap, padre incluso) | `pages`, la riga che tocca le aree, fatta di spread: `pages: () => [...appPagesDecl]` |
 
@@ -634,7 +634,6 @@ Ogni campo è facoltativo; il default è quello che vale senza design system. Og
 | `font.principale` | `SystemFont` o `CustomFontDef` | font di sistema | Font del sito, web e og:image (§«Font: `SystemFont` + `font.aggiuntivi`») |
 | `font.aggiuntivi` | `FontChoice[]` | `[]` | Font serviti e raggiungibili da SCSS, non attivi |
 | `font.scala` | numero fra 0.875 e 1.5 | `1` | Moltiplica la base del rem: testo, titoli, spazi e controlli crescono insieme |
-| `og.soloSfondo` | `boolean` | `false` | og:image senza titolo e icona (§«og:image generata») |
 | `og.testo` | `(input) => { title, subtitle, font? }` | assente | Testo e font riservati all'og:image |
 | `ruoloPagina` | `Record<ruolo, SpecRuoloPagina>` | `{}` | Comportamento per ruolo di pagina (§«Ruoli di Pagina (`layout.role`)») |
 
@@ -892,7 +891,7 @@ Perché esiste: un'anteprima social disegnata a mano per ogni pagina non scala, 
 
 **Generazione.** Il Node SSR espone `/cdn-cgi/preview` (`server/routes/og-preview.ts`), che produce un'immagine 1200×630 in due varianti scelte dal payload, con safe-zone di 80px, favicon in alto a sinistra e testo nei due terzi superiori:
 - **card testuale**, senza immagine di sfondo: favicon (senza nome app accanto: i social lo mostrano già), titolo grande a sinistra, sottotitolo opzionale su una riga con ellissi. Lo sfondo è il colore di brand nudo (`colorTema`), non toccato da palette o superfici; il testo è nero o bianco, quello col contrasto migliore (`ImgBuilderService.getReadableTextColor`);
-- **con immagine**, quando il payload porta un asset: sfondo sfocato, immagine in primo piano e (salvo `og.soloSfondo`) favicon e badge con titolo e sottotitolo.
+- **con immagine**, quando il payload porta un asset: sfondo sfocato, immagine in primo piano e (salvo il solo sfondo, vedi «`OgImageRef`») favicon e badge con titolo e sottotitolo.
 
 Il risultato si cacha su disco (WebP) come le miniature di `/cdn-cgi/asset`. I parametri (`title`, `subtitle`, `id`, `plain`) viaggiano nel query param `?p=` come blob AES-GCM di `PreviewCrypto` (`server/preview-crypto.server.ts`): una manomissione fa fallire la decifrazione, 403. La chiave deriva, in ordine, da `PREVIEW_CRYPTO_SECRET`, dalla API key server-side (`Security.ApiConfig.Keys[0]`) e infine da `appName:version`, pubblici entrambi: senza segreto né API key i blob sono forgiabili, e il server lo segnala nel log. L'IV è deterministico (SHA-256 del payload): lo stesso payload dà lo stesso URL, stabile e cacheable.
 
@@ -900,8 +899,6 @@ Il risultato si cacha su disco (WebP) come le miniature di `/cdn-cgi/asset`. I p
 - Il testo si misura e si disegna in NFC. I caratteri invisibili contano zero (zero-width, marcatori di direzione, BOM, selettori di variante, accenti combinanti isolati); un carattere fuori tabella conta come la sua lettera base (`ǎ` come `a`), altrimenti un em pieno: nel dubbio la stima eccede, e il testo va a capo invece di uscire dal badge.
 - Grassetto: con una faccia 700 in `faces` si usa il rapporto reale; senza (o con il file assente) si stima il grassetto sintetico di fontconfig; se l'unica faccia è già 700 il fattore è 1. Il regular si misura dalla faccia più vicina a 400 in stile normale, qualunque sia l'ordine di `faces` (`closestFace()` in `font-system.ts`).
 - Senza font di sistema installati (dev fuori dal container, Windows) o con un font illeggibile valgono tabelle integrate, ASCII; il resto segue la regola della stima in eccesso. Un font custom illeggibile si misura come Liberation. All'avvio il log dice quale font ripiega (una riga informativa se non c'è nessun font di sistema, un warn per ogni font che ripiega, un warn col motivo per un file custom corrotto). La decompressione WOFF/WOFF2 ha un tetto di 32 MB.
-
-**`og.soloSfondo`**: `true` mostra l'immagine di sfondo intatta, senza titolo né favicon.
 
 #### `og.testo`: testo e font riservati all'og:image
 
@@ -1683,18 +1680,22 @@ Una `Date` diventa `YYYY-MM-DD` (in UTC, come le pagine legali); una stringa ISO
 
 ### og:image della pagina
 
-Non si chiama `PageMetaService` a mano (è privato all'Engine): i meta si dichiarano sulla pagina (`description`, `otherSEO`) o, per i dati derivati dal contenuto, nel `contentLoader`, e l'Engine li riapplica da sé a ogni cambio pagina e lingua. `otherSEO.ogImage` ha tre stati: un `OgImageRef` (sfondo dell'immagine generata), `false` (nessuna og:image), omesso (anteprima generata dal titolo della pagina).
+Non si chiama `PageMetaService` a mano (è privato all'Engine): i meta si dichiarano sulla pagina (`description`, `otherSEO`) o, per i dati derivati dal contenuto, nel `contentLoader`, e l'Engine li riapplica da sé a ogni cambio pagina e lingua. L'`info` di un `contentLoader` si fonde sopra quella statica della pagina, campo per campo: ciò che il loader dichiara vince, il resto resta della pagina, e `ogType` vale `'website'` solo se né il loader né la pagina lo dichiarano. Un campo assente, `undefined` o `null` (per `ogType` anche vuoto) è «nessun valore» e vale la pagina; per dire «no» ci sono i valori espliciti `ogImage: false` e `noindex: false`. I campi ammessi sono `title`, `path`, `description`, `ogType`, `isExternal`, `noindex`, `structuredData`, `ogImage` e `updatedOn`; un campo col tipo sbagliato (per esempio `noindex: "false"` da un JSON) o sconosciuto è ignorato, vale la pagina e il log lo segnala una volta per pagina e campo (nel server alla prima visita, nella console del browser nelle navigazioni successive). `otherSEO.ogImage` ha tre stati: un `OgImageRef` (sfondo dell'immagine generata), `false` (nessuna og:image), omesso (anteprima generata dal titolo della pagina).
 
-L'og:image esiste in SSR: i crawler non eseguono JavaScript e vedono la versione server-rendered, e una modifica client-side non ha effetto sulle anteprime di Facebook/LinkedIn/WhatsApp. Come viene disegnata (varianti, colori, font, misura del testo, `og.soloSfondo`, `og.testo`) è in «Design system e tema» → «og:image generata».
+L'og:image esiste in SSR: i crawler non eseguono JavaScript e vedono la versione server-rendered, e una modifica client-side non ha effetto sulle anteprime di Facebook/LinkedIn/WhatsApp. Come viene disegnata (varianti, colori, font, misura del testo, `og.testo`) è in «Design system e tema» → «og:image generata».
 
 ### `OgImageRef`: asset statico o blob dinamico
 
 `otherSEO.ogImage` (e l'`ogImage` del `PageInfo` restituito da un `contentLoader`) accetta un `OgImageRef`, `{ id: string }` oppure `{ blobGuid: string }` (con entrambi valorizzati vince `blobGuid`), o `false`:
 
 - **`{ id }`**: asset statico risolto da `mapping.json`, come ogni altro `appAsset`. Disponibile a build time.
-- **`{ blobGuid }`**: contenuto caricato a runtime (upload via `EngineBlobController`/`AppBlobStore`) che porta la propria immagine di anteprima, senza registrare nulla in `mapping.json`. Il Node SSR risolve l'URL con la convenzione di default `blob/{guid}?webopt=true`; un figlio con un endpoint blob diverso la sovrascrive con `resolveBlobImageUrl: (guid: string) => string` in `site.ts`: l'Engine non assume la forma dell'URL.
+- **Per lingua**: `ogImage` della pagina è lo stesso in tutte le lingue. Senza immagine la card si genera dal titolo già tradotto; con un'immagine per lingua l'`id` si sceglie nel `contentLoader` (`ctx.lang`), e `soloSfondo` della pagina resta. Ricetta in `AGENTS.md`.
+- **`{ blobGuid }`**: contenuto caricato a runtime (upload via `EngineBlobController`/`AppBlobStore`) che porta la propria immagine di anteprima, senza registrare nulla in `mapping.json`. Il Node SSR risolve l'URL con la convenzione di default `blob/{guid}?webopt=true`; un figlio con un endpoint blob diverso la sovrascrive con `configSEO.resolveBlobImageUrl: (guid: string) => string` in `site.ts`: l'Engine non assume la forma dell'URL.
 
-Costo di `{ blobGuid }` rispetto a `{ id }`: `{ id }` risolve a un path su disco già nel bundle, senza rete. `{ blobGuid }` vuole un fetch HTTP del Node SSR verso il backend per i byte dell'immagine (a ogni cache-miss), con un secondo fetch di fallback verso la variante non ottimizzata (`webopt` raw) se il primo fallisce e non c'è un `resolveBlobImageUrl` custom, di norma perché l'originale supera il tetto di decodifica di `?webopt=true` (40 megapixel, vedi [backend/README.md](../backend/README.md) §"EngineBlobController"). In quel caso `/cdn-cgi/preview` decodifica e ridimensiona con `sharp` l'immagine a piena risoluzione due volte nello stesso processo SSR (sfondo sfocato + primo piano nitido): per un'immagine grandissima è un costo di CPU/memoria per singola anteprima da tenere presente prima di esporre `{ blobGuid }` su contenuto degli utenti senza un limite di risoluzione a monte.
+- **`configSEO.ogImage.soloSfondo`** (`site.ts`, default `false`): `true` mostra l'immagine intatta, senza titolo né favicon, su tutto il sito; una pagina lo cambia con `soloSfondo`.
+- **`soloSfondo`** (accanto a `id` o `blobGuid`): `true` = immagine intatta, senza titolo né favicon; `false` = con titolo e favicon; omesso = vale `configSEO.ogImage.soloSfondo` di `site.ts`. La pagina può andare in entrambe le direzioni. Conta solo un booleano: un altro valore (per esempio la stringa `"false"` arrivata da JSON) vale come omesso. Serve un'immagine (`id` o `blobGuid`): la card testuale non ha uno sfondo da mostrare. Con un `contentLoader`, l'`ogImage` del loader si fonde con quello statico della pagina (`mergeOgImage`): un'immagine del loader (`id` o `blobGuid` non vuoto) sostituisce quella statica, senza immagine nel loader (anche `id: undefined` o `''`) resta la statica, o la card generata se la pagina non ne ha, e `soloSfondo` è quello del loader se lo dichiara, altrimenti quello della pagina; un `ogImage` `false` del loader vale `false`, mentre `null` o `undefined` valgono «nessun valore» e resta quello della pagina. Es. `ogImage: { id: 'img4k', soloSfondo: true }`.
+
+Costo di `{ blobGuid }` rispetto a `{ id }`: `{ id }` risolve a un path su disco già nel bundle, senza rete. `{ blobGuid }` vuole un fetch HTTP del Node SSR verso il backend per i byte dell'immagine (a ogni cache-miss), con un secondo fetch di fallback verso la variante non ottimizzata (`webopt` raw) se il primo fallisce e non c'è un `configSEO.resolveBlobImageUrl` custom, di norma perché l'originale supera il tetto di decodifica di `?webopt=true` (40 megapixel, vedi [backend/README.md](../backend/README.md) §"EngineBlobController"). In quel caso `/cdn-cgi/preview` decodifica e ridimensiona con `sharp` l'immagine a piena risoluzione due volte nello stesso processo SSR (sfondo sfocato + primo piano nitido): per un'immagine grandissima è un costo di CPU/memoria per singola anteprima da tenere presente prima di esporre `{ blobGuid }` su contenuto degli utenti senza un limite di risoluzione a monte.
 
 ### JSON-LD Strutturato (grafo Schema.org)
 
@@ -1702,14 +1703,14 @@ Schema.org viene iniettato per ogni pagina e migliora l'aspetto nei risultati di
 
 | Entità | `@id` | Quando |
 | :--- | :--- | :--- |
-| `Organization` *(o `Person`, o il `businessType` di un'attività)* | `{origin}#organization` *(o `#person`)* | In ogni pagina: l'entità brand, con nome (ragione sociale, fallback nome sito), URL e icona del sito (`logo` per Organization, `image` per Person); `sameAs` dai social; `address` (`PostalAddress` dalla sede) e `contactPoint` (`ContactPoint` con telefono/email) se abilitati per campo in `site.ts` (`jsonld`, sotto; i dati restano visibili nel footer e nelle pagine legali a prescindere da questi flag); `hoursAvailable`/`availableLanguage` se disponibili; e, per Organization, `legalName` (da ragione sociale, la stessa stringa di `name`) e `vatID`/`taxID` da P.IVA/CF se `jsonld.partitaIva`/`.codiceFiscale`; più la via di fuga `identity.extra` (proprietà schema.org arbitrarie fuse nel nodo). Il tipo dipende da `identity.personal` e `identity.businessType` (default Organization); identità assente → Organization minimale |
+| `Organization` *(o `Person`, o il `businessType` di un'attività)* | `{origin}#organization` *(o `#person`)* | In ogni pagina: l'entità brand, con nome (ragione sociale, fallback nome sito), URL e icona del sito (`logo` per Organization, `image` per Person); `sameAs` dai social; `address` (`PostalAddress` dalla sede) e `contactPoint` (`ContactPoint` con telefono/email) se abilitati per campo in `site.ts` (`configSEO.jsonld`, sotto; i dati restano visibili nel footer e nelle pagine legali a prescindere da questi flag); `hoursAvailable`/`availableLanguage` se disponibili; e, per Organization, `legalName` (da ragione sociale, la stessa stringa di `name`) e `vatID`/`taxID` da P.IVA/CF se `configSEO.jsonld.partitaIva`/`.codiceFiscale`; più la via di fuga `identity.extra` (proprietà schema.org arbitrarie fuse nel nodo). Il tipo dipende da `identity.personal` e `identity.businessType` (default Organization); identità assente → Organization minimale |
 | `WebSite` | `{origin}#website` | In ogni pagina: collega le pagine al sito e all'organizzazione |
 | `WebPage` (o tipo scelto) | `{canonical}#webpage` | In ogni pagina: la pagina corrente, con `inLanguage`, `isPartOf`, `publisher` e `dateModified` (dal valore effettivo di `og:updated_time`) |
 | `BreadcrumbList` | — | Quando il path non è la root (`/`) |
 
 Ogni script porta l'attributo `data-br1-jsonld` (per aggiornarli/rimuoverli in blocco) e riceve il nonce CSP della risposta in SSR, così rispetta la Content-Security-Policy senza `unsafe-inline`.
 
-**`jsonld` (`site.ts`, `{ email, telefono, indirizzo, partitaIva, codiceFiscale }`, default `false`, tranne `partitaIva` default `true`)**: quali dati facoltativi di `identity` finiscono nel nodo brand del JSON-LD, con gli stessi nomi dei campi di `identity.json`/`identity.dto.ts` (`email`/`telefono` nel `ContactPoint`, `indirizzo` nella `PostalAddress` da sede legale/operativa, `partitaIva`/`codiceFiscale` come `vatID`/`taxID`, per Organization/attività). Un flag per campo, non un interruttore unico, perché il profilo di rischio è diverso: `partitaIva` è un identificativo numerico, verificabile in pubblico su VIES/camera di commercio, senza dati personali codificati, e per questo ha default `true` (Google la raccomanda). `codiceFiscale` resta `false`: per una società coincide spesso con la P.IVA, ma per una ditta individuale è il codice fiscale della persona fisica (codifica data e luogo di nascita), e il motore non distingue i due casi (entrambi `personal: false`). `legalName` non è in lista: con `identity.ragioneSociale` valorizzata esce identica in `name`, e un flag non nasconderebbe nulla. `sameAs` (i social) nemmeno: sono URL già pubblicati (compaiono nel footer) e Google li indica come il segnale principale per il Knowledge Panel.
+**`configSEO.jsonld` (`site.ts`, `{ email, telefono, indirizzo, partitaIva, codiceFiscale }`, default `false`, tranne `partitaIva` default `true`)**: quali dati facoltativi di `identity` finiscono nel nodo brand del JSON-LD, con gli stessi nomi dei campi di `identity.json`/`identity.dto.ts` (`email`/`telefono` nel `ContactPoint`, `indirizzo` nella `PostalAddress` da sede legale/operativa, `partitaIva`/`codiceFiscale` come `vatID`/`taxID`, per Organization/attività). Un flag per campo, non un interruttore unico, perché il profilo di rischio è diverso: `partitaIva` è un identificativo numerico, verificabile in pubblico su VIES/camera di commercio, senza dati personali codificati, e per questo ha default `true` (Google la raccomanda). `codiceFiscale` resta `false`: per una società coincide spesso con la P.IVA, ma per una ditta individuale è il codice fiscale della persona fisica (codifica data e luogo di nascita), e il motore non distingue i due casi (entrambi `personal: false`). `legalName` non è in lista: con `identity.ragioneSociale` valorizzata esce identica in `name`, e un flag non nasconderebbe nulla. `sameAs` (i social) nemmeno: sono URL già pubblicati (compaiono nel footer) e Google li indica come il segnale principale per il Knowledge Panel.
 
 Nessuna di queste proprietà è "Required" per Google (la [guida su Organization](https://developers.google.com/search/docs/appearance/structured-data/organization) le marca tutte "Recommended"): la scelta di quali rendere un flag esplicito segue il profilo di rischio, non lo schema.
 
@@ -1717,7 +1718,7 @@ Un JSON-LD pubblico è testo strutturato, fatto per essere estratto in automatic
 ```ts
 buildSite({
     // ...
-    jsonld: { indirizzo: true, partitaIva: true, telefono: false, email: false, codiceFiscale: false },
+    configSEO: { jsonld: { indirizzo: true, partitaIva: true, telefono: false, email: false, codiceFiscale: false } },
 });
 ```
 
@@ -1743,7 +1744,7 @@ Il modello i18n è a URL per lingua (vedi «Internazionalizzazione (i18n)» → 
 > Anteprime ricche: il `<meta name="robots">` di base include `max-image-preview:large, max-snippet:-1, max-video-preview:-1`, e autorizza Google a mostrare l'anteprima immagine grande (l'OG 1200×630 generata dall'Engine) e snippet/video senza limiti nei risultati. La description di pagina, se omessa, ricade sulla `site.description` di default (localizzata) invece di restare quella della pagina precedente.
 
 ### Formattazione del Titolo Pagina (`<title>`)
-Il tag `<title>` (e `og:title`) segue di default il formato `Titolo Pagina | Nome App` (o `Titolo Pagina` e basta se uguale al nome app). Lo schema si cambia con `formatBrowserTitle` in `site.ts` (es. per invertire l'ordine o cambiare il separatore: `` formatBrowserTitle: (pageTitle, appName) => `${pageTitle} — ${appName}` ``).
+Il tag `<title>` (e `og:title`) segue di default il formato `Titolo Pagina | Nome App` (o `Titolo Pagina` e basta se uguale al nome app). Lo schema si cambia con `configSEO.formatBrowserTitle` in `site.ts` (es. per invertire l'ordine o cambiare il separatore: `` configSEO: { formatBrowserTitle: (pageTitle, appName) => `${pageTitle} — ${appName}` } ``).
 
 ---
 
@@ -1821,7 +1822,7 @@ Oltre a `path`, `title` e `description`, ogni dichiarazione di pagina (nei file 
 
     // Meta tag OpenGraph aggiuntivi
     otherSEO: {
-        ogImage: { id: 'og-cover' },  // OgImageRef: { id } asset statico o { blobGuid } contenuto dinamico. `false` = nessun og:image; omesso = anteprima generata
+        ogImage: { id: 'og-cover', soloSfondo: true },  // OgImageRef: { id } asset statico o { blobGuid } contenuto dinamico; `soloSfondo` (facoltativo) = senza scritte solo per questa pagina. `false` = nessun og:image; omesso = anteprima generata
         ogType: 'article',
         structuredData: { kind: 'article' },  // JSON-LD: stringa (@type), oggetto {kind,…} o lista. Vedi «JSON-LD Strutturato»
         noindex: false,       // true = pagina pubblica/SSR ma esclusa dall'indice (X-Robots-Tag + fuori sitemap). Default false
@@ -1844,10 +1845,14 @@ isWebApp: false,                   // funzionalità PWA (Service Worker, aggiorn
 prefetchOnIntent: false,           // scarica la pagina prima del clic (puntatore fermo, focus, tocco), default false, opt-in → vedi «Precaricamento per intento»
 
 legal: { /* … */ },                // pagine legali → vedi «Pagine legali (`legal`)»
-jsonld: { /* … */ },               // dati di identity esposti nel JSON-LD → vedi «JSON-LD Strutturato»
-formatBrowserTitle: (pageTitle, appName) => `${pageTitle} | ${appName}`,
+configSEO: {                       // configurazione SEO di sito. Un tipo sbagliato ferma il build
+    ogImage: { soloSfondo: false },          // og:image senza titolo né favicon → vedi «`OgImageRef`»
+    jsonld: { /* … */ },                     // dati di identity esposti nel JSON-LD → vedi «JSON-LD Strutturato»
+    formatBrowserTitle: (pageTitle, appName) => `${pageTitle} | ${appName}`,
+    resolveBlobImageUrl: (guid) => `blob/${guid}?webopt=true`,   // vedi «`OgImageRef`»
+    dynamicSitemapCache: true,               // cache in-process di /sitemap.xml per le pagine con `dynamicParams`, default true
+},
 resolveBreadcrumb: (type, ctx) => null,          // vedi «`app-breadcrumb`»
-resolveBlobImageUrl: (guid) => `blob/${guid}?webopt=true`,   // vedi «`OgImageRef`»
 versionCheckIntervalMs: 10 * 60 * 1000,
 onVersionUpdateAvailable: (apply) => { /* … */ },           // vedi «Controllo Versione e Aggiornamenti»
 ```

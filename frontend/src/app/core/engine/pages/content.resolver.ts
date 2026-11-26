@@ -7,10 +7,23 @@ import { ContestoSito, PageType } from '../../../site';
 import { TranslateService } from '../services/translate.service';
 import { isPlatformServer } from '@angular/common';
 import { ApiError, isAvailabilityError, SsrBackendUnconfiguredError } from '../services/base-api.service';
-import { normalizeUpdatedOn, PageInfo } from '../siteBuilder';
+import { mergeLoaderInfo, PageInfo } from '../siteBuilder';
 import type { StructuredDataInput } from '../services/structured-data';
 import { activeLegalPartials, type LegalContent, type LegalPageSpec } from '../legal/legal-pages';
 import { environment } from '../../../../environments/environment';
+
+const infoScartateGiaSegnalate = new Set<string>();
+
+/** Avviso nel log (una volta per pagina e campo) per un campo di `info` del loader scartato: tipo sbagliato o campo sconosciuto. */
+function avvisaInfoScartata(pageType: string, campo: string, valore: unknown): void {
+    const chiave = `${pageType}:${campo}`;
+    if (infoScartateGiaSegnalate.has(chiave)) return;
+    infoScartateGiaSegnalate.add(chiave);
+    // Un valore non serializzabile (circolare, BigInt) non deve far perdere il contenuto per un avviso.
+    let testo: string;
+    try { testo = JSON.stringify(valore) ?? String(valore); } catch { testo = `<${typeof valore}>`; }
+    console.warn(`[ContentLoader] "${pageType}": info.${campo}=${testo} ignorato (tipo non valido o campo sconosciuto): vale il valore della pagina.`);
+}
 
 /** `file` relativo ad `assets/legal` (es. `privacy/intro/it.md`, `recesso.it.md`). */
 export type LegalFileReader = (file: string) => Promise<string | null>;
@@ -64,10 +77,8 @@ export class ContentResolver {
                     content = result.content;
                     structuredData = result.structuredData ?? null;
                     if (result.info && info) {
-                        // `updatedOn` arriva come Date o stringa: nel PageInfo entra già in ISO, o non entra.
-                        const { updatedOn, ...rest } = result.info;
-                        const iso = normalizeUpdatedOn(updatedOn);
-                        info = { ...info, ...rest, ...(iso && { updatedOn: iso }) };
+                        // `updatedOn` arriva come Date o stringa, e `ogImage` si fonde con quello statico: vedi `mergeLoaderInfo`.
+                        info = mergeLoaderInfo(info, result.info, (campo, valore) => avvisaInfoScartata(pageType, campo, valore));
                     }
                 }
             }
