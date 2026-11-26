@@ -144,6 +144,11 @@
               "text": "Vieni escluso dalle selezioni attive e ti limiti a usufruire del servizio."
             },
             {
+              "label": "Cosa include",
+              "lead": "Tutto il Piano Reciprocità.",
+              "text": "Il partner eterosessuale matchato per te, senza l'obbligo di farti scegliere a tua volta."
+            },
+            {
               "label": "Tipologia partner",
               "text": "Eterosessuale (con filtri normalità)."
             },
@@ -222,7 +227,9 @@
             "items": [
               {
                 "label": "Piano Colpo di Scena · abbonamento mensile",
-                "amount": 60
+                "amount": 60,
+                "note": "Include tutto il Piano Facciata e il Piano Reciprocità.",
+                "noteIcon": "fa-solid fa-layer-group"
               }
             ],
             "currency": "EUR",
