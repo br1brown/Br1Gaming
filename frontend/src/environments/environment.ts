@@ -32,7 +32,7 @@ export interface AppEnvironment {
 
 export const environment: AppEnvironment = {
     appName: "Br1Gaming",
-    version: "2.5.1",
+    version: "2.5.2",
     defaultLang: 'it',
     availableLanguages: ["it"],
     config: {
@@ -42,6 +42,6 @@ export const environment: AppEnvironment = {
             }
     },
     features: {"login":false,"publicLogin":false,"mail":false,"errorReporting":false,"forms":false},
-    configFingerprint: "abad7ce3c5e4",
+    configFingerprint: "4d4bf6e73b36",
     legalFiles: {"privacy":["analytics","cookiePolicy","cookiePolicy/off","errorReporting","form","form/off","intro","login","mail","outro","profiling"],"cookie":["intro","tracking"]}
 };
