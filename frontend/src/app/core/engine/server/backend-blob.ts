@@ -1,6 +1,6 @@
 /** Recupero di un'immagine blob dal backend, lato server — condiviso da `og-preview.ts`
  *  (`OgImageRef.blobGuid`) e `cdn-asset.ts` (icona di brand dinamica). `blob/{guid}` è la
- *  convenzione di `EngineBlobController` (Engine, `sealed`): override in `SiteConfig.resolveBlobImageUrl`. */
+ *  convenzione di `EngineBlobController` (Engine, `sealed`): override in `configSEO.resolveBlobImageUrl`. */
 
 import { serverEnv } from './server-env';
 

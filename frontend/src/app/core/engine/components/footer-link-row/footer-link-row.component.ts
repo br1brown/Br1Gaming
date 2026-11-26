@@ -15,8 +15,9 @@ import { NavLink, navLinkKey } from '../../shell-nav';
 export class FooterLinkRowComponent {
     readonly links = input.required<NavLink[]>();
     /** `center` (default): riga centrata, corpo `.small`. `end`: centrata sotto md e a destra da md in su,
-     *  senza `.small` perché il corpo lo dà il contenitore (barra in fondo al footer, `--fs-xs`). */
-    readonly align = input<'center' | 'end'>('center');
+     *  senza `.small` perché il corpo lo dà il contenitore (barra in fondo al footer, `--fs-xs`).
+     *  Come il `justify-content` di Bootstrap. */
+    readonly justify = input<'center' | 'end'>('center');
     /** Chiave `track` per il template — vedi doc su `navLinkKey` in shell-nav.ts. */
     readonly navLinkKey = navLinkKey;
 }

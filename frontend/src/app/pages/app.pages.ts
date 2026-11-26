@@ -39,7 +39,9 @@ export const appPagesDecl: SitePageInput[] = [
         title: 'cheFaccioNav',
         pageType: AppPages.CheFaccio,
         description: 'homeDesc',
-        otherSEO: { ogImage: { id: 'img4k' } },
+        // `soloSfondo: true`: eccezione a `configSEO.ogImage.soloSfondo` di site.ts, solo per questa pagina
+        // (anteprima con l'immagine intatta, senza titolo né favicon). `false` farebbe l'eccezione opposta.
+        otherSEO: { ogImage: { id: 'img4k', soloSfondo: true } },
         component: () => import('./che-faccio/che-faccio.component').then(m => m.CheFaccioComponent),
         // Ruolo CUSTOM 'vetrina' (registrato in demo.design-system.ts con la sua chiave in ruoloPagina):
         // niente breadcrumb solo qui, in contrasto col resto del sito (breadcrumb.show: true nel design system della demo).

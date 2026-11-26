@@ -32,6 +32,10 @@ export const ContestoSito = buildSite({
 
     isWebApp: true, // default: false — la demo mostra anche il lato PWA (Service Worker, install offline)
 
+    // Configurazione SEO di sito. `ogImage.soloSfondo: true` = og:image con l'immagine intatta, senza titolo né
+    // favicon, su tutto il sito (default false); una pagina lo cambia con `otherSEO.ogImage.soloSfondo` (vedi «Che faccio»).
+    configSEO: { ogImage: { soloSfondo: false } },
+
     // Pagine legali (rotte /policy/* create dall'Engine): lo slot dice cos'è la pagina, il PageType
     // la identifica nel sito. Privacy obbligatoria; Cookie Policy obbligatoria con cookie o PWA (qui
     // c'è: la demo è una PWA); slot assente = pagina non creata.

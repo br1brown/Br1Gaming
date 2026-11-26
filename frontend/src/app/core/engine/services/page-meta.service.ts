@@ -31,7 +31,7 @@ export interface PageMetaInput {
     noindex?: boolean | null;
 }
 
-/** Titolo del tag `<title>` (riusato da og:title/twitter:title/og:image:alt): applica `SiteConfig.formatBrowserTitle` se dichiarato, altrimenti `"${pageTitle} | ${appName}"`. Funzione pura, testabile senza TestBed. */
+/** Titolo del tag `<title>` (riusato da og:title/twitter:title/og:image:alt): applica `configSEO.formatBrowserTitle` se dichiarato, altrimenti `"${pageTitle} | ${appName}"`. Funzione pura, testabile senza TestBed. */
 export function resolveBrowserTitle(
     pageTitle: string,
     appName: string,
@@ -96,7 +96,7 @@ export class PageMetaService {
     setPageMeta(input: PageMetaInput): void {
         const { title: pageTitle, description, imgId, ogType, updatedTime, structuredData, noindex } = input;
 
-        const { appName, formatBrowserTitle } = ContestoSito.config;
+        const { appName, configSEO: { formatBrowserTitle } } = ContestoSito.config;
         const browserTitle = resolveBrowserTitle(pageTitle, appName, formatBrowserTitle);
 
         // Aggiorna il tag <title> del browser
@@ -143,7 +143,7 @@ export class PageMetaService {
         this.updateCanonical(canonicalUrl);
 
         // Aggiorna og:type (default: website)
-        this.meta.updateTag({ property: 'og:type', content: ogType || 'website' });
+        this.meta.updateTag({ property: 'og:type', content: ogType?.trim() || 'website' });
 
         // Override per-pagina di og:updated_time. Se assente vale il valore globale di build (segnale di
         // refresh per gli scraper social a ogni deploy), ripristinato: non quello della pagina precedente.
@@ -181,7 +181,10 @@ export class PageMetaService {
             if (imgId?.blobGuid) payload['blobGuid'] = imgId.blobGuid;
             else if (imgId?.id) payload['id'] = imgId.id;
             const hasImage = !!(imgId?.blobGuid || imgId?.id);
-            if (ContestoSito.config.aspetto.og.soloSfondo) payload['plain'] = 'true';
+            // `soloSfondo` della pagina se è un booleano, altrimenti `configSEO.ogImage.soloSfondo` di site.ts.
+            // Un altro tipo (es. la stringa `"false"` da un `ogImage` in JSON) non conta.
+            const soloSfondo = typeof imgId?.soloSfondo === 'boolean' ? imgId.soloSfondo : ContestoSito.config.configSEO.ogImage.soloSfondo;
+            if (soloSfondo) payload['plain'] = 'true';
             // version nel payload: l'IV di PreviewCrypto è deterministico sul payload (URL stabili e
             // cacheable), quindi senza questo campo un bump di versione non cambierebbe mai l'URL
             // esposto ai crawler social, che non ri-scansionerebbero mai l'immagine dopo un redesign
@@ -251,7 +254,7 @@ export class PageMetaService {
         const email = identity?.contatti?.email;
         const hours = includeHours ? this.buildOpeningHours(identity) : [];
         const cp: Record<string, unknown> = { '@type': 'ContactPoint', contactType: 'customer service' };
-        const { jsonld } = ContestoSito.config;
+        const { jsonld } = ContestoSito.config.configSEO;
         if (jsonld.telefono && hasText(telefono)) cp['telephone'] = telefono.trim();
         if (jsonld.email && hasText(email)) cp['email'] = email.trim();
         if (hours.length) cp['hoursAvailable'] = hours;
@@ -373,7 +376,7 @@ export class PageMetaService {
             ? identity.social.map(s => s?.url).filter((u): u is string => typeof u === 'string' && u.trim().length > 0)
             : [];
         const brandImage = `${siteUrl}icons/icon-512x512.png`;
-        const address = ContestoSito.config.jsonld.indirizzo
+        const address = ContestoSito.config.configSEO.jsonld.indirizzo
             ? this.buildPostalAddress(
                 (businessType && identity?.sedeOperativa) ? identity.sedeOperativa : identity?.sedeLegale)
             : null;
@@ -385,8 +388,8 @@ export class PageMetaService {
             url: siteUrl,
             ...(isPerson ? { image: brandImage } : { logo: brandImage }),
             ...(!isPerson && identity?.ragioneSociale && { legalName: identity.ragioneSociale }),
-            ...(!isPerson && ContestoSito.config.jsonld.partitaIva && identity?.partitaIva && { vatID: identity.partitaIva }),
-            ...(!isPerson && ContestoSito.config.jsonld.codiceFiscale && identity?.codiceFiscale && { taxID: identity.codiceFiscale }),
+            ...(!isPerson && ContestoSito.config.configSEO.jsonld.partitaIva && identity?.partitaIva && { vatID: identity.partitaIva }),
+            ...(!isPerson && ContestoSito.config.configSEO.jsonld.codiceFiscale && identity?.codiceFiscale && { taxID: identity.codiceFiscale }),
             ...(social.length > 0 && { sameAs: social }),
             ...(address && { address }),
             ...(openingHours.length > 0 && { openingHoursSpecification: openingHours }),

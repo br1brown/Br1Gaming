@@ -548,6 +548,46 @@ Dichiara `businessType` (sottotipo schema.org) in `data/identity.json`: l'entit�
 }
 ```
 
+#### SEO: l'anteprima social (og:image) di una pagina, con o senza scritte
+`configSEO.ogImage.soloSfondo` in `site.ts` guida tutto il sito (titolo e favicon sull'og:image sì o no); una pagina può farne un'eccezione dentro `ogImage`, insieme a `id`/`blobGuid`, in entrambe le direzioni:
+```typescript
+otherSEO: { ogImage: { id: 'img4k', soloSfondo: true } }   // false = scritte anche a sito solo sfondo; omesso = vale `configSEO` di site.ts
+```
+Tutto il resto di `ogImage` (`id`, `blobGuid`, `false`) è in [frontend/README.md](frontend/README.md) «`OgImageRef`».
+
+**Un'immagine diversa per lingua.** `otherSEO.ogImage` è uno solo per tutte le lingue della pagina. Senza immagine l'Engine genera la card dal titolo già tradotto, e non c'è niente da fare per lingua. Con un'immagine che porta il testo scritto, l'immagine si sceglie nel `contentLoader`, che riceve `ctx.lang`; `soloSfondo: true` toglie titolo e favicon dell'Engine:
+```typescript
+// pages/*.pages.ts — gli id sono righe di assets/mapping.json ("og-it": "og-it.jpg", "og-en": "og-en.jpg")
+{ pageType: AppPages.Guida, path: 'guida', title: 'guida', component: () => import('./guida/guida.component').then(m => m.GuidaComponent),
+  contentLoader: async ({ lang }) => {
+    let id: string;
+    switch (lang) {
+      case 'en': id = 'og-en'; break;
+      case 'fr': id = 'og-fr'; break;
+      default:   id = 'og-it';
+    }
+    return { content: null, info: { ogImage: { id, soloSfondo: true } } };
+  } }
+```
+
+**Un'immagine dal backend.** Un'immagine caricata nel backend si indica con `blobGuid` al posto di `id`: il server la recupera da `blob/{guid}` con la chiave API del sito. Quale guid vale per la lingua lo dice il backend:
+```typescript
+contentLoader: withApi(async ({ lang }, api) => {
+  const guida = await api.getGuida(lang);
+  return { content: guida, info: { ogImage: guida.immagineOg ? { blobGuid: guida.immagineOg, soloSfondo: true } : undefined } };
+})
+```
+Senza `immagineOg` (`undefined`) vale l'og:image della pagina, o la card dal titolo se la pagina non ne ha; `ogImage: false` non dichiara nessuna og:image. Un `blobGuid` che il backend non ha dà un'og:image che risponde 404: va restituito solo se esiste. Costo e limiti di risoluzione in [frontend/README.md](frontend/README.md) «`OgImageRef`».
+
+#### SEO: `ogType` su più pagine
+`otherSEO.ogType` si dichiara sulla pagina (default `'website'`). Una rotta con parametro (`articoli/:slug`) è una sola dichiarazione e vale per ogni articolo. Per più pagine statiche con lo stesso tipo, un oggetto condiviso nel file di area; per un tipo che dipende dal contenuto, `info.ogType` del `contentLoader`:
+```typescript
+// pages/*.pages.ts
+const articolo = { ogType: 'article' } as const;
+{ path: 'guida-a', pageType: AppPages.GuidaA, title: 'guidaA', otherSEO: articolo, component: () => import('./guida-a/guida-a.component').then(m => m.GuidaAComponent) },
+{ path: 'guida-b', pageType: AppPages.GuidaB, title: 'guidaB', otherSEO: { ...articolo, noindex: true }, component: () => import('./guida-b/guida-b.component').then(m => m.GuidaBComponent) },
+```
+
 #### SEO: dati strutturati (JSON-LD) con campi parlanti
 Dichiari `kind` + campi, l'Engine traduce in schema.org (`structured-data.ts`). `kind`: `article` | `faq` | `product` | `event` | `raw`.
 ```typescript
@@ -571,6 +611,8 @@ otherSEO: { structuredData: { kind: 'faq', questions: [{ question: 'Come?', answ
   },
 }
 // casi non coperti: { kind: 'raw', jsonLd: { '@type': 'Recipe', name: '…' } }
+// I campi di `info` hanno un tipo (`noindex` booleano, `ogType` stringa…): un valore sbagliato, es. `noindex: 'false'` da un JSON, è ignorato e segnalato nel log.
+// Assente, `undefined` o `null` = «nessun valore»: vale quello della pagina. Per dire «no»: `ogImage: false`, `noindex: false`.
 // Query param dell'URL corrente (es. ?g=...): l'hook gira in un injection context valido,
 // inject(Router) e leggi router.getCurrentNavigation()?.finalUrl ?? router.parseUrl(router.url).
 ```
