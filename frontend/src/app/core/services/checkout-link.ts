@@ -29,6 +29,9 @@ export function decodeCheckout(vdc: string | null | undefined): CheckoutRequest 
     }
 }
 
+/** Un'icona Font Awesome come la accetta il backend (`LandingService`): diventa una classe, quindi niente altro. */
+const isFaIcon = (v: unknown): v is FaIcon => typeof v === 'string' && /^fa-(solid|regular|brands) fa-[a-z0-9]+(-[a-z0-9]+)*$/.test(v);
+
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0 && v.length <= MAX_TEXT;
 
 function validateOutcome(v: unknown): CheckoutOutcome | null {
@@ -49,11 +52,11 @@ function validate(v: unknown): CheckoutRequest | null {
     for (const i of r.items as Partial<CheckoutItem>[]) {
         if (!i || !isText(i.label) || typeof i.amount !== 'number' || !Number.isFinite(i.amount) || i.amount < 0 || i.amount > 1e7) return null;
         if (i.note !== undefined && !isText(i.note)) return null;
-        if (i.noteIcon !== undefined && typeof i.noteIcon !== 'string') return null;
+        if (i.noteIcon !== undefined && !isFaIcon(i.noteIcon)) return null;
         items.push({
             label: i.label, amount: i.amount,
             ...(i.note !== undefined && { note: i.note }),
-            ...(i.noteIcon !== undefined && { noteIcon: i.noteIcon as FaIcon }),
+            ...(i.noteIcon !== undefined && { noteIcon: i.noteIcon }),
         });
     }
     if (r.receiptNote !== undefined && !isText(r.receiptNote)) return null;
